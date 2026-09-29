@@ -29,7 +29,7 @@ func run() -> void:
 		if panel.size.y > 44.1 or panel.size.x > 214.1 or absf(panel.position.x + panel.size.x - level.ui.launch.position.x - level.ui.launch.size.x) > 0.1:
 			failures += 1
 			push_error("Compact strip shares the collapsed button's right edge")
-		for button in level.ui.buttons.values() + level.ui.action_buttons:
+		for button in level.ui.buttons.values() + level.ui.action_buttons + [level.ui.done_button]:
 			if button.text != "" or button.accessibility_name == "" or not button.get_theme_stylebox("normal") is StyleBoxEmpty:
 				failures += 1
 				push_error("Toolbar choices have artwork and accessible names without text or chrome")
@@ -41,7 +41,7 @@ func run() -> void:
 		failures += 1
 		push_error("Button artwork matches the reference display scale and repeats to fit labels")
 	level.ui.done_button.pressed.emit()
-	if level.editing or level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 3:
+	if level.editing or level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 2:
 		failures += 1
 		push_error("Exit icon closes the toolbar and returns to walking")
 	print("Builder UI layout: ", "PASS" if failures == 0 else "FAIL")

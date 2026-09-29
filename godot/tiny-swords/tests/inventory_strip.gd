@@ -12,8 +12,20 @@ func run() -> void:
  await process_frame
  level.ui.buttons.ground.pressed.emit()
  check(level.editing and level.ui.panel.visible, "Selecting artwork keeps strip open")
+ level.pointer_inside = true
+ level.terrain.valid = true
+ level.update_cursor()
+ check(level.cursor_mode == "place" and not level.pointer.visible, "Valid placement uses only the terrain preview, without cursor four")
+ level.ui.action_buttons[0].pressed.emit()
+ level.terrain.valid = true
+ level.update_cursor()
+ check(level.cursor_mode == "build" and level.pointer.visible and level.pointer.texture == level.build_cursor, "Pickup uses cursor four")
+ check(level.ui.action_buttons[0].icon.atlas.resource_path.ends_with("Cursor_04.png"), "Pickup tool artwork is cursor four")
+ level.ui.buttons.ground.pressed.emit()
+
  check(level.apply_edit(Vector2i(2,1)), "Place first ground")
  check(level.editing, "Partial inventory keeps strip open")
+ check(level.ui.buttons.ground.get_node("Remaining").text == "×2", "Ground counter updates after placement")
  check(level.apply_edit(Vector2i(3,1)) and level.apply_edit(Vector2i(4,1)), "Use remaining ground")
  check(level.editing and level.ui.buttons.ground.disabled and not level.ui.buttons.stairs.disabled, "One depleted type does not close strip")
  level.ui.buttons.stairs.pressed.emit()
@@ -23,6 +35,7 @@ func run() -> void:
  check(level.editing and level.ui.panel.visible and not level.ui.undo_button.disabled, "Empty inventory reopens with undo retained")
  level.ui.undo_button.pressed.emit()
  check(level.layout.stock.stairs == 1 and level.editing, "Undo restores final item without closing strip")
+ check(level.ui.buttons.stairs.get_node("Remaining").text == "×1", "Undo updates item counter")
  level.ui.buttons.stairs.pressed.emit()
  check(level.apply_edit(Vector2i(2,0)), "Replace last stair bundle")
  level.ui.launch.pressed.emit()
@@ -40,6 +53,12 @@ func run() -> void:
  check(level.apply_edit(Vector2i(-3,0)) and level.editing, "Tree remaining keeps level-three toolbar open")
  level.ui.buttons.tree.pressed.emit()
  check(level.apply_edit(Vector2i(0,1)) and not level.editing, "Final pine placement closes level-three toolbar")
+ level.ui.launch.pressed.emit()
+ var escape := InputEventKey.new()
+ escape.keycode = KEY_ESCAPE
+ escape.pressed = true
+ level._input(escape)
+ check(not level.editing and not level.ui.panel.visible and not level.ui.done_button.visible, "Escape exits build mode and hides its cross")
  level.queue_free()
  await process_frame
  print("Inventory strip checks: ", "PASS" if failures == 0 else "FAIL")

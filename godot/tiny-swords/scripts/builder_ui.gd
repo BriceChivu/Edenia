@@ -7,7 +7,7 @@ signal undo_requested
 signal reset_requested
 
 const REFERENCE_UI_SCALE := 920.0 / 1600.0
-const STRIP_SIZE := Vector2(214, 44)
+const STRIP_SIZE := Vector2(180, 44)
 
 const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}
 var root: Control
@@ -95,7 +95,7 @@ func make_icon_button(label: String, action: Callable) -> Button:
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.draw.connect(func():
 		if not b.disabled and (b.get_meta("selected", false) or b.has_focus()):
-			b.draw_line(Vector2(b.size.x / 2 - 12, b.size.y - 3), Vector2(b.size.x / 2 + 12, b.size.y - 3), Color("bd862d"), 3))
+			b.draw_line(Vector2(3 if b.has_node("Remaining") else b.size.x / 2 - 12, b.size.y - 3), Vector2(9 if b.has_node("Remaining") else b.size.x / 2 + 12, b.size.y - 3), Color("bd862d"), 3))
 	return b
 
 func action_icon(file: String) -> Texture2D:
@@ -150,16 +150,34 @@ One stair bundle includes its upper tile. Picking it up returns both."
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color%s.png" % (3 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
 		strip.add_child(b)
 		buttons[kind] = b
+		var remaining := Label.new()
+		remaining.name = "Remaining"
+		remaining.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		remaining.add_theme_font_size_override("font_size", 10)
+		remaining.add_theme_color_override("font_color", Color("fff3d3"))
+		remaining.add_theme_color_override("font_outline_color", Color("243c41"))
+		remaining.add_theme_constant_override("outline_size", 3)
+		b.add_child(remaining)
+		remaining.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		remaining.offset_left = -24
+		remaining.offset_top = -13
+		remaining.offset_right = -1
+		remaining.offset_bottom = 0
+
 	var pickup := make_icon_button("Pick up", func(): tool_selected.emit("remove"))
-	pickup.icon = action_icon("Cursors/Cursor_02.png")
+	pickup.icon = action_icon("Cursors/Cursor_04.png")
 	strip.add_child(pickup)
 	undo_button = make_icon_button("Undo", func(): undo_requested.emit())
 	undo_button.icon = action_icon("Icons/Icon_08.png")
 	strip.add_child(undo_button)
 	done_button = make_icon_button("Return to walking", func(): edit_toggled.emit())
-	done_button.icon = action_icon("Icons/Icon_07.png")
-	strip.add_child(done_button)
-	action_buttons.assign([pickup, undo_button, done_button])
+	done_button.icon = action_icon("Icons/Icon_09.png")
+	done_button.custom_minimum_size = Vector2(24, 24)
+	done_button.expand_icon = true
+	done_button.add_theme_constant_override("icon_max_width", 14)
+	root.add_child(done_button)
+	action_buttons.assign([pickup, undo_button])
 	for button in action_buttons:
 		button.expand_icon = true
 	panel.hide()
@@ -176,6 +194,7 @@ func arrange() -> void:
 	for button in buttons.values() + action_buttons:
 		button.custom_minimum_size = Vector2(32, 32)
 		button.add_theme_constant_override("icon_max_width", roundi(button.icon.get_width() * REFERENCE_UI_SCALE) if button in action_buttons else 25)
+	action_buttons[0].add_theme_constant_override("icon_max_width", 24)
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	launch.size = Vector2(110, 32)
@@ -184,6 +203,8 @@ func arrange() -> void:
 	upgrade.position = Vector2(14, area.y - upgrade.size.y - 14)
 	panel.size = STRIP_SIZE
 	panel.position = Vector2(area.x - panel.size.x - 14, area.y - panel.size.y - 14)
+	done_button.size = Vector2(24, 24)
+	done_button.position = panel.position + Vector2(panel.size.x - 18, -12)
 	if celebration != null:
 		var fit := minf(1.0, minf((area.x - 12) / 470.0, (area.y - 12) / 300.0))
 		celebration.scale = Vector2.ONE * fit
@@ -198,9 +219,11 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	launch.visible = (not editing or collapsed) and celebration == null and (layout.unlocked or max_preview_level > 1)
 	upgrade.visible = layout.level == 2 and max_preview_level >= 3 and celebration == null and not editing
 	panel.visible = editing and not collapsed and celebration == null
+	done_button.visible = panel.visible
 	for kind in buttons:
 		var count: int = layout.ground_count() if kind == "ground" else layout.stock[kind]
 		buttons[kind].accessibility_name = "%s, %s available" % [NAMES[kind], count]
+		buttons[kind].get_node("Remaining").text = "×%s" % count
 		buttons[kind].disabled = count == 0
 		buttons[kind].mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if buttons[kind].disabled else Control.CURSOR_POINTING_HAND
 		buttons[kind].set_meta("selected", kind == selected)
@@ -212,6 +235,7 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	arrange()
 
 func celebrate() -> void:
+	done_button.hide()
 	launch.hide()
 	upgrade.hide()
 	panel.hide()

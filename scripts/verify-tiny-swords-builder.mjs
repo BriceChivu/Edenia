@@ -47,7 +47,7 @@ try {
   }
   async function clickTool(index) {
     const box = await canvas.boundingBox()
-    await page.mouse.click(box.x + box.width - 14 - 214 + 6 + index * 34 + 16, box.y + box.height - 14 - 22)
+    await page.mouse.click(box.x + box.width - 14 - 180 + 6 + index * 34 + 16, box.y + box.height - 14 - 22)
     await page.waitForTimeout(750)
   }
   const saved = () => page.frames().find(f => f.url().includes('/tiny-swords/')).evaluate(() => JSON.parse(localStorage.getItem('edenia_tiny_swords_builder_preview_v1')))
@@ -58,6 +58,12 @@ try {
   await clickGame(576, 355)
   await page.waitForTimeout(1000)
   await page.screenshot({ path: resolve(artifacts, 'level-two-inventory.png'), fullPage: false })
+  const beforeEscape = await saved()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  assert.deepEqual(await saved(), beforeEscape, 'Escape does not alter inventory')
+  await page.screenshot({ path: resolve(artifacts, 'build-exited-escape.png'), fullPage: false })
+  await clickGame(1068, 460)
   await clickGame(672, 208)
   assert.equal((await saved()).tiles.length, 6)
   assert.equal((await saved()).stock.meadow, 1)
@@ -97,6 +103,9 @@ try {
   await page.mouse.click(phoneCanvas.x + phoneCanvas.width - 84, phoneCanvas.y + phoneCanvas.height - 36)
   await page.waitForTimeout(2000)
   await page.screenshot({ path: resolve(artifacts, 'level-two-phone.png'), fullPage: false })
+  await page.mouse.click(phoneCanvas.x + phoneCanvas.width - 20, phoneCanvas.y + phoneCanvas.height - 58)
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: resolve(artifacts, 'build-exited-cross-phone.png'), fullPage: false })
   // A disposable saved arrangement exercises the new stair/cliff composition.
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.frames().find(f => f.url().includes('/tiny-swords/')).evaluate(() => {

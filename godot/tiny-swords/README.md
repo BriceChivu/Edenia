@@ -54,23 +54,25 @@ Sizing follows the [official UI showcase](https://pixelfrog-assets.itch.io/tiny-
 its 1600px source image displays at 920 CSS pixels on the desktop page (0.575×).
 The supplied 1840px screenshot is an enlarged capture, not logical game dimensions.
 Button corners and action icons use that reference scale with nearest-neighbor
-sampling: the source play icon's 43px painted width becomes about 25px. The collapsed
-control is 110×32 displayed pixels; the expanded strip is 214×44 with six 32×32
+sampling. Pickup uses a compact four-corner icon; the collapsed
+control is 110×32 displayed pixels; the expanded strip is 180×44 with five 32×32
 hit targets, at both desktop and phone widths. It remains anchored 14px from the
 right and bottom. Celebration buttons and game cursors retain their existing scale.
 
-Ground, stairs and pine are image-only choices, with no title, counts or individual
-button backgrounds. A small underline marks selection; faded artwork is unavailable.
-The hand picks up, the orange back arrow undoes, and the green play arrow returns to
-walking. All controls retain accessible names; item counts remain in their accessible
+Ground, stairs and pine are image-only choices, with no title or individual
+button backgrounds. Small bottom-right ×N counters show remaining ground, stairs
+and pine. A small underline marks selection; faded artwork is unavailable.
+The four-corner Cursor 04 icon picks up, and the orange back arrow undoes. A small
+cross at the top-right (24×24 hit target) or Escape exits building and returns to walking. All controls retain accessible names; item counts remain in their accessible
 names and inventory state. Selecting a tool keeps the strip open.
 
 Using the last available placeable item closes the strip and returns to walking.
 Using up only one item type does not close it. Reopening an empty inventory lets you
 pick up terrain or undo the final placement; that automatic close preserves undo.
 An ordinary new build session starts fresh undo history. Cursor 01 is used on build
-controls, Cursor 04 for valid edits, Cursor 03 for unavailable edits, and Cursor 02
-for walking. The pointer moves freely; only placement and pickup snap to cells.
+controls, Cursor 04 for valid pickup, Cursor 03 for unavailable edits, and Cursor 02
+for walking. Valid placement shows its terrain preview without a cursor overlay.
+The pointer moves freely; only placement and pickup snap to cells.
 
 The pawn's current tile cannot be removed. The original bush tile can be
 collected after the pawn moves away; respawn then uses another safe tile. Only the tree

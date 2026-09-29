@@ -125,6 +125,10 @@ func _process(_delta: float) -> void:
 	update_cursor()
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and editing and ui.celebration == null:
+		toggle_editing()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion:
 		pointer_inside = get_viewport().get_visible_rect().has_point(event.position)
 		pointer_position = event.position
@@ -148,7 +152,7 @@ func update_cursor() -> void:
 	if pointer == null:
 		return
 	fit_build_cursor()
-	var mode := "walk" if not editing else ("build" if terrain.valid else "invalid")
+	var mode := "walk" if not editing else (("build" if selected == "remove" else "place") if terrain.valid else "invalid")
 	var hovered := get_viewport().gui_get_hovered_control()
 	if hovered != null and (hovered == ui.root or ui.root.is_ancestor_of(hovered)):
 		mode = "invalid" if hovered is BaseButton and hovered.disabled else "ui"
@@ -158,7 +162,7 @@ func update_cursor() -> void:
 	var hotspot := Vector2.ONE * build_cursor_size / 2.0 if mode == "build" else Vector2(24, 18)
 	pointer.scale = Vector2.ONE
 	pointer.position = pointer_position - hotspot
-	pointer.visible = pointer_inside
+	pointer.visible = pointer_inside and mode != "place"
 
 func clicked_cell(point: Vector2) -> Vector2i:
 	for cell in layout.cells:
