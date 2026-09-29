@@ -206,8 +206,10 @@ A new movement click cancels a water approach until the actual step-off begins.
 Font weight is slightly strengthened to match the reference lettering. Cloud
 variants retain their native relative sizes, with no common minimum width. All
 eight original Clouds_01–08 images cycle through the regular cloud lanes off-screen.
-Small and medium artwork stays at 0.65–0.86× scale and low altitude; only the two
-large source images can become high foreground clouds, capped at 1.35×.
+Small and medium artwork stays at exactly native 1× scale and low altitude; only
+the two large source images can become high foreground clouds, ranging from 1×
+to 1.35×. Native means one source pixel per Godot scene unit; fitting the complete
+viewport into Edenia still scales the entire scene together.
 Matching shadows preserve the source spacing and move farther down with altitude.
 
 Terrain joins follow the guide’s illustrated stair connections: the high landing

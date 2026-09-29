@@ -69,7 +69,7 @@ func set_altitude(value: float) -> void:
 	# pass above the world, with their shadows farther away and more transparent.
 	z_index = 5 if altitude >= 0.6 else -5
 	# Perspective and shadow distance share one height, with bounded variation.
-	scale = Vector2.ONE * lerpf(0.65, 1.35, altitude)
+	scale = Vector2.ONE * (lerpf(1.0, 1.35, altitude) if painted_width >= 400 else 1.0)
 	if shadow_sprite != null:
 		# Keep the PNG's original shadow placement at minimum altitude.
 		# Additional height can only push it downward, never back into the cloud.

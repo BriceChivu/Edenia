@@ -32,10 +32,10 @@ func run() -> void:
 	cloud.set_altitude(0.9)
 	check(cloud.z_index > level.get_node("World").z_index, "High clouds may cover the world")
 	check((cloud.shadow_sprite.position.y + cloud.baked_shadow_offset.y) * cloud.scale.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
-	check(cloud.scale.x > low_scale * 1.5, "High clouds look closer and larger")
+	check(cloud.scale.x > low_scale * 1.2, "High clouds look closer and larger")
 	for moving_cloud in level.get_node("Clouds").get_children():
 		moving_cloud.set_altitude(1.0)
-		check(moving_cloud.scale.x <= 1.351, "Cloud enlargement stays bounded")
+		check(moving_cloud.scale.x >= 1.0 and moving_cloud.scale.x <= 1.351, "Cloud enlargement stays bounded")
 	var all_clouds: Array = level.get_node("Clouds").get_children()
 	all_clouds.append(level.get_node("PassingCloud"))
 	for moving_cloud in all_clouds:
@@ -50,7 +50,16 @@ func run() -> void:
 		cloud.set_altitude(1.0)
 		check(cloud.texture == cloud.VARIANTS[variant] and cloud.shadow_sprite.texture == cloud.texture, "Each original variant supplies its body and matching shadow")
 		if cloud.texture.get_image().get_used_rect().size.x < 400:
-			check(cloud.scale.x <= 1.0 and cloud.altitude <= 0.3 and cloud.z_index < 0, "Small source art stays small and low")
+			check(cloud.scale == Vector2.ONE and cloud.altitude <= 0.3 and cloud.z_index < 0, "Small source art stays small and low")
+	# Both regular and rare paths use the same source-pixel sizing contract.
+	for subject in [cloud, level.get_node("PassingCloud")]:
+		for variant in range(8):
+			subject.set_variant(variant)
+			for height in [0.0, 0.3, 0.7, 1.0]:
+				subject.set_altitude(height)
+				var large: bool = subject.texture.get_image().get_used_rect().size.x >= 400
+				check(subject.scale.x >= 1.0 and subject.scale.x <= 1.35001 if large else subject.scale == Vector2.ONE, "Large artwork is native or larger; smaller artwork is exactly native")
+				check(subject.global_scale.is_equal_approx(subject.scale) and subject.shadow_sprite.global_scale.is_equal_approx(subject.scale), "No parent or shadow transform compensates for source size")
 	cloud.set_variant(0)
 	for cycle in range(8):
 		seen[cloud.variant_index] = true
