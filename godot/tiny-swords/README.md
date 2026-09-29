@@ -1,5 +1,27 @@
 # Tiny Swords — local island builder preview
 
+## Run a specific level in Godot
+
+Open `project.godot`, then find **res://previews/** in the FileSystem dock.
+Double-click a scene below and use **Run Current Scene (F6)** (Fn+F6 if your
+Mac uses the function keys for system controls):
+
+| Scene | Starts with |
+| --- | --- |
+| `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
+| `previews/level_one_to_two.tscn` | Fresh level one. Click **Try level 2** to run the real unlock, rewards and animated ribbon, then **Start building**. |
+| `previews/level_two.tscn` | Fresh level two with rewards granted and inventory open, ready to build; no celebration step. |
+
+These are thin inherited scenes using the same world, movement and builder code.
+Every F6 run starts fresh: these entries neither load nor save native or browser
+preview layouts. Changes made while testing are discarded when you stop the run.
+The transition grants rewards only once per run. Existing saved layouts remain intact.
+
+**F5 / Play Project** still runs the existing persistent local preview described
+below; use **F6** to test whichever named scene you opened.
+
+## Persistent local preview
+
 Open `project.godot` in Godot 4.7, then **F5 / Play Project**.
 The default scene is now `scenes/level_two_preview.tscn`, which inherits the preserved
 level-one environment. **Try level 2** simulates the unlock locally: a celebratory
