@@ -45,6 +45,11 @@ try {
     await page.mouse.click(box.x + x * box.width / 1152, box.y + y * box.width / 1152)
     await page.waitForTimeout(750)
   }
+  async function clickTool(index) {
+    const box = await canvas.boundingBox()
+    await page.mouse.click(box.x + box.width - 14 - 214 + 6 + index * 34 + 16, box.y + box.height - 14 - 22)
+    await page.waitForTimeout(750)
+  }
   const saved = () => page.frames().find(f => f.url().includes('/tiny-swords/')).evaluate(() => JSON.parse(localStorage.getItem('edenia_tiny_swords_builder_preview_v1')))
   await clickGame(1068, 460)
   await page.waitForTimeout(1000)
@@ -56,7 +61,7 @@ try {
   await clickGame(672, 208)
   assert.equal((await saved()).tiles.length, 6)
   assert.equal((await saved()).stock.meadow, 1)
-  await clickGame(984, 450)
+  await clickTool(3)
   await clickGame(736, 336)
   assert.equal((await saved()).tiles.length, 5, 'Pickup reaches the island above the compact toolbar')
   assert.equal((await saved()).stock.meadow, 2)

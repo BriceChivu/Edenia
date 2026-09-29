@@ -26,7 +26,7 @@ func run() -> void:
 			if button.size.y < 32 or not button.is_visible_in_tree():
 				failures += 1
 				push_error("Inventory tools remain visible and usable")
-		if panel.size.y > 70 or absf(panel.position.x + panel.size.x - level.ui.launch.position.x - level.ui.launch.size.x) > 0.1:
+		if panel.size.y > 44.1 or panel.size.x > 214.1 or absf(panel.position.x + panel.size.x - level.ui.launch.position.x - level.ui.launch.size.x) > 0.1:
 			failures += 1
 			push_error("Compact strip shares the collapsed button's right edge")
 		for button in level.ui.buttons.values() + level.ui.action_buttons:
@@ -37,9 +37,9 @@ func run() -> void:
 			failures += 1
 			push_error("Unavailable level-two tree remains disabled")
 	var button_style = level.ui.launch.get_theme_stylebox("normal")
-	if button_style.texture.get_width() < 128 or button_style.axis_stretch_horizontal != StyleBoxTexture.AXIS_STRETCH_MODE_TILE:
+	if button_style.texture.get_width() > 100 or button_style.axis_stretch_horizontal != StyleBoxTexture.AXIS_STRETCH_MODE_TILE:
 		failures += 1
-		push_error("Button artwork keeps original pixels and repeats to fit labels")
+		push_error("Button artwork matches the reference display scale and repeats to fit labels")
 	level.ui.done_button.pressed.emit()
 	if level.editing or level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 3:
 		failures += 1

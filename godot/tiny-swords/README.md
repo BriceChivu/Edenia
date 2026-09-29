@@ -50,6 +50,15 @@ up a stair collects its bundled landing too; first move the pawn and any tree
 off that landing. An upper landing cannot belong to two stair bundles.
 Ground beside an upper floor extends that floor. Colors are not player choices.
 **Build island** expands left into a compact strip at the same bottom-right anchor.
+Sizing follows the [official UI showcase](https://pixelfrog-assets.itch.io/tiny-swords):
+its 1600px source image displays at 920 CSS pixels on the desktop page (0.575×).
+The supplied 1840px screenshot is an enlarged capture, not logical game dimensions.
+Button corners and action icons use that reference scale with nearest-neighbor
+sampling: the source play icon's 43px painted width becomes about 25px. The collapsed
+control is 110×32 displayed pixels; the expanded strip is 214×44 with six 32×32
+hit targets, at both desktop and phone widths. It remains anchored 14px from the
+right and bottom. Celebration buttons and game cursors retain their existing scale.
+
 Ground, stairs and pine are image-only choices, with no title, counts or individual
 button backgrounds. A small underline marks selection; faded artwork is unavailable.
 The hand picks up, the orange back arrow undoes, and the green play arrow returns to

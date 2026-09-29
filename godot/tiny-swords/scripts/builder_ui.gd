@@ -6,6 +6,9 @@ signal edit_toggled
 signal undo_requested
 signal reset_requested
 
+const REFERENCE_UI_SCALE := 920.0 / 1600.0
+const STRIP_SIZE := Vector2(214, 44)
+
 const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}
 var root: Control
 var panel: PanelContainer
@@ -29,7 +32,7 @@ func atlas(texture: Texture2D, region: Rect2) -> AtlasTexture:
 	result.region = region
 	return result
 
-func style(file: String, _margins: int = 64) -> StyleBoxTexture:
+func style(file: String, art_scale: float = 1.0) -> StyleBoxTexture:
 	# The pack supplies separated 64px nine-slice patches, with 64px gutters.
 	var source: Image = load("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/" + ("Buttons/" if file.begins_with("BigBlueButton") else "Papers/") + file).get_image()
 	var assembled := Image.create(192, 192, false, Image.FORMAT_RGBA8)
@@ -40,6 +43,8 @@ func style(file: String, _margins: int = 64) -> StyleBoxTexture:
 	if is_button:
 		# Remove only transparent outer padding; retain every painted source pixel.
 		assembled = assembled.get_region(assembled.get_used_rect())
+		if art_scale != 1.0:
+			assembled.resize(roundi(assembled.get_width() * art_scale), roundi(assembled.get_height() * art_scale), Image.INTERPOLATE_NEAREST)
 	else:
 		assembled.resize(48, 48, Image.INTERPOLATE_NEAREST)
 	var result := StyleBoxTexture.new()
@@ -49,8 +54,8 @@ func style(file: String, _margins: int = 64) -> StyleBoxTexture:
 		result.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 		result.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
-		result.set_texture_margin(side, 16)
-		result.set_content_margin(side, 8)
+		result.set_texture_margin(side, roundi(16 * art_scale))
+		result.set_content_margin(side, 6 if art_scale < 1.0 else 8)
 	return result
 
 func ribbon_texture() -> Texture2D:
@@ -117,11 +122,15 @@ func _ready() -> void:
 			refresh(editing, "", not undo_button.disabled)
 		elif layout.unlocked: edit_toggled.emit()
 		else: unlock_requested.emit(2))
+	launch.custom_minimum_size = Vector2(110, 32)
+	launch.add_theme_font_size_override("font_size", 12)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		launch.add_theme_stylebox_override(state, style("BigBlueButton_Pressed.png" if state in ["pressed", "disabled"] else "BigBlueButton_Regular.png", REFERENCE_UI_SCALE))
 	root.add_child(launch)
 	upgrade = make_button("Try level 3", func(): unlock_requested.emit(3))
 	root.add_child(upgrade)
 	panel = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", style("BigBlueButton_Regular.png"))
+	panel.add_theme_stylebox_override("panel", style("BigBlueButton_Regular.png", REFERENCE_UI_SCALE))
 	root.add_child(panel)
 	var strip := HBoxContainer.new()
 	strip.add_theme_constant_override("separation", 2)
@@ -165,15 +174,15 @@ func arrange() -> void:
 	scale_ui = maxf(1.0, size.x / maxf(physical.x, 1))
 	compact = physical.x < 500
 	for button in buttons.values() + action_buttons:
-		button.custom_minimum_size = Vector2(44, 44) if compact else Vector2(56, 48)
-		button.add_theme_constant_override("icon_max_width", 36 if compact else 40)
+		button.custom_minimum_size = Vector2(32, 32)
+		button.add_theme_constant_override("icon_max_width", roundi(button.icon.get_width() * REFERENCE_UI_SCALE) if button in action_buttons else 25)
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
-	launch.size = Vector2(140, 44)
+	launch.size = Vector2(110, 32)
 	launch.position = area - launch.size - Vector2(14, 14)
 	upgrade.size = Vector2(140, 44)
 	upgrade.position = Vector2(14, area.y - upgrade.size.y - 14)
-	panel.size = Vector2(290, 60) if compact else Vector2(362, 64)
+	panel.size = STRIP_SIZE
 	panel.position = Vector2(area.x - panel.size.x - 14, area.y - panel.size.y - 14)
 	if celebration != null:
 		var fit := minf(1.0, minf((area.x - 12) / 470.0, (area.y - 12) / 300.0))
