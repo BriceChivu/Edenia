@@ -282,6 +282,38 @@ func rebuild_decorations() -> void:
 		plant.set_script(preload("res://scripts/environment_sprite.gd"))
 		$World.add_child(plant)
 		flora_nodes.append(plant)
+	for cell in layout.decorations:
+		var item: Dictionary = layout.decorations[cell]
+		var in_water: bool = item.kind in Layout.DecorationRules.WATER_KINDS
+		if not in_water and layout.trees.has(cell):
+			continue
+		var decoration := Sprite2D.new()
+		var directory := "res://Tiny Swords (Free Pack)/Terrain/Decorations/"
+		match item.kind:
+			"flowers", "bush":
+				var variant: int = item.variant + (2 if item.kind == "flowers" else 0)
+				decoration.texture = load(directory + "Bushes/Bushe%d.png" % variant)
+				decoration.hframes = 8
+				decoration.scale = Vector2.ONE * 0.75
+				decoration.offset.y = -15
+			"land_rock":
+				decoration.texture = load(directory + "Rocks/Rock%d.png" % item.variant)
+			"water_rock":
+				decoration.texture = load(directory + "Rocks in the Water/Water Rocks_%02d.png" % item.variant)
+				decoration.hframes = 16
+			"ducks":
+				decoration.texture = load(directory + "Rubber Duck/Rubber duck.png")
+				decoration.hframes = 3
+		decoration.position = layout.center(item.water if in_water else cell)
+		decoration.z_index = -17 if in_water else (1 if layout.height_at(cell) > 0 else 0)
+		if not in_water:
+			decoration.offset.y -= layout.height_at(cell) / decoration.scale.y
+		if decoration.hframes > 1:
+			decoration.set_script(preload("res://scripts/environment_sprite.gd"))
+			decoration.phase = float(cell.x * 7 + cell.y * 11) / 5.0
+		decoration.set_meta("random_decoration", item.kind)
+		$World.add_child(decoration)
+		flora_nodes.append(decoration)
 	for cell in layout.trees:
 		var tree := Sprite2D.new()
 		tree.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")

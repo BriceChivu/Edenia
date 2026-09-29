@@ -1,5 +1,7 @@
 extends RefCounted
 
+const DecorationRules = preload("res://scripts/decoration_rules.gd")
+
 const ORIGIN := Vector2(512, 176)
 const SIZE := 64
 const HOME := Vector2i(0, 0)
@@ -18,6 +20,7 @@ var trees: Dictionary = {}
 var stair_directions: Dictionary = {}
 var stock: Dictionary = {}
 var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}
+var decorations: Dictionary = {}
 var flora_rng := RandomNumberGenerator.new()
 var level := 1
 var unlocked: bool:
@@ -56,10 +59,53 @@ func spawn_cell() -> Vector2i:
 			return cell
 	return HOME
 
+func clear_water(cell: Vector2i) -> bool:
+	if not in_bounds(cell) or cells.has(cell):
+		return false
+	# Raised tops and ramps occupy the screen square above their grid base.
+	var below := cell + Vector2i.DOWN
+	return height_at(below) == 0 and cells.get(below) != "stairs"
+
+func water_spaces(cell: Vector2i) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for step in STEPS:
+		var water: Vector2i = cell + step
+		# Reserve the two original water-rock locations too.
+		if not clear_water(water) or water in [Vector2i(-1, 1), Vector2i(4, 1)]:
+			continue
+		var taken := false
+		for item in decorations.values():
+			if item.kind in DecorationRules.WATER_KINDS and item.water == water:
+				taken = true
+		if not taken:
+			result.append(water)
+	return result
+
+func has_ducks() -> bool:
+	for item in decorations.values():
+		if item.kind == "ducks":
+			return true
+	return false
+
 func add_flora(cell: Vector2i) -> void:
-	var roll := flora_rng.randi_range(0, 15)
-	if roll < 2:
-		flora[cell] = roll + 1
+	# A placed tile gets one roll, never a fresh roll when it is rendered.
+	prune_decorations()
+	flora.erase(cell)
+	decorations.erase(cell)
+	var spaces := water_spaces(cell)
+	var kind := DecorationRules.choose(flora_rng, not spaces.is_empty(), has_ducks())
+	if kind.is_empty():
+		return
+	var item := {"kind": kind, "variant": flora_rng.randi_range(1, DecorationRules.VARIANTS[kind])}
+	if kind in DecorationRules.WATER_KINDS:
+		item.water = spaces[flora_rng.randi_range(0, spaces.size() - 1)]
+	decorations[cell] = item
+
+func prune_decorations() -> void:
+	for owner in decorations.keys():
+		var item: Dictionary = decorations[owner]
+		if not cells.has(owner) or cells[owner] == "stairs" or (item.kind in DecorationRules.WATER_KINDS and not clear_water(item.water)):
+			decorations.erase(owner)
 
 func in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= MIN_CELL.x and cell.x <= MAX_CELL.x and cell.y >= MIN_CELL.y and cell.y <= MAX_CELL.y
@@ -196,12 +242,16 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 			if cells.has(cell):
 				stock[cells[cell]] += 1
 			flora.erase(cell)
+			cells[cell] = "stairs"
+			var new_landing: bool = not cells.has(landing)
 			cells[landing] = "high_gold"
-			add_flora(landing)
+			if new_landing:
+				add_flora(landing)
 		cells[cell] = tool
 		if tool != "stairs":
 			add_flora(cell)
 		stock[tool] -= 1
+	prune_decorations()
 	return true
 
 func path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
@@ -228,10 +278,15 @@ func snapshot() -> Dictionary:
 	var tiles: Array = []
 	for cell in cells:
 		tiles.append([cell.x, cell.y, cells[cell], trees.has(cell), stair_direction(cell).x if cells[cell] == "stairs" else 0, flora.get(cell, 0)])
-	return {"version": 6, "tiles": tiles, "stock": stock.duplicate(), "level": level}
+	var saved_decorations: Array = []
+	for owner in decorations:
+		var item: Dictionary = decorations[owner]
+		var water: Vector2i = item.get("water", owner)
+		saved_decorations.append([owner.x, owner.y, item.kind, item.variant, water.x, water.y])
+	return {"version": 7, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_level := int(data.get("level", 0)) if int(data.version) >= 6 else (3 if data.get("unlocked", false) else 1)
 	if next_level not in [1, 2, 3]:
@@ -270,6 +325,33 @@ func restore(data: Dictionary) -> bool:
 		if amount < 0 or amount > 13:
 			return false
 		next_stock[kind] = amount
+	var next_decorations := {}
+	var water_claims := {}
+	var duck_count := 0
+	if int(data.version) >= 7:
+		if not data.get("decorations") is Array:
+			return false
+		for item in data.decorations:
+			if not item is Array or item.size() != 6 or not item[2] in DecorationRules.VARIANTS:
+				return false
+			var owner := Vector2i(int(item[0]), int(item[1]))
+			var water := Vector2i(int(item[4]), int(item[5]))
+			if not next_cells.has(owner) or next_cells[owner] == "stairs" or next_decorations.has(owner) or next_flora.has(owner):
+				return false
+			var variant := int(item[3])
+			if variant < 1 or variant > DecorationRules.VARIANTS[item[2]]:
+				return false
+			var record := {"kind": item[2], "variant": variant}
+			if item[2] in DecorationRules.WATER_KINDS:
+				if not in_bounds(water) or next_cells.has(water) or water_claims.has(water) or (water - owner) not in STEPS:
+					return false
+				water_claims[water] = true
+				record.water = water
+			if item[2] == "ducks":
+				duck_count += 1
+				if duck_count > 1:
+					return false
+			next_decorations[owner] = record
 	# Migrate old previews without discarding placements or granting rewards twice.
 	var total: int = next_cells.size()
 	for kind in KINDS:
@@ -285,6 +367,7 @@ func restore(data: Dictionary) -> bool:
 	cells = next_cells
 	trees = next_trees
 	flora = next_flora
+	decorations = next_decorations
 	stair_directions = next_stairs
 	for cell in cells:
 		if cells[cell] == "stairs" and not stair_directions.has(cell):
@@ -305,5 +388,4 @@ func restore(data: Dictionary) -> bool:
 				stock[cells[landing]] += 1
 			else:
 				cells[landing] = "high_gold"
-				add_flora(landing)
 	return true

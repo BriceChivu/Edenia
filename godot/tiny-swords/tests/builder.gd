@@ -134,10 +134,10 @@ func run() -> void:
 	var planted := 0
 	for i in range(64):
 		plants.edit(Vector2i(-2, -1), "ground", Vector2i(1, 0))
-		if plants.flora.has(Vector2i(-2, -1)):
+		if plants.decorations.has(Vector2i(-2, -1)) and plants.decorations[Vector2i(-2, -1)].kind in ["flowers", "bush"]:
 			planted += 1
-		var saved_flora: Dictionary = plants.flora.duplicate()
-		check(plants.restore(plants.snapshot()) and plants.flora == saved_flora, "Plants persist without rerolling")
+		var saved_flora: Dictionary = plants.decorations.duplicate(true)
+		check(plants.restore(plants.snapshot()) and plants.decorations == saved_flora, "Plants persist without rerolling")
 		plants.edit(Vector2i(-2, -1), "remove", Vector2i(1, 0))
 	check(planted > 0 and planted < 20, "Plants appear rarely rather than on every new tile")
 	check(level.splash.get_parent() == level.pawn.get_parent() and level.splash.z_index == 0, "Splash shares tree and pawn Y sorting")
