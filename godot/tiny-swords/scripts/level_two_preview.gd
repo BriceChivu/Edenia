@@ -367,7 +367,15 @@ func fall_into_water(point: Vector2) -> void:
 	if best == INF:
 		return
 	var edge: Vector2 = layout.center(shore)
-	walk_on_land(shore, edge)
+	if from == shore:
+		# Already on the shoreline tile: do not walk back to its center merely
+		# to align the reference animation. Translate its origin to the pawn.
+		movement_generation += 1
+		waypoints.clear()
+		edge = pawn.position
+		pawn.walk_to(edge)
+	else:
+		walk_on_land(shore, edge)
 	water_phase = WaterPhase.APPROACHING
 	var generation := movement_generation
 	while not waypoints.is_empty() or pawn.position.distance_to(edge) > 0.2:

@@ -30,3 +30,15 @@ static func align_splash(splash: AnimatedSprite2D, pawn, frame: int, start: Vect
 	if frame < 7:
 		splash.position.y = pawn.position.y - 0.01
 		splash.offset.y = contact.y - splash.position.y
+
+static func apply_motion(pawn, seconds: float, start: Vector2, direction: Vector2, height: float) -> int:
+	var phase := clampf(seconds / FRAME_SECONDS, 0.0, 7.0)
+	var index := mini(7, int(floorf(phase + 0.00001)))
+	var next := mini(7, index + 1)
+	var weight := clampf(phase - index, 0.0, 1.0)
+	# The GIF samples motion at 10 fps; retain its poses without also limiting
+	# world movement to 10 fps. Every measured key position is still preserved.
+	apply_pose(pawn, index, start, direction, height)
+	pawn.position = start + direction * lerpf(TRAVEL[index], TRAVEL[next], weight)
+	pawn.sprite.position.y = -32 + lerpf(VERTICAL[index], VERTICAL[next], weight) - height * (1.0 - minf(phase / CONTACT_FRAME, 1.0))
+	return index

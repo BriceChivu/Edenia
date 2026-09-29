@@ -237,3 +237,14 @@ Focused check: `Godot --headless --path godot/tiny-swords --script tests/water_r
 Actual rendered comparison frames: run `tests/capture_water_reference.gd` with a
 renderer (without `--headless`); it uses the shared pose implementation and writes
 to `test-results/tiny-swords-reference/godot/` without loading or saving a layout.
+
+Water-click handoff: a pawn already on the chosen shoreline tile starts the
+fall from its current position, instead of walking backward to the tile center.
+Distant approaches still use pathfinding and remain cancellable by a newer click.
+`tests/water_handoff.gd` checks immediate outward starts in all four directions.
+
+The GIF's 100 ms cadence applies to sprite poses, not world-position updates.
+Motion now interpolates between the measured key positions on every render
+frame. `tests/water_pacing.gd` records actual playback without screenshot reads
+and rejects sustained position holds during the jump; the original stepped
+implementation held position for 12 rendered frames in native playback.

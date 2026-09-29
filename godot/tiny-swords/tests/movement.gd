@@ -54,7 +54,7 @@ func run() -> void:
 	check(not sprite.flip_h, "New click redirects moving pawn to the right")
 	# Clicking water starts one complete fall/splash/respawn sequence.
 	click_at(Vector2(670, 240))
-	check(level.water_phase == level.WaterPhase.APPROACHING, "Water click approaches shore")
+	check(level.water_phase in [level.WaterPhase.APPROACHING, level.WaterPhase.FALLING], "Water click approaches shore or immediately falls when already at shore")
 	var destination_before: Vector2 = pawn.destination
 	click_at(Vector2(540, 190))
 	check(pawn.destination == destination_before, "Clicks cannot interrupt a fall sequence")

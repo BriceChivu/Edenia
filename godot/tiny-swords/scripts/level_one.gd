@@ -44,6 +44,8 @@ func fall_into_water(point: Vector2) -> void:
 	water_phase = WaterPhase.APPROACHING
 	var edge := point.clamp(GRASS_BOUNDS.position + Vector2(32, 32),
 		GRASS_BOUNDS.end - Vector2(32, 32))
+	if pawn.position.distance_to(edge) < 32.0:
+		edge = pawn.position
 	var direction := (point - edge).normalized()
 	pawn.walk_to(edge)
 	while pawn.position.distance_to(edge) > 0.1:
@@ -54,12 +56,13 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 	water_phase = WaterPhase.FALLING
 	pawn.set_physics_process(false)
 	pawn.sprite.stop()
-	# Keep the reference's 100 ms pose cadence; do not replace it with a sine hop.
-	var started := Time.get_ticks_usec()
-	for frame in range(8):
-		WaterFall.apply_pose(pawn, frame, start, direction, height)
+	# Pose changes remain at 10 fps; the trajectory runs at the renderer's rate.
+	WaterFall.apply_pose(pawn, 0, start, direction, height)
+	var motion := create_tween()
+	motion.tween_method(func(seconds: float) -> void:
+		var frame := WaterFall.apply_motion(pawn, seconds, start, direction, height)
 		WaterFall.align_splash(splash, pawn, frame, start, direction)
-		if frame == WaterFall.CONTACT_FRAME:
+		if frame >= WaterFall.CONTACT_FRAME and water_phase == WaterPhase.FALLING:
 			water_phase = WaterPhase.SPLASH
 			pawn.z_index = 0
 			splash.stop()
@@ -67,9 +70,8 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 			splash.show()
 			splash.play("splash")
 			splash_started.emit()
-		if frame < 7:
-			var remaining := (frame + 1) * WaterFall.FRAME_SECONDS - (Time.get_ticks_usec() - started) / 1000000.0
-			await get_tree().create_timer(maxf(0.001, remaining)).timeout
+	, 0.0, 7 * WaterFall.FRAME_SECONDS, 7 * WaterFall.FRAME_SECONDS)
+	await motion.finished
 	await splash.animation_finished
 	splash.hide()
 	water_phase = WaterPhase.WAITING
