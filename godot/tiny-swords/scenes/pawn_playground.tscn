@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/pawn_playground.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/Tilemap_color1.png" id="2"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color1.png" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/pawn.tscn" id="3"]
 
 [node name="LevelOne" type="Node2D"]

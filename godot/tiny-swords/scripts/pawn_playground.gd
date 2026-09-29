@@ -2,7 +2,7 @@ extends Node2D
 
 const GRASS_BOUNDS := Rect2(128, 64, 128, 128)
 const FOOT_MARGIN := Vector2(8, 8)
-const CURSOR := preload("res://art/Cursor_02.png")
+const CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_02.png")
 
 func _ready() -> void:
 	Input.set_custom_mouse_cursor(CURSOR, Input.CURSOR_ARROW, Vector2(24, 17))

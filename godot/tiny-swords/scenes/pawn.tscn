@@ -1,8 +1,8 @@
 [gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/pawn.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/Pawn_Idle.png" id="2"]
-[ext_resource type="Texture2D" path="res://art/Pawn_Run.png" id="3"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Units/Blue Units/Pawn/Pawn_Idle.png" id="2"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Units/Blue Units/Pawn/Pawn_Run.png" id="3"]
 
 [sub_resource type="AtlasTexture" id="idle_0"]
 atlas = ExtResource("2")

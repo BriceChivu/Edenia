@@ -117,7 +117,10 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `shaders/water.gdshader`: subtle animated reflected-light ripples only along the
   outer sides, fading to clear water across the central half, over the pack's
   original turquoise water tile. No separate reflection image was available.
-- `art/environment/`: unchanged Free Pack PNG copies from `assets/tiny-swords`.
+- `Tiny Swords (Free Pack)/`: canonical artwork inside the Godot resource root;
+  scenes, scripts and exports load the original pack files directly via `res://`.
+  There is no separate copied artwork folder or dependency on Downloads.
+- `fonts/MedievalSharp.ttf`: the existing non-pack UI font, preserved separately.
   There is no separate flower asset in either downloaded pack; `Bushe4.png` is
   the supplied leafy tuft used for that detail. No invented flower art or mixed
   pack versions. Bush/rock/cloud artwork includes its supplied shading; island

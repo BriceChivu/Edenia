@@ -1,14 +1,14 @@
 extends Sprite2D
 
 const VARIANTS := [
-	preload("res://art/environment/Clouds_01.png"),
-	preload("res://art/environment/Clouds_02.png"),
-	preload("res://art/environment/Clouds_03.png"),
-	preload("res://art/environment/Clouds_04.png"),
-	preload("res://art/environment/Clouds_05.png"),
-	preload("res://art/environment/Clouds_06.png"),
-	preload("res://art/environment/Clouds_07.png"),
-	preload("res://art/environment/Clouds_08.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_01.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_02.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_03.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_04.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_05.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_06.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_07.png"),
+	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_08.png"),
 ]
 var variant_index := 0
 var shadow_sprite: Sprite2D

@@ -9,12 +9,12 @@ var valid := false
 var tool := "meadow"
 var elapsed := 0.0
 var textures: Dictionary = {}
-var shadow := preload("res://art/builder/Shadow.png")
-var foam := preload("res://art/environment/Water Foam.png")
+var shadow := preload("res://Tiny Swords (Free Pack)/Terrain/Tileset/Shadow.png")
+var foam := preload("res://Tiny Swords (Free Pack)/Terrain/Tileset/Water Foam.png")
 
 func _ready() -> void:
 	for kind in layout.KINDS:
-		textures[kind] = load("res://art/builder/Tilemap_color%s.png" % layout.COLORS[kind])
+		textures[kind] = load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color%s.png" % layout.COLORS[kind])
 
 func _process(delta: float) -> void:
 	if piece != null:

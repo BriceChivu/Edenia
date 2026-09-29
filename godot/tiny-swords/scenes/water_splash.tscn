@@ -1,6 +1,6 @@
 [gd_scene load_steps=12 format=3]
 
-[ext_resource type="Texture2D" path="res://art/environment/Water Splash.png" id="Splash"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Particle FX/Water Splash.png" id="Splash"]
 
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("Splash")

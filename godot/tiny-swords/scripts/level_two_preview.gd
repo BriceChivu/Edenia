@@ -3,9 +3,9 @@ extends "res://scripts/level_one.gd"
 const Layout = preload("res://scripts/terrain_layout.gd")
 const TerrainView = preload("res://scripts/terrain_view.gd")
 const BuilderUI = preload("res://scripts/builder_ui.gd")
-const UI_CURSOR := preload("res://art/builder/Cursor_01.png")
-const INVALID_CURSOR := preload("res://art/builder/Cursor_03.png")
-const BUILD_CURSOR := preload("res://art/builder/Cursor_04.png")
+const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_01.png")
+const INVALID_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_03.png")
+const BUILD_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png")
 const SAVE_KEY := "edenia_tiny_swords_builder_preview_v1"
 var layout = Layout.new()
 var terrain
@@ -250,7 +250,7 @@ func rebuild_decorations() -> void:
 		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}.get(cell) == layout.flora[cell]:
 			continue
 		var plant := Sprite2D.new()
-		plant.texture = preload("res://art/environment/Bushe1.png") if layout.flora[cell] == 1 else preload("res://art/environment/Bushe4.png")
+		plant.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe1.png") if layout.flora[cell] == 1 else preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png")
 		plant.hframes = 8
 		plant.scale = Vector2.ONE * 0.75
 		plant.z_index = 1 if layout.height_at(cell) > 0 else 0
@@ -261,7 +261,7 @@ func rebuild_decorations() -> void:
 		flora_nodes.append(plant)
 	for cell in layout.trees:
 		var tree := Sprite2D.new()
-		tree.texture = preload("res://art/builder/Tree1.png")
+		tree.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")
 		tree.hframes = 8
 		tree.scale = Vector2.ONE * 0.8
 		tree.z_index = 1 if layout.height_at(cell) > 0 else 0

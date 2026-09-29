@@ -34,7 +34,7 @@ func atlas(texture: Texture2D, region: Rect2) -> AtlasTexture:
 
 func style(file: String, _margins: int = 64) -> StyleBoxTexture:
 	# The pack supplies separated 64px nine-slice patches, with 64px gutters.
-	var source: Image = load("res://art/builder/" + file).get_image()
+	var source: Image = load("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/" + ("Buttons/" if file.begins_with("BigBlueButton") else "Papers/") + file).get_image()
 	var assembled := Image.create(192, 192, false, Image.FORMAT_RGBA8)
 	for y in range(3):
 		for x in range(3):
@@ -57,7 +57,7 @@ func style(file: String, _margins: int = 64) -> StyleBoxTexture:
 	return result
 
 func ribbon_texture() -> Texture2D:
-	var source: Image = load("res://art/builder/BigRibbons.png").get_image()
+	var source: Image = load("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Ribbons/BigRibbons.png").get_image()
 	var assembled := Image.create(320, 128, false, Image.FORMAT_RGBA8)
 	assembled.blit_rect(source, Rect2i(0, 256, 128, 128), Vector2i.ZERO)
 	assembled.blit_rect(source, Rect2i(192, 256, 64, 128), Vector2i(128, 0))
@@ -85,7 +85,7 @@ func _ready() -> void:
 	root = Control.new()
 	root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var ui_theme := Theme.new()
-	var ui_font = load("res://art/builder/MedievalSharp.ttf").duplicate()
+	var ui_font = load("res://fonts/MedievalSharp.ttf").duplicate()
 	ui_font.multichannel_signed_distance_field = true
 	var weighted_font := FontVariation.new()
 	weighted_font.base_font = ui_font
@@ -142,13 +142,13 @@ func _ready() -> void:
 		b.expand_icon = true
 		b.add_theme_constant_override("icon_max_width", 38)
 		if kind == "stairs":
-			b.icon = atlas(load("res://art/builder/Tilemap_color1.png"), Rect2(0, 256, 64, 128))
+			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color1.png"), Rect2(0, 256, 64, 128))
 			b.tooltip_text = "Place beside flat ground. Adds its upper landing automatically.
 One stair bundle includes its upper tile. Picking it up returns both."
 		elif kind == "tree":
-			b.icon = atlas(load("res://art/builder/Tree1.png"), Rect2(0, 0, 192, 256))
+			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"), Rect2(0, 0, 192, 256))
 		else:
-			b.icon = atlas(load("res://art/builder/Tilemap_color%s.png" % (3 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
+			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color%s.png" % (3 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
 		grid.add_child(b)
 		buttons[kind] = b
 	var row := HBoxContainer.new()
