@@ -27,8 +27,6 @@ var pointer_position := Vector2.ZERO
 
 func _ready() -> void:
 	super._ready()
-	splash.reparent($World)
-	splash.z_index = 0
 	for name in ["Islands", "IslandShadows", "ShoreFoam"]:
 		get_node(name).hide()
 	# Player-built land and stairs cover water decorations naturally.
@@ -368,7 +366,7 @@ func fall_into_water(point: Vector2) -> void:
 				direction = Vector2(step)
 	if best == INF:
 		return
-	var edge: Vector2 = layout.center(shore) + direction * 20
+	var edge: Vector2 = layout.center(shore)
 	walk_on_land(shore, edge)
 	water_phase = WaterPhase.APPROACHING
 	var generation := movement_generation
@@ -376,42 +374,9 @@ func fall_into_water(point: Vector2) -> void:
 		await get_tree().physics_frame
 		if generation != movement_generation or water_phase != WaterPhase.APPROACHING:
 			return
-	var height: float = layout.height_at(shore)
-	var landing: Vector2 = layout.center(shore) + direction * 64
-	water_phase = WaterPhase.FALLING
-	pawn.set_physics_process(false)
-	pawn.sprite.play("run")
-	var step_off := create_tween()
-	step_off.tween_method(func(progress: float) -> void:
-		pawn.position = edge.lerp(landing, progress) + Vector2(0, -sin(progress * PI) * 16.0)
-		pawn.sprite.position.y = -32 - height * (1 - progress)
-	, 0.0, 1.0, 0.4)
-	await step_off.finished
-	water_phase = WaterPhase.SPLASH
-	pawn.sprite.play("idle")
-	pawn.z_index = 0
-	splash.position = landing
-	splash.frame = 0
-	splash.show()
-	splash.play("splash")
-	splash_started.emit()
-	var sink := create_tween().set_parallel(true)
-	sink.tween_property(pawn.sprite, "position:y", -12.0, 0.2)
-	sink.tween_property(pawn.sprite, "modulate:a", 0.0, 0.2)
-	await splash.animation_finished
-	splash.hide()
-	water_phase = WaterPhase.WAITING
-	await get_tree().create_timer(RESPAWN_DELAY).timeout
-	water_phase = WaterPhase.RESPAWNING
-	pawn.position = layout.center(layout.spawn_cell())
-	pawn.destination = pawn.position
-	pawn.sprite.position = Vector2(0, -32 - layout.height_at(layout.spawn_cell()))
-	var appear := create_tween()
-	appear.tween_property(pawn.sprite, "modulate:a", 1.0, 0.25)
-	await appear.finished
-	pawn.set_physics_process(true)
-	water_phase = WaterPhase.READY
-	respawned.emit()
+	var height: float = ground_height(edge)
+	var spawn_cell: Vector2i = layout.spawn_cell()
+	await perform_water_fall(edge, direction, height, layout.center(spawn_cell), layout.height_at(spawn_cell))
 
 func save_layout() -> void:
 	if not preview_save_enabled:

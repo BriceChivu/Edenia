@@ -60,19 +60,19 @@ func run() -> void:
 	check(pawn.destination == destination_before, "Clicks cannot interrupt a fall sequence")
 	await level.splash_started
 	check(pawn.sprite.rotation == 0.0, "Pawn stays upright like the reference animation")
-	check(level.get_node("WaterSplash").visible, "Splash appears at landing")
+	check(level.splash.visible, "Splash appears at landing")
 	check(not level.GRASS_BOUNDS.has_point(pawn.position), "Pawn falls outside grass into water")
 	await create_timer(0.28).timeout
 	check(pawn.sprite.modulate.a < 0.01, "Pawn sinks out of view")
-	check(level.get_node("WaterSplash").frame > 0, "Splash animation advances")
-	await level.get_node("WaterSplash").animation_finished
+	check(level.splash.frame > 0, "Splash animation advances")
+	await level.splash.animation_finished
 	await create_timer(0.5).timeout
 	check(level.water_phase == level.WaterPhase.WAITING, "Respawn waits after the splash finishes")
 	check(pawn.sprite.modulate.a < 0.01, "Pawn remains hidden during the respawn delay")
 	await level.respawned
 	check(pawn.position == level.SPAWN, "Pawn respawns on main island")
 	check(pawn.sprite.modulate.a == 1.0 and pawn.sprite.rotation == 0.0, "Pawn appearance resets")
-	check(not level.get_node("WaterSplash").visible, "Splash finishes and hides")
+	check(not level.splash.visible, "Splash finishes and hides")
 	click_at(Vector2(548, 220))
 	await create_timer(0.65).timeout
 	check(pawn.position == Vector2(548, 220), "Bush position is reachable")

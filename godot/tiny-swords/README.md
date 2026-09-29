@@ -85,9 +85,9 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `scenes/pawn_playground.tscn`: the original four-tile playground, preserved for reuse.
 - `scripts/level_one.gd`: Cursor 02, main-island walking, and the water fall/respawn sequence.
 - `scenes/water_splash.tscn`: the original nine-frame `Water Splash.png`, played
-  once on impact at the source pack’s documented 10 fps. No dedicated falling frames were found in the supplied pawn
-  exports or its editable source tags, so the existing pawn art is animated in a small upright hop off the edge
-  and faded into the splash rather than introducing a different character.
+  once on impact at the source pack’s documented 10 fps. The shared `scripts/water_fall.gd` profile uses the original six run poses at
+  100 ms intervals, measured from the confirmed Particle FX reference; both
+  the fixed scene and editable previews call the same fall/splash/respawn implementation.
 - `World` uses Y sorting: foliage is anchored at its base so it covers the pawn
   when he moves behind it, and the pawn draws in front when he moves below it.
 - `scripts/environment_sprite.gd`: gently staggered foam, rock, and foliage frames.
@@ -211,3 +211,29 @@ Stair endpoints require flat ground at the low end and raised ground at the high
 end. Raised terrain and stairs are Y-sorted with lower-ground characters; upper
 characters render on the upper surface and return to lower depth on descent.
 The build grid and placement highlight render separately above both surfaces.
+
+## Confirmed water-fall reference
+
+Source: [Particle FX_07.gif](https://raw.githubusercontent.com/Adriano-97/pixelImages/refs/heads/main/Particle%20FX_07.gif),
+linked from the [Tiny Swords page](https://pixelfrog-assets.itch.io/tiny-swords).
+The original GIF contains 32 frames at 100 ms each. User confirmed this reference.
+
+The six opaque run poses match the imported PNG pixels exactly at native scale.
+Relative to the preceding idle position, horizontal offsets are 3, 6, 15, 26,
+43 and 53 pixels; vertical offsets are 0, 0, 1, -7, -7 and -1 pixels.
+Splash starts at 0.5 seconds, during run pose six, centered 69 pixels outward and
+3 pixels downward from the starting position. Its nine frames run at 10 fps.
+The pawn covers the first two splash frames, sinks/fades at 0.6 seconds, and is
+invisible at 0.7 seconds. The final visible opacity is approximated as 0.7;
+GIF palette/compositing prevents claiming a pixel-identical translucent frame.
+The reference's textured backdrop is not copied into the game's water.
+
+The rightward, flat-ground reference is mirrored/adapted for other directions
+and elevated shores. The requested one-second pause **after** splash completion
+is retained, followed by the existing 0.25-second respawn fade. This deliberately
+waits longer than the demonstration GIF. Original PNGs remain unchanged.
+
+Focused check: `Godot --headless --path godot/tiny-swords --script tests/water_reference.gd`.
+Actual rendered comparison frames: run `tests/capture_water_reference.gd` with a
+renderer (without `--headless`); it uses the shared pose implementation and writes
+to `test-results/tiny-swords-reference/godot/` without loading or saving a layout.

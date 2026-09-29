@@ -8,6 +8,7 @@ const GRASS_BOUNDS := Rect2(512, 176, 128, 128)
 const ISLET_BOUNDS := Rect2(712, 308, 64, 64)
 const FOOT_MARGIN := Vector2(12, 12)
 const RESPAWN_DELAY := 1.0
+const WaterFall = preload("res://scripts/water_fall.gd")
 const SPAWN := Vector2(576, 240)
 const CURSOR := preload("res://art/Cursor_02.png")
 var water_phase: WaterPhase = WaterPhase.READY
@@ -15,6 +16,8 @@ var water_phase: WaterPhase = WaterPhase.READY
 @onready var splash: AnimatedSprite2D = $WaterSplash
 
 func _ready() -> void:
+	splash.reparent($World)
+	splash.z_index = 0
 	$Water.z_index = -20
 	$Reflections.z_index = -19
 	$IslandShadows.z_index = -18
@@ -39,42 +42,43 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func fall_into_water(point: Vector2) -> void:
 	water_phase = WaterPhase.APPROACHING
-	var edge := point.clamp(GRASS_BOUNDS.position + FOOT_MARGIN,
-		GRASS_BOUNDS.end - FOOT_MARGIN)
-	var landing := edge + (point - edge).normalized() * 42.0
+	var edge := point.clamp(GRASS_BOUNDS.position + Vector2(32, 32),
+		GRASS_BOUNDS.end - Vector2(32, 32))
+	var direction := (point - edge).normalized()
 	pawn.walk_to(edge)
 	while pawn.position.distance_to(edge) > 0.1:
 		await get_tree().physics_frame
+	await perform_water_fall(edge, direction, 0.0, SPAWN, 0.0)
 
+func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn: Vector2, spawn_height: float) -> void:
 	water_phase = WaterPhase.FALLING
 	pawn.set_physics_process(false)
-	# Match the pack demo: a short upright step/hop, then sink at the splash.
-	pawn.sprite.play("run")
-	var step_off := create_tween()
-	step_off.tween_method(func(progress: float) -> void:
-		pawn.position = edge.lerp(landing, progress) + Vector2(0, -sin(progress * PI) * 16.0)
-	, 0.0, 1.0, 0.4)
-	await step_off.finished
-
-	water_phase = WaterPhase.SPLASH
-	pawn.sprite.play("idle")
-	splash.position = landing
-	splash.frame = 0
-	splash.show()
-	splash.play("splash")
-	splash_started.emit()
-	var sink := create_tween().set_parallel(true)
-	sink.tween_property(pawn.sprite, "position:y", -12.0, 0.2)
-	sink.tween_property(pawn.sprite, "modulate:a", 0.0, 0.2)
+	pawn.sprite.stop()
+	# Keep the reference's 100 ms pose cadence; do not replace it with a sine hop.
+	var started := Time.get_ticks_usec()
+	for frame in range(8):
+		WaterFall.apply_pose(pawn, frame, start, direction, height)
+		WaterFall.align_splash(splash, pawn, frame, start, direction)
+		if frame == WaterFall.CONTACT_FRAME:
+			water_phase = WaterPhase.SPLASH
+			pawn.z_index = 0
+			splash.stop()
+			splash.frame = 0
+			splash.show()
+			splash.play("splash")
+			splash_started.emit()
+		if frame < 7:
+			var remaining := (frame + 1) * WaterFall.FRAME_SECONDS - (Time.get_ticks_usec() - started) / 1000000.0
+			await get_tree().create_timer(maxf(0.001, remaining)).timeout
 	await splash.animation_finished
 	splash.hide()
 	water_phase = WaterPhase.WAITING
 	await get_tree().create_timer(RESPAWN_DELAY).timeout
-
 	water_phase = WaterPhase.RESPAWNING
-	pawn.position = SPAWN
-	pawn.destination = SPAWN
-	pawn.sprite.position = Vector2(0, -32)
+	pawn.position = spawn
+	pawn.destination = spawn
+	pawn.z_index = 1 if spawn_height > 0 else 0
+	pawn.sprite.position = Vector2(0, -32 - spawn_height)
 	pawn.sprite.rotation = 0.0
 	pawn.sprite.play("idle")
 	var appear := create_tween()
