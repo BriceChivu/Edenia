@@ -27,6 +27,17 @@ func _initialize() -> void:
     check(view.call("ground_region", Vector2i.ZERO, kind) == expected, "Guide piece (%s,%s) for %s" % [x,y,kind])
  view.layout.cells = {Vector2i.ZERO:"meadow",Vector2i.RIGHT:"high_gold"}
  check(view.call("ground_region",Vector2i.ZERO,"meadow") == Rect2(192,192,64,64), "Different elevations do not merge grass edges")
+ view.layout.cells = {Vector2i.ZERO:"stairs",Vector2i.RIGHT:"high_gold"}
+ view.layout.stair_directions = {Vector2i.ZERO:Vector2i.RIGHT}
+ check(view.stair_joins(Vector2i.RIGHT,Vector2i.LEFT), "Ramp joins its upper landing")
+ check(view.cliff_region(Vector2i.RIGHT) == Rect2(448,320,64,64), "Stair landing uses complete connected water cliff")
+ view.layout.cells[Vector2i(1,1)] = "meadow"
+ check(view.cliff_region(Vector2i.RIGHT) == Rect2(448,256,64,64), "Cliff uses the land-facing piece over lower ground")
+ var top: Vector2 = view.layout.ORIGIN + Vector2(64,-64)
+ var shadow: Rect2 = view.shadow_rect(Vector2i.RIGHT)
+ check(shadow.size == Vector2(128,128) and shadow.get_center() == top + Vector2(32,96), "Guide shadow is 128px and one tile below the elevated top center")
+ view.layout.cells[Vector2i(2,0)] = "high_gold"
+ check(shadow.intersection(view.shadow_rect(Vector2i(2,0))).size.x == 64, "Neighbor shadows overlap by one tile")
  view.free()
  print("Terrain atlas checks: ", "PASS" if failures == 0 else "FAIL")
  quit(0 if failures == 0 else 1)

@@ -137,8 +137,7 @@ func _input(event: InputEvent) -> void:
 func fit_build_cursor() -> void:
 	# Use the same scene units in native Godot and in the browser.
 	# Seven transparent border pixels leave a 64px span between outer corners.
-	var bundle: bool = editing and selected == "remove" and terrain.valid and layout.cells.get(terrain.hover) == "stairs"
-	var size := Vector2i(135, 71) if bundle else Vector2i(71, 71)
+	var size := Vector2i(71, 71)
 	if size == build_cursor_size:
 		return
 	build_cursor_size = size
@@ -162,12 +161,6 @@ func update_cursor() -> void:
 		cursor_mode = mode
 		pointer.texture = UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
 	var hotspot := Vector2(35.5, 35.5) if mode == "build" else Vector2(24, 18)
-	if mode == "build" and build_cursor_size.x > build_cursor_size.y:
-		var direction: Vector2i = layout.stair_direction(terrain.hover)
-		var world_pointer: Vector2 = get_global_transform_with_canvas().affine_inverse() * pointer_position
-		var over_landing: bool = visual_cell(world_pointer) == terrain.hover + direction
-		if (direction.x < 0) != over_landing:
-			hotspot.x += 64.0
 	pointer.scale = Vector2.ONE
 	pointer.position = pointer_position - hotspot
 	pointer.visible = pointer_inside and mode != "place"

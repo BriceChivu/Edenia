@@ -33,13 +33,23 @@ func joined(cell: Vector2i, step: Vector2i) -> bool:
 		return (neighbor + direction == cell and layout.height_at(cell) == 64) or (neighbor - direction == cell and layout.height_at(cell) == 0)
 	return layout.height_at(cell) == layout.height_at(neighbor)
 
-func cliff_region(cell: Vector2i, half: int) -> Rect2:
-	# The guide distinguishes left, center and right cliff faces. A stair at
-	# the high edge opens both the walkable rim and the cliff beneath it.
-	var connected := joined(cell, Vector2i.LEFT if half == 0 else Vector2i.RIGHT)
-	var sx := 384 + half * 32 if connected else (320 if half == 0 else 480)
-	var sy := 256 if layout.cells.has(cell + Vector2i.DOWN) else 320
-	return Rect2(sx, sy, 32, 64)
+func stair_joins(cell: Vector2i, side: Vector2i) -> bool:
+	var neighbor := cell + side
+	return layout.cells.get(neighbor) == "stairs" and neighbor + layout.stair_direction(neighbor) == cell
+
+func cliff_region(cell: Vector2i) -> Rect2:
+	var left := joined(cell, Vector2i.LEFT)
+	var right := joined(cell, Vector2i.RIGHT)
+	var column := (1 if left else 0) if right else (2 if left else 3)
+	# Complete cliff pieces, including the authored center and narrow pillar.
+	var below := cell + Vector2i.DOWN
+	var meets_land: bool = layout.cells.has(below) and layout.height_at(below) == 0
+	return Rect2(320 + column * 64, 256 if meets_land else 320, 64, 64)
+
+func shadow_rect(cell: Vector2i) -> Rect2:
+	var top: Vector2 = layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.height_at(cell))
+	# A 128px shadow centered on the 64px top, shifted one full tile down.
+	return Rect2(top + Vector2(-32, 32), Vector2(128, 128))
 
 func ground_region(cell: Vector2i, kind: String) -> Rect2:
 	# The guide's sixteen full 64px pieces: three edges/center plus a
@@ -62,9 +72,21 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
 	if raised:
 		origin.y -= 64
 		if not joined(cell, Vector2i.DOWN):
-			for half in range(2):
-				draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(half * 32, 64), Vector2(32, 64)), cliff_region(cell, half), tint)
-	draw_texture_rect_region(textures[kind], Rect2(origin, Vector2(64, 64)), ground_region(cell, kind), tint)
+			draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(0, 64), Vector2(64, 64)), cliff_region(cell), tint)
+	var region := ground_region(cell, kind)
+	if raised and (stair_joins(cell, Vector2i.LEFT) or stair_joins(cell, Vector2i.RIGHT)):
+		# The ramp joins the walkable surface and cliff, so no grass lip
+		# may cut across that connection. Preserve the far edge and top rim.
+		var connector := region
+		connector.position.y = 64 if joined(cell, Vector2i.UP) else 0
+		for half in range(2):
+			var side := Vector2i.LEFT if half == 0 else Vector2i.RIGHT
+			var source := connector if stair_joins(cell, side) else region
+			source.position.x += half * 32
+			source.size.x = 32
+			draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(half * 32, 0), Vector2(32, 64)), source, tint)
+	else:
+		draw_texture_rect_region(textures[kind], Rect2(origin, Vector2(64, 64)), region, tint)
 
 func _draw() -> void:
 	if layout == null:
@@ -95,8 +117,7 @@ func _draw() -> void:
 			draw_tile(cell, "meadow" if layout.cells[cell] == "stairs" else layout.cells[cell])
 	for cell in keys:
 		if layout.height_at(cell) > 0:
-			var p: Vector2 = layout.ORIGIN + Vector2(cell) * 64
-			draw_texture_rect_region(shadow, Rect2(p - Vector2(32, 32), Vector2(128, 128)), Rect2(32, 32, 128, 128))
+			draw_texture_rect_region(shadow, shadow_rect(cell), Rect2(32, 32, 128, 128))
 	# Raised surfaces are separate Y-sorted World pieces.
 
 func placement_offset() -> Vector2:
@@ -106,6 +127,17 @@ func placement_offset() -> Vector2:
 func tree_preview_rect() -> Rect2:
 	var frame_size := Vector2(tree_texture.get_width() / 8.0, tree_texture.get_height())
 	return Rect2(preview_position + (Vector2(0, -112) - frame_size / 2) * 0.8, frame_size * 0.8)
+
+func pickup_outline() -> PackedVector2Array:
+	var origin: Vector2 = layout.ORIGIN + Vector2(hover) * 64
+	var direction: Vector2i = layout.stair_direction(hover)
+	# Trace the ramp and elevated landing together in world space.
+	var points := PackedVector2Array([Vector2(0, -64), Vector2(128, -64), Vector2(128, 0), Vector2(64, 0), Vector2(64, 64), Vector2(0, 64), Vector2(0, -64)])
+	for i in points.size():
+		if direction.x < 0:
+			points[i].x = 64 - points[i].x
+		points[i] += origin
+	return points
 
 func draw_editor() -> void:
 	if editing:
@@ -123,4 +155,7 @@ func draw_editor() -> void:
 			draw_set_transform(Vector2.ZERO)
 			if tool == "tree":
 				draw_texture_rect_region(tree_texture, tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
-			draw_rect(Rect2(layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, layout.height_at(hover)), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)
+			if tool == "remove" and layout.cells.get(hover) == "stairs":
+				draw_polyline(pickup_outline(), Color(0.85, 1, 0.8, 0.55), 1)
+			else:
+				draw_rect(Rect2(layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, layout.height_at(hover)), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)

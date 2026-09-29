@@ -36,7 +36,7 @@ func run() -> void:
  level.terrain.hover = Vector2i(2,0)
  level.terrain.valid = true
  level.update_cursor()
- check(level.pointer.texture.get_size() == Vector2(135,71), "Stair pickup spans two horizontal squares without increasing height")
+ check(level.pointer.texture.get_size() == Vector2(71,71), "Stair pickup keeps the standard pointer size")
  var cursor_position: Vector2 = level.pointer.position
  level.pointer_position += Vector2(5,3)
  level.update_cursor()
@@ -67,7 +67,7 @@ func run() -> void:
  level.terrain.hover = Vector2i(-3,0)
  level.terrain.valid = true
  level.update_cursor()
- check(level.pointer.texture.get_size() == Vector2(135,71) and is_equal_approx(level.pointer.position.x, level.pointer_position.x - 99.5), "Left-facing stairs extend the pickup cursor toward their landing")
+ check(level.pointer.texture.get_size() == Vector2(71,71) and is_equal_approx(level.pointer.position.x, level.pointer_position.x - 35.5), "Left-facing stairs keep the pointer centered")
  level.ui.buttons.tree.pressed.emit()
  check(level.apply_edit(Vector2i(0,1)) and not level.editing, "Final pine placement closes level-three toolbar")
  level.ui.launch.pressed.emit()

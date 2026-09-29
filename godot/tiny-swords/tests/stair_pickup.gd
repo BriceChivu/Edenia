@@ -22,9 +22,18 @@ func run() -> void:
   level.pointer_position = level.get_global_transform_with_canvas() * point
   level.pointer_inside = true
   level.update_cursor()
-  check(level.cursor_mode == "build" and level.pointer.texture.get_size() == Vector2(135,71), "Landing shows the wide pickup cursor")
-  var expected_offset := 99.5 if landing.x > stair.x else 35.5
-  check(is_equal_approx(level.pointer.position.x,level.pointer_position.x - expected_offset), "Wide cursor extends back across its owning stair")
+  check(level.cursor_mode == "build" and level.pointer.texture.get_size() == Vector2(71,71), "Landing shows the centered pickup cursor")
+  var expected_offset := 35.5
+  check(is_equal_approx(level.pointer.position.x,level.pointer_position.x - expected_offset), "Pointer keeps the same centered hotspot")
+  var outline: PackedVector2Array = level.terrain.pickup_outline()
+  var previous_pointer: Vector2 = level.pointer.position
+  var previous_input: Vector2 = level.pointer_position
+  var stair_point: Vector2 = level.layout.center(stair) - Vector2(0,32)
+  level.terrain.hover = level.clicked_cell(stair_point)
+  level.pointer_position = level.get_global_transform_with_canvas() * stair_point
+  level.update_cursor()
+  check((level.pointer.position - previous_pointer).is_equal_approx(level.pointer_position - previous_input), "Crossing between bundle halves never shifts the cursor anchor")
+  check(level.terrain.pickup_outline() == outline, "Bundle outline stays fixed across both halves")
   # A tree must be picked up before removing the supporting bundle.
   level.layout.trees[landing] = true
   check(level.clicked_cell(point) == landing, "Tree on landing remains separately selectable")
