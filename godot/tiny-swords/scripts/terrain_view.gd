@@ -1,5 +1,7 @@
 extends Node2D
 
+var editor_source = null
+var piece = null
 var layout
 var editing := false
 var hover := Vector2i(999, 999)
@@ -15,6 +17,8 @@ func _ready() -> void:
 		textures[kind] = load("res://art/builder/Tilemap_color%s.png" % layout.COLORS[kind])
 
 func _process(delta: float) -> void:
+	if piece != null:
+		return
 	elapsed += delta
 	queue_redraw()
 
@@ -61,6 +65,17 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
 func _draw() -> void:
 	if layout == null:
 		return
+	if editor_source != null:
+		editing = editor_source.editing
+		hover = editor_source.hover
+		valid = editor_source.valid
+		tool = editor_source.tool
+		draw_editor()
+		return
+	if piece != null:
+		draw_set_transform(-position)
+		draw_tile(piece, layout.cells[piece])
+		return
 	var keys: Array = layout.cells.keys()
 	keys.sort_custom(func(a, b): return a.y < b.y if a.y != b.y else a.x < b.x)
 
@@ -77,9 +92,9 @@ func _draw() -> void:
 		if layout.height_at(cell) > 0:
 			var p: Vector2 = layout.ORIGIN + Vector2(cell) * 64
 			draw_texture_rect_region(shadow, Rect2(p - Vector2(32, 32), Vector2(128, 128)), Rect2(32, 32, 128, 128))
-	for cell in keys:
-		if layout.height_at(cell) > 0 or layout.cells[cell] == "stairs":
-			draw_tile(cell, layout.cells[cell])
+	# Raised surfaces are separate Y-sorted World pieces.
+
+func draw_editor() -> void:
 	if editing:
 		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 1):
 			for x in range(layout.MIN_CELL.x, layout.MAX_CELL.x + 1):

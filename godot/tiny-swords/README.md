@@ -184,3 +184,8 @@ occlude splashes behind them.
 
 Cloud shadows retain the original PNG offset at minimum altitude. Higher clouds
 only move their shadow farther downward and reduce its opacity.
+
+Stair endpoints require flat ground at the low end and raised ground at the high
+end. Raised terrain and stairs are Y-sorted with lower-ground characters; upper
+characters render on the upper surface and return to lower depth on descent.
+The build grid and placement highlight render separately above both surfaces.

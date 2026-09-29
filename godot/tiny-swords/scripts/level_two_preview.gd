@@ -40,6 +40,11 @@ func _ready() -> void:
 	terrain.z_index = -16
 	add_child(terrain)
 	move_child(terrain, $World.get_index())
+	var build_overlay := TerrainView.new()
+	build_overlay.layout = layout
+	build_overlay.editor_source = terrain
+	build_overlay.z_index = 2
+	add_child(build_overlay)
 	ui = BuilderUI.new()
 	ui.layout = layout
 	add_child(ui)
@@ -98,6 +103,7 @@ func _process(_delta: float) -> void:
 	ui.launch.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if ui.launch.disabled else Control.CURSOR_POINTING_HAND
 	if water_phase == WaterPhase.READY or water_phase == WaterPhase.APPROACHING:
 		pawn.sprite.position.y = -32.0 - ground_height(pawn.position)
+		pawn.z_index = 1 if ground_height(pawn.position) > 0 else 0
 		if not waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 			pawn.walk_to(waypoints.pop_front())
 	if editing:
@@ -195,6 +201,18 @@ func undo() -> void:
 	refresh()
 
 func rebuild_decorations() -> void:
+	for node in $World.get_children():
+		if node.has_meta("terrain_occluder"):
+			$World.remove_child(node)
+			node.queue_free()
+	for cell in layout.cells:
+		if layout.height_at(cell) > 0 or layout.cells[cell] == "stairs":
+			var surface := TerrainView.new()
+			surface.layout = layout
+			surface.piece = cell
+			surface.position = layout.ORIGIN + Vector2(cell) * 64
+			surface.set_meta("terrain_occluder", true)
+			$World.add_child(surface)
 	for rock in $WaterRocks.get_children():
 		rock.visible = true
 		for cell in layout.cells:
@@ -214,6 +232,7 @@ func rebuild_decorations() -> void:
 		var node = $World.get_node(pair[0])
 		node.visible = layout.flora.get(pair[1], 0) == pair[2] and not layout.trees.has(pair[1])
 		node.offset.y = -15 - layout.height_at(pair[1]) / node.scale.y
+		node.z_index = 1 if layout.height_at(pair[1]) > 0 else 0
 		if pair[0] == "IsletBush":
 			node.position = layout.center(pair[1])
 	for cell in layout.flora:
@@ -225,6 +244,7 @@ func rebuild_decorations() -> void:
 		plant.texture = preload("res://art/environment/Bushe1.png") if layout.flora[cell] == 1 else preload("res://art/environment/Bushe4.png")
 		plant.hframes = 8
 		plant.scale = Vector2.ONE * 0.75
+		plant.z_index = 1 if layout.height_at(cell) > 0 else 0
 		plant.position = layout.center(cell) + Vector2(0, 12)
 		plant.offset = Vector2(0, -15 - layout.height_at(cell) / 0.75)
 		plant.set_script(preload("res://scripts/environment_sprite.gd"))
@@ -235,6 +255,7 @@ func rebuild_decorations() -> void:
 		tree.texture = preload("res://art/builder/Tree1.png")
 		tree.hframes = 8
 		tree.scale = Vector2.ONE * 0.8
+		tree.z_index = 1 if layout.height_at(cell) > 0 else 0
 		tree.position = layout.center(cell)
 		tree.offset = Vector2(0, -112 - layout.height_at(cell) / 0.8)
 		tree.set_script(preload("res://scripts/environment_sprite.gd"))
@@ -368,6 +389,7 @@ func fall_into_water(point: Vector2) -> void:
 	await step_off.finished
 	water_phase = WaterPhase.SPLASH
 	pawn.sprite.play("idle")
+	pawn.z_index = 0
 	splash.position = landing
 	splash.frame = 0
 	splash.show()

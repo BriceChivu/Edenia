@@ -140,10 +140,10 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 		return false
 	if cells[from] == "stairs":
 		var direction := stair_direction(from)
-		return direction != Vector2i.ZERO and (to == from + direction or to == from - direction)
+		return direction != Vector2i.ZERO and cells[to] != "stairs" and ((to == from + direction and height_at(to) == 64) or (to == from - direction and height_at(to) == 0))
 	if cells[to] == "stairs":
 		var direction := stair_direction(to)
-		return direction != Vector2i.ZERO and (from == to + direction or from == to - direction)
+		return direction != Vector2i.ZERO and cells[from] != "stairs" and ((from == to + direction and height_at(from) == 64) or (from == to - direction and height_at(from) == 0))
 	return height_at(from) == height_at(to)
 
 func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:

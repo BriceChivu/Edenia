@@ -93,6 +93,23 @@ try {
   await clickGame(800, 144)
   await page.waitForTimeout(6000)
   await page.screenshot({ path: resolve(artifacts, 'level-two-stairs.png'), fullPage: false })
+  // Lower path wraps behind a stair and raised landing; no learner save is touched.
+  await page.frames().find(f => f.url().includes('/tiny-swords/')).evaluate(() => {
+    localStorage.setItem('edenia_tiny_swords_builder_preview_v1', JSON.stringify({
+      version: 5, unlocked: true,
+      tiles: [[0,0,'meadow',false,0,0],[1,0,'stairs',false,1,0],[2,0,'high_gold',false,0,0],
+        [0,-1,'meadow',false,0,0],[1,-1,'meadow',false,0,0],[2,-1,'meadow',false,0,0],
+        [3,-1,'meadow',false,0,0],[3,0,'meadow',false,0,0],[0,1,'meadow',false,0,0]],
+      stock: { meadow:4, gold:0, violet:0, high_meadow:0, high_gold:0, stairs:1, tree:1 }
+    }))
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await frame.locator('#status').waitFor({ state: 'hidden', timeout: 90000 })
+  await clickGame(736, 144)
+  await page.waitForTimeout(1900)
+  await page.screenshot({ path: resolve(artifacts, 'level-two-behind-stairs.png'), fullPage: false })
+  await page.waitForTimeout(3000)
+  await page.screenshot({ path: resolve(artifacts, 'level-two-lower-path.png'), fullPage: false })
   assert.deepEqual(errors, [])
   console.log('PASS: reward ribbon, build mode, terrain placement and stock, refresh persistence without duplicate reward, phone rendering, no page errors.')
 } finally {
