@@ -36,6 +36,14 @@ func run() -> void:
 	for moving_cloud in level.get_node("Clouds").get_children():
 		moving_cloud.set_altitude(1.0)
 		check(moving_cloud.texture.get_image().get_used_rect().size.x >= 400 and moving_cloud.scale.x <= 1.351, "Large clouds use large source artwork with capped enlargement")
+	var all_clouds: Array = level.get_node("Clouds").get_children()
+	all_clouds.append(level.get_node("PassingCloud"))
+	for moving_cloud in all_clouds:
+		for height in [0.0, 0.3, 0.7, 1.0]:
+			moving_cloud.set_altitude(height)
+			check(moving_cloud.baked_shadow_offset.y > 0 and moving_cloud.shadow_sprite.position.y >= 0, "Shadow always stays below cloud with at least original PNG spacing")
+			if height == 0.0:
+				check(moving_cloud.shadow_sprite.position == Vector2.ZERO, "Minimum cloud height preserves original PNG shadow placement exactly")
 	var original_x: float = cloud.position.x
 	await create_timer(0.45).timeout
 	check(foam.frame != original_frame, "Shore foam advances")
@@ -46,7 +54,8 @@ func run() -> void:
 		var visible_clouds := 0
 		for moving_cloud in level.get_node("Clouds").get_children():
 			moving_cloud._process(10.0)
-			if moving_cloud.position.x > 0 and moving_cloud.position.x < 1152:
+			var half_width: float = moving_cloud.texture.get_width() * moving_cloud.scale.x / 2
+			if moving_cloud.position.x + half_width > 0 and moving_cloud.position.x - half_width < 1152:
 				visible_clouds += 1
 		check(visible_clouds >= 1, "Clouds remain present as their speeds vary")
 	check(load("res://scenes/pawn_playground.tscn") != null, "Reusable pawn playground preserved")

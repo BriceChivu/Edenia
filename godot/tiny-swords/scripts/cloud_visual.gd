@@ -50,5 +50,7 @@ func set_altitude(value: float) -> void:
 	var painted_width := maxf(1.0, texture.get_image().get_used_rect().size.x)
 	scale = Vector2.ONE * minf(1.35, lerpf(300.0, 680.0, altitude) / painted_width * randf_range(0.95, 1.05))
 	if shadow_sprite != null:
-		shadow_sprite.position = -baked_shadow_offset + Vector2(altitude * 22, lerpf(14.0, 110.0, altitude)) / scale
+		# Keep the PNG's original shadow placement at minimum altitude.
+		# Additional height can only push it downward, never back into the cloud.
+		shadow_sprite.position = Vector2(0.0, altitude * 110.0) / scale
 		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.75, 0.16, altitude))

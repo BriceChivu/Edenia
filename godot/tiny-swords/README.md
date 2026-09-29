@@ -181,3 +181,6 @@ their choices persist in save version 5. Existing saves retain their plants and
 receive the ground refund for previously paid stair landings once. Splashes
 share the World Y-sort layer with trees and the pawn, so foreground trees
 occlude splashes behind them.
+
+Cloud shadows retain the original PNG offset at minimum altitude. Higher clouds
+only move their shadow farther downward and reduce its opacity.
