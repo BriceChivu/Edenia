@@ -39,6 +39,17 @@ func cliff_region(cell: Vector2i, half: int) -> Rect2:
 	var sy := 256 if layout.cells.has(cell + Vector2i.DOWN) else 320
 	return Rect2(sx, sy, 32, 64)
 
+func ground_region(cell: Vector2i, kind: String) -> Rect2:
+	# The guide's sixteen full 64px pieces: three edges/center plus a
+	# dedicated narrow-strip column and row. Do not repeat half-tile art.
+	var left := joined(cell, Vector2i.LEFT)
+	var right := joined(cell, Vector2i.RIGHT)
+	var up := joined(cell, Vector2i.UP)
+	var down := joined(cell, Vector2i.DOWN)
+	var column := (1 if left else 0) if right else (2 if left else 3)
+	var row := (1 if up else 0) if down else (2 if up else 3)
+	return Rect2(column * 64 + (320 if kind.begins_with("high_") else 0), row * 64, 64, 64)
+
 func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
 	var origin: Vector2 = layout.ORIGIN + Vector2(cell) * 64
 	var raised: bool = kind.begins_with("high_")
@@ -51,16 +62,7 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
 		if not joined(cell, Vector2i.DOWN):
 			for half in range(2):
 				draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(half * 32, 64), Vector2(32, 64)), cliff_region(cell, half), tint)
-	# Quarter tiles let narrow strips and isolated squares share clean edges.
-	for y in range(2):
-		for x in range(2):
-			var horizontal := joined(cell, Vector2i(-1 if x == 0 else 1, 0))
-			var vertical := joined(cell, Vector2i(0, -1 if y == 0 else 1))
-			var sx := (64 if horizontal else (0 if x == 0 else 160))
-			var sy := (64 if vertical else (0 if y == 0 else 160))
-			if raised:
-				sx += 320
-			draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(x, y) * 32, Vector2(32, 32)), Rect2(sx, sy, 32, 32), tint)
+	draw_texture_rect_region(textures[kind], Rect2(origin, Vector2(64, 64)), ground_region(cell, kind), tint)
 
 func _draw() -> void:
 	if layout == null:

@@ -73,6 +73,8 @@ An ordinary new build session starts fresh undo history. Cursor 01 is used on bu
 controls, Cursor 04 for valid pickup, Cursor 03 for unavailable edits, and Cursor 02
 for walking. Unavailable targets show Cursor 03 alone, without a red outline or
 red placement preview. Valid placement shows its terrain preview without a cursor overlay.
+Stair-bundle pickup widens Cursor 04 horizontally across two squares toward the
+upper landing, retaining its original corner pixels and one-square height.
 The pointer moves freely; only placement and pickup snap to cells.
 
 The pawn's current tile cannot be removed. The original bush tile can be
@@ -84,7 +86,8 @@ ground; a horizontal stair square starts beside flat land and points toward
 an existing or automatically created raised landing. Stairs orient automatically. Pick up stairs before their
 supporting land. No third floor is offered.
 
-The grid renderer assembles original atlas quarters according to neighbors;
+The grid renderer selects the guide’s sixteen complete 64×64 ground pieces
+according to neighbors, including the dedicated narrow and isolated pieces;
 shore foam, automatic shadows, and land-facing versus water-facing cliffs follow
 the editable layout. Foam frames are staggered between cells. Paper and button nine-slice
 patches and ribbon segments are assembled from the pack's separated source pieces.

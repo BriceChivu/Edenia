@@ -32,6 +32,19 @@ func run() -> void:
  check(not level.editing and not level.ui.panel.visible and level.ui.launch.visible, "Final placement exits building and closes strip")
  level.ui.launch.pressed.emit()
  check(level.editing and level.ui.panel.visible and not level.ui.undo_button.disabled, "Empty inventory reopens with undo retained")
+ level.ui.action_buttons[0].pressed.emit()
+ level.terrain.hover = Vector2i(2,0)
+ level.terrain.valid = true
+ level.update_cursor()
+ check(level.pointer.texture.get_size() == Vector2(135,71), "Stair pickup spans two horizontal squares without increasing height")
+ var cursor_position: Vector2 = level.pointer.position
+ level.pointer_position += Vector2(5,3)
+ level.update_cursor()
+ check(level.pointer.position - cursor_position == Vector2(5,3), "Wide pickup cursor still follows the mouse freely")
+ level.terrain.hover = Vector2i(0,1)
+ level.update_cursor()
+ check(level.pointer.texture.get_size() == Vector2(71,71), "Ordinary tile pickup returns to one square")
+
  level.ui.undo_button.pressed.emit()
  check(level.layout.stock.stairs == 1 and level.editing, "Undo restores final item without closing strip")
  check(level.ui.buttons.stairs.get_node("Remaining").text == "×1", "Undo updates item counter")
@@ -50,6 +63,11 @@ func run() -> void:
   check(level.apply_edit(cell), "Place level-three ground")
  level.ui.buttons.stairs.pressed.emit()
  check(level.apply_edit(Vector2i(-3,0)) and level.editing, "Tree remaining keeps level-three toolbar open")
+ level.ui.action_buttons[0].pressed.emit()
+ level.terrain.hover = Vector2i(-3,0)
+ level.terrain.valid = true
+ level.update_cursor()
+ check(level.pointer.texture.get_size() == Vector2(135,71) and is_equal_approx(level.pointer.position.x, level.pointer_position.x - 99.5), "Left-facing stairs extend the pickup cursor toward their landing")
  level.ui.buttons.tree.pressed.emit()
  check(level.apply_edit(Vector2i(0,1)) and not level.editing, "Final pine placement closes level-three toolbar")
  level.ui.launch.pressed.emit()

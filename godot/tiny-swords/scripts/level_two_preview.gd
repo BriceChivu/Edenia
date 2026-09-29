@@ -20,7 +20,7 @@ var tree_nodes: Array[Node] = []
 var flora_nodes: Array[Node] = []
 var preview_save_enabled := true
 var build_cursor: Texture2D
-var build_cursor_size := 0
+var build_cursor_size := Vector2i.ZERO
 var cursor_mode := ""
 var pointer: Sprite2D
 var pointer_inside := false
@@ -136,15 +136,16 @@ func _input(event: InputEvent) -> void:
 func fit_build_cursor() -> void:
 	# Use the same scene units in native Godot and in the browser.
 	# Seven transparent border pixels leave a 64px span between outer corners.
-	var size := 71
+	var bundle: bool = editing and selected == "remove" and terrain.valid and layout.cells.get(terrain.hover) == "stairs"
+	var size := Vector2i(135, 71) if bundle else Vector2i(71, 71)
 	if size == build_cursor_size:
 		return
 	build_cursor_size = size
 	var source := BUILD_CURSOR.get_image()
-	var assembled := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var assembled := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
 	for y in range(2):
 		for x in range(2):
-			assembled.blend_rect(source, Rect2i(x * 96, y * 96, 32, 32), Vector2i(x * (size - 32), y * (size - 32)))
+			assembled.blend_rect(source, Rect2i(x * 96, y * 96, 32, 32), Vector2i(x * (size.x - 32), y * (size.y - 32)))
 	build_cursor = ImageTexture.create_from_image(assembled)
 	cursor_mode = ""
 
@@ -159,7 +160,9 @@ func update_cursor() -> void:
 	if mode != cursor_mode:
 		cursor_mode = mode
 		pointer.texture = UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
-	var hotspot := Vector2.ONE * build_cursor_size / 2.0 if mode == "build" else Vector2(24, 18)
+	var hotspot := Vector2(35.5, 35.5) if mode == "build" else Vector2(24, 18)
+	if mode == "build" and build_cursor_size.x > build_cursor_size.y and layout.stair_direction(terrain.hover).x < 0:
+		hotspot.x += 64.0
 	pointer.scale = Vector2.ONE
 	pointer.position = pointer_position - hotspot
 	pointer.visible = pointer_inside and mode != "place"
