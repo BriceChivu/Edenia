@@ -14,7 +14,7 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 ## Composition and editable files
 
 - `scenes/level_one.tscn`: native editable nodes for a 2×2 grass island, one small
-  islet, two bushes, one leafy tuft, two water rocks, and six clouds. No buildings,
+  islet, two bushes, one leafy tuft, two water rocks, and six regular clouds plus one rare passing cloud. No buildings,
   trees, ships, or additional units. The blue pawn is restored at the user's
   latest request; the earlier environment-only revision is superseded.
 - `scenes/pawn.tscn` and `scripts/pawn.gd`: reusable idle/run animation and movement.
@@ -30,7 +30,10 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `scripts/cloud.gd`: six enlarged clouds spaced across two slow opposing lanes. Clouds
   wrap beyond the frame; at least four cloud centers remain visible throughout
   a complete cycle. Paths stay above/below the main island.
-- `shaders/water.gdshader`: subtle animated reflected-light ripples over the pack's
+- `scripts/rare_cloud.gd`: a small foreground cloud first enters after 90 seconds,
+  crosses the main island, then waits 180–260 seconds after leaving before another pass.
+- `shaders/water.gdshader`: subtle animated reflected-light ripples only along the
+  outer sides, fading to clear water across the central half, over the pack's
   original turquoise water tile. No separate reflection image was available.
 - `art/environment/`: unchanged Free Pack PNG copies from `assets/tiny-swords`.
   There is no separate flower asset in either downloaded pack; `Bushe4.png` is

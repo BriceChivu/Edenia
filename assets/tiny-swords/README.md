@@ -1,7 +1,7 @@
 # Tiny Swords selected assets
 
-Asset-only preparation for a future level-one design. These images are not
-referenced or loaded by the current app. No level, UI, or rendering is implemented.
+Source assets for Tiny Swords. Selected art is used by the separate local Godot
+preview in `godot/tiny-swords`; the UI collection is stored for future use.
 
 Source: `/Users/brice/Downloads/Tiny Swords (Free Pack)`.
 Imported on 2026-09-28. This pack matches the requested category names and UI
@@ -17,9 +17,8 @@ source's nested `UI Elements/UI Elements` directory. Downloads remain untouched.
 | Terrain/Decorations | 21 | Bushes, clouds, rocks, rocks in water, rubber duck |
 | Terrain/Resources | 31 | Gold, meat/sheep, tools, wood/trees; available highlights included |
 | Particle FX | 8 | Two dust, two explosion, three fire sheets, water splash |
-| UI Elements/UI Elements/Cursors | 2 | `Cursor_02.png`, `Cursor_04.png` |
-| UI Elements/UI Elements/Icons | 4 | `Icon_01.png` through `Icon_04.png` |
-| **Total** | **189** | **1,253,989 bytes of image data** |
+| UI Elements | 77 | Complete folder: bars, buttons, papers, icons, cursors, avatars, swords, wood tables, banners and ribbons, including store-page banners |
+| **Total** | **260** | **1,811,394 bytes of image data** |
 
 Each pawn color includes idle/run sheets with no tool or with axe, gold, hammer,
 knife, meat, pickaxe, or wood, plus interact sheets for axe, hammer, knife, and
@@ -30,9 +29,9 @@ view, House2 an angled entrance/side view, and House3 the side view. These are
 the pack's available house views; no additional rotations or mirrored variants
 were generated.
 
-Only usable PNG assets were copied. Editable source files remain in Downloads.
-Other unit/building types and unselected UI assets are excluded.
+Only usable PNG assets were copied; macOS `.DS_Store` metadata is excluded.
+Other unit/building types remain excluded. On 2026-09-29, the complete UI Elements
+folder was added, preserving its hierarchy and all 77 PNGs (71 newly added).
 
-Verification: all 189 copies match their source SHA-256 hashes; PNG signatures
-and chunk checksums pass; there are no byte-identical duplicate images in the
-selection. Existing application files were not changed.
+Verification: all UI copies match their source SHA-256 hashes, and PNG signatures
+and chunk checksums pass. The original 189-asset import was verified the same way.
