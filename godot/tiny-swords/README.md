@@ -3,27 +3,33 @@
 Open `project.godot` in Godot 4.7, then **F5 / Play Project**.
 The default scene is now `scenes/level_two_preview.tscn`, which inherits the preserved
 level-one environment. **Try level 2** simulates the unlock locally: a celebratory
-ribbon grants exactly five terrain pieces (meadow, golden, teal, raised meadow,
-raised golden) and one pine tree. **Start building** opens the paper inventory.
+ribbon grants six interchangeable ground tiles, two stairs, and one pine tree.
+The inventory has only Ground, Stairs, and Pine: height and art are automatic.
+Flat ground is green; the first elevated floor is gold. A stair placed next to
+flat ground establishes its high end, where the next ground tile becomes raised.
+Ground beside an upper floor extends that floor. Colors are not player choices. **Start building** opens the paper inventory.
 Choose an item: the inventory automatically folds away. Click a grid square. **Pick up** returns a tree first, then the
-ground on a second click; terrain retains its color and elevation in inventory.
+ground on a second click; collected ground returns to the shared inventory.
 **Fold** hides the inventory while keeping the selected tool active, so every
 square remains accessible. **Inventory** reopens it; **Done** resumes walking. Cursor 01 is used on build
-controls, Cursor 04 with full-size corner pieces moved inward to fit one tile for valid edits, Cursor 03 for unavailable edits, and Cursor 02
-for ordinary movement.
+controls, Cursor 04 with full-size corner pieces moved inward for valid edits, Cursor 03 for unavailable edits, and Cursor 02
+for ordinary movement. The cursor follows the mouse freely; a separate subtle
+grid highlight indicates the target tile. Only placement and pickup snap to cells.
 **Undo** reverses changes made during the current editing session.
 
 The home tile and pawn's current tile cannot be removed or planted. Trees block
 movement; disconnected ground becomes reachable when joined. Paths are simplified
-across clear ground, keep a foot margin around water and tree cells, and blend
-height changes at raised edges. Raised tiles use a gentle automatic step-up for
-this prototype; separate stairs and climbing animations are not implemented.
+across clear ground, keep a foot margin around water and tree cells, and climb only along stair ramps. Raised ground is one 64px step above flat
+ground; a horizontal stair square starts beside flat land and points toward
+existing or future raised ground. Stairs orient automatically. Pick up stairs before their
+supporting land. No third floor is offered.
 
 The grid renderer assembles original atlas quarters according to neighbors;
-shore foam and cliffs follow the editable layout. Paper and button nine-slice
+shore foam, automatic shadows, and land-facing versus water-facing cliffs follow
+the editable layout. Foam frames are staggered between cells. Paper and button nine-slice
 patches and ribbon segments are assembled from the pack's separated source pieces.
-Original PNGs are not edited. Five terrain colors remain available in source art;
-the starter reward uses three of them.
+Medieval Sharp is inherited by all game UI text. Original PNGs are not edited. Five terrain colors remain available in source art;
+the automatic level-two palette uses green and gold.
 
 Layout and reward state save only to the preview browser's local storage (or
 `user://builder_preview.json` in native Godot). This is a local design prototype,
@@ -138,3 +144,22 @@ Builder checks cover one-time rewards, inventory conservation, pickup, undo,
 JSON persistence, tree blocking, raised-ground travel, direct clear routes, smooth
 elevation changes, and falling/respawning after edits. Browser checks cover the
 celebration, inventory, placement, persistence through refresh, and phone rendering.
+
+Terrain reference: https://pixelfrog-assets.itch.io/tiny-swords/devlog/1138989/tilemap-guide
+Font identification by the creator: https://itch.io/t/6847515/font
+Font source: https://github.com/google/fonts/tree/main/ofl/medievalsharp
+
+Preview save version 3 migrates older layouts in place, adding one meadow
+piece and two stairs once. It preserves placements and elevations, applying the automatic palette.
+Version 3 also saves each stair direction so unfinished stairs survive reload.
+Cloud size, layering, shadow offset, and shadow opacity share one altitude value.
+The pointer is rendered by Godot with the native pointer hidden inside its canvas.
+Cursors 01–03 retain their original 64px dimensions; Cursor 04 has unscaled
+corner pieces separated to span one 64px grid square. All cursors use scene
+coordinates with no browser-specific enlargement, matching native Godot.
+The pointer moves freely rather than snapping.
+
+A new movement click cancels a water approach until the actual step-off begins.
+Font weight is slightly strengthened to match the reference lettering. Cloud
+width has a visible-art minimum, and baked shadow offsets are normalized before
+altitude determines their distance and opacity.

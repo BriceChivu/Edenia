@@ -11,37 +11,21 @@ var layout = Layout.new()
 var terrain
 var ui
 var editing := false
-var selected := "meadow"
+var selected := "ground"
 var history: Array[Dictionary] = []
+var movement_generation := 0
 var waypoints: Array[Vector2] = []
 var tree_nodes: Array[Node] = []
 var preview_save_enabled := true
 var build_cursor: Texture2D
-var grid_cursor: Node2D
+var build_cursor_size := 0
 var cursor_mode := ""
+var pointer: Sprite2D
+var pointer_inside := false
+var pointer_position := Vector2.ZERO
 
 func _ready() -> void:
 	super._ready()
-	# Cursor 04 is drawn in world space so its corners match the tile at any zoom.
-	var cursor_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
-	cursor_image.fill(Color.TRANSPARENT)
-	build_cursor = ImageTexture.create_from_image(cursor_image)
-	grid_cursor = Node2D.new()
-	# Keep each original corner at 1:1 scale; only remove the empty gap between
-	# quadrants, matching the stretchable cursor shown in the pack's UI demo.
-	for y in range(2):
-		for x in range(2):
-			var corner := Sprite2D.new()
-			var atlas := AtlasTexture.new()
-			atlas.atlas = BUILD_CURSOR
-			atlas.region = Rect2(x * 96, y * 96, 32, 32)
-			corner.texture = atlas
-			corner.centered = false
-			corner.position = Vector2(x * 32 - 32, y * 32 - 32)
-			grid_cursor.add_child(corner)
-	grid_cursor.z_index = 15
-	grid_cursor.hide()
-	add_child(grid_cursor)
 	for name in ["Islands", "IslandShadows", "ShoreFoam"]:
 		get_node(name).hide()
 	if preview_save_enabled:
@@ -54,6 +38,16 @@ func _ready() -> void:
 	ui = BuilderUI.new()
 	ui.layout = layout
 	add_child(ui)
+	var pointer_layer := CanvasLayer.new()
+	pointer_layer.layer = 100
+	add_child(pointer_layer)
+	pointer = Sprite2D.new()
+	pointer.centered = false
+	pointer.hide()
+	pointer_layer.add_child(pointer)
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	get_window().mouse_entered.connect(func(): pointer_inside = true)
+	get_window().mouse_exited.connect(func(): pointer_inside = false)
 	ui.unlock_requested.connect(unlock_level_two)
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
@@ -68,8 +62,6 @@ func _ready() -> void:
 	refresh()
 
 func refresh() -> void:
-	Input.set_custom_mouse_cursor(UI_CURSOR, Input.CURSOR_POINTING_HAND, Vector2(24, 18))
-	Input.set_custom_mouse_cursor(INVALID_CURSOR, Input.CURSOR_FORBIDDEN, Vector2(24, 18))
 	update_cursor()
 	terrain.editing = editing
 	terrain.tool = selected
@@ -106,29 +98,65 @@ func _process(_delta: float) -> void:
 	if editing:
 		terrain.hover = clicked_cell(get_global_mouse_position())
 		terrain.valid = layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position))
-		grid_cursor.position = layout.center(terrain.hover) - Vector2(0, layout.height_at(terrain.hover))
-		grid_cursor.visible = terrain.valid
-		update_cursor()
-	else:
-		grid_cursor.hide()
+	update_cursor()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		pointer_inside = get_viewport().get_visible_rect().has_point(event.position)
+		pointer_position = event.position
+
+func fit_build_cursor() -> void:
+	# Use the same scene units in native Godot and in the browser.
+	# Seven transparent border pixels leave a 64px span between outer corners.
+	var size := 71
+	if size == build_cursor_size:
+		return
+	build_cursor_size = size
+	var source := BUILD_CURSOR.get_image()
+	var assembled := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	for y in range(2):
+		for x in range(2):
+			assembled.blend_rect(source, Rect2i(x * 96, y * 96, 32, 32), Vector2i(x * (size - 32), y * (size - 32)))
+	build_cursor = ImageTexture.create_from_image(assembled)
+	cursor_mode = ""
 
 func update_cursor() -> void:
-	var mode := "walk" if not editing else ("build" if terrain.valid else "invalid")
-	if mode == cursor_mode:
+	if pointer == null:
 		return
-	cursor_mode = mode
-	var texture = CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR)
-	Input.set_custom_mouse_cursor(texture, Input.CURSOR_ARROW, Vector2.ZERO if mode == "build" else Vector2(24, 18))
+	fit_build_cursor()
+	var mode := "walk" if not editing else ("build" if terrain.valid else "invalid")
+	var hovered := get_viewport().gui_get_hovered_control()
+	if hovered != null and (hovered == ui.root or ui.root.is_ancestor_of(hovered)):
+		mode = "invalid" if hovered is BaseButton and hovered.disabled else "ui"
+	if mode != cursor_mode:
+		cursor_mode = mode
+		pointer.texture = UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
+	var hotspot := Vector2.ONE * build_cursor_size / 2.0 if mode == "build" else Vector2(24, 18)
+	pointer.scale = Vector2.ONE
+	pointer.position = pointer_position - hotspot
+	pointer.visible = pointer_inside
 
 func clicked_cell(point: Vector2) -> Vector2i:
+	for cell in layout.cells:
+		if layout.cells[cell] == "stairs":
+			var height := ground_height(Vector2(point.x, layout.center(cell).y))
+			if Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, height), Vector2(64, 64)).has_point(point):
+				return cell
 	# Raised top faces are selectable where they are drawn, not beneath them.
 	for cell in layout.cells:
-		if layout.height_at(cell) > 0 and Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, 32), Vector2(64, 64)).has_point(point):
+		if layout.height_at(cell) > 0 and Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.height_at(cell)), Vector2(64, 64)).has_point(point):
 			return cell
+	if editing and selected == "ground":
+		for y in range(Layout.MIN_CELL.y, Layout.MAX_CELL.y + 1):
+			for x in range(Layout.MIN_CELL.x, Layout.MAX_CELL.x + 1):
+				var cell := Vector2i(x, y)
+				if not layout.cells.has(cell) and layout.automatic_kind(cell) == "high_gold":
+					if Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, 64), Vector2(64, 64)).has_point(point):
+						return cell
 	return layout.cell_at(point)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if ui == null or ui.celebration != null or water_phase != WaterPhase.READY:
+	if ui == null or ui.celebration != null or water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
@@ -136,7 +164,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if editing:
 			apply_edit(cell)
 		elif layout.cells.has(cell):
-			walk_on_land(cell, point + Vector2(0, layout.height_at(cell)))
+			walk_on_land(cell, point + Vector2(0, ground_height(Vector2(point.x, layout.center(cell).y))))
 		else:
 			fall_into_water(point)
 
@@ -183,6 +211,11 @@ func rebuild_decorations() -> void:
 		tree_nodes.append(tree)
 
 func walk_on_land(cell: Vector2i, point: Vector2) -> void:
+	movement_generation += 1
+	if water_phase == WaterPhase.APPROACHING:
+		water_phase = WaterPhase.READY
+		waypoints.clear()
+		pawn.walk_to(pawn.position)
 	var from: Vector2i = layout.cell_at(pawn.position)
 	var path: Array[Vector2i] = layout.path(from, cell)
 	if layout.trees.has(cell) or (path.is_empty() and from != cell):
@@ -209,8 +242,13 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 
 func clear_segment(start: Vector2, end: Vector2) -> bool:
 	var samples := maxi(1, ceili(start.distance_to(end) / 4.0))
+	var previous: Vector2i = layout.cell_at(start)
 	for i in range(samples + 1):
 		var point := start.lerp(end, float(i) / samples)
+		var current: Vector2i = layout.cell_at(point)
+		if current != previous and not layout.can_cross(previous, current):
+			return false
+		previous = current
 		for offset in [Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]:
 			var cell: Vector2i = layout.cell_at(point + offset)
 			if not layout.cells.has(cell) or layout.trees.has(cell):
@@ -219,18 +257,11 @@ func clear_segment(start: Vector2, end: Vector2) -> bool:
 
 func ground_height(point: Vector2) -> float:
 	var cell: Vector2i = layout.cell_at(point)
-	var base: float = layout.height_at(cell)
-	var local: Vector2 = point - (layout.ORIGIN + Vector2(cell) * 64)
-	var result := base
-	for step in Layout.STEPS:
-		var neighbor: Vector2i = cell + step
-		if not layout.cells.has(neighbor):
-			continue
-		var distance: float = local.x if step == Vector2i.LEFT else (64 - local.x if step == Vector2i.RIGHT else (local.y if step == Vector2i.UP else 64 - local.y))
-		if distance < 16:
-			var blend: float = (16 - distance) / 32.0
-			result += (layout.height_at(neighbor) - base) * blend
-	return result
+	if layout.cells.get(cell) == "stairs":
+		var direction: Vector2i = layout.stair_direction(cell)
+		var progress: float = (point.x - layout.ORIGIN.x - cell.x * 64) / 64.0
+		return clampf(progress if direction.x > 0 else 1.0 - progress, 0.0, 1.0) * 64.0
+	return layout.height_at(cell)
 
 func fall_into_water(point: Vector2) -> void:
 	var from: Vector2i = layout.cell_at(pawn.position)
@@ -253,8 +284,11 @@ func fall_into_water(point: Vector2) -> void:
 	var edge: Vector2 = layout.center(shore) + direction * 20
 	walk_on_land(shore, edge)
 	water_phase = WaterPhase.APPROACHING
+	var generation := movement_generation
 	while not waypoints.is_empty() or pawn.position.distance_to(edge) > 0.2:
 		await get_tree().physics_frame
+		if generation != movement_generation or water_phase != WaterPhase.APPROACHING:
+			return
 	var height: float = layout.height_at(shore)
 	var landing: Vector2 = layout.center(shore) + direction * 64
 	water_phase = WaterPhase.FALLING
@@ -313,6 +347,7 @@ func load_layout() -> void:
 			layout.restore(data)
 
 func _exit_tree() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	super._exit_tree()
 	Input.set_custom_mouse_cursor(null, Input.CURSOR_POINTING_HAND)
 	Input.set_custom_mouse_cursor(null, Input.CURSOR_FORBIDDEN)

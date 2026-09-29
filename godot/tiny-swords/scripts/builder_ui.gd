@@ -6,7 +6,7 @@ signal edit_toggled
 signal undo_requested
 signal reset_requested
 
-const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine"}
+const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}
 var root: Control
 var panel: PanelContainer
 var launch: Button
@@ -71,9 +71,12 @@ func _ready() -> void:
 	root = Control.new()
 	root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var ui_theme := Theme.new()
-	var ui_font = ThemeDB.fallback_font.duplicate()
+	var ui_font = load("res://art/builder/MedievalSharp.ttf").duplicate()
 	ui_font.multichannel_signed_distance_field = true
-	ui_theme.default_font = ui_font
+	var weighted_font := FontVariation.new()
+	weighted_font.base_font = ui_font
+	weighted_font.variation_embolden = 0.5
+	ui_theme.default_font = weighted_font
 	root.theme = ui_theme
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
@@ -99,15 +102,19 @@ func _ready() -> void:
 	var grid := GridContainer.new()
 	grid.columns = 3
 	column.add_child(grid)
-	for kind in layout.KINDS + ["tree"]:
+	for kind in ["ground", "stairs", "tree"]:
 		var b := make_button(NAMES[kind], func(): tool_selected.emit(kind))
 		b.custom_minimum_size = Vector2(128, 54)
 		b.expand_icon = true
 		b.add_theme_constant_override("icon_max_width", 38)
-		if kind == "tree":
+		if kind == "stairs":
+			b.icon = atlas(load("res://art/builder/Tilemap_color2.png"), Rect2(0, 256, 64, 128))
+			b.tooltip_text = "Place beside flat ground, then add ground at the high end.
+Stairs face away from low ground automatically."
+		elif kind == "tree":
 			b.icon = atlas(load("res://art/builder/Tree1.png"), Rect2(0, 0, 192, 256))
 		else:
-			b.icon = atlas(load("res://art/builder/Tilemap_color%s.png" % layout.COLORS[kind]), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
+			b.icon = atlas(load("res://art/builder/Tilemap_color%s.png" % (2 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
 		grid.add_child(b)
 		buttons[kind] = b
 	var row := HBoxContainer.new()
@@ -145,18 +152,18 @@ func arrange() -> void:
 	scale_ui = maxf(1.0, size.x / maxf(physical.x, 1))
 	compact = physical.x < 500
 	for kind in buttons:
-		buttons[kind].custom_minimum_size = Vector2(90, 36) if compact else Vector2(128, 54)
-		buttons[kind].add_theme_font_size_override("font_size", 12 if compact else 16)
-		buttons[kind].add_theme_constant_override("icon_max_width", 20 if compact else 38)
+		buttons[kind].custom_minimum_size = Vector2(90, 50) if compact else Vector2(128, 64)
+		buttons[kind].add_theme_font_size_override("font_size", 11 if compact else 14)
+		buttons[kind].add_theme_constant_override("icon_max_width", 16 if compact else 28)
 	for button in action_buttons:
 		button.custom_minimum_size = Vector2(64, 32) if compact else Vector2(90, 40)
-		button.add_theme_font_size_override("font_size", 12 if compact else 16)
+		button.add_theme_font_size_override("font_size", 11 if compact else 14)
 	status.add_theme_font_size_override("font_size", 12 if compact else 14)
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	launch.size = Vector2(140, 44)
 	launch.position = area - launch.size - Vector2(14, 14)
-	panel.size = Vector2(310, 206) if compact else Vector2(418, 238)
+	panel.size = Vector2(310, 180) if compact else Vector2(418, 210)
 	panel.position = Vector2(area.x - panel.size.x - 14, area.y - panel.size.y - 14)
 	if celebration != null:
 		var fit := minf(1.0, minf((area.x - 12) / 470.0, (area.y - 12) / 300.0))
@@ -172,9 +179,10 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	launch.visible = (not editing or collapsed) and celebration == null
 	panel.visible = editing and not collapsed and celebration == null
 	for kind in buttons:
-		var name: String = {"meadow": "Grass", "gold": "Gold", "violet": "Teal", "high_meadow": "Green +", "high_gold": "Gold +", "tree": "Pine"}[kind] if compact else NAMES[kind]
-		buttons[kind].text = "%s ×%s" % [name, layout.stock[kind]]
-		buttons[kind].disabled = layout.stock[kind] == 0
+		var name: String = {"meadow": "Grass", "gold": "Gold", "violet": "Teal", "high_meadow": "Green +", "high_gold": "Gold +", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}[kind] if compact else NAMES[kind]
+		var count: int = layout.ground_count() if kind == "ground" else layout.stock[kind]
+		buttons[kind].text = "%s ×%s" % [name, count]
+		buttons[kind].disabled = count == 0
 		buttons[kind].mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if buttons[kind].disabled else Control.CURSOR_POINTING_HAND
 		buttons[kind].modulate = Color("ffdf8d") if kind == selected else Color.WHITE
 	undo_button.disabled = not can_undo
@@ -208,7 +216,7 @@ func celebrate() -> void:
 	heading.add_theme_constant_override("shadow_offset_y", 2)
 	celebration.add_child(heading)
 	var message := Label.new()
-	message.text = "Congratulations! Make this island yours.\n\n5 mixed terrain tiles  +  1 pine tree\nNew colors, raised ground, new possibilities.\nPlace, pick up, and rearrange as you like."
+	message.text = "Congratulations! Make this island yours.\n\n8 terrain pieces  +  1 pine tree\n6 ground tiles + 2 stairs.\nGround style follows its height automatically."
 	message.position = Vector2(40, 113)
 	message.size = Vector2(390, 105)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

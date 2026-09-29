@@ -17,5 +17,4 @@ func _process(delta: float) -> void:
 		position.x = -360.0 if direction > 0 else 1512.0
 		set_altitude(randf_range(0.65, 1.0) if randf() < 0.25 else randf_range(0.0, 0.3))
 		position.y = randf_range(20.0, 90.0) if upper_lane else randf_range(415.0, 480.0)
-		scale = Vector2.ONE * randf_range(0.65, 1.7)
 		drift_speed = randf_range(2.0, 5.0) * direction

@@ -27,10 +27,12 @@ func run() -> void:
 	var original_rock_frame: int = rock.frame
 	cloud.set_altitude(0.1)
 	check(cloud.z_index < level.get_node("World").z_index, "Low clouds stay behind trees and pawn")
+	var low_scale: float = cloud.scale.x
 	var low_opacity: float = cloud.shadow_sprite.material.get_shader_parameter("opacity")
 	cloud.set_altitude(0.9)
 	check(cloud.z_index > level.get_node("World").z_index, "High clouds may cover the world")
-	check(cloud.shadow_sprite.position.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
+	check((cloud.shadow_sprite.position.y + cloud.baked_shadow_offset.y) * cloud.scale.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
+	check(cloud.scale.x > low_scale * 1.5, "High clouds look closer and larger")
 	var original_x: float = cloud.position.x
 	await create_timer(0.45).timeout
 	check(foam.frame != original_frame, "Shore foam advances")

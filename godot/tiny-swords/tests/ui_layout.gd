@@ -13,6 +13,10 @@ func run() -> void:
 		await create_timer(0.2).timeout
 		level.ui.refresh(true, "meadow", false)
 		await process_frame
+		level.update_cursor()
+		if level.pointer.scale != Vector2.ONE:
+			failures += 1
+			push_error("Cursor proportions match native scene at every frame width")
 		var panel = level.ui.panel
 		var bounds := Rect2(Vector2.ZERO, root.get_visible_rect().size / level.ui.root.scale)
 		if not bounds.encloses(Rect2(panel.position, panel.size)):
