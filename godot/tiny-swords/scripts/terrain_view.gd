@@ -5,6 +5,8 @@ var piece = null
 var layout
 var editing := false
 var hover := Vector2i(999, 999)
+var preview_position := Vector2.ZERO
+var tree_texture := preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")
 var valid := false
 var tool := "meadow"
 var elapsed := 0.0
@@ -72,6 +74,7 @@ func _draw() -> void:
 		hover = editor_source.hover
 		valid = editor_source.valid
 		tool = editor_source.tool
+		preview_position = editor_source.preview_position
 		draw_editor()
 		return
 	if piece != null:
@@ -96,6 +99,14 @@ func _draw() -> void:
 			draw_texture_rect_region(shadow, Rect2(p - Vector2(32, 32), Vector2(128, 128)), Rect2(32, 32, 128, 128))
 	# Raised surfaces are separate Y-sorted World pieces.
 
+func placement_offset() -> Vector2:
+	# Only the target cell snaps; the held artwork follows every mouse motion.
+	return preview_position - (layout.center(hover) - Vector2(0, layout.height_at(hover)))
+
+func tree_preview_rect() -> Rect2:
+	var frame_size := Vector2(tree_texture.get_width() / 8.0, tree_texture.get_height())
+	return Rect2(preview_position + (Vector2(0, -112) - frame_size / 2) * 0.8, frame_size * 0.8)
+
 func draw_editor() -> void:
 	if editing:
 		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 1):
@@ -103,10 +114,14 @@ func draw_editor() -> void:
 				draw_rect(Rect2(layout.ORIGIN + Vector2(x, y) * 64, Vector2(64, 64)), Color(0.9, 1, 0.9, 0.14), false, 1)
 		if layout.in_bounds(hover) and valid:
 			var tint := Color(0.7, 1, 0.65, 0.6)
+			draw_set_transform(placement_offset())
 			if (tool == "ground" or tool in layout.KINDS) and not layout.cells.has(hover):
 				draw_tile(hover, layout.automatic_kind(hover) if tool == "ground" else tool, tint)
 				if tool == "stairs" and valid:
 					var landing: Vector2i = hover + layout.available_stair_direction(hover)
 					if not layout.cells.has(landing):
 						draw_tile(landing, "high_gold", tint)
+			draw_set_transform(Vector2.ZERO)
+			if tool == "tree":
+				draw_texture_rect_region(tree_texture, tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
 			draw_rect(Rect2(layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, layout.height_at(hover)), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)

@@ -120,7 +120,8 @@ func _process(_delta: float) -> void:
 		if not waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 			pawn.walk_to(waypoints.pop_front())
 	if editing:
-		terrain.hover = clicked_cell(get_global_mouse_position())
+		terrain.preview_position = get_global_mouse_position()
+		terrain.hover = clicked_cell(terrain.preview_position)
 		terrain.valid = layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position))
 	update_cursor()
 
