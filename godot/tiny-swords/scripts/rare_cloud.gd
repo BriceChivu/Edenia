@@ -14,6 +14,7 @@ func _process(delta: float) -> void:
 		direction = 1.0 if randf() > 0.5 else -1.0
 		speed = randf_range(16.0, 26.0)
 		position = Vector2(-400.0 if direction > 0 else 1552.0, randf_range(175.0, 285.0))
+		next_variant(true)
 		set_altitude(randf_range(0.7, 1.0))
 		crossing = true
 		show()

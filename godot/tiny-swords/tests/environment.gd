@@ -35,7 +35,7 @@ func run() -> void:
 	check(cloud.scale.x > low_scale * 1.5, "High clouds look closer and larger")
 	for moving_cloud in level.get_node("Clouds").get_children():
 		moving_cloud.set_altitude(1.0)
-		check(moving_cloud.texture.get_image().get_used_rect().size.x >= 400 and moving_cloud.scale.x <= 1.351, "Large clouds use large source artwork with capped enlargement")
+		check(moving_cloud.scale.x <= 1.351, "Cloud enlargement stays bounded")
 	var all_clouds: Array = level.get_node("Clouds").get_children()
 	all_clouds.append(level.get_node("PassingCloud"))
 	for moving_cloud in all_clouds:
@@ -44,6 +44,20 @@ func run() -> void:
 			check(moving_cloud.baked_shadow_offset.y > 0 and moving_cloud.shadow_sprite.position.y >= 0, "Shadow always stays below cloud with at least original PNG spacing")
 			if height == 0.0:
 				check(moving_cloud.shadow_sprite.position == Vector2.ZERO, "Minimum cloud height preserves original PNG shadow placement exactly")
+	var seen := {}
+	for variant in range(8):
+		cloud.set_variant(variant)
+		cloud.set_altitude(1.0)
+		check(cloud.texture == cloud.VARIANTS[variant] and cloud.shadow_sprite.texture == cloud.texture, "Each original variant supplies its body and matching shadow")
+		if cloud.texture.get_image().get_used_rect().size.x < 400:
+			check(cloud.scale.x <= 1.0 and cloud.altitude <= 0.3 and cloud.z_index < 0, "Small source art stays small and low")
+	cloud.set_variant(0)
+	for cycle in range(8):
+		seen[cloud.variant_index] = true
+		cloud.position.x = 1600.0
+		cloud._process(0.0)
+	check(seen.size() == 8, "Real offscreen wrap uses all eight cloud variants")
+	cloud.position.x = 100.0
 	var original_x: float = cloud.position.x
 	await create_timer(0.45).timeout
 	check(foam.frame != original_frame, "Shore foam advances")

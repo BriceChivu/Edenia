@@ -111,7 +111,7 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `scripts/cloud_visual.gd` and `shaders/cloud_layer.gdshader`: separate original
   cloud and shadow pixels at render time. Low clouds draw behind foliage; high
   clouds draw above it, with larger shadow offsets and lower opacity.
-- `scripts/rare_cloud.gd`: a small foreground cloud first enters after 4–7 minutes,
+- `scripts/rare_cloud.gd`: a rare foreground cloud first enters after 4–7 minutes,
   then waits 6–10 minutes after leaving before another pass. Each pass varies in
   height, scale, direction, and speed.
 - `shaders/water.gdshader`: subtle animated reflected-light ripples only along the
@@ -204,8 +204,11 @@ The pointer moves freely rather than snapping.
 
 A new movement click cancels a water approach until the actual step-off begins.
 Font weight is slightly strengthened to match the reference lettering. Cloud
-width has a visible-art minimum, and baked shadow offsets are normalized before
-altitude determines their distance and opacity.
+variants retain their native relative sizes, with no common minimum width. All
+eight original Clouds_01–08 images cycle through the regular cloud lanes off-screen.
+Small and medium artwork stays at 0.65–0.86× scale and low altitude; only the two
+large source images can become high foreground clouds, capped at 1.35×.
+Matching shadows preserve the source spacing and move farther down with altitude.
 
 Terrain joins follow the guide’s illustrated stair connections: the high landing
 opens both its walkable rim and cliff, joined cliff faces use center pieces,

@@ -1,14 +1,41 @@
 extends Sprite2D
 
+const VARIANTS := [
+	preload("res://art/environment/Clouds_01.png"),
+	preload("res://art/environment/Clouds_02.png"),
+	preload("res://art/environment/Clouds_03.png"),
+	preload("res://art/environment/Clouds_04.png"),
+	preload("res://art/environment/Clouds_05.png"),
+	preload("res://art/environment/Clouds_06.png"),
+	preload("res://art/environment/Clouds_07.png"),
+	preload("res://art/environment/Clouds_08.png"),
+]
+var variant_index := 0
 var shadow_sprite: Sprite2D
 var altitude := 0.0
 var baked_shadow_offset := Vector2.ZERO
 
 func _ready() -> void:
-	# Tiny source clouds cannot meet the scene minimum without chunky enlargement.
-	# Use a detailed large source instead, then vary its apparent size by altitude.
-	if texture.get_image().get_used_rect().size.x < 400:
-		texture = preload("res://art/environment/Clouds_01.png")
+	var body_material := ShaderMaterial.new()
+	body_material.shader = preload("res://shaders/cloud_layer.gdshader")
+	material = body_material
+	shadow_sprite = Sprite2D.new()
+	shadow_sprite.texture = texture
+	shadow_sprite.z_as_relative = false
+	shadow_sprite.z_index = -10
+	var shadow_material := ShaderMaterial.new()
+	shadow_material.shader = preload("res://shaders/cloud_layer.gdshader")
+	shadow_material.set_shader_parameter("shadow_only", true)
+	shadow_sprite.material = shadow_material
+	add_child(shadow_sprite)
+	set_variant(get_index() % VARIANTS.size())
+	set_altitude(0.0)
+
+func set_variant(index: int) -> void:
+	variant_index = posmod(index, VARIANTS.size())
+	texture = VARIANTS[variant_index]
+	if shadow_sprite != null:
+		shadow_sprite.texture = texture
 	var pixels := texture.get_image()
 	var body_sum := Vector2.ZERO
 	var shadow_sum := Vector2.ZERO
@@ -27,28 +54,22 @@ func _ready() -> void:
 				body_count += 1
 	if shadow_count > 0 and body_count > 0:
 		baked_shadow_offset = shadow_sum / shadow_count - body_sum / body_count
-	var body_material := ShaderMaterial.new()
-	body_material.shader = preload("res://shaders/cloud_layer.gdshader")
-	material = body_material
-	shadow_sprite = Sprite2D.new()
-	shadow_sprite.texture = texture
-	shadow_sprite.z_as_relative = false
-	shadow_sprite.z_index = -10
-	var shadow_material := ShaderMaterial.new()
-	shadow_material.shader = preload("res://shaders/cloud_layer.gdshader")
-	shadow_material.set_shader_parameter("shadow_only", true)
-	shadow_sprite.material = shadow_material
-	add_child(shadow_sprite)
-	set_altitude(0.0)
+
+func next_variant(large_only: bool = false) -> void:
+	var next := (variant_index + 1) % VARIANTS.size()
+	while large_only and VARIANTS[next].get_image().get_used_rect().size.x < 400:
+		next = (next + 1) % VARIANTS.size()
+	set_variant(next)
 
 func set_altitude(value: float) -> void:
-	altitude = clampf(value, 0.0, 1.0)
+	var painted_width := float(texture.get_image().get_used_rect().size.x)
+	# Small source art remains a small, low cloud; only large art goes overhead.
+	altitude = clampf(value, 0.0, 1.0 if painted_width >= 400 else 0.3)
 	# Low clouds are behind all Y-sorted foliage and the pawn. Only high clouds
 	# pass above the world, with their shadows farther away and more transparent.
 	z_index = 5 if altitude >= 0.6 else -5
 	# Perspective and shadow distance share one height, with bounded variation.
-	var painted_width := maxf(1.0, texture.get_image().get_used_rect().size.x)
-	scale = Vector2.ONE * minf(1.35, lerpf(300.0, 680.0, altitude) / painted_width * randf_range(0.95, 1.05))
+	scale = Vector2.ONE * lerpf(0.65, 1.35, altitude)
 	if shadow_sprite != null:
 		# Keep the PNG's original shadow placement at minimum altitude.
 		# Additional height can only push it downward, never back into the cloud.
