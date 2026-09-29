@@ -163,3 +163,8 @@ A new movement click cancels a water approach until the actual step-off begins.
 Font weight is slightly strengthened to match the reference lettering. Cloud
 width has a visible-art minimum, and baked shadow offsets are normalized before
 altitude determines their distance and opacity.
+
+Terrain joins follow the guide’s illustrated stair connections: the high landing
+opens both its walkable rim and cliff, joined cliff faces use center pieces,
+and stairs share the gold upper-floor atlas. The base floor uses the distinct
+green third palette. Water rocks render below all player-built terrain.

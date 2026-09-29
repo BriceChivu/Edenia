@@ -108,13 +108,13 @@ func _ready() -> void:
 		b.expand_icon = true
 		b.add_theme_constant_override("icon_max_width", 38)
 		if kind == "stairs":
-			b.icon = atlas(load("res://art/builder/Tilemap_color2.png"), Rect2(0, 256, 64, 128))
+			b.icon = atlas(load("res://art/builder/Tilemap_color1.png"), Rect2(0, 256, 64, 128))
 			b.tooltip_text = "Place beside flat ground, then add ground at the high end.
 Stairs face away from low ground automatically."
 		elif kind == "tree":
 			b.icon = atlas(load("res://art/builder/Tree1.png"), Rect2(0, 0, 192, 256))
 		else:
-			b.icon = atlas(load("res://art/builder/Tilemap_color%s.png" % (2 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
+			b.icon = atlas(load("res://art/builder/Tilemap_color%s.png" % (3 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
 		grid.add_child(b)
 		buttons[kind] = b
 	var row := HBoxContainer.new()

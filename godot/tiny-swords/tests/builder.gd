@@ -13,7 +13,15 @@ func run() -> void:
 	root.add_child(level)
 	await process_frame
 	var layout = level.layout
+	check(level.get_node("WaterRocks").z_index < level.terrain.z_index, "New terrain covers water rocks")
+	check(layout.COLORS.stairs == layout.COLORS.high_gold and layout.COLORS.meadow != layout.COLORS.high_gold, "Stairs match the upper floor and floor colors differ")
 	check(not layout.can_edit(Vector2i(2, 0), "meadow", Vector2i.ZERO), "Locked before level two")
+	layout.cells[Vector2i(4, 1)] = "meadow"
+	level.rebuild_decorations()
+	check(not level.get_node("WaterRocks/EastRock").visible, "Building over a water rock removes the whole decoration")
+	layout.cells.erase(Vector2i(4, 1))
+	level.rebuild_decorations()
+	check(level.get_node("WaterRocks/EastRock").visible, "Picking the covering ground back up restores the water decoration")
 	level.unlock_level_two()
 	check(level.ui.celebration != null, "Level two ribbon shown")
 	layout.unlock()
@@ -48,6 +56,8 @@ func run() -> void:
 	level.selected = "stairs"
 	check(level.apply_edit(Vector2i(3, 0)), "Stairs connect flat and raised land")
 	check(not layout.path(Vector2i.ZERO, Vector2i(4, 0)).is_empty(), "Raised land is reachable via stairs")
+	check(level.terrain.joined(Vector2i(4, 0), Vector2i.LEFT), "Upper terrain opens its edge at the stair landing")
+	check(level.terrain.joined(Vector2i(2, 0), Vector2i.RIGHT), "Flat terrain opens its edge at the stair foot")
 	check(level.clicked_cell(layout.center(Vector2i(3, 0)) - Vector2(0, 32)) == Vector2i(3, 0), "Stair ramp can be selected at its visible height")
 	check(not layout.can_cross(Vector2i(2, 0), Vector2i(4, 0)), "Cannot jump across cells")
 	check(not layout.can_edit(Vector2i(2, 0), "remove", Vector2i.ZERO), "Remove stairs before their supporting land")

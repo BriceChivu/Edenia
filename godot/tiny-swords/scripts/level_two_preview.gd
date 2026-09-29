@@ -28,6 +28,8 @@ func _ready() -> void:
 	super._ready()
 	for name in ["Islands", "IslandShadows", "ShoreFoam"]:
 		get_node(name).hide()
+	# Player-built land and stairs cover water decorations naturally.
+	$WaterRocks.z_index = -17
 	if preview_save_enabled:
 		load_layout()
 	terrain = TerrainView.new()
@@ -190,6 +192,14 @@ func undo() -> void:
 	refresh()
 
 func rebuild_decorations() -> void:
+	for rock in $WaterRocks.get_children():
+		rock.visible = true
+		for cell in layout.cells:
+			var height: float = 64.0 if layout.cells[cell] == "stairs" else layout.height_at(cell)
+			var occupied_area := Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, height), Vector2(64, 64 + height))
+			if occupied_area.has_point(rock.position):
+				rock.hide()
+				break
 	for node in tree_nodes:
 		node.queue_free()
 	tree_nodes.clear()
