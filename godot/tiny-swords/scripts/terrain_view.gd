@@ -60,6 +60,10 @@ func ground_region(cell: Vector2i, kind: String) -> Rect2:
 	var down := joined(cell, Vector2i.DOWN)
 	var column := (1 if left else 0) if right else (2 if left else 3)
 	var row := (1 if up else 0) if down else (2 if up else 3)
+	if kind.begins_with("high_") and (stair_joins(cell, Vector2i.LEFT) or stair_joins(cell, Vector2i.RIGHT)):
+		# Guide examples 1 and 2 use a complete open connector at the
+		# ramp's upper end. A bottom-edge piece draws a lip across the join.
+		row = 1 if up else 0
 	return Rect2(column * 64 + (320 if kind.begins_with("high_") else 0), row * 64, 64, 64)
 
 func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
@@ -73,20 +77,7 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
 		origin.y -= 64
 		if not joined(cell, Vector2i.DOWN):
 			draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(0, 64), Vector2(64, 64)), cliff_region(cell), tint)
-	var region := ground_region(cell, kind)
-	if raised and (stair_joins(cell, Vector2i.LEFT) or stair_joins(cell, Vector2i.RIGHT)):
-		# The ramp joins the walkable surface and cliff, so no grass lip
-		# may cut across that connection. Preserve the far edge and top rim.
-		var connector := region
-		connector.position.y = 64 if joined(cell, Vector2i.UP) else 0
-		for half in range(2):
-			var side := Vector2i.LEFT if half == 0 else Vector2i.RIGHT
-			var source := connector if stair_joins(cell, side) else region
-			source.position.x += half * 32
-			source.size.x = 32
-			draw_texture_rect_region(textures[kind], Rect2(origin + Vector2(half * 32, 0), Vector2(32, 64)), source, tint)
-	else:
-		draw_texture_rect_region(textures[kind], Rect2(origin, Vector2(64, 64)), region, tint)
+	draw_texture_rect_region(textures[kind], Rect2(origin, Vector2(64, 64)), ground_region(cell, kind), tint)
 
 func _draw() -> void:
 	if layout == null:

@@ -33,6 +33,19 @@ func _initialize() -> void:
  check(view.cliff_region(Vector2i.RIGHT) == Rect2(448,320,64,64), "Stair landing uses complete connected water cliff")
  view.layout.cells[Vector2i(1,1)] = "meadow"
  check(view.cliff_region(Vector2i.RIGHT) == Rect2(448,256,64,64), "Cliff uses the land-facing piece over lower ground")
+ # Reproduce both illustrated stair joins, mirrored as well as original.
+ for direction in [Vector2i.RIGHT,Vector2i.LEFT]:
+  var landing: Vector2i = direction
+  view.layout.cells = {Vector2i.ZERO:"stairs",landing:"high_gold",landing+Vector2i.UP:"high_gold"}
+  view.layout.stair_directions = {Vector2i.ZERO:direction}
+  var column := 448 if direction == Vector2i.RIGHT else 320
+  check(view.ground_region(landing,"high_gold") == Rect2(column,64,64,64), "Cliff-side ramp uses a full open grass connector, not two half pieces")
+  view.layout.cells[landing+Vector2i.DOWN] = "high_gold"
+  check(view.ground_region(landing,"high_gold") == Rect2(column,64,64,64), "Walkable-side ramp uses the same continuous connector")
+  view.layout.cells.erase(landing+Vector2i.UP)
+  check(view.ground_region(landing,"high_gold") == Rect2(column,0,64,64), "Short landing preserves only the outside top rim")
+ view.layout.cells = {Vector2i.RIGHT:"high_gold"}
+ view.layout.stair_directions.clear()
  var top: Vector2 = view.layout.ORIGIN + Vector2(64,-64)
  var shadow: Rect2 = view.shadow_rect(Vector2i.RIGHT)
  check(shadow.size == Vector2(128,128) and shadow.get_center() == top + Vector2(32,96), "Guide shadow is 128px and one tile below the elevated top center")
