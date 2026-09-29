@@ -26,13 +26,23 @@ func run() -> void:
 			if button.size.y < 32 or not button.is_visible_in_tree():
 				failures += 1
 				push_error("Inventory tools remain visible and usable")
+		if panel.size.y > 70 or absf(panel.position.x + panel.size.x - level.ui.launch.position.x - level.ui.launch.size.x) > 0.1:
+			failures += 1
+			push_error("Compact strip shares the collapsed button's right edge")
+		for button in level.ui.buttons.values() + level.ui.action_buttons:
+			if button.text != "" or button.accessibility_name == "" or not button.get_theme_stylebox("normal") is StyleBoxEmpty:
+				failures += 1
+				push_error("Toolbar choices have artwork and accessible names without text or chrome")
+		if not level.ui.buttons.tree.disabled:
+			failures += 1
+			push_error("Unavailable level-two tree remains disabled")
 	var button_style = level.ui.launch.get_theme_stylebox("normal")
 	if button_style.texture.get_width() < 128 or button_style.axis_stretch_horizontal != StyleBoxTexture.AXIS_STRETCH_MODE_TILE:
 		failures += 1
 		push_error("Button artwork keeps original pixels and repeats to fit labels")
-	level.ui.collapse_button.pressed.emit()
-	if level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 3:
+	level.ui.done_button.pressed.emit()
+	if level.editing or level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 3:
 		failures += 1
-		push_error("Header caret collapses inventory without a Fold action button")
+		push_error("Exit icon closes the toolbar and returns to walking")
 	print("Builder UI layout: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

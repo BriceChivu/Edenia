@@ -12,6 +12,7 @@ var terrain
 var ui
 var editing := false
 var selected := "ground"
+var preserve_history_on_reopen := false
 var history: Array[Dictionary] = []
 var movement_generation := 0
 var waypoints: Array[Vector2] = []
@@ -60,8 +61,8 @@ func _ready() -> void:
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
 		selected = tool
-		ui.collapsed = true
-		ui.status.text = "Pick up tree first, then ground." if tool == "remove" else "Choose a square for " + BuilderUI.NAMES[tool] + "."
+		ui.collapsed = false
+		ui.panel.accessibility_description = "Pick up tree first, then ground." if tool == "remove" else "Choose a square for " + BuilderUI.NAMES[tool] + "."
 		refresh())
 	ui.undo_requested.connect(undo)
 	pawn.position = layout.center(layout.spawn_cell())
@@ -87,6 +88,7 @@ func unlock_level(target_level: int) -> void:
 	waypoints.clear()
 	pawn.walk_to(pawn.position)
 	editing = false
+	preserve_history_on_reopen = false
 	history.clear() # Undo must not restore a snapshot from before the reward grant.
 	selected = "ground"
 	ui.collapsed = false
@@ -99,7 +101,9 @@ func toggle_editing() -> void:
 		return
 	editing = not editing
 	if editing:
-		history.clear()
+		if not preserve_history_on_reopen:
+			history.clear()
+		preserve_history_on_reopen = false
 	waypoints.clear()
 	pawn.walk_to(pawn.position)
 	refresh()
@@ -191,13 +195,16 @@ func _unhandled_input(event: InputEvent) -> void:
 func apply_edit(cell: Vector2i) -> bool:
 	var before: Dictionary = layout.snapshot()
 	if not layout.edit(cell, selected, layout.cell_at(pawn.position)):
-		ui.status.text = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
+		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	history.append(before)
 	if history.size() > 40:
 		history.pop_front()
 	rebuild_decorations()
 	save_layout()
+	if editing and selected != "remove" and layout.ground_count() + layout.stock.stairs + layout.stock.tree == 0:
+		editing = false
+		preserve_history_on_reopen = true
 	refresh()
 	return true
 
@@ -205,6 +212,9 @@ func undo() -> void:
 	if not editing or history.is_empty():
 		return
 	layout.restore(history.pop_back())
+	if not layout.cells.has(layout.cell_at(pawn.position)):
+		pawn.position = layout.center(layout.spawn_cell())
+		pawn.walk_to(pawn.position)
 	rebuild_decorations()
 	save_layout()
 	refresh()

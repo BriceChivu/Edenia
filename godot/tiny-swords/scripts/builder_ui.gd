@@ -9,12 +9,9 @@ signal reset_requested
 const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}
 var root: Control
 var panel: PanelContainer
-var collapse_button: Button
 var launch: Button
 var upgrade: Button
-var title_label: Label
 var max_preview_level := 3
-var status: Label
 var buttons := {}
 var action_buttons: Array[Button] = []
 var compact := false
@@ -80,6 +77,26 @@ func make_button(text: String, action: Callable) -> Button:
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
+func make_icon_button(label: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.accessibility_name = label
+	b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	b.add_theme_color_override("icon_normal_color", Color.WHITE)
+	b.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.25))
+	b.pressed.connect(action)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.draw.connect(func():
+		if not b.disabled and (b.get_meta("selected", false) or b.has_focus()):
+			b.draw_line(Vector2(b.size.x / 2 - 12, b.size.y - 3), Vector2(b.size.x / 2 + 12, b.size.y - 3), Color("bd862d"), 3))
+	return b
+
+func action_icon(file: String) -> Texture2D:
+	var texture: Texture2D = load("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/" + file)
+	return atlas(texture, texture.get_image().get_used_rect())
+
 func _ready() -> void:
 	layer = 20
 	root = Control.new()
@@ -104,69 +121,38 @@ func _ready() -> void:
 	upgrade = make_button("Try level 3", func(): unlock_requested.emit(3))
 	root.add_child(upgrade)
 	panel = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", style("RegularPaper.png"))
+	panel.add_theme_stylebox_override("panel", style("BigBlueButton_Regular.png"))
 	root.add_child(panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 5)
-	panel.add_child(column)
-	var header := HBoxContainer.new()
-	column.add_child(header)
-	var title := Label.new()
-	title_label = title
-	title.text = "YOUR ISLAND · LEVEL 2"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", Color("57452f"))
-	title.add_theme_font_size_override("font_size", 18)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	collapse_button = Button.new()
-	collapse_button.flat = true
-	collapse_button.custom_minimum_size = Vector2(28, 28)
-	collapse_button.tooltip_text = "Collapse inventory"
-	collapse_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	collapse_button.draw.connect(func():
-		var center := collapse_button.size / 2
-		collapse_button.draw_polyline(PackedVector2Array([center + Vector2(-6, 3), center + Vector2(0, -3), center + Vector2(6, 3)]), Color("57452f"), 2.0, true))
-	collapse_button.pressed.connect(func():
-		collapsed = true
-		panel.hide()
-		launch.text = "Inventory"
-		launch.show())
-	header.add_child(collapse_button)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	column.add_child(grid)
+	var strip := HBoxContainer.new()
+	strip.add_theme_constant_override("separation", 2)
+	panel.add_child(strip)
 	for kind in ["ground", "stairs", "tree"]:
-		var b := make_button(NAMES[kind], func(): tool_selected.emit(kind))
+		var b := make_icon_button(NAMES[kind], func(): tool_selected.emit(kind))
 		b.custom_minimum_size = Vector2(128, 54)
 		b.expand_icon = true
 		b.add_theme_constant_override("icon_max_width", 38)
 		if kind == "stairs":
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color1.png"), Rect2(0, 256, 64, 128))
-			b.tooltip_text = "Place beside flat ground. Adds its upper landing automatically.
+			b.accessibility_description = "Place beside flat ground. Adds its upper landing automatically.
 One stair bundle includes its upper tile. Picking it up returns both."
 		elif kind == "tree":
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"), Rect2(0, 0, 192, 256))
 		else:
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color%s.png" % (3 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
-		grid.add_child(b)
+		strip.add_child(b)
 		buttons[kind] = b
-	var row := HBoxContainer.new()
-	column.add_child(row)
-	row.add_child(make_button("Pick up", func(): tool_selected.emit("remove")))
-	undo_button = make_button("Undo", func(): undo_requested.emit())
-	row.add_child(undo_button)
-	done_button = make_button("Done", func(): edit_toggled.emit())
-	row.add_child(done_button)
-	for child in row.get_children():
-		action_buttons.append(child)
-	status = Label.new()
-	status.clip_text = true
-	status.custom_minimum_size.y = 32
-	status.add_theme_font_size_override("font_size", 14)
-	status.add_theme_color_override("font_color", Color("57452f"))
-	status.text = "Choose an item, then tap a square."
-	column.add_child(status)
+	var pickup := make_icon_button("Pick up", func(): tool_selected.emit("remove"))
+	pickup.icon = action_icon("Cursors/Cursor_02.png")
+	strip.add_child(pickup)
+	undo_button = make_icon_button("Undo", func(): undo_requested.emit())
+	undo_button.icon = action_icon("Icons/Icon_08.png")
+	strip.add_child(undo_button)
+	done_button = make_icon_button("Return to walking", func(): edit_toggled.emit())
+	done_button.icon = action_icon("Icons/Icon_07.png")
+	strip.add_child(done_button)
+	action_buttons.assign([pickup, undo_button, done_button])
+	for button in action_buttons:
+		button.expand_icon = true
 	panel.hide()
 	get_viewport().size_changed.connect(arrange)
 	arrange()
@@ -178,21 +164,16 @@ func arrange() -> void:
 		physical.x = float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width"))
 	scale_ui = maxf(1.0, size.x / maxf(physical.x, 1))
 	compact = physical.x < 500
-	for kind in buttons:
-		buttons[kind].custom_minimum_size = Vector2(90, 50) if compact else Vector2(128, 64)
-		buttons[kind].add_theme_font_size_override("font_size", 11 if compact else 14)
-		buttons[kind].add_theme_constant_override("icon_max_width", 16 if compact else 28)
-	for button in action_buttons:
-		button.custom_minimum_size = Vector2(64, 32) if compact else Vector2(90, 40)
-		button.add_theme_font_size_override("font_size", 11 if compact else 14)
-	status.add_theme_font_size_override("font_size", 12 if compact else 14)
+	for button in buttons.values() + action_buttons:
+		button.custom_minimum_size = Vector2(44, 44) if compact else Vector2(56, 48)
+		button.add_theme_constant_override("icon_max_width", 36 if compact else 40)
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	launch.size = Vector2(140, 44)
 	launch.position = area - launch.size - Vector2(14, 14)
 	upgrade.size = Vector2(140, 44)
 	upgrade.position = Vector2(14, area.y - upgrade.size.y - 14)
-	panel.size = Vector2(310, 180) if compact else Vector2(418, 210)
+	panel.size = Vector2(290, 60) if compact else Vector2(362, 64)
 	panel.position = Vector2(area.x - panel.size.x - 14, area.y - panel.size.y - 14)
 	if celebration != null:
 		var fit := minf(1.0, minf((area.x - 12) / 470.0, (area.y - 12) / 300.0))
@@ -205,19 +186,18 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	editing = is_editing
 	arrange()
 	launch.text = "Inventory" if editing and collapsed else ("Build island" if layout.unlocked else "Try level 2")
-	title_label.text = "YOUR ISLAND · LEVEL %s" % layout.level
 	launch.visible = (not editing or collapsed) and celebration == null and (layout.unlocked or max_preview_level > 1)
 	upgrade.visible = layout.level == 2 and max_preview_level >= 3 and celebration == null and not editing
 	panel.visible = editing and not collapsed and celebration == null
 	for kind in buttons:
-		var name: String = {"meadow": "Grass", "gold": "Gold", "violet": "Teal", "high_meadow": "Green +", "high_gold": "Gold +", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}[kind] if compact else NAMES[kind]
 		var count: int = layout.ground_count() if kind == "ground" else layout.stock[kind]
-		buttons[kind].text = "%s ×%s" % [name, count]
+		buttons[kind].accessibility_name = "%s, %s available" % [NAMES[kind], count]
 		buttons[kind].disabled = count == 0
-		if kind == "tree" and layout.level < 3:
-			buttons[kind].text = "Pine · L3"
 		buttons[kind].mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if buttons[kind].disabled else Control.CURSOR_POINTING_HAND
-		buttons[kind].modulate = Color("ffdf8d") if kind == selected else Color.WHITE
+		buttons[kind].set_meta("selected", kind == selected)
+		buttons[kind].queue_redraw()
+	action_buttons[0].set_meta("selected", selected == "remove")
+	action_buttons[0].queue_redraw()
 	undo_button.disabled = not can_undo
 	undo_button.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if undo_button.disabled else Control.CURSOR_POINTING_HAND
 	arrange()

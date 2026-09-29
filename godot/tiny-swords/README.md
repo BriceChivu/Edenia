@@ -10,9 +10,9 @@ Mac uses the function keys for system controls):
 | --- | --- |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Try level 2** to run the real unlock, rewards and animated ribbon, then **Start building**. |
-| `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles and one stair bundle; inventory open. |
+| `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles and one stair bundle; toolbar open. |
 | `previews/level_two_to_three.tscn` | Fresh level two. Build if desired, choose **Done**, then **Try level 3** to run the real second upgrade on that same island. |
-| `previews/level_three.tscn` | Fresh level three with all cumulative rewards; inventory open, no transition required. |
+| `previews/level_three.tscn` | Fresh level three with all cumulative rewards; toolbar open, no transition required. |
 
 These are thin inherited scenes using the same world, movement and builder code.
 Every F6 run starts fresh: these entries neither load nor save native or browser
@@ -48,15 +48,20 @@ Each stair bundle includes its upper tile and uses no ground inventory. If it
 replaces an existing upper tile, that plain tile returns to inventory. Picking
 up a stair collects its bundled landing too; first move the pawn and any tree
 off that landing. An upper landing cannot belong to two stair bundles.
-Ground beside an upper floor extends that floor. Colors are not player choices. **Start building** opens the paper inventory.
-Choose an item: the inventory automatically folds away. Click a grid square. **Pick up** returns a tree first, then the
-ground on a second click; collected ground returns to the shared inventory.
-The top-right caret hides the inventory while keeping the selected tool active, so every
-square remains accessible. **Inventory** reopens it; **Done** resumes walking. Cursor 01 is used on build
-controls, Cursor 04 with full-size corner pieces moved inward for valid edits, Cursor 03 for unavailable edits, and Cursor 02
-for ordinary movement. The cursor follows the mouse freely; a separate subtle
-grid highlight indicates the target tile. Only placement and pickup snap to cells.
-**Undo** reverses changes made during the current editing session.
+Ground beside an upper floor extends that floor. Colors are not player choices.
+**Build island** expands left into a compact strip at the same bottom-right anchor.
+Ground, stairs and pine are image-only choices, with no title, counts or individual
+button backgrounds. A small underline marks selection; faded artwork is unavailable.
+The hand picks up, the orange back arrow undoes, and the green play arrow returns to
+walking. All controls retain accessible names; item counts remain in their accessible
+names and inventory state. Selecting a tool keeps the strip open.
+
+Using the last available placeable item closes the strip and returns to walking.
+Using up only one item type does not close it. Reopening an empty inventory lets you
+pick up terrain or undo the final placement; that automatic close preserves undo.
+An ordinary new build session starts fresh undo history. Cursor 01 is used on build
+controls, Cursor 04 for valid edits, Cursor 03 for unavailable edits, and Cursor 02
+for walking. The pointer moves freely; only placement and pickup snap to cells.
 
 The pawn's current tile cannot be removed. The original bush tile can be
 collected after the pawn moves away; respawn then uses another safe tile. Only the tree

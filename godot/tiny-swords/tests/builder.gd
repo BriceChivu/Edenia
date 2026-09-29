@@ -32,7 +32,7 @@ func run() -> void:
 	level.toggle_editing()
 	check(level.editing, "Build mode entered")
 	level.ui.tool_selected.emit("remove")
-	check(level.ui.collapsed and not level.ui.panel.visible, "Pick up hides inventory so covered cells are accessible")
+	check(not level.ui.collapsed and level.ui.panel.visible, "Pick up keeps the compact toolbar available")
 	var motion := InputEventMouseMotion.new()
 	motion.position = Vector2(610, 274)
 	level._input(motion)
