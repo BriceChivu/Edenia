@@ -75,6 +75,8 @@ for walking. Unavailable targets show Cursor 03 alone, without a red outline or
 red placement preview. Valid placement shows its terrain preview without a cursor overlay.
 Stair-bundle pickup widens Cursor 04 horizontally across two squares toward the
 upper landing, retaining its original corner pixels and one-square height.
+Hovering or clicking either the stair or its landing selects the same bundle;
+a tree on the landing is still picked up separately first.
 The pointer moves freely; only placement and pickup snap to cells.
 
 The pawn's current tile cannot be removed. The original bush tile can be

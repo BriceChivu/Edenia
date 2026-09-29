@@ -161,13 +161,25 @@ func update_cursor() -> void:
 		cursor_mode = mode
 		pointer.texture = UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
 	var hotspot := Vector2(35.5, 35.5) if mode == "build" else Vector2(24, 18)
-	if mode == "build" and build_cursor_size.x > build_cursor_size.y and layout.stair_direction(terrain.hover).x < 0:
-		hotspot.x += 64.0
+	if mode == "build" and build_cursor_size.x > build_cursor_size.y:
+		var direction: Vector2i = layout.stair_direction(terrain.hover)
+		var world_pointer: Vector2 = get_global_transform_with_canvas().affine_inverse() * pointer_position
+		var over_landing: bool = visual_cell(world_pointer) == terrain.hover + direction
+		if (direction.x < 0) != over_landing:
+			hotspot.x += 64.0
 	pointer.scale = Vector2.ONE
 	pointer.position = pointer_position - hotspot
 	pointer.visible = pointer_inside and mode != "place"
 
 func clicked_cell(point: Vector2) -> Vector2i:
+	var cell := visual_cell(point)
+	if editing and selected == "remove" and not layout.trees.has(cell):
+		for stair in layout.stair_directions:
+			if stair + layout.stair_direction(stair) == cell:
+				return stair
+	return cell
+
+func visual_cell(point: Vector2) -> Vector2i:
 	for cell in layout.cells:
 		if layout.cells[cell] == "stairs":
 			var height := ground_height(Vector2(point.x, layout.center(cell).y))
