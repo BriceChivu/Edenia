@@ -102,6 +102,14 @@ func action_icon(file: String) -> Texture2D:
 	var texture: Texture2D = load("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/" + file)
 	return atlas(texture, texture.get_image().get_used_rect())
 
+func pickup_icon() -> Texture2D:
+	var source := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png").get_image()
+	var assembled := Image.create(72, 72, false, Image.FORMAT_RGBA8)
+	for y in range(2):
+		for x in range(2):
+			assembled.blit_rect(source, Rect2i(x * 96, y * 96, 32, 32), Vector2i(x * 40, y * 40))
+	return ImageTexture.create_from_image(assembled)
+
 func _ready() -> void:
 	layer = 20
 	root = Control.new()
@@ -145,7 +153,7 @@ func _ready() -> void:
 			b.accessibility_description = "Place beside flat ground. Adds its upper landing automatically.
 One stair bundle includes its upper tile. Picking it up returns both."
 		elif kind == "tree":
-			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"), Rect2(0, 0, 192, 256))
+			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"), Rect2(29, 32, 136, 224))
 		else:
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color%s.png" % (3 if kind == "ground" else layout.COLORS[kind])), Rect2(512 if kind.begins_with("high_") else 192, 192, 64, 128 if kind.begins_with("high_") else 64))
 		strip.add_child(b)
@@ -166,7 +174,7 @@ One stair bundle includes its upper tile. Picking it up returns both."
 		remaining.offset_bottom = 0
 
 	var pickup := make_icon_button("Pick up", func(): tool_selected.emit("remove"))
-	pickup.icon = action_icon("Cursors/Cursor_04.png")
+	pickup.icon = pickup_icon()
 	strip.add_child(pickup)
 	undo_button = make_icon_button("Undo", func(): undo_requested.emit())
 	undo_button.icon = action_icon("Icons/Icon_08.png")
@@ -194,7 +202,8 @@ func arrange() -> void:
 	for button in buttons.values() + action_buttons:
 		button.custom_minimum_size = Vector2(32, 32)
 		button.add_theme_constant_override("icon_max_width", roundi(button.icon.get_width() * REFERENCE_UI_SCALE) if button in action_buttons else 25)
-	action_buttons[0].add_theme_constant_override("icon_max_width", 24)
+	action_buttons[0].add_theme_constant_override("icon_max_width", 28)
+	undo_button.add_theme_constant_override("icon_max_width", 25)
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	launch.size = Vector2(110, 32)

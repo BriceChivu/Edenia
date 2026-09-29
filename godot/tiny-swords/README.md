@@ -71,7 +71,8 @@ Using up only one item type does not close it. Reopening an empty inventory lets
 pick up terrain or undo the final placement; that automatic close preserves undo.
 An ordinary new build session starts fresh undo history. Cursor 01 is used on build
 controls, Cursor 04 for valid pickup, Cursor 03 for unavailable edits, and Cursor 02
-for walking. Valid placement shows its terrain preview without a cursor overlay.
+for walking. Unavailable targets show Cursor 03 alone, without a red outline or
+red placement preview. Valid placement shows its terrain preview without a cursor overlay.
 The pointer moves freely; only placement and pickup snap to cells.
 
 The pawn's current tile cannot be removed. The original bush tile can be

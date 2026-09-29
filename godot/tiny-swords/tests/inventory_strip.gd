@@ -20,7 +20,6 @@ func run() -> void:
  level.terrain.valid = true
  level.update_cursor()
  check(level.cursor_mode == "build" and level.pointer.visible and level.pointer.texture == level.build_cursor, "Pickup uses cursor four")
- check(level.ui.action_buttons[0].icon.atlas.resource_path.ends_with("Cursor_04.png"), "Pickup tool artwork is cursor four")
  level.ui.buttons.ground.pressed.emit()
 
  check(level.apply_edit(Vector2i(2,1)), "Place first ground")

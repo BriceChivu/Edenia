@@ -99,12 +99,12 @@ func draw_editor() -> void:
 		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 1):
 			for x in range(layout.MIN_CELL.x, layout.MAX_CELL.x + 1):
 				draw_rect(Rect2(layout.ORIGIN + Vector2(x, y) * 64, Vector2(64, 64)), Color(0.9, 1, 0.9, 0.14), false, 1)
-		if layout.in_bounds(hover):
-			var tint := Color(0.7, 1, 0.65, 0.6) if valid else Color(1, 0.35, 0.3, 0.6)
+		if layout.in_bounds(hover) and valid:
+			var tint := Color(0.7, 1, 0.65, 0.6)
 			if (tool == "ground" or tool in layout.KINDS) and not layout.cells.has(hover):
 				draw_tile(hover, layout.automatic_kind(hover) if tool == "ground" else tool, tint)
 				if tool == "stairs" and valid:
 					var landing: Vector2i = hover + layout.available_stair_direction(hover)
 					if not layout.cells.has(landing):
 						draw_tile(landing, "high_gold", tint)
-			draw_rect(Rect2(layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, layout.height_at(hover)), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45) if valid else tint, false, 1 if valid else 3)
+			draw_rect(Rect2(layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, layout.height_at(hover)), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)
