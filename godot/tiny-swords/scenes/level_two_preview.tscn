@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/level_one.tscn" id="Base"]
+[ext_resource type="Script" path="res://scripts/level_two_preview.gd" id="Builder"]
+
+[node name="LevelTwoPreview" instance=ExtResource("Base")]
+script = ExtResource("Builder")

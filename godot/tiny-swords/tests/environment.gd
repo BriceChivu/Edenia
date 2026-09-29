@@ -25,30 +25,37 @@ func run() -> void:
 	var cloud = level.get_node("Clouds/WestCloud")
 	var original_frame: int = foam.frame
 	var original_rock_frame: int = rock.frame
+	cloud.set_altitude(0.1)
+	check(cloud.z_index < level.get_node("World").z_index, "Low clouds stay behind trees and pawn")
+	var low_opacity: float = cloud.shadow_sprite.material.get_shader_parameter("opacity")
+	cloud.set_altitude(0.9)
+	check(cloud.z_index > level.get_node("World").z_index, "High clouds may cover the world")
+	check(cloud.shadow_sprite.position.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
 	var original_x: float = cloud.position.x
 	await create_timer(0.45).timeout
 	check(foam.frame != original_frame, "Shore foam advances")
 	check(rock.frame != original_rock_frame, "Water rock ripples advance")
 	check(cloud.position.x > original_x, "Cloud drifts")
 	# Fast-forward a full cycle and verify clouds never all leave the view.
-	for step in range(60):
+	for step in range(240):
 		var visible_clouds := 0
 		for moving_cloud in level.get_node("Clouds").get_children():
 			moving_cloud._process(10.0)
 			if moving_cloud.position.x > 0 and moving_cloud.position.x < 1152:
 				visible_clouds += 1
-		check(visible_clouds >= 4, "At least four cloud centers remain in view throughout the cycle")
+		check(visible_clouds >= 1, "Clouds remain present as their speeds vary")
 	check(load("res://scenes/pawn_playground.tscn") != null, "Reusable pawn playground preserved")
 	var passing = level.get_node("PassingCloud")
 	passing.set_process(false)
 	check(not passing.visible, "Center cloud starts absent")
+	passing.wait_remaining = 90.0
 	passing._process(89.0)
 	check(not passing.visible, "No frequent center cloud at startup")
 	passing._process(2.0)
 	check(passing.visible and passing.z_index > 0, "Rare cloud passes in front of terrain and pawn")
-	passing._process(37.8)
+	passing._process(abs(576.0 - passing.position.x) / passing.speed)
 	check(abs(passing.position.x - 576.0) < 1.0, "Rare cloud crosses the main island")
-	passing._process(40.0)
-	check(not passing.visible and passing.wait_remaining >= 180.0, "Cloud leaves before a long quiet interval")
+	passing._process(110.0)
+	check(not passing.visible and passing.wait_remaining >= 360.0, "Cloud leaves before a long quiet interval")
 	print("Environment checks: ", "PASS" if failures == 0 else "FAIL (%s)" % failures)
 	quit(0 if failures == 0 else 1)

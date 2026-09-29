@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Tiny Swords — Level One"
-run/main_scene="res://scenes/level_one.tscn"
+run/main_scene="res://scenes/level_two_preview.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]

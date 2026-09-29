@@ -15,6 +15,12 @@ var water_phase: WaterPhase = WaterPhase.READY
 @onready var splash: AnimatedSprite2D = $WaterSplash
 
 func _ready() -> void:
+	$Water.z_index = -20
+	$Reflections.z_index = -19
+	$IslandShadows.z_index = -18
+	$ShoreFoam.z_index = -17
+	$Islands.z_index = -16
+	$WaterRocks.z_index = -15
 	Input.set_custom_mouse_cursor(CURSOR, Input.CURSOR_ARROW, Vector2(24, 18))
 
 func _exit_tree() -> void:
