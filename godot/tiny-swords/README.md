@@ -3,25 +3,31 @@
 Open `project.godot` in Godot 4.7, then **F5 / Play Project**.
 The default scene is now `scenes/level_two_preview.tscn`, which inherits the preserved
 level-one environment. **Try level 2** simulates the unlock locally: a celebratory
-ribbon grants six interchangeable ground tiles, two stairs, and one pine tree.
+ribbon grants six interchangeable ground tiles, two stair bundles, and one pine tree.
 The inventory has only Ground, Stairs, and Pine: height and art are automatic.
 Flat ground is green; the first elevated floor is gold. A stair placed next to
-flat ground establishes its high end, where the next ground tile becomes raised.
+flat ground creates a raised landing at its high end in the same action.
+Each stair bundle includes its upper tile and uses no ground inventory. If it
+replaces an existing upper tile, that plain tile returns to inventory. Picking
+up a stair collects its bundled landing too; first move the pawn and any tree
+off that landing. An upper landing cannot belong to two stair bundles.
 Ground beside an upper floor extends that floor. Colors are not player choices. **Start building** opens the paper inventory.
 Choose an item: the inventory automatically folds away. Click a grid square. **Pick up** returns a tree first, then the
 ground on a second click; collected ground returns to the shared inventory.
-**Fold** hides the inventory while keeping the selected tool active, so every
+The top-right caret hides the inventory while keeping the selected tool active, so every
 square remains accessible. **Inventory** reopens it; **Done** resumes walking. Cursor 01 is used on build
 controls, Cursor 04 with full-size corner pieces moved inward for valid edits, Cursor 03 for unavailable edits, and Cursor 02
 for ordinary movement. The cursor follows the mouse freely; a separate subtle
 grid highlight indicates the target tile. Only placement and pickup snap to cells.
 **Undo** reverses changes made during the current editing session.
 
-The home tile and pawn's current tile cannot be removed or planted. Trees block
-movement; disconnected ground becomes reachable when joined. Paths are simplified
-across clear ground, keep a foot margin around water and tree cells, and climb only along stair ramps. Raised ground is one 64px step above flat
+The pawn's current tile cannot be removed. The original bush tile can be
+collected after the pawn moves away; respawn then uses another safe tile. Only the tree
+trunk blocks movement; the space in front remains walkable. Paths use a finer
+grid around trunks, and Y sorting draws the pawn in front when appropriate; disconnected ground becomes reachable when joined. Paths are simplified
+across clear ground, keep a foot margin around water and tree trunks, and climb only along stair ramps. Raised ground is one 64px step above flat
 ground; a horizontal stair square starts beside flat land and points toward
-existing or future raised ground. Stairs orient automatically. Pick up stairs before their
+an existing or automatically created raised landing. Stairs orient automatically. Pick up stairs before their
 supporting land. No third floor is offered.
 
 The grid renderer assembles original atlas quarters according to neighbors;
@@ -151,7 +157,7 @@ Font source: https://github.com/google/fonts/tree/main/ofl/medievalsharp
 
 Preview save version 3 migrates older layouts in place, adding one meadow
 piece and two stairs once. It preserves placements and elevations, applying the automatic palette.
-Version 3 also saves each stair direction so unfinished stairs survive reload.
+Version 3 also saves each stair direction. New stairs always have an upper landing.
 Cloud size, layering, shadow offset, and shadow opacity share one altitude value.
 The pointer is rendered by Godot with the native pointer hidden inside its canvas.
 Cursors 01–03 retain their original 64px dimensions; Cursor 04 has unscaled
@@ -168,3 +174,10 @@ Terrain joins follow the guide’s illustrated stair connections: the high landi
 opens both its walkable rim and cliff, joined cliff faces use center pieces,
 and stairs share the gold upper-floor atlas. The base floor uses the distinct
 green third palette. Water rocks render below all player-built terrain.
+
+New ground has a 12.5% chance of a small decorative bush or leafy tuft, using
+the pack’s existing plant sprites. Plants do not block removal or movement;
+their choices persist in save version 5. Existing saves retain their plants and
+receive the ground refund for previously paid stair landings once. Splashes
+share the World Y-sort layer with trees and the pawn, so foreground trees
+occlude splashes behind them.

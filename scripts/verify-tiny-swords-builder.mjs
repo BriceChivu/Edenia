@@ -81,12 +81,15 @@ try {
   await page.frames().find(f => f.url().includes('/tiny-swords/')).evaluate(() => {
     localStorage.setItem('edenia_tiny_swords_builder_preview_v1', JSON.stringify({
       version: 2, unlocked: true,
-      tiles: [[0,0,'meadow',false],[1,0,'meadow',false],[0,1,'meadow',false],[1,1,'meadow',false],[3,2,'meadow',false],[2,0,'meadow',false],[3,0,'stairs',false],[4,0,'high_gold',false],[5,0,'high_meadow',false],[5,1,'high_gold',false]],
-      stock: { meadow:0, gold:1, violet:1, high_meadow:0, high_gold:0, stairs:1, tree:1 }
+      tiles: [[0,0,'meadow',false],[1,0,'meadow',false],[0,1,'meadow',false],[1,1,'meadow',false],[3,2,'meadow',false],[2,0,'meadow',true],[3,0,'stairs',false],[4,0,'high_gold',false],[5,0,'high_meadow',false],[5,1,'high_gold',false]],
+      stock: { meadow:0, gold:1, violet:1, high_meadow:0, high_gold:0, stairs:1, tree:0 }
     }))
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
   await frame.locator('#status').waitFor({ state: 'hidden', timeout: 90000 })
+  await clickGame(672, 228)
+  await page.waitForTimeout(3500)
+  await page.screenshot({ path: resolve(artifacts, 'level-two-tree-front.png'), fullPage: false })
   await clickGame(800, 144)
   await page.waitForTimeout(6000)
   await page.screenshot({ path: resolve(artifacts, 'level-two-stairs.png'), fullPage: false })

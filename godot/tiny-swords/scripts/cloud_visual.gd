@@ -5,6 +5,10 @@ var altitude := 0.0
 var baked_shadow_offset := Vector2.ZERO
 
 func _ready() -> void:
+	# Tiny source clouds cannot meet the scene minimum without chunky enlargement.
+	# Use a detailed large source instead, then vary its apparent size by altitude.
+	if texture.get_image().get_used_rect().size.x < 400:
+		texture = preload("res://art/environment/Clouds_01.png")
 	var pixels := texture.get_image()
 	var body_sum := Vector2.ZERO
 	var shadow_sum := Vector2.ZERO
@@ -44,7 +48,7 @@ func set_altitude(value: float) -> void:
 	z_index = 5 if altitude >= 0.6 else -5
 	# Perspective and shadow distance share one height, with bounded variation.
 	var painted_width := maxf(1.0, texture.get_image().get_used_rect().size.x)
-	scale = Vector2.ONE * lerpf(300.0, 680.0, altitude) / painted_width * randf_range(0.95, 1.05)
+	scale = Vector2.ONE * minf(1.35, lerpf(300.0, 680.0, altitude) / painted_width * randf_range(0.95, 1.05))
 	if shadow_sprite != null:
 		shadow_sprite.position = -baked_shadow_offset + Vector2(altitude * 22, lerpf(14.0, 110.0, altitude)) / scale
 		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.75, 0.16, altitude))

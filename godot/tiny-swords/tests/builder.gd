@@ -69,13 +69,22 @@ func run() -> void:
 	check(abs(level.ground_height(boundary - Vector2(0.1, 0)) - level.ground_height(boundary + Vector2(0.1, 0))) < 1, "Height changes smoothly across tile borders")
 	level.selected = "tree"
 	check(level.apply_edit(Vector2i(2, 0)), "Tree placed")
-	check(layout.path(Vector2i.ZERO, Vector2i(4, 0)).is_empty(), "Tree blocks the narrow route")
+	check(not layout.path(Vector2i.ZERO, Vector2i(4, 0)).is_empty(), "Tree leaves room to pass through its tile")
+	check(not layout.walkable_point(layout.center(Vector2i(2, 0))), "Trunk remains an obstacle")
+	var in_front: Vector2 = layout.center(Vector2i(2, 0)) + Vector2(0, 20)
+	level.walk_on_land(Vector2i(2, 0), in_front)
+	await create_timer(3.0).timeout
+	check(level.pawn.position.distance_to(in_front) < 1, "Pawn can walk into the free strip in front of the tree")
+	check(level.pawn.position.y > level.tree_nodes[0].position.y, "Pawn in front draws above the tree through Y sorting")
+	level.waypoints.clear()
+	level.pawn.position = layout.center(Vector2i.ZERO)
+	level.pawn.walk_to(level.pawn.position)
 	level.undo()
 	check(layout.stock.tree == 1 and not layout.trees.has(Vector2i(2, 0)), "Undo restores tree inventory and route")
 	var restored = load("res://scripts/terrain_layout.gd").new()
 	check(restored.restore(JSON.parse_string(JSON.stringify(layout.snapshot()))), "Layout survives JSON save roundtrip")
 	restored.unlock()
-	check(restored.stock.high_gold == 0, "Reload cannot grant a second reward")
+	check(restored.stock.high_gold == layout.stock.high_gold, "Reload cannot grant a second reward")
 	# Old saves gain exactly one flat piece and two stairs, retaining all tiles.
 	var old = load("res://scripts/terrain_layout.gd").new()
 	old.unlock()
@@ -92,13 +101,39 @@ func run() -> void:
 	var automatic = load("res://scripts/terrain_layout.gd").new()
 	automatic.unlock()
 	check(automatic.ground_count() == 6, "One pooled inventory contains six ground tiles")
-	check(automatic.edit(Vector2i(2, 0), "stairs", Vector2i.ZERO), "Stairs can establish an upper floor before its ground")
-	check(automatic.edit(Vector2i(3, 0), "ground", Vector2i.ZERO), "Ground can be added beyond the stair")
+	check(automatic.edit(Vector2i(2, 0), "stairs", Vector2i.ZERO), "Stair and upper landing are created together")
+	check(automatic.ground_count() == 6 and automatic.stock.stairs == 1, "Stair bundle includes its landing without spending ground")
+	check(not automatic.edit(Vector2i(3, 0), "ground", Vector2i.ZERO), "Automatic landing is already occupied")
 	check(automatic.cells[Vector2i(3, 0)] == "high_gold", "Ground at the high end is automatically elevated and gold")
 	check(automatic.edit(Vector2i(4, 0), "ground", Vector2i.ZERO) and automatic.height_at(Vector2i(4, 0)) == 64, "An upper floor extends at the same height")
 	check(automatic.edit(Vector2i(-1, 0), "ground", Vector2i.ZERO) and automatic.height_at(Vector2i(-1, 0)) == 0, "Base ground extends at water level")
-	check(automatic.ground_count() == 3, "Any ground height uses the same inventory")
+	check(automatic.ground_count() == 4, "Any ground height uses the same inventory")
 	check(automatic.restore(JSON.parse_string(JSON.stringify(automatic.snapshot()))), "Automatic stair direction survives a save")
+	var empty_stock = load("res://scripts/terrain_layout.gd").new()
+	empty_stock.unlock()
+	for kind in empty_stock.KINDS:
+		if kind != "stairs":
+			empty_stock.stock[kind] = 0
+	check(empty_stock.edit(Vector2i(2, 0), "stairs", Vector2i.ZERO), "Stair bundle works with no ground in inventory")
+	check(empty_stock.height_at(Vector2i(3, 0)) == 64, "Bundled upper landing is created")
+	check(empty_stock.edit(Vector2i(2, 0), "remove", Vector2i.ZERO), "Picking up a stair returns its bundle")
+	check(not empty_stock.cells.has(Vector2i(3, 0)) and empty_stock.stock.stairs == 2, "Picking up the bundle removes its landing without duplication")
+	var plants = load("res://scripts/terrain_layout.gd").new()
+	plants.unlock()
+	check(plants.edit(Vector2i.ZERO, "remove", Vector2i(1, 0)), "Bush-covered original tile can be collected once pawn moves away")
+	check(not plants.flora.has(Vector2i.ZERO) and plants.spawn_cell() != Vector2i.ZERO, "Bush disappears and respawn moves to existing land")
+	check(plants.restore(JSON.parse_string(JSON.stringify(plants.snapshot()))), "Island without original home survives reload")
+	plants.flora_rng.seed = 17
+	var planted := 0
+	for i in range(64):
+		plants.edit(Vector2i(-2, -1), "ground", Vector2i(1, 0))
+		if plants.flora.has(Vector2i(-2, -1)):
+			planted += 1
+		var saved_flora: Dictionary = plants.flora.duplicate()
+		check(plants.restore(plants.snapshot()) and plants.flora == saved_flora, "Plants persist without rerolling")
+		plants.edit(Vector2i(-2, -1), "remove", Vector2i(1, 0))
+	check(planted > 0 and planted < 20, "Plants appear rarely rather than on every new tile")
+	check(level.splash.get_parent() == level.pawn.get_parent() and level.splash.z_index == 0, "Splash shares tree and pawn Y sorting")
 	level.toggle_editing()
 	level.walk_on_land(Vector2i(4, 0), layout.center(Vector2i(4, 0)))
 	await create_timer(5.5).timeout

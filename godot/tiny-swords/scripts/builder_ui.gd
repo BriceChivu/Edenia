@@ -9,6 +9,7 @@ signal reset_requested
 const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}
 var root: Control
 var panel: PanelContainer
+var collapse_button: Button
 var launch: Button
 var status: Label
 var buttons := {}
@@ -93,12 +94,29 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 5)
 	panel.add_child(column)
+	var header := HBoxContainer.new()
+	column.add_child(header)
 	var title := Label.new()
 	title.text = "YOUR ISLAND · LEVEL 2"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color("57452f"))
 	title.add_theme_font_size_override("font_size", 18)
-	column.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	collapse_button = Button.new()
+	collapse_button.flat = true
+	collapse_button.custom_minimum_size = Vector2(28, 28)
+	collapse_button.tooltip_text = "Collapse inventory"
+	collapse_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	collapse_button.draw.connect(func():
+		var center := collapse_button.size / 2
+		collapse_button.draw_polyline(PackedVector2Array([center + Vector2(-6, 3), center + Vector2(0, -3), center + Vector2(6, 3)]), Color("57452f"), 2.0, true))
+	collapse_button.pressed.connect(func():
+		collapsed = true
+		panel.hide()
+		launch.text = "Inventory"
+		launch.show())
+	header.add_child(collapse_button)
 	var grid := GridContainer.new()
 	grid.columns = 3
 	column.add_child(grid)
@@ -109,8 +127,8 @@ func _ready() -> void:
 		b.add_theme_constant_override("icon_max_width", 38)
 		if kind == "stairs":
 			b.icon = atlas(load("res://art/builder/Tilemap_color1.png"), Rect2(0, 256, 64, 128))
-			b.tooltip_text = "Place beside flat ground, then add ground at the high end.
-Stairs face away from low ground automatically."
+			b.tooltip_text = "Place beside flat ground. Adds its upper landing automatically.
+One stair bundle includes its upper tile. Picking it up returns both."
 		elif kind == "tree":
 			b.icon = atlas(load("res://art/builder/Tree1.png"), Rect2(0, 0, 192, 256))
 		else:
@@ -124,13 +142,6 @@ Stairs face away from low ground automatically."
 	row.add_child(undo_button)
 	done_button = make_button("Done", func(): edit_toggled.emit())
 	row.add_child(done_button)
-	var hide_button := make_button("Fold", func():
-		collapsed = true
-		panel.hide()
-		launch.text = "Inventory"
-		launch.show())
-	hide_button.custom_minimum_size.x = 60
-	row.add_child(hide_button)
 	for child in row.get_children():
 		action_buttons.append(child)
 	status = Label.new()
@@ -216,7 +227,7 @@ func celebrate() -> void:
 	heading.add_theme_constant_override("shadow_offset_y", 2)
 	celebration.add_child(heading)
 	var message := Label.new()
-	message.text = "Congratulations! Make this island yours.\n\n8 terrain pieces  +  1 pine tree\n6 ground tiles + 2 stairs.\nGround style follows its height automatically."
+	message.text = "Congratulations! Make this island yours.\n\n8 terrain pieces  +  1 pine tree\n6 ground tiles + 2 stair bundles.\nGround style follows its height automatically."
 	message.position = Vector2(40, 113)
 	message.size = Vector2(390, 105)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

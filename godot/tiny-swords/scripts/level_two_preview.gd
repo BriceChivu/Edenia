@@ -16,6 +16,7 @@ var history: Array[Dictionary] = []
 var movement_generation := 0
 var waypoints: Array[Vector2] = []
 var tree_nodes: Array[Node] = []
+var flora_nodes: Array[Node] = []
 var preview_save_enabled := true
 var build_cursor: Texture2D
 var build_cursor_size := 0
@@ -26,6 +27,8 @@ var pointer_position := Vector2.ZERO
 
 func _ready() -> void:
 	super._ready()
+	splash.reparent($World)
+	splash.z_index = 0
 	for name in ["Islands", "IslandShadows", "ShoreFoam"]:
 		get_node(name).hide()
 	# Player-built land and stairs cover water decorations naturally.
@@ -58,7 +61,7 @@ func _ready() -> void:
 		ui.status.text = "Pick up tree first, then ground." if tool == "remove" else "Choose a square for " + BuilderUI.NAMES[tool] + "."
 		refresh())
 	ui.undo_requested.connect(undo)
-	pawn.position = layout.center(Layout.HOME)
+	pawn.position = layout.center(layout.spawn_cell())
 	pawn.walk_to(pawn.position)
 	rebuild_decorations()
 	refresh()
@@ -173,7 +176,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func apply_edit(cell: Vector2i) -> bool:
 	var before: Dictionary = layout.snapshot()
 	if not layout.edit(cell, selected, layout.cell_at(pawn.position)):
-		ui.status.text = "Keep home and the pawn's tile. Use an empty square." if selected == "remove" else "That spot is unavailable. Try another square."
+		ui.status.text = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	history.append(before)
 	if history.size() > 40:
@@ -200,15 +203,33 @@ func rebuild_decorations() -> void:
 			if occupied_area.has_point(rock.position):
 				rock.hide()
 				break
+	for plant in flora_nodes:
+		plant.queue_free()
+	flora_nodes.clear()
 	for node in tree_nodes:
 		node.queue_free()
 	tree_nodes.clear()
 	# Original foliage follows its tile and disappears when that tile is collected.
-	for pair in [["MainBush", Vector2i(0, 0)], ["LeafyTuft", Vector2i(1, 1)], ["IsletBush", Vector2i(3, 2)]]:
+	for pair in [["MainBush", Vector2i(0, 0), 1], ["LeafyTuft", Vector2i(1, 1), 2], ["IsletBush", Vector2i(3, 2), 1]]:
 		var node = $World.get_node(pair[0])
-		node.visible = layout.cells.has(pair[1]) and not layout.trees.has(pair[1])
+		node.visible = layout.flora.get(pair[1], 0) == pair[2] and not layout.trees.has(pair[1])
+		node.offset.y = -15 - layout.height_at(pair[1]) / node.scale.y
 		if pair[0] == "IsletBush":
 			node.position = layout.center(pair[1])
+	for cell in layout.flora:
+		if layout.trees.has(cell):
+			continue
+		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}.get(cell) == layout.flora[cell]:
+			continue
+		var plant := Sprite2D.new()
+		plant.texture = preload("res://art/environment/Bushe1.png") if layout.flora[cell] == 1 else preload("res://art/environment/Bushe4.png")
+		plant.hframes = 8
+		plant.scale = Vector2.ONE * 0.75
+		plant.position = layout.center(cell) + Vector2(0, 12)
+		plant.offset = Vector2(0, -15 - layout.height_at(cell) / 0.75)
+		plant.set_script(preload("res://scripts/environment_sprite.gd"))
+		$World.add_child(plant)
+		flora_nodes.append(plant)
 	for cell in layout.trees:
 		var tree := Sprite2D.new()
 		tree.texture = preload("res://art/builder/Tree1.png")
@@ -228,14 +249,19 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 		pawn.walk_to(pawn.position)
 	var from: Vector2i = layout.cell_at(pawn.position)
 	var path: Array[Vector2i] = layout.path(from, cell)
-	if layout.trees.has(cell) or (path.is_empty() and from != cell):
+	if path.is_empty() and from != cell:
 		return
 	waypoints.clear()
 	var candidates: Array[Vector2] = [layout.center(from)]
 	for step in path:
 		candidates.append(layout.center(step))
 	var origin: Vector2 = layout.ORIGIN + Vector2(cell) * 64
-	candidates.append(point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 52)))
+	var target := point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 52))
+	candidates.append(target)
+	if not layout.trees.is_empty():
+		candidates = tree_navigation_path(pawn.position, target)
+		if candidates.is_empty():
+			return
 	# Keep only necessary bends. Clear stretches can be walked directly, without
 	# pulling the pawn back to the center of its current square on every click.
 	var start: Vector2 = pawn.position
@@ -250,6 +276,38 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 		start = next
 	pawn.walk_to(waypoints.pop_front())
 
+func tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	if not layout.walkable_point(target):
+		return result
+	var source := Vector2i(((start - Layout.ORIGIN) / 8.0).floor())
+	var goal := Vector2i(((target - Layout.ORIGIN) / 8.0).floor())
+	var queue: Array[Vector2i] = [source]
+	var previous: Dictionary = {source: source}
+	var index := 0
+	while index < queue.size():
+		var current := queue[index]
+		index += 1
+		if current == goal:
+			while current != source:
+				result.push_front(Layout.ORIGIN + (Vector2(current) + Vector2.ONE * 0.5) * 8)
+				current = previous[current]
+			result.append(target)
+			return result
+		var current_point := Layout.ORIGIN + (Vector2(current) + Vector2.ONE * 0.5) * 8
+		for step in Layout.STEPS:
+			var next: Vector2i = current + step
+			if previous.has(next):
+				continue
+			var next_point := Layout.ORIGIN + (Vector2(next) + Vector2.ONE * 0.5) * 8
+			var from_cell: Vector2i = layout.cell_at(current_point)
+			var to_cell: Vector2i = layout.cell_at(next_point)
+			if not layout.walkable_point(next_point) or (from_cell != to_cell and not layout.can_cross(from_cell, to_cell)):
+				continue
+			previous[next] = current
+			queue.append(next)
+	return result
+
 func clear_segment(start: Vector2, end: Vector2) -> bool:
 	var samples := maxi(1, ceili(start.distance_to(end) / 4.0))
 	var previous: Vector2i = layout.cell_at(start)
@@ -259,10 +317,8 @@ func clear_segment(start: Vector2, end: Vector2) -> bool:
 		if current != previous and not layout.can_cross(previous, current):
 			return false
 		previous = current
-		for offset in [Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]:
-			var cell: Vector2i = layout.cell_at(point + offset)
-			if not layout.cells.has(cell) or layout.trees.has(cell):
-				return false
+		if not layout.walkable_point(point):
+			return false
 	return true
 
 func ground_height(point: Vector2) -> float:
@@ -325,9 +381,9 @@ func fall_into_water(point: Vector2) -> void:
 	water_phase = WaterPhase.WAITING
 	await get_tree().create_timer(RESPAWN_DELAY).timeout
 	water_phase = WaterPhase.RESPAWNING
-	pawn.position = layout.center(Layout.HOME)
+	pawn.position = layout.center(layout.spawn_cell())
 	pawn.destination = pawn.position
-	pawn.sprite.position = Vector2(0, -32 - layout.height_at(Layout.HOME))
+	pawn.sprite.position = Vector2(0, -32 - layout.height_at(layout.spawn_cell()))
 	var appear := create_tween()
 	appear.tween_property(pawn.sprite, "modulate:a", 1.0, 0.25)
 	await appear.finished

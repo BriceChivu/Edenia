@@ -33,6 +33,9 @@ func run() -> void:
 	check(cloud.z_index > level.get_node("World").z_index, "High clouds may cover the world")
 	check((cloud.shadow_sprite.position.y + cloud.baked_shadow_offset.y) * cloud.scale.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
 	check(cloud.scale.x > low_scale * 1.5, "High clouds look closer and larger")
+	for moving_cloud in level.get_node("Clouds").get_children():
+		moving_cloud.set_altitude(1.0)
+		check(moving_cloud.texture.get_image().get_used_rect().size.x >= 400 and moving_cloud.scale.x <= 1.351, "Large clouds use large source artwork with capped enlargement")
 	var original_x: float = cloud.position.x
 	await create_timer(0.45).timeout
 	check(foam.frame != original_frame, "Shore foam advances")

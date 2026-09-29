@@ -13,9 +13,12 @@ var cells: Dictionary = {}
 var trees: Dictionary = {}
 var stair_directions: Dictionary = {}
 var stock: Dictionary = {}
+var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}
+var flora_rng := RandomNumberGenerator.new()
 var unlocked := false
 
 func _init() -> void:
+	flora_rng.randomize()
 	for cell in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(3, 2)]:
 		cells[cell] = "meadow"
 	for kind in KINDS + ["tree"]:
@@ -37,6 +40,19 @@ func center(cell: Vector2i) -> Vector2:
 func height_at(cell: Vector2i) -> float:
 	return 64.0 if str(cells.get(cell, "")).begins_with("high_") else 0.0
 
+func spawn_cell() -> Vector2i:
+	if cells.has(HOME) and not trees.has(HOME) and cells[HOME] != "stairs":
+		return HOME
+	for cell in cells:
+		if not trees.has(cell) and cells[cell] != "stairs":
+			return cell
+	return HOME
+
+func add_flora(cell: Vector2i) -> void:
+	var roll := flora_rng.randi_range(0, 15)
+	if roll < 2:
+		flora[cell] = roll + 1
+
 func in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= MIN_CELL.x and cell.x <= MAX_CELL.x and cell.y >= MIN_CELL.y and cell.y <= MAX_CELL.y
 
@@ -44,8 +60,12 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 	if not unlocked or not in_bounds(cell):
 		return false
 	if tool == "remove":
-		if not cells.has(cell) or cell == HOME or cell == occupied:
+		if not cells.has(cell) or cell == occupied:
 			return false
+		if cells[cell] == "stairs":
+			var landing := cell + stair_direction(cell)
+			if landing == occupied or trees.has(landing):
+				return false
 		if not trees.has(cell):
 			for step in [Vector2i.LEFT, Vector2i.RIGHT]:
 				if cells.get(cell + step) == "stairs":
@@ -56,7 +76,7 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 	if tool == "ground":
 		return ground_count() > 0 and not cells.has(cell)
 	if tool == "stairs":
-		return stock.stairs > 0 and not cells.has(cell) and proposed_stair_direction(cell) != Vector2i.ZERO
+		return stock.stairs > 0 and not cells.has(cell) and available_stair_direction(cell) != Vector2i.ZERO
 	return tool in KINDS and stock.get(tool, 0) > 0 and not cells.has(cell)
 
 func ground_count() -> int:
@@ -84,11 +104,39 @@ func proposed_stair_direction(cell: Vector2i) -> Vector2i:
 			return direction
 	return Vector2i.ZERO
 
+func available_stair_direction(cell: Vector2i) -> Vector2i:
+	var direction := proposed_stair_direction(cell)
+	if direction == Vector2i.ZERO:
+		return direction
+	var landing := cell + direction
+	if not in_bounds(landing):
+		return Vector2i.ZERO
+	for other in stair_directions:
+		if other + stair_directions[other] == landing:
+			return Vector2i.ZERO
+	return direction
+
+func spend_ground() -> void:
+	for kind in KINDS:
+		if kind != "stairs" and stock[kind] > 0:
+			stock[kind] -= 1
+			return
+
+func walkable_point(point: Vector2) -> bool:
+	for offset in [Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]:
+		if not cells.has(cell_at(point + offset)):
+			return false
+	for cell in trees:
+		# A small trunk obstacle leaves a walkable strip in front of the tree.
+		if Rect2(center(cell) - Vector2(10, 10), Vector2(20, 18)).grow(7).has_point(point):
+			return false
+	return true
+
 func stair_direction(cell: Vector2i) -> Vector2i:
 	return stair_directions.get(cell, proposed_stair_direction(cell))
 
 func can_cross(from: Vector2i, to: Vector2i) -> bool:
-	if not cells.has(from) or not cells.has(to) or trees.has(to) or (to - from) not in STEPS:
+	if not cells.has(from) or not cells.has(to) or (to - from) not in STEPS:
 		return false
 	if cells[from] == "stairs":
 		var direction := stair_direction(from)
@@ -106,28 +154,40 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 			trees.erase(cell)
 			stock.tree += 1
 		else:
+			if cells[cell] == "stairs":
+				var landing := cell + stair_direction(cell)
+				flora.erase(landing)
+				cells.erase(landing)
 			stock[cells[cell]] += 1
 			stair_directions.erase(cell)
+			flora.erase(cell)
 			cells.erase(cell)
 	elif tool == "tree":
 		trees[cell] = true
 		stock.tree -= 1
 	elif tool == "ground":
 		cells[cell] = automatic_kind(cell)
-		for kind in KINDS:
-			if kind != "stairs" and stock[kind] > 0:
-				stock[kind] -= 1
-				break
+		add_flora(cell)
+		spend_ground()
 	else:
 		if tool == "stairs":
-			stair_directions[cell] = proposed_stair_direction(cell)
+			stair_directions[cell] = available_stair_direction(cell)
+			var landing: Vector2i = cell + stair_directions[cell]
+			if cells.has(landing):
+				# The kit supplies the landing, returning the replaced plain tile.
+				stock[cells[landing]] += 1
+			else:
+				cells[landing] = "high_gold"
+				add_flora(landing)
 		cells[cell] = tool
+		if tool != "stairs":
+			add_flora(cell)
 		stock[tool] -= 1
 	return true
 
 func path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	if not cells.has(to) or trees.has(to):
+	if not cells.has(to):
 		return result
 	var queue: Array[Vector2i] = [from]
 	var previous: Dictionary = {from: from}
@@ -148,30 +208,40 @@ func path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 func snapshot() -> Dictionary:
 	var tiles: Array = []
 	for cell in cells:
-		tiles.append([cell.x, cell.y, cells[cell], trees.has(cell), stair_direction(cell).x if cells[cell] == "stairs" else 0])
-	return {"version": 3, "tiles": tiles, "stock": stock.duplicate(), "unlocked": unlocked}
+		tiles.append([cell.x, cell.y, cells[cell], trees.has(cell), stair_direction(cell).x if cells[cell] == "stairs" else 0, flora.get(cell, 0)])
+	return {"version": 5, "tiles": tiles, "stock": stock.duplicate(), "unlocked": unlocked}
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_cells := {}
 	var next_trees := {}
 	var next_stairs := {}
+	var next_flora := {}
 	var next_stock := {}
 	for tile in data.tiles:
-		if not tile is Array or tile.size() != (5 if int(data.version) == 3 else 4) or not tile[2] in KINDS:
+		if not tile is Array or tile.size() != (6 if int(data.version) >= 4 else (5 if int(data.version) == 3 else 4)) or not tile[2] in KINDS:
 			return false
 		var cell := Vector2i(int(tile[0]), int(tile[1]))
 		if not in_bounds(cell) or next_cells.has(cell):
 			return false
 		next_cells[cell] = tile[2]
-		if tile[2] == "stairs" and int(data.version) == 3:
+		var decoration: int = int(tile[5]) if int(data.version) >= 4 else int({Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}.get(cell, 0))
+		if decoration < 0 or decoration > 2:
+			return false
+		if decoration > 0 and tile[2] != "stairs":
+			next_flora[cell] = decoration
+		if tile[2] == "stairs" and int(data.version) >= 3:
 			if int(tile[4]) not in [-1, 1]:
 				return false
 			next_stairs[cell] = Vector2i(int(tile[4]), 0)
 		if tile[3]:
 			next_trees[cell] = true
-	if not next_cells.has(HOME) or next_trees.has(HOME):
+	var safe_spawn := false
+	for cell in next_cells:
+		if not next_trees.has(cell) and next_cells[cell] != "stairs":
+			safe_spawn = true
+	if not safe_spawn:
 		return false
 	for kind in KINDS + ["tree"]:
 		var amount := int(data.stock.get(kind, 0 if kind == "stairs" and data.get("version") == 1 else -1))
@@ -181,8 +251,8 @@ func restore(data: Dictionary) -> bool:
 	# Migrate old previews without discarding placements or granting rewards twice.
 	var total: int = next_cells.size()
 	for kind in KINDS:
-		total += next_stock[kind]
-	if total != ((10 if data.get("version") == 1 else 13) if data.get("unlocked", false) else 5):
+		total += next_stock[kind] * (2 if kind == "stairs" and int(data.version) >= 5 else 1)
+	if total != ((15 if int(data.version) >= 5 else (10 if data.get("version") == 1 else 13)) if data.get("unlocked", false) else 5):
 		return false
 	if next_trees.size() + next_stock.tree != (1 if data.get("unlocked", false) else 0):
 		return false
@@ -191,10 +261,26 @@ func restore(data: Dictionary) -> bool:
 		next_stock.stairs += 2
 	cells = next_cells
 	trees = next_trees
+	flora = next_flora
 	stair_directions = next_stairs
 	for cell in cells:
 		if cells[cell] == "stairs" and not stair_directions.has(cell):
 			stair_directions[cell] = proposed_stair_direction(cell)
 	stock = next_stock
 	unlocked = data.get("unlocked", false)
+	if int(data.version) < 5:
+		var claimed := {}
+		for cell in stair_directions.keys():
+			var landing: Vector2i = cell + stair_directions[cell]
+			if claimed.has(landing):
+				cells.erase(cell)
+				stair_directions.erase(cell)
+				stock.stairs += 1
+				continue
+			claimed[landing] = true
+			if cells.has(landing):
+				stock[cells[landing]] += 1
+			else:
+				cells[landing] = "high_gold"
+				add_flora(landing)
 	return true

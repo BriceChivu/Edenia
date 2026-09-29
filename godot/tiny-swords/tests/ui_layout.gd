@@ -26,5 +26,9 @@ func run() -> void:
 			if button.size.y < 32 or not button.is_visible_in_tree():
 				failures += 1
 				push_error("Inventory tools remain visible and usable")
+	level.ui.collapse_button.pressed.emit()
+	if level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 3:
+		failures += 1
+		push_error("Header caret collapses inventory without a Fold action button")
 	print("Builder UI layout: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)
