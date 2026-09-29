@@ -84,7 +84,8 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 	if tool == "ground":
 		return ground_count() > 0 and not cells.has(cell)
 	if tool == "stairs":
-		return stock.stairs > 0 and not cells.has(cell) and available_stair_direction(cell) != Vector2i.ZERO
+		var direction := available_stair_direction(cell)
+		return stock.stairs > 0 and direction != Vector2i.ZERO and cell != occupied and cell + direction != occupied
 	return tool in KINDS and stock.get(tool, 0) > 0 and not cells.has(cell)
 
 func ground_count() -> int:
@@ -113,16 +114,24 @@ func proposed_stair_direction(cell: Vector2i) -> Vector2i:
 	return Vector2i.ZERO
 
 func available_stair_direction(cell: Vector2i) -> Vector2i:
-	var direction := proposed_stair_direction(cell)
-	if direction == Vector2i.ZERO:
-		return direction
-	var landing := cell + direction
-	if not in_bounds(landing):
+	if cells.get(cell) == "stairs" or trees.has(cell):
 		return Vector2i.ZERO
-	for other in stair_directions:
-		if other + stair_directions[other] == landing:
-			return Vector2i.ZERO
-	return direction
+	for direction in [Vector2i.RIGHT, Vector2i.LEFT]:
+		var low: Vector2i = cell - direction
+		var landing: Vector2i = cell + direction
+		if not cells.has(low) or cells[low] == "stairs" or height_at(low) != 0:
+			continue
+		if not in_bounds(landing) or cells.get(landing) == "stairs" or trees.has(landing):
+			continue
+		var shared := false
+		for other in stair_directions:
+			# Existing stair endpoints must retain their height and ownership.
+			for endpoint in [other - stair_directions[other], other + stair_directions[other]]:
+				if endpoint == cell or endpoint == landing:
+					shared = true
+		if not shared:
+			return direction
+	return Vector2i.ZERO
 
 func spend_ground() -> void:
 	for kind in KINDS:
@@ -184,9 +193,11 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 			if cells.has(landing):
 				# The kit supplies the landing, returning the replaced plain tile.
 				stock[cells[landing]] += 1
-			else:
-				cells[landing] = "high_gold"
-				add_flora(landing)
+			if cells.has(cell):
+				stock[cells[cell]] += 1
+			flora.erase(cell)
+			cells[landing] = "high_gold"
+			add_flora(landing)
 		cells[cell] = tool
 		if tool != "stairs":
 			add_flora(cell)

@@ -56,7 +56,7 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
 	var origin: Vector2 = layout.ORIGIN + Vector2(cell) * 64
 	var raised: bool = kind.begins_with("high_")
 	if kind == "stairs":
-		var direction: Vector2i = layout.stair_direction(cell)
+		var direction: Vector2i = layout.stair_direction(cell) if layout.cells.get(cell) == "stairs" else layout.available_stair_direction(cell)
 		draw_texture_rect_region(textures[kind], Rect2(origin - Vector2(0, 64), Vector2(64, 128)), Rect2(0 if direction.x >= 0 else 192, 256, 64, 128), tint)
 		return
 	if raised:
@@ -115,12 +115,11 @@ func draw_editor() -> void:
 		if layout.in_bounds(hover) and valid:
 			var tint := Color(0.7, 1, 0.65, 0.6)
 			draw_set_transform(placement_offset())
-			if (tool == "ground" or tool in layout.KINDS) and not layout.cells.has(hover):
+			if (tool == "ground" or tool in layout.KINDS) and (tool == "stairs" or not layout.cells.has(hover)):
 				draw_tile(hover, layout.automatic_kind(hover) if tool == "ground" else tool, tint)
 				if tool == "stairs" and valid:
 					var landing: Vector2i = hover + layout.available_stair_direction(hover)
-					if not layout.cells.has(landing):
-						draw_tile(landing, "high_gold", tint)
+					draw_tile(landing, "high_gold", tint)
 			draw_set_transform(Vector2.ZERO)
 			if tool == "tree":
 				draw_texture_rect_region(tree_texture, tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
