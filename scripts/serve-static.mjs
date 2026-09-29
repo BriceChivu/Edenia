@@ -12,6 +12,7 @@ const MIME_TYPES = {
   '.mp4': 'video/mp4',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
+  '.wasm': 'application/wasm',
   '.webp': 'image/webp',
   '.woff2': 'font/woff2'
 }
