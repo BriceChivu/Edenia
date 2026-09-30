@@ -45,11 +45,6 @@ func _process(delta: float) -> void:
 	var commands = JSON.parse_string(JavaScriptBridge.eval("JSON.stringify(window.edeniaCameraCommands.splice(0))"))
 	if commands is Array:
 		for command in commands:
-			if command is Dictionary:
-				var canvas_width := maxf(1, float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width")))
-				var pixel_scale := get_viewport().get_visible_rect().size.x / canvas_width
-				study_camera.position += Vector2(float(command.get("panX", 0)), float(command.get("panY", 0))) * pixel_scale / study_camera.zoom.x
-				continue
 			match command:
 				"in": study_camera.zoom = Vector2.ONE * minf(1.5, study_camera.zoom.x + 0.1)
 				"out": study_camera.zoom = Vector2.ONE * maxf(0.5, study_camera.zoom.x - 0.1)
@@ -99,21 +94,6 @@ func unlock_level(target_level: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	super._input(event)
-	if event is InputEventPanGesture:
-		study_camera.position = (study_camera.position + event.delta * 48.0 / study_camera.zoom.x).clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
-		get_viewport().set_input_as_handled()
-		return
-	if event is InputEventMouseButton and event.pressed:
-		var scroll := Vector2.ZERO
-		match event.button_index:
-			MOUSE_BUTTON_WHEEL_UP: scroll = Vector2.UP
-			MOUSE_BUTTON_WHEEL_DOWN: scroll = Vector2.DOWN
-			MOUSE_BUTTON_WHEEL_LEFT: scroll = Vector2.LEFT
-			MOUSE_BUTTON_WHEEL_RIGHT: scroll = Vector2.RIGHT
-		if scroll != Vector2.ZERO:
-			study_camera.position = (study_camera.position + scroll * 48.0 * maxf(0.1, event.factor) / study_camera.zoom.x).clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
-			get_viewport().set_input_as_handled()
-			return
 	if study_pointer_down == null:
 		return
 	if event is InputEventMouseMotion:
