@@ -54,11 +54,17 @@ test('live seconds across sessions reach exactly 15 and 45 XP; legacy and undo c
   assert.equal(getCityLevelIndex(10000), 2)
 })
 
+test('one new Anki review equals one watched minute and uses the same level thresholds', () => {
+  assert.equal(historyExperience({ experienceReviews: 1 }), historyExperience({ experienceSeconds: 60 }))
+  assert.equal(getCityLevelIndex(historyExperience({ experienceReviews: 15 })), 1)
+  assert.equal(getCityLevelIndex(historyExperience({ experienceReviews: 45 })), 2)
+})
+
 test('Anki first cumulative observation is a baseline; resync, old days, and counter rollback do not mint XP', () => {
   const first = observeAnkiExperience({ reviewed: 30 }, 100)
   assert.equal(first.experienceReviews, 0)
   const next = observeAnkiExperience(first, 103)
-  assert.equal(historyExperience(next), 2)
+  assert.equal(historyExperience(next), 3)
   assert.deepEqual(observeAnkiExperience(next, 103), next)
   const rollback = observeAnkiExperience(next, 20)
   assert.equal(observeAnkiExperience(rollback, 103).experienceReviews, 3)
@@ -74,7 +80,7 @@ test('history keeps old activity as unmarked, combines new XP without changing s
   const rows = history(state, new Date('2026-09-01'), new Date('2026-10-01')).rows
   assert.equal(rows[0].secondsWatched, 900)
   assert.equal(rows[0].ankiReviewed, 63)
-  assert.equal(historyExperience(rows[0]), 17)
+  assert.equal(historyExperience(rows[0]), 18)
   assert.equal(rows[1].hasExperience, false)
   assert.equal(rows[1].secondsWatched, 600)
   assert.equal(rows[1].ankiReviewed, 60)

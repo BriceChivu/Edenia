@@ -1,5 +1,8 @@
 extends "res://scripts/level_two_preview.gd"
 
+var study_camera: Camera2D
+var study_camera_center := Vector2(576, 248)
+
 var study_bridge_ready := false
 var study_layout_restored := false
 var study_poll_elapsed := 0.0
@@ -10,6 +13,10 @@ func _ready() -> void:
 	super._ready()
 	ui.max_preview_level = 1
 	refresh()
+	study_camera = Camera2D.new()
+	study_camera.position = study_camera_center
+	study_camera.zoom = Vector2.ONE * 0.85
+	add_child(study_camera)
 	study_bridge_ready = true
 
 func _process(delta: float) -> void:
@@ -20,6 +27,21 @@ func _process(delta: float) -> void:
 	if study_poll_elapsed < 0.2:
 		return
 	study_poll_elapsed = 0.0
+	var commands = JSON.parse_string(JavaScriptBridge.eval("JSON.stringify(window.edeniaCameraCommands.splice(0))"))
+	if commands is Array:
+		for command in commands:
+			match command:
+				"left": study_camera.position.x -= 64 / study_camera.zoom.x
+				"right": study_camera.position.x += 64 / study_camera.zoom.x
+				"up": study_camera.position.y -= 64 / study_camera.zoom.x
+				"down": study_camera.position.y += 64 / study_camera.zoom.x
+				"in": study_camera.zoom = Vector2.ONE * minf(1.5, study_camera.zoom.x + 0.1)
+				"out": study_camera.zoom = Vector2.ONE * maxf(0.5, study_camera.zoom.x - 0.1)
+				"reset":
+					study_camera.position = study_camera_center
+					study_camera.zoom = Vector2.ONE * 0.85
+		study_camera.position = study_camera.position.clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
+	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": study_camera.position.x, "y": study_camera.position.y, "zoom": study_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y}))
 	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, 3)
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
 		study_layout_restored = true

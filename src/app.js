@@ -7535,7 +7535,7 @@ function getPointActivityLogEntries(state) {
   const history = getStudyHistoryBetween(state || { videos: {}, anki: {} }, new Date(0), end)
 
   history.rows.forEach(row => {
-    const ankiPoints = (row.experienceReviews || 0) * 2 / 3
+    const ankiPoints = (row.experienceReviews || 0)
     if (ankiPoints > 0) {
       entries.push({
         createdAt: `${row.dateKey}T23:59:59`,
@@ -12142,7 +12142,7 @@ function getHistoryPointBreakdown(row) {
       points: (video.experienceSeconds || 0) / 60
     }))
 
-  const ankiPoints = (row.experienceReviews || 0) * 2 / 3
+  const ankiPoints = (row.experienceReviews || 0)
   const items = []
   if ((row.experienceReviews || 0) > 0) {
     items.push({

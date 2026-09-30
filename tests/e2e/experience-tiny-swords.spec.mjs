@@ -17,6 +17,20 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect(frame.locator('#status')).toBeHidden({ timeout: 60000 })
   const gameFrame = () => page.frames().find(frame => frame.url().includes('/tiny-swords/index.html'))
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaGameLevel)).toBe(1)
+  const camera = () => gameFrame().evaluate(() => window.edeniaCamera)
+  await expect.poll(async () => (await camera())?.zoom).toBeCloseTo(0.85)
+  const initialCamera = await camera()
+  for (const [label, axis, direction] of [['Pan left', 'x', -1], ['Pan right', 'x', 1], ['Pan up', 'y', -1], ['Pan down', 'y', 1]]) {
+    const before = await camera()
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await expect.poll(async () => Math.sign((await camera())[axis] - before[axis])).toBe(direction)
+  }
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
+  await expect.poll(async () => (await camera()).zoom).toBeCloseTo(0.75)
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+  await expect.poll(async () => (await camera()).zoom).toBeCloseTo(0.85)
+  await page.getByRole('button', { name: 'Reset view', exact: true }).click()
+  await expect.poll(camera).toEqual(initialCamera)
   async function watch(seconds) {
     await page.evaluate(seconds => {
       const state = loadState()
@@ -34,6 +48,22 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   expect(reward2.stock.stairs).toBe(1)
   expect(reward2.stock.meadow + reward2.stock.gold).toBe(3)
   // A reload closes the celebration and restores the same earned inventory.
+  await page.reload()
+  await expect.poll(() => gameFrame().evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(2)
+  // Existing build launcher and placement still use transformed world coordinates.
+  await page.getByRole('button', { name: 'Pan right', exact: true }).click()
+  await expect.poll(async () => (await camera()).x).toBeGreaterThan(initialCamera.x)
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
+  await expect.poll(async () => (await camera()).zoom).toBeCloseTo(0.75)
+  const canvas = frame.locator('#canvas')
+  const bounds = await canvas.boundingBox()
+  await canvas.click({ position: { x: bounds.width - 65, y: bounds.height - 30 } })
+  const view = await camera()
+  await canvas.click({ position: {
+    x: ((672 - view.x) * view.zoom + view.width / 2) * bounds.width / view.width,
+    y: ((208 - view.y) * view.zoom + view.height / 2) * bounds.height / view.height
+  } })
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_tiny_swords_xp_layout_v1')).stock.meadow)).toBe(reward2.stock.meadow - 1)
   await page.reload()
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(2)
   await watch(1800)

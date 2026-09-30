@@ -25,7 +25,24 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         }
       }
     })
-    document.querySelector('.city-image-wrap').append(frame)
+    const controls = document.createElement('div')
+    controls.className = 'tiny-swords-camera-controls'
+    controls.setAttribute('role', 'group')
+    controls.setAttribute('aria-label', 'Island camera')
+    for (const [command, label, icon] of [
+      ['left', 'Pan left', '←'], ['right', 'Pan right', '→'],
+      ['up', 'Pan up', '↑'], ['down', 'Pan down', '↓'],
+      ['out', 'Zoom out', '−'], ['in', 'Zoom in', '+'], ['reset', 'Reset view', '⌂']
+    ]) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = icon
+      button.setAttribute('aria-label', label)
+      button.title = label
+      button.addEventListener('click', () => frame.contentWindow?.postMessage({ type: 'edenia-camera', command }, location.origin))
+      controls.append(button)
+    }
+    document.querySelector('.city-image-wrap').append(frame, controls)
     new MutationObserver(sendStudyLevel).observe(document.getElementById('cityCurrentLevel'), { childList: true, characterData: true, subtree: true })
     frame.addEventListener('load', sendStudyLevel)
   }, { once: true })

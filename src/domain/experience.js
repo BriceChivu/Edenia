@@ -20,5 +20,5 @@ export function observeAnkiExperience(previous, rawReviewed, { eligible = true }
 }
 
 export function historyExperience(row) {
-  return experienceFromSeconds(row.experienceSeconds) + Math.max(0, Number(row.experienceReviews) || 0) * 2 / 3
+  return experienceFromSeconds(row.experienceSeconds) + Math.max(0, Number(row.experienceReviews) || 0)
 }

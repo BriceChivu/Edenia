@@ -373,7 +373,7 @@ export const EN_CORE = {
   'settings.scoring.title': 'How experience works',
   'settings.scoring.intro': 'Experience rewards new video watching and Anki reviews.',
   'settings.scoring.video': 'Watching 1 minute of video earns 1 XP.',
-  'settings.scoring.anki': '3 new Anki reviews earn 2 XP. The first refresh each day establishes a baseline.',
+  'settings.scoring.anki': 'Each new Anki review earns 1 XP. The first refresh each day establishes a baseline.',
   'settings.activity.title': 'Activity log',
   'settings.activity.filtersLabel': 'Activity log filters',
   'settings.activity.all': 'All',
