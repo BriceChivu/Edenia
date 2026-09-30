@@ -13,7 +13,9 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
-  '.woff2': 'font/woff2'
+  '.woff2': 'font/woff2',
+  '.wasm': 'application/wasm',
+  '.pck': 'application/octet-stream'
 }
 
 function argumentValue(name, fallback = '') {
