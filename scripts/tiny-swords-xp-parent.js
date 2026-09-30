@@ -26,24 +26,19 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         }
       }
     })
-    const controls = document.createElement('div')
-    controls.className = 'tiny-swords-camera-controls'
-    controls.setAttribute('role', 'group')
-    controls.setAttribute('aria-label', 'Island camera')
-    for (const [command, label, icon] of [
-      ['left', 'Pan left', '←'], ['right', 'Pan right', '→'],
-      ['up', 'Pan up', '↑'], ['down', 'Pan down', '↓'],
-      ['out', 'Zoom out', '−'], ['in', 'Zoom in', '+'], ['reset', 'Reset view', '⌂']
-    ]) {
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.textContent = icon
-      button.setAttribute('aria-label', label)
-      button.title = label
-      button.addEventListener('click', () => frame.contentWindow?.postMessage({ type: 'edenia-camera', command }, location.origin))
-      controls.append(button)
+    // Clone the owning Edenia markup: exact SVG icons, labels, classes and CSS.
+    // Cloning removes the old image's listeners before binding the game camera.
+    const originalControls = document.querySelector('.city-zoom-controls')
+    const controls = originalControls.cloneNode(true)
+    controls.classList.add('tiny-swords-camera-controls')
+    originalControls.replaceWith(controls)
+    for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
+      button.addEventListener('click', event => {
+        event.stopImmediatePropagation()
+        frame.contentWindow?.postMessage({ type: 'edenia-camera', command: button.dataset.cityZoomAction }, location.origin)
+      })
     }
-    document.querySelector('.city-image-wrap').append(frame, controls)
+    document.querySelector('.city-image-wrap').append(frame)
     new MutationObserver(sendStudyLevel).observe(document.getElementById('cityCurrentLevel'), { childList: true, characterData: true, subtree: true })
     frame.addEventListener('load', sendStudyLevel)
   }, { once: true })
