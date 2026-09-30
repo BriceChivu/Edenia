@@ -16,6 +16,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     }
     window.addEventListener('message', event => {
       if (event.origin !== location.origin || event.source !== frame.contentWindow) return
+      if (event.data?.type === 'edenia-game-ui') controls.hidden = event.data.celebrating === true
       if (event.data?.type === 'edenia-tiny-ready') sendStudyLevel()
       if (event.data?.type === 'edenia-tiny-layout') {
         const level = (loadState()?.cityProgress?.maxLevelIndex || 0) + 1

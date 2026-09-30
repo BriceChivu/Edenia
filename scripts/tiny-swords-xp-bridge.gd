@@ -6,6 +6,7 @@ var study_camera_center := Vector2(576, 248)
 var study_bridge_ready := false
 var study_layout_restored := false
 var study_poll_elapsed := 0.0
+var study_celebrating := false
 
 func _ready() -> void:
 	# This integration has its own browser layout; standalone editor saves stay intact.
@@ -42,6 +43,9 @@ func _process(delta: float) -> void:
 					study_camera.zoom = Vector2.ONE * 0.85
 		study_camera.position = study_camera.position.clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
 	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": study_camera.position.x, "y": study_camera.position.y, "zoom": study_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y}))
+	if study_celebrating != (ui.celebration != null):
+		study_celebrating = ui.celebration != null
+		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s}, location.origin)" % str(study_celebrating))
 	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, 3)
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
 		study_layout_restored = true
