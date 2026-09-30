@@ -98,6 +98,11 @@ func run() -> void:
 	gesture.delta = Vector2(1, 2)
 	game._input(gesture)
 	check(game.study_camera.position == before_pan and game.study_camera.zoom == scroll_zoom, "Trackpad gestures leave the camera unchanged")
+	for cloud in game.get_node("Clouds").get_children():
+		for height in [0.0, 0.3, 0.7, 1.0]:
+			cloud.set_altitude(height)
+			check(cloud.z_index == 5 and not cloud.z_as_relative, "Cloud body stays above raised terrain at altitude %s" % height)
+			check(cloud.shadow_sprite.z_index == -10 and not cloud.shadow_sprite.z_as_relative, "Cloud shadow keeps its separate world layer")
 	game.queue_free()
 	await process_frame
 	print("Native gameplay checks: %s failures" % failures)
