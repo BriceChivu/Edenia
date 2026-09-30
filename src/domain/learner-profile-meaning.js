@@ -73,6 +73,10 @@ export function isMeaningfullyEmptyLearnerProfile(profile) {
     const { townEconomy, ...withoutEconomy } = profile
     profile = withoutEconomy
   }
+  if (profile?.cityProgress?.experienceVersion === 1) {
+    const { experienceVersion, ...cityProgress } = profile.cityProgress
+    profile = { ...profile, cityProgress }
+  }
   if (
     !hasExactKeys(profile, PORTABLE_PROFILE_KEYS)
     || !isEmptyList(profile.activityLog)
