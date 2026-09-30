@@ -6,7 +6,7 @@ func run() -> void:
 	var level = load("res://previews/level_one.tscn").instantiate()
 	root.add_child(level)
 	await process_frame
-	for name in ["Clouds", "PassingCloud", "WaterRocks", "Reflections"]:
+	for name in ["Clouds", "PassingCloud", "WaterRocks"]:
 		level.get_node(name).hide()
 	var start := Vector2(628,208)
 	level.pawn.position = start

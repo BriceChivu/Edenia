@@ -116,7 +116,7 @@ func _process(_delta: float) -> void:
 	ui.launch.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if ui.launch.disabled else Control.CURSOR_POINTING_HAND
 	if water_phase == WaterPhase.READY or water_phase == WaterPhase.APPROACHING:
 		pawn.sprite.position.y = -32.0 - ground_height(pawn.position)
-		pawn.z_index = 1 if ground_height(pawn.position) > 0 else 0
+		pawn.z_index = int(ceil(ground_height(pawn.position) / 64.0))
 		if not waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 			pawn.walk_to(waypoints.pop_front())
 	if editing:
@@ -187,8 +187,8 @@ func visual_cell(point: Vector2) -> Vector2i:
 		for y in range(Layout.MIN_CELL.y, Layout.MAX_CELL.y + 1):
 			for x in range(Layout.MIN_CELL.x, Layout.MAX_CELL.x + 1):
 				var cell := Vector2i(x, y)
-				if not layout.cells.has(cell) and layout.automatic_kind(cell) == "high_gold":
-					if Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, 64), Vector2(64, 64)).has_point(point):
+				if not layout.cells.has(cell) and layout.automatic_height(cell) > 0:
+					if Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.automatic_height(cell)), Vector2(64, 64)).has_point(point):
 						return cell
 	return layout.cell_at(point)
 
@@ -233,6 +233,23 @@ func undo() -> void:
 	refresh()
 
 func rebuild_decorations() -> void:
+	for node in get_children():
+		if node.has_meta("terrain_shadow"):
+			remove_child(node)
+			node.queue_free()
+	var shadow_heights: Dictionary = {}
+	for cell in layout.cells:
+		for height in range(64, int(layout.height_at(cell)) + 1, 64):
+			shadow_heights[float(height)] = true
+	for height in shadow_heights:
+		var shadows := TerrainView.new()
+		shadows.layout = layout
+		shadows.shadow_height = height
+		# After World at the receiving surface's depth, before its characters
+		# and the casting floor. Keep the authored one-tile downward offset.
+		shadows.z_index = int(height / 64.0) - 2
+		shadows.set_meta("terrain_shadow", true)
+		add_child(shadows)
 	for node in $World.get_children():
 		if node.has_meta("terrain_occluder"):
 			$World.remove_child(node)
@@ -242,13 +259,14 @@ func rebuild_decorations() -> void:
 			var surface := TerrainView.new()
 			surface.layout = layout
 			surface.piece = cell
+			surface.z_index = maxi(0, int(layout.height_at(cell) / 64.0) - (0 if layout.cells[cell] == "stairs" else 1))
 			surface.position = layout.ORIGIN + Vector2(cell) * 64
 			surface.set_meta("terrain_occluder", true)
 			$World.add_child(surface)
 	for rock in $WaterRocks.get_children():
 		rock.visible = true
 		for cell in layout.cells:
-			var height: float = 64.0 if layout.cells[cell] == "stairs" else layout.height_at(cell)
+			var height: float = layout.height_at(cell) + 64.0 if layout.cells[cell] == "stairs" else layout.height_at(cell)
 			var occupied_area := Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, height), Vector2(64, 64 + height))
 			if occupied_area.has_point(rock.position):
 				rock.hide()
@@ -264,7 +282,7 @@ func rebuild_decorations() -> void:
 		var node = $World.get_node(pair[0])
 		node.visible = layout.flora.get(pair[1], 0) == pair[2] and not layout.trees.has(pair[1])
 		node.offset.y = -15 - layout.height_at(pair[1]) / node.scale.y
-		node.z_index = 1 if layout.height_at(pair[1]) > 0 else 0
+		node.z_index = int(layout.height_at(pair[1]) / 64.0)
 		if pair[0] == "IsletBush":
 			node.position = layout.center(pair[1])
 	for cell in layout.flora:
@@ -276,7 +294,7 @@ func rebuild_decorations() -> void:
 		plant.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe1.png") if layout.flora[cell] == 1 else preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png")
 		plant.hframes = 8
 		plant.scale = Vector2.ONE * 0.75
-		plant.z_index = 1 if layout.height_at(cell) > 0 else 0
+		plant.z_index = int(layout.height_at(cell) / 64.0)
 		plant.position = layout.center(cell) + Vector2(0, 12)
 		plant.offset = Vector2(0, -15 - layout.height_at(cell) / 0.75)
 		plant.set_script(preload("res://scripts/environment_sprite.gd"))
@@ -305,7 +323,7 @@ func rebuild_decorations() -> void:
 				decoration.texture = load(directory + "Rubber Duck/Rubber duck.png")
 				decoration.hframes = 3
 		decoration.position = layout.center(item.water if in_water else cell)
-		decoration.z_index = -17 if in_water else (1 if layout.height_at(cell) > 0 else 0)
+		decoration.z_index = -17 if in_water else int(layout.height_at(cell) / 64.0)
 		if not in_water:
 			decoration.offset.y -= layout.height_at(cell) / decoration.scale.y
 		if decoration.hframes > 1:
@@ -319,7 +337,7 @@ func rebuild_decorations() -> void:
 		tree.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")
 		tree.hframes = 8
 		tree.scale = Vector2.ONE * 0.8
-		tree.z_index = 1 if layout.height_at(cell) > 0 else 0
+		tree.z_index = int(layout.height_at(cell) / 64.0)
 		tree.position = layout.center(cell)
 		tree.offset = Vector2(0, -112 - layout.height_at(cell) / 0.8)
 		tree.set_script(preload("res://scripts/environment_sprite.gd"))
@@ -411,7 +429,7 @@ func ground_height(point: Vector2) -> float:
 	if layout.cells.get(cell) == "stairs":
 		var direction: Vector2i = layout.stair_direction(cell)
 		var progress: float = (point.x - layout.ORIGIN.x - cell.x * 64) / 64.0
-		return clampf(progress if direction.x > 0 else 1.0 - progress, 0.0, 1.0) * 64.0
+		return layout.height_at(cell) + clampf(progress if direction.x > 0 else 1.0 - progress, 0.0, 1.0) * 64.0
 	return layout.height_at(cell)
 
 func fall_into_water(point: Vector2) -> void:

@@ -58,14 +58,6 @@ func style(file: String, art_scale: float = 1.0) -> StyleBoxTexture:
 		result.set_content_margin(side, 6 if art_scale < 1.0 else 8)
 	return result
 
-func ribbon_texture() -> Texture2D:
-	var source: Image = load("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Ribbons/BigRibbons.png").get_image()
-	var assembled := Image.create(320, 128, false, Image.FORMAT_RGBA8)
-	assembled.blit_rect(source, Rect2i(0, 256, 128, 128), Vector2i.ZERO)
-	assembled.blit_rect(source, Rect2i(192, 256, 64, 128), Vector2i(128, 0))
-	assembled.blit_rect(source, Rect2i(320, 256, 128, 128), Vector2i(192, 0))
-	return ImageTexture.create_from_image(assembled)
-
 func make_button(text: String, action: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -150,7 +142,7 @@ func _ready() -> void:
 		b.add_theme_constant_override("icon_max_width", 38)
 		if kind == "stairs":
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color1.png"), Rect2(0, 256, 64, 128))
-			b.accessibility_description = "Place beside flat ground. Adds its upper landing automatically.
+			b.accessibility_description = "Requires a grass tile in the square directly below. Place beside any ground level. Adds a landing one level higher automatically.
 One stair bundle includes its upper tile. Picking it up returns both."
 		elif kind == "tree":
 			b.icon = atlas(load("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png"), Rect2(29, 32, 136, 224))
@@ -215,7 +207,7 @@ func arrange() -> void:
 	done_button.size = Vector2(24, 24)
 	done_button.position = panel.position + Vector2(panel.size.x - 18, -12)
 	if celebration != null:
-		var fit := minf(1.0, minf((area.x - 12) / 470.0, (area.y - 12) / 300.0))
+		var fit := minf(1.0, minf((area.x - 12) / celebration.size.x, (area.y - 12) / celebration.size.y))
 		celebration.scale = Vector2.ONE * fit
 		celebration.position = (area - celebration.size) / 2
 
@@ -248,44 +240,13 @@ func celebrate() -> void:
 	launch.hide()
 	upgrade.hide()
 	panel.hide()
-	celebration = Control.new()
-	celebration.size = Vector2(470, 300)
+	celebration = preload("res://scenes/level_up_popup.tscn").instantiate()
 	root.add_child(celebration)
-	var paper := Panel.new()
-	paper.position = Vector2(25, 56)
-	paper.size = Vector2(420, 240)
-	paper.add_theme_stylebox_override("panel", style("RegularPaper.png"))
-	celebration.add_child(paper)
-	var ribbon := TextureRect.new()
-	ribbon.texture = ribbon_texture()
-	ribbon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ribbon.size = Vector2(470, 118)
-	celebration.add_child(ribbon)
-	var heading := Label.new()
-	heading.text = "LEVEL TWO!" if layout.level == 2 else "LEVEL THREE!"
-	heading.position = Vector2(0, 34)
-	heading.size = Vector2(470, 45)
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	heading.add_theme_font_size_override("font_size", 30)
-	heading.add_theme_color_override("font_color", Color("fff3cf"))
-	heading.add_theme_color_override("font_shadow_color", Color("62402b"))
-	heading.add_theme_constant_override("shadow_offset_y", 2)
-	celebration.add_child(heading)
-	var message := Label.new()
-	message.text = ("Congratulations! Start shaping your island.\n\n4 new items: 3 ground tiles + 1 stair bundle.\nThe stair includes its upper landing.\nYour island grows from here." if layout.level == 2 else "Congratulations! More room to create.\n\n5 new items: 3 ground tiles, 1 stair, 1 pine.\nThe stair includes its upper landing.\nEverything you built stays in place.")
-	message.position = Vector2(40, 113)
-	message.size = Vector2(390, 105)
-	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	message.add_theme_font_size_override("font_size", 16)
-	message.add_theme_color_override("font_color", Color("57452f"))
-	celebration.add_child(message)
-	var start := make_button("Start building" if layout.level == 2 else "Keep building", func():
+	celebration.configure(layout.level)
+	celebration.get_node("BuildButton").pressed.connect(func():
 		celebration.queue_free()
 		celebration = null
 		edit_toggled.emit())
-	start.position = Vector2(145, 235)
-	start.size = Vector2(180, 44)
-	celebration.add_child(start)
 	arrange()
 	celebration.pivot_offset = celebration.size / 2
 	var final_scale: Vector2 = celebration.scale

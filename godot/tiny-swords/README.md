@@ -39,11 +39,12 @@ two stair bundles and one tree. Each stair bundle includes its upper landing;
 that landing is not an additional inventory item. Upgrades preserve every
 placement, decoration and the pawn position. There is no island reset. Undo
 history starts a new editing session after an upgrade so it cannot revoke rewards.
-The progression level is independent of terrain height: no third terrain floor is added.
+The progression level is independent of terrain height: terrain floors are created by stairs.
 
 The inventory has only Ground, Stairs, and Pine: height and art are automatic.
-Flat ground is green; the first elevated floor is gold. A stair placed next to
-flat ground creates a raised landing at its high end in the same action.
+Ground uses all five palettes by elevation: atlas colors 3, 1, 2, 4, 5, then repeats.
+The base is green, followed by gold and teal. Stairs use their upper landing’s palette. A stair placed next to
+any ground floor creates a landing one floor higher at its high end in the same action.
 Each stair bundle includes its upper tile and uses no ground inventory. If it
 replaces an existing upper tile, that plain tile returns to inventory. Picking
 up a stair collects its bundled landing too; first move the pawn and any tree
@@ -136,9 +137,7 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `scripts/rare_cloud.gd`: a rare foreground cloud first enters after 4–7 minutes,
   then waits 6–10 minutes after leaving before another pass. Each pass varies in
   height, scale, direction, and speed.
-- `shaders/water.gdshader`: subtle animated reflected-light ripples only along the
-  outer sides, fading to clear water across the central half, over the pack's
-  original turquoise water tile. No separate reflection image was available.
+
 - `Tiny Swords (Free Pack)/`: canonical artwork inside the Godot resource root;
   scenes, scripts and exports load the original pack files directly via `res://`.
   There is no separate copied artwork folder or dependency on Downloads.
@@ -241,6 +240,15 @@ Terrain joins follow the guide’s illustrated stair connections: the high landi
 opens both its walkable rim and cliff, joined cliff faces use center pieces,
 and stairs share the gold upper-floor atlas. The base floor uses the distinct
 green third palette. Water rocks render below all player-built terrain.
+Stairs require a grass tile in the grid square directly below them (positive Y).
+That tile cannot be picked up or replaced with stairs while supporting a stair.
+
+Elevated-ground shadows retain the guide's 128×128 sprite at native size,
+centered on each 64×64 walkable tile and shifted exactly 64px downward.
+Neighboring sprites overlap by 64px. Each elevation has a separate shadow
+layer above the receiving floor and below characters and the casting floor.
+Every solid support tier casts its footprint, including tiers underneath
+higher platforms and raised stair bases. The sloped ramp adds no extra tier.
 
 New ground has a 12.5% chance of a small decorative bush or leafy tuft, using
 the pack’s existing plant sprites. Plants do not block removal or movement;
@@ -252,7 +260,7 @@ occlude splashes behind them.
 Cloud shadows retain the original PNG offset at minimum altitude. Higher clouds
 only move their shadow farther downward and reduce its opacity.
 
-Stair endpoints require flat ground at the low end and raised ground at the high
+Stair endpoints require ground at the low end and ground exactly one floor higher at the high
 end. Raised terrain and stairs are Y-sorted with lower-ground characters; upper
 characters render on the upper surface and return to lower depth on descent.
 The build grid and placement highlight render separately above both surfaces.
@@ -308,3 +316,19 @@ previews never load or write either save; the normal persistent preview still do
 `tests/progression.gd` covers both grants, retries, reloads, legacy migrations,
 and placement preservation. `tests/preview_entries.gd` runs all five editor
 entry points twice and checks real transitions plus save isolation.
+
+## Edit the level-up popup visually
+
+Open `res://scenes/level_up_popup.tscn` and select **2D**. Move and resize
+**Paper**, **Ribbon**, **Title**, **Message**, and **BuildButton** directly;
+edit text and Theme Overrides in the Inspector. Keep these node names so the
+upgrade code can find them. The root's size defines the popup's layout bounds
+and responsive fit. Artwork and button/paper styles are saved scene resources,
+so their appearance is visible while editing, without running the game.
+
+Title, Message, and BuildButton text are the level-two copy. Select the root
+**LevelUpPopup** to edit the exported **Level three text** fields. Both upgrades
+use this same visual layout. To test the animated popup and button behavior,
+run `previews/level_one_to_two.tscn` or `previews/level_two_to_three.tscn` with
+**F6**, then click **Try level 2** or **Try level 3**. Running the popup alone
+shows the static design; its button is connected by the gameplay scene.

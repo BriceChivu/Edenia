@@ -1,5 +1,9 @@
 extends "res://scripts/level_two_preview.gd"
 
+var study_pointer_down := false
+var study_dragging := false
+var study_press_position := Vector2.ZERO
+var study_press_camera := Vector2.ZERO
 var study_camera: Camera2D
 var study_camera_center := Vector2(576, 248)
 
@@ -81,3 +85,27 @@ func unlock_level(target_level: int) -> void:
 				child.text = "Level 2"
 			elif child.text.begins_with("Congratulations! Start shaping your island."):
 				child.text = "4 new items: 3 ground tiles + 1 stair bundle."
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			study_pointer_down = true
+			study_dragging = false
+			study_press_position = event.position
+			study_press_camera = study_camera.position
+		elif study_pointer_down:
+			study_pointer_down = false
+			if not study_dragging:
+				var click = event.duplicate()
+				click.pressed = true
+				super._unhandled_input(click)
+			study_dragging = false
+		return
+	if event is InputEventMouseMotion and study_pointer_down:
+		var displacement: Vector2 = event.position - study_press_position
+		if displacement.length() >= 6.0:
+			study_dragging = true
+		if study_dragging:
+			study_camera.position = (study_press_camera - displacement / study_camera.zoom).clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
+		return
+	super._unhandled_input(event)

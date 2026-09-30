@@ -1,0 +1,157 @@
+[gd_scene format=3 uid="uid://cjv3if815bgs8"]
+
+[ext_resource type="FontFile" uid="uid://ddy1bqocuucpx" path="res://fonts/MedievalSharp.ttf" id="1_ecdye"]
+[ext_resource type="Texture2D" path="res://assets/ui/level_up_wood_table.png" id="2_b0a4l"]
+[ext_resource type="Texture2D" uid="uid://dm53m1x17ijp0" path="res://assets/ui/level_up_ribbon.png" id="3_gu52r"]
+[ext_resource type="Texture2D" uid="uid://ospojhb4i60c" path="res://assets/ui/level_up_button_normal.png" id="4_142je"]
+[ext_resource type="Texture2D" uid="uid://bi4slbwmh0wsf" path="res://assets/ui/level_up_button_pressed.png" id="5_jc0g1"]
+[ext_resource type="Texture2D" uid="uid://gmx6a3k5vaci" path="res://assets/ui/level_up_button_hover.png" id="6_am0wv"]
+[ext_resource type="Texture2D" uid="uid://dnu1llnfy3fd2" path="res://assets/ui/level_up_button_disabled.png" id="7_p7lwv"]
+[ext_resource type="Script" uid="uid://b0mi1e65j5f2x" path="res://scripts/level_up_popup.gd" id="PopupScript"]
+
+[sub_resource type="FontVariation" id="FontVariation_kitj7"]
+base_font = ExtResource("1_ecdye")
+variation_embolden = 0.5
+
+[sub_resource type="Theme" id="Theme_nht5g"]
+default_font = SubResource("FontVariation_kitj7")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_t8okf"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("2_b0a4l")
+texture_margin_left = 128.0
+texture_margin_top = 128.0
+texture_margin_right = 128.0
+texture_margin_bottom = 128.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_aa412"]
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 11.0
+texture = ExtResource("4_142je")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ubx6b"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("5_jc0g1")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_04tcd"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("6_am0wv")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_lkagc"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("7_p7lwv")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[node name="LevelUpPopup" type="Control" unique_id=2070443282]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 470.0
+offset_bottom = 300.0
+theme = SubResource("Theme_nht5g")
+script = ExtResource("PopupScript")
+
+[node name="Paper" type="Panel" parent="." unique_id=159612535]
+texture_filter = 1
+layout_mode = 0
+offset_left = 25.0
+offset_top = 56.0
+offset_right = 445.0
+offset_bottom = 296.0
+theme_override_styles/panel = SubResource("StyleBoxTexture_t8okf")
+
+[node name="Ribbon" type="NinePatchRect" parent="." unique_id=135563197]
+texture_filter = 1
+custom_minimum_size = Vector2(256, 128)
+layout_mode = 0
+offset_top = 35.0
+offset_right = 470.0
+offset_bottom = 153.0
+texture = ExtResource("3_gu52r")
+region_rect = Rect2(0, 0, 320, 128)
+patch_margin_left = 128
+patch_margin_right = 128
+axis_stretch_horizontal = 1
+
+[node name="Title" type="Label" parent="." unique_id=590611607]
+layout_mode = 0
+offset_left = -96.0
+offset_top = 71.0
+offset_right = 374.0
+offset_bottom = 115.99997
+scale = Vector2(1.42, 1.42)
+theme_override_colors/font_color = Color(1, 0.9529412, 0.8117647, 1)
+theme_override_colors/font_shadow_color = Color(0.38431373, 0.2509804, 0.16862746, 1)
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 30
+text = "LEVEL 2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Message2" type="Label" parent="." unique_id=1352918920]
+layout_mode = 0
+offset_left = 173.0
+offset_top = 163.0
+offset_right = 563.0
+offset_bottom = 290.0
+theme_override_colors/font_color = Color(0.34117648, 0.27058825, 0.18431373, 1)
+theme_override_font_sizes/font_size = 16
+text = "+3 ground tiles 
++1 stair bundle
+"
+
+[node name="BuildButton" type="Button" parent="." unique_id=1103364191]
+texture_filter = 1
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 0
+offset_left = 141.0
+offset_top = 221.0
+offset_right = 321.0
+offset_bottom = 265.0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxTexture_aa412")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_ubx6b")
+theme_override_styles/hover = SubResource("StyleBoxTexture_04tcd")
+theme_override_styles/disabled = SubResource("StyleBoxTexture_lkagc")
+text = "OK"

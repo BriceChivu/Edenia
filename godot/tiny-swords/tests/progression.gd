@@ -34,6 +34,8 @@ func _initialize() -> void:
 	# Old fully unlocked snapshots retain every existing reward and placement.
 	var legacy: Dictionary = second.snapshot()
 	legacy.version = 5
+	for tile in legacy.tiles:
+		tile.resize(6)
 	legacy.unlocked = true
 	legacy.erase("level")
 	var migrated = Layout.new()
@@ -53,6 +55,8 @@ func _initialize() -> void:
 		check(migrated.restore(legacy) and migrated.level == 3 and migrated.stock == Layout.REWARDS, "Older preview migration retains full entitlement: v%s" % version)
 	legacy = Layout.new().snapshot()
 	legacy.version = 5
+	for tile in legacy.tiles:
+		tile.resize(6)
 	legacy.unlocked = false
 	legacy.erase("level")
 	check(migrated.restore(legacy) and migrated.level == 1, "Old locked preview remains level one")

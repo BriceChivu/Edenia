@@ -4,6 +4,7 @@ const DecorationRules = preload("res://scripts/decoration_rules.gd")
 
 const ORIGIN := Vector2(512, 176)
 const SIZE := 64
+const FLOOR_PALETTES := [3, 1, 2, 4, 5]
 const HOME := Vector2i(0, 0)
 const MIN_CELL := Vector2i(-6, -2)
 const MAX_CELL := Vector2i(8, 3)
@@ -18,6 +19,7 @@ const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 var cells: Dictionary = {}
 var trees: Dictionary = {}
 var stair_directions: Dictionary = {}
+var elevations: Dictionary = {}
 var stock: Dictionary = {}
 var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}
 var decorations: Dictionary = {}
@@ -49,7 +51,7 @@ func center(cell: Vector2i) -> Vector2:
 	return ORIGIN + Vector2(cell) * SIZE + Vector2.ONE * SIZE / 2.0
 
 func height_at(cell: Vector2i) -> float:
-	return 64.0 if str(cells.get(cell, "")).begins_with("high_") else 0.0
+	return float(elevations.get(cell, 64 if str(cells.get(cell, "")).begins_with("high_") else 0))
 
 func spawn_cell() -> Vector2i:
 	if cells.has(HOME) and not trees.has(HOME) and cells[HOME] != "stairs":
@@ -118,9 +120,11 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 			return false
 		if cells[cell] == "stairs":
 			var landing := cell + stair_direction(cell)
-			if landing == occupied or trees.has(landing):
+			if landing == occupied or trees.has(landing) or cells.get(landing + Vector2i.UP) == "stairs":
 				return false
 		if not trees.has(cell):
+			if cells.get(cell + Vector2i.UP) == "stairs":
+				return false
 			for step in [Vector2i.LEFT, Vector2i.RIGHT]:
 				if cells.get(cell + step) == "stairs":
 					return false
@@ -141,31 +145,42 @@ func ground_count() -> int:
 			count += stock[kind]
 	return count
 
-func automatic_kind(cell: Vector2i) -> String:
+func automatic_height(cell: Vector2i) -> float:
+	var height := 0.0
 	for step in STEPS:
 		var neighbor: Vector2i = cell + step
-		if height_at(neighbor) > 0:
-			return "high_gold"
-		if cells.get(neighbor) == "stairs" and neighbor + stair_direction(neighbor) == cell:
-			return "high_gold"
-	return "meadow"
+		if cells.get(neighbor) != "stairs":
+			height = maxf(height, height_at(neighbor))
+	return height
 
-# A horizontal stair starts beside flat land and establishes its high endpoint.
+func kind_at_height(height: float) -> String:
+	return "meadow" if height == 0 else ("high_gold" if int(height / SIZE) % 2 == 1 else "high_meadow")
+
+func palette_at_height(height: float) -> int:
+	return FLOOR_PALETTES[int(height / SIZE) % FLOOR_PALETTES.size()]
+
+func automatic_kind(cell: Vector2i) -> String:
+	return kind_at_height(automatic_height(cell))
+
+# A horizontal stair rises one floor from its lower endpoint.
 func proposed_stair_direction(cell: Vector2i) -> Vector2i:
 	for direction in [Vector2i.RIGHT, Vector2i.LEFT]:
 		var low: Vector2i = cell - direction
 		var high: Vector2i = cell + direction
-		if cells.has(low) and cells[low] != "stairs" and height_at(low) == 0 and (not cells.has(high) or height_at(high) == 64):
+		if cells.has(low) and cells[low] != "stairs" and (not cells.has(high) or height_at(high) == height_at(low) + SIZE):
 			return direction
 	return Vector2i.ZERO
 
 func available_stair_direction(cell: Vector2i) -> Vector2i:
-	if cells.get(cell) == "stairs" or trees.has(cell):
+	var below: Vector2i = cell + Vector2i.DOWN
+	if not cells.has(below) or cells[below] == "stairs":
+		return Vector2i.ZERO
+	if cells.get(cell) == "stairs" or trees.has(cell) or cells.get(cell + Vector2i.UP) == "stairs":
 		return Vector2i.ZERO
 	for direction in [Vector2i.RIGHT, Vector2i.LEFT]:
 		var low: Vector2i = cell - direction
 		var landing: Vector2i = cell + direction
-		if not cells.has(low) or cells[low] == "stairs" or height_at(low) != 0:
+		if not cells.has(low) or cells[low] == "stairs":
 			continue
 		if not in_bounds(landing) or cells.get(landing) == "stairs" or trees.has(landing):
 			continue
@@ -203,10 +218,10 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 		return false
 	if cells[from] == "stairs":
 		var direction := stair_direction(from)
-		return direction != Vector2i.ZERO and cells[to] != "stairs" and ((to == from + direction and height_at(to) == 64) or (to == from - direction and height_at(to) == 0))
+		return direction != Vector2i.ZERO and cells[to] != "stairs" and ((to == from + direction and height_at(to) == height_at(from) + SIZE) or (to == from - direction and height_at(to) == height_at(from)))
 	if cells[to] == "stairs":
 		var direction := stair_direction(to)
-		return direction != Vector2i.ZERO and cells[from] != "stairs" and ((from == to + direction and height_at(from) == 64) or (from == to - direction and height_at(from) == 0))
+		return direction != Vector2i.ZERO and cells[from] != "stairs" and ((from == to + direction and height_at(from) == height_at(to) + SIZE) or (from == to - direction and height_at(from) == height_at(to)))
 	return height_at(from) == height_at(to)
 
 func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
@@ -221,14 +236,17 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 				var landing := cell + stair_direction(cell)
 				flora.erase(landing)
 				cells.erase(landing)
+				elevations.erase(landing)
 			stock[cells[cell]] += 1
 			stair_directions.erase(cell)
 			flora.erase(cell)
 			cells.erase(cell)
+			elevations.erase(cell)
 	elif tool == "tree":
 		trees[cell] = true
 		stock.tree -= 1
 	elif tool == "ground":
+		elevations[cell] = automatic_height(cell)
 		cells[cell] = automatic_kind(cell)
 		add_flora(cell)
 		spend_ground()
@@ -236,6 +254,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 		if tool == "stairs":
 			stair_directions[cell] = available_stair_direction(cell)
 			var landing: Vector2i = cell + stair_directions[cell]
+			elevations[cell] = height_at(cell - stair_directions[cell])
 			if cells.has(landing):
 				# The kit supplies the landing, returning the replaced plain tile.
 				stock[cells[landing]] += 1
@@ -244,7 +263,8 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i) -> bool:
 			flora.erase(cell)
 			cells[cell] = "stairs"
 			var new_landing: bool = not cells.has(landing)
-			cells[landing] = "high_gold"
+			elevations[landing] = height_at(cell) + SIZE
+			cells[landing] = kind_at_height(height_at(landing))
 			if new_landing:
 				add_flora(landing)
 		cells[cell] = tool
@@ -277,16 +297,16 @@ func path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 func snapshot() -> Dictionary:
 	var tiles: Array = []
 	for cell in cells:
-		tiles.append([cell.x, cell.y, cells[cell], trees.has(cell), stair_direction(cell).x if cells[cell] == "stairs" else 0, flora.get(cell, 0)])
+		tiles.append([cell.x, cell.y, cells[cell], trees.has(cell), stair_direction(cell).x if cells[cell] == "stairs" else 0, flora.get(cell, 0), height_at(cell)])
 	var saved_decorations: Array = []
 	for owner in decorations:
 		var item: Dictionary = decorations[owner]
 		var water: Vector2i = item.get("water", owner)
 		saved_decorations.append([owner.x, owner.y, item.kind, item.variant, water.x, water.y])
-	return {"version": 7, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	return {"version": 8, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_level := int(data.get("level", 0)) if int(data.version) >= 6 else (3 if data.get("unlocked", false) else 1)
 	if next_level not in [1, 2, 3]:
@@ -294,15 +314,21 @@ func restore(data: Dictionary) -> bool:
 	var next_cells := {}
 	var next_trees := {}
 	var next_stairs := {}
+	var next_elevations := {}
 	var next_flora := {}
 	var next_stock := {}
 	for tile in data.tiles:
-		if not tile is Array or tile.size() != (6 if int(data.version) >= 4 else (5 if int(data.version) == 3 else 4)) or not tile[2] in KINDS:
+		if not tile is Array or tile.size() != (7 if int(data.version) >= 8 else (6 if int(data.version) >= 4 else (5 if int(data.version) == 3 else 4))) or not tile[2] in KINDS:
 			return false
 		var cell := Vector2i(int(tile[0]), int(tile[1]))
 		if not in_bounds(cell) or next_cells.has(cell):
 			return false
 		next_cells[cell] = tile[2]
+		if int(data.version) >= 8:
+			var height := int(tile[6])
+			if height < 0 or height > SIZE * 13 or height % SIZE != 0:
+				return false
+			next_elevations[cell] = height
 		var decoration: int = int(tile[5]) if int(data.version) >= 4 else int({Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}.get(cell, 0))
 		if decoration < 0 or decoration > 2:
 			return false
@@ -364,6 +390,7 @@ func restore(data: Dictionary) -> bool:
 	if data.get("version") == 1 and data.get("unlocked", false):
 		next_stock.meadow += 1
 		next_stock.stairs += 2
+	elevations = next_elevations
 	cells = next_cells
 	trees = next_trees
 	flora = next_flora

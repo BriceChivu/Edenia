@@ -41,10 +41,7 @@ func run() -> void:
 				var granted: Dictionary = scene.layout.stock.duplicate()
 				scene.unlock_level(target)
 				check(scene.layout.stock == granted, "Repeated UI event grants nothing")
-				for child in scene.ui.celebration.get_children():
-					if child is Button and child.text in ["Start building", "Keep building"]:
-						child.pressed.emit()
-						break
+				scene.ui.celebration.get_node("BuildButton").pressed.emit()
 				check(scene.editing and scene.ui.panel.visible and scene.ui.celebration == null, "Real celebration action opens inventory")
 				# A pre-upgrade undo snapshot must not revoke rewards or recreate them.
 				scene.undo()

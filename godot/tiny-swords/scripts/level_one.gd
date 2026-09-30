@@ -19,7 +19,6 @@ func _ready() -> void:
 	splash.reparent($World)
 	splash.z_index = 0
 	$Water.z_index = -20
-	$Reflections.z_index = -19
 	$IslandShadows.z_index = -18
 	$ShoreFoam.z_index = -17
 	$Islands.z_index = -16

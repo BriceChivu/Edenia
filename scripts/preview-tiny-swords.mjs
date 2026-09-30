@@ -35,7 +35,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) &&
 }
 </script>
 <style>
-.tiny-swords-preview .city-image-wrap { background: #48a5a6; }
+.tiny-swords-preview .city-image-wrap { background: #47aba9; }
 .tiny-swords-preview .city-image-wrap > :not(.tiny-swords-frame) { visibility: hidden !important; pointer-events: none !important; }
 .tiny-swords-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; z-index: 5; }
 </style>

@@ -10,7 +10,7 @@ func run() -> void:
 	level.layout.cells = {Vector2i.ZERO: "meadow"}
 	level.layout.flora.clear()
 	level.rebuild_decorations()
-	for name in ["Clouds", "PassingCloud", "WaterRocks", "Reflections"]:
+	for name in ["Clouds", "PassingCloud", "WaterRocks"]:
 		level.get_node(name).hide()
 	level.set_process(false)
 	level.pawn.set_physics_process(false)

@@ -1,10 +1,9 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/level_one.gd" id="Scene"]
 [ext_resource type="Script" path="res://scripts/environment_sprite.gd" id="Animation"]
 [ext_resource type="Script" path="res://scripts/cloud.gd" id="Drift"]
 [ext_resource type="Script" path="res://scripts/rare_cloud.gd" id="RareDrift"]
-[ext_resource type="Shader" path="res://shaders/water.gdshader" id="WaterShader"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Tileset/Water Background color.png" id="Water"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Tileset/Water Foam.png" id="Foam"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Tileset/Shadow.png" id="Shadow"]
@@ -21,28 +20,18 @@
 
 [ext_resource type="PackedScene" path="res://scenes/water_splash.tscn" id="Splash"]
 
-[sub_resource type="ShaderMaterial" id="Reflections"]
-shader = ExtResource("WaterShader")
 
 [node name="LevelOne" type="Node2D"]
 texture_filter = 1
 script = ExtResource("Scene")
 
 [node name="Water" type="Sprite2D" parent="."]
-position = Vector2(-424, -352)
+position = Vector2(-4424, -4752)
 texture = ExtResource("Water")
 centered = false
 region_enabled = true
-region_rect = Rect2(0, 0, 2000, 1200)
+region_rect = Rect2(0, 0, 10000, 10000)
 texture_repeat = 2
-
-[node name="Reflections" type="ColorRect" parent="."]
-offset_left = -424.0
-offset_top = -352.0
-offset_right = 1576.0
-offset_bottom = 848.0
-mouse_filter = 2
-material = SubResource("Reflections")
 
 [node name="IslandShadows" type="Node2D" parent="."]
 
