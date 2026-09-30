@@ -91,13 +91,13 @@ func run() -> void:
 		wheel.pressed = true
 		wheel.button_index = entry[0]
 		game._input(wheel)
-		check((game.study_camera.position - camera_before_scroll).dot(entry[1]) > 0, "Wheel direction %s pans the camera" % entry[0])
+		check(game.study_camera.position == camera_before_scroll, "Wheel direction %s leaves the camera unchanged" % entry[0])
 	check(game.study_camera.zoom == scroll_zoom and game.layout.snapshot() == before_scroll, "Scrolling never zooms or edits terrain")
 	var before_pan: Vector2 = game.study_camera.position
 	var gesture := InputEventPanGesture.new()
 	gesture.delta = Vector2(1, 2)
 	game._input(gesture)
-	check(game.study_camera.position.x > before_pan.x and game.study_camera.position.y > before_pan.y and game.study_camera.zoom == scroll_zoom, "Trackpad pan gestures move both axes without zoom")
+	check(game.study_camera.position == before_pan and game.study_camera.zoom == scroll_zoom, "Trackpad gestures leave the camera unchanged")
 	game.queue_free()
 	await process_frame
 	print("Native gameplay checks: %s failures" % failures)
