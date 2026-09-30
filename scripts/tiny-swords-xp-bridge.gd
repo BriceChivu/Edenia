@@ -7,6 +7,10 @@ var study_bridge_ready := false
 var study_layout_restored := false
 var study_poll_elapsed := 0.0
 var study_celebrating := false
+var study_pointer_down: InputEventMouseButton
+var study_dragging := false
+var study_drag_origin := Vector2.ZERO
+var study_drag_threshold := 6.0
 
 func _ready() -> void:
 	# This integration has its own browser layout; standalone editor saves stay intact.
@@ -19,6 +23,9 @@ func _ready() -> void:
 	study_camera.zoom = Vector2.ONE * 0.85
 	add_child(study_camera)
 	study_bridge_ready = true
+	get_window().mouse_exited.connect(func():
+		study_pointer_down = null
+		study_dragging = false)
 
 func _process(delta: float) -> void:
 	super._process(delta)
@@ -32,17 +39,13 @@ func _process(delta: float) -> void:
 	if commands is Array:
 		for command in commands:
 			match command:
-				"left": study_camera.position.x -= 64 / study_camera.zoom.x
-				"right": study_camera.position.x += 64 / study_camera.zoom.x
-				"up": study_camera.position.y -= 64 / study_camera.zoom.x
-				"down": study_camera.position.y += 64 / study_camera.zoom.x
 				"in": study_camera.zoom = Vector2.ONE * minf(1.5, study_camera.zoom.x + 0.1)
 				"out": study_camera.zoom = Vector2.ONE * maxf(0.5, study_camera.zoom.x - 0.1)
 				"reset":
 					study_camera.position = study_camera_center
 					study_camera.zoom = Vector2.ONE * 0.85
 		study_camera.position = study_camera.position.clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
-	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": study_camera.position.x, "y": study_camera.position.y, "zoom": study_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y}))
+	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": study_camera.position.x, "y": study_camera.position.y, "zoom": study_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y, "pawnX": pawn.position.x, "pawnY": pawn.position.y, "editing": editing}))
 	if study_celebrating != (ui.celebration != null):
 		study_celebrating = ui.celebration != null
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s}, location.origin)" % str(study_celebrating))
@@ -81,3 +84,35 @@ func unlock_level(target_level: int) -> void:
 				child.text = "Level 2"
 			elif child.text.begins_with("Congratulations! Start shaping your island."):
 				child.text = "4 new items: 3 ground tiles + 1 stair bundle."
+
+func _input(event: InputEvent) -> void:
+	super._input(event)
+	if study_pointer_down == null:
+		return
+	if event is InputEventMouseMotion:
+		var distance: Vector2 = event.position - study_pointer_down.position
+		if distance.length() >= study_drag_threshold:
+			study_dragging = true
+		if study_dragging:
+			study_camera.position = (study_drag_origin - distance / study_camera.zoom.x).clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		var click := study_pointer_down
+		study_pointer_down = null
+		if not study_dragging:
+			super._unhandled_input(click)
+		study_dragging = false
+		get_viewport().set_input_as_handled()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and ui.celebration == null:
+		# Defer world clicks until release, after distinguishing a click from a pan.
+		# Godot GUI controls consume their own presses before this handler.
+		study_pointer_down = event
+		study_drag_origin = study_camera.position
+		study_dragging = false
+		if OS.has_feature("web"):
+			study_drag_threshold = 6.0 * get_viewport().get_visible_rect().size.x / maxf(1, float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width")))
+		get_viewport().set_input_as_handled()
+		return
+	super._unhandled_input(event)
