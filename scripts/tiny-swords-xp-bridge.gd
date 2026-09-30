@@ -66,3 +66,14 @@ func _process(delta: float) -> void:
 func save_layout() -> void:
 	if study_bridge_ready and OS.has_feature("web"):
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-layout',layout:%s}, location.origin)" % JSON.stringify(layout.snapshot()))
+
+func unlock_level(target_level: int) -> void:
+	super.unlock_level(target_level)
+	if target_level != 2 or layout.level != 2 or ui.celebration == null:
+		return
+	for child in ui.celebration.get_children():
+		if child is Label:
+			if child.text == "LEVEL TWO!":
+				child.text = "Level 2"
+			elif child.text.begins_with("Congratulations! Start shaping your island."):
+				child.text = "4 new items: 3 ground tiles + 1 stair bundle."

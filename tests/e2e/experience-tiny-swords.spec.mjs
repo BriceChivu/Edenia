@@ -44,6 +44,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaGameLevel)).toBe(1)
   await page.locator('#levelUpButton').press('Enter')
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaGameLevel)).toBe(2)
+  await page.screenshot({ path: test.info().outputPath('level-two-celebration.png') })
   const reward2 = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_tiny_swords_xp_layout_v1')))
   expect(reward2.stock.stairs).toBe(1)
   expect(reward2.stock.meadow + reward2.stock.gold).toBe(3)
