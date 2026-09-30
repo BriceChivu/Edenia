@@ -365,7 +365,7 @@
             <span class="intro-progress-orbit"></span>
             <img class="intro-progress-mark" src="Edenia_favicon_round.png" alt="">
             <span class="intro-spark-ring">+3</span>
-            <strong data-i18n="intro.purpose.progress">Study points</strong>
+            <strong data-i18n="intro.purpose.progress">Experience</strong>
           </div>
           <span class="intro-source-particle intro-source-particle-one"></span>
           <span class="intro-source-particle intro-source-particle-two"></span>
@@ -376,7 +376,7 @@
       <article class="intro-scene intro-scene-city" data-intro-scene="2">
         <div class="intro-city-copy">
           <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
-          <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
+          <h2 data-i18n="intro.city.title">Study. Earn experience. Watch your town evolve.</h2>
           <div class="intro-city-growth">
             <button type="button" data-intro-city-level="1" data-analytics-action="selectIntroCityLevel">1</button><i></i>
             <button type="button" data-intro-city-level="4" data-analytics-action="selectIntroCityLevel">4</button><i></i>
@@ -637,11 +637,11 @@ and momentum—at a glance</h2>
 
           </section>
           <section class="settings-howto-section settings-scoring-section">
-            <h3 data-i18n="settings.scoring.title">How points work</h3>
-        <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews.</p>
+            <h3 data-i18n="settings.scoring.title">How experience works</h3>
+        <p class="step-hint" data-i18n="settings.scoring.intro">Experience rewards new video watching and Anki reviews.</p>
         <ul class="settings-scoring-list">
-          <li data-i18n="settings.scoring.video">Watching 1 hour of video gives 30 pts.</li>
-          <li data-i18n="settings.scoring.anki">60 Anki reviews gives 20 pts.</li>
+          <li data-i18n="settings.scoring.video">Watching 1 minute of video earns 1 XP.</li>
+          <li data-i18n="settings.scoring.anki">3 new Anki reviews earn 2 XP.</li>
         </ul>
           </section>
         </div>
@@ -658,7 +658,7 @@ and momentum—at a glance</h2>
               <button class="activity-log-filter" type="button" data-activity-log-filter="user" data-analytics-action="settings.activity.user" data-i18n="settings.activity.user">User</button>
               <button class="activity-log-filter" type="button" data-activity-log-filter="auto" data-analytics-action="settings.activity.auto" data-i18n="settings.activity.auto">Auto</button>
               <button class="activity-log-filter" type="button" data-activity-log-filter="issues" data-analytics-action="settings.activity.issues" data-i18n="settings.activity.issues">Issues</button>
-              <button class="activity-log-filter" type="button" data-activity-log-filter="points" data-analytics-action="settings.activity.points" data-i18n="settings.activity.points">Points</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="points" data-analytics-action="settings.activity.points" data-i18n="settings.activity.points">Experience</button>
             </div>
             <div id="activityLogList" class="activity-log-list"></div>
           </div>
@@ -843,7 +843,7 @@ and momentum—at a glance</h2>
               <div class="progress-fill city-level-progress-fill" id="cityLevelProgressFill"></div>
             </div>
             <span class="city-level-remaining-hover" aria-hidden="true"></span>
-            <span class="city-pts" id="cityScoreMarker"><span id="cityScore">0</span> <span id="cityScoreContext" data-i18n="city.totalPts">total pts</span></span>
+            <span class="city-pts" id="cityScoreMarker"><span id="cityScore">0</span> <span id="cityScoreContext" data-i18n="city.totalPts">total XP</span></span>
             <span class="city-level-progress-actions">
               <span class="city-next">
                 <span id="cityNextLevel"></span>
@@ -852,8 +852,8 @@ and momentum—at a glance</h2>
               <button class="level-up-button" id="levelUpButton" type="button" data-city-level-action="claim" aria-hidden="true" disabled data-i18n="city.levelUp" data-analytics-action="city.levelUp">Level up</button>
             </span>
             <span class="city-level-milestone-points">
-              <span id="cityCurrentMilestonePoints">0 pts</span>
-              <span id="cityNextMilestonePoints">60 pts</span>
+              <span id="cityCurrentMilestonePoints">0 XP</span>
+              <span id="cityNextMilestonePoints">60 XP</span>
             </span>
           </div>
           <span class="city-stage" id="cityLabel">🏠 Lonely house</span>

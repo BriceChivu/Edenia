@@ -14,7 +14,9 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.wasm': 'application/wasm',
   '.webp': 'image/webp',
-  '.woff2': 'font/woff2'
+  '.woff2': 'font/woff2',
+  '.wasm': 'application/wasm',
+  '.pck': 'application/octet-stream'
 }
 
 function argumentValue(name, fallback = '') {

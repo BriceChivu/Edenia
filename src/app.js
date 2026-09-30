@@ -1,3 +1,4 @@
+import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import {
   initializeTownEconomy,
   recordTownRewards,
@@ -1905,7 +1906,7 @@ function getRecommendedChannelCatalog(profile, limit = 6) {
 }
 
 function normalizeLoadedState(state) {
-  let shouldSave = false
+  let shouldSave = initializeExperience(state)
   if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
   if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
   if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
@@ -7520,7 +7521,7 @@ function setActivityLogFilter(filter) {
 }
 
 function getFilteredActivityLogEntries(state) {
-  const entries = Array.isArray(state?.activityLog) ? state.activityLog : []
+  const entries = (Array.isArray(state?.activityLog) ? state.activityLog : []).filter(entry => entry.type !== 'point-delta' || entry.meta?.experienceVersion === 1)
   if (selectedActivityLogFilter === 'user') return entries.filter(entry => entry.actor === 'user')
   if (selectedActivityLogFilter === 'auto') return entries.filter(entry => entry.actor === 'auto')
   if (selectedActivityLogFilter === 'issues') return entries.filter(entry => ['warn', 'error'].includes(entry.status))
@@ -7534,7 +7535,7 @@ function getPointActivityLogEntries(state) {
   const history = getStudyHistoryBetween(state || { videos: {}, anki: {} }, new Date(0), end)
 
   history.rows.forEach(row => {
-    const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+    const ankiPoints = (row.experienceReviews || 0)
     if (ankiPoints > 0) {
       entries.push({
         createdAt: `${row.dateKey}T23:59:59`,
@@ -7546,7 +7547,7 @@ function getPointActivityLogEntries(state) {
     }
 
     ;(row.watchedVideos || []).forEach(video => {
-      const videoPoints = getVideoPointsFromSeconds(video.duration || 0)
+      const videoPoints = (video.experienceSeconds || 0) / 60
       if (videoPoints <= 0) return
       entries.push({
         createdAt: video.watchedAt || `${row.dateKey}T23:59:59`,
@@ -7562,7 +7563,7 @@ function getPointActivityLogEntries(state) {
   })
 
   const pointDeltas = (Array.isArray(state?.activityLog) ? state.activityLog : [])
-    .filter(entry => entry?.type === 'point-delta' && Number(entry.meta?.pointsDelta || 0) !== 0)
+    .filter(entry => entry?.type === 'point-delta' && entry.meta?.experienceVersion === 1 && Number(entry.meta?.pointsDelta || 0) !== 0)
     .map(entry => ({
       createdAt: entry.createdAt,
       status: entry.status || (Number(entry.meta?.pointsDelta || 0) < 0 ? 'warn' : 'success'),
@@ -11784,7 +11785,9 @@ function applyAnkiStatsToState(s, stats) {
     ? normalizeAnkiCount(baseline.trackedCreated) + Math.max(0, rawCreated - normalizeAnkiCount(baseline.rawCreated))
     : rawCreated
 
+  const experience = observeAnkiExperience(s.anki[ankiDateKey], rawReviewed, { eligible: ankiDateKey === getCurrentAnkiDateKey() && !pending })
   s.anki[ankiDateKey] = {
+    ...experience,
     reviewed,
     created,
     loggedAt: stats.fetchedAt,
@@ -11835,6 +11838,9 @@ function createHistoryBucket(dateKey) {
     ankiReviewed: 0,
     ankiCreated: 0,
     points: 0,
+    experienceSeconds: 0,
+    experienceReviews: 0,
+    hasExperience: false,
     watchedVideos: []
   }
 }
@@ -11973,6 +11979,7 @@ function getStudyHistoryBetween(s, start, end) {
           title: video.title || t('videos.search.untitled'),
           thumbnail: video.thumbnail || '',
           duration: 0,
+          experienceSeconds: 0,
           watchedAt: entry.watchedAt
         }
         bucket.watchedVideoMap.set(videoId, watchedVideo)
@@ -11980,8 +11987,11 @@ function getStudyHistoryBetween(s, start, end) {
         bucket.videosWatched += 1
       }
       watchedVideo.duration += entry.seconds || 0
+      watchedVideo.experienceSeconds += entry.experienceSeconds || 0
       if (new Date(entry.watchedAt) > new Date(watchedVideo.watchedAt)) watchedVideo.watchedAt = entry.watchedAt
       bucket.secondsWatched += entry.seconds || 0
+      bucket.experienceSeconds += entry.experienceSeconds || 0
+      if (entry.experienceSeconds !== undefined) bucket.hasExperience = true
     })
   }
 
@@ -11992,6 +12002,8 @@ function getStudyHistoryBetween(s, start, end) {
     const date = new Date(`${dateKey}T00:00:00`)
     if (date < start || date > end) continue
     const bucket = ensureBucket(dateKey)
+    bucket.experienceReviews += day.experienceReviews || 0
+    if (day.experienceReviews !== undefined) bucket.hasExperience = true
     bucket.ankiReviewed += reviewed
     bucket.ankiCreated += created
   }
@@ -12051,7 +12063,7 @@ function renderHistoryWatchedCell(row) {
 function formatHistoryPointNumber(points) {
   const value = Number(points || 0)
   return new Intl.NumberFormat(getCurrentLocale(), {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 1
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
   }).format(value)
 }
 
@@ -12084,13 +12096,7 @@ function formatSignedActivityLogPointLabel(points) {
 }
 
 function getVideoSnapshotPoints(video) {
-  const secondsByDate = new Map()
-  getVideoWatchProgressEntries(video).forEach(entry => {
-    const dateKey = toDateKey(new Date(entry.watchedAt))
-    secondsByDate.set(dateKey, (secondsByDate.get(dateKey) || 0) + (entry.seconds || 0))
-  })
-  return Array.from(secondsByDate.values())
-    .reduce((sum, seconds) => sum + Math.floor((seconds / 3600) * VIDEO_HOUR_POINTS), 0)
+  return getVideoWatchProgressEntries(video).reduce((sum, entry) => sum + (entry.experienceSeconds || 0), 0) / 60
 }
 
 function getVideoActionPointDelta(action, direction = 'redo') {
@@ -12119,6 +12125,7 @@ function appendPointDeltaActivityLog(state, { action, direction = 'redo', reason
     detail: formatSignedHistoryPointLabel(delta),
     createdAt: isValidTimestamp(createdAt) ? createdAt : new Date().toISOString(),
     meta: {
+      experienceVersion: 1,
       pointsDelta: delta,
       videoId: action?.videoId || sourceVideo?.id || null
     }
@@ -12127,27 +12134,27 @@ function appendPointDeltaActivityLog(state, { action, direction = 'redo', reason
 
 function getHistoryPointBreakdown(row) {
   const videoItems = (row.watchedVideos || [])
-    .filter(video => (video.duration || 0) > 0)
+    .filter(video => (video.experienceSeconds || 0) > 0)
     .map(video => ({
       type: 'video',
       title: video.title || t('videos.search.untitled'),
-      detail: formatHistoryTime(video.duration || 0),
-      points: getVideoPointsFromSeconds(video.duration || 0)
+      detail: formatHistoryTime(video.experienceSeconds || 0),
+      points: (video.experienceSeconds || 0) / 60
     }))
 
-  const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+  const ankiPoints = (row.experienceReviews || 0)
   const items = []
-  if ((row.ankiReviewed || 0) > 0) {
+  if ((row.experienceReviews || 0) > 0) {
     items.push({
       type: 'anki',
       title: t('history.pointsAnkiReviews'),
-      detail: t('history.pointsReviewsCount', { count: row.ankiReviewed }),
+      detail: t('history.pointsReviewsCount', { count: row.experienceReviews }),
       points: ankiPoints
     })
   }
   items.push(...videoItems)
 
-  const total = Math.floor(items.reduce((sum, item) => sum + item.points, 0))
+  const total = historyExperience(row)
   return {
     items,
     total
@@ -12155,12 +12162,13 @@ function getHistoryPointBreakdown(row) {
 }
 
 function renderHistoryPointsCell(row) {
+  if (!row.hasExperience) return '—'
   const breakdown = getHistoryPointBreakdown(row)
   const points = getHistoryDayPoints(row)
   return `
     <span class="history-points-cell" data-history-points-popover-action="toggle">
       <button type="button" class="history-points-trigger" aria-expanded="false" aria-label="${escHtml(t('history.showPoints', { date: formatHeatmapTitle(row) }))}">
-        ${points}
+        ${escHtml(formatHistoryPointNumber(points))}
       </button>
       <span class="history-points-popover" role="dialog" aria-label="${escHtml(t('history.pointsDialog'))}">
         <span class="history-points-popover-total">
@@ -12903,7 +12911,7 @@ function getHistoryDayRawPoints(row) {
 }
 
 function getHistoryDayPoints(row) {
-  return Math.floor(getHistoryDayRawPoints(row))
+  return historyExperience(row)
 }
 
 function hasHistoryActivity(row) {
@@ -12919,7 +12927,7 @@ function formatHeatmapAriaLabel(row, ankiEnabled = true, streakDayCount = 0) {
   const key = ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
   const details = t(key, {
     date: formatHeatmapTitle(row),
-    points: getHistoryDayPoints(row),
+    points: row.hasExperience ? formatHistoryPointNumber(getHistoryDayPoints(row)) : '—',
     time: formatHistoryTime(row.secondsWatched),
     videos: row.videosWatched,
     reviewed: row.ankiReviewed,
@@ -13013,7 +13021,7 @@ function renderHistoryHeatmap(s, container) {
             const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
             const streakOutlineClass = streakDayCount ? ' streak-run' : ''
             return `
-            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}"></button>
+            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${row.hasExperience ? formatHistoryPointNumber(getHistoryDayPoints(row)) : ''}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}"></button>
           `}).join('')}
         </div>
       </div>
@@ -13078,7 +13086,7 @@ function showHeatmapTooltip(event) {
       <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
       <div class="heatmap-tooltip-badges">
         ${streakBadge}
-        <div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>
+        ${target.dataset.points ? `<div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>` : ''}
       </div>
     </div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>${escHtml(t('history.tooltip.videoTime'))}</span><b>${escHtml(target.dataset.time)}</b></div>
@@ -14436,7 +14444,7 @@ function renderCity(score, s) {
 }
 
 function renderCitySnapshot(snapshot, s, includeTimeline = true) {
-  document.getElementById('cityScore').textContent = snapshot.score
+  document.getElementById('cityScore').textContent = formatHistoryPointNumber(snapshot.score)
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
   if (scoreContext) {
@@ -14480,12 +14488,12 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
       ? t('city.readyNext')
-      : t('city.ptsToNext', { count: pointsToNextLevel })
+      : t('city.ptsToNext', { count: formatHistoryPointNumber(pointsToNextLevel) })
     : t('city.maxLevel')
   document.getElementById('cityNextEffort').textContent = nextLevel && pointsToNextLevel > 0
     ? t('city.effortToNext', {
-        minutes: Math.ceil((pointsToNextLevel * 60) / VIDEO_HOUR_POINTS),
-        reviews: Math.ceil((pointsToNextLevel * ANKI_REVIEW_CHUNK_SIZE) / ANKI_REVIEW_CHUNK_POINTS)
+        minutes: Math.ceil(pointsToNextLevel),
+        reviews: Math.ceil(pointsToNextLevel * 3 / 2)
       })
     : ''
   if (includeTimeline) renderLevelUpButton(snapshot)
@@ -14727,7 +14735,10 @@ function getCityScoreThroughDate(s, date) {
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
   const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
-  return history.rows.reduce((total, row) => total + getHistoryDayPoints(row), 0)
+  return historyExperience({
+    experienceSeconds: history.rows.reduce((sum, row) => sum + row.experienceSeconds, 0),
+    experienceReviews: history.rows.reduce((sum, row) => sum + row.experienceReviews, 0)
+  })
 }
 
 function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
@@ -15142,7 +15153,6 @@ function formatCitySnapshotDate(date) {
 }
 
 function initCityImagePanZoom() {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   const wrap = document.querySelector('.city-image-wrap')
   const image = document.getElementById('cityMilestoneImage')
   if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
@@ -15159,7 +15169,7 @@ function initCityImagePanZoom() {
   applyCityImageTransform()
 
   wrap.addEventListener('wheel', event => {
-    if (event.target.closest('.city-time-waveform')) return
+    if (event.target.closest('.city-time-waveform, .town-build-panel, .town-flower-outline')) return
     const zoomDelta = getCityImageWheelZoomDelta(event)
     if (!canZoomCityImageBy(zoomDelta)) return
     event.preventDefault()
@@ -15167,7 +15177,7 @@ function initCityImagePanZoom() {
   }, { passive: false })
 
   wrap.addEventListener('pointerdown', event => {
-    if (event.target.closest('button, .city-time-waveform')) return
+    if (event.target.closest('button, .city-time-waveform, .town-build-panel')) return
     if (event.pointerType === 'touch') {
       cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
       if (cityImageView.touchPointers.size >= 2) {
@@ -15376,12 +15386,14 @@ function getCityImageMaxZoom() {
 }
 
 function getDefaultCityImageZoom() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return CITY_IMAGE_MIN_ZOOM
   return usesPhoneComposition()
     ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
     : CITY_IMAGE_MIN_ZOOM
 }
 
 function getDefaultCityImageY() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return 0
   return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
 }
 
@@ -15394,8 +15406,9 @@ function getCityImagePanGeometry(scale = cityImageView.scale) {
   return getCityImageCoverGeometry({
     viewportWidth: rect.width,
     viewportHeight: rect.height,
-    imageWidth: image.naturalWidth,
-    imageHeight: image.naturalHeight,
+    // The pixel scene fills its viewport; all three layers share these bounds.
+    imageWidth: window.EDENIA_PIXEL_TOWN?.enabled ? rect.width : image.naturalWidth,
+    imageHeight: window.EDENIA_PIXEL_TOWN?.enabled ? rect.height : image.naturalHeight,
     scale
   })
 }
@@ -15429,10 +15442,18 @@ function clampCityImagePan() {
 }
 
 function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
   const wrap = document.querySelector('.city-image-wrap')
+  if (window.EDENIA_PIXEL_TOWN?.enabled) {
+    // Reuse production gestures and bounds for the still, animation and flower target.
+    wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
+    wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
+    wrap?.style.setProperty('--town-view', cityImageView.scale === 1
+      ? 'none'
+      : `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`)
+    return
+  }
   if (geometry) {
     image.style.width = `${geometry.baseWidth}px`
     image.style.height = `${geometry.baseHeight}px`
@@ -17075,6 +17096,7 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
     sessionEntry = { watchedAt, seconds: 0 }
     entries.push(sessionEntry)
   }
+  sessionEntry.experienceSeconds = (sessionEntry.experienceSeconds || 0) + secondsToAdd
   sessionEntry.seconds += secondsToAdd
   session.progressSeconds = Math.max(0, Number(session.progressSeconds) || 0) + secondsToAdd
   video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)

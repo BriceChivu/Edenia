@@ -205,7 +205,12 @@ function normalizeWatchProgress(videoId, progress, duration, options = {}) {
       const studyDay = isValidDateKey(entry.studyDay)
         ? entry.studyDay
         : toDateKey(new Date(watchedAt))
-      return { seconds, studyDay, watchedAt }
+      return {
+        seconds, studyDay, watchedAt,
+        ...(entry.experienceSeconds === undefined ? {} : {
+          experienceSeconds: Math.min(seconds, Math.max(0, Math.floor(Number(entry.experienceSeconds) || 0)))
+        })
+      }
     })
     .filter(Boolean)
 
@@ -231,6 +236,7 @@ function normalizeWatchProgress(videoId, progress, duration, options = {}) {
     ))
     .map((entry, index) => ({
       id: `video:${encodeURIComponent(videoId)}:${entry.watchedAt}:${entry.seconds}:${index + 1}`,
+      ...(entry.experienceSeconds === undefined ? {} : { experienceSeconds: entry.experienceSeconds }),
       seconds: entry.seconds,
       studyDay: entry.studyDay,
       watchedAt: entry.watchedAt
@@ -348,6 +354,12 @@ export function reconcilePortableAnkiDays(...sources) {
       const observedAt = normalizeTimestamp(value.observedAt || value.loggedAt)
       const existing = byDate.get(studyDay)
       const next = {
+        ...(value.experienceWatermark === undefined && existing?.experienceWatermark === undefined ? {} : {
+          experienceWatermark: Math.max(existing?.experienceWatermark || 0, Math.max(0, Math.floor(Number(value.experienceWatermark) || 0)))
+        }),
+        ...(value.experienceReviews === undefined && existing?.experienceReviews === undefined ? {} : {
+          experienceReviews: Math.max(existing?.experienceReviews || 0, Math.max(0, Math.floor(Number(value.experienceReviews) || 0)))
+        }),
         created: Math.max(
           existing?.created || 0,
           normalizeAnkiCount(value.created)
@@ -374,6 +386,7 @@ export function reconcilePortableAnkiDays(...sources) {
 function normalizeCityProgress(value) {
   const cityProgress = isPlainRecord(value) ? value : {}
   return {
+    ...(cityProgress.experienceVersion === 1 ? { experienceVersion: 1 } : {}),
     maxLevelIndex: Math.max(
       0,
       Math.floor(Number(cityProgress.maxLevelIndex) || 0)
