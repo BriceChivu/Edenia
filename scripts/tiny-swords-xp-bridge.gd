@@ -1,5 +1,7 @@
 extends "res://scripts/level_two_preview.gd"
 
+const STUDY_DEFAULT_ZOOM := 0.8
+
 var study_camera: Camera2D
 var study_camera_center := Vector2(576, 248)
 
@@ -20,7 +22,7 @@ func _ready() -> void:
 	refresh()
 	study_camera = Camera2D.new()
 	study_camera.position = study_camera_center
-	study_camera.zoom = Vector2.ONE * 0.85
+	study_camera.zoom = Vector2.ONE * STUDY_DEFAULT_ZOOM
 	add_child(study_camera)
 	study_bridge_ready = true
 	get_window().mouse_exited.connect(func():
@@ -29,6 +31,11 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
+	if editing and water_phase != WaterPhase.READY:
+		terrain.valid = false
+		update_cursor()
+	ui.launch.disabled = false
+	ui.launch.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	if not study_bridge_ready or not OS.has_feature("web"):
 		return
 	study_poll_elapsed += delta
@@ -38,12 +45,17 @@ func _process(delta: float) -> void:
 	var commands = JSON.parse_string(JavaScriptBridge.eval("JSON.stringify(window.edeniaCameraCommands.splice(0))"))
 	if commands is Array:
 		for command in commands:
+			if command is Dictionary:
+				var canvas_width := maxf(1, float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width")))
+				var pixel_scale := get_viewport().get_visible_rect().size.x / canvas_width
+				study_camera.position += Vector2(float(command.get("panX", 0)), float(command.get("panY", 0))) * pixel_scale / study_camera.zoom.x
+				continue
 			match command:
 				"in": study_camera.zoom = Vector2.ONE * minf(1.5, study_camera.zoom.x + 0.1)
 				"out": study_camera.zoom = Vector2.ONE * maxf(0.5, study_camera.zoom.x - 0.1)
 				"reset":
 					study_camera.position = study_camera_center
-					study_camera.zoom = Vector2.ONE * 0.85
+					study_camera.zoom = Vector2.ONE * STUDY_DEFAULT_ZOOM
 		study_camera.position = study_camera.position.clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
 	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": study_camera.position.x, "y": study_camera.position.y, "zoom": study_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y, "pawnX": pawn.position.x, "pawnY": pawn.position.y, "editing": editing}))
 	if study_celebrating != (ui.celebration != null):
@@ -87,6 +99,21 @@ func unlock_level(target_level: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	super._input(event)
+	if event is InputEventPanGesture:
+		study_camera.position = (study_camera.position + event.delta * 48.0 / study_camera.zoom.x).clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseButton and event.pressed:
+		var scroll := Vector2.ZERO
+		match event.button_index:
+			MOUSE_BUTTON_WHEEL_UP: scroll = Vector2.UP
+			MOUSE_BUTTON_WHEEL_DOWN: scroll = Vector2.DOWN
+			MOUSE_BUTTON_WHEEL_LEFT: scroll = Vector2.LEFT
+			MOUSE_BUTTON_WHEEL_RIGHT: scroll = Vector2.RIGHT
+		if scroll != Vector2.ZERO:
+			study_camera.position = (study_camera.position + scroll * 48.0 * maxf(0.1, event.factor) / study_camera.zoom.x).clamp(study_camera_center - Vector2(768, 512), study_camera_center + Vector2(768, 512))
+			get_viewport().set_input_as_handled()
+			return
 	if study_pointer_down == null:
 		return
 	if event is InputEventMouseMotion:
@@ -99,7 +126,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		var click := study_pointer_down
 		study_pointer_down = null
-		if not study_dragging:
+		if not study_dragging and (not editing or water_phase == WaterPhase.READY):
 			super._unhandled_input(click)
 		study_dragging = false
 		get_viewport().set_input_as_handled()
@@ -116,3 +143,77 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	super._unhandled_input(event)
+
+func toggle_editing() -> void:
+	if water_phase == WaterPhase.READY:
+		super.toggle_editing()
+		return
+	# Opening the palette must not cancel or change the pawn's fall/respawn.
+	editing = not editing
+	if editing:
+		if not preserve_history_on_reopen:
+			history.clear()
+		preserve_history_on_reopen = false
+	refresh()
+
+func undo() -> void:
+	if water_phase == WaterPhase.READY:
+		super.undo()
+
+func fall_into_water(point: Vector2) -> void:
+	# A raised face is not a water exit; descend using the existing stairs first.
+	if ground_height(pawn.position) > 0:
+		return
+	var from: Vector2i = layout.cell_at(pawn.position)
+	var best := INF
+	var shore: Vector2i = from
+	var direction := Vector2.RIGHT
+	for cell in layout.cells:
+		if layout.height_at(cell) > 0 or layout.cells[cell] == "stairs":
+			continue
+		if layout.trees.has(cell) or (cell != from and layout.path(from, cell).is_empty()):
+			continue
+		for step in Layout.STEPS:
+			if layout.cells.has(cell + step):
+				continue
+			var distance: float = layout.center(cell + step).distance_squared_to(point)
+			if distance < best:
+				best = distance
+				shore = cell
+				direction = Vector2(step)
+	if best == INF:
+		return
+	var edge: Vector2 = layout.center(shore)
+	if from == shore:
+		# Already on the shoreline tile: do not walk back to its center merely
+		# to align the reference animation. Translate its origin to the pawn.
+		movement_generation += 1
+		waypoints.clear()
+		edge = pawn.position
+		pawn.walk_to(edge)
+	else:
+		walk_on_land(shore, edge)
+	water_phase = WaterPhase.APPROACHING
+	var generation := movement_generation
+	while not waypoints.is_empty() or pawn.position.distance_to(edge) > 0.2:
+		await get_tree().physics_frame
+		if generation != movement_generation or water_phase != WaterPhase.APPROACHING:
+			return
+	var height: float = ground_height(edge)
+	var spawn_cell: Vector2i = layout.spawn_cell()
+	await perform_water_fall(edge, direction, height, layout.center(spawn_cell), layout.height_at(spawn_cell))
+
+
+func refresh() -> void:
+	super.refresh()
+	if ui == null:
+		return
+	for kind in ui.buttons:
+		var unlocked := false
+		for reward_level in layout.LEVEL_REWARDS:
+			if reward_level > layout.level:
+				continue
+			for reward_kind in layout.LEVEL_REWARDS[reward_level]:
+				if reward_kind == kind or (kind == "ground" and reward_kind not in ["tree", "stairs"]):
+					unlocked = true
+		ui.buttons[kind].visible = unlocked
