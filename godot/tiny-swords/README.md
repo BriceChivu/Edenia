@@ -108,13 +108,20 @@ outline follows that three-square footprint in either orientation and at each fl
 a tree on the landing is still picked up separately first.
 The pointer moves freely. Terrain placement and pickup use grid cells; pine
 placement keeps the cursor position within the chosen square. The trunk anchor
-stays at least 12 scene pixels inside that square, with one tree per square.
+stays 15.2 scene pixels inside the left edge and 17.6 inside the right edge,
+so the outermost trunk/root pixels across all eight animation frames can touch
+the square boundary but cannot cross it. Its vertical range runs
+from the square's center to 28 scene pixels below it, keeping the visible roots
+on the grass while allowing planting near the bottom, with one tree per square.
 Invalid edge positions and positions overlapping the pawn cannot be placed.
 The moving preview and placed tree share the same artwork anchor; navigation
-and Y sorting follow the placed trunk. Trees coexist with existing foliage and
+and Y sorting follow the placed trunk. The movement obstacle follows the visible
+roots, so the pawn can walk onto the grass immediately below them, including
+near a square's front edge. Trees coexist with existing foliage and
 land decorations; planting or picking up a tree preserves bushes and rocks.
-Save version 9 preserves tree offsets,
-and older saves keep their original tree positions. Pickup still selects the
+Save version 13 preserves tree offsets and moves overflowing trunks from
+versions 9–12 just inside the horizontal boundaries. Unsafe upward placements
+from versions 9–11 still move down to the center. Earlier saves keep their original centered anchors. Pickup still selects the
 owner square, and undo restores the exact offset.
 
 Focused check: `Godot --headless --path godot/tiny-swords --script res://tests/tree_cursor_placement.gd`.
@@ -155,7 +162,7 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 ## Composition and editable files
 
 - `scenes/level_one.tscn`: native editable nodes for a 2×2 grass island, one small
-  islet, two bushes, one leafy tuft, two water rocks, and six regular clouds plus one rare passing cloud. No buildings,
+  islet with a land rock, one bush, one leafy tuft, two water rocks, and six regular clouds plus one rare passing cloud. No buildings,
   trees, ships, or additional units. The blue pawn is restored at the user's
   latest request; the earlier environment-only revision is superseded.
 - `scenes/pawn.tscn` and `scripts/pawn.gd`: reusable idle/run animation and movement.
@@ -174,7 +181,7 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
   PNGs at native 576×256 canvas size. Original Tiny Swords cloud sheets are preserved.
   Shadows retain their original RGB (36, 42, 59), alpha (85/255), and base spacing.
   Increasing altitude moves shadows farther away, fades their opacity multiplier
-  from 0.48 to 0.04, and flattens their height from 72% to 12%, preserving the ground anchor.
+  from 0.48 to a visible minimum of 0.18, and flattens their height from 72% to 12%, preserving the ground anchor.
   A square-root curve makes both changes pronounced even at low altitude.
 - `scripts/cloud_visual.gd` and `shaders/cloud_layer.gdshader`: render the separate
   cloud and shadow textures. Cloud bodies use the user-annotated shadow line for ground depth

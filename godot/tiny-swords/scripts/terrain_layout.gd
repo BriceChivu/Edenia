@@ -6,7 +6,14 @@ const DecorationRules = preload("res://scripts/decoration_rules.gd")
 
 const ORIGIN := Vector2(512, 176)
 const SIZE := 64
-const TREE_OFFSET_LIMIT := 20.0
+# All eight frames have opaque trunk/root pixels at atlas X 77..117.
+# Include their full pixel widths at the tree's 0.8 scale (anchor X 96).
+const TREE_OFFSET_X_MIN := -32.0 - (77 - 96) * 0.8
+const TREE_OFFSET_X_MAX := 32.0 - (118 - 96) * 0.8
+const TREE_LEGACY_OFFSET_LIMIT := 20.0
+# The artwork's roots sit above its anchor, so the safe vertical range is lower.
+const TREE_OFFSET_Y_MIN := 0.0
+const TREE_OFFSET_Y_MAX := 28.0
 const TREE_ART_OFFSET := Vector2(0, -112)
 const FLOOR_PALETTES := [3, 1, 2, 4, 5]
 const HOME := Vector2i(0, 0)
@@ -29,8 +36,8 @@ var stair_directions: Dictionary = {}
 var elevations: Dictionary = {}
 var manual_ground_elevation := false
 var stock: Dictionary = {}
-var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}
-var decorations: Dictionary = {}
+var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2}
+var decorations: Dictionary = {Vector2i(3, 2): {"kind": "land_rock", "variant": 1}}
 var flora_rng := RandomNumberGenerator.new()
 var level := 1
 var unlocked: bool:
@@ -70,10 +77,12 @@ func tree_position(cell: Vector2i) -> Vector2:
 	return center(cell) + tree_offset(cell)
 
 func tree_obstacle(position: Vector2) -> Rect2:
-	return Rect2(position - Vector2(10, 10), Vector2(20, 18)).grow(7)
+	# Roots occupy Y -24..-6 relative to the artwork anchor. Keep room for
+	# the pawn around the sides/back, but allow its feet just below the roots.
+	return Rect2(position - Vector2(10, 24), Vector2(20, 18)).grow_individual(7, 7, 7, 1)
 
 func valid_tree_offset(offset: Vector2) -> bool:
-	return offset.is_finite() and absf(offset.x) <= TREE_OFFSET_LIMIT and absf(offset.y) <= TREE_OFFSET_LIMIT
+	return offset.is_finite() and offset.x >= TREE_OFFSET_X_MIN and offset.x <= TREE_OFFSET_X_MAX and offset.y >= TREE_OFFSET_Y_MIN and offset.y <= TREE_OFFSET_Y_MAX
 
 func spawn_cell() -> Vector2i:
 	if cells.has(HOME) and not trees.has(HOME) and cells[HOME] != "stairs":
@@ -589,13 +598,13 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 11, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 13, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	if manual_ground_elevation:
 		saved.manual_ground_elevation = true
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	if not data.get("manual_ground_elevation", false) is bool:
 		return false
@@ -643,6 +652,16 @@ func restore(data: Dictionary) -> bool:
 					return false
 			var cell := Vector2i(int(record[0]), int(record[1]))
 			var offset := Vector2(float(record[2]), float(record[3]))
+			if int(data.version) < 12:
+				# Validate the old range before moving high roots onto their tile.
+				if absf(offset.x) > TREE_LEGACY_OFFSET_LIMIT or absf(offset.y) > TREE_LEGACY_OFFSET_LIMIT:
+					return false
+				offset.y = maxf(offset.y, TREE_OFFSET_Y_MIN)
+			if int(data.version) < 13:
+				# Retain valid old layouts, moving only overflowing trunks inward.
+				if absf(offset.x) > TREE_LEGACY_OFFSET_LIMIT:
+					return false
+				offset.x = clampf(offset.x, TREE_OFFSET_X_MIN, TREE_OFFSET_X_MAX)
 			if record[0] != cell.x or record[1] != cell.y or not next_trees.has(cell) or seen.has(cell) or not valid_tree_offset(offset) or next_cells[cell] == "stairs":
 				return false
 			next_trees[cell] = offset

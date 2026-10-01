@@ -17,7 +17,7 @@ func run() -> void:
 	await process_frame
 	var layout = level.layout
 	var cell := Vector2i(1, 0)
-	var offset := Vector2(18, 15)
+	var offset := Vector2(14, 15)
 	var anchor: Vector2 = layout.center(cell) + offset
 	level.editing = true
 	level.selected = "tree"
@@ -34,8 +34,8 @@ func run() -> void:
 	check(tree.position.is_equal_approx(anchor), "Tree Y-sort anchor follows the trunk")
 	var rendered := Rect2(tree.position + (tree.offset - tree.texture.get_size() / Vector2(16, 2)) * tree.scale, tree.texture.get_size() / Vector2(8, 1) * tree.scale)
 	check(rendered.is_equal_approx(ghost), "Placed sprite exactly matches the cursor preview")
-	check(not layout.walkable_point(anchor), "Moved trunk blocks navigation")
-	check(layout.walkable_point(layout.center(cell)), "Old trunk position is now walkable")
+	check(not layout.walkable_point(anchor - Vector2(0, 14)), "Moved trunk blocks navigation")
+	check(layout.walkable_point(layout.center(cell) - Vector2(10, 0)), "Grass beside the relocated trunk remains walkable")
 	check(not level.tree_navigation_path(layout.center(Vector2i.ZERO), layout.center(Vector2i(1, 1))).is_empty(), "Navigation routes around the relocated trunk")
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(layout.snapshot()))
 	var restored := Layout.new()
@@ -49,12 +49,28 @@ func run() -> void:
 		broken.tree_offsets = bad
 		var before: Dictionary = restored.snapshot()
 		check(not restored.restore(broken) and restored.snapshot() == before, "Malformed offsets reject atomically")
+	var old_high: Dictionary = saved.duplicate(true)
+	old_high.version = 11
+	old_high.tree_offsets = [[1, 0, 14, -20]]
+	check(restored.restore(old_high) and restored.tree_offset(cell) == Vector2(14, 0), "Old high tree placements move safely onto their square")
 	level.undo()
 	check(not layout.trees.has(cell) and layout.stock.tree == 1, "Undo returns the tree to inventory")
 	check(not level.apply_edit(cell, -1, Vector2(21, 0)) and layout.stock.tree == 1, "Edge placement cannot spend inventory")
-	level.pawn.position = layout.center(Vector2i.ZERO) + Vector2(31, 0)
-	check(not level.apply_edit(cell, -1, Vector2(-20, 0)), "A trunk cannot overlap the pawn in a neighboring square")
+	level.pawn.position = layout.center(Vector2i.ZERO) + Vector2(31, -14)
+	check(not level.apply_edit(cell, -1, Vector2(-16, 0)), "A trunk cannot overlap the pawn in a neighboring square")
 	level.pawn.position = layout.center(Vector2i.ZERO)
+	check(not level.apply_edit(cell, -1, Vector2(0, -20)) and layout.stock.tree == 1, "Tree cannot be planted above the safe root range")
+	check(layout.can_edit(cell, "tree", Layout.HOME, -1, Vector2(0, 28)), "Bottom boundary is included")
+	var lower_offset := Vector2(0, 27)
+	anchor = layout.center(cell) + lower_offset
+	click.position = level.get_global_transform_with_canvas() * anchor
+	level.handle_world_click(click)
+	check(layout.trees.has(cell) and layout.tree_offset(cell) == lower_offset, "World click can plant a tree near the bottom of its square")
+	if layout.trees.has(cell):
+		var lower_saved: Dictionary = JSON.parse_string(JSON.stringify(layout.snapshot()))
+		check(restored.restore(lower_saved) and restored.tree_offset(cell) == lower_offset, "Lower placement survives save/load")
+		level.undo()
+	check(not level.apply_edit(cell, -1, Vector2(0, 29)), "Tree cannot be planted past the bottom root margin")
 	layout.elevations[cell] = 64
 	layout.cells[cell] = "high_gold"
 	anchor = layout.center(cell) + offset - Vector2(0, 64)
@@ -62,7 +78,7 @@ func run() -> void:
 	ghost = level.terrain.tree_preview_rect()
 	click.position = level.get_global_transform_with_canvas() * anchor
 	level.handle_world_click(click)
-	check(layout.tree_offset(cell) == offset, "Raised-surface click converts into ground coordinates")
+	check(layout.tree_offset(cell).is_equal_approx(offset), "Raised-surface click converts into ground coordinates")
 	tree = level.tree_nodes[0]
 	rendered = Rect2(tree.position + (tree.offset - tree.texture.get_size() / Vector2(16, 2)) * tree.scale, tree.texture.get_size() / Vector2(8, 1) * tree.scale)
 	check(rendered.is_equal_approx(ghost) and tree.z_index == 1, "Raised tree matches its preview and elevation layer")
@@ -70,7 +86,7 @@ func run() -> void:
 	check(level.clicked_cell(anchor) == cell and level.apply_edit(cell), "Pickup selects the relocated tree on its visible floor")
 	check(not layout.trees.has(cell), "Pickup removes the tree")
 	level.undo()
-	check(layout.tree_offset(cell) == offset and level.tree_nodes[0].position == layout.center(cell) + offset, "Undo pickup restores its exact position")
+	check(layout.tree_offset(cell).is_equal_approx(offset) and level.tree_nodes[0].position.is_equal_approx(layout.center(cell) + offset), "Undo pickup restores its exact position")
 	# Trees coexist with both original foliage and generated land decorations.
 	for kind in ["bush", "land_rock"]:
 		layout.flora.erase(cell)

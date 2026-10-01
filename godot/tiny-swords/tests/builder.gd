@@ -73,7 +73,7 @@ func run() -> void:
 	level.selected = "tree"
 	check(level.apply_edit(Vector2i(2, 0)), "Tree placed")
 	check(not layout.path(Vector2i.ZERO, Vector2i(4, 0)).is_empty(), "Tree leaves room to pass through its tile")
-	check(not layout.walkable_point(layout.center(Vector2i(2, 0))), "Trunk remains an obstacle")
+	check(not layout.walkable_point(layout.center(Vector2i(2, 0)) - Vector2(0, 14)), "Trunk remains an obstacle")
 	var in_front: Vector2 = layout.center(Vector2i(2, 0)) + Vector2(0, 20)
 	level.walk_on_land(Vector2i(2, 0), in_front)
 	await create_timer(3.0).timeout

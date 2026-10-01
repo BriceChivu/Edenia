@@ -382,7 +382,7 @@
   opacity: 1;
 }
 .city-level-progress {
-  --city-level-action-lift: 8px;
+  --city-level-action-lift: 0px;
   --city-level-filled-center: 0%;
   --city-level-progress: 0%;
   --city-level-remaining-center: 50%;

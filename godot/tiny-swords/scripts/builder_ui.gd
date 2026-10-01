@@ -68,8 +68,8 @@ func arrange() -> void:
 	tools.get_node("PickupButton").position.x = 218 if layout.bridges_enabled else 184
 	undo_button.position.x = 251 if layout.bridges_enabled else 217
 	if celebration != null:
-		var fit := minf(1.0, minf((area.x - 12) / celebration.size.x, (area.y - 12) / celebration.size.y))
-		celebration.scale = Vector2.ONE * fit
+		# Keep the paper corners and tiled middle at native pixel size.
+		celebration.scale = Vector2.ONE
 		celebration.position = (area - celebration.size) / 2
 
 func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
@@ -111,7 +111,8 @@ func celebrate() -> void:
 	launch.hide()
 	upgrade.hide()
 	panel.hide()
-	celebration = preload("res://scenes/level_up_popup.tscn").instantiate()
+	var popup_scene := preload("res://scenes/level_three_popup.tscn") if layout.level == 3 else preload("res://scenes/level_up_popup.tscn")
+	celebration = popup_scene.instantiate()
 	root.add_child(celebration)
 	celebration.configure(layout.level, layout.bridges_enabled)
 	celebration.get_node("BuildButton").pressed.connect(func():
@@ -120,11 +121,8 @@ func celebrate() -> void:
 		edit_toggled.emit())
 	arrange()
 	celebration.pivot_offset = celebration.size / 2
-	var final_scale: Vector2 = celebration.scale
-	celebration.scale = final_scale * 0.65
 	celebration.modulate.a = 0
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property(celebration, "scale", final_scale, 0.7).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(celebration, "modulate:a", 1.0, 0.35)
 	for i in range(18):
 		var spark := ColorRect.new()

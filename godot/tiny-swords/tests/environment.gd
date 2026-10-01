@@ -63,6 +63,7 @@ func run() -> void:
 				check(subject.scale.x >= 1.0 and subject.scale.x <= 1.35001 if large else subject.scale == Vector2.ONE, "Large artwork is native or larger; smaller artwork is exactly native")
 				check(subject.global_scale.is_equal_approx(subject.scale) and is_equal_approx(subject.shadow_sprite.global_scale.x, subject.scale.x), "Clouds and shadows retain native horizontal sizing")
 				check(subject.shadow_sprite.scale.y >= 0.11999 and subject.shadow_sprite.scale.y <= 0.72001, "Shadow flattening stays bounded")
+				check(float(subject.shadow_sprite.material.get_shader_parameter("opacity")) >= 0.17999, "Distant cloud shadows retain a visible minimum opacity")
 				var reference_y: float = [146.0, 148.0, 134.0, 134.0, 149.0, 144.0, 131.0, 126.0][variant]
 				var local_anchor := Vector2(subject.shadow_center.x, reference_y - 128.0)
 				var expected_anchor: Vector2 = subject.to_global(local_anchor * subject.shadow_sprite.scale + subject.shadow_sprite.position)

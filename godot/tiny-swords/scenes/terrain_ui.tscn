@@ -9,8 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://djdq7ibs75rng" path="res://ui/terrain/pickup.png" id="9_7csu1"]
 [ext_resource type="Texture2D" uid="uid://5vvmygajg03j" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_08.png" id="10_ouwcp"]
 [ext_resource type="Texture2D" uid="uid://6fwi4ejscu70" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_09.png" id="11_l28ao"]
-
-[ext_resource type="Texture2D" path="res://assets/bridges/wooden-rope-bridge-horizontal.png" id="Bridge"]
+[ext_resource type="Texture2D" uid="uid://btwc5u0bs3kmc" path="res://assets/bridges/wooden-rope-bridge-horizontal.png" id="Bridge"]
 
 [sub_resource type="FontVariation" id="FontVariation_jyy0y"]
 base_font = ExtResource("1_jg2xk")
@@ -240,7 +239,6 @@ theme_override_styles/disabled = SubResource("StyleBoxTexture_lgiao")
 text = "Terrain"
 
 [node name="TerrainButton2" type="Button" parent="." unique_id=1234057257]
-visible = false
 texture_filter = 1
 custom_minimum_size = Vector2(110, 32)
 layout_mode = 1
@@ -338,13 +336,15 @@ anchor_bottom = 1.0
 offset_left = -24.0
 offset_top = -13.0
 offset_right = -1.0
+grow_horizontal = 0
+grow_vertical = 0
 theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
 theme_override_colors/font_outline_color = Color(0.14117648, 0.23529412, 0.25490198, 1)
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 10
 horizontal_alignment = 2
 
-[node name="BridgeButton" type="Button" parent="TerrainButton2/Tools"]
+[node name="BridgeButton" type="Button" parent="TerrainButton2/Tools" unique_id=468811707]
 texture_filter = 1
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
@@ -367,7 +367,7 @@ icon = ExtResource("Bridge")
 icon_alignment = 1
 expand_icon = true
 
-[node name="Remaining" type="Label" parent="TerrainButton2/Tools/BridgeButton"]
+[node name="Remaining" type="Label" parent="TerrainButton2/Tools/BridgeButton" unique_id=312780752]
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -377,6 +377,8 @@ anchor_bottom = 1.0
 offset_left = -24.0
 offset_top = -13.0
 offset_right = -1.0
+grow_horizontal = 0
+grow_vertical = 0
 theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
 theme_override_colors/font_outline_color = Color(0.14117648, 0.23529412, 0.25490198, 1)
 theme_override_constants/outline_size = 3

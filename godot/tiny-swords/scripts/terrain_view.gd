@@ -1,5 +1,7 @@
 extends Node2D
 
+const TreeArt = preload("res://scripts/tree_art.gd")
+
 var editor_source = null
 var piece = null
 var shadow_height := -1.0
@@ -9,7 +11,9 @@ var editing := false
 var hover := Vector2i(999, 999)
 var preview_position := Vector2.ZERO
 var ground_preview_height := -1.0
-var tree_texture := preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")
+var tree_texture: Texture2D = TreeArt.TEXTURE
+var tree_preview_texture: Texture2D
+var tree_preview_offset := Vector2(INF, INF)
 var valid := false
 var tool := "meadow"
 var elapsed := 0.0
@@ -321,6 +325,13 @@ func placement_offset() -> Vector2:
 	var height: float = layout.height_at(hover)
 	return preview_position - (layout.center(hover) - Vector2(0, height))
 
+func clipped_tree_preview_texture() -> Texture2D:
+	var offset: Vector2 = placement_offset()
+	if tree_preview_texture == null or offset != tree_preview_offset:
+		tree_preview_offset = offset
+		tree_preview_texture = TreeArt.texture_at(offset)
+	return tree_preview_texture
+
 func tree_preview_rect() -> Rect2:
 	var frame_size := Vector2(tree_texture.get_width() / 8.0, tree_texture.get_height())
 	return Rect2(preview_position + (layout.TREE_ART_OFFSET - frame_size / 2) * 0.8, frame_size * 0.8)
@@ -403,7 +414,7 @@ func draw_editor() -> void:
 					draw_tile(hover, tool, tint)
 			draw_set_transform(Vector2.ZERO)
 			if tool == "tree":
-				draw_texture_rect_region(tree_texture, tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
+				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
 			if tool == "remove" and layout.cells.get(hover) == "stairs":
 				draw_polyline(pickup_outline(), Color(0.85, 1, 0.8, 0.55), 1)
 			else:

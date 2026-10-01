@@ -1,6 +1,7 @@
 extends "res://scripts/level_one.gd"
 
 const Layout = preload("res://scripts/terrain_layout.gd")
+const TreeArt = preload("res://scripts/tree_art.gd")
 const TerrainView = preload("res://scripts/terrain_view.gd")
 const BuilderUI = preload("res://scripts/builder_ui.gd")
 const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_01.png")
@@ -447,15 +448,14 @@ func rebuild_decorations() -> void:
 		node.queue_free()
 	tree_nodes.clear()
 	# Original foliage follows its tile and disappears when that tile is collected.
-	for pair in [["MainBush", Vector2i(0, 0), 1], ["LeafyTuft", Vector2i(1, 1), 2], ["IsletBush", Vector2i(3, 2), 1]]:
+	$World/IsletRock.hide() # Editable layouts render the rock through decorations.
+	for pair in [["MainBush", Vector2i(0, 0), 1], ["LeafyTuft", Vector2i(1, 1), 2]]:
 		var node = $World.get_node(pair[0])
 		node.visible = layout.flora.get(pair[1], 0) == pair[2]
 		node.offset.y = -15 - layout.height_at(pair[1]) / node.scale.y
 		node.z_index = int(layout.height_at(pair[1]) / 64.0)
-		if pair[0] == "IsletBush":
-			node.position = layout.center(pair[1])
 	for cell in layout.flora:
-		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}.get(cell) == layout.flora[cell]:
+		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2}.get(cell) == layout.flora[cell]:
 			continue
 		var plant := Sprite2D.new()
 		plant.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe1.png") if layout.flora[cell] == 1 else preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png")
@@ -504,9 +504,9 @@ func rebuild_decorations() -> void:
 		flora_nodes.append(decoration)
 	for cell in layout.trees:
 		var tree := Sprite2D.new()
-		tree.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")
+		tree.texture = TreeArt.texture_at(layout.tree_offset(cell))
 		tree.hframes = 8
-		tree.scale = Vector2.ONE * 0.8
+		tree.scale = Vector2.ONE * TreeArt.SCALE
 		tree.z_index = int(layout.height_at(cell) / 64.0)
 		tree.position = layout.tree_position(cell)
 		tree.offset = Layout.TREE_ART_OFFSET - Vector2(0, layout.height_at(cell) / 0.8)
@@ -552,7 +552,10 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 	for step in path:
 		candidates.append(layout.center(step))
 	var origin: Vector2 = layout.ORIGIN + Vector2(cell) * 64
-	var target := point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 52))
+	# At a tree's front edge, retain only the eight-pixel foot margin;
+	# a wider inset can pull a click below its roots back into the trunk.
+	var bottom_margin := 8.0 if layout.trees.has(cell) else 12.0
+	var target := point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 64 - bottom_margin))
 	candidates.append(target)
 	if not layout.trees.is_empty():
 		candidates = tree_navigation_path(start_point, target)
@@ -577,25 +580,26 @@ func tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
 	if not layout.walkable_point(target):
 		return result
 	var source := Vector2i(((start - Layout.ORIGIN) / 8.0).floor())
-	var goal := Vector2i(((target - Layout.ORIGIN) / 8.0).floor())
 	var queue: Array[Vector2i] = [source]
 	var previous: Dictionary = {source: source}
 	var index := 0
 	while index < queue.size():
 		var current := queue[index]
 		index += 1
-		if current == goal:
+		var current_point: Vector2 = start if current == source else Layout.ORIGIN + Vector2(current) * 8
+		# A valid cursor target can lie beside a blocked grid sample at a root
+		# or shore. Connect the last short segment to the exact target.
+		if current_point.distance_squared_to(target) <= 144 and clear_segment(current_point, target):
 			while current != source:
-				result.push_front(Layout.ORIGIN + (Vector2(current) + Vector2.ONE * 0.5) * 8)
+				result.push_front(Layout.ORIGIN + Vector2(current) * 8)
 				current = previous[current]
 			result.append(target)
 			return result
-		var current_point := Layout.ORIGIN + (Vector2(current) + Vector2.ONE * 0.5) * 8
 		for step in Layout.NAV_STEPS:
 			var next: Vector2i = current + step
 			if previous.has(next):
 				continue
-			var next_point := Layout.ORIGIN + (Vector2(next) + Vector2.ONE * 0.5) * 8
+			var next_point := Layout.ORIGIN + Vector2(next) * 8
 			if not clear_segment(current_point, next_point):
 				continue
 			previous[next] = current

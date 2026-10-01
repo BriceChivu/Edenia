@@ -4210,7 +4210,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   ))).toBe(1)
 })
 
-test('city level-up control floats above an unchanged centered progress rail', async ({
+test('city level-up control is vertically centered on an unchanged progress rail', async ({
   page
 }) => {
   await seedCompletedState(page, 'fr')
@@ -4271,7 +4271,7 @@ test('city level-up control floats above an unchanged centered progress rail', a
   expect(layout.textLineCount).toBe(1)
   expect(layout.fontSize).toBeGreaterThanOrEqual(14)
   expect(layout.railHeight).toBe(baselineRailHeight)
-  expect(layout.configuredLift).toBe(8)
+  expect(layout.configuredLift).toBe(0)
   expect(layout.fillComplete).toBe(true)
   expect(layout.fillBackgroundImage).toContain('linear-gradient')
   expect(layout.buttonBounds.left).toBeGreaterThanOrEqual(

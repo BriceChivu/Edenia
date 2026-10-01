@@ -107,7 +107,7 @@ func set_altitude(value: float) -> void:
 		var projection := sqrt(altitude)
 		shadow_sprite.scale = Vector2(1.0, lerpf(0.72, 0.12, projection))
 		shadow_sprite.position = baked_shadow_offset + shadow_center * (Vector2.ONE - shadow_sprite.scale) + Vector2(0.0, altitude * 110.0) / scale
-		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.48, 0.04, projection))
+		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.48, 0.18, projection))
 
 func shadow_ground_position() -> Vector2:
 	var anchor := Vector2(shadow_center.x, SHADOW_DEPTH_Y[variant_index] - texture.get_height() / 2.0)
