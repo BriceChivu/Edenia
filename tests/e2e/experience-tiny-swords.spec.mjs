@@ -3,7 +3,7 @@ import { expect, test } from '../support/network-fixture.mjs'
 test('local Tiny Swords receives claimed study levels and grants each inventory reward once', async ({ page }) => {
   test.setTimeout(180000)
   // Initialize the disposable learner before starting the large game export.
-  await page.route('**/tiny-swords/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
+  await page.route('**/tiny-swords-xp-game/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
   await page.goto('/', { waitUntil: 'load' })
   test.skip(await page.locator('.tiny-swords-frame').count() === 0, 'Requires the explicit local Godot integration build')
   await page.evaluate(() => {
@@ -14,12 +14,12 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
     state.videos.lesson = { id: 'lesson', title: 'XP game test', duration: 7200, status: 'unwatched', watchProgress: [] }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords/index.html')
+  await page.unroute('**/tiny-swords-xp-game/index.html')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const frame = page.frameLocator('.tiny-swords-frame')
   await expect(frame.locator('#canvas')).toBeVisible()
   await expect(frame.locator('#status')).toBeHidden({ timeout: 60000 })
-  const gameFrame = () => page.frames().find(frame => frame.url().includes('/tiny-swords/index.html'))
+  const gameFrame = () => page.frames().find(frame => frame.url().includes('/tiny-swords-xp-game/index.html'))
   await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 30000 }).toBe(1)
   const camera = () => gameFrame().evaluate(() => { const {x,y,zoom,width,height} = window.edeniaCamera || {}; return {x,y,zoom,width,height} })
   await expect.poll(async () => (await camera())?.zoom).toBeCloseTo(0.8)
@@ -37,6 +37,14 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect.poll(buttonOpacities).toEqual(['0.38', '0.38', '0.38'])
   await controls.locator('[data-city-zoom-action="in"]').hover()
   await expect.poll(buttonOpacities).toEqual(['0.38', '0.38', '1'])
+  for (const button of await controls.locator('button').all()) {
+    await button.hover()
+    await expect(button).toHaveCSS('cursor', /data:image\/png;base64/)
+    await page.mouse.down()
+    await expect(button).toHaveCSS('cursor', /data:image\/png;base64/)
+    await page.mouse.up()
+    await expect(button).toHaveCSS('cursor', /data:image\/png;base64/)
+  }
   const backgrounds = await controls.locator('button').evaluateAll(buttons => buttons.map(button => getComputedStyle(button, innerWidth <= 480 ? '::before' : null).backgroundColor))
   expect(backgrounds).toEqual(['rgba(255, 255, 255, 0.64)', 'rgba(255, 255, 255, 0.64)', 'rgba(255, 255, 255, 0.64)'])
   await page.mouse.move(wrapBounds.x + wrapBounds.width / 2, wrapBounds.y + wrapBounds.height / 2)
@@ -51,6 +59,11 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   const pawn = () => gameFrame().evaluate(() => [window.edeniaCamera.pawnX, window.edeniaCamera.pawnY])
   const initialPawn = await pawn()
   await page.mouse.move(wrapBounds.x + wrapBounds.width / 2, wrapBounds.y + wrapBounds.height / 2)
+  // Cursor checks click all camera buttons; wait for their queued commands.
+  await page.getByRole('button', { name: 'Reset view', exact: true }).click()
+  await expect.poll(camera).toEqual(initialCamera)
+  const scrollBounds = await frame.locator('#canvas').boundingBox()
+  await page.mouse.move(scrollBounds.x + scrollBounds.width / 2, scrollBounds.y + scrollBounds.height / 2)
   const beforeScroll = await camera()
   const parentScroll = await page.evaluate(() => [scrollX, scrollY])
   await page.mouse.wheel(70, 80)
@@ -128,4 +141,32 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(3)
   const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_tiny_swords_xp_layout_v1')))
   expect(restored).toEqual(reward3)
+  // Load a raised spawn through the real persistence adapter, then click water.
+  const raised = structuredClone(restored)
+  const home = raised.tiles.find(tile => tile[0] === 0 && tile[1] === 0)
+  home[2] = 'high_meadow'
+  home[6] = 64
+  await page.evaluate(layout => localStorage.setItem('edenia_tiny_swords_xp_layout_v1', JSON.stringify(layout)), raised)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(3)
+  const highPawn = await pawn()
+  async function clickWater() {
+    const view = await camera()
+    const bounds = await frame.locator('#canvas').boundingBox()
+    await frame.locator('#canvas').click({position:{
+      x: ((400 - view.x) * view.zoom + view.width / 2) * bounds.width / view.width,
+      y: ((208 - view.y) * view.zoom + view.height / 2) * bounds.height / view.height
+    }})
+  }
+  await clickWater()
+  await page.waitForTimeout(500)
+  expect(await pawn()).toEqual(highPawn)
+  expect(await gameFrame().evaluate(() => window.edeniaCamera.waterPhase)).toBe(0)
+  await page.evaluate(layout => localStorage.setItem('edenia_tiny_swords_xp_layout_v1', JSON.stringify(layout)), restored)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(3)
+  await clickWater()
+  await expect.poll(() => gameFrame().evaluate(() => window.edeniaCamera.waterPhase)).toBeGreaterThan(0)
+  await expect.poll(() => gameFrame().evaluate(() => window.edeniaCamera.waterPhase), {timeout:10000}).toBe(0)
+  expect(await pawn()).toEqual(initialPawn)
 })

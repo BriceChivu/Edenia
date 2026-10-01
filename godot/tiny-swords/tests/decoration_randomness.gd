@@ -79,6 +79,8 @@ func run() -> void:
 	var legacy: Dictionary = saved.duplicate(true)
 	legacy.version = 6
 	legacy.erase("decorations")
+	for tile in legacy.tiles:
+		tile.resize(6) # Version six predates the elevation column.
 	var migrated := Layout.new()
 	check(migrated.restore(legacy) and migrated.decorations.is_empty() and migrated.cells == layout.cells, "Older islands load without retroactive rolls")
 	layout.cells[cell+Vector2i.UP] = "high_gold"

@@ -41,7 +41,7 @@ placement, decoration and the pawn position. There is no island reset. Undo
 history starts a new editing session after an upgrade so it cannot revoke rewards.
 The progression level is independent of terrain height: terrain floors are created by stairs.
 
-The inventory has only Ground, Stairs, and Pine: height and art are automatic.
+The inventory has only Ground, Stairs, and Pine: height follows the cursor and art follows elevation.
 Ground uses all five palettes by elevation: atlas colors 3, 1, 2, 4, 5, then repeats.
 The base is green, followed by gold and teal. Stairs use their upper landing’s palette. A stair placed next to
 any ground floor creates a landing one floor higher at its high end in the same action.
@@ -49,13 +49,23 @@ Each stair bundle includes its upper tile and uses no ground inventory. If it
 replaces an existing upper tile, that plain tile returns to inventory. Picking
 up a stair collects its bundled landing too; first move the pawn and any tree
 off that landing. An upper landing cannot belong to two stair bundles.
-Ground beside an upper floor extends that floor. Colors are not player choices.
-**Build island** expands left into a compact strip at the same bottom-right anchor.
+While holding Ground, moving toward a nearby surface previews grass at that
+surface's elevation; moving toward the shoreline previews water-level grass.
+Only valid elevations are offered, and a click places the displayed option.
+Floor two requires a receiving floor-one terrace: two vertically stacked cliffs
+are forbidden. Existing grass can still be raised without spending inventory;
+stair endpoints retain their required heights. Colors are not player choices.
+Flat grass whose visible top directly adjoins the back of a level-one platform
+continues that platform: its base moves down one grid square and its height
+becomes 64px, preserving the top's screen position. Saved layouts use the same
+rule; inventory and plants are preserved, and stair endpoints stay protected.
+**Terrain** expands left into a compact strip at the same bottom-right anchor.
 Sizing follows the [official UI showcase](https://pixelfrog-assets.itch.io/tiny-swords):
 its 1600px source image displays at 920 CSS pixels on the desktop page (0.575×).
 The supplied 1840px screenshot is an enlarged capture, not logical game dimensions.
-Button corners and action icons use that reference scale with nearest-neighbor
-sampling. Pickup uses a compact four-corner icon; the collapsed
+Action icons use that reference scale with nearest-neighbor sampling.
+The blue launcher and panel use native-scale assembled nine-slice artwork;
+fixed 16px corners retain the source pixels and the middle/edges tile to fit. Pickup uses a compact four-corner icon; the collapsed
 control is 110×32 displayed pixels; the expanded strip is 180×44 with five 32×32
 hit targets, at both desktop and phone widths. It remains anchored 14px from the
 right and bottom. Celebration buttons and game cursors retain their existing scale.
@@ -132,8 +142,9 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `scripts/cloud.gd`: six clouds moving slowly at individual speeds. Size, height, and speed
   vary when they return from off-screen. Paths stay above/below the main island.
 - `scripts/cloud_visual.gd` and `shaders/cloud_layer.gdshader`: separate original
-  cloud and shadow pixels at render time. Low clouds draw behind foliage; high
-  clouds draw above it, with larger shadow offsets and lower opacity.
+  cloud and shadow pixels at render time. Cloud bodies use the center of their painted shadow for ground depth: trees,
+  pawns and raised terrain with a greater ground Y occlude them. Altitude changes
+  size, shadow offset and opacity, without overriding this order.
 - `scripts/rare_cloud.gd`: a rare foreground cloud first enters after 4–7 minutes,
   then waits 6–10 minutes after leaving before another pass. Each pass varies in
   height, scale, direction, and speed.
@@ -181,6 +192,45 @@ After Godot edits, with the preview server already running, update only the game
 
 Refresh Edenia to load the new export.
 
+## Game ownership and Edenia integration
+
+All Tiny Swords game changes must be implemented in the Godot project at
+`godot/tiny-swords/`. Godot owns all game mechanics, rules, interactions, visuals,
+and in-game UI. Native and Edenia-integrated previews must share that implementation.
+
+The Edenia bridge is restricted to specific areas that require Edenia integration:
+passing claimed study progress into the game, exchanging layout data with Edenia
+persistence, forwarding host camera commands, browser telemetry, and coordinating
+browser input with Edenia page scrolling. The bridge translates data and commands;
+Godot determines their gameplay effects. Any additional bridge responsibility must
+have a concrete Edenia integration requirement.
+
+Implement gameplay fixes and features in the Godot source, not in bridge scripts,
+browser adapters, export builders, or generated exports. Rebuild the integrated
+preview from that source after changes.
+
+## Rebuild the integrated XP preview
+
+The study-integrated preview at **http://localhost:8037/** uses `xp_bridge.gd`
+from the repository’s `scripts/` directory. All gameplay lives in this Godot
+project: terrain and inventory rules, water safeguards, build locking, click/drag
+handling, camera bounds and zoom, and the 27×10 build grid. Native and integrated
+previews run the same code. The bridge only adapts claimed study levels, layout
+persistence, camera commands and browser telemetry; wheel forwarding belongs to
+the browser adapter so it scrolls Edenia. Rebuild it from the repository root:
+
+```sh
+node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
+```
+
+The builder recreates its disposable `.cache/tiny-swords-xp/project` from this
+source, adds the study adapter, and checks the configured main scene and shared
+gameplay suite before exporting. It never patches gameplay or grid dimensions.
+Directly exporting the base Godot project into `_site/tiny-swords-xp-game`
+replaces the study adapter and browser message/scroll hooks.
+Use the integration builder for every update to that preview, then refresh.
+The direct export command above applies to the separate base preview on port 4183.
+
 ## Checks
 
 ```sh
@@ -219,7 +269,8 @@ Font source: https://github.com/google/fonts/tree/main/ofl/medievalsharp
 Preview save version 3 migrates older layouts in place, adding one meadow
 piece and two stairs once. It preserves placements and elevations, applying the automatic palette.
 Version 3 also saves each stair direction. New stairs always have an upper landing.
-Cloud size, layering, shadow offset, and shadow opacity share one altitude value.
+Cloud size, shadow offset, and shadow opacity share one altitude value.
+Cloud layering follows shadow ground Y independently of altitude.
 The pointer is rendered by Godot with the native pointer hidden inside its canvas.
 Cursors 01–03 retain their original 64px dimensions; Cursor 04 has unscaled
 corner pieces separated to span one 64px grid square. All cursors use scene
@@ -240,8 +291,8 @@ Terrain joins follow the guide’s illustrated stair connections: the high landi
 opens both its walkable rim and cliff, joined cliff faces use center pieces,
 and stairs share the gold upper-floor atlas. The base floor uses the distinct
 green third palette. Water rocks render below all player-built terrain.
-Stairs require a grass tile in the grid square directly below them (positive Y).
-That tile cannot be picked up or replaced with stairs while supporting a stair.
+The grid square directly below stairs (positive Y) may contain water, ground,
+or another stair. Ground there can be picked up or replaced independently.
 
 Elevated-ground shadows retain the guide's 128×128 sprite at native size,
 centered on each 64×64 walkable tile and shifted exactly 64px downward.
@@ -253,9 +304,8 @@ higher platforms and raised stair bases. The sloped ramp adds no extra tier.
 New ground has a 12.5% chance of a small decorative bush or leafy tuft, using
 the pack’s existing plant sprites. Plants do not block removal or movement;
 their choices persist in save version 6. Existing saves retain their plants and
-receive the ground refund for previously paid stair landings once. Splashes
-share the World Y-sort layer with trees and the pawn, so foreground trees
-occlude splashes behind them.
+receive the ground refund for previously paid stair landings once. Splashes draw above water and below solid terrain, water rocks, trees and
+the pawn, so foreground shores cover overlapping splash pixels.
 
 Cloud shadows retain the original PNG offset at minimum altitude. Higher clouds
 only move their shadow farther downward and reduce its opacity.
@@ -332,3 +382,70 @@ use this same visual layout. To test the animated popup and button behavior,
 run `previews/level_one_to_two.tscn` or `previews/level_two_to_three.tscn` with
 **F6**, then click **Try level 2** or **Try level 3**. Running the popup alone
 shows the static design; its button is connected by the gameplay scene.
+
+Shared gameplay regression checks (disable preview saves):
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/gameplay.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-xp/project --script res://tests/gameplay.gd
+```
+
+High ground and stair ramps cannot initiate water falls; flat shore can.
+Water respawns choose uniformly among all grass tiles without trees, including
+disconnected islands and every elevation; stair ramps are excluded. The pawn's
+height and drawing depth match the chosen floor. `tests/random_respawn.gd`
+checks selection and a complete water fall onto higher ground.
+
+Inventory may open throughout the fall, but edits and undo wait until respawn. Depleted
+ground retains 25% icon opacity while remaining selectable for free terrain
+transformations; other depleted items remain disabled. Wheel and trackpad
+scrolling leave the game camera unchanged; dragging pans without a gameplay click.
+
+At a tall plateau’s front edge, two vertically adjoining high-ground tiles
+form a terrace: the front tile is one floor lower, exposing the upper tile’s
+grass-facing cliff above its own grass surface and single shoreline cliff.
+Ground placement and save loading apply this rule without spending inventory;
+stair endpoints retain their required elevations. `tests/cliff_stack.gd` checks
+the four rendered squares from the reference image.
+
+Raised grass-facing cliff and stair roots use backing from their receiving
+floor, drawn before that floor’s shadows and characters. Shore foam stays
+visible only through water-facing edges. `tests/cliff_terrace_roots.gd` checks
+both stair orientations against the original atlas pixels.
+
+An elevated staircase cannot be placed above an exposed cliff. The ground
+directly in front of both its base and its bundled landing must reach the ramp’s
+lower-end height, leaving at most one cliff beneath the landing. Flat stairs
+still allow water underneath. Preview and placement
+share this rule; `tests/stair_cliff_stack.gd` checks both directions and heights.
+
+## Editing the Terrain UI in Godot
+
+Open `res://scenes/terrain_ui.tscn` in the 2D editor. `TerrainButton` is the
+collapsed launcher; `TerrainButton2/Tools` contains `GroundButton`, `StairsButton`,
+`TreeButton`, `PickupButton`, and `UndoButton`. `CloseButton` sits above the panel.
+The scene shows all tools for editing; gameplay controls their visibility,
+counts, availability, selected underline, and launcher label.
+
+Edit icons, AtlasTexture regions, fonts, Theme Overrides, positions,
+minimum sizes, and anchor offsets in the Inspector. The bottom/right anchors
+keep the UI positioned across viewport sizes. Runtime code scales the root for
+the display but does not replace authored button sizes, icons, or backgrounds.
+The assembled blue nine-slice textures and pickup icon are in `res://ui/terrain/`;
+original pack images remain untouched. Normal and hover share a StyleBox resource;
+use Make Unique when you want different styling for one state or control.
+Save the scene and run the main game to test interactions; the UI scene alone
+is a visual editing canvas. Rebuild the integrated preview after saving changes.
+
+`TerrainButton2` is a Button and `Tools` is a plain Control, so each inside button
+can be dragged freely in the 2D editor. Hidden tools retain their authored space.
+
+`Tools/TallIconsClip` clips the stairs and pine at the inner top edge of the
+Terrain frame. Their buttons remain freely positioned inside that Control;
+other tools and the world sprites are unaffected.
+
+Cursor-selected grass placement regression check:
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/grass_hover_options.gd
+```

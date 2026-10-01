@@ -6,4 +6,4 @@ var elapsed: float = 0.0
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	frame = int((elapsed + phase) * frames_per_second) % hframes
+	frame = posmod(int((elapsed + phase) * frames_per_second), hframes)

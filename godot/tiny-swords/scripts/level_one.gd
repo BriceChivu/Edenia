@@ -17,7 +17,8 @@ var water_phase: WaterPhase = WaterPhase.READY
 
 func _ready() -> void:
 	splash.reparent($World)
-	splash.z_index = 0
+	# Water effects sit below solid shores and rocks, including foreground land.
+	splash.z_index = -18
 	$Water.z_index = -20
 	$IslandShadows.z_index = -18
 	$ShoreFoam.z_index = -17
@@ -78,7 +79,7 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 	water_phase = WaterPhase.RESPAWNING
 	pawn.position = spawn
 	pawn.destination = spawn
-	pawn.z_index = 1 if spawn_height > 0 else 0
+	pawn.z_index = int(ceil(spawn_height / 64.0))
 	pawn.sprite.position = Vector2(0, -32 - spawn_height)
 	pawn.sprite.rotation = 0.0
 	pawn.sprite.play("idle")

@@ -6,6 +6,9 @@ func run() -> void:
 	var level = load("res://scenes/level_two_preview.tscn").instantiate()
 	level.preview_save_enabled = false
 	root.add_child(level)
+	# Pixel fixtures use one world unit per pixel, independent of gameplay zoom.
+	level.game_camera.zoom = Vector2.ONE
+	level.game_camera.force_update_scroll()
 	await process_frame
 	var l = level.layout
 	l.cells = {Vector2i(0,0): "meadow", Vector2i(1,0): "stairs", Vector2i(2,0): "high_gold", Vector2i(3,0): "stairs", Vector2i(4,0): "high_meadow", Vector2i(4,1): "high_gold"}

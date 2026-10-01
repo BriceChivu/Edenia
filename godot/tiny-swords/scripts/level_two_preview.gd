@@ -7,6 +7,16 @@ const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Element
 const INVALID_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_03.png")
 const BUILD_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png")
 const SAVE_KEY := "edenia_tiny_swords_builder_preview_v1"
+const DEFAULT_ZOOM := 0.8
+
+var game_camera: Camera2D
+var game_camera_center := Vector2(576, 248)
+
+var world_pointer_down: InputEventMouseButton
+var world_dragging := false
+var world_drag_origin := Vector2.ZERO
+var world_drag_threshold := 6.0
+
 var layout = Layout.new()
 var terrain
 var ui
@@ -42,7 +52,7 @@ func _ready() -> void:
 	var build_overlay := TerrainView.new()
 	build_overlay.layout = layout
 	build_overlay.editor_source = terrain
-	build_overlay.z_index = 2
+	build_overlay.z_index = 101
 	add_child(build_overlay)
 	ui = BuilderUI.new()
 	ui.layout = layout
@@ -69,6 +79,13 @@ func _ready() -> void:
 	pawn.walk_to(pawn.position)
 	rebuild_decorations()
 	refresh()
+	game_camera = Camera2D.new()
+	game_camera.position = game_camera_center
+	game_camera.zoom = Vector2.ONE * DEFAULT_ZOOM
+	add_child(game_camera)
+	get_window().mouse_exited.connect(func():
+		world_pointer_down = null
+		world_dragging = false)
 
 func refresh() -> void:
 	update_cursor()
@@ -97,23 +114,22 @@ func unlock_level(target_level: int) -> void:
 	ui.celebrate()
 
 func toggle_editing() -> void:
-	if water_phase != WaterPhase.READY:
-		return
 	editing = not editing
 	if editing:
 		if not preserve_history_on_reopen:
 			history.clear()
 		preserve_history_on_reopen = false
-	waypoints.clear()
-	pawn.walk_to(pawn.position)
+	if water_phase == WaterPhase.READY:
+		waypoints.clear()
+		pawn.walk_to(pawn.position)
 	refresh()
 
 func _process(_delta: float) -> void:
 	if terrain == null:
 		return
-	ui.launch.disabled = water_phase != WaterPhase.READY
-	ui.upgrade.disabled = ui.launch.disabled
-	ui.launch.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if ui.launch.disabled else Control.CURSOR_POINTING_HAND
+	ui.launch.disabled = false
+	ui.upgrade.disabled = water_phase != WaterPhase.READY
+	ui.launch.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	if water_phase == WaterPhase.READY or water_phase == WaterPhase.APPROACHING:
 		pawn.sprite.position.y = -32.0 - ground_height(pawn.position)
 		pawn.z_index = int(ceil(ground_height(pawn.position) / 64.0))
@@ -121,8 +137,14 @@ func _process(_delta: float) -> void:
 			pawn.walk_to(waypoints.pop_front())
 	if editing:
 		terrain.preview_position = get_global_mouse_position()
-		terrain.hover = clicked_cell(terrain.preview_position)
-		terrain.valid = layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position))
+		terrain.ground_preview_height = -1
+		if selected == "ground":
+			var option := ground_placement_at(terrain.preview_position)
+			terrain.hover = option.cell
+			terrain.ground_preview_height = option.height
+		else:
+			terrain.hover = clicked_cell(terrain.preview_position)
+		terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height)
 	update_cursor()
 
 func _input(event: InputEvent) -> void:
@@ -133,6 +155,44 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		pointer_inside = get_viewport().get_visible_rect().has_point(event.position)
 		pointer_position = event.position
+
+	if world_pointer_down == null:
+		return
+	if event is InputEventMouseMotion:
+		var distance: Vector2 = event.position - world_pointer_down.position
+		if distance.length() >= world_drag_threshold:
+			world_dragging = true
+		if world_dragging:
+			game_camera.position = (world_drag_origin - distance / game_camera.zoom.x).clamp(game_camera_center - Vector2(768, 512), game_camera_center + Vector2(768, 512))
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		var click := world_pointer_down
+		world_pointer_down = null
+		if not world_dragging and (not editing or water_phase == WaterPhase.READY):
+			handle_world_click(click)
+		world_dragging = false
+		get_viewport().set_input_as_handled()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and ui.celebration == null:
+		# Defer world clicks until release, after distinguishing a click from a pan.
+		# Godot GUI controls consume their own presses before this handler.
+		world_pointer_down = event
+		world_drag_origin = game_camera.position
+		world_dragging = false
+		get_viewport().set_input_as_handled()
+		return
+	handle_world_click(event)
+
+
+func camera_command(command: String) -> void:
+	match command:
+		"in": game_camera.zoom = Vector2.ONE * minf(1.5, game_camera.zoom.x + 0.1)
+		"out": game_camera.zoom = Vector2.ONE * maxf(0.5, game_camera.zoom.x - 0.1)
+		"reset":
+			game_camera.position = game_camera_center
+			game_camera.zoom = Vector2.ONE * DEFAULT_ZOOM
+	game_camera.position = game_camera.position.clamp(game_camera_center - Vector2(768, 512), game_camera_center + Vector2(768, 512))
 
 func fit_build_cursor() -> void:
 	# Use the same scene units in native Godot and in the browser.
@@ -173,7 +233,56 @@ func clicked_cell(point: Vector2) -> Vector2i:
 				return stair
 	return cell
 
+func ground_placement_at(point: Vector2) -> Dictionary:
+	var visible_cell := surface_cell(point)
+	var occupied: Vector2i = layout.cell_at(pawn.position)
+	var best := {"cell": visible_cell, "height": -1.0}
+	var best_distance := INF
+	var best_center_distance := INF
+	var heights: Array[float] = [0.0]
+	for cell in layout.cells:
+		var height: float = layout.height_at(cell)
+		for option in [height, maxf(0, height - Layout.SIZE)]:
+			if option not in heights:
+				heights.append(option)
+	heights.sort()
+	for height in heights:
+		var projected: Vector2i = layout.cell_at(point + Vector2(0, height))
+		var candidates: Array[Vector2i] = [projected]
+		if layout.cells.has(visible_cell) and visible_cell != projected:
+			candidates.append(visible_cell)
+		for cell in candidates:
+			# An existing visible top cannot be painted through to a ghost
+			# behind it. It can still be raised, preserving the old interaction.
+			if layout.cells.has(visible_cell) and cell != visible_cell:
+				continue
+			if not layout.can_edit(cell, "ground", occupied, height):
+				continue
+			var distance := INF
+			for step in Layout.STEPS:
+				var neighbor: Vector2i = cell + step
+				if not layout.cells.has(neighbor) or layout.cells[neighbor] == "stairs":
+					continue
+				var neighbor_height: float = layout.height_at(neighbor)
+				if neighbor_height != height and layout.terrace_height(cell, neighbor_height) != height:
+					continue
+				var origin: Vector2 = Layout.ORIGIN + Vector2(neighbor) * Layout.SIZE - Vector2(0, neighbor_height)
+				var nearest := point.clamp(origin, origin + Vector2.ONE * Layout.SIZE)
+				distance = minf(distance, point.distance_squared_to(nearest))
+			# Water-level grass is also available away from existing land.
+			if distance == INF and height == 0:
+				distance = 1000000.0
+			var center_distance: float = point.distance_squared_to(layout.center(cell) - Vector2(0, height))
+			if distance < best_distance or (distance == best_distance and center_distance < best_center_distance):
+				best = {"cell": cell, "height": height}
+				best_distance = distance
+				best_center_distance = center_distance
+	return best
+
 func visual_cell(point: Vector2) -> Vector2i:
+	return ground_placement_at(point).cell if editing and selected == "ground" else surface_cell(point)
+
+func surface_cell(point: Vector2) -> Vector2i:
 	for cell in layout.cells:
 		if layout.cells[cell] == "stairs":
 			var height := ground_height(Vector2(point.x, layout.center(cell).y))
@@ -183,31 +292,29 @@ func visual_cell(point: Vector2) -> Vector2i:
 	for cell in layout.cells:
 		if layout.height_at(cell) > 0 and Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.height_at(cell)), Vector2(64, 64)).has_point(point):
 			return cell
-	if editing and selected == "ground":
-		for y in range(Layout.MIN_CELL.y, Layout.MAX_CELL.y + 1):
-			for x in range(Layout.MIN_CELL.x, Layout.MAX_CELL.x + 1):
-				var cell := Vector2i(x, y)
-				if not layout.cells.has(cell) and layout.automatic_height(cell) > 0:
-					if Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.automatic_height(cell)), Vector2(64, 64)).has_point(point):
-						return cell
+
 	return layout.cell_at(point)
 
-func _unhandled_input(event: InputEvent) -> void:
+func handle_world_click(event: InputEvent) -> void:
 	if ui == null or ui.celebration != null or water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
 		var cell := clicked_cell(point)
 		if editing:
-			apply_edit(cell)
+			var height: float = ground_placement_at(point).height if selected == "ground" else -1.0
+			if selected != "ground" or height >= 0:
+				apply_edit(cell, height)
 		elif layout.cells.has(cell):
 			walk_on_land(cell, point + Vector2(0, ground_height(Vector2(point.x, layout.center(cell).y))))
 		else:
 			fall_into_water(point)
 
-func apply_edit(cell: Vector2i) -> bool:
+func apply_edit(cell: Vector2i, ground_height: float = -1) -> bool:
+	if water_phase != WaterPhase.READY:
+		return false
 	var before: Dictionary = layout.snapshot()
-	if not layout.edit(cell, selected, layout.cell_at(pawn.position)):
+	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height):
 		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	history.append(before)
@@ -215,14 +322,14 @@ func apply_edit(cell: Vector2i) -> bool:
 		history.pop_front()
 	rebuild_decorations()
 	save_layout()
-	if editing and selected != "remove" and layout.ground_count() + layout.stock.stairs + layout.stock.tree == 0:
+	if editing and selected not in ["remove", "ground"] and layout.ground_count() + layout.stock.stairs + layout.stock.tree == 0:
 		editing = false
 		preserve_history_on_reopen = true
 	refresh()
 	return true
 
 func undo() -> void:
-	if not editing or history.is_empty():
+	if water_phase != WaterPhase.READY or not editing or history.is_empty():
 		return
 	layout.restore(history.pop_back())
 	if not layout.cells.has(layout.cell_at(pawn.position)):
@@ -234,14 +341,22 @@ func undo() -> void:
 
 func rebuild_decorations() -> void:
 	for node in get_children():
-		if node.has_meta("terrain_shadow"):
+		if node.has_meta("terrain_shadow") or node.has_meta("terrain_backing"):
 			remove_child(node)
 			node.queue_free()
 	var shadow_heights: Dictionary = {}
 	for cell in layout.cells:
-		for height in range(64, int(layout.height_at(cell)) + 1, 64):
+		var casting_height: float = layout.height_at(cell) + (64 if layout.cells[cell] == "stairs" else 0)
+		for height in range(64, int(casting_height) + 1, 64):
 			shadow_heights[float(height)] = true
 	for height in shadow_heights:
+		if height > 64:
+			var backing := TerrainView.new()
+			backing.layout = layout
+			backing.backing_height = height - 64
+			backing.z_index = int(height / 64.0) - 2
+			backing.set_meta("terrain_backing", true)
+			add_child(backing)
 		var shadows := TerrainView.new()
 		shadows.layout = layout
 		shadows.shadow_height = height
@@ -323,6 +438,10 @@ func rebuild_decorations() -> void:
 				decoration.texture = load(directory + "Rubber Duck/Rubber duck.png")
 				decoration.hframes = 3
 		decoration.position = layout.center(item.water if in_water else cell)
+		if item.kind == "land_rock":
+			# Sort from the near edge like foliage, without moving the artwork.
+			decoration.position.y += 12
+			decoration.offset.y -= 12 / decoration.scale.y
 		decoration.z_index = -17 if in_water else int(layout.height_at(cell) / 64.0)
 		if not in_water:
 			decoration.offset.y -= layout.height_at(cell) / decoration.scale.y
@@ -350,11 +469,16 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 		water_phase = WaterPhase.READY
 		waypoints.clear()
 		pawn.walk_to(pawn.position)
-	var from: Vector2i = layout.cell_at(pawn.position)
+	waypoints = land_route(pawn.position, cell, point)
+	if not waypoints.is_empty():
+		pawn.walk_to(waypoints.pop_front())
+
+func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[Vector2]:
+	var route: Array[Vector2] = []
+	var from: Vector2i = layout.cell_at(start_point)
 	var path: Array[Vector2i] = layout.path(from, cell)
 	if path.is_empty() and from != cell:
-		return
-	waypoints.clear()
+		return route
 	var candidates: Array[Vector2] = [layout.center(from)]
 	for step in path:
 		candidates.append(layout.center(step))
@@ -362,22 +486,22 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 	var target := point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 52))
 	candidates.append(target)
 	if not layout.trees.is_empty():
-		candidates = tree_navigation_path(pawn.position, target)
+		candidates = tree_navigation_path(start_point, target)
 		if candidates.is_empty():
-			return
+			return route
 	# Keep only necessary bends. Clear stretches can be walked directly, without
 	# pulling the pawn back to the center of its current square on every click.
-	var start: Vector2 = pawn.position
+	var start: Vector2 = start_point
 	while not candidates.is_empty():
 		var furthest := 0
 		for i in range(candidates.size()):
 			if clear_segment(start, candidates[i]):
 				furthest = i
 		var next: Vector2 = candidates[furthest]
-		waypoints.append(next)
+		route.append(next)
 		candidates = candidates.slice(furthest + 1)
 		start = next
-	pawn.walk_to(waypoints.pop_front())
+	return route
 
 func tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
 	var result: Array[Vector2] = []
@@ -398,14 +522,12 @@ func tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
 			result.append(target)
 			return result
 		var current_point := Layout.ORIGIN + (Vector2(current) + Vector2.ONE * 0.5) * 8
-		for step in Layout.STEPS:
+		for step in Layout.NAV_STEPS:
 			var next: Vector2i = current + step
 			if previous.has(next):
 				continue
 			var next_point := Layout.ORIGIN + (Vector2(next) + Vector2.ONE * 0.5) * 8
-			var from_cell: Vector2i = layout.cell_at(current_point)
-			var to_cell: Vector2i = layout.cell_at(next_point)
-			if not layout.walkable_point(next_point) or (from_cell != to_cell and not layout.can_cross(from_cell, to_cell)):
+			if not clear_segment(current_point, next_point):
 				continue
 			previous[next] = current
 			queue.append(next)
@@ -433,17 +555,37 @@ func ground_height(point: Vector2) -> float:
 	return layout.height_at(cell)
 
 func fall_into_water(point: Vector2) -> void:
+	# A raised face is not a water exit; descend using the existing stairs first.
+	if ground_height(pawn.position) > 0:
+		return
 	var from: Vector2i = layout.cell_at(pawn.position)
 	var best := INF
 	var shore: Vector2i = from
 	var direction := Vector2.RIGHT
 	for cell in layout.cells:
+		if layout.height_at(cell) > 0 or layout.cells[cell] == "stairs":
+			continue
 		if layout.trees.has(cell) or (cell != from and layout.path(from, cell).is_empty()):
 			continue
 		for step in Layout.STEPS:
 			if layout.cells.has(cell + step):
 				continue
-			var distance: float = layout.center(cell + step).distance_squared_to(point)
+			# Compare the complete route toward the click, including the actual
+			# walk around obstacles. Proximity to the clicked water alone can
+			# choose a distant shore and send the pawn on a needless detour.
+			var exit: Vector2 = pawn.position if cell == from else layout.center(cell)
+			var distance := 0.0
+			if cell != from:
+				var route := land_route(pawn.position, cell, exit)
+				if route.is_empty():
+					continue
+				var previous: Vector2 = pawn.position
+				for waypoint in route:
+					distance += previous.distance_to(waypoint)
+					previous = waypoint
+			# The shared fall travels outward before the splash. Include the
+			# remaining water distance so exits still follow the click direction.
+			distance += 53.0 + (exit + Vector2(step) * 53.0).distance_to(point)
 			if distance < best:
 				best = distance
 				shore = cell
@@ -467,8 +609,9 @@ func fall_into_water(point: Vector2) -> void:
 		if generation != movement_generation or water_phase != WaterPhase.APPROACHING:
 			return
 	var height: float = ground_height(edge)
-	var spawn_cell: Vector2i = layout.spawn_cell()
+	var spawn_cell: Vector2i = layout.random_respawn_cell()
 	await perform_water_fall(edge, direction, height, layout.center(spawn_cell), layout.height_at(spawn_cell))
+
 
 func save_layout() -> void:
 	if not preview_save_enabled:

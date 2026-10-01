@@ -13,6 +13,7 @@ func _initialize() -> void:
 	check(layout.ground_count() == 3 and layout.stock.stairs == 1 and layout.stock.tree == 0, "Level two grants four items: three ground and one stair bundle")
 	var once: Dictionary = layout.snapshot()
 	check(not layout.unlock(2) and layout.snapshot() == once, "Retrying first upgrade grants nothing")
+	check(layout.edit(Vector2i(2,1), "ground", Vector2i.ZERO), "Level two places required stair support")
 	check(layout.edit(Vector2i(2,0), "stairs", Vector2i.ZERO), "Level two includes a usable stair bundle")
 	check(layout.edit(Vector2i(4,0), "ground", Vector2i.ZERO), "Level two can extend its raised landing")
 	var placements: Dictionary = layout.cells.duplicate()

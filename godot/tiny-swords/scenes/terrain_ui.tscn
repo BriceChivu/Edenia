@@ -1,0 +1,503 @@
+[gd_scene format=3 uid="uid://dcgga1rbolm0r"]
+
+[ext_resource type="FontFile" uid="uid://ddy1bqocuucpx" path="res://fonts/MedievalSharp.ttf" id="1_jg2xk"]
+[ext_resource type="Texture2D" uid="uid://h48gfwpgtvl0" path="res://ui/terrain/upgrade_regular.png" id="3_nvns6"]
+[ext_resource type="Texture2D" uid="uid://d0uld1qy4nhrw" path="res://ui/terrain/upgrade_pressed.png" id="4_nyhjg"]
+[ext_resource type="Texture2D" uid="uid://c45o64nv5bkvl" path="res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color3.png" id="6_kpm3b"]
+[ext_resource type="Texture2D" uid="uid://onnce25uniof" path="res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color1.png" id="7_nvrnu"]
+[ext_resource type="Texture2D" uid="uid://d1if5aygf665j" path="res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png" id="8_u254j"]
+[ext_resource type="Texture2D" uid="uid://djdq7ibs75rng" path="res://ui/terrain/pickup.png" id="9_7csu1"]
+[ext_resource type="Texture2D" uid="uid://5vvmygajg03j" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_08.png" id="10_ouwcp"]
+[ext_resource type="Texture2D" uid="uid://6fwi4ejscu70" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_09.png" id="11_l28ao"]
+
+[sub_resource type="FontVariation" id="FontVariation_jyy0y"]
+base_font = ExtResource("1_jg2xk")
+variation_embolden = 0.5
+
+[sub_resource type="Theme" id="Theme_knda1"]
+default_font = SubResource("FontVariation_jyy0y")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_xj5r2"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 10.0
+texture = ExtResource("3_nvns6")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_b11ad"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+texture = ExtResource("4_nyhjg")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_qf3fx"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 10.0
+texture = ExtResource("3_nvns6")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_lgiao"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+texture = ExtResource("4_nyhjg")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cm6ex"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cvrun"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2joah"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_2h7mt"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_mx6n2"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fn7jj"]
+atlas = ExtResource("11_l28ao")
+region = Rect2(6, 5, 51, 55)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_ar1ch"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_nvndl"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_usea3"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_k7mdn"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_knmdk"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sovba"]
+atlas = ExtResource("6_kpm3b")
+region = Rect2(192, 192, 64, 64)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_usgru"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_8su4j"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_gsmfi"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_w8he8"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_puogd"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d66d5"]
+atlas = ExtResource("7_nvrnu")
+region = Rect2(0, 256, 64, 128)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_iaerr"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_kewyx"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_betvw"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wi1gh"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_u1o74"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5qnys"]
+atlas = ExtResource("8_u254j")
+region = Rect2(29, 32, 136, 224)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_mgpxg"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_oi08o"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_y6cpt"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wpbcj"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_yg6hu"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_rb73d"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_6qwh1"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_5xmyf"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_caak1"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_d8i21"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jtllo"]
+atlas = ExtResource("10_ouwcp")
+region = Rect2(4, 8, 54, 50)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_i4wcc"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("3_nvns6")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_6ekhe"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("4_nyhjg")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_fsr7w"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("3_nvns6")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_abfod"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("4_nyhjg")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[node name="TerrainUI" type="Control" unique_id=721125922]
+texture_filter = 2
+layout_mode = 3
+anchors_preset = 0
+offset_right = 1152.0
+offset_bottom = 496.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = SubResource("Theme_knda1")
+
+[node name="TerrainButton" type="Button" parent="." unique_id=481120987]
+texture_filter = 1
+custom_minimum_size = Vector2(110, 32)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -124.0
+offset_top = -55.0
+offset_right = -14.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxTexture_xj5r2")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_b11ad")
+theme_override_styles/hover = SubResource("StyleBoxTexture_qf3fx")
+theme_override_styles/disabled = SubResource("StyleBoxTexture_lgiao")
+text = "Terrain"
+
+[node name="TerrainButton2" type="Button" parent="." unique_id=1234057257]
+visible = false
+texture_filter = 1
+custom_minimum_size = Vector2(110, 32)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -206.0
+offset_top = -72.0
+offset_right = -14.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBoxTexture_xj5r2")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_b11ad")
+theme_override_styles/hover = SubResource("StyleBoxTexture_qf3fx")
+theme_override_styles/disabled = SubResource("StyleBoxTexture_lgiao")
+
+[node name="CloseButton" type="Button" parent="TerrainButton2" unique_id=261314153]
+texture_filter = 1
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -15.0
+offset_top = -72.0
+offset_right = 9.0
+offset_bottom = -48.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+accessibility_name = "Return to walking"
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.25)
+theme_override_constants/icon_max_width = 14
+theme_override_styles/normal = SubResource("StyleBoxEmpty_cm6ex")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_cvrun")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_2joah")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_2h7mt")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_mx6n2")
+icon = SubResource("AtlasTexture_fn7jj")
+icon_alignment = 1
+expand_icon = true
+
+[node name="Tools" type="Control" parent="TerrainButton2" unique_id=2132980414]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -67.0
+offset_top = -103.0
+offset_right = -79.0
+offset_bottom = -115.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="GroundButton" type="Button" parent="TerrainButton2/Tools" unique_id=1973797058]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 0
+offset_left = 78.0
+offset_top = 115.0
+offset_right = 110.0
+offset_bottom = 147.0
+mouse_default_cursor_shape = 2
+accessibility_name = "Ground"
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.25)
+theme_override_constants/icon_max_width = 25
+theme_override_styles/normal = SubResource("StyleBoxEmpty_ar1ch")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_nvndl")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_usea3")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_k7mdn")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_knmdk")
+icon = SubResource("AtlasTexture_sovba")
+icon_alignment = 1
+expand_icon = true
+
+[node name="Remaining" type="Label" parent="TerrainButton2/Tools/GroundButton" unique_id=1648834753]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -24.0
+offset_top = -13.0
+offset_right = -1.0
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_outline_color = Color(0.14117648, 0.23529412, 0.25490198, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 2
+
+[node name="TallIconsClip" type="Control" parent="TerrainButton2/Tools" unique_id=958521457]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 82.0
+offset_top = 116.0
+offset_right = 82.0
+offset_bottom = 113.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="StairsButton" type="Button" parent="TerrainButton2/Tools/TallIconsClip" unique_id=2135298182]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 0
+offset_left = 28.0
+offset_top = -6.0
+offset_right = 64.0
+offset_bottom = 29.0
+mouse_default_cursor_shape = 2
+accessibility_name = "Stairs"
+accessibility_description = "Place beside any ground level. Adds a landing one level higher automatically.
+One stair bundle includes its upper tile. Picking it up returns both."
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.25)
+theme_override_constants/icon_max_width = 25
+theme_override_styles/normal = SubResource("StyleBoxEmpty_usgru")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_8su4j")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_gsmfi")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_w8he8")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_puogd")
+icon = SubResource("AtlasTexture_d66d5")
+icon_alignment = 1
+expand_icon = true
+
+[node name="Remaining" type="Label" parent="TerrainButton2/Tools/TallIconsClip/StairsButton" unique_id=958851533]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -23.0
+offset_top = -13.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_outline_color = Color(0.14117648, 0.23529412, 0.25490198, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 2
+
+[node name="TreeButton" type="Button" parent="TerrainButton2/Tools/TallIconsClip" unique_id=7502980]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 0
+offset_left = 63.0
+offset_top = -5.0
+offset_right = 101.0
+offset_bottom = 32.0
+mouse_default_cursor_shape = 2
+accessibility_name = "Pine"
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.25)
+theme_override_constants/icon_max_width = 25
+theme_override_styles/normal = SubResource("StyleBoxEmpty_iaerr")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_kewyx")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_betvw")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_wi1gh")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_u1o74")
+icon = SubResource("AtlasTexture_5qnys")
+icon_alignment = 1
+expand_icon = true
+
+[node name="Remaining" type="Label" parent="TerrainButton2/Tools/TallIconsClip/TreeButton" unique_id=1535154007]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -24.0
+offset_top = -13.0
+offset_right = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_outline_color = Color(0.14117648, 0.23529412, 0.25490198, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 2
+
+[node name="PickupButton" type="Button" parent="TerrainButton2/Tools" unique_id=587660596]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 0
+offset_left = 184.0
+offset_top = 115.0
+offset_right = 216.0
+offset_bottom = 147.0
+mouse_default_cursor_shape = 2
+accessibility_name = "Pick up"
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.25)
+theme_override_constants/icon_max_width = 28
+theme_override_styles/normal = SubResource("StyleBoxEmpty_mgpxg")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_oi08o")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_y6cpt")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_wpbcj")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_yg6hu")
+icon = ExtResource("9_7csu1")
+icon_alignment = 1
+expand_icon = true
+
+[node name="UndoButton" type="Button" parent="TerrainButton2/Tools" unique_id=1546962005]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 0
+offset_left = 217.0
+offset_top = 115.0
+offset_right = 249.0
+offset_bottom = 147.0
+mouse_default_cursor_shape = 2
+accessibility_name = "Undo"
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.25)
+theme_override_constants/icon_max_width = 25
+theme_override_styles/normal = SubResource("StyleBoxEmpty_rb73d")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_6qwh1")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_5xmyf")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_caak1")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_d8i21")
+icon = SubResource("AtlasTexture_jtllo")
+icon_alignment = 1
+expand_icon = true
+
+[node name="UpgradeButton" type="Button" parent="." unique_id=318817312]
+visible = false
+texture_filter = 1
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 14.0
+offset_top = -58.0
+offset_right = 154.0
+offset_bottom = -14.0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
+theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxTexture_i4wcc")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_6ekhe")
+theme_override_styles/hover = SubResource("StyleBoxTexture_fsr7w")
+theme_override_styles/disabled = SubResource("StyleBoxTexture_abfod")
+text = "Try level 3"

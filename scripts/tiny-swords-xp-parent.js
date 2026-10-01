@@ -3,7 +3,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
   document.documentElement.classList.add('tiny-swords-preview')
   window.addEventListener('DOMContentLoaded', () => {
     const frame = document.createElement('iframe')
-    frame.src = 'tiny-swords/index.html'
+    frame.src = 'tiny-swords-xp-game/index.html'
     frame.title = 'Tiny Swords island: earn XP by studying to unlock building'
     frame.className = 'tiny-swords-frame'
     const layoutKey = 'edenia_tiny_swords_xp_layout_v1'
@@ -35,6 +35,28 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     const controls = originalControls.cloneNode(true)
     controls.classList.add('tiny-swords-camera-controls')
     originalControls.replaceWith(controls)
+    // Godot draws its 64px cursor in viewport units; match that rendered size
+    // when the pointer crosses from the game into the parent camera controls.
+    const cursorImage = new Image()
+    cursorImage.src = 'tiny-swords-xp-game/Cursor_02.png'
+    let cursorSize = 0
+    function matchCameraCursor() {
+      const viewport = frame.contentWindow?.edeniaCamera
+      if (!cursorImage.complete || !cursorImage.naturalWidth || !viewport?.width) return
+      const scale = frame.getBoundingClientRect().width / viewport.width
+      const size = Math.max(1, Math.round(cursorImage.naturalWidth * scale))
+      if (size === cursorSize) return
+      cursorSize = size
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = size
+      const context = canvas.getContext('2d')
+      context.imageSmoothingEnabled = false
+      context.drawImage(cursorImage, 0, 0, size, size)
+      controls.style.setProperty('--tiny-swords-camera-cursor', `url("${canvas.toDataURL()}") ${Math.round(24 * scale)} ${Math.round(18 * scale)}, default`)
+    }
+    cursorImage.addEventListener('load', matchCameraCursor)
+    controls.addEventListener('pointerenter', matchCameraCursor)
+    new ResizeObserver(matchCameraCursor).observe(frame)
     for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
       button.addEventListener('click', event => {
         event.stopImmediatePropagation()

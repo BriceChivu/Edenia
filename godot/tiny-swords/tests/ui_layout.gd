@@ -22,7 +22,8 @@ func run() -> void:
 		if not bounds.encloses(Rect2(panel.position, panel.size)):
 			failures += 1
 			push_error("Inventory must remain inside the town frame")
-		for button in level.ui.buttons.values():
+		for kind in ["ground", "stairs"]:
+			var button: Button = level.ui.buttons[kind]
 			if button.size.y < 32 or not button.is_visible_in_tree():
 				failures += 1
 				push_error("Inventory tools remain visible and usable")
@@ -33,13 +34,13 @@ func run() -> void:
 			if button.text != "" or button.accessibility_name == "" or not button.get_theme_stylebox("normal") is StyleBoxEmpty:
 				failures += 1
 				push_error("Toolbar choices have artwork and accessible names without text or chrome")
-		if not level.ui.buttons.tree.disabled:
+		if not level.ui.buttons.tree.disabled or level.ui.buttons.tree.visible:
 			failures += 1
-			push_error("Unavailable level-two tree remains disabled")
+			push_error("Locked level-two tree remains hidden and disabled")
 	var button_style = level.ui.launch.get_theme_stylebox("normal")
-	if button_style.texture.get_width() > 100 or button_style.axis_stretch_horizontal != StyleBoxTexture.AXIS_STRETCH_MODE_TILE:
+	if button_style.texture.get_size() != Vector2(154, 158) or button_style.texture_margin_left != 16 or button_style.axis_stretch_horizontal != StyleBoxTexture.AXIS_STRETCH_MODE_TILE:
 		failures += 1
-		push_error("Button artwork matches the reference display scale and repeats to fit labels")
+		push_error("Button artwork retains native scale and tiles its middle to fit labels")
 	level.ui.done_button.pressed.emit()
 	if level.editing or level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 2:
 		failures += 1

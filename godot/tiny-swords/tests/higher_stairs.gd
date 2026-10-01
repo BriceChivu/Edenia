@@ -12,6 +12,8 @@ func _initialize() -> void:
 	check(l.edit(Vector2i(1,0), "stairs", occupied), "First stair")
 	check(l.edit(Vector2i(3,0), "ground", occupied), "Extend gold floor")
 	check(l.edit(Vector2i(4,0), "ground", occupied) and l.height_at(Vector2i(4,0)) == 64, "Prepare existing higher ground")
+	check(l.edit(Vector2i(4,1), "ground", occupied), "Place support below higher ramp")
+	check(l.edit(Vector2i(5,1), "ground", occupied), "Place support below higher landing")
 	check(l.edit(Vector2i(4,0), "stairs", occupied), "Stair replaces existing higher ground")
 	check(l.height_at(Vector2i(4,0)) == 64 and l.height_at(Vector2i(5,0)) == 128, "Second stair rises one floor")
 	check(l.palette_at_height(0) == 3 and l.palette_at_height(64) == 1 and l.palette_at_height(128) == 2, "Green gold teal floor palettes")

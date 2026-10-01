@@ -59,6 +59,26 @@ func _initialize() -> void:
  view.layout.cells = {Vector2i.ZERO:"high_gold",Vector2i.DOWN:"meadow"}
  check(view.ground_region(Vector2i.DOWN,"meadow") == Rect2(192,128,64,64), "Lower grass has no false top shoreline against a cliff")
  check(view.ground_region(Vector2i.ZERO,"high_gold") == Rect2(512,192,64,64), "Upper grass still ends at its own cliff")
+ # Select each tier's foot from its receiving grass, support, or water.
+ view.layout.cells = {Vector2i.ZERO:"high_gold"}
+ view.layout.elevations = {Vector2i.ZERO:192}
+ check(view.cliff_region(Vector2i.ZERO,64).position.y == 320, "Lowest cliff over water uses the water foot")
+ for height in [128,192]:
+  check(view.cliff_region(Vector2i.ZERO,height).position.y == 256, "Stacked cliff above solid support has no water foot")
+ view.layout.cells[Vector2i.DOWN] = "high_meadow"
+ view.layout.elevations[Vector2i.DOWN] = 128
+ check(view.cliff_region(Vector2i.ZERO,192).position.y == 256, "Cliff over elevated grass uses the grass foot")
+ view.layout.cells[Vector2i.DOWN] = "stairs"
+ check(view.cliff_region(Vector2i.ZERO,192).position.y == 256, "Cliff over a raised ramp base uses the solid foot")
+ view.layout.cells.erase(Vector2i.DOWN)
+ check(view.cliff_region(Vector2i.ZERO,64).position.y == 320, "Removing receiving ground restores the water foot")
+ # Mixed corners retain a grass side while the foot remains water.
+ view.layout.elevations.clear()
+ for side in [Vector2i.LEFT,Vector2i.RIGHT]:
+  view.layout.cells = {Vector2i.ZERO:"high_gold",side:"meadow"}
+  check(view.cliff_region(Vector2i.ZERO,64).position.y == 320, "Mixed corner retains water foot")
+  check(view.cliff_grass_sides(Vector2i.ZERO,64) == [side == Vector2i.LEFT,side == Vector2i.RIGHT], "Mixed corner selects only its grass-facing side")
+  check(view.cliff_grass_sides(Vector2i.ZERO,128) == [false,false], "Lower grass does not reach an upper cliff tier")
  view.free()
  print("Terrain atlas checks: ", "PASS" if failures == 0 else "FAIL")
  quit(0 if failures == 0 else 1)

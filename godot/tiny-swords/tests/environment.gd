@@ -26,11 +26,11 @@ func run() -> void:
 	var original_frame: int = foam.frame
 	var original_rock_frame: int = rock.frame
 	cloud.set_altitude(0.1)
-	check(cloud.z_index < level.get_node("World").z_index, "Low clouds stay behind trees and pawn")
+	check(cloud.z_index == 100, "Low cloud body uses shadow-based occlusion")
 	var low_scale: float = cloud.scale.x
 	var low_opacity: float = cloud.shadow_sprite.material.get_shader_parameter("opacity")
 	cloud.set_altitude(0.9)
-	check(cloud.z_index > level.get_node("World").z_index, "High clouds may cover the world")
+	check(cloud.z_index == 100, "Altitude does not select a different depth layer")
 	check((cloud.shadow_sprite.position.y + cloud.baked_shadow_offset.y) * cloud.scale.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
 	check(cloud.scale.x > low_scale * 1.2, "High clouds look closer and larger")
 	for moving_cloud in level.get_node("Clouds").get_children():
@@ -50,7 +50,7 @@ func run() -> void:
 		cloud.set_altitude(1.0)
 		check(cloud.texture == cloud.VARIANTS[variant] and cloud.shadow_sprite.texture == cloud.texture, "Each original variant supplies its body and matching shadow")
 		if cloud.texture.get_image().get_used_rect().size.x < 400:
-			check(cloud.scale == Vector2.ONE and cloud.altitude <= 0.3 and cloud.z_index < 0, "Small source art stays small and low")
+			check(cloud.scale == Vector2.ONE and cloud.altitude <= 0.3 and cloud.z_index == 100, "Small source art stays small and low")
 	# Both regular and rare paths use the same source-pixel sizing contract.
 	for subject in [cloud, level.get_node("PassingCloud")]:
 		for variant in range(8):

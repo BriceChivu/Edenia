@@ -54,6 +54,8 @@ func run() -> void:
 	check(layout.height_at(Vector2i(4, 0)) == 64, "Raised terrain has height")
 	check(layout.path(Vector2i.ZERO, Vector2i(4, 0)).is_empty(), "Raised land cannot be climbed without stairs")
 	check(not layout.can_edit(Vector2i(6, 0), "stairs", Vector2i.ZERO), "Stairs require low and high land")
+	level.selected = "ground"
+	check(level.apply_edit(Vector2i(3, 1)), "Place grass below to support the ramp")
 	level.selected = "stairs"
 	check(level.apply_edit(Vector2i(3, 0)), "Stairs connect flat and raised land")
 	check(not layout.path(Vector2i.ZERO, Vector2i(4, 0)).is_empty(), "Raised land is reachable via stairs")
@@ -106,17 +108,19 @@ func run() -> void:
 	automatic.unlock()
 	automatic.unlock(3)
 	check(automatic.ground_count() == 6, "One pooled inventory contains six ground tiles")
+	check(automatic.edit(Vector2i(2, 1), "ground", Vector2i.ZERO), "Build grass support before stairs")
 	check(automatic.edit(Vector2i(2, 0), "stairs", Vector2i.ZERO), "Stair and upper landing are created together")
-	check(automatic.ground_count() == 6 and automatic.stock.stairs == 1, "Stair bundle includes its landing without spending ground")
+	check(automatic.ground_count() == 5 and automatic.stock.stairs == 1, "Stair bundle includes its landing without spending ground")
 	check(not automatic.edit(Vector2i(3, 0), "ground", Vector2i.ZERO), "Automatic landing is already occupied")
 	check(automatic.cells[Vector2i(3, 0)] == "high_gold", "Ground at the high end is automatically elevated and gold")
 	check(automatic.edit(Vector2i(4, 0), "ground", Vector2i.ZERO) and automatic.height_at(Vector2i(4, 0)) == 64, "An upper floor extends at the same height")
 	check(automatic.edit(Vector2i(-1, 0), "ground", Vector2i.ZERO) and automatic.height_at(Vector2i(-1, 0)) == 0, "Base ground extends at water level")
-	check(automatic.ground_count() == 4, "Any ground height uses the same inventory")
+	check(automatic.ground_count() == 3, "Any ground height uses the same inventory")
 	check(automatic.restore(JSON.parse_string(JSON.stringify(automatic.snapshot()))), "Automatic stair direction survives a save")
 	var empty_stock = load("res://scripts/terrain_layout.gd").new()
 	empty_stock.unlock()
 	empty_stock.unlock(3)
+	check(empty_stock.edit(Vector2i(2, 1), "ground", Vector2i.ZERO), "Place support before exhausting stock")
 	for kind in empty_stock.KINDS:
 		if kind != "stairs":
 			empty_stock.stock[kind] = 0
@@ -140,26 +144,38 @@ func run() -> void:
 		check(plants.restore(plants.snapshot()) and plants.decorations == saved_flora, "Plants persist without rerolling")
 		plants.edit(Vector2i(-2, -1), "remove", Vector2i(1, 0))
 	check(planted > 0 and planted < 20, "Plants appear rarely rather than on every new tile")
-	check(level.splash.get_parent() == level.pawn.get_parent() and level.splash.z_index == 0, "Splash shares tree and pawn Y sorting")
+	check(level.splash.get_parent() == level.pawn.get_parent() and level.splash.z_index < level.terrain.z_index, "Solid terrain covers water splashes")
 	level.toggle_editing()
 	level.walk_on_land(Vector2i(4, 0), layout.center(Vector2i(4, 0)))
 	await create_timer(5.5).timeout
 	check(level.pawn.position.distance_to(layout.center(Vector2i(4, 0))) < 1, "Pawn walks onto expanded raised land")
 	check(level.pawn.sprite.position.y < -60, "Pawn stands on raised ground")
 	level.fall_into_water(layout.center(Vector2i(-3, 0)))
+	check(level.water_phase == level.WaterPhase.READY, "Raised pawn cannot jump into water")
+	level.pawn.position = layout.center(Vector2i(2, 0))
+	level.pawn.walk_to(level.pawn.position)
+	level.fall_into_water(layout.center(Vector2i(-3, 0)))
 	await create_timer(0.1).timeout
 	check(level.water_phase == level.WaterPhase.APPROACHING, "Distant water click starts a cancellable approach")
 	var redirect := InputEventMouseButton.new()
 	redirect.button_index = MOUSE_BUTTON_LEFT
 	redirect.pressed = true
-	redirect.position = layout.center(Vector2i(4, 0)) - Vector2(0, 64)
-	level._unhandled_input(redirect)
-	await create_timer(0.5).timeout
+	redirect.position = level.get_global_transform_with_canvas() * (layout.center(Vector2i(4, 0)) - Vector2(0, 64))
+	level.handle_world_click(redirect)
+	await create_timer(4.0).timeout
 	check(level.water_phase == level.WaterPhase.READY and level.pawn.position.distance_to(layout.center(Vector2i(4, 0))) < 1, "Latest click cancels water approach and redirects pawn")
-	level.fall_into_water(layout.center(Vector2i(5, 0)))
-	await level.splash_started
+	level.pawn.position = layout.center(Vector2i.ZERO)
+	level.pawn.walk_to(level.pawn.position)
+	level.fall_into_water(layout.center(Vector2i(-1, 0)))
+	var deadline := Time.get_ticks_msec() + 6000
+	while level.water_phase not in [level.WaterPhase.SPLASH, level.WaterPhase.WAITING] and Time.get_ticks_msec() < deadline:
+		await process_frame
+	check(level.water_phase in [level.WaterPhase.SPLASH, level.WaterPhase.WAITING], "Flat shore reaches splash within six seconds")
 	check(level.pawn.sprite.rotation == 0, "Upright splash still works on edited land")
-	await level.respawned
+	deadline = Time.get_ticks_msec() + 6000
+	while level.water_phase != level.WaterPhase.READY and Time.get_ticks_msec() < deadline:
+		await process_frame
+	check(level.water_phase == level.WaterPhase.READY, "Water fall respawns within six seconds")
 	check(level.pawn.position == layout.center(Vector2i.ZERO), "Respawn uses protected home")
 	print("Builder checks: ", "PASS" if failures == 0 else "FAIL (%s)" % failures)
 	quit(0 if failures == 0 else 1)

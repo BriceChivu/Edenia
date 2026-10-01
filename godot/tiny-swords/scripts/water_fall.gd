@@ -24,7 +24,7 @@ static func apply_pose(pawn, frame: int, start: Vector2, direction: Vector2, hei
 static func align_splash(splash: AnimatedSprite2D, pawn, frame: int, start: Vector2, direction: Vector2) -> void:
 	var contact := start + direction * SPLASH_DISTANCE + Vector2(0, SPLASH_DROP)
 	# The source pawn covers the first two splash frames, rather than the rim
-	# covering his face. Keep both in World depth sorting for foreground trees.
+	# covering his face. The water-effect layer also keeps solid shores in front.
 	splash.position = contact
 	splash.offset = Vector2.ZERO
 	if frame < 7:

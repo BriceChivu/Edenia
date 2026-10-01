@@ -23,7 +23,12 @@ func run() -> void:
 	await level.respawned
 	recording = false
 	var path := ProjectSettings.globalize_path("res://../../test-results/tiny-swords-reference/pacing-native.json")
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path,FileAccess.WRITE)
+	if file == null:
+		push_error("Cannot write pacing results: %s" % path)
+		quit(1)
+		return
 	file.store_string(JSON.stringify(samples))
 	var still_frames := 0
 	var longest_hold := 0

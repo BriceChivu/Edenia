@@ -11,6 +11,8 @@ func run() -> void:
   var level = load("res://previews/level_two.tscn").instantiate()
   root.add_child(level)
   await process_frame
+  level.selected = "ground"
+  check(level.apply_edit(stair + Vector2i.DOWN), "Place required stair support")
   level.selected = "stairs"
   check(level.apply_edit(stair), "Place stair fixture")
   var landing: Vector2i = stair + level.layout.stair_direction(stair)

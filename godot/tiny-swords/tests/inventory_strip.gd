@@ -26,7 +26,7 @@ func run() -> void:
  check(level.editing, "Partial inventory keeps strip open")
  check(level.ui.buttons.ground.get_node("Remaining").text == "×2", "Ground counter updates after placement")
  check(level.apply_edit(Vector2i(3,1)) and level.apply_edit(Vector2i(4,1)), "Use remaining ground")
- check(level.editing and level.ui.buttons.ground.disabled and not level.ui.buttons.stairs.disabled, "One depleted type does not close strip")
+ check(level.editing and not level.ui.buttons.ground.disabled and not level.ui.buttons.stairs.disabled, "One depleted type does not close strip")
  level.ui.buttons.stairs.pressed.emit()
  check(level.apply_edit(Vector2i(2,0)), "Place final stair bundle")
  check(not level.editing and not level.ui.panel.visible and level.ui.launch.visible, "Final placement exits building and closes strip")
@@ -59,7 +59,7 @@ func run() -> void:
  level.ui.launch.pressed.emit()
  check(not level.ui.buttons.tree.disabled, "Level three makes pine artwork available")
  level.ui.buttons.ground.pressed.emit()
- for cell in [Vector2i(-1,0),Vector2i(-1,1),Vector2i(-2,0),Vector2i(-2,1)]:
+ for cell in [Vector2i(-1,0),Vector2i(-1,1),Vector2i(-2,0),Vector2i(-3,1)]:
   check(level.apply_edit(cell), "Place level-three ground")
  level.ui.buttons.stairs.pressed.emit()
  check(level.apply_edit(Vector2i(-3,0)) and level.editing, "Tree remaining keeps level-three toolbar open")
