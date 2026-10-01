@@ -150,9 +150,9 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 			# This landing may also be the foot of another stair bundle.
 			# Collecting it must not leave that ramp connected to water.
 			for other in stair_directions:
-				if other != cell and landing in [other - stair_direction(other), other + stair_direction(other)]:
+				if other != cell and landing == other - stair_direction(other):
 					return false
-		if not trees.has(cell):
+		if not trees.has(cell) and cells[cell] != "stairs":
 			for step in [Vector2i.LEFT, Vector2i.RIGHT]:
 				if cells.get(cell + step) == "stairs":
 					return false
@@ -358,13 +358,24 @@ func available_stair_direction(cell: Vector2i) -> Vector2i:
 			continue
 		var shared := false
 		for other in stair_directions:
-			# Existing stair endpoints must retain their height and ownership.
-			for endpoint in [other - stair_directions[other], other + stair_directions[other]]:
-				if endpoint == cell or endpoint == landing:
-					shared = true
+			# Preserve ramp endpoints. Upper landings may be shared only
+			# when the new approach reaches their existing floor.
+			var foot: Vector2i = other - stair_directions[other]
+			var top: Vector2i = other + stair_directions[other]
+			if cell == foot or cell == top or landing == foot:
+				shared = true
+			if landing == top and height_at(top) != height_at(low) + SIZE:
+				shared = true
 		if not shared:
 			return direction
 	return Vector2i.ZERO
+
+# Landing ownership follows the ramps, so either approach may be collected.
+func landing_shared_by(landing: Vector2i, excluding: Vector2i) -> bool:
+	for stair in stair_directions:
+		if stair != excluding and stair + stair_direction(stair) == landing:
+			return true
+	return false
 
 func spend_ground() -> void:
 	for kind in KINDS:
@@ -428,9 +439,10 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		else:
 			if cells[cell] == "stairs":
 				var landing := cell + stair_direction(cell)
-				flora.erase(landing)
-				cells.erase(landing)
-				elevations.erase(landing)
+				if not landing_shared_by(landing, cell):
+					flora.erase(landing)
+					cells.erase(landing)
+					elevations.erase(landing)
 			stock[cells[cell]] += 1
 			stair_directions.erase(cell)
 			flora.erase(cell)
@@ -469,7 +481,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			stair_directions[cell] = available_stair_direction(cell)
 			var landing: Vector2i = cell + stair_directions[cell]
 			elevations[cell] = height_at(cell - stair_directions[cell])
-			if cells.has(landing):
+			if cells.has(landing) and not landing_shared_by(landing, cell):
 				# The kit supplies the landing, returning the replaced plain tile.
 				stock[cells[landing]] += 1
 			if cells.has(cell):
@@ -522,13 +534,13 @@ func snapshot() -> Dictionary:
 	for cell in trees:
 		var offset := tree_offset(cell)
 		saved_trees.append([cell.x, cell.y, offset.x, offset.y])
-	var saved := {"version": 9, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 10, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	if manual_ground_elevation:
 		saved.manual_ground_elevation = true
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	if not data.get("manual_ground_elevation", false) is bool:
 		return false
@@ -622,6 +634,14 @@ func restore(data: Dictionary) -> bool:
 			next_decorations[owner] = record
 	# Migrate old previews without discarding placements or granting rewards twice.
 	var total: int = next_cells.size()
+	# Each stair kit still owns a landing even when two kits share its tile.
+	if int(data.version) >= 5:
+		var landings := {}
+		for stair in next_stairs:
+			var landing: Vector2i = stair + next_stairs[stair]
+			if landings.has(landing):
+				total += 1
+			landings[landing] = true
 	for kind in KINDS:
 		total += next_stock[kind] * (2 if kind == "stairs" and int(data.version) >= 5 else 1)
 	var expected_total: int = {1: 5, 2: 10, 3: 15}[next_level] if int(data.version) >= 6 else ((15 if int(data.version) >= 5 else (10 if int(data.version) == 1 else 13)) if next_level == 3 else 5)

@@ -50,7 +50,10 @@ replaces an existing upper tile, that plain tile returns to inventory. Picking
 up a stair collects its bundled landing too; first move the pawn and any tree
 off that landing. If another staircase uses the landing as its foot, pick up
 that dependent staircase first; collecting a bundle cannot remove another
-staircase’s lower connection. An upper landing cannot belong to two stair bundles.
+staircase’s lower connection. Opposite stair ramps may share an upper landing
+at the same height. Hovering automatically chooses the valid direction. Picking up either ramp keeps the
+shared landing; picking up the final ramp collects it. Save version 10 preserves
+shared landings and their inventory accounting while accepting older layouts.
 While holding Ground, the first click on an empty square places grass at water
 level. Clicking that grass again raises it to the next valid extension of nearby
 higher ground. Hovering previews the next click; cursor proximity does not choose
@@ -318,6 +321,12 @@ and stairs share the gold upper-floor atlas. The base floor uses the distinct
 green third palette. Water rocks render below all player-built terrain.
 The grid square directly below stairs (positive Y) may contain water, ground,
 or another stair. Ground there can be picked up or replaced independently.
+Ramps with water directly below use only the bottom 16px of the custom native-size
+64×128 artwork at `assets/terrain/stair-ramp-water.png`, mirrored for rightward
+climbs. The rest of the ramp retains its original palette-specific atlas artwork.
+Grass and shadows continue into the 16px side joins wherever adjacent ground
+receives the ramp; its bottom edge opens onto water. Ramps above ground or another
+stair retain their original artwork. Placement previews use the same rule.
 
 Elevated-ground shadows retain the guide's 128×128 sprite at native size,
 centered on each 64×64 walkable tile and shifted exactly 64px downward.

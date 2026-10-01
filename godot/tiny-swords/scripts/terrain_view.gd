@@ -17,6 +17,7 @@ var textures: Dictionary = {}
 var shadow_textures: Array[Texture2D] = []
 var shadow := preload("res://Tiny Swords (Free Pack)/Terrain/Tileset/Shadow.png")
 var foam := preload("res://Tiny Swords (Free Pack)/Terrain/Tileset/Water Foam.png")
+var water_stair := preload("res://assets/terrain/stair-ramp-water.png")
 
 func _ready() -> void:
 	for kind in layout.KINDS:
@@ -92,6 +93,12 @@ func ground_backing_regions(cell: Vector2i, floor_height: float) -> Array[Rect2]
 	if layout.cells.get(cell) == "stairs" and layout.height_at(cell) == floor_height:
 		if layout.cells.has(below) and layout.height_at(below) == floor_height:
 			regions.append(ground)
+		elif not layout.cells.has(below):
+			# Keep receiving grass at the side joins, leaving the bottom in water.
+			var sides := cliff_grass_sides(cell, floor_height + 64)
+			for side in range(2):
+				if sides[side]:
+					regions.append(Rect2(ground.position + Vector2(0 if side == 0 else 48, 0), Vector2(16, 64)))
 	elif layout.height_at(cell) > floor_height:
 		# A tier covered by the tile in front has no visible cliff roots.
 		if layout.cells.has(below) and layout.height_at(below) >= floor_height + 64:
@@ -189,8 +196,10 @@ func shadow_receivers(floor_height: float) -> Dictionary:
 	for cell in layout.cells:
 		var origin: Vector2 = layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, floor_height)
 		if layout.height_at(cell) == floor_height:
-			var kind: String = "meadow" if floor_height == 0 else layout.kind_at_height(floor_height)
-			add_shadow_receiver(receivers, origin, ground_region(cell, kind), atlas)
+			# Water-facing ramp roots have no grass backing to receive shadows.
+			if layout.cells[cell] != "stairs" or layout.cells.has(cell + Vector2i.DOWN):
+				var kind: String = "meadow" if floor_height == 0 else layout.kind_at_height(floor_height)
+				add_shadow_receiver(receivers, origin, ground_region(cell, kind), atlas)
 		# Backing under roots receives the same shadows as the terrace.
 		var ground := receiving_ground_region(cell, floor_height)
 		for region in ground_backing_regions(cell, floor_height):
@@ -233,7 +242,19 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE, preview_height
 			height = layout.height_at(cell - direction)
 			texture = floor_texture(height + 64)
 		draw_support(cell, height, tint)
-		draw_texture_rect_region(texture, Rect2(origin - Vector2(0, height + 64), Vector2(64, 128)), Rect2(0 if direction.x >= 0 else 192, 256, 64, 128), tint)
+		var ramp_rect := Rect2(origin - Vector2(0, height + 64), Vector2(64, 128))
+		if not layout.cells.has(cell + Vector2i.DOWN):
+			if piece == null and height == 0:
+				draw_cliff_ground(Rect2(origin, Vector2(64, 64)), cell, 64, tint)
+			# Only the bottom 16px use the custom shoreline. Keep the original
+			# ramp and its side joins above that edge, in the current floor palette.
+			draw_texture_rect_region(texture, Rect2(ramp_rect.position, Vector2(64, 112)), Rect2(0 if direction.x >= 0 else 192, 256, 64, 112), tint)
+			var edge_rect := Rect2(ramp_rect.position + Vector2(0, 112), Vector2(64, 16))
+			if direction.x >= 0:
+				edge_rect.size.x = -64
+			draw_texture_rect_region(water_stair, edge_rect, Rect2(0, 112, 64, 16), tint)
+		else:
+			draw_texture_rect_region(texture, ramp_rect, Rect2(0 if direction.x >= 0 else 192, 256, 64, 128), tint)
 		return
 	if raised:
 		origin.y -= height
@@ -275,6 +296,11 @@ func _draw() -> void:
 		# Solid cliff supports replace the base tile. Drawing grass beneath
 		# them leaks its leafy rim through the water cliff's transparent foot.
 		if layout.height_at(cell) == 0:
+			# Shoreline ramps supply their own base. Grass here would fill the
+			# custom ramp's transparent roots after placement, unlike its preview.
+			if layout.cells[cell] == "stairs" and not layout.cells.has(cell + Vector2i.DOWN):
+				draw_cliff_ground(Rect2(layout.ORIGIN + Vector2(cell) * 64, Vector2(64, 64)), cell, 64, Color.WHITE)
+				continue
 			draw_tile(cell, "meadow")
 	# Grass behind transparent cliff roots belongs to the receiving floor.
 	# Draw it before shadows, rather than repainting it in the raised piece.
@@ -310,6 +336,48 @@ func pickup_outline() -> PackedVector2Array:
 		points[i] += origin
 	return points
 
+func draw_stair_preview(tint: Color) -> void:
+	var direction: Vector2i = layout.available_stair_direction(hover)
+	var landing := hover + direction
+	var height: float = layout.height_at(hover - direction)
+	# Both ghost pieces must see the complete proposed bundle when choosing
+	# joined grass and cliff atlas regions, including over empty water.
+	var live_layout = layout
+	var proposed = layout.get_script().new()
+	proposed.cells = layout.cells.duplicate()
+	proposed.elevations = layout.elevations.duplicate()
+	proposed.stair_directions = layout.stair_directions.duplicate()
+	proposed.cells[hover] = "stairs"
+	proposed.elevations[hover] = height
+	proposed.stair_directions[hover] = direction
+	proposed.cells[landing] = layout.kind_at_height(height + 64)
+	proposed.elevations[landing] = height + 64
+	layout = proposed
+	draw_tile(hover, "stairs", tint)
+	draw_tile(landing, proposed.cells[landing], tint)
+	layout = live_layout
+
+func draw_ground_preview(tint: Color) -> void:
+	var height := grass_preview_height()
+	var target := grass_preview_cell()
+	# Atlas joins and cliff roots must see the proposed height and footprint,
+	# including removal of the old square when continuing a visible terrace.
+	var live_layout = layout
+	var proposed = layout.get_script().new()
+	proposed.cells = layout.cells.duplicate()
+	proposed.elevations = layout.elevations.duplicate()
+	proposed.stair_directions = layout.stair_directions.duplicate()
+	proposed.manual_ground_elevation = true
+	if target != hover:
+		proposed.cells.erase(hover)
+		proposed.elevations.erase(hover)
+	proposed.cells[target] = proposed.kind_at_height(height)
+	proposed.elevations[target] = height
+	proposed.normalize_cliff_terraces()
+	layout = proposed
+	draw_tile(target, proposed.cells[target], tint)
+	layout = live_layout
+
 func draw_editor() -> void:
 	if editing:
 		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 1):
@@ -319,10 +387,12 @@ func draw_editor() -> void:
 			var tint := Color(0.7, 1, 0.65, 0.6)
 			draw_set_transform(placement_offset())
 			if (tool == "ground" or tool in layout.KINDS) and (tool in ["stairs", "ground"] or not layout.cells.has(hover)):
-				draw_tile(grass_preview_cell() if tool == "ground" else hover, layout.kind_at_height(grass_preview_height()) if tool == "ground" else tool, tint, grass_preview_height() if tool == "ground" else -1)
-				if tool == "stairs" and valid:
-					var landing: Vector2i = hover + layout.available_stair_direction(hover)
-					draw_tile(landing, layout.kind_at_height(layout.height_at(hover - layout.available_stair_direction(hover)) + 64), tint, layout.height_at(hover - layout.available_stair_direction(hover)) + 64)
+				if tool == "stairs":
+					draw_stair_preview(tint)
+				elif tool == "ground":
+					draw_ground_preview(tint)
+				else:
+					draw_tile(hover, tool, tint)
 			draw_set_transform(Vector2.ZERO)
 			if tool == "tree":
 				draw_texture_rect_region(tree_texture, tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
