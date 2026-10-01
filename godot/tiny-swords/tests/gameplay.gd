@@ -15,10 +15,12 @@ func _initialize() -> void:
 func run() -> void:
 	var game = load(ProjectSettings.get_setting("application/run/main_scene")).instantiate()
 	game.preview_save_enabled = false
+	game.camera_save_enabled = false
 	root.add_child(game)
 	game.game_camera.force_update_scroll()
 	check(is_equal_approx(game.game_camera.zoom.x, 0.8), "Default view is 20 percent farther out")
 	var camera_start: Vector2 = game.game_camera.position
+	check(camera_start == game.pawn.position + Vector2(0, -32.0 - game.ground_height(game.pawn.position)), "Initial view centers on the visible pawn")
 	var pawn_start: Vector2 = game.pawn.position
 	var layout_start: Dictionary = game.layout.snapshot()
 	var press := InputEventMouseButton.new()
@@ -40,11 +42,41 @@ func run() -> void:
 	for i in range(20):
 		game.camera_command("in")
 	check(is_equal_approx(game.game_camera.zoom.x, 1.5), "Zoom in respects maximum")
+	game.editing = true
+	game.selected = "remove"
+	game.terrain.valid = true
+	game.update_cursor()
+	check(game.pointer.scale == Vector2.ONE * 1.5 and game.build_cursor_size == Vector2i(71, 71), "Zoom in scales the whole pickup cursor to match the grid")
 	for i in range(20):
 		game.camera_command("out")
 	check(is_equal_approx(game.game_camera.zoom.x, 0.5), "Zoom out respects minimum")
+	game.update_cursor()
+	check(game.pointer.scale == Vector2.ONE * 0.5 and game.build_cursor_size == Vector2i(71, 71), "Zoom out scales the whole pickup cursor to match the grid")
+	check(game.pointer.position + Vector2(35.5, 35.5) * game.pointer.scale == game.pointer_position, "Scaled pickup cursor stays centered on the pointer")
+	game.editing = false
+	game.selected = "ground"
+	game.update_cursor()
+	check(game.pointer.scale == Vector2.ONE, "Walking cursor retains its original scale after pickup")
 	game.camera_command("reset")
 	check(game.game_camera.position == camera_start and is_equal_approx(game.game_camera.zoom.x, 0.8), "Reset restores shared camera defaults")
+	game.pawn.position = Vector2(1600, 300)
+	game.camera_command("reset")
+	check(game.game_camera.position == game.pawn.position + Vector2(0, -32.0 - game.ground_height(game.pawn.position)), "Default view centers on the current pawn beyond pan bounds")
+	game.pawn.position = pawn_start
+	game.camera_command("reset")
+	if not OS.has_feature("web"):
+		game.camera_save_path = "user://camera_view_test.json"
+		game.camera_save_enabled = true
+		game.game_camera.position = Vector2(1200, 420)
+		game.game_camera.zoom = Vector2.ONE * 1.2
+		game.save_camera_view()
+		game.game_camera.position = Vector2.ZERO
+		game.game_camera.zoom = Vector2.ONE
+		game.load_camera_view()
+		check(game.game_camera.position == Vector2(1200, 420) and is_equal_approx(game.game_camera.zoom.x, 1.2), "Saved camera position and zoom survive reloading storage")
+		game.camera_save_enabled = false
+		DirAccess.remove_absolute(game.camera_save_path)
+		game.camera_command("reset")
 	game.ui.max_preview_level = 2
 	game.unlock_level(2)
 	game.ui.celebration.queue_free()

@@ -28,14 +28,17 @@ func run() -> void:
 			var rng := Rolls.new()
 			rng.values = rolls.duplicate()
 			if not winners.is_empty(): rng.values.append(winner)
-			check(Rules.choose(rng,true,false) == ("" if winners.is_empty() else winners[winner]), "Only one successful candidate wins, chosen uniformly")
+			check(Rules.choose(rng,true,0) == ("" if winners.is_empty() else winners[winner]), "Only one successful candidate wins, chosen uniformly")
 			check(rng.ranges.slice(0,5) == [[1,15],[1,15],[1,15],[1,15],[1,50]], "Exact independent odds for all five categories")
 	var blocked := Rolls.new()
 	blocked.values = [2,2,2]
-	check(Rules.choose(blocked,false,false) == "" and blocked.ranges.size() == 3, "No water rolls without nearby water")
+	check(Rules.choose(blocked,false,0) == "" and blocked.ranges.size() == 3, "No water rolls without nearby water")
 	blocked.values = [2,2,2,2]
 	blocked.ranges.clear()
-	check(Rules.choose(blocked,true,true) == "" and blocked.ranges.size() == 4, "Existing ducks disable the duck roll")
+	check(Rules.choose(blocked,true,2) == "" and blocked.ranges.size() == 4, "Two ducks disable the duck roll")
+	var second := Rolls.new()
+	second.values = [2,2,2,2,1,0]
+	check(Rules.choose(second,true,1) == "ducks", "One duck still allows a second duck roll")
 	var layout := Layout.new()
 	layout.unlock()
 	layout.unlock(3)
@@ -57,14 +60,17 @@ func run() -> void:
 			empty += 1
 		check(layout.edit(cell,"remove",Vector2i.ZERO) and not layout.decorations.has(cell), "Pickup removes the tile's decoration")
 	check(outcomes.size() == 5 and empty > 1000, "All outcomes occur and most placements stay bare")
-	# A duck set remains unique across placements and save/undo restoration.
+	# Two ducks must face opposite directions across placement and save/undo.
 	layout.edit(cell,"ground",Vector2i.ZERO)
 	layout.flora.erase(cell)
 	layout.decorations[cell] = {"kind":"ducks","variant":1,"water":cell+Vector2i.LEFT}
 	var saved := layout.snapshot()
 	for i in range(300):
 		layout.edit(Vector2i(5,0),"ground",Vector2i.ZERO)
-		check(layout.decorations.values().filter(func(item):return item.kind == "ducks").size() == 1, "Only one duck set exists")
+		check(layout.decorations.values().filter(func(item):return item.kind == "ducks").size() <= 2, "At most two ducks exist")
+		for item in layout.decorations.values():
+			if item.kind == "ducks" and item.water != cell+Vector2i.LEFT:
+				check(item.variant == 2, "Second duck faces opposite the existing duck")
 		layout.edit(Vector2i(5,0),"remove",Vector2i.ZERO)
 	check(layout.restore(saved) and layout.has_ducks(), "Undo/save restores the existing duck set")
 	layout.edit(cell+Vector2i.LEFT,"ground",Vector2i.ZERO)
@@ -76,6 +82,10 @@ func run() -> void:
 		if tile[0] == 1 and tile[1] == 0:
 			tile[5] = 0
 	check(not layout.restore(invalid) and layout.snapshot() == saved, "Duplicate duck saves are rejected without changing the current island")
+	var paired: Dictionary = invalid.duplicate(true)
+	paired.decorations[-1][3] = 2
+	check(layout.restore(paired) and layout.duck_count() == 2, "Opposite-facing ducks restore together")
+	check(layout.restore(saved), "Restore single duck before legacy checks")
 	var legacy: Dictionary = saved.duplicate(true)
 	legacy.version = 6
 	legacy.erase("decorations")
@@ -94,7 +104,8 @@ func run() -> void:
 		Vector2i(1,0): {"kind":"bush","variant":2},
 		Vector2i(0,1): {"kind":"land_rock","variant":2},
 		Vector2i(1,1): {"kind":"water_rock","variant":3,"water":Vector2i(2,1)},
-		Vector2i(3,2): {"kind":"ducks","variant":1,"water":Vector2i(4,2)}
+		Vector2i(3,2): {"kind":"ducks","variant":1,"water":Vector2i(4,2)},
+		Vector2i(5,0): {"kind":"ducks","variant":2,"water":Vector2i(6,0)}
 	}
 	scene.rebuild_decorations()
 	var rendered := 0
@@ -104,8 +115,9 @@ func run() -> void:
 		rendered += 1
 		check(sprite.texture != null, "Every decoration resolves an asset")
 		if sprite.get_meta("random_decoration") == "ducks":
+			check(sprite.flip_h == (sprite.position == scene.layout.center(Vector2i(6,0))), "Duck direction uses horizontal mirroring")
 			check(sprite.hframes == 3 and sprite.texture.get_width() / sprite.hframes == 32, "Duck sheet renders one animated duck, not three animation frames side by side")
-	check(rendered == 5, "All five categories render")
+	check(rendered == 6, "All five categories render")
 	scene.queue_free()
 	await process_frame
 	print("Decoration randomness checks: ","PASS" if failures == 0 else "FAIL")

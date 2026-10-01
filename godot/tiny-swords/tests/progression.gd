@@ -24,14 +24,14 @@ func _initialize() -> void:
 	check(second.restore(JSON.parse_string(JSON.stringify(layout.snapshot()))) and second.level == 2, "Intermediate save roundtrip keeps earned level")
 	check(second.unlock(3), "Second upgrade succeeds after reload")
 	check(second.cells == placements and second.flora == plants and second.stair_directions == directions, "Upgrade preserves terrain, plants and stairs exactly")
-	check(second.ground_count() == layout.ground_count() + 3 and second.stock.stairs == stock.stairs + 1 and second.stock.tree == 1, "Level three adds only the five remaining items")
+	check(second.ground_count() == layout.ground_count() + 3 and second.stock.stairs == stock.stairs + 1 and second.stock.tree == 1 and second.stock.bridge == 1, "Level three adds six items including the bridge")
 	once = second.snapshot()
 	check(not second.unlock(3) and not second.unlock(2) and second.snapshot() == once, "Both upgrades remain idempotent at level three")
 	check(second.restore(once) and second.snapshot() == once, "Level-three reload grants nothing")
 	var complete = Layout.new()
 	complete.unlock(2)
 	complete.unlock(3)
-	check(complete.stock == Layout.REWARDS, "Cumulative rewards exactly equal the former nine-item unlock")
+	check(complete.stock == Layout.REWARDS, "Cumulative rewards include the level-three bridge")
 	# Old fully unlocked snapshots retain every existing reward and placement.
 	var legacy: Dictionary = second.snapshot()
 	legacy.version = 5

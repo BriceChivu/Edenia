@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BridgeRules = preload("res://scripts/bridge_rules.gd")
+
 const DecorationRules = preload("res://scripts/decoration_rules.gd")
 
 const ORIGIN := Vector2(512, 176)
@@ -12,14 +14,16 @@ const MIN_CELL := Vector2i(-12, -4)
 const MAX_CELL := Vector2i(14, 5)
 const KINDS := ["meadow", "gold", "violet", "high_meadow", "high_gold", "stairs"]
 const COLORS := {"meadow": 3, "gold": 3, "violet": 3, "high_meadow": 1, "high_gold": 1, "stairs": 1}
-const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1}
+const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1, "bridge": 1}
 const LEVEL_REWARDS := {
 	2: {"meadow": 2, "gold": 1, "stairs": 1},
-	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1},
+	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1, "bridge": 1},
 }
 const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 const NAV_STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN, Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]
 var cells: Dictionary = {}
+var bridges_enabled := BridgeRules.ENABLED
+var bridges: Dictionary = {}
 var trees: Dictionary = {}
 var stair_directions: Dictionary = {}
 var elevations: Dictionary = {}
@@ -36,7 +40,7 @@ func _init() -> void:
 	flora_rng.randomize()
 	for cell in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(3, 2)]:
 		cells[cell] = "meadow"
-	for kind in KINDS + ["tree"]:
+	for kind in KINDS + ["tree", "bridge"]:
 		stock[kind] = 0
 
 func unlock(target_level: int = 2) -> bool:
@@ -108,11 +112,15 @@ func water_spaces(cell: Vector2i) -> Array[Vector2i]:
 			result.append(water)
 	return result
 
-func has_ducks() -> bool:
+func duck_count() -> int:
+	var count := 0
 	for item in decorations.values():
 		if item.kind == "ducks":
-			return true
-	return false
+			count += 1
+	return count
+
+func has_ducks() -> bool:
+	return duck_count() > 0
 
 func add_flora(cell: Vector2i) -> void:
 	# A placed tile gets one roll, never a fresh roll when it is rendered.
@@ -120,10 +128,14 @@ func add_flora(cell: Vector2i) -> void:
 	flora.erase(cell)
 	decorations.erase(cell)
 	var spaces := water_spaces(cell)
-	var kind := DecorationRules.choose(flora_rng, not spaces.is_empty(), has_ducks())
+	var kind := DecorationRules.choose(flora_rng, not spaces.is_empty(), duck_count())
 	if kind.is_empty():
 		return
 	var item := {"kind": kind, "variant": flora_rng.randi_range(1, DecorationRules.VARIANTS[kind])}
+	if kind == "ducks":
+		for existing in decorations.values():
+			if existing.kind == "ducks":
+				item.variant = 3 - existing.variant
 	if kind in DecorationRules.WATER_KINDS:
 		item.water = spaces[flora_rng.randi_range(0, spaces.size() - 1)]
 	decorations[cell] = item
@@ -140,11 +152,21 @@ func in_bounds(cell: Vector2i) -> bool:
 func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not unlocked or not in_bounds(cell):
 		return false
+	if tool == "bridge":
+		var start := BridgeRules.candidate(self, cell)
+		return bridges_enabled and level == 3 and stock.bridge > 0 and BridgeRules.valid(self, start) and occupied not in [start, start + Vector2i.RIGHT]
+	if tool == "remove" and bridges.has(BridgeRules.owner(self, cell)):
+		var start := BridgeRules.owner(self, cell)
+		return occupied not in [start, start + Vector2i.RIGHT]
+	if BridgeRules.touches(self, cell):
+		return false
 	if tool == "remove":
 		if not cells.has(cell) or cell == occupied:
 			return false
 		if cells[cell] == "stairs":
 			var landing := cell + stair_direction(cell)
+			if BridgeRules.touches(self, landing):
+				return false
 			if landing == occupied or trees.has(landing):
 				return false
 			# This landing may also be the foot of another stair bundle.
@@ -162,12 +184,14 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 	if tool == "ground":
 		if ground_height >= 0:
 			var target := ground_target(cell, ground_height)
+			if BridgeRules.touches(self, target):
+				return false
 			var allowed: bool = ground_height in ground_options(cell) or (target != cell and cell != occupied and target != occupied)
 			return allowed and (cells.has(cell) or ground_count() > 0)
 		return can_raise_ground(cell) if cells.has(cell) else ground_count() > 0
 	if tool == "stairs":
 		var direction := available_stair_direction(cell)
-		return stock.stairs > 0 and direction != Vector2i.ZERO and cell != occupied and cell + direction != occupied
+		return stock.stairs > 0 and direction != Vector2i.ZERO and cell != occupied and cell + direction != occupied and not BridgeRules.touches(self, cell + direction)
 	return tool in KINDS and stock.get(tool, 0) > 0 and not cells.has(cell)
 
 func can_raise_ground(cell: Vector2i) -> bool:
@@ -432,6 +456,15 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not can_edit(cell, tool, occupied, ground_height, tree_placement_offset):
 		return false
+	if tool == "bridge":
+		var start := BridgeRules.candidate(self, cell)
+		bridges[start] = height_at(start + Vector2i.LEFT)
+		stock.bridge -= 1
+		return true
+	if tool == "remove" and bridges.has(BridgeRules.owner(self, cell)):
+		bridges.erase(BridgeRules.owner(self, cell))
+		stock.bridge += 1
+		return true
 	if tool == "remove":
 		if trees.has(cell):
 			trees.erase(cell)
@@ -499,6 +532,17 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		stock[tool] -= 1
 	normalize_cliff_terraces()
 	prune_decorations()
+	if not bridges_enabled and not bridges.is_empty():
+		# Inactive placements must not restrict normal terrain edits. Reclaim
+		# only those whose supports were changed while the experiment is off.
+		var proposed = get_script().new()
+		proposed.cells = cells
+		proposed.elevations = elevations
+		proposed.trees = trees
+		for start in bridges.keys():
+			if not BridgeRules.valid(proposed, start) or bridges[start] != height_at(start + Vector2i.LEFT):
+				bridges.erase(start)
+				stock.bridge += 1
 	return true
 
 func path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
@@ -514,9 +558,17 @@ func path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 				result.push_front(cell)
 				cell = previous[cell]
 			return result
+		var neighbors: Array[Vector2i] = []
 		for step in NAV_STEPS:
 			var neighbor: Vector2i = cell + step
-			if can_cross(cell, neighbor) and not previous.has(neighbor):
+			if can_cross(cell, neighbor):
+				neighbors.append(neighbor)
+		for start in (bridges if bridges_enabled else {}):
+			var banks := BridgeRules.ends(start)
+			if cell in banks:
+				neighbors.append(banks[1] if cell == banks[0] else banks[0])
+		for neighbor in neighbors:
+			if not previous.has(neighbor):
 				previous[neighbor] = cell
 				queue.append(neighbor)
 	return result
@@ -534,13 +586,16 @@ func snapshot() -> Dictionary:
 	for cell in trees:
 		var offset := tree_offset(cell)
 		saved_trees.append([cell.x, cell.y, offset.x, offset.y])
-	var saved := {"version": 10, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved_bridges: Array = []
+	for start in bridges:
+		saved_bridges.append([start.x, start.y, bridges[start]])
+	var saved := {"version": 11, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	if manual_ground_elevation:
 		saved.manual_ground_elevation = true
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	if not data.get("manual_ground_elevation", false) is bool:
 		return false
@@ -600,14 +655,14 @@ func restore(data: Dictionary) -> bool:
 			safe_spawn = true
 	if not safe_spawn:
 		return false
-	for kind in KINDS + ["tree"]:
-		var amount := int(data.stock.get(kind, 0 if kind == "stairs" and data.get("version") == 1 else -1))
+	for kind in KINDS + ["tree", "bridge"]:
+		var amount := int(data.stock.get(kind, (1 if next_level == 3 else 0) if kind == "bridge" and int(data.version) < 11 else (0 if kind == "stairs" and data.get("version") == 1 else -1)))
 		if amount < 0 or amount > 13:
 			return false
 		next_stock[kind] = amount
 	var next_decorations := {}
 	var water_claims := {}
-	var duck_count := 0
+	var duck_directions := {}
 	if int(data.version) >= 7:
 		if not data.get("decorations") is Array:
 			return false
@@ -628,9 +683,9 @@ func restore(data: Dictionary) -> bool:
 				water_claims[water] = true
 				record.water = water
 			if item[2] == "ducks":
-				duck_count += 1
-				if duck_count > 1:
+				if duck_directions.has(variant):
 					return false
+				duck_directions[variant] = true
 			next_decorations[owner] = record
 	# Migrate old previews without discarding placements or granting rewards twice.
 	var total: int = next_cells.size()
@@ -649,11 +704,33 @@ func restore(data: Dictionary) -> bool:
 		return false
 	if next_trees.size() + next_stock.tree != (1 if next_level == 3 else 0):
 		return false
+	var next_bridges := {}
+	if int(data.version) >= 11:
+		if not data.get("bridges") is Array:
+			return false
+		var proposed = get_script().new()
+		proposed.cells = next_cells
+		proposed.elevations = next_elevations
+		proposed.trees = next_trees
+		proposed.bridges = next_bridges
+		for record in data.bridges:
+			if not record is Array or record.size() != 3:
+				return false
+			for number in record:
+				if not (number is int or number is float) or not is_finite(float(number)) or float(number) != int(number):
+					return false
+			var start := Vector2i(int(record[0]), int(record[1]))
+			if not BridgeRules.valid(proposed, start) or record[2] != proposed.height_at(start + Vector2i.LEFT):
+				return false
+			next_bridges[start] = float(record[2])
+	if next_bridges.size() + next_stock.bridge != (1 if next_level == 3 else 0):
+		return false
 	if data.get("version") == 1 and data.get("unlocked", false):
 		next_stock.meadow += 1
 		next_stock.stairs += 2
 	manual_ground_elevation = data.get("manual_ground_elevation", false)
 	elevations = next_elevations
+	bridges = next_bridges
 	cells = next_cells
 	trees = next_trees
 	flora = next_flora

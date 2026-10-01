@@ -8,9 +8,12 @@ const INVALID_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI El
 const BUILD_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png")
 const SAVE_KEY := "edenia_tiny_swords_builder_preview_v1"
 const DEFAULT_ZOOM := 0.8
+const CAMERA_SAVE_KEY := "edenia_tiny_swords_camera_v1"
 
 var game_camera: Camera2D
 var game_camera_center := Vector2(576, 248)
+var camera_save_enabled := true
+var camera_save_path := "user://camera_view.json"
 
 var world_pointer_down: InputEventMouseButton
 var world_dragging := false
@@ -24,6 +27,7 @@ var editing := false
 var selected := "ground"
 var preserve_history_on_reopen := false
 var history: Array[Dictionary] = []
+var walking_bridges: Array[Vector2i] = []
 var movement_generation := 0
 var waypoints: Array[Vector2] = []
 var tree_nodes: Array[Node] = []
@@ -80,10 +84,13 @@ func _ready() -> void:
 	rebuild_decorations()
 	refresh()
 	game_camera = Camera2D.new()
-	game_camera.position = game_camera_center
+	game_camera.position = pawn_view_center()
 	game_camera.zoom = Vector2.ONE * DEFAULT_ZOOM
 	add_child(game_camera)
+	load_camera_view()
 	get_window().mouse_exited.connect(func():
+		if world_dragging:
+			save_camera_view()
 		world_pointer_down = null
 		world_dragging = false)
 
@@ -138,7 +145,9 @@ func _process(_delta: float) -> void:
 	if editing:
 		terrain.preview_position = get_global_mouse_position()
 		terrain.ground_preview_height = -1
-		if selected == "ground":
+		if selected == "bridge":
+			terrain.hover = bridge_placement_at(terrain.preview_position)
+		elif selected == "ground":
 			var option := ground_placement_at(terrain.preview_position)
 			terrain.hover = option.cell
 			terrain.ground_preview_height = option.height
@@ -170,6 +179,8 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		var click := world_pointer_down
 		world_pointer_down = null
+		if world_dragging:
+			save_camera_view()
 		if not world_dragging and (not editing or water_phase == WaterPhase.READY):
 			handle_world_click(click)
 		world_dragging = false
@@ -187,18 +198,55 @@ func _unhandled_input(event: InputEvent) -> void:
 	handle_world_click(event)
 
 
+func pawn_view_center() -> Vector2:
+	return pawn.position + Vector2(0, -32.0 - ground_height(pawn.position))
+
 func camera_command(command: String) -> void:
 	match command:
 		"in": game_camera.zoom = Vector2.ONE * minf(1.5, game_camera.zoom.x + 0.1)
 		"out": game_camera.zoom = Vector2.ONE * maxf(0.5, game_camera.zoom.x - 0.1)
 		"reset":
-			game_camera.position = game_camera_center
+			game_camera.position = pawn_view_center()
 			game_camera.zoom = Vector2.ONE * DEFAULT_ZOOM
-	game_camera.position = game_camera.position.clamp(game_camera_center - Vector2(768, 512), game_camera_center + Vector2(768, 512))
+			save_camera_view()
+			return
+	save_camera_view()
+
+func save_camera_view() -> void:
+	if not camera_save_enabled or game_camera == null:
+		return
+	var json := JSON.stringify({"x": game_camera.position.x, "y": game_camera.position.y, "zoom": game_camera.zoom.x})
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("localStorage.setItem('%s', %s)" % [CAMERA_SAVE_KEY, JSON.stringify(json)])
+	else:
+		var file := FileAccess.open(camera_save_path, FileAccess.WRITE)
+		if file:
+			file.store_string(json)
+
+func load_camera_view() -> void:
+	if not camera_save_enabled:
+		return
+	var json = null
+	if OS.has_feature("web"):
+		json = JavaScriptBridge.eval("localStorage.getItem('%s')" % CAMERA_SAVE_KEY)
+	elif FileAccess.file_exists(camera_save_path):
+		json = FileAccess.get_file_as_string(camera_save_path)
+	if not json is String:
+		return
+	var data = JSON.parse_string(json)
+	if not data is Dictionary:
+		return
+	for field in ["x", "y", "zoom"]:
+		if not data.get(field) is float and not data.get(field) is int:
+			return
+		if not is_finite(float(data[field])):
+			return
+	game_camera.position = Vector2(data.x, data.y)
+	game_camera.zoom = Vector2.ONE * clampf(float(data.zoom), 0.5, 1.5)
 
 func fit_build_cursor() -> void:
-	# Use the same scene units in native Godot and in the browser.
-	# Seven transparent border pixels leave a 64px span between outer corners.
+	# Assemble one grid square at 1x; camera zoom scales the whole pickup cursor.
+	# Seven transparent border pixels sit outside the 64px grid span.
 	var size := Vector2i(71, 71)
 	if size == build_cursor_size:
 		return
@@ -222,12 +270,31 @@ func update_cursor() -> void:
 	if mode != cursor_mode:
 		cursor_mode = mode
 		pointer.texture = UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
-	var hotspot := Vector2(35.5, 35.5) if mode == "build" else Vector2(24, 18)
-	pointer.scale = Vector2.ONE
-	pointer.position = pointer_position - hotspot
+	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else Vector2(24, 18)
+	pointer.scale = (game_camera.zoom if game_camera != null else Vector2.ONE * DEFAULT_ZOOM) if mode == "build" else Vector2.ONE
+	pointer.position = pointer_position - hotspot * pointer.scale
 	pointer.visible = pointer_inside and mode != "place"
 
+func bridge_placement_at(point: Vector2) -> Vector2i:
+	for bank in layout.cells:
+		var start: Vector2i = bank + Vector2i.RIGHT
+		if Layout.BridgeRules.valid(layout, start):
+			var top: Vector2 = Layout.ORIGIN + Vector2(start) * 64 - Vector2(0, layout.height_at(bank))
+			if Rect2(top, Vector2(128, 64)).has_point(point):
+				return start
+	return layout.cell_at(point)
+
 func clicked_cell(point: Vector2) -> Vector2i:
+	if editing and selected == "bridge":
+		return bridge_placement_at(point)
+	var bridge := Layout.BridgeRules.hit(layout, point)
+	if layout.bridges.has(bridge):
+		if editing and selected == "remove":
+			return bridge
+		if not editing:
+			var banks := Layout.BridgeRules.ends(bridge)
+			# A click on the deck walks to its opposite bank.
+			return banks[1] if pawn.position.x < layout.center(bridge).x + 32 else banks[0]
 	var cell := visual_cell(point)
 	if editing and selected == "remove" and not layout.trees.has(cell):
 		for stair in layout.stair_directions:
@@ -280,6 +347,9 @@ func handle_world_click(event: InputEvent) -> void:
 			if selected != "ground" or height >= 0:
 				apply_edit(cell, height, tree_offset_at(cell, point) if selected == "tree" else Vector2.ZERO)
 		elif layout.cells.has(cell):
+			var bridge := Layout.BridgeRules.hit(layout, point)
+			if layout.bridges.has(bridge):
+				point = layout.center(cell) - Vector2(0, layout.height_at(cell))
 			walk_on_land(cell, point + Vector2(0, ground_height(Vector2(point.x, layout.center(cell).y))))
 		else:
 			fall_into_water(point)
@@ -298,7 +368,7 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 		history.pop_front()
 	rebuild_decorations()
 	save_layout()
-	if editing and selected not in ["remove", "ground"] and layout.ground_count() + layout.stock.stairs + layout.stock.tree == 0:
+	if editing and selected not in ["remove", "ground"] and layout.ground_count() + layout.stock.stairs + layout.stock.tree + (layout.stock.bridge if layout.bridges_enabled else 0) == 0:
 		editing = false
 		preserve_history_on_reopen = true
 	refresh()
@@ -354,6 +424,14 @@ func rebuild_decorations() -> void:
 			surface.position = layout.ORIGIN + Vector2(cell) * 64
 			surface.set_meta("terrain_occluder", true)
 			$World.add_child(surface)
+	for start in (layout.bridges if layout.bridges_enabled else {}):
+		var bridge := Sprite2D.new()
+		bridge.texture = Layout.BridgeRules.TEXTURE
+		bridge.centered = false
+		bridge.position = Layout.BridgeRules.art_rect(layout, start).position
+		bridge.z_index = int(layout.bridges[start] / 64.0) - 1
+		bridge.set_meta("terrain_occluder", true)
+		$World.add_child(bridge)
 	for rock in $WaterRocks.get_children():
 		rock.visible = true
 		for cell in layout.cells:
@@ -409,6 +487,7 @@ func rebuild_decorations() -> void:
 			"ducks":
 				decoration.texture = load(directory + "Rubber Duck/Rubber duck.png")
 				decoration.hframes = 3
+				decoration.flip_h = item.variant == 2
 		decoration.position = layout.center(item.water if in_water else cell)
 		if item.kind == "land_rock":
 			# Sort from the near edge like foliage, without moving the artwork.
@@ -448,9 +527,27 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[Vector2]:
 	var route: Array[Vector2] = []
 	var from: Vector2i = layout.cell_at(start_point)
+	# When a crossing is redirected midspan, reconnect its elevated lane to
+	# the nearest bank; the grass below remains a separate ordinary route.
+	var crossing_start := Vector2i(999, 999)
+	for start in walking_bridges:
+		if layout.bridges.has(start) and from in [start, start + Vector2i.RIGHT]:
+			crossing_start = start
+			var banks := Layout.BridgeRules.ends(start)
+			from = banks[0] if start_point.x < layout.center(start).x + 32 else banks[1]
+	walking_bridges.clear()
+	if layout.bridges.has(crossing_start):
+		walking_bridges.append(crossing_start)
 	var path: Array[Vector2i] = layout.path(from, cell)
 	if path.is_empty() and from != cell:
 		return route
+	var previous_cell := from
+	for step in path:
+		for start in layout.bridges:
+			var banks := Layout.BridgeRules.ends(start)
+			if previous_cell in banks and step in banks and previous_cell != step and start not in walking_bridges:
+				walking_bridges.append(start)
+		previous_cell = step
 	var candidates: Array[Vector2] = [layout.center(from)]
 	for step in path:
 		candidates.append(layout.center(step))
@@ -506,6 +603,9 @@ func tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
 	return result
 
 func clear_segment(start: Vector2, end: Vector2) -> bool:
+	for bridge in walking_bridges:
+		if layout.bridges.has(bridge) and Layout.BridgeRules.spans(layout, bridge, start, end):
+			return true
 	var samples := maxi(1, ceili(start.distance_to(end) / 4.0))
 	var previous: Vector2i = layout.cell_at(start)
 	for i in range(samples + 1):
@@ -520,6 +620,9 @@ func clear_segment(start: Vector2, end: Vector2) -> bool:
 
 func ground_height(point: Vector2) -> float:
 	var cell: Vector2i = layout.cell_at(point)
+	for bridge in walking_bridges:
+		if layout.bridges_enabled and layout.bridges.has(bridge) and cell in [bridge, bridge + Vector2i.RIGHT] and absf(point.y - layout.center(bridge).y) <= 7:
+			return Layout.BridgeRules.height(layout, bridge, point.x)
 	if layout.cells.get(cell) == "stairs":
 		var direction: Vector2i = layout.stair_direction(cell)
 		var progress: float = (point.x - layout.ORIGIN.x - cell.x * 64) / 64.0
@@ -607,6 +710,7 @@ func load_layout() -> void:
 			layout.restore(data)
 
 func _exit_tree() -> void:
+	save_camera_view()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	super._exit_tree()
 	Input.set_custom_mouse_cursor(null, Input.CURSOR_POINTING_HAND)

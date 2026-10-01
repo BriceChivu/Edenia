@@ -19,9 +19,8 @@ void vertex() {
 
 void fragment() {
 	vec4 pixel = texture(TEXTURE, UV);
-	// Original sheets use a dark teal shadow and light cream cloud pixels.
-	bool is_shadow = dot(pixel.rgb, vec3(0.299, 0.587, 0.114)) < 0.52;
-	COLOR = vec4(pixel.rgb, pixel.a * opacity * (is_shadow == shadow_only ? 1.0 : 0.0));
+	// Body and shadow now use separate textures; preserve their painted colors.
+	COLOR = vec4(pixel.rgb, pixel.a * opacity);
 	if (use_depth_mask && !shadow_only) {
 		COLOR.a *= 1.0 - texture(depth_mask, depth_uv).a;
 	}

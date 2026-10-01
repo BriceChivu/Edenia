@@ -12,9 +12,9 @@
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png" id="Tuft"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_01.png" id="Rock1"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Decorations/Rocks in the Water/Water Rocks_03.png" id="Rock3"]
-[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_01.png" id="Cloud1"]
-[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_03.png" id="Cloud3"]
-[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_06.png" id="Cloud6"]
+[ext_resource type="Texture2D" path="res://assets/clouds/Clouds_01_without_shadow.png" id="Cloud1"]
+[ext_resource type="Texture2D" path="res://assets/clouds/Clouds_03_without_shadow.png" id="Cloud3"]
+[ext_resource type="Texture2D" path="res://assets/clouds/Clouds_06_without_shadow.png" id="Cloud6"]
 
 [ext_resource type="PackedScene" path="res://scenes/pawn.tscn" id="Pawn"]
 

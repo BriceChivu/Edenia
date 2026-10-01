@@ -1,6 +1,6 @@
 extends Sprite2D
 
-const VARIANTS := [
+const ORIGINAL_VARIANTS := [
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_01.png"),
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_02.png"),
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_03.png"),
@@ -10,6 +10,30 @@ const VARIANTS := [
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_07.png"),
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_08.png"),
 ]
+
+const VARIANTS := [
+	preload("res://assets/clouds/Clouds_01_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_02_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_03_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_04_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_05_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_06_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_07_without_shadow.png"),
+	preload("res://assets/clouds/Clouds_08_without_shadow.png"),
+]
+const SHADOW_VARIANTS := [
+	preload("res://assets/clouds/Clouds_01_shadow.png"),
+	preload("res://assets/clouds/Clouds_02_shadow.png"),
+	preload("res://assets/clouds/Clouds_03_shadow.png"),
+	preload("res://assets/clouds/Clouds_04_shadow.png"),
+	preload("res://assets/clouds/Clouds_05_shadow.png"),
+	preload("res://assets/clouds/Clouds_06_shadow.png"),
+	preload("res://assets/clouds/Clouds_07_shadow.png"),
+	preload("res://assets/clouds/Clouds_08_shadow.png"),
+]
+# Ground-depth lines inferred from the eight annotated shadow screenshots,
+# in native 576×256 texture coordinates (top edge is Y = 0).
+const SHADOW_DEPTH_Y := [146.0, 148.0, 134.0, 134.0, 149.0, 144.0, 131.0, 126.0]
 var variant_index := 0
 var shadow_sprite: Sprite2D
 var altitude := 0.0
@@ -40,8 +64,9 @@ func set_variant(index: int) -> void:
 	variant_index = posmod(index, VARIANTS.size())
 	texture = VARIANTS[variant_index]
 	if shadow_sprite != null:
-		shadow_sprite.texture = texture
-	var pixels := texture.get_image()
+		shadow_sprite.texture = SHADOW_VARIANTS[variant_index]
+	# Original sheets retain the established body-to-shadow spacing.
+	var pixels: Image = ORIGINAL_VARIANTS[variant_index].get_image()
 	var body_sum := Vector2.ZERO
 	var shadow_sum := Vector2.ZERO
 	var body_count := 0
@@ -59,7 +84,8 @@ func set_variant(index: int) -> void:
 				body_count += 1
 	if shadow_count > 0 and body_count > 0:
 		baked_shadow_offset = shadow_sum / shadow_count - body_sum / body_count
-		shadow_center = shadow_sum / shadow_count - Vector2(texture.get_size()) / 2.0
+		shadow_center = body_sum / body_count - Vector2(texture.get_size()) / 2.0
+	set_altitude(altitude)
 
 func next_variant(large_only: bool = false) -> void:
 	var next := (variant_index + 1) % VARIANTS.size()
@@ -76,13 +102,16 @@ func set_altitude(value: float) -> void:
 	# Perspective and shadow distance share one height, with bounded variation.
 	scale = Vector2.ONE * (lerpf(1.0, 1.35, altitude) if painted_width >= 400 else 1.0)
 	if shadow_sprite != null:
-		# Keep the PNG's original shadow placement at minimum altitude.
-		# Additional height can only push it downward, never back into the cloud.
-		shadow_sprite.position = Vector2(0.0, altitude * 110.0) / scale
-		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.75, 0.16, altitude))
+		# Flatten around the painted shadow's center so its ground anchor stays
+		# fixed while increasing separation makes the projection flatter and fainter.
+		var projection := sqrt(altitude)
+		shadow_sprite.scale = Vector2(1.0, lerpf(0.72, 0.12, projection))
+		shadow_sprite.position = baked_shadow_offset + shadow_center * (Vector2.ONE - shadow_sprite.scale) + Vector2(0.0, altitude * 110.0) / scale
+		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.48, 0.04, projection))
 
 func shadow_ground_position() -> Vector2:
-	return to_global(shadow_center + shadow_sprite.position)
+	var anchor := Vector2(shadow_center.x, SHADOW_DEPTH_Y[variant_index] - texture.get_height() / 2.0)
+	return shadow_sprite.to_global(anchor)
 
 func setup_depth_mask() -> void:
 	depth_viewport = SubViewport.new()

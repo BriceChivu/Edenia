@@ -12,7 +12,8 @@ Mac uses the function keys for system controls):
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Try level 2** to run the real unlock, rewards and animated ribbon, then **Start building**. |
 | `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles and one stair bundle; toolbar open. |
 | `previews/level_two_to_three.tscn` | Fresh level two. Build if desired, choose **Done**, then **Try level 3** to run the real second upgrade on that same island. |
-| `previews/level_three.tscn` | Fresh level three with all cumulative rewards; toolbar open, no transition required. |
+| `previews/level_three.tscn` | Fresh level three with all active cumulative rewards; toolbar open, no transition required. |
+| `previews/bridge_level_three.tscn` | Retained bridge sandbox; the bridge experiment is currently disabled. |
 
 These are thin inherited scenes using the same world, movement and builder code.
 Every F6 run starts fresh: these entries neither load nor save native or browser
@@ -34,7 +35,7 @@ simulate the two local upgrades using the same reward and celebration code:
 | Level 1 → 2 | 3 ground tiles + 1 stair bundle | 4 |
 | Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
 
-Cumulatively this is exactly the former nine-item unlock: six ground tiles,
+The active inventory grants nine items: six ground tiles,
 two stair bundles and one tree. Each stair bundle includes its upper landing;
 that landing is not an additional inventory item. Upgrades preserve every
 placement, decoration and the pawn position. There is no island reset. Undo
@@ -169,8 +170,15 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 - `scripts/environment_sprite.gd`: gently staggered foam, rock, and foliage frames.
 - `scripts/cloud.gd`: six clouds moving slowly at individual speeds. Size, height, and speed
   vary when they return from off-screen. Paths stay above/below the main island.
-- `scripts/cloud_visual.gd` and `shaders/cloud_layer.gdshader`: separate original
-  cloud and shadow pixels at render time. Cloud bodies use the center of their painted shadow for ground depth: trees,
+- `assets/clouds/`: eight bare cloud PNGs and eight matching cloud-shaped shadow
+  PNGs at native 576×256 canvas size. Original Tiny Swords cloud sheets are preserved.
+  Shadows retain their original RGB (36, 42, 59), alpha (85/255), and base spacing.
+  Increasing altitude moves shadows farther away, fades their opacity multiplier
+  from 0.48 to 0.04, and flattens their height from 72% to 12%, preserving the ground anchor.
+  A square-root curve makes both changes pronounced even at low altitude.
+- `scripts/cloud_visual.gd` and `shaders/cloud_layer.gdshader`: render the separate
+  cloud and shadow textures. Cloud bodies use the user-annotated shadow line for ground depth
+  (native texture Y for variants 01–08: 146, 148, 134, 134, 149, 144, 131, 126): trees,
   pawns and raised terrain with a greater ground Y occlude them. Altitude changes
   size, shadow offset and opacity, without overriding this order.
 - `scripts/rare_cloud.gd`: a rare foreground cloud first enters after 4–7 minutes,
@@ -179,7 +187,7 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
 
 - `Tiny Swords (Free Pack)/`: canonical artwork inside the Godot resource root;
   scenes, scripts and exports load the original pack files directly via `res://`.
-  There is no separate copied artwork folder or dependency on Downloads.
+  Custom cloud layers live in `assets/clouds/`; there is no dependency on Downloads or Desktop.
 - `fonts/MedievalSharp.ttf`: the existing non-pack UI font, preserved separately.
   There is no separate flower asset in either downloaded pack; `Bushe4.png` is
   the supplied leafy tuft used for that detail. No invented flower art or mixed
@@ -300,8 +308,9 @@ Version 3 also saves each stair direction. New stairs always have an upper landi
 Cloud size, shadow offset, and shadow opacity share one altitude value.
 Cloud layering follows shadow ground Y independently of altitude.
 The pointer is rendered by Godot with the native pointer hidden inside its canvas.
-Cursors 01–03 retain their original 64px dimensions; Cursor 04 has unscaled
-corner pieces separated to span one 64px grid square. All cursors use scene
+Cursors 01–03 retain their original 64px dimensions; Cursor 04 is assembled
+to span one 64px grid square, then scales as a whole with the camera zoom
+so its corners match the visible grid square corners. All cursors use scene
 coordinates with no browser-specific enlargement, matching native Godot.
 The pointer moves freely rather than snapping.
 
@@ -489,3 +498,21 @@ Visible terrace extension regression check:
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/visible_ground_extension.gd
 ```
+
+## Paused soft bridge experiment
+
+The bridge is disabled by `ENABLED = false` in `scripts/bridge_rules.gd`.
+Its PNGs, level-three sandbox, placement/crossing implementation and tests
+remain available for later work. While disabled, the bridge tool is hidden,
+placement and crossing are unavailable, and saved bridges are not rendered.
+Inactive bridges do not restrict terrain editing. If their supports change,
+they return to the reserved bridge inventory; otherwise their saved placement
+is preserved. The visible level-three rewards remain unchanged.
+
+To resume the trial, switch that flag to `true`, then run
+**previews/bridge_level_three.tscn** with **F6**. It starts with equally high
+banks across two water squares, using the real builder and movement code.
+The sandbox does not read or save your layout.
+
+Focused checks: `res://tests/bridges_disabled.gd` verifies the default disabled
+state; `res://tests/bridges.gd` opts into the experiment for its feature checks.

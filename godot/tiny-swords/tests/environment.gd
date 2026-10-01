@@ -29,10 +29,12 @@ func run() -> void:
 	check(cloud.z_index == 100, "Low cloud body uses shadow-based occlusion")
 	var low_scale: float = cloud.scale.x
 	var low_opacity: float = cloud.shadow_sprite.material.get_shader_parameter("opacity")
+	var low_shadow_height: float = cloud.shadow_sprite.scale.y
 	cloud.set_altitude(0.9)
 	check(cloud.z_index == 100, "Altitude does not select a different depth layer")
-	check((cloud.shadow_sprite.position.y + cloud.baked_shadow_offset.y) * cloud.scale.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
+	check(cloud.shadow_sprite.position.y * cloud.scale.y > 80 and cloud.shadow_sprite.material.get_shader_parameter("opacity") < low_opacity, "High clouds have farther fainter shadows")
 	check(cloud.scale.x > low_scale * 1.2, "High clouds look closer and larger")
+	check(cloud.shadow_sprite.scale.y < low_shadow_height, "More distant shadows flatten vertically")
 	for moving_cloud in level.get_node("Clouds").get_children():
 		moving_cloud.set_altitude(1.0)
 		check(moving_cloud.scale.x >= 1.0 and moving_cloud.scale.x <= 1.351, "Cloud enlargement stays bounded")
@@ -43,12 +45,12 @@ func run() -> void:
 			moving_cloud.set_altitude(height)
 			check(moving_cloud.baked_shadow_offset.y > 0 and moving_cloud.shadow_sprite.position.y >= 0, "Shadow always stays below cloud with at least original PNG spacing")
 			if height == 0.0:
-				check(moving_cloud.shadow_sprite.position == Vector2.ZERO, "Minimum cloud height preserves original PNG shadow placement exactly")
+				check(moving_cloud.shadow_sprite.position.is_equal_approx(moving_cloud.baked_shadow_offset + moving_cloud.shadow_center * (Vector2.ONE - moving_cloud.shadow_sprite.scale)), "Minimum cloud height preserves original PNG shadow placement exactly")
 	var seen := {}
 	for variant in range(8):
 		cloud.set_variant(variant)
 		cloud.set_altitude(1.0)
-		check(cloud.texture == cloud.VARIANTS[variant] and cloud.shadow_sprite.texture == cloud.texture, "Each original variant supplies its body and matching shadow")
+		check(cloud.texture == cloud.VARIANTS[variant] and cloud.shadow_sprite.texture == cloud.SHADOW_VARIANTS[variant], "Each variant supplies its separate body and matching shadow")
 		if cloud.texture.get_image().get_used_rect().size.x < 400:
 			check(cloud.scale == Vector2.ONE and cloud.altitude <= 0.3 and cloud.z_index == 100, "Small source art stays small and low")
 	# Both regular and rare paths use the same source-pixel sizing contract.
@@ -59,7 +61,27 @@ func run() -> void:
 				subject.set_altitude(height)
 				var large: bool = subject.texture.get_image().get_used_rect().size.x >= 400
 				check(subject.scale.x >= 1.0 and subject.scale.x <= 1.35001 if large else subject.scale == Vector2.ONE, "Large artwork is native or larger; smaller artwork is exactly native")
-				check(subject.global_scale.is_equal_approx(subject.scale) and subject.shadow_sprite.global_scale.is_equal_approx(subject.scale), "No parent or shadow transform compensates for source size")
+				check(subject.global_scale.is_equal_approx(subject.scale) and is_equal_approx(subject.shadow_sprite.global_scale.x, subject.scale.x), "Clouds and shadows retain native horizontal sizing")
+				check(subject.shadow_sprite.scale.y >= 0.11999 and subject.shadow_sprite.scale.y <= 0.72001, "Shadow flattening stays bounded")
+				var reference_y: float = [146.0, 148.0, 134.0, 134.0, 149.0, 144.0, 131.0, 126.0][variant]
+				var local_anchor := Vector2(subject.shadow_center.x, reference_y - 128.0)
+				var expected_anchor: Vector2 = subject.to_global(local_anchor * subject.shadow_sprite.scale + subject.shadow_sprite.position)
+				check(subject.shadow_ground_position().is_equal_approx(expected_anchor), "Cloud depth follows the annotated line on each transformed shadow")
+	# Objects on opposite sides of the annotated ground line must switch occlusion.
+	var depth_probe := Sprite2D.new()
+	depth_probe.texture = cloud.VARIANTS[0]
+	level.get_node("World").add_child(depth_probe)
+	for variant in range(8):
+		cloud.set_variant(variant)
+		for height in [0.0, 1.0]:
+			cloud.set_altitude(height)
+			depth_probe.global_position = cloud.shadow_ground_position() + Vector2(0.0, 1.0)
+			cloud.update_depth_mask()
+			check(cloud.depth_occluders.has(depth_probe), "Object below the annotated shadow line covers the cloud")
+			depth_probe.global_position.y -= 2.0
+			cloud.update_depth_mask()
+			check(not cloud.depth_occluders.has(depth_probe), "Cloud covers objects above the annotated shadow line")
+	depth_probe.queue_free()
 	cloud.set_variant(0)
 	for cycle in range(8):
 		seen[cloud.variant_index] = true

@@ -385,6 +385,14 @@ func draw_editor() -> void:
 				draw_rect(Rect2(layout.ORIGIN + Vector2(x, y) * 64, Vector2(64, 64)), Color(0.9, 1, 0.9, 0.14), false, 1)
 		if layout.in_bounds(hover) and valid:
 			var tint := Color(0.7, 1, 0.65, 0.6)
+			if tool == "bridge" or (tool == "remove" and layout.bridges.has(layout.BridgeRules.owner(layout, hover))):
+				var start: Vector2i = layout.BridgeRules.candidate(layout, hover) if tool == "bridge" else layout.BridgeRules.owner(layout, hover)
+				var area: Rect2 = layout.BridgeRules.art_rect(layout, start)
+				if tool == "bridge":
+					draw_texture_rect(layout.BridgeRules.TEXTURE, area, false, tint)
+				else:
+					draw_rect(area, Color(0.85, 1, 0.8, 0.45), false, 1)
+				return
 			draw_set_transform(placement_offset())
 			if (tool == "ground" or tool in layout.KINDS) and (tool in ["stairs", "ground"] or not layout.cells.has(hover)):
 				if tool == "stairs":
