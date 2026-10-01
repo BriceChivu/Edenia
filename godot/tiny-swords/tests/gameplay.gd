@@ -118,9 +118,9 @@ func run() -> void:
 	game.fall_into_water(Vector2(400, 208))
 	check(game.water_phase != game.WaterPhase.READY, "Ground-level shore still permits water jumps")
 	var grid_size: Vector2i = game.layout.MAX_CELL - game.layout.MIN_CELL + Vector2i.ONE
-	check(grid_size == Vector2i(27, 10) and grid_size.x * grid_size.y == 270, "Build grid contains exactly 270 squares, three times the previous 90")
-	check(game.layout.in_bounds(Vector2i(-12, -4)) and game.layout.in_bounds(Vector2i(14, 5)), "Expanded grid admits both new boundary corners")
-	check(not game.layout.in_bounds(Vector2i(-13, -4)) and not game.layout.in_bounds(Vector2i(15, 5)), "Expanded grid still rejects outside squares")
+	check(grid_size == Vector2i(37, 20) and grid_size.x * grid_size.y == 740, "Build grid contains 740 squares with five added columns at each horizontal edge")
+	check(game.layout.in_bounds(Vector2i(-17, -9)) and game.layout.in_bounds(Vector2i(19, 10)), "Expanded grid admits both new boundary corners")
+	check(not game.layout.in_bounds(Vector2i(-18, -9)) and not game.layout.in_bounds(Vector2i(20, 10)) and not game.layout.in_bounds(Vector2i(0, -10)) and not game.layout.in_bounds(Vector2i(0, 11)), "Expanded grid still rejects outside squares")
 	game.refresh()
 	check(game.ui.buttons.ground.visible and game.ui.buttons.stairs.visible and not game.ui.buttons.tree.visible, "Level two shows ground and stairs, with no locked pine button")
 	var stocked: Dictionary = game.layout.snapshot()

@@ -33,7 +33,7 @@ func run() -> void:
   var ground: Rect2 = cliff.ground_region(Vector2i.ZERO,"meadow")
   for y in range(64):
    for x in range(64):
-    var land: bool = direction == Vector2i.DOWN or (direction == Vector2i.LEFT and x < 16) or (direction == Vector2i.RIGHT and x >= 48)
+    var land: bool = direction == Vector2i.DOWN
     var source: Color = atlas.get_pixel(512+x,(256 if land else 320)+y)
     var backing := water
     if land:

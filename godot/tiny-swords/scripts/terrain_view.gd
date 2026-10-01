@@ -67,6 +67,10 @@ func cliff_region(cell: Vector2i, layer_height: float = -1) -> Rect2:
 	return Rect2(320 + column * 64, 320 if shoreline else 256, 64, 64)
 
 func cliff_grass_sides(cell: Vector2i, height: float) -> Array[bool]:
+	# Water-level grass ends beside a shoreline cliff; neither surface
+	# extends into the other. Stair ramps retain their receiving joins.
+	if water_level_cliff(cell, height):
+		return [false, false]
 	var sides: Array[bool] = []
 	for direction in [Vector2i.LEFT, Vector2i.RIGHT]:
 		var neighbor: Vector2i = cell + direction
@@ -210,14 +214,30 @@ func shadow_receivers(floor_height: float) -> Dictionary:
 			add_shadow_receiver(receivers, origin + region.position - ground.position, region, atlas)
 	return receivers
 
+func water_level_cliff(cell: Vector2i, height: float = -1) -> bool:
+	if not layout.cells.has(cell) or layout.cells[cell] == "stairs":
+		return false
+	var layer: float = layout.height_at(cell) if height < 0 else height
+	# Only an exposed base closes neighboring grass. A raised tile in
+	# front covers this cliff tier, so the grass beside the rear tile joins.
+	var below := cell + Vector2i.DOWN
+	if layout.cells.has(below) and layout.height_at(below) >= layer:
+		return false
+	return layer == 64 and cliff_region(cell, layer).position.y == 320
+
+func base_grass_side_join(cell: Vector2i, direction: Vector2i) -> bool:
+	var neighbor := cell + direction
+	return layout.cells.has(neighbor) and not water_level_cliff(neighbor)
+
 func ground_region(cell: Vector2i, kind: String) -> Rect2:
 	# The guide's sixteen full 64px pieces: three edges/center plus a
 	# dedicated narrow-strip column and row. Do not repeat half-tile art.
 	# The bottom layer is continuous beneath elevated ground. Its shore
-	# follows the island footprint, not changes in walking elevation.
+	# follows the island footprint, except at the sides of water cliffs.
+	# There the water-level grass keeps its own closed end edge.
 	var raised := kind.begins_with("high_")
-	var left: bool = joined(cell, Vector2i.LEFT) if raised else layout.cells.has(cell + Vector2i.LEFT)
-	var right: bool = joined(cell, Vector2i.RIGHT) if raised else layout.cells.has(cell + Vector2i.RIGHT)
+	var left: bool = joined(cell, Vector2i.LEFT) if raised else base_grass_side_join(cell, Vector2i.LEFT)
+	var right: bool = joined(cell, Vector2i.RIGHT) if raised else base_grass_side_join(cell, Vector2i.RIGHT)
 	# Taller neighbors have solid backing at this floor too. Continue the
 	# grass into their cliff instead of drawing a shoreline rim beside it.
 	if raised:
@@ -391,9 +411,17 @@ func draw_ground_preview(tint: Color) -> void:
 
 func draw_editor() -> void:
 	if editing:
-		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 1):
-			for x in range(layout.MIN_CELL.x, layout.MAX_CELL.x + 1):
-				draw_rect(Rect2(layout.ORIGIN + Vector2(x, y) * 64, Vector2(64, 64)), Color(0.9, 1, 0.9, 0.14), false, 1)
+		var grid_start: Vector2 = layout.ORIGIN + Vector2(layout.MIN_CELL) * 64
+		var grid_end: Vector2 = layout.ORIGIN + Vector2(layout.MAX_CELL + Vector2i.ONE) * 64
+		var grid_color := Color(0.9, 1, 0.9, 0.14)
+		# Negative-width lines stay one screen pixel wide under camera and
+		# viewport scaling. Thin rectangle borders can vanish between pixels.
+		for x in range(layout.MIN_CELL.x, layout.MAX_CELL.x + 2):
+			var line_x: float = layout.ORIGIN.x + x * 64
+			draw_line(Vector2(line_x, grid_start.y), Vector2(line_x, grid_end.y), grid_color, -1)
+		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 2):
+			var line_y: float = layout.ORIGIN.y + y * 64
+			draw_line(Vector2(grid_start.x, line_y), Vector2(grid_end.x, line_y), grid_color, -1)
 		if layout.in_bounds(hover) and valid:
 			var tint := Color(0.7, 1, 0.65, 0.6)
 			if tool == "bridge" or (tool == "remove" and layout.bridges.has(layout.BridgeRules.owner(layout, hover))):

@@ -26,7 +26,22 @@ func _initialize() -> void:
     var expected := Rect2(x * 64 + (320 if kind == "high_gold" else 0), y * 64, 64, 64)
     check(view.call("ground_region", Vector2i.ZERO, kind) == expected, "Guide piece (%s,%s) for %s" % [x,y,kind])
  view.layout.cells = {Vector2i.ZERO:"meadow",Vector2i.RIGHT:"high_gold"}
- check(view.call("ground_region",Vector2i.ZERO,"meadow") == Rect2(0,192,64,64), "Base shore connects beneath a raised neighbor")
+ check(view.call("ground_region",Vector2i.ZERO,"meadow") == Rect2(192,192,64,64), "Base grass ends beside a water cliff")
+ # Real grass on the opposite side must still join; only the cliff side closes.
+ for direction in [Vector2i.LEFT,Vector2i.RIGHT]:
+  view.layout.cells = {Vector2i.ZERO:"meadow",direction:"high_gold",-direction:"meadow"}
+  var column := 0 if direction == Vector2i.LEFT else 128
+  check(view.ground_region(Vector2i.ZERO,"meadow") == Rect2(column,192,64,64), "Water cliff closes the touching end in both orientations")
+  check(view.cliff_grass_sides(direction,64) == [false,false], "Water cliff keeps its water-facing side artwork")
+  check(view.ground_backing_regions(direction,0).is_empty(), "No grass extends under the water cliff side")
+  view.layout.cells[direction+Vector2i.DOWN] = "meadow"
+  check(view.ground_region(Vector2i.ZERO,"meadow") == Rect2(64,192,64,64), "Grass-facing cliff retains its receiving grass join")
+ # Two grass rows beside a plateau: rear edge joins, exposed base ends.
+ for side in [Vector2i.LEFT,Vector2i.RIGHT]:
+  view.layout.cells = {Vector2i.ZERO:"high_gold",Vector2i.DOWN:"high_gold",side:"meadow",side+Vector2i.DOWN:"meadow",side*2:"meadow",side*2+Vector2i.DOWN:"meadow"}
+  check(view.ground_region(side,"meadow") == Rect2(64,0,64,64), "Rear water-level grass uses a middle side beside covered cliff")
+  var end_column := 128 if side == Vector2i.LEFT else 0
+  check(view.ground_region(side+Vector2i.DOWN,"meadow") == Rect2(end_column,128,64,64), "Only grass directly beside the exposed cliff base keeps an end")
  view.layout.cells = {Vector2i.ZERO:"stairs",Vector2i.RIGHT:"high_gold"}
  view.layout.stair_directions = {Vector2i.ZERO:Vector2i.RIGHT}
  check(view.stair_joins(Vector2i.RIGHT,Vector2i.LEFT), "Ramp joins its upper landing")
@@ -72,12 +87,12 @@ func _initialize() -> void:
  check(view.cliff_region(Vector2i.ZERO,192).position.y == 256, "Cliff over a raised ramp base uses the solid foot")
  view.layout.cells.erase(Vector2i.DOWN)
  check(view.cliff_region(Vector2i.ZERO,64).position.y == 320, "Removing receiving ground restores the water foot")
- # Mixed corners retain a grass side while the foot remains water.
+ # Water cliffs retain water-facing sides beside closed base grass.
  view.layout.elevations.clear()
  for side in [Vector2i.LEFT,Vector2i.RIGHT]:
   view.layout.cells = {Vector2i.ZERO:"high_gold",side:"meadow"}
   check(view.cliff_region(Vector2i.ZERO,64).position.y == 320, "Mixed corner retains water foot")
-  check(view.cliff_grass_sides(Vector2i.ZERO,64) == [side == Vector2i.LEFT,side == Vector2i.RIGHT], "Mixed corner selects only its grass-facing side")
+  check(view.cliff_grass_sides(Vector2i.ZERO,64) == [false,false], "Water cliff sides stay water-facing beside base grass")
   check(view.cliff_grass_sides(Vector2i.ZERO,128) == [false,false], "Lower grass does not reach an upper cliff tier")
  view.free()
  print("Terrain atlas checks: ", "PASS" if failures == 0 else "FAIL")

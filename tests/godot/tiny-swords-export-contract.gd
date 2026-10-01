@@ -14,7 +14,7 @@ func run() -> void:
  var game = load(ProjectSettings.get_setting("application/run/main_scene")).instantiate()
  root.add_child(game)
  check(game.get_script().resource_path == "res://scripts/xp_bridge.gd", "Integrated export must run the XP bridge")
- check(game.layout.MAX_CELL - game.layout.MIN_CELL + Vector2i.ONE == Vector2i(27, 10), "Integrated export must retain the expanded build grid")
+ check(game.layout.MAX_CELL - game.layout.MIN_CELL + Vector2i.ONE == Vector2i(37, 20), "Integrated export must retain the expanded build grid")
  game.layout.cells[Vector2i.ZERO] = "high_meadow"
  game.pawn.position = game.layout.center(Vector2i.ZERO)
  game.pawn.walk_to(game.pawn.position)

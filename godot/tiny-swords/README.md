@@ -257,7 +257,7 @@ preview from that source after changes.
 The study-integrated preview at **http://localhost:8037/** uses `xp_bridge.gd`
 from the repository’s `scripts/` directory. All gameplay lives in this Godot
 project: terrain and inventory rules, water safeguards, build locking, click/drag
-handling, camera bounds and zoom, and the 27×10 build grid. Native and integrated
+handling, camera bounds and zoom, and the 37×20 build grid. Native and integrated
 previews run the same code. The bridge only adapts claimed study levels, layout
 persistence, camera commands and browser telemetry; wheel forwarding belongs to
 the browser adapter so it scrolls Edenia. Rebuild it from the repository root:
