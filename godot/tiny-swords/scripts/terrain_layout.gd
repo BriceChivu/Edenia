@@ -4,6 +4,8 @@ const DecorationRules = preload("res://scripts/decoration_rules.gd")
 
 const ORIGIN := Vector2(512, 176)
 const SIZE := 64
+const TREE_OFFSET_LIMIT := 20.0
+const TREE_ART_OFFSET := Vector2(0, -112)
 const FLOOR_PALETTES := [3, 1, 2, 4, 5]
 const HOME := Vector2i(0, 0)
 const MIN_CELL := Vector2i(-12, -4)
@@ -21,6 +23,7 @@ var cells: Dictionary = {}
 var trees: Dictionary = {}
 var stair_directions: Dictionary = {}
 var elevations: Dictionary = {}
+var manual_ground_elevation := false
 var stock: Dictionary = {}
 var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}
 var decorations: Dictionary = {}
@@ -53,6 +56,20 @@ func center(cell: Vector2i) -> Vector2:
 
 func height_at(cell: Vector2i) -> float:
 	return float(elevations.get(cell, 64 if str(cells.get(cell, "")).begins_with("high_") else 0))
+
+func tree_offset(cell: Vector2i) -> Vector2:
+	# Boolean records from older layouts and fixtures mean the original anchor.
+	var value = trees.get(cell, Vector2.ZERO)
+	return value if value is Vector2 else Vector2.ZERO
+
+func tree_position(cell: Vector2i) -> Vector2:
+	return center(cell) + tree_offset(cell)
+
+func tree_obstacle(position: Vector2) -> Rect2:
+	return Rect2(position - Vector2(10, 10), Vector2(20, 18)).grow(7)
+
+func valid_tree_offset(offset: Vector2) -> bool:
+	return offset.is_finite() and absf(offset.x) <= TREE_OFFSET_LIMIT and absf(offset.y) <= TREE_OFFSET_LIMIT
 
 func spawn_cell() -> Vector2i:
 	if cells.has(HOME) and not trees.has(HOME) and cells[HOME] != "stairs":
@@ -120,7 +137,7 @@ func prune_decorations() -> void:
 func in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= MIN_CELL.x and cell.x <= MAX_CELL.x and cell.y >= MIN_CELL.y and cell.y <= MAX_CELL.y
 
-func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1) -> bool:
+func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not unlocked or not in_bounds(cell):
 		return false
 	if tool == "remove":
@@ -130,16 +147,23 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 			var landing := cell + stair_direction(cell)
 			if landing == occupied or trees.has(landing):
 				return false
+			# This landing may also be the foot of another stair bundle.
+			# Collecting it must not leave that ramp connected to water.
+			for other in stair_directions:
+				if other != cell and landing in [other - stair_direction(other), other + stair_direction(other)]:
+					return false
 		if not trees.has(cell):
 			for step in [Vector2i.LEFT, Vector2i.RIGHT]:
 				if cells.get(cell + step) == "stairs":
 					return false
 		return true
 	if tool == "tree":
-		return stock.tree > 0 and cells.has(cell) and not trees.has(cell) and cells[cell] != "stairs" and cell != HOME and cell != occupied
+		return valid_tree_offset(tree_placement_offset) and stock.tree > 0 and cells.has(cell) and not trees.has(cell) and cells[cell] != "stairs" and cell != HOME and cell != occupied
 	if tool == "ground":
 		if ground_height >= 0:
-			return ground_height in ground_options(cell) and (cells.has(cell) or ground_count() > 0)
+			var target := ground_target(cell, ground_height)
+			var allowed: bool = ground_height in ground_options(cell) or (target != cell and cell != occupied and target != occupied)
+			return allowed and (cells.has(cell) or ground_count() > 0)
 		return can_raise_ground(cell) if cells.has(cell) else ground_count() > 0
 	if tool == "stairs":
 		var direction := available_stair_direction(cell)
@@ -174,7 +198,8 @@ func terrace_height(cell: Vector2i, proposed_height: float) -> float:
 	return proposed_height
 
 func normalize_cliff_terraces() -> void:
-	normalize_ground_continuations()
+	if not manual_ground_elevation:
+		normalize_ground_continuations()
 	# At the front of a tall plateau, the lower tile is one floor lower.
 	# Its grass receives the upper cliff, and its own cliff ends at the shore.
 	var ordered: Array = cells.keys()
@@ -189,6 +214,8 @@ func normalize_cliff_terraces() -> void:
 
 func normalize_ground_continuations() -> void:
 	# Compare visible tops: elevation shifts a top upward from its grid base.
+	# Legacy layouts retain their existing migration. Once using repeated-click
+	# building, water-level grass waits for a click to raise it.
 	# Moving the flat tile's base down by the same amount preserves its top
 	# position while joining the raised square immediately in front of it.
 	for front in cells.keys():
@@ -222,8 +249,8 @@ func automatic_height(cell: Vector2i) -> float:
 			height = maxf(height, height_at(neighbor))
 	return terrace_height(cell, height)
 
-# Possible grass elevations at one grid footprint. The cursor chooses among
-# these; inventory and unlock checks remain in can_edit().
+# Valid grass elevations at one grid footprint. Inventory and unlock
+# checks remain in can_edit().
 func ground_options(cell: Vector2i) -> Array[float]:
 	var result: Array[float] = []
 	if not in_bounds(cell) or (cells.has(cell) and (cells[cell] == "stairs" or stair_endpoint(cell))):
@@ -252,6 +279,45 @@ func ground_options(cell: Vector2i) -> Array[float]:
 		result.append(height)
 	result.sort()
 	return result
+
+# A grass top can visually touch a terrace while its water-level grid base
+# is two rows behind it. On an explicit raise, continue that terrace by moving
+# the base one row forward and raising one floor; the visible top stays put.
+func ground_continuation_target(cell: Vector2i) -> Vector2i:
+	if not cells.has(cell) or cells[cell] == "stairs" or stair_endpoint(cell):
+		return cell
+	var target := cell + Vector2i.DOWN
+	var front := target + Vector2i.DOWN
+	var height := height_at(cell) + SIZE
+	if not in_bounds(target) or stair_endpoint(target):
+		return cell
+	if cells.has(target):
+		# The receiving terrace can completely hide a flat destination.
+		# Merge that redundant square, preserving its objects and accounting.
+		if cells[target] == "stairs" or height_at(target) != height_at(cell):
+			return cell
+		if trees.has(cell) and trees.has(target):
+			return cell
+		if (flora.has(cell) or decorations.has(cell)) and (flora.has(target) or decorations.has(target)):
+			return cell
+	if not cells.has(front) or cells[front] == "stairs" or height_at(front) != height:
+		return cell
+	return target if height in ground_options(target) else cell
+
+func ground_target(cell: Vector2i, height: float) -> Vector2i:
+	if height in ground_options(cell) or height != height_at(cell) + SIZE:
+		return cell
+	return ground_continuation_target(cell)
+
+# New grass starts at water level. Further clicks choose the lowest available
+# higher extension, so pointer proximity never determines elevation.
+func next_ground_height(cell: Vector2i) -> float:
+	var options := ground_options(cell)
+	if not cells.has(cell):
+		return 0.0 if 0.0 in options else -1.0
+	if not options.is_empty():
+		return options[0]
+	return height_at(cell) + SIZE if ground_continuation_target(cell) != cell else -1.0
 
 func kind_at_height(height: float) -> String:
 	return "meadow" if height == 0 else ("high_gold" if int(height / SIZE) % 2 == 1 else "high_meadow")
@@ -312,9 +378,15 @@ func walkable_point(point: Vector2) -> bool:
 			return false
 	for cell in trees:
 		# A small trunk obstacle leaves a walkable strip in front of the tree.
-		if Rect2(center(cell) - Vector2(10, 10), Vector2(20, 18)).grow(7).has_point(point):
+		if tree_obstacle(tree_position(cell)).has_point(point):
 			return false
 	return true
+
+func stair_pickup_rects(cell: Vector2i) -> Array[Rect2]:
+	# Three screen-grid squares: ramp, landing top, and landing cliff face.
+	var origin := ORIGIN + Vector2(cell) * SIZE - Vector2(0, height_at(cell))
+	var landing_origin := origin + Vector2(stair_direction(cell)) * SIZE - Vector2(0, SIZE)
+	return [Rect2(origin, Vector2(SIZE, SIZE)), Rect2(landing_origin, Vector2(SIZE, SIZE * 2))]
 
 func stair_direction(cell: Vector2i) -> Vector2i:
 	return stair_directions.get(cell, proposed_stair_direction(cell))
@@ -346,8 +418,8 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 		return direction != Vector2i.ZERO and cells[from] != "stairs" and ((from == to + direction and height_at(from) == height_at(to) + SIZE) or (from == to - direction and height_at(from) == height_at(to)))
 	return height_at(from) == height_at(to)
 
-func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1) -> bool:
-	if not can_edit(cell, tool, occupied, ground_height):
+func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
+	if not can_edit(cell, tool, occupied, ground_height, tree_placement_offset):
 		return false
 	if tool == "remove":
 		if trees.has(cell):
@@ -365,10 +437,28 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			cells.erase(cell)
 			elevations.erase(cell)
 	elif tool == "tree":
-		trees[cell] = true
+		trees[cell] = tree_placement_offset
 		stock.tree -= 1
 	elif tool == "ground":
+		if ground_height >= 0:
+			manual_ground_elevation = true
 		var new_ground: bool = not cells.has(cell)
+		if ground_height >= 0:
+			var target := ground_target(cell, ground_height)
+			if target != cell:
+				if cells.has(target):
+					stock[cells[cell]] += 1
+				cells.erase(cell)
+				elevations.erase(cell)
+				# Aquatic decorations belong to an adjacent water square;
+				# shifting their owner would leave a diagonal saved reference.
+				if decorations.has(cell) and decorations[cell].kind in DecorationRules.WATER_KINDS:
+					decorations.erase(cell)
+				for records in [trees, flora, decorations]:
+					if records.has(cell):
+						records[target] = records[cell]
+						records.erase(cell)
+				cell = target
 		elevations[cell] = ground_height if ground_height >= 0 else automatic_height(cell)
 		cells[cell] = kind_at_height(elevations[cell])
 		if new_ground:
@@ -428,10 +518,19 @@ func snapshot() -> Dictionary:
 		var item: Dictionary = decorations[owner]
 		var water: Vector2i = item.get("water", owner)
 		saved_decorations.append([owner.x, owner.y, item.kind, item.variant, water.x, water.y])
-	return {"version": 8, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved_trees: Array = []
+	for cell in trees:
+		var offset := tree_offset(cell)
+		saved_trees.append([cell.x, cell.y, offset.x, offset.y])
+	var saved := {"version": 9, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	if manual_ground_elevation:
+		saved.manual_ground_elevation = true
+	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+		return false
+	if not data.get("manual_ground_elevation", false) is bool:
 		return false
 	var next_level := int(data.get("level", 0)) if int(data.version) >= 6 else (3 if data.get("unlocked", false) else 1)
 	if next_level not in [1, 2, 3]:
@@ -464,7 +563,25 @@ func restore(data: Dictionary) -> bool:
 				return false
 			next_stairs[cell] = Vector2i(int(tile[4]), 0)
 		if tile[3]:
-			next_trees[cell] = true
+			next_trees[cell] = Vector2.ZERO
+	if int(data.version) >= 9:
+		if not data.get("tree_offsets") is Array:
+			return false
+		var seen := {}
+		for record in data.tree_offsets:
+			if not record is Array or record.size() != 4:
+				return false
+			for number in record:
+				if not (number is int or number is float) or not is_finite(float(number)):
+					return false
+			var cell := Vector2i(int(record[0]), int(record[1]))
+			var offset := Vector2(float(record[2]), float(record[3]))
+			if record[0] != cell.x or record[1] != cell.y or not next_trees.has(cell) or seen.has(cell) or not valid_tree_offset(offset) or next_cells[cell] == "stairs":
+				return false
+			next_trees[cell] = offset
+			seen[cell] = true
+		if seen.size() != next_trees.size():
+			return false
 	var safe_spawn := false
 	for cell in next_cells:
 		if not next_trees.has(cell) and next_cells[cell] != "stairs":
@@ -515,6 +632,7 @@ func restore(data: Dictionary) -> bool:
 	if data.get("version") == 1 and data.get("unlocked", false):
 		next_stock.meadow += 1
 		next_stock.stairs += 2
+	manual_ground_elevation = data.get("manual_ground_elevation", false)
 	elevations = next_elevations
 	cells = next_cells
 	trees = next_trees

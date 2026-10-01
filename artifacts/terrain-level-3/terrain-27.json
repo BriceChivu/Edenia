@@ -1,14 +1,5 @@
 {
-	"decorations": [
-		[
-			1,
-			-1,
-			"flowers",
-			2,
-			1,
-			-1
-		]
-	],
+	"decorations": [],
 	"level": 3,
 	"stock": {
 		"gold": 0,
@@ -51,7 +42,7 @@
 			1,
 			1,
 			"meadow",
-			false,
+			true,
 			0,
 			2,
 			0.0
@@ -66,47 +57,65 @@
 			0.0
 		],
 		[
-			-1,
-			1,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
 			4,
 			2,
-			"meadow",
-			true,
-			0,
-			0,
-			0.0
-		],
-		[
+			"stairs",
+			false,
 			1,
-			-1,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			2,
-			0,
-			"meadow",
-			false,
-			0,
 			0,
 			0.0
 		],
 		[
 			5,
 			2,
-			"stairs",
+			"high_gold",
 			false,
+			0,
+			0,
+			64.0
+		],
+		[
 			1,
+			2,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			0,
+			-1,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			2,
+			2,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			2,
+			1,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			0,
+			2,
+			"meadow",
+			false,
+			0,
 			0,
 			0.0
 		],
@@ -120,41 +129,31 @@
 			64.0
 		],
 		[
-			2,
 			-1,
+			1,
 			"stairs",
 			false,
-			1,
+			-1,
 			0,
 			0.0
 		],
 		[
-			3,
-			-1,
+			-2,
+			1,
 			"high_gold",
 			false,
 			0,
 			0,
 			64.0
-		],
+		]
+	],
+	"tree_offsets": [
 		[
-			3,
-			3,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			3,
 			1,
-			"meadow",
-			false,
-			0,
-			0,
+			1,
+			0.0,
 			0.0
 		]
 	],
-	"version": 8
+	"version": 9
 }

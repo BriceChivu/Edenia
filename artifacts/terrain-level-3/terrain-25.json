@@ -1,14 +1,5 @@
 {
-	"decorations": [
-		[
-			4,
-			2,
-			"flowers",
-			1,
-			4,
-			2
-		]
-	],
+	"decorations": [],
 	"level": 3,
 	"stock": {
 		"gold": 0,
@@ -21,26 +12,8 @@
 	},
 	"tiles": [
 		[
-			0,
-			0,
-			"meadow",
-			false,
-			0,
-			1,
-			0.0
-		],
-		[
 			1,
 			0,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			0,
-			1,
 			"meadow",
 			false,
 			0,
@@ -59,68 +32,14 @@
 		[
 			3,
 			2,
-			"meadow",
-			false,
-			0,
-			1,
-			0.0
-		],
-		[
-			4,
-			2,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			2,
-			2,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			0,
-			-1,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			-1,
-			-1,
-			"stairs",
-			false,
-			-1,
-			0,
-			0.0
-		],
-		[
-			-2,
-			-1,
-			"high_gold",
-			false,
-			0,
-			0,
-			64.0
-		],
-		[
-			4,
-			1,
 			"meadow",
 			true,
 			0,
-			0,
+			1,
 			0.0
 		],
 		[
-			5,
+			3,
 			1,
 			"meadow",
 			false,
@@ -130,7 +49,16 @@
 		],
 		[
 			3,
-			1,
+			3,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			2,
+			2,
 			"stairs",
 			false,
 			-1,
@@ -138,8 +66,53 @@
 			0.0
 		],
 		[
-			2,
 			1,
+			2,
+			"high_gold",
+			false,
+			0,
+			0,
+			64.0
+		],
+		[
+			4,
+			1,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			2,
+			3,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			4,
+			3,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			1,
+			3,
+			"stairs",
+			false,
+			-1,
+			0,
+			0.0
+		],
+		[
+			0,
+			3,
 			"high_gold",
 			false,
 			0,
@@ -148,13 +121,39 @@
 		],
 		[
 			0,
-			-2,
-			"meadow",
+			2,
+			"high_gold",
 			false,
 			0,
 			0,
+			64.0
+		],
+		[
+			0,
+			1,
+			"high_gold",
+			false,
+			0,
+			1,
+			64.0
+		],
+		[
+			0,
+			0,
+			"high_gold",
+			false,
+			0,
+			0,
+			64.0
+		]
+	],
+	"tree_offsets": [
+		[
+			3,
+			2,
+			0.0,
 			0.0
 		]
 	],
-	"version": 8
+	"version": 9
 }

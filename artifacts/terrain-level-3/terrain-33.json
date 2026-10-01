@@ -3,18 +3,26 @@
 		[
 			-2,
 			1,
-			"flowers",
-			1,
-			-2,
+			"water_rock",
+			2,
+			-3,
 			1
 		],
 		[
-			5,
+			2,
 			3,
-			"bush",
+			"ducks",
 			1,
-			5,
+			3,
 			3
+		],
+		[
+			4,
+			2,
+			"bush",
+			2,
+			4,
+			2
 		]
 	],
 	"level": 3,
@@ -74,17 +82,8 @@
 			0.0
 		],
 		[
-			0,
 			-1,
-			"meadow",
-			false,
-			0,
-			0,
-			0.0
-		],
-		[
-			-1,
-			0,
+			1,
 			"stairs",
 			false,
 			-1,
@@ -93,76 +92,93 @@
 		],
 		[
 			-2,
-			0,
+			1,
 			"high_gold",
-			false,
+			true,
 			0,
 			0,
 			64.0
 		],
 		[
-			1,
+			2,
 			2,
 			"meadow",
 			false,
 			0,
 			0,
 			0.0
+		],
+		[
+			1,
+			-1,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			2,
+			3,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			1,
+			-2,
+			"meadow",
+			false,
+			0,
+			0,
+			0.0
+		],
+		[
+			1,
+			2,
+			"stairs",
+			false,
+			-1,
+			0,
+			0.0
+		],
+		[
+			0,
+			2,
+			"high_gold",
+			false,
+			0,
+			0,
+			64.0
 		],
 		[
 			4,
 			2,
-			"stairs",
+			"meadow",
 			false,
-			1,
+			0,
 			0,
 			0.0
 		],
 		[
-			5,
-			2,
-			"high_gold",
+			3,
+			1,
+			"meadow",
 			false,
 			0,
 			0,
-			64.0
-		],
+			0.0
+		]
+	],
+	"tree_offsets": [
 		[
 			-2,
 			1,
-			"high_gold",
-			false,
-			0,
-			0,
-			64.0
-		],
-		[
-			3,
-			3,
-			"meadow",
-			false,
-			0,
-			0,
+			0.0,
 			0.0
-		],
-		[
-			3,
-			1,
-			"meadow",
-			true,
-			0,
-			0,
-			0.0
-		],
-		[
-			5,
-			3,
-			"high_gold",
-			false,
-			0,
-			0,
-			64.0
 		]
 	],
-	"version": 8
+	"version": 9
 }

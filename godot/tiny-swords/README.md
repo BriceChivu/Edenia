@@ -41,24 +41,36 @@ placement, decoration and the pawn position. There is no island reset. Undo
 history starts a new editing session after an upgrade so it cannot revoke rewards.
 The progression level is independent of terrain height: terrain floors are created by stairs.
 
-The inventory has only Ground, Stairs, and Pine: height follows the cursor and art follows elevation.
+The inventory has only Ground, Stairs, and Pine: grass starts at water level and art follows elevation.
 Ground uses all five palettes by elevation: atlas colors 3, 1, 2, 4, 5, then repeats.
 The base is green, followed by gold and teal. Stairs use their upper landing’s palette. A stair placed next to
 any ground floor creates a landing one floor higher at its high end in the same action.
 Each stair bundle includes its upper tile and uses no ground inventory. If it
 replaces an existing upper tile, that plain tile returns to inventory. Picking
 up a stair collects its bundled landing too; first move the pawn and any tree
-off that landing. An upper landing cannot belong to two stair bundles.
-While holding Ground, moving toward a nearby surface previews grass at that
-surface's elevation; moving toward the shoreline previews water-level grass.
-Only valid elevations are offered, and a click places the displayed option.
+off that landing. If another staircase uses the landing as its foot, pick up
+that dependent staircase first; collecting a bundle cannot remove another
+staircase’s lower connection. An upper landing cannot belong to two stair bundles.
+While holding Ground, the first click on an empty square places grass at water
+level. Clicking that grass again raises it to the next valid extension of nearby
+higher ground. Hovering previews the next click; cursor proximity does not choose
+the height. If no higher extension is available, the tile stays unchanged.
 Floor two requires a receiving floor-one terrace: two vertically stacked cliffs
-are forbidden. Existing grass can still be raised without spending inventory;
-stair endpoints retain their required heights. Colors are not player choices.
-Flat grass whose visible top directly adjoins the back of a level-one platform
+are forbidden. Raising existing grass spends no inventory; stair endpoints retain
+their required heights. Colors are not player choices.
+Legacy layouts keep the migration where flat grass whose visible top directly adjoins the back of a level-one platform
 continues that platform: its base moves down one grid square and its height
 becomes 64px, preserving the top's screen position. Saved layouts use the same
-rule; inventory and plants are preserved, and stair endpoints stay protected.
+rule until repeated-click building is used; inventory and plants are preserved,
+and stair endpoints stay protected. New placements then retain their water-level
+height across saves until explicitly raised. Repeated clicks also recognize
+visible joins: grass touching the back of a terrace can move its base forward
+one square and rise one floor, preserving its visible top, plants, and inventory.
+If that destination already contains ground at the same height, fully hidden
+under the receiving terrace, the two ground tiles combine and one spare tile
+returns to inventory. Existing objects are preserved; conflicting objects keep
+the merge unavailable. The next click can extend an upper platform when its
+receiving terrace permits it.
 **Terrain** expands left into a compact strip at the same bottom-right anchor.
 Sizing follows the [official UI showcase](https://pixelfrog-assets.itch.io/tiny-swords):
 its 1600px source image displays at 920 CSS pixels on the desktop page (0.575×).
@@ -86,9 +98,22 @@ for walking. Unavailable targets show Cursor 03 alone, without a red outline or
 red placement preview. Valid placement shows its terrain preview without a cursor overlay.
 Stair-bundle pickup widens Cursor 04 horizontally across two squares toward the
 upper landing, retaining its original corner pixels and one-square height.
-Hovering or clicking either the stair or its landing selects the same bundle;
+Hovering or clicking any of the three screen-grid squares—the ramp, the upper
+landing, or the cliff face below the landing—selects the same bundle. The pickup
+outline follows that three-square footprint in either orientation and at each floor;
 a tree on the landing is still picked up separately first.
-The pointer moves freely; only placement and pickup snap to cells.
+The pointer moves freely. Terrain placement and pickup use grid cells; pine
+placement keeps the cursor position within the chosen square. The trunk anchor
+stays at least 12 scene pixels inside that square, with one tree per square.
+Invalid edge positions and positions overlapping the pawn cannot be placed.
+The moving preview and placed tree share the same artwork anchor; navigation
+and Y sorting follow the placed trunk. Trees coexist with existing foliage and
+land decorations; planting or picking up a tree preserves bushes and rocks.
+Save version 9 preserves tree offsets,
+and older saves keep their original tree positions. Pickup still selects the
+owner square, and undo restores the exact offset.
+
+Focused check: `Godot --headless --path godot/tiny-swords --script res://tests/tree_cursor_placement.gd`.
 
 The pawn's current tile cannot be removed. The original bush tile can be
 collected after the pawn moves away; respawn then uses another safe tile. Only the tree
@@ -444,8 +469,14 @@ can be dragged freely in the 2D editor. Hidden tools retain their authored space
 Terrain frame. Their buttons remain freely positioned inside that Control;
 other tools and the world sprites are unaffected.
 
-Cursor-selected grass placement regression check:
+Repeated-click grass elevation regression check:
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/grass_hover_options.gd
+```
+
+Visible terrace extension regression check:
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/visible_ground_extension.gd
 ```

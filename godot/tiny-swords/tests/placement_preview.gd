@@ -29,16 +29,40 @@ func run() -> void:
  var raised_extension := Vector2i(3, 1)
  view.tool = "ground"
  view.hover = raised_extension
- for height in [64, 128, 192]:
-  level.layout.elevations[right] = height
-  # Higher previews require a receiving terrace, never stacked cliffs.
-  var below := raised_extension + Vector2i.DOWN
-  level.layout.cells[below] = level.layout.kind_at_height(height - 64)
-  level.layout.elevations[below] = height - 64
-  view.preview_position = level.layout.center(raised_extension) - Vector2(0, height) + Vector2(7, 3)
-  var rendered_center: Vector2 = level.layout.center(raised_extension) - Vector2(0, level.layout.automatic_height(raised_extension)) + view.placement_offset()
-  assert(rendered_center == view.preview_position, "Raised ground preview must center on the cursor, not the square above it")
-  assert(level.clicked_cell(view.preview_position) == raised_extension, "Raised preview and click resolve to the same tile")
+ view.ground_preview_height = 0
+ view.preview_position = level.layout.center(raised_extension) + Vector2(7, 3)
+ assert(level.ground_placement_at(view.preview_position).height == 0, "New grass previews water level beside higher ground")
+ assert(level.clicked_cell(view.preview_position) == raised_extension, "Water-level preview and click resolve to the same tile")
+ var rendered_center: Vector2 = level.layout.center(raised_extension) + view.placement_offset()
+ assert(rendered_center == view.preview_position, "New grass follows the pointer at water level")
+ # Raising previews must rise with the proposed floor instead of being
+ # translated back down onto the current mouse/grass surface.
+ view.hover = grass
+ var below := grass + Vector2i.DOWN
+ for current_height in [0, 64, 128]:
+  level.layout.cells[grass] = level.layout.kind_at_height(current_height)
+  level.layout.elevations[grass] = current_height
+  level.layout.cells[right] = level.layout.kind_at_height(current_height + 64)
+  level.layout.elevations[right] = current_height + 64
+  level.layout.cells[below] = level.layout.kind_at_height(current_height)
+  level.layout.elevations[below] = current_height
+  view.preview_position = level.layout.center(grass) - Vector2(0, current_height) + Vector2(7, 3)
+  var option: Dictionary = level.ground_placement_at(view.preview_position)
+  assert(option.cell == grass and option.height == current_height + 64)
+  view.ground_preview_height = option.height
+  var raised_center: Vector2 = level.layout.center(grass) - Vector2(0, option.height) + view.placement_offset()
+  var expected: Vector2 = view.preview_position - Vector2(0, 64)
+  if raised_center != expected:
+   push_error("Raised grass ghost must be one square above the pointer: expected %s, got %s" % [expected, raised_center])
+   quit(1)
+   return
+  view.preview_position += Vector2(2, 5)
+  raised_center = level.layout.center(grass) - Vector2(0, option.height) + view.placement_offset()
+  assert(raised_center == expected + Vector2(2, 5), "Raising ghost still follows sub-cell pointer motion")
+ level.layout.cells[grass] = "meadow"
+ level.layout.elevations[grass] = 0
+ level.layout.cells[below] = "meadow"
+ level.layout.elevations[below] = 0
  level.layout.elevations[right] = 64
  var stock: Dictionary = level.layout.stock.duplicate()
  assert(level.apply_edit(grass), "Clicking flat grass beside higher ground transforms it")

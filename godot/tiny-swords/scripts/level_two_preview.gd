@@ -145,6 +145,8 @@ func _process(_delta: float) -> void:
 		else:
 			terrain.hover = clicked_cell(terrain.preview_position)
 		terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height)
+		if selected == "tree":
+			terrain.valid = water_phase == WaterPhase.READY and can_place_tree(terrain.hover, tree_offset_at(terrain.hover, terrain.preview_position))
 	update_cursor()
 
 func _input(event: InputEvent) -> void:
@@ -229,55 +231,27 @@ func clicked_cell(point: Vector2) -> Vector2i:
 	var cell := visual_cell(point)
 	if editing and selected == "remove" and not layout.trees.has(cell):
 		for stair in layout.stair_directions:
+			for area in layout.stair_pickup_rects(stair):
+				if area.has_point(point):
+					var landing: Vector2i = stair + layout.stair_direction(stair)
+					return landing if layout.trees.has(landing) else stair
 			if stair + layout.stair_direction(stair) == cell:
 				return stair
 	return cell
 
+func tree_offset_at(cell: Vector2i, point: Vector2) -> Vector2:
+	# Mouse is on the visible surface; navigation and Y sorting use ground space.
+	return point + Vector2(0, layout.height_at(cell)) - layout.center(cell)
+
+func can_place_tree(cell: Vector2i, offset: Vector2) -> bool:
+	return layout.can_edit(cell, "tree", layout.cell_at(pawn.position), -1, offset) and not layout.tree_obstacle(layout.center(cell) + offset).has_point(pawn.position)
+
 func ground_placement_at(point: Vector2) -> Dictionary:
-	var visible_cell := surface_cell(point)
-	var occupied: Vector2i = layout.cell_at(pawn.position)
-	var best := {"cell": visible_cell, "height": -1.0}
-	var best_distance := INF
-	var best_center_distance := INF
-	var heights: Array[float] = [0.0]
-	for cell in layout.cells:
-		var height: float = layout.height_at(cell)
-		for option in [height, maxf(0, height - Layout.SIZE)]:
-			if option not in heights:
-				heights.append(option)
-	heights.sort()
-	for height in heights:
-		var projected: Vector2i = layout.cell_at(point + Vector2(0, height))
-		var candidates: Array[Vector2i] = [projected]
-		if layout.cells.has(visible_cell) and visible_cell != projected:
-			candidates.append(visible_cell)
-		for cell in candidates:
-			# An existing visible top cannot be painted through to a ghost
-			# behind it. It can still be raised, preserving the old interaction.
-			if layout.cells.has(visible_cell) and cell != visible_cell:
-				continue
-			if not layout.can_edit(cell, "ground", occupied, height):
-				continue
-			var distance := INF
-			for step in Layout.STEPS:
-				var neighbor: Vector2i = cell + step
-				if not layout.cells.has(neighbor) or layout.cells[neighbor] == "stairs":
-					continue
-				var neighbor_height: float = layout.height_at(neighbor)
-				if neighbor_height != height and layout.terrace_height(cell, neighbor_height) != height:
-					continue
-				var origin: Vector2 = Layout.ORIGIN + Vector2(neighbor) * Layout.SIZE - Vector2(0, neighbor_height)
-				var nearest := point.clamp(origin, origin + Vector2.ONE * Layout.SIZE)
-				distance = minf(distance, point.distance_squared_to(nearest))
-			# Water-level grass is also available away from existing land.
-			if distance == INF and height == 0:
-				distance = 1000000.0
-			var center_distance: float = point.distance_squared_to(layout.center(cell) - Vector2(0, height))
-			if distance < best_distance or (distance == best_distance and center_distance < best_center_distance):
-				best = {"cell": cell, "height": height}
-				best_distance = distance
-				best_center_distance = center_distance
-	return best
+	var cell := surface_cell(point)
+	var height: float = layout.next_ground_height(cell)
+	if height >= 0 and not layout.can_edit(cell, "ground", layout.cell_at(pawn.position), height):
+		height = -1.0
+	return {"cell": cell, "height": height}
 
 func visual_cell(point: Vector2) -> Vector2i:
 	return ground_placement_at(point).cell if editing and selected == "ground" else surface_cell(point)
@@ -304,17 +278,19 @@ func handle_world_click(event: InputEvent) -> void:
 		if editing:
 			var height: float = ground_placement_at(point).height if selected == "ground" else -1.0
 			if selected != "ground" or height >= 0:
-				apply_edit(cell, height)
+				apply_edit(cell, height, tree_offset_at(cell, point) if selected == "tree" else Vector2.ZERO)
 		elif layout.cells.has(cell):
 			walk_on_land(cell, point + Vector2(0, ground_height(Vector2(point.x, layout.center(cell).y))))
 		else:
 			fall_into_water(point)
 
-func apply_edit(cell: Vector2i, ground_height: float = -1) -> bool:
+func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if water_phase != WaterPhase.READY:
 		return false
+	if selected == "tree" and not can_place_tree(cell, tree_placement_offset):
+		return false
 	var before: Dictionary = layout.snapshot()
-	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height):
+	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset):
 		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	history.append(before)
@@ -395,14 +371,12 @@ func rebuild_decorations() -> void:
 	# Original foliage follows its tile and disappears when that tile is collected.
 	for pair in [["MainBush", Vector2i(0, 0), 1], ["LeafyTuft", Vector2i(1, 1), 2], ["IsletBush", Vector2i(3, 2), 1]]:
 		var node = $World.get_node(pair[0])
-		node.visible = layout.flora.get(pair[1], 0) == pair[2] and not layout.trees.has(pair[1])
+		node.visible = layout.flora.get(pair[1], 0) == pair[2]
 		node.offset.y = -15 - layout.height_at(pair[1]) / node.scale.y
 		node.z_index = int(layout.height_at(pair[1]) / 64.0)
 		if pair[0] == "IsletBush":
 			node.position = layout.center(pair[1])
 	for cell in layout.flora:
-		if layout.trees.has(cell):
-			continue
 		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}.get(cell) == layout.flora[cell]:
 			continue
 		var plant := Sprite2D.new()
@@ -418,8 +392,6 @@ func rebuild_decorations() -> void:
 	for cell in layout.decorations:
 		var item: Dictionary = layout.decorations[cell]
 		var in_water: bool = item.kind in Layout.DecorationRules.WATER_KINDS
-		if not in_water and layout.trees.has(cell):
-			continue
 		var decoration := Sprite2D.new()
 		var directory := "res://Tiny Swords (Free Pack)/Terrain/Decorations/"
 		match item.kind:
@@ -457,8 +429,8 @@ func rebuild_decorations() -> void:
 		tree.hframes = 8
 		tree.scale = Vector2.ONE * 0.8
 		tree.z_index = int(layout.height_at(cell) / 64.0)
-		tree.position = layout.center(cell)
-		tree.offset = Vector2(0, -112 - layout.height_at(cell) / 0.8)
+		tree.position = layout.tree_position(cell)
+		tree.offset = Layout.TREE_ART_OFFSET - Vector2(0, layout.height_at(cell) / 0.8)
 		tree.set_script(preload("res://scripts/environment_sprite.gd"))
 		$World.add_child(tree)
 		tree_nodes.append(tree)

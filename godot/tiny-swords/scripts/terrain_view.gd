@@ -286,20 +286,24 @@ func _draw() -> void:
 func grass_preview_height() -> float:
 	return ground_preview_height if ground_preview_height >= 0 else layout.automatic_height(hover)
 
+func grass_preview_cell() -> Vector2i:
+	return layout.ground_target(hover, grass_preview_height())
+
 func placement_offset() -> Vector2:
-	# Only the target cell snaps; the held artwork follows every mouse motion.
-	var height: float = grass_preview_height() if tool == "ground" else layout.height_at(hover)
+	# Follow mouse motion relative to the current surface. draw_tile already
+	# raises grass to its proposed floor; using that floor here cancels the rise.
+	var height: float = layout.height_at(hover)
 	return preview_position - (layout.center(hover) - Vector2(0, height))
 
 func tree_preview_rect() -> Rect2:
 	var frame_size := Vector2(tree_texture.get_width() / 8.0, tree_texture.get_height())
-	return Rect2(preview_position + (Vector2(0, -112) - frame_size / 2) * 0.8, frame_size * 0.8)
+	return Rect2(preview_position + (layout.TREE_ART_OFFSET - frame_size / 2) * 0.8, frame_size * 0.8)
 
 func pickup_outline() -> PackedVector2Array:
-	var origin: Vector2 = layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, layout.height_at(hover))
+	var origin: Vector2 = layout.stair_pickup_rects(hover)[0].position
 	var direction: Vector2i = layout.stair_direction(hover)
-	# Trace the ramp and elevated landing together in world space.
-	var points := PackedVector2Array([Vector2(0, -64), Vector2(128, -64), Vector2(128, 0), Vector2(64, 0), Vector2(64, 64), Vector2(0, 64), Vector2(0, -64)])
+	# Trace the same three squares used by pickup hit testing.
+	var points := PackedVector2Array([Vector2(0, 0), Vector2(64, 0), Vector2(64, -64), Vector2(128, -64), Vector2(128, 64), Vector2(0, 64), Vector2(0, 0)])
 	for i in points.size():
 		if direction.x < 0:
 			points[i].x = 64 - points[i].x
@@ -315,7 +319,7 @@ func draw_editor() -> void:
 			var tint := Color(0.7, 1, 0.65, 0.6)
 			draw_set_transform(placement_offset())
 			if (tool == "ground" or tool in layout.KINDS) and (tool in ["stairs", "ground"] or not layout.cells.has(hover)):
-				draw_tile(hover, layout.kind_at_height(grass_preview_height()) if tool == "ground" else tool, tint, grass_preview_height() if tool == "ground" else -1)
+				draw_tile(grass_preview_cell() if tool == "ground" else hover, layout.kind_at_height(grass_preview_height()) if tool == "ground" else tool, tint, grass_preview_height() if tool == "ground" else -1)
 				if tool == "stairs" and valid:
 					var landing: Vector2i = hover + layout.available_stair_direction(hover)
 					draw_tile(landing, layout.kind_at_height(layout.height_at(hover - layout.available_stair_direction(hover)) + 64), tint, layout.height_at(hover - layout.available_stair_direction(hover)) + 64)
@@ -326,4 +330,5 @@ func draw_editor() -> void:
 				draw_polyline(pickup_outline(), Color(0.85, 1, 0.8, 0.55), 1)
 			else:
 				var outline_height: float = grass_preview_height() if tool == "ground" else layout.height_at(hover)
-				draw_rect(Rect2(layout.ORIGIN + Vector2(hover) * 64 - Vector2(0, outline_height), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)
+				var outline_cell: Vector2i = grass_preview_cell() if tool == "ground" else hover
+				draw_rect(Rect2(layout.ORIGIN + Vector2(outline_cell) * 64 - Vector2(0, outline_height), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)
