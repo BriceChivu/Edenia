@@ -12,6 +12,8 @@ func _ready() -> void:
 	ui.max_preview_level = 1
 	refresh()
 	study_bridge_ready = true
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-progression',thresholds:%s},location.origin)" % JSON.stringify(Layout.XP_THRESHOLDS))
 
 func _process(delta: float) -> void:
 	super._process(delta)
@@ -31,7 +33,7 @@ func _process(delta: float) -> void:
 	if study_celebrating != (ui.celebration != null):
 		study_celebrating = ui.celebration != null
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s}, location.origin)" % str(study_celebrating))
-	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, 3)
+	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, 4)
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
 		study_layout_restored = true
 		var saved = JavaScriptBridge.eval("JSON.stringify(window.edeniaStudyLayout || null)")
@@ -53,5 +55,8 @@ func _process(delta: float) -> void:
 	JavaScriptBridge.eval("window.edeniaGameLevel = %s" % layout.level)
 
 func save_layout() -> void:
-	if study_bridge_ready and OS.has_feature("web"):
+	if study_bridge_ready and study_layout_restored and OS.has_feature("web"):
+		# Synchronous storage survives refresh even before the parent receives the message.
+		var json := JSON.stringify(layout.snapshot())
+		JavaScriptBridge.eval("localStorage.setItem('edenia_tiny_swords_xp_layout_v1', %s)" % JSON.stringify(json))
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-layout',layout:%s}, location.origin)" % JSON.stringify(layout.snapshot()))

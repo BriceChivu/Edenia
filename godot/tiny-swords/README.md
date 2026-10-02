@@ -12,6 +12,8 @@ Mac uses the function keys for system controls):
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Try level 2** to run the real unlock, rewards and animated ribbon, then **Start building**. |
 | `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles and one stair bundle; toolbar open. |
 | `previews/level_two_to_three.tscn` | Fresh level two. Build if desired, choose **Done**, then **Try level 3** to run the real second upgrade on that same island. |
+| `previews/level_three_to_four.tscn` | Fresh level three. Choose **Try level 4** to preview the next popup. |
+| `previews/level_four.tscn` | Fresh level four with one additional shared tree item and three additional grass tiles. |
 | `previews/level_three.tscn` | Fresh level three with all active cumulative rewards; toolbar open, no transition required. |
 | `previews/bridge_level_three.tscn` | Retained bridge sandbox; the bridge experiment is currently disabled. |
 
@@ -34,6 +36,48 @@ simulate the two local upgrades using the same reward and celebration code:
 | --- | --- | --- |
 | Level 1 → 2 | 3 ground tiles + 1 stair bundle | 4 |
 | Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
+| Level 3 → 4 | 3 ground tiles + 1 tree | 4 |
+
+Godot owns XP thresholds **0 / 15 / 45 / 90**: level four needs 45 XP after level three.
+Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
+The axe unlocks tree cutting at level four; the inventory rewards are the three grass tiles and shared tree.
+The level-three tree icon represents all four tree atlases. Each placement randomly
+chooses a variant in advance, so the hover preview matches the placed tree.
+The pending variant stays fixed until a successful placement and is saved with
+the layout, including undo. Clicking a placed tree again with the tree tool cycles through
+all four variants for free. The tool stays available even with zero tree stock.
+Saves and undo retain the chosen variant. Picking it up returns one
+shared tree item. Save version 15 also migrates the earlier separate tree inventory.
+
+From level four, hovering a standing tree outside build mode shows `Tool_02`.
+Click it to briefly equip `Pawn_Idle Axe`, approach with `Pawn_Run Axe`, and
+cut with `Pawn_Interact Axe`. Tree4 needs 15 seconds of active cutting and
+gives one wood; Tree1, Tree2 and Tree3 need 30 seconds and give two wood each.
+Completed trees fade out over 0.2 seconds while Dust_01 and Dust_02 play once
+at the trunk, revealing their matching static Stump PNG. Tree4 regrows after
+five minutes; the others after ten minutes, including time while the preview
+is closed. The same variant returns at its planted position.
+
+Switching tabs or apps continues the cutting countdown; suspended frames catch up
+when the preview resumes. Walking elsewhere or opening Terrain pauses cutting; clicking the tree resumes
+its saved progress. Partly cut standing trees can be picked up, discarding their cutting progress
+without awarding wood. They cannot be cycled; stumps cannot be picked up or
+cycled until the tree completes regrowth. Save version 17 retains carried wood and deposited log piles, as well as cutting progress,
+regrowth deadlines and `resources.wood`, independently of the build inventory.
+The inventory UI is unchanged. Fresh F6 previews still discard their state.
+
+After cutting, the pawn uses the pack’s Wood idle/run PNGs while carrying the
+harvest (one or two logs). Click grass free of trees, stumps, bushes, rocks and
+other decorations to deliver the harvest; logs appear only after arrival.
+Existing piles fill up to six logs, arranged bottom-up in rows of three, two
+and one. Any remaining carried logs are delivered automatically to the nearest
+reachable grass tile with room and no decorations; if none is available, the
+pawn keeps them. A two-log pile is centered side by side.
+Deliver the current harvest before cutting another tree. A new click or opening
+Terrain cancels delivery without losing the carried logs. Carrying and piles
+persist across reloads; ground with logs cannot be collected or built over.
+Focused check: `res://tests/log_delivery.gd`.
+Focused check: `Godot --headless --path godot/tiny-swords --script res://tests/tree_harvesting.gd`.
 
 The active inventory grants nine items: six ground tiles,
 two stair bundles and one tree. Each stair bundle includes its upper landing;
@@ -80,9 +124,10 @@ Sizing follows the [official UI showcase](https://pixelfrog-assets.itch.io/tiny-
 its 1600px source image displays at 920 CSS pixels on the desktop page (0.575×).
 The supplied 1840px screenshot is an enlarged capture, not logical game dimensions.
 Action icons use that reference scale with nearest-neighbor sampling.
-The blue launcher and panel use native-scale assembled nine-slice artwork;
+The collapsed launcher uses the pack’s cogwheel PNG (`Icons/Icon_10.png`) without a button background.
+The expanded panel uses native-scale assembled nine-slice artwork;
 fixed 16px corners retain the source pixels and the middle/edges tile to fit. Pickup uses a compact four-corner icon; the collapsed
-control is 110×32 displayed pixels; the expanded strip is 180×44 with five 32×32
+control is a 45×45 icon button; the expanded strip is 180×44 with five 32×32
 hit targets, at both desktop and phone widths. It remains anchored 14px from the
 right and bottom. Celebration buttons and game cursors retain their existing scale.
 
@@ -113,7 +158,10 @@ so the outermost trunk/root pixels across all eight animation frames can touch
 the square boundary but cannot cross it. Its vertical range runs
 from the square's center to 28 scene pixels below it, keeping the visible roots
 on the grass while allowing planting near the bottom, with one tree per square.
-Invalid edge positions and positions overlapping the pawn cannot be placed.
+While hovering anywhere on a grass square, the tree anchor clamps to these safe
+root margins instead of switching to the unavailable cursor at their boundaries.
+The preview and click use the same clamped position. Water, protected squares,
+stairs, and positions overlapping the pawn remain unavailable.
 The moving preview and placed tree share the same artwork anchor; navigation
 and Y sorting follow the placed trunk. The movement obstacle follows the visible
 roots, so the pawn can walk onto the grass immediately below them, including
@@ -254,6 +302,12 @@ preview from that source after changes.
 
 ## Rebuild the integrated XP preview
 
+At `http://localhost:8037/`, map edits save immediately in browser storage.
+Refreshing retains terrain, decorations, tree variants, inventory, harvested wood,
+cutting progress, regrowth deadlines and the saved preview level, even if the
+host study level is lower. Camera position and zoom also persist. These saves
+belong to this browser and origin; fresh F6 scenes remain disposable.
+
 The study-integrated preview at **http://localhost:8037/** uses `xp_bridge.gd`
 from the repository’s `scripts/` directory. All gameplay lives in this Godot
 project: terrain and inventory rules, water safeguards, build locking, click/drag
@@ -320,6 +374,12 @@ to span one 64px grid square, then scales as a whole with the camera zoom
 so its corners match the visible grid square corners. All cursors use scene
 coordinates with no browser-specific enlargement, matching native Godot.
 The pointer moves freely rather than snapping.
+Leaving the game window or losing focus immediately hides the drawn cursor.
+Inactive native windows leave the pointer to macOS; returning focus restores
+the hidden system pointer and the game cursor. Web canvases still support
+hovering without keyboard focus.
+Focused check: `Godot --path godot/tiny-swords --script res://tests/pointer_visibility.gd`
+(also runs headless, except for the system-pointer assertion).
 
 A new movement click cancels a water approach until the actual step-off begins.
 Font weight is slightly strengthened to match the reference lettering. Cloud
@@ -475,7 +535,7 @@ Open `res://scenes/terrain_ui.tscn` in the 2D editor. `TerrainButton` is the
 collapsed launcher; `TerrainButton2/Tools` contains `GroundButton`, `StairsButton`,
 `TreeButton`, `PickupButton`, and `UndoButton`. `CloseButton` sits above the panel.
 The scene shows all tools for editing; gameplay controls their visibility,
-counts, availability, selected underline, and launcher label.
+counts, availability, selected underline, and launcher tooltip/accessibility name.
 
 Edit icons, AtlasTexture regions, fonts, Theme Overrides, positions,
 minimum sizes, and anchor offsets in the Inspector. The bottom/right anchors

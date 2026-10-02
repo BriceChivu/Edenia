@@ -13,6 +13,7 @@ var preview_position := Vector2.ZERO
 var ground_preview_height := -1.0
 var tree_texture: Texture2D = TreeArt.TEXTURE
 var tree_preview_texture: Texture2D
+var tree_preview_kind := ""
 var tree_preview_offset := Vector2(INF, INF)
 var valid := false
 var tool := "meadow"
@@ -347,14 +348,15 @@ func placement_offset() -> Vector2:
 
 func clipped_tree_preview_texture() -> Texture2D:
 	var offset: Vector2 = placement_offset()
-	if tree_preview_texture == null or offset != tree_preview_offset:
+	if tree_preview_texture == null or offset != tree_preview_offset or layout.next_tree_variant != tree_preview_kind:
+		tree_preview_kind = layout.next_tree_variant
 		tree_preview_offset = offset
-		tree_preview_texture = TreeArt.texture_at(offset)
+		tree_preview_texture = TreeArt.texture_at(offset, layout.next_tree_variant)
 	return tree_preview_texture
 
 func tree_preview_rect() -> Rect2:
-	var frame_size := Vector2(tree_texture.get_width() / 8.0, tree_texture.get_height())
-	return Rect2(preview_position + (layout.TREE_ART_OFFSET - frame_size / 2) * 0.8, frame_size * 0.8)
+	var frame_size := TreeArt.frame_size(layout.next_tree_variant)
+	return Rect2(preview_position + (TreeArt.art_offset(layout.next_tree_variant) - frame_size / 2) * 0.8, frame_size * 0.8)
 
 func pickup_outline() -> PackedVector2Array:
 	var origin: Vector2 = layout.stair_pickup_rects(hover)[0].position
@@ -441,8 +443,8 @@ func draw_editor() -> void:
 				else:
 					draw_tile(hover, tool, tint)
 			draw_set_transform(Vector2.ZERO)
-			if tool == "tree":
-				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(0, 0, tree_texture.get_width() / 8.0, tree_texture.get_height()), tint)
+			if tool == "tree" and not layout.trees.has(hover):
+				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(Vector2.ZERO, TreeArt.frame_size(layout.next_tree_variant)), tint)
 			if tool == "remove" and layout.cells.get(hover) == "stairs":
 				draw_polyline(pickup_outline(), Color(0.85, 1, 0.8, 0.55), 1)
 			else:

@@ -8,9 +8,9 @@ extends Control
 func configure(level: int, bridges_enabled := false) -> void:
 	# Every upgrade uses the same confirmation label.
 	$BuildButton.text = "OK"
-	$PineReward.visible = level == 3
-	$PineCount.visible = level == 3
-	if level == 3:
+	$PineReward.visible = level >= 3
+	$PineCount.visible = level >= 3
+	if level >= 3:
 		var message := get_node_or_null("Message2") as Label
 		if message != null:
 			message.text = level_three_message if bridges_enabled else level_three_message.replace("6 new items: 3 ground tiles, 1 stair, 1 pine, 1 bridge.", "5 new items: 3 ground tiles, 1 stair, 1 pine.")

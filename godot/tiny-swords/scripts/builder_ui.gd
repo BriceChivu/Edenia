@@ -6,12 +6,12 @@ signal edit_toggled
 signal undo_requested
 signal reset_requested
 
-const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Pine", "stairs": "Stairs", "ground": "Ground", "bridge": "Bridge"}
+const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Tree", "stairs": "Stairs", "ground": "Ground", "bridge": "Bridge"}
 var root: Control
 var panel: Control
 var launch: Button
 var upgrade: Button
-var max_preview_level := 3
+var max_preview_level := 4
 var buttons := {}
 var action_buttons: Array[Button] = []
 var compact := false
@@ -38,10 +38,10 @@ func _ready() -> void:
 			refresh(editing, "", not undo_button.disabled)
 		elif layout.unlocked: edit_toggled.emit()
 		else: unlock_requested.emit(2))
-	upgrade.pressed.connect(func(): unlock_requested.emit(3))
+	upgrade.pressed.connect(func(): unlock_requested.emit(layout.level + 1))
 	for kind in ["ground", "stairs", "tree", "bridge"]:
-		var icon_parent := "TerrainButton2/Tools/" + ("TallIconsClip/" if kind in ["stairs", "tree"] else "")
-		var button: Button = root.get_node(icon_parent + kind.capitalize() + "Button")
+		var icon_parent := "TerrainButton2/Tools/" + ("TallIconsClip/" if kind in ["stairs", "tree", "tree2"] else "")
+		var button: Button = root.get_node(icon_parent + kind.capitalize().replace(" ", "") + "Button")
 		buttons[kind] = button
 		button.pressed.connect(func(): tool_selected.emit(kind))
 	var pickup: Button = root.get_node("TerrainButton2/Tools/PickupButton")
@@ -63,10 +63,10 @@ func arrange() -> void:
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	root.size = area
-	panel.offset_left = -240 if layout.bridges_enabled else -206
+	panel.offset_left = -274 if layout.bridges_enabled else -206
 	var tools := root.get_node("TerrainButton2/Tools")
-	tools.get_node("PickupButton").position.x = 218 if layout.bridges_enabled else 184
-	undo_button.position.x = 251 if layout.bridges_enabled else 217
+	tools.get_node("PickupButton").position.x = 252 if layout.bridges_enabled else 184
+	undo_button.position.x = 285 if layout.bridges_enabled else 217
 	if celebration != null:
 		# Keep the paper corners and tiled middle at native pixel size.
 		celebration.scale = Vector2.ONE
@@ -77,9 +77,11 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 		collapsed = false
 	editing = is_editing
 	arrange()
-	launch.text = "Inventory" if editing and collapsed else ("Terrain" if layout.unlocked else "Try level 2")
+	launch.accessibility_name = "Inventory" if editing and collapsed else ("Terrain" if layout.unlocked else "Try level 2")
+	launch.tooltip_text = launch.accessibility_name
 	launch.visible = (not editing or collapsed) and celebration == null and (layout.unlocked or max_preview_level > 1)
-	upgrade.visible = layout.level == 2 and max_preview_level >= 3 and celebration == null and not editing
+	upgrade.text = "Try level %s" % (layout.level + 1)
+	upgrade.visible = layout.level >= 2 and layout.level < max_preview_level and celebration == null and not editing
 	panel.visible = editing and not collapsed and celebration == null
 	done_button.visible = panel.visible
 	for kind in buttons:
@@ -89,14 +91,15 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 				for reward_kind in layout.LEVEL_REWARDS[reward_level]:
 					if reward_kind == kind or (kind == "ground" and reward_kind not in ["tree", "stairs", "bridge"]):
 						unlocked = true
-		buttons[kind].visible = unlocked and (kind != "bridge" or layout.bridges_enabled)
+		# Show the empty tree slot at level 2 as a hint of the next reward.
+		buttons[kind].visible = (unlocked or (kind == "tree" and layout.level >= 2)) and (kind != "bridge" or layout.bridges_enabled)
 		var count: int = layout.ground_count() if kind == "ground" else layout.stock[kind]
 		buttons[kind].accessibility_name = "%s, %s available" % [NAMES[kind], count]
 		buttons[kind].get_node("Remaining").text = "×%s" % count
-		# Ground stays selectable for free transformations, but still shows exhausted stock.
+		# Ground and trees stay selectable for free transformations.
 		for state in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
 			buttons[kind].add_theme_color_override("icon_" + state + "_color", Color(1, 1, 1, 0.25 if count == 0 else 1.0))
-		buttons[kind].disabled = (count == 0 and kind != "ground") or (kind == "bridge" and not layout.bridges_enabled)
+		buttons[kind].disabled = (count == 0 and kind not in ["ground", "tree"]) or (kind == "bridge" and not layout.bridges_enabled)
 		buttons[kind].mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if buttons[kind].disabled else Control.CURSOR_POINTING_HAND
 		buttons[kind].set_meta("selected", kind == selected)
 		buttons[kind].queue_redraw()
@@ -111,7 +114,7 @@ func celebrate() -> void:
 	launch.hide()
 	upgrade.hide()
 	panel.hide()
-	var popup_scene := preload("res://scenes/level_three_popup.tscn") if layout.level == 3 else preload("res://scenes/level_up_popup.tscn")
+	var popup_scene := preload("res://scenes/level_four_popup.tscn") if layout.level == 4 else preload("res://scenes/level_three_popup.tscn") if layout.level == 3 else preload("res://scenes/level_up_popup.tscn")
 	celebration = popup_scene.instantiate()
 	root.add_child(celebration)
 	celebration.configure(layout.level, layout.bridges_enabled)

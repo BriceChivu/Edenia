@@ -122,7 +122,7 @@ func run() -> void:
 	check(game.layout.in_bounds(Vector2i(-17, -9)) and game.layout.in_bounds(Vector2i(19, 10)), "Expanded grid admits both new boundary corners")
 	check(not game.layout.in_bounds(Vector2i(-18, -9)) and not game.layout.in_bounds(Vector2i(20, 10)) and not game.layout.in_bounds(Vector2i(0, -10)) and not game.layout.in_bounds(Vector2i(0, 11)), "Expanded grid still rejects outside squares")
 	game.refresh()
-	check(game.ui.buttons.ground.visible and game.ui.buttons.stairs.visible and not game.ui.buttons.tree.visible, "Level two shows ground and stairs, with no locked pine button")
+	check(game.ui.buttons.ground.visible and game.ui.buttons.stairs.visible and game.ui.buttons.tree.visible and game.ui.buttons.tree.get_node("Remaining").text == "×0", "Level two shows ground, stairs and an empty tree slot hint")
 	var stocked: Dictionary = game.layout.snapshot()
 	game.layout.stock.meadow = 0
 	game.layout.stock.gold = 0
@@ -137,6 +137,40 @@ func run() -> void:
 	game.ui.max_preview_level = 3
 	game.unlock_level(3)
 	check(game.ui.buttons.tree.visible and game.layout.stock.tree == 1, "Level three reveals pine and credits its existing reward")
+	game.selected = "tree"
+	game.editing = true
+	check(game.apply_edit(Vector2i(1, 0)), "Place last tree item")
+	check(game.editing and not game.ui.buttons.tree.disabled, "Empty tree inventory retains cycling tool")
+	var tree_before: String = game.layout.tree_types[Vector2i(1, 0)]
+	var before_cycle: Dictionary = game.layout.snapshot()
+	check(game.apply_edit(Vector2i(1, 0)), "Click existing tree to cycle")
+	check(game.layout.tree_types[Vector2i(1, 0)] != tree_before and game.layout.stock.tree == 0, "Click changes tree appearance without spending items")
+	game.undo()
+	check(game.layout.snapshot() == before_cycle, "Undo restores previous tree appearance and inventory")
+	var sprite := game.tree_nodes[0] as Sprite2D
+	var pixels := sprite.texture.get_image()
+	var canopy_hit := false
+	for y in range(20, 130):
+		for x in range(40, 150):
+			if pixels.get_pixel(x, y).a > 0.95:
+				var point: Vector2 = sprite.to_global(Vector2(x, y) - Vector2(pixels.get_width() / 16.0, pixels.get_height() / 2.0) + sprite.offset)
+				canopy_hit = game.clicked_cell(point) == Vector2i(1, 0)
+				break
+		if canopy_hit: break
+	check(canopy_hit, "Clicking tree canopy targets its owning tile")
+	game.layout.flora_rng.seed = 4004
+	for attempt in range(8):
+		game.apply_edit(Vector2i(1, 0)) # Cycle does not spend stock.
+		game.selected = "remove"
+		game.apply_edit(Vector2i(1, 0))
+		game.selected = "tree"
+		game.refresh()
+		game.terrain.hover = Vector2i(1, 0)
+		game.terrain.preview_position = game.layout.center(Vector2i(1, 0)) - Vector2(0, game.layout.height_at(Vector2i(1, 0)))
+		var preview: Image = game.terrain.clipped_tree_preview_texture().get_image()
+		check(game.apply_edit(Vector2i(1, 0)), "Previewed tree can be placed")
+		var placed: Image = game.tree_nodes[0].texture.get_image()
+		check(preview.get_size() == placed.get_size() and preview.get_data() == placed.get_data(), "Tree preview pixels match actual placement")
 	var scroll_zoom: Vector2 = game.game_camera.zoom
 	var before_scroll: Dictionary = game.layout.snapshot()
 	for entry in [[MOUSE_BUTTON_WHEEL_DOWN, Vector2.DOWN], [MOUSE_BUTTON_WHEEL_UP, Vector2.UP], [MOUSE_BUTTON_WHEEL_RIGHT, Vector2.RIGHT], [MOUSE_BUTTON_WHEEL_LEFT, Vector2.LEFT]]:

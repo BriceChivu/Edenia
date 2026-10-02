@@ -27,15 +27,7 @@
 
 
 ## Feel and design:
-- do not disable "build island" button when the character is jumping in the water.
-- the pawn shouldn't be able to jump in the water from high grounds
-- fix level 2 level up ribbon pop up design
-- the build island grid should have 3 times more grid squares, since we can zoom out
-- the default zoom in view should be 20% further
-- the build island buttons should only show items that have already been unlocked. E.g., level 2 shouldn't show a tree in the build island.
-- scrolling up and down and on the sides in the tiny swords game should pan 
-- there are currently 3 level of transparency for the zoom in out buttons. Remove the most bright one. We always keep the most transparent one, unless the mouse is hovering a button, in which case we should the least transparent one
-- the water background, clouds, water stripes should be covering the most zoomed out view
+- fix the log and logs perspective
 
 - hover animations of video cards: video duration's animation is not smooth (top right corner of the video card)
 - on small viewports and mobile, do not show the outer blue rounded rectangle around the "return to feed" icon. Similar to favorite heart button in watched. The Rectangle should remain on desktop and tablets though.

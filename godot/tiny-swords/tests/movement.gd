@@ -28,7 +28,7 @@ func run() -> void:
 	root.add_child(level)
 	await process_frame
 	var pawn = level.get_node("World/Pawn")
-	var sprite: AnimatedSprite2D = pawn.get_node("Sprite")
+	var sprite: AnimatedSprite2D = pawn.sprite
 	check(level.get_node("Islands").get_child_count() == 5, "Main grass patch plus one decorative islet")
 	check(sprite.sprite_frames.get_frame_count("idle") == 8, "Eight idle frames")
 	check(sprite.sprite_frames.get_frame_count("run") == 6, "Six run frames")

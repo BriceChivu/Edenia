@@ -2,11 +2,15 @@ extends "res://scripts/level_one.gd"
 
 const Layout = preload("res://scripts/terrain_layout.gd")
 const TreeArt = preload("res://scripts/tree_art.gd")
+const LOG_TEXTURE = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Wood Resource/Wood Resource.png")
+const LOG_SHADOW_SHADER = preload("res://shaders/log_shadow.gdshader")
 const TerrainView = preload("res://scripts/terrain_view.gd")
 const BuilderUI = preload("res://scripts/builder_ui.gd")
 const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_01.png")
 const INVALID_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_03.png")
 const BUILD_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png")
+const Harvesting = preload("res://scripts/tree_harvesting.gd")
+const AXE_CURSOR := preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Tools/Tool_02.png")
 const SAVE_KEY := "edenia_tiny_swords_builder_preview_v1"
 const DEFAULT_ZOOM := 0.8
 const CAMERA_SAVE_KEY := "edenia_tiny_swords_camera_v1"
@@ -31,6 +35,8 @@ var history: Array[Dictionary] = []
 var walking_bridges: Array[Vector2i] = []
 var movement_generation := 0
 var waypoints: Array[Vector2] = []
+var harvesting
+var log_delivery := Vector2i(999, 999)
 var tree_nodes: Array[Node] = []
 var flora_nodes: Array[Node] = []
 var preview_save_enabled := true
@@ -39,6 +45,7 @@ var build_cursor_size := Vector2i.ZERO
 var cursor_mode := ""
 var pointer: Sprite2D
 var pointer_inside := false
+var pointer_focused := true
 var pointer_position := Vector2.ZERO
 
 func _ready() -> void:
@@ -71,7 +78,15 @@ func _ready() -> void:
 	pointer_layer.add_child(pointer)
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	get_window().mouse_entered.connect(func(): pointer_inside = true)
-	get_window().mouse_exited.connect(func(): pointer_inside = false)
+	get_window().mouse_exited.connect(func():
+		pointer_inside = false
+		pointer.hide())
+	get_window().focus_exited.connect(func():
+		pointer_focused = false
+		pointer.hide())
+	get_window().focus_entered.connect(func():
+		pointer_focused = true
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN))
 	ui.unlock_requested.connect(unlock_level)
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
@@ -82,6 +97,9 @@ func _ready() -> void:
 	ui.undo_requested.connect(undo)
 	pawn.position = layout.center(layout.spawn_cell())
 	pawn.walk_to(pawn.position)
+	harvesting = Harvesting.new()
+	harvesting.world = self
+	add_child(harvesting)
 	rebuild_decorations()
 	refresh()
 	game_camera = Camera2D.new()
@@ -122,6 +140,8 @@ func unlock_level(target_level: int) -> void:
 	ui.celebrate()
 
 func toggle_editing() -> void:
+	log_delivery = Vector2i(999, 999)
+	harvesting.cancel()
 	editing = not editing
 	if editing:
 		if not preserve_history_on_reopen:
@@ -135,6 +155,17 @@ func toggle_editing() -> void:
 func _process(_delta: float) -> void:
 	if terrain == null:
 		return
+	pawn.carrying_wood = layout.carried_wood > 0
+	if log_delivery != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
+		var delivered := not editing and water_phase == WaterPhase.READY and layout.drop_logs(log_delivery)
+		log_delivery = Vector2i(999, 999)
+		if delivered:
+			pawn.carrying_wood = layout.carried_wood > 0
+			history.clear()
+			rebuild_decorations()
+			save_layout()
+			if layout.carried_wood > 0:
+				continue_log_delivery()
 	ui.launch.disabled = false
 	ui.upgrade.disabled = water_phase != WaterPhase.READY
 	ui.launch.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -156,7 +187,7 @@ func _process(_delta: float) -> void:
 			terrain.hover = clicked_cell(terrain.preview_position)
 		terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height)
 		if selected == "tree":
-			terrain.valid = water_phase == WaterPhase.READY and can_place_tree(terrain.hover, tree_offset_at(terrain.hover, terrain.preview_position))
+			update_tree_preview(terrain.preview_position)
 	update_cursor()
 
 func _input(event: InputEvent) -> void:
@@ -165,6 +196,10 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseMotion:
+		# Web canvases can be hovered without keyboard focus (including Edenia's
+		# iframe). Native inactive windows still belong to the system pointer.
+		if OS.has_feature("web"):
+			pointer_focused = true
 		pointer_inside = get_viewport().get_visible_rect().has_point(event.position)
 		pointer_position = event.position
 
@@ -265,16 +300,25 @@ func update_cursor() -> void:
 		return
 	fit_build_cursor()
 	var mode := "walk" if not editing else (("build" if selected == "remove" else "place") if terrain.valid else "invalid")
+	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and harvesting != null and harvesting.available(tree_at(get_global_mouse_position())):
+		mode = "axe"
 	var hovered := get_viewport().gui_get_hovered_control()
 	if hovered != null and (hovered == ui.root or ui.root.is_ancestor_of(hovered)):
 		mode = "invalid" if hovered is BaseButton and hovered.disabled else "ui"
 	if mode != cursor_mode:
 		cursor_mode = mode
-		pointer.texture = UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
-	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else Vector2(24, 18)
+		pointer.texture = AXE_CURSOR if mode == "axe" else UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
+	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else (Vector2(32, 32) if mode == "axe" else Vector2(24, 18))
 	pointer.scale = (game_camera.zoom if game_camera != null else Vector2.ONE * DEFAULT_ZOOM) if mode == "build" else Vector2.ONE
+	# The original handle faces left; mirror it when the pawn is on the right.
+	pointer.flip_h = false
+	if mode == "axe":
+		var zoom := game_camera.zoom.x if game_camera != null else DEFAULT_ZOOM
+		var axe_scale := lerpf(0.9, 1.0, clampf((zoom - 0.5) / (DEFAULT_ZOOM - 0.5), 0.0, 1.0)) if zoom < DEFAULT_ZOOM else lerpf(1.0, 1.2, clampf((zoom - DEFAULT_ZOOM) / (1.5 - DEFAULT_ZOOM), 0.0, 1.0))
+		pointer.scale = Vector2.ONE * axe_scale
+		pointer.flip_h = pawn.sprite.get_global_transform_with_canvas().origin.x > pointer_position.x
 	pointer.position = pointer_position - hotspot * pointer.scale
-	pointer.visible = pointer_inside and mode != "place"
+	pointer.visible = pointer_inside and pointer_focused and mode != "place"
 
 func bridge_placement_at(point: Vector2) -> Vector2i:
 	for bank in layout.cells:
@@ -285,7 +329,24 @@ func bridge_placement_at(point: Vector2) -> Vector2i:
 				return start
 	return layout.cell_at(point)
 
+func tree_at(point: Vector2) -> Vector2i:
+	for index in range(tree_nodes.size() - 1, -1, -1):
+		var sprite := tree_nodes[index] as Sprite2D
+		var cell: Vector2i = sprite.get_meta("cell")
+		var anchor: Vector2 = layout.tree_position(cell) - Vector2(0, layout.height_at(cell))
+		var behind := Rect2(anchor - Vector2(17, 48), Vector2(34, 24))
+		if behind.has_point(point) and layout.walkable_point(point + Vector2(0, layout.height_at(cell))):
+			continue
+		if sprite.is_pixel_opaque(sprite.to_local(point)):
+			return cell
+	return Harvesting.NO_TREE
+
 func clicked_cell(point: Vector2) -> Vector2i:
+	if editing and selected in ["tree", "remove"]:
+		for index in range(tree_nodes.size() - 1, -1, -1):
+			var sprite := tree_nodes[index] as Sprite2D
+			if sprite.is_pixel_opaque(sprite.to_local(point)):
+				return sprite.get_meta("cell")
 	if editing and selected == "bridge":
 		return bridge_placement_at(point)
 	var bridge := Layout.BridgeRules.hit(layout, point)
@@ -309,10 +370,18 @@ func clicked_cell(point: Vector2) -> Vector2i:
 
 func tree_offset_at(cell: Vector2i, point: Vector2) -> Vector2:
 	# Mouse is on the visible surface; navigation and Y sorting use ground space.
-	return point + Vector2(0, layout.height_at(cell)) - layout.center(cell)
+	var offset := point + Vector2(0, layout.height_at(cell)) - layout.center(cell)
+	return Vector2(clampf(offset.x, Layout.TREE_OFFSET_X_MIN, Layout.TREE_OFFSET_X_MAX), clampf(offset.y, Layout.TREE_OFFSET_Y_MIN, Layout.TREE_OFFSET_Y_MAX))
+
+func update_tree_preview(point: Vector2) -> void:
+	var offset := tree_offset_at(terrain.hover, point)
+	terrain.preview_position = layout.center(terrain.hover) - Vector2(0, layout.height_at(terrain.hover)) + offset
+	terrain.valid = water_phase == WaterPhase.READY and can_place_tree(terrain.hover, offset)
 
 func can_place_tree(cell: Vector2i, offset: Vector2) -> bool:
-	return layout.can_edit(cell, "tree", layout.cell_at(pawn.position), -1, offset) and not layout.tree_obstacle(layout.center(cell) + offset).has_point(pawn.position)
+	if layout.trees.has(cell):
+		return layout.can_edit(cell, "tree", layout.cell_at(pawn.position))
+	return layout.can_edit(cell, selected, layout.cell_at(pawn.position), -1, offset) and not layout.tree_obstacle(layout.center(cell) + offset).has_point(pawn.position)
 
 func ground_placement_at(point: Vector2) -> Dictionary:
 	var cell := surface_cell(point)
@@ -343,6 +412,20 @@ func handle_world_click(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
 		var cell := clicked_cell(point)
+		log_delivery = Vector2i(999, 999)
+		if not editing:
+			if layout.can_drop_logs(cell):
+				var destination: Vector2 = layout.center(cell)
+				var delivery_route := land_route(pawn.position, cell, destination)
+				if not delivery_route.is_empty() and delivery_route.back().is_equal_approx(destination):
+					walk_on_land(cell, destination)
+					log_delivery = cell
+				return
+			var tree := tree_at(point)
+			if harvesting.available(tree):
+				harvesting.start(tree)
+				return
+			harvesting.cancel()
 		if editing:
 			var height: float = ground_placement_at(point).height if selected == "ground" else -1.0
 			if selected != "ground" or height >= 0:
@@ -369,7 +452,7 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 		history.pop_front()
 	rebuild_decorations()
 	save_layout()
-	if editing and selected not in ["remove", "ground"] and layout.ground_count() + layout.stock.stairs + layout.stock.tree + (layout.stock.bridge if layout.bridges_enabled else 0) == 0:
+	if editing and selected not in ["remove", "ground", "tree"] and layout.ground_count() + layout.stock.stairs + layout.stock.tree + (layout.stock.bridge if layout.bridges_enabled else 0) == 0:
 		editing = false
 		preserve_history_on_reopen = true
 	refresh()
@@ -502,19 +585,105 @@ func rebuild_decorations() -> void:
 		decoration.set_meta("random_decoration", item.kind)
 		$World.add_child(decoration)
 		flora_nodes.append(decoration)
+	for cell in layout.log_piles:
+		var pile := Node2D.new()
+		# Sort at the lower face of the bottom logs, through their front cut ends.
+		# Children stay together so the pawn cannot draw between log rows.
+		pile.position = layout.center(cell) + Vector2(0, 12)
+		pile.y_sort_enabled = false
+		pile.set_meta("log_pile", cell)
+		pile.z_index = int(layout.height_at(cell) / 64.0)
+		# Bottom row fills first, then the middle row, then the apex.
+		var positions := [Vector2(-13, 0), Vector2(0, 0), Vector2(13, 0), Vector2(-6.5, -14), Vector2(6.5, -14), Vector2(0, -28)]
+		# Center incomplete bottom rows, including the two-log harvest.
+		if layout.log_piles[cell] == 1:
+			positions[0] = Vector2.ZERO
+		elif layout.log_piles[cell] == 2:
+			positions[0] = Vector2(-6.5, 0)
+			positions[1] = Vector2(6.5, 0)
+		var ground_shadow := Node2D.new()
+		# Ground shadows sort before every pawn position on this grass tile.
+		ground_shadow.position = layout.center(cell) - Vector2(0, 32)
+		ground_shadow.z_index = pile.z_index
+		ground_shadow.set_meta("log_shadow", cell)
+		var shadow_material := ShaderMaterial.new()
+		shadow_material.shader = LOG_SHADOW_SHADER
+		var height: float = layout.height_at(cell)
+		var grass_region: Rect2 = terrain.ground_region(cell, "meadow" if height == 0 else layout.kind_at_height(height))
+		shadow_material.set_shader_parameter("grass_atlas", terrain.floor_texture(height))
+		shadow_material.set_shader_parameter("grass_region", Vector4(grass_region.position.x, grass_region.position.y, 64, 64))
+		var local_from_world := global_transform.affine_inverse()
+		shadow_material.set_shader_parameter("ground_axes", Vector4(local_from_world.x.x, local_from_world.y.x, local_from_world.x.y, local_from_world.y.y))
+		shadow_material.set_shader_parameter("ground_origin", local_from_world.origin - (layout.center(cell) - Vector2(32, 32 + height)))
+		# Render the union once so intersecting log silhouettes never darken.
+		var shadow_centers := PackedVector2Array()
+		for index in int(layout.log_piles[cell]):
+			shadow_centers.append(Vector2(positions[index].x, 44 + positions[index].y * 0.25 - height))
+		shadow_material.set_shader_parameter("log_texture", LOG_TEXTURE)
+		shadow_material.set_shader_parameter("log_count", shadow_centers.size())
+		shadow_centers.resize(6)
+		shadow_material.set_shader_parameter("log_centers", shadow_centers)
+		var shadow := Polygon2D.new()
+		var half_size := Vector2(LOG_TEXTURE.get_size()) * 0.45
+		shadow.polygon = PackedVector2Array([
+			Vector2(-13 - half_size.x, 37 - height - half_size.y),
+			Vector2(13 + half_size.x, 37 - height - half_size.y),
+			Vector2(13 + half_size.x, 44 - height + half_size.y),
+			Vector2(-13 - half_size.x, 44 - height + half_size.y),
+		])
+		shadow.material = shadow_material
+		ground_shadow.add_child(shadow)
+		$World.add_child(ground_shadow)
+		flora_nodes.append(ground_shadow)
+		# Back-to-front: logs 1, 4, 2, 6, 5, 3 (numbered by rows).
+		for index in [0, 3, 1, 5, 4, 2]:
+			if index >= int(layout.log_piles[cell]):
+				continue
+			var log_sprite := Sprite2D.new()
+			log_sprite.texture = LOG_TEXTURE
+			log_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			log_sprite.scale = Vector2.ONE * 0.9
+			log_sprite.position = positions[index] - Vector2(0, 6 + layout.height_at(cell))
+			pile.add_child(log_sprite)
+		$World.add_child(pile)
+		flora_nodes.append(pile)
 	for cell in layout.trees:
 		var tree := Sprite2D.new()
-		tree.texture = TreeArt.texture_at(layout.tree_offset(cell))
-		tree.hframes = 8
+		var kind: String = layout.tree_types.get(cell, "tree")
+		var stump: bool = layout.tree_stumps.has(cell)
+		tree.texture = TreeArt.texture_at(layout.tree_offset(cell), kind, stump)
+		tree.set_meta("cell", cell)
+		tree.hframes = 1 if stump else 8
 		tree.scale = Vector2.ONE * TreeArt.SCALE
 		tree.z_index = int(layout.height_at(cell) / 64.0)
 		tree.position = layout.tree_position(cell)
-		tree.offset = Layout.TREE_ART_OFFSET - Vector2(0, layout.height_at(cell) / 0.8)
+		tree.offset = (TreeArt.stump_offset(kind) if stump else TreeArt.art_offset(kind)) - Vector2(0, layout.height_at(cell) / 0.8)
 		tree.set_script(preload("res://scripts/environment_sprite.gd"))
 		$World.add_child(tree)
 		tree_nodes.append(tree)
 
+func continue_log_delivery() -> void:
+	var nearest := Vector2i(999, 999)
+	var nearest_distance := INF
+	for cell in layout.cells:
+		if not layout.can_drop_logs(cell):
+			continue
+		var destination: Vector2 = layout.center(cell)
+		var distance: float = pawn.position.distance_squared_to(destination)
+		if distance >= nearest_distance:
+			continue
+		var route := land_route(pawn.position, cell, destination)
+		if route.is_empty() or not route.back().is_equal_approx(destination):
+			continue
+		nearest = cell
+		nearest_distance = distance
+	if nearest != Vector2i(999, 999):
+		walk_on_land(nearest, layout.center(nearest))
+		log_delivery = nearest
+
 func walk_on_land(cell: Vector2i, point: Vector2) -> void:
+	log_delivery = Vector2i(999, 999)
+	harvesting.cancel()
 	movement_generation += 1
 	if water_phase == WaterPhase.APPROACHING:
 		water_phase = WaterPhase.READY
@@ -556,8 +725,12 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 	# a wider inset can pull a click below its roots back into the trunk.
 	var bottom_margin := 8.0 if layout.trees.has(cell) else 12.0
 	var target := point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 64 - bottom_margin))
+	# Preserve reachable ground near trunks, including the seam behind their roots.
+	# Tile insets otherwise move a click across that seam into the obstacle.
+	if (not layout.trees.is_empty() or not layout.log_piles.is_empty()) and layout.walkable_point(point):
+		target = point
 	candidates.append(target)
-	if not layout.trees.is_empty():
+	if not layout.trees.is_empty() or not layout.log_piles.is_empty():
 		candidates = tree_navigation_path(start_point, target)
 		if candidates.is_empty():
 			return route
@@ -634,6 +807,7 @@ func ground_height(point: Vector2) -> float:
 	return layout.height_at(cell)
 
 func fall_into_water(point: Vector2) -> void:
+	harvesting.cancel()
 	# A raised face is not a water exit; descend using the existing stairs first.
 	if ground_height(pawn.position) > 0:
 		return
@@ -714,6 +888,8 @@ func load_layout() -> void:
 			layout.restore(data)
 
 func _exit_tree() -> void:
+	if harvesting != null:
+		harvesting.cancel()
 	save_camera_view()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	super._exit_tree()

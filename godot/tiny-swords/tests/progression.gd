@@ -61,5 +61,49 @@ func _initialize() -> void:
 	legacy.unlocked = false
 	legacy.erase("level")
 	check(migrated.restore(legacy) and migrated.level == 1, "Old locked preview remains level one")
+	check(Layout.level_for_xp(44) == 2 and Layout.level_for_xp(45) == 3 and Layout.level_for_xp(89) == 3 and Layout.level_for_xp(90) == 4, "Level four requires 45 additional XP")
+	var fourth = Layout.new()
+	fourth.flora_rng.seed = 4004
+	fourth.unlock(2)
+	fourth.unlock(3)
+	var previous := fourth.snapshot()
+	check(fourth.unlock(4), "Third upgrade succeeds")
+	check(fourth.ground_count() == 9 and fourth.stock.tree == 2 and fourth.stock.stairs == 2, "Level four grants three grass and one different tree")
+	check(fourth.cells == complete.cells, "Level four preserves existing island")
+	check(fourth.edit(Vector2i(2, 0), "ground", Vector2i.ZERO), "Prepare tree tile")
+	check(fourth.edit(Vector2i(2, 0), "tree", Vector2i.ZERO, -1, Vector2.ZERO), "Place new tree")
+	var reloaded = Layout.new()
+	check(reloaded.restore(fourth.snapshot()) and reloaded.tree_types == fourth.tree_types, "New tree type survives save roundtrip")
+	check(reloaded.edit(Vector2i(2, 0), "remove", Vector2i.ZERO) and reloaded.stock.tree == 2, "Pickup returns correct tree variant")
+	check(not fourth.unlock(4), "Level four rewards cannot be duplicated")
+	var invalid := fourth.snapshot()
+	invalid.tree_offsets[0][4] = "unknown"
+	check(not reloaded.restore(invalid), "Unknown tree variants rejected")
+	var old := previous.duplicate(true)
+	old.version = 13
+	old.stock.erase("tree2")
+	check(reloaded.restore(old) and reloaded.level == 3 and reloaded.stock.tree == 1, "Level three save migrates without grants")
+	var variants := {}
+	for iteration in range(64):
+		check(fourth.edit(Vector2i(2, 0), "remove", Vector2i.ZERO), "Pick up randomized tree")
+		check(fourth.edit(Vector2i(2, 0), "tree", Vector2i.ZERO), "Place shared tree item")
+		variants[fourth.tree_types[Vector2i(2, 0)]] = true
+	check(variants.size() == 4, "Shared tree item can produce every tree variant")
+	var cycling_stock: Dictionary = fourth.stock.duplicate()
+	var original_type: String = fourth.tree_types[Vector2i(2, 0)]
+	var original_offset: Vector2 = fourth.tree_offset(Vector2i(2, 0))
+	fourth.stock.tree = 0
+	for step in range(4):
+		check(fourth.edit(Vector2i(2, 0), "tree", Vector2i(2, 0), -1, Vector2(999, 999)), "Existing tree cycles without placement restrictions or stock")
+		check(fourth.tree_types[Vector2i(2, 0)] == Layout.TREE_VARIANTS[(Layout.TREE_VARIANTS.find(original_type) + step + 1) % 4], "Cycle follows all four variants in order")
+		check(fourth.stock.tree == 0 and fourth.tree_offset(Vector2i(2, 0)) == original_offset, "Cycling preserves inventory and anchor")
+	check(not fourth.edit(Vector2i(1, 0), "tree", Vector2i.ZERO), "Empty stock still rejects new trees")
+	fourth.stock = cycling_stock
+	check(reloaded.restore(fourth.snapshot()) and reloaded.tree_types == fourth.tree_types, "Cycled type survives saving")
+	var version14 := fourth.snapshot()
+	version14.version = 14
+	version14.stock.tree = 0
+	version14.stock.tree2 = 1
+	check(reloaded.restore(version14) and reloaded.stock.tree == 1, "Previous level-four inventory migrates to shared trees")
 	print("Progression checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

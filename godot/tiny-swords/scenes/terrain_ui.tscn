@@ -11,6 +11,8 @@
 [ext_resource type="Texture2D" uid="uid://6fwi4ejscu70" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_09.png" id="11_l28ao"]
 [ext_resource type="Texture2D" uid="uid://btwc5u0bs3kmc" path="res://assets/bridges/wooden-rope-bridge-horizontal.png" id="Bridge"]
 
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_10.png" id="Cogwheel"]
+
 [sub_resource type="FontVariation" id="FontVariation_jyy0y"]
 base_font = ExtResource("1_jg2xk")
 variation_embolden = 0.5
@@ -203,14 +205,14 @@ theme = SubResource("Theme_knda1")
 
 [node name="TerrainButton" type="Button" parent="." unique_id=481120987]
 texture_filter = 1
-custom_minimum_size = Vector2(110, 32)
+custom_minimum_size = Vector2(45, 45)
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -124.0
+offset_left = -59.0
 offset_top = -55.0
 offset_right = -14.0
 offset_bottom = -10.0
@@ -219,12 +221,24 @@ grow_vertical = 0
 mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
 theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 0.5)
+theme_override_colors/icon_pressed_color = Color(1, 1, 1, 0.5)
+theme_override_colors/icon_focus_color = Color(1, 1, 1, 0.5)
+theme_override_colors/icon_disabled_color = Color(1, 1, 1, 0.5)
+theme_override_colors/icon_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/icon_hover_pressed_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 12
-theme_override_styles/normal = SubResource("StyleBoxTexture_xj5r2")
-theme_override_styles/pressed = SubResource("StyleBoxTexture_b11ad")
-theme_override_styles/hover = SubResource("StyleBoxTexture_qf3fx")
-theme_override_styles/disabled = SubResource("StyleBoxTexture_lgiao")
-text = "Terrain"
+theme_override_styles/normal = SubResource("StyleBoxEmpty_cm6ex")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_cm6ex")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_cm6ex")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_cm6ex")
+accessibility_name = "Terrain"
+tooltip_text = "Terrain"
+theme_override_styles/focus = SubResource("StyleBoxEmpty_cm6ex")
+theme_override_constants/icon_max_width = 45
+icon = ExtResource("Cogwheel")
+icon_alignment = 1
+expand_icon = true
 
 [node name="TerrainButton2" type="Button" parent="." unique_id=1234057257]
 texture_filter = 1

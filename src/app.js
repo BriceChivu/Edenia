@@ -12063,7 +12063,7 @@ function renderHistoryWatchedCell(row) {
 function formatHistoryPointNumber(points) {
   const value = Number(points || 0)
   return new Intl.NumberFormat(getCurrentLocale(), {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
+    maximumFractionDigits: 0
   }).format(value)
 }
 
@@ -12089,9 +12089,7 @@ function formatSignedHistoryPointLabel(points) {
 function formatSignedActivityLogPointLabel(points) {
   const value = Number(points || 0)
   const sign = value > 0 ? '+' : ''
-  const count = new Intl.NumberFormat(getCurrentLocale(), {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
-  }).format(value)
+  const count = formatHistoryPointNumber(value)
   return t('points.many', { count: `${sign}${count}` })
 }
 

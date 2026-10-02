@@ -56,7 +56,7 @@ func run() -> void:
 	level.undo()
 	check(not layout.trees.has(cell) and layout.stock.tree == 1, "Undo returns the tree to inventory")
 	check(not level.apply_edit(cell, -1, Vector2(21, 0)) and layout.stock.tree == 1, "Edge placement cannot spend inventory")
-	level.pawn.position = layout.center(Vector2i.ZERO) + Vector2(31, -14)
+	level.pawn.position = layout.center(Vector2i.ZERO) + Vector2(39, -14)
 	check(not level.apply_edit(cell, -1, Vector2(-16, 0)), "A trunk cannot overlap the pawn in a neighboring square")
 	level.pawn.position = layout.center(Vector2i.ZERO)
 	check(not level.apply_edit(cell, -1, Vector2(0, -20)) and layout.stock.tree == 1, "Tree cannot be planted above the safe root range")
