@@ -25,7 +25,7 @@ test('heatmap day retains its complete live data and accessibility contract', ()
     getAttribute(day, 'data-date'),
     '${escHtml(formatHeatmapTitle(row))}'
   )
-  assert.equal(getAttribute(day, 'data-points'), '${getHistoryDayPoints(row)}')
+  assert.equal(getAttribute(day, 'data-points'), "${row.hasExperience ? formatHistoryPointNumber(getHistoryDayPoints(row)) : ''}")
   assert.equal(
     getAttribute(day, 'data-streak-days'),
     '${streakDayCount || \'\'}'
