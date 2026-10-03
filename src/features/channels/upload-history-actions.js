@@ -1,57 +1,51 @@
-// A browsing gesture can start one bounded attempt. Nonmatching results require
-// explicit continuation, rather than an observer draining an entire playlist.
-export function bindUploadHistoryActions(track, { load, text }) {
-  const status = document.createElement('div')
-  status.dataset.uploadHistoryStatus = ''
-  status.setAttribute('role', 'status')
-  status.hidden = true
-  track.after(status)
+// Browse saved cards first. Retry bounded history batches silently only while
+// this shelf is visible near its saved boundary in an active tab.
+export function bindUploadHistoryActions(track, { load }) {
   let busy = false
-  let paused = false
   let exhausted = false
   let alive = true
   let timer
+  let retryAt = 0
   let lastAttemptLeft = -1
-  function show(message, retry = false, retryAt = 0) {
-    clearTimeout(timer)
-    status.hidden = false
-    status.replaceChildren(document.createTextNode(message))
-    if (!retry) return
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = 'btn-ghost'
-    button.textContent = text('continue')
-    button.disabled = retryAt > Date.now()
-    button.addEventListener('click', () => attempt(true))
-    status.append(button)
-    if (button.disabled) timer = setTimeout(() => { button.disabled = false }, Math.min(2147483647, retryAt - Date.now()))
+  const shelf = track.closest('.channel-shelf')
+  function browsing() {
+    const rect = track.getBoundingClientRect()
+    return track.isConnected && !document.hidden && rect.bottom > 0 && rect.top < innerHeight
+      && rect.height > 0 && track.scrollLeft + track.clientWidth >= track.scrollWidth - track.clientWidth
   }
-  async function attempt(explicit = false) {
-    if (!alive || busy || exhausted || (paused && !explicit)) return
-    if (track.scrollLeft + track.clientWidth < track.scrollWidth - track.clientWidth) return
-    if (!explicit && lastAttemptLeft >= 0 && track.scrollLeft <= lastAttemptLeft + 2) return
+  function schedule() {
+    clearTimeout(timer)
+    timer = setTimeout(() => { void attempt() }, Math.min(2147483647, Math.max(0, retryAt - Date.now())))
+  }
+  async function attempt() {
+    if (!alive || busy || exhausted || !browsing()) return
+    if (retryAt > Date.now()) { schedule(); return }
+    if (!retryAt && lastAttemptLeft >= 0 && track.scrollLeft <= lastAttemptLeft + 2) return
+    clearTimeout(timer)
+    retryAt = 0
     lastAttemptLeft = track.scrollLeft
     busy = true
     let result
     try {
-      result = await load(() => show(text('loading')))
+      result = await load()
     } finally {
       busy = false
     }
     if (!alive) return
-    if (!result) { lastAttemptLeft = -1; status.hidden = true; return }
+    if (!result) { lastAttemptLeft = -1; return }
     exhausted = result.exhausted === true
-    paused = Boolean(result.retryAt || result.failed || result.matched === false)
     track.dataset.historyExhausted = String(exhausted)
     if (exhausted) {
-      show(text('exhausted'))
-      const next = track.closest('.channel-shelf').querySelector('[data-shelf-direction="1"]')
+      const next = shelf.querySelector('[data-shelf-direction="1"]')
       if (next && track.scrollLeft + track.clientWidth >= track.scrollWidth - 2) next.disabled = true
+    } else if (result.retryAt || result.failed || result.busy || result.matched === false) {
+      // Keep provider cooldowns; avoid rapidly scanning nonmatching formats.
+      retryAt = result.retryAt || Date.now() + 30_000
+      schedule()
     }
-    else if (paused) show(text(result.busy ? 'loading' : result.failed ? 'failed' : 'limited'), true, result.retryAt)
-    else status.hidden = true
   }
   const scroll = () => { void attempt() }
+  const resume = () => { if (retryAt) scroll() }
   const keyboard = event => {
     if (['ArrowRight', 'End', 'Tab'].includes(event.key) && !event.shiftKey) scroll()
   }
@@ -59,9 +53,11 @@ export function bindUploadHistoryActions(track, { load, text }) {
   track.addEventListener('wheel', scroll, { passive: true })
   track.addEventListener('touchend', scroll, { passive: true })
   track.addEventListener('keydown', keyboard)
-  const shelf = track.closest('.channel-shelf')
   const click = event => { if (event.target.closest('[data-shelf-direction="1"]')) scroll() }
   shelf.addEventListener('click', click)
+  window.addEventListener('scroll', resume, { passive: true })
+  window.addEventListener('resize', resume, { passive: true })
+  document.addEventListener('visibilitychange', resume)
   return {
     destroy() {
       alive = false
@@ -71,8 +67,10 @@ export function bindUploadHistoryActions(track, { load, text }) {
       track.removeEventListener('touchend', scroll)
       track.removeEventListener('keydown', keyboard)
       shelf.removeEventListener('click', click)
+      window.removeEventListener('scroll', resume)
+      window.removeEventListener('resize', resume)
+      document.removeEventListener('visibilitychange', resume)
       delete track.dataset.historyExhausted
-      status.remove()
     }
   }
 }

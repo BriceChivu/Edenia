@@ -13,11 +13,6 @@ export const FR_LOCALIZED = {
   "townEconomy.notStarted": "Économie non commencée",
   "townEconomy.comparison": "Pièces et achats de la ville",
 
-  'videos.history.loading': "Chargement des anciennes vidéos…",
-  'videos.history.exhausted': "Toutes les vidéos disponibles sont chargées.",
-  'videos.history.limited': "Aucune autre vidéo correspondante dans ce lot.",
-  'videos.history.failed': "Impossible de charger les anciennes vidéos.",
-  'videos.history.continue': "Continuer à parcourir",
 
     'intro.skip': 'Passer l’introduction',
     'intro.sound.off': 'Son désactivé',

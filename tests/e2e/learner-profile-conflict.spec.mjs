@@ -161,6 +161,8 @@ async function prepareConflictPage(page, {
   failChoice = false,
   preserveStateOnReload = false
 } = {}) {
+  // Keep the mocked protected-copy deadline valid regardless of the CI date.
+  await page.clock.setFixedTime(new Date('2026-08-25T12:00:00.000Z'))
   const deviceEnvelope = await createConflictEnvelope({
     channelId: 'device-channel',
     channelName: 'Device channel',
