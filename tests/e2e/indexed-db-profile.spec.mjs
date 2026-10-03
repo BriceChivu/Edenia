@@ -81,7 +81,27 @@ test('verified opening retires duplicate local copies and preserves reload, prog
   await page.evaluate(() => window.undoLastVideoAction())
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
   expect(await page.evaluate(() => window.loadState().videos.fixture0000.watchProgress)).toEqual(facts.watchProgress)
+  // Make the asynchronous opening boundary observable even on fast machines.
+  await page.addInitScript(databaseName => {
+    const open = IDBFactory.prototype.open
+    const success = Object.getOwnPropertyDescriptor(IDBRequest.prototype, 'onsuccess')
+    IDBFactory.prototype.open = function (...args) {
+      const request = open.apply(this, args)
+      if (args[0] === databaseName) Object.defineProperty(request, 'onsuccess', {
+        get() { return success.get.call(this) },
+        set(handler) {
+          success.set.call(this, typeof handler === 'function' ? function (event) {
+            setTimeout(() => handler.call(this, event), 100)
+          } : handler)
+        }
+      })
+      return request
+    }
+  }, databaseName)
   await page.reload()
+  // Document load does not wait for IndexedDB hydration. Check the rendered
+  // profile before reading its snapshot, just as on the first opening above.
+  await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
   expect(await page.evaluate(() => window.loadState().anki['2026-10-01'].reviewed)).toBe(12)
   expect(await page.evaluate(() => window.loadState().videos.fixture0000.favorite)).toBe(true)
   expect(await page.evaluate(() => window.loadState().videos.fixture0000.watchLater)).toBe(true)
