@@ -663,6 +663,9 @@ Focused check: `res://tests/level_five.gd`.
 
 Level seven grants three grass tiles and one chicken, using the supplied
 `assets/chicken.png`. Select Chicken in the inventory to place it on free grass;
-Pick up returns it to inventory. The chicken uses the supplied CHICKEN3.0 artwork at 59.5% scale with a rounded ground shadow. Save version
+Pick up returns it to inventory. The chicken loops the six PNG frames extracted from
+`pixil-gif-drawing.gif` in `assets/chicken/` at the original 100 ms per frame,
+at 59.5% scale with a rounded ground shadow. Exterior white background is transparent;
+`assets/chicken.png` is the first frame used for inventory and placement previews. Save version
 20 preserves its placement and grants the chicken to older level-seven-or-higher
 saves. Focused check: `res://tests/chicken.gd`.

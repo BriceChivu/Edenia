@@ -716,6 +716,7 @@ func rebuild_decorations() -> void:
 		asset_nodes.append(house)
 	for cell in layout.chickens:
 		var chicken := Sprite2D.new()
+		chicken.set_script(preload("res://scripts/chicken_visual.gd"))
 		chicken.texture = LevelFiveArt.CHICKEN
 		chicken.position = layout.center(cell) - Vector2(0, layout.height_at(cell))
 		chicken.offset = LevelFiveArt.CHICKEN_OFFSET
