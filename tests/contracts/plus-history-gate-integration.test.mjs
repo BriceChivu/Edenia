@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -9,9 +10,9 @@ const appSource = await readFile(
 )
 
 function getFunctionSource(name, nextName) {
-  const start = appSource.indexOf(`function ${name}(`)
+  const start = indexOfFunction(appSource, name)
   assert.notEqual(start, -1, `Missing ${name}`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const end = indexOfFunction(appSource, nextName, start)
   assert.notEqual(end, -1, `Missing ${nextName}`)
   return appSource.slice(start, end)
 }

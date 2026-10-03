@@ -12,6 +12,7 @@ window.EDENIA_CONFIG = {
   videoOrganizationEnabled: true,
   channelVideoFormatToggleEnabled: true,
   studyGuidanceEnabled: false,
+  indexedDbProfileEnabled: false,
   indexedDbBackupsEnabled: false,
   indexedDbBackupCleanupEnabled: false,
   legacyProgressMigrationEnabled: false,

@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
@@ -5,8 +6,8 @@ import test from 'node:test'
 const appSource = fs.readFileSync(new URL('../../src/app.js', import.meta.url), 'utf8')
 
 function functionSource(name, nextName) {
-  const start = appSource.indexOf(`function ${name}(`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const start = indexOfFunction(appSource, name)
+  const end = indexOfFunction(appSource, nextName, start)
   assert.notEqual(start, -1, `Missing function ${name}`)
   assert.notEqual(end, -1, `Missing function ${nextName}`)
   return appSource.slice(start, end)
@@ -32,7 +33,7 @@ test('Removed previews enter an explicit non-study player mode', () => {
 
   const openSource = functionSource('openVideoPlayer', 'positionVideoShelfPlayerOverlay')
   assert.match(openSource, /isVideoRemovedFromFeed\(existingVideo\)/)
-  assert.match(openSource, /!isRemovedPreview && !wasWatched && !markVideoInProgressOnOpen/)
+  assert.match(openSource, /!isRemovedPreview && !wasWatched && !await markVideoInProgressOnOpen/)
   assert.match(openSource, /mode,/)
   assert.match(openSource, /analyticsSurface: isRemovedPreview \? 'removed_section' : 'channel_shelf'/)
   assert.match(openSource, /study_credit_eligible: false/)

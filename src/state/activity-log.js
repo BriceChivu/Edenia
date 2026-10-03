@@ -1,7 +1,9 @@
+import { budgetRecentEntries } from './storage-budget.js'
 import { isValidTimestamp } from '../core/date-keys.js'
 import { t } from '../i18n/runtime.js'
 
 export const ACTIVITY_LOG_LIMIT = 500
+export const ACTIVITY_LOG_BYTE_LIMIT = 128 * 1024
 export const ACTIVITY_LOG_DEDUPE_WINDOW_MS = 30 * 60_000
 
 export function makeActivityLogId() {
@@ -34,8 +36,9 @@ export function normalizeActivityLogState(state) {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, ACTIVITY_LOG_LIMIT)
 
-  const changed = !Array.isArray(state.activityLog) || JSON.stringify(state.activityLog) !== JSON.stringify(normalized)
-  state.activityLog = normalized
+  const bounded = budgetRecentEntries(normalized, { maxBytes: ACTIVITY_LOG_BYTE_LIMIT })
+  const changed = !Array.isArray(state.activityLog) || JSON.stringify(state.activityLog) !== JSON.stringify(bounded)
+  state.activityLog = bounded
   return changed
 }
 
@@ -72,5 +75,6 @@ export function appendActivityLog(state, entry = {}) {
   if (state.activityLog.length > ACTIVITY_LOG_LIMIT) {
     state.activityLog.splice(ACTIVITY_LOG_LIMIT)
   }
+  state.activityLog = budgetRecentEntries(state.activityLog, { maxBytes: ACTIVITY_LOG_BYTE_LIMIT })
   return nextEntry
 }

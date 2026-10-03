@@ -522,8 +522,8 @@ test('locale radio changes have no generic click event while trigger clicks are 
 
   const introChangeSource = getFunctionSource('changeIntroLocale')
   const onboardingChangeSource = getFunctionSource('changeOnboardingLocale')
-  assert.match(introChangeSource, /^function changeIntroLocale\(locale\)/)
-  assert.match(onboardingChangeSource, /^function changeOnboardingLocale\(locale\)/)
+  assert.match(introChangeSource, /^(?:async )?function changeIntroLocale\(locale\)/)
+  assert.match(onboardingChangeSource, /^(?:async )?function changeOnboardingLocale\(locale\)/)
   assert.doesNotMatch(introChangeSource, /\.stopPropagation\(/)
   assert.doesNotMatch(onboardingChangeSource, /\.stopPropagation\(/)
 })

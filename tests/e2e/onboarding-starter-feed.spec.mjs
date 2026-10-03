@@ -7,7 +7,8 @@ const youtubeFixtures = {
   videos: JSON.parse(await readFile(new URL('../fixtures/youtube/videos.json', import.meta.url), 'utf8'))
 }
 
-test('onboarding enters Edenia before preparing and incrementally revealing the starter feed', async ({ page }, testInfo) => {
+for (const indexedDbProfileEnabled of [false, true]) {
+test(`onboarding enters Edenia before incrementally revealing the starter feed (${indexedDbProfileEnabled ? 'IndexedDB' : 'legacy'})`, async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
 
   await page.route('**/config.local.js', route => route.fulfill({
@@ -17,6 +18,7 @@ test('onboarding enters Edenia before preparing and incrementally revealing the 
       plusCheckoutEnabled: false,
       videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: true,
+      indexedDbProfileEnabled: ${indexedDbProfileEnabled},
       supabaseUrl: '',
       supabasePublishableKey: ''
     }`,
@@ -158,7 +160,7 @@ test('onboarding enters Edenia before preparing and incrementally revealing the 
     'Fixture Language Channel 4',
     'Fixture Language Channel 5'
   ])
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')))
+  const stored = await page.evaluate(() => window.loadState())
   expect(stored.onboarding.starterFeed.status).toBe('complete')
   expect(stored.onboarding.starterFeed.processedCatalogIds).toHaveLength(5)
   expect(stored.config.channels).toHaveLength(5)
@@ -171,3 +173,4 @@ test('onboarding enters Edenia before preparing and incrementally revealing the 
   ])
   expect(stored.videos[getVideoId(1)].title).toBe('Fixture Study Video 1')
 })
+}

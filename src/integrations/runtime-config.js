@@ -114,3 +114,9 @@ export function hasSupabaseRuntimeConfig(target = window) {
     getSupabaseUrl(target) && getSupabasePublishableKey(target)
   )
 }
+
+// Opt in locally; an opening marker keeps migrated browsers on their durable
+// store even when the deployment flag is later disabled.
+export function getIndexedDbProfileEnabled(target = window) {
+  return publicConfig(target).indexedDbProfileEnabled === true
+}

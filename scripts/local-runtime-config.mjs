@@ -73,6 +73,7 @@ export function normalizeLocalRuntimeConfig(value) {
     videoOrganizationEnabled: true,
     channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: value?.studyGuidanceEnabled === true,
+    indexedDbProfileEnabled: value?.indexedDbProfileEnabled === true,
     indexedDbBackupsEnabled: value?.indexedDbBackupsEnabled === true,
     indexedDbBackupCleanupEnabled:
       value?.indexedDbBackupCleanupEnabled === true,

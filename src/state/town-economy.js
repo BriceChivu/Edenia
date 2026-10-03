@@ -1,3 +1,4 @@
+import { mapPersistenceResult } from './persistence-result.js'
 import { normalizeVideoWatchProgress } from '../domain/video-watch-progress.js'
 
 // Portable learner-owned records. Presentation never awards coins.
@@ -106,7 +107,11 @@ export function purchaseFirstFlower(state, persist) {
     purchases: { ...previous.purchases, [FIRST_FLOWER_ID]: FIRST_FLOWER_COST }
   }
   try {
-    if (persist(state)) return 'purchased'
+    return mapPersistenceResult(persist(state), persisted => {
+      if (persisted) return 'purchased'
+      state.townEconomy = previous
+      return 'save-failed'
+    })
   } catch {}
   state.townEconomy = previous
   return 'save-failed'

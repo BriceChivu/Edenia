@@ -1,3 +1,5 @@
+import { storageBytes } from '../state/storage-budget.js'
+
 const DAY = 86_400_000
 export function isYoutubeMetadataFresh(record, now = Date.now()) {
   const age = now - Date.parse(record?.metadataFetchedAt)
@@ -10,7 +12,9 @@ export function isYoutubeMetadataFresh(record, now = Date.now()) {
 export function clearYoutubeVideoMetadata(video) {
   Object.assign(video, {
     title: '', thumbnail: '', channelTitle: '', channelImageUrl: '', publishedAt: null,
-    duration: 0, aspectRatio: null, isShort: false, shortsCheckedAt: null,
+    // Duration can be the source of older watched Study facts.
+    duration: video.status === 'watched' || video.status === 'partial' || video.watchProgress?.length
+      ? video.duration : 0, shortsCheckedAt: null,
     shortsDetectionVersion: null, metadataUnavailable: true
   })
 }
@@ -53,7 +57,7 @@ export async function refreshSavedYoutubeMetadata({
   }
   if (!reload()) return false
   const changed = expireYoutubeMetadata(state, now)
-  if (changed && onChange(state) === false) return false
+  if (changed && await onChange(state) === false) return false
   if (now - Date.parse(state.youtubeMetadataFailedAt) < 30 * 60_000) return changed
   const visible = new Set(priorityIds)
   const priority = video => visible.has(video.id) ? 0
@@ -89,7 +93,7 @@ export async function refreshSavedYoutubeMetadata({
         if (detail) Object.assign(video, detail)
         video.metadataFetchedAt = detail?.metadataFetchedAt || new Date(now).toISOString()
       })
-      if (onChange(state) === false) return false
+      if (await onChange(state) === false) return false
       outcome.videos += batch.length
     }
     phase = 'channels'
@@ -108,7 +112,7 @@ export async function refreshSavedYoutubeMetadata({
           video.channelMetadataFetchedAt = channel.metadataFetchedAt
         })
       })
-      if (onChange(state) === false) return false
+      if (await onChange(state) === false) return false
       outcome.channels += batch.length
     }
     state.youtubeMetadataFailedAt = null
@@ -119,7 +123,7 @@ export async function refreshSavedYoutubeMetadata({
       outcome.status = 'partial'
       outcome.deferred = true
       onOutcome(state, outcome)
-      return onChange(state) !== false
+      return await onChange(state) !== false
     }
     if (error?.kind !== 'daily-quota') expireYoutubeMetadata(state, now, true)
     state.youtubeMetadataFailedAt = error?.kind === 'daily-quota' ? null : new Date(now).toISOString()
@@ -131,5 +135,31 @@ export async function refreshSavedYoutubeMetadata({
   }
   if (!isCurrent()) return false
   onOutcome(state, outcome)
-  return onChange(state) !== false
+  return await onChange(state) !== false
+}
+
+export const YOUTUBE_METADATA_BYTE_LIMIT = 2 * 1024 * 1024
+const VIDEO_METADATA_FIELDS = [
+  'title', 'thumbnail', 'channelTitle', 'channelImageUrl', 'publishedAt',
+  'shortsCheckedAt', 'shortsDetectionVersion'
+]
+
+export function budgetYoutubeMetadata(state, maxBytes = YOUTUBE_METADATA_BYTE_LIMIT) {
+  const candidates = Object.values(state?.videos || {}).map(video => ({
+    video,
+    bytes: storageBytes(Object.fromEntries(VIDEO_METADATA_FIELDS
+      .filter(key => video[key] !== undefined).map(key => [key, video[key]]))) - 4
+  })).sort((a, b) => (Date.parse(a.video.metadataFetchedAt) || 0) - (Date.parse(b.video.metadataFetchedAt) || 0))
+  let bytes = candidates.reduce((total, entry) => total + entry.bytes, 0)
+  if (bytes <= maxBytes) return false
+  let changed = false
+  for (const { video, bytes: previousBytes } of candidates) {
+    if (bytes <= maxBytes * 0.75) break
+    VIDEO_METADATA_FIELDS.forEach(key => { delete video[key] })
+    // Expired entries must remain fetchable, while learner-owned fields survive.
+    delete video.metadataFetchedAt
+    bytes -= previousBytes
+    changed = true
+  }
+  return changed
 }

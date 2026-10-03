@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -41,7 +42,7 @@ function getElements(source, tagName) {
 
 function getRenderSource(name, nextName) {
   const start = appSource.indexOf(`function ${name}(content) {`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const end = indexOfFunction(appSource, nextName, start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   return appSource.slice(start, end)
@@ -73,10 +74,7 @@ const channelsSource = getRenderSource(
 const profileFinalStart = appSource.indexOf(
   'function renderOnboardingProfileFinalAction() {'
 )
-const profileFinalEnd = appSource.indexOf(
-  '\nfunction renderOnboardingAccountStep(',
-  profileFinalStart
-)
+const profileFinalEnd = indexOfFunction(appSource, 'renderOnboardingAccountStep', profileFinalStart)
 assert.notEqual(profileFinalStart, -1)
 assert.notEqual(profileFinalEnd, -1)
 const profileFinalSource = appSource.slice(profileFinalStart, profileFinalEnd)
@@ -183,10 +181,7 @@ test('central renderer binds finish after every replacement branch', () => {
   const start = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
-  const end = appSource.indexOf(
-    '\nfunction renderOnboardingHeading(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'renderOnboardingHeading', start)
   const source = appSource.slice(start, end)
   const bindingIndex = source.indexOf(
     'bindPersonalizedOnboardingActions(content, {'
@@ -206,14 +201,11 @@ test('central renderer binds finish after every replacement branch', () => {
   )
 })
 
-test('enabled original button reaches generic analytics before immediate completion', () => {
+test('enabled original button reaches generic analytics before durable completion', () => {
   const start = appSource.indexOf(
     'async function finishPersonalizedOnboarding() {'
   )
-  const end = appSource.indexOf(
-    '\nfunction getPostOnboardingAppUrl(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'getPostOnboardingAppUrl', start)
   const source = appSource.slice(start, end)
   const busyIndex = source.indexOf(
     'personalizedOnboardingState.isApplyingChannels = true'
@@ -224,7 +216,7 @@ test('enabled original button reaches generic analytics before immediate complet
   )
   assert.notEqual(busyIndex, -1)
   assert.ok(replacementIndex > busyIndex)
-  assert.doesNotMatch(source, /\bawait\b/)
+  assert.ok(source.indexOf('await saveState(state)') > source.indexOf('renderPersonalizedOnboarding()'))
   assert.doesNotMatch(source, /\bbutton\.disabled/)
 
   assert.match(
@@ -256,14 +248,11 @@ test('busy replacement is disabled and displays Building before async work', () 
   )
 })
 
-test('finish queues starter work, persists completion, and redirects without awaiting it', () => {
+test('finish queues starter work, persists completion, and awaits persistence before redirecting', () => {
   const start = appSource.indexOf(
     'async function finishPersonalizedOnboarding() {'
   )
-  const end = appSource.indexOf(
-    '\nfunction getPostOnboardingAppUrl(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'getPostOnboardingAppUrl', start)
   const source = appSource.slice(start, end)
 
   const orderedMarkers = [
@@ -277,7 +266,7 @@ test('finish queues starter work, persists completion, and redirects without awa
     'state.onboarding.starterFeed = createPendingStarterFeed(',
     "appendActivityLog(state, {",
     'const persisted = EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED',
-    ': saveState(state)',
+    ': await saveState(state)',
     'if (!persisted) {',
     "trackEdeniaEvent('onboarding_completed', {",
     'stopIntroMusic({ fadeDuration: 7.5 })',
@@ -289,17 +278,14 @@ test('finish queues starter work, persists completion, and redirects without awa
     assert.ok(index > previousIndex, `Expected ordered marker: ${marker}`)
     previousIndex = index
   }
-  assert.doesNotMatch(source, /resolveStarterChannelSelections|refreshFeed\(|\bawait\b/)
+  assert.doesNotMatch(source, /resolveStarterChannelSelections|refreshFeed\(/)
 })
 
 test('finish preserves storage recovery and queued analytics metadata', () => {
   const start = appSource.indexOf(
     'async function finishPersonalizedOnboarding() {'
   )
-  const end = appSource.indexOf(
-    '\nfunction getPostOnboardingAppUrl(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'getPostOnboardingAppUrl', start)
   const source = appSource.slice(start, end)
 
   assert.equal(

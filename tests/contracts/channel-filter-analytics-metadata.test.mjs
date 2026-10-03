@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -39,7 +40,7 @@ function getFunctionSource(name, nextName) {
     `(?:async\\s+)?function\\s+${name}\\s*\\(`
   ).exec(appSource)
   assert.ok(declaration, `Expected ${name}`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, declaration.index)
+  const end = indexOfFunction(appSource, nextName, declaration.index)
   assert.notEqual(end, -1, `Expected boundary after ${name}`)
   return appSource.slice(declaration.index, end)
 }

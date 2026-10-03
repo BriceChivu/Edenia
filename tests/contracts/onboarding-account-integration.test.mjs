@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -34,11 +35,11 @@ test('Account onboarding reuses same-device email auth and preserves its draft',
   )
   assert.match(
     appSource,
-    /function persistOnboardingAccountDraft\(\) \{\s*return persistPersonalizedOnboardingDraft\(\{\s*markAccountStepReached: true\s*\}\)\s*\}/
+    /function persistOnboardingAccountDraft\(\) \{\s*return await persistPersonalizedOnboardingDraft\(\{\s*markAccountStepReached: true\s*\}\)\s*\}/
   )
   assert.match(
     appSource,
-    /if \(markAccountStepReached\) state\.onboarding\.accountStepReachedAt = now\s*if \(saveOnboardingWorkingState\(state\)\)/
+    /if \(markAccountStepReached\) state\.onboarding\.accountStepReachedAt = now\s*if \(await saveOnboardingWorkingState\(state\)\)/
   )
   assert.match(
     appSource,
@@ -123,7 +124,7 @@ function createTurnstileControlsHarness({
       throw new Error(`Unexpected selector: ${selector}`)
     }
   }
-  const start = appSource.indexOf('function getTurnstileStatusView(')
+  const start = indexOfFunction(appSource, 'getTurnstileStatusView')
   const end = appSource.indexOf('\nconst ACCOUNT_EXPORT_FEEDBACK_VIEWS', start)
   assert.ok(start > 0 && end > start)
   const controls = new Function(
@@ -206,7 +207,7 @@ function createEmailRequestHarness({ configured, controller = null, requestFails
     onStateChange() {}, schedule() {}
   })
   const start = appSource.indexOf('async function requestAccountEmailCode(')
-  const end = appSource.indexOf('\nfunction requestOnboardingAccountEmailCode(', start)
+  const end = indexOfFunction(appSource, 'requestOnboardingAccountEmailCode', start)
   assert.ok(start > 0 && end > start)
   const request = new Function(
     'TURNSTILE_READY', 'turnstileController', 'accountAuthController', 'getCurrentLocale',

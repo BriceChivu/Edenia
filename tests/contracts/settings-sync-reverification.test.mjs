@@ -122,6 +122,7 @@ function createHarness({ delayedVerification = false, delayedImport = false } = 
     LOCAL_BACKUPS_ENABLED: false,
     STORAGE_KEY: 'test-state',
     localStorage: { getItem: () => null },
+    primaryStorage: { getItem: () => null },
     appendActivityLog() {},
     syncStreak() {},
     saveImportedState: () => ({ persisted: true }),

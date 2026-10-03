@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -34,7 +35,7 @@ function getFunctionSource(name, nextName) {
     `(?:async\\s+)?function\\s+${name}\\s*\\(`
   ).exec(appSource)
   assert.ok(declaration, `Expected ${name}`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, declaration.index)
+  const end = indexOfFunction(appSource, nextName, declaration.index)
   assert.notEqual(end, -1, `Expected boundary after ${name}`)
   return appSource.slice(declaration.index, end)
 }
@@ -321,7 +322,7 @@ test('language and level selection retain reset and replacement behavior', () =>
   )
   assert.match(
     languageSource,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !await persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
 
   const continueSource = getFunctionSource(
@@ -344,7 +345,7 @@ test('language and level selection retain reset and replacement behavior', () =>
   )
   assert.match(
     levelSource,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !await persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
 })
 
@@ -387,7 +388,7 @@ test('channel toggling retains guards, limit feedback, and live visual state', (
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\][\s\S]*?control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !await persistPersonalizedOnboardingDraft\(\)\s*\) return\s*const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\][\s\S]*?control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
   )
   assert.doesNotMatch(source, /renderPersonalizedOnboarding\(\)/)
 })
@@ -410,7 +411,7 @@ test('finish retains synchronous busy replacement and performs no awaited work',
   )
   assert.notEqual(busyIndex, -1)
   assert.ok(renderIndex > busyIndex)
-  assert.doesNotMatch(source, /\bawait\b/)
+  assert.ok(source.indexOf('await saveState(state)') > source.indexOf('renderPersonalizedOnboarding()'))
   assert.doesNotMatch(source, /\.preventDefault\(|\.stopPropagation\(/)
   assert.doesNotMatch(source, /\bbutton\.disabled/)
 })

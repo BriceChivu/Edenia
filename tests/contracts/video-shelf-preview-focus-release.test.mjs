@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -5,8 +6,8 @@ import test from 'node:test'
 const appSource = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
 
 function getFunctionSource(name, nextName) {
-  const start = appSource.indexOf(`function ${name}(`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const start = indexOfFunction(appSource, name)
+  const end = indexOfFunction(appSource, nextName, start)
   assert.notEqual(start, -1, `Expected ${name}() in src/app.js`)
   assert.notEqual(end, -1, `Expected ${nextName}() after ${name}()`)
   return appSource.slice(start, end)
@@ -61,7 +62,7 @@ test('pending Next Study focus ignores competing shelf hover previews', () => {
 test('opening the focused video player completes the Next Study focus lifecycle', () => {
   const source = getFunctionSource('openVideoShelfPlayer', 'openVideoPlayer')
   const clearIndex = source.indexOf('clearFocusedVideoPreview(videoId)')
-  const openIndex = source.indexOf('return openVideoPlayer(videoId)')
+  const openIndex = source.indexOf('return await openVideoPlayer(videoId)')
 
   assert.ok(clearIndex >= 0)
   assert.ok(openIndex > clearIndex)
