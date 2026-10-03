@@ -946,6 +946,7 @@ export const EN_CORE = {
   'toast.backupUnavailable': 'That backup is not available anymore',
   'toast.backupCreateFailed': 'Could not create a verified rollback backup. Your existing progress was not changed.',
   'toast.progressSaveFailed': 'Could not save this change. Your existing progress was not changed.',
+  'toast.channelSaveFailed': 'Could not save this channel change. Your progress is unchanged. Export a sync file from Settings before any storage cleanup.',
   'toast.startOverFailed': 'Could not start over. Your existing progress was not changed.',
   'toast.startOverUndoFailed': 'Could not restore your previous progress. Your current profile and protected progress were not changed.',
   'toast.backupRestored': 'Backup restored',

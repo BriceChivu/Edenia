@@ -1049,6 +1049,7 @@ export const ZH_HANT_LOCALIZED = {
   'toast.backupUnavailable': '找不到這個備份',
   'toast.backupCreateFailed': '無法建立並驗證復原備份。你目前的進度沒有變更。',
   'toast.progressSaveFailed': '無法儲存這項變更。你目前的進度沒有變更。',
+  'toast.channelSaveFailed': '無法儲存這項頻道變更。你的進度沒有改變。清理儲存空間之前，請先在設定中匯出同步檔案。',
   'toast.startOverFailed': '無法重新開始。你目前的進度沒有變更。',
   'toast.startOverUndoFailed': '無法恢復先前的進度。你目前的檔案和受保護的進度都沒有變更。',
   'toast.backupRestored': '備份已還原',

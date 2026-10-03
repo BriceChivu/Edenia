@@ -220,9 +220,9 @@ test('save options preserve backup and analytics suppression independently', () 
   )
 })
 
-test('failed writes prune once, retry once, and always save the config cookie', () => {
+test('quota failures prune once and retry, but failed saves do not change the config cookie', () => {
   const state = { config: { locale: 'en' } }
-  const retry = createHarness({ failPrimaryWrites: 1 })
+  const retry = createHarness({ primaryWriteErrors: [quotaError()] })
   assert.equal(retry.store.saveState(state), true)
   assert.deepEqual(
     retry.events.map(event => event[0]),
@@ -237,7 +237,7 @@ test('failed writes prune once, retry once, and always save the config cookie', 
     ]
   )
 
-  const failed = createHarness({ failPrimaryWrites: 2 })
+  const failed = createHarness({ primaryWriteErrors: [quotaError(), quotaError()] })
   assert.equal(failed.store.saveState(state), false)
   assert.deepEqual(
     failed.events.map(event => event[0]),
@@ -246,10 +246,25 @@ test('failed writes prune once, retry once, and always save the config cookie', 
       'backup',
       'set',
       'prune',
-      'set',
-      'cookie'
+      'set'
     ]
   )
+})
+
+test('channel transactions can preserve every backup on a quota failure', () => {
+  const previous = JSON.stringify({ config: { channels: ['existing'] } })
+  const harness = createHarness({ raw: previous, primaryWriteErrors: [quotaError()] })
+  assert.equal(harness.store.saveState({ config: { channels: [] } }, {
+    backup: false, pruneBackups: false
+  }), false)
+  assert.equal(harness.values.get('edenia_v1'), previous)
+  assert.deepEqual(harness.events.map(event => event[0]), ['normalize-before-save', 'set'])
+})
+
+test('non-quota save failures leave backups, cookies and analytics unchanged', () => {
+  const harness = createHarness({ failPrimaryWrites: 1 })
+  assert.equal(harness.store.saveState({ config: {} }, { backup: false }), false)
+  assert.deepEqual(harness.events.map(event => event[0]), ['normalize-before-save', 'set'])
 })
 
 test('import saving prunes older backups until a quota retry succeeds', () => {

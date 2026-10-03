@@ -1049,6 +1049,7 @@ export const ES_LOCALIZED = {
   'toast.backupUnavailable': 'Esta copia ya no está disponible',
   'toast.backupCreateFailed': 'No se pudo crear una copia de restauración verificada. Tu progreso actual no se modificó.',
   'toast.progressSaveFailed': 'No se pudo guardar este cambio. Tu progreso actual no se modificó.',
+  'toast.channelSaveFailed': 'No se pudo guardar este cambio de canal. Tu progreso no ha cambiado. Exporta un archivo de sincronización desde Ajustes antes de limpiar el almacenamiento.',
   'toast.startOverFailed': 'No se pudo empezar de nuevo. Tu progreso actual no se modificó.',
   'toast.startOverUndoFailed': 'No se pudo restaurar tu progreso anterior. Tu perfil actual y el progreso protegido no se modificaron.',
   'toast.backupRestored': 'Copia restaurada',

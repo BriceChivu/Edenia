@@ -50,7 +50,8 @@ export function createStateStore({
       backup = true,
       backupReason = 'automatic backup',
       forceBackup = false,
-      syncAnalytics = true
+      syncAnalytics = true,
+      pruneBackups = true
     } = options
     normalizeStateBeforeSave(state)
     if (!canPersist()) return false
@@ -61,16 +62,17 @@ export function createStateStore({
     try {
       storage.setItem(storageKey, serializedState)
       persisted = true
-    } catch {
+    } catch (error) {
       if (!canPersist()) return false
-      pruneOldestStateBackup()
-      if (!canPersist()) return false
-      try {
-        storage.setItem(storageKey, serializedState)
-        persisted = true
-      } catch {}
+      if (pruneBackups && isStorageQuotaError(error) && pruneOldestStateBackup()) {
+        if (!canPersist()) return false
+        try {
+          storage.setItem(storageKey, serializedState)
+          persisted = true
+        } catch {}
+      }
     }
-    saveConfigCookie(state.config)
+    if (persisted) saveConfigCookie(state.config)
     if (persisted && syncAnalytics) syncPersistedStateToAnalytics(state)
     return persisted
   }

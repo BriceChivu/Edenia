@@ -61,7 +61,7 @@ function createRefreshHarness() {
     t: key => key
   })
   vm.runInContext([
-    sourceBetween('function loadState()', '\nconst persistedPortableProfileSnapshots'),
+    sourceBetween('function loadState(', '\nconst persistedPortableProfileSnapshots'),
     sourceBetween('function getChannelRefreshes(', '\nfunction dedupeVideos(')
   ].join('\n'), context)
   // Observe the promises the real event handlers intentionally do not return.
