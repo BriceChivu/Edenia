@@ -902,6 +902,9 @@ const stateStore = createStateStore({
   storage: localStorage,
   getRepository: () => primaryProfileRepository,
   storageKey: STORAGE_KEY,
+  // Search results are refetchable. Daily usage, recovery copies, profile
+  // drafts and unrecognized storage keys must survive quota recovery.
+  discardableCacheKeys: [YOUTUBE_CHANNEL_SEARCH_CACHE_KEY],
   normalizeLoadedState,
   normalizeStateBeforeSave,
   createStateBackup,
@@ -8190,7 +8193,6 @@ async function persistChannelAction(state, checkpoint) {
   for (const id of Object.keys(state.videos)) {
     if (!checkpoint.videoIds.has(id)) delete state.videos[id]
   }
-  showToast(t('toast.channelSaveFailed'), 'error', { durationMs: 10000 })
   return false
 }
 

@@ -4,6 +4,7 @@ export function createStateStore({
   storage,
   getRepository = () => null,
   storageKey,
+  discardableCacheKeys = [],
   normalizeLoadedState,
   normalizeStateBeforeSave,
   createStateBackup,
@@ -14,6 +15,19 @@ export function createStateStore({
   loadConfigCookie,
   createDefaultStateFromConfig
 }) {
+  function discardReplaceableCaches(canPersist) {
+    let reclaimed = false
+    for (const key of discardableCacheKeys) {
+      if (key === storageKey || !canPersist()) continue
+      try {
+        if (storage.getItem(key) === null || !canPersist()) continue
+        storage.removeItem(key)
+        if (storage.getItem(key) === null) reclaimed = true
+      } catch {}
+    }
+    return reclaimed
+  }
+
   function saveImportedState(state, {
     preserveBackupId = null,
     syncAnalytics = true
@@ -42,11 +56,9 @@ export function createStateStore({
         break
       } catch (error) {
         persistenceError = error
-        if (
-          !canPersist()
-          || !isStorageQuotaError(error)
-          || !pruneOldestStateBackup({ preserveId: preserveBackupId })
-        ) break
+        if (!canPersist() || !isStorageQuotaError(error)) break
+        if (discardReplaceableCaches(canPersist)) continue
+        if (!pruneOldestStateBackup({ preserveId: preserveBackupId })) break
       }
     }
 
@@ -87,7 +99,17 @@ export function createStateStore({
       persisted = true
     } catch (error) {
       if (!canPersist()) return false
-      if (pruneBackups && isStorageQuotaError(error) && pruneOldestStateBackup()) {
+      if (!isStorageQuotaError(error)) return false
+      if (discardReplaceableCaches(canPersist)) {
+        if (!canPersist()) return false
+        try {
+          storage.setItem(storageKey, serializedState)
+          persisted = true
+        } catch (retryError) {
+          if (!isStorageQuotaError(retryError)) return false
+        }
+      }
+      if (!persisted && pruneBackups && canPersist() && pruneOldestStateBackup()) {
         if (!canPersist()) return false
         try {
           storage.setItem(storageKey, serializedState)
