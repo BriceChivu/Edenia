@@ -1,3 +1,8 @@
+import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
+import { mapPersistenceResult } from './state/persistence-result.js'
+import { budgetObjectCache } from './state/storage-budget.js'
+import { budgetUndoState } from './state/action-history.js'
+import { budgetYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
 import {
   initializeTownEconomy,
   recordTownRewards,
@@ -140,6 +145,7 @@ import {
   getGoogleIdentityClientId,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
+  getIndexedDbProfileEnabled,
   getLegacyProgressMigrationEnabled,
   getLearnerProfileLifecycleEnabled,
   getPlusCheckoutEnabled,
@@ -621,9 +627,10 @@ const GOOGLE_IDENTITY_SERVICES_READY =
 const TURNSTILE_SITE_KEY = getTurnstileSiteKey()
 const TURNSTILE_READY = hasTurnstileRuntimeConfig()
 const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX
-const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled()
+const INDEXED_DB_PROFILE_ENABLED = getIndexedDbProfileEnabled()
+const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled() || INDEXED_DB_PROFILE_ENABLED
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
-  INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled()
+  INDEXED_DB_PROFILE_ENABLED || (INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled())
 const LEGACY_PROGRESS_MIGRATION_ENABLED =
   getLegacyProgressMigrationEnabled()
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
@@ -717,7 +724,18 @@ const STATE_BACKUP_DATABASE = IS_INTERNAL_TEST
   : STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
   `${STATE_BACKUP_KEY}_indexed_db_v1`
+let primaryProfileRepository = null
+let primaryProfileStorageUnavailable = false
+const primaryStorage = {
+  getItem(key) {
+    return key === STORAGE_KEY && primaryProfileRepository
+      ? primaryProfileRepository.readRaw() : localStorage.getItem(key)
+  },
+  setItem: (key, value) => localStorage.setItem(key, value),
+  removeItem: key => localStorage.removeItem(key)
+}
 const stateBackupStoreOptions = {
+  readPrimary: () => primaryStorage.getItem(STORAGE_KEY),
   storageKey: STORAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
   isSandbox: IS_SANDBOX,
@@ -808,7 +826,7 @@ async function initializeStateBackupStorage() {
           return false
         }
       },
-      cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED,
+      cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED || hasIndexedDbBackups,
       databaseName: STATE_BACKUP_DATABASE,
       indexedDb: window.indexedDB,
       isValidEntry: entry => isValidStateBackupEntry(
@@ -830,6 +848,14 @@ async function initializeStateBackupStorage() {
   } catch (error) {
     console.warn('Edenia IndexedDB backup initialization failed.', error)
     backupRecoveryUnavailable = hasIndexedDbBackups
+    if (hasIndexedDbBackups) {
+      // The durable bank can hold newer protected copies. Keep ordinary
+      // primary operations available, but never recreate a legacy bank or
+      // claim a verified rollback backup while its repository is unavailable.
+      stateBackupStore = createDisabledStateBackupStore()
+      backupStorageSharesPrimaryQuota = false
+      flushStateBackupWrites = async () => ({ entries: [], error, persisted: false })
+    }
   }
 }
 
@@ -874,6 +900,7 @@ async function createVerifiedStateBackupFromState(
 }
 const stateStore = createStateStore({
   storage: localStorage,
+  getRepository: () => primaryProfileRepository,
   storageKey: STORAGE_KEY,
   // Search results are refetchable. Daily usage, recovery copies, profile
   // drafts and unrecognized storage keys must survive quota recovery.
@@ -1020,6 +1047,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     eventTarget: window,
     hasProfile: hasPersistedLearnerProfile,
     loadProfile: () => loadPersistedState({ persistCleanup: false }),
+    inheritProfileRevision: (state, source) => primaryProfileRepository?.inheritRevision(state, source),
     replaceProfile: saveImportedPersistedState,
     saveProfile: savePersistedState,
     storage: localStorage
@@ -1087,6 +1115,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     if (
       state?.status === 'up-to-date'
       && learnerProfileOpeningCompletionToastPending
+      && document.getElementById('mainApp')?.classList.contains('hidden') === false
     ) {
       learnerProfileOpeningCompletionToastPending = false
       showToast(t('progressSync.upToDate'))
@@ -1141,10 +1170,10 @@ function refreshTownEconomy(s) {
   }
   if (townEconomyProfile !== s) {
     townEconomyProfile = s
-    town.buildFlower = () => {
+    town.buildFlower = async () => {
       if (townEconomyProfile !== s || !isCurrentLearnerProfileOperation(s)) return 'unavailable'
       const active = loadState()
-      const result = purchaseFirstFlower(active, value => saveState(value))
+      const result = await purchaseFirstFlower(active, async value => await saveState(value))
       if (active) renderCity(getCurrentCityScore(active), active)
       return result
     }
@@ -1173,34 +1202,53 @@ function saveImportedState(state, options = {}) {
   const result = learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
     : saveImportedPersistedState(state, options)
-  if (result?.persisted) channelHistoryProfileEpoch += 1
-  return result
+  return mapPersistenceResult(result, saved => {
+    if (saved?.persisted) channelHistoryProfileEpoch += 1
+    return saved
+  })
 }
 
 function saveState(state, options = {}) {
-  if (INTERNAL_PROFILE_PAUSED) return false
-  if (!learnerProfileLifecycleAuthority) {
+  if (INTERNAL_PROFILE_PAUSED || primaryProfileStorageUnavailable) return false
+  const complete = persisted => {
+    if (persisted) {
+      rememberPersistedPortableProfile(state)
+      refreshTownEconomy(state)
+      return true
+    }
+    const saved = loadPersistedState({ persistCleanup: false })
+    if (saved && state && isCurrentLearnerProfileOperation(state)) {
+      for (const key of Object.keys(state)) delete state[key]
+      Object.defineProperties(state, Object.getOwnPropertyDescriptors(saved))
+      primaryProfileRepository?.adoptSnapshot(state)
+      if (applicationStarted) {
+        applyLocale(state.config.locale)
+        applyTheme(state.config.theme)
+        const ankiControl = document.getElementById('settingsAnkiEnabled')
+        if (ankiControl) ankiControl.checked = isAnkiEnabled(state)
+        if (primaryProfileRepository) {
+          renderFeed(state)
+          renderUndoButton(state)
+        }
+      }
+    }
+    if (applicationStarted) showToast(t('toast.progressSaveFailed'), 'error')
+    return false
+  }
+  try {
     if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
-    const persisted = savePersistedState(state, options)
-    if (persisted) refreshTownEconomy(state)
-    return persisted
+    const portableSnapshot = getPortableProfileSnapshot(state)
+    const persistenceOptions = options.syncCloud === undefined
+        && portableSnapshot !== null
+        && persistedPortableProfileSnapshots.get(state) === portableSnapshot
+      ? { ...options, syncCloud: false } : options
+    const result = learnerProfileLifecycleAuthority
+      ? learnerProfileLifecycleAuthority.saveActiveProfile(state, persistenceOptions)
+      : savePersistedState(state, options)
+    return mapPersistenceResult(result, complete)
+  } catch {
+    return complete(false)
   }
-  if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
-  const portableSnapshot = getPortableProfileSnapshot(state)
-  const persistenceOptions = options.syncCloud === undefined
-      && portableSnapshot !== null
-      && persistedPortableProfileSnapshots.get(state) === portableSnapshot
-    ? { ...options, syncCloud: false }
-    : options
-  const persisted = learnerProfileLifecycleAuthority.saveActiveProfile(
-    state,
-    persistenceOptions
-  )
-  if (persisted && portableSnapshot !== null) {
-    persistedPortableProfileSnapshots.set(state, portableSnapshot)
-  }
-  if (persisted) refreshTownEconomy(state)
-  return persisted
 }
 
 function isCurrentLearnerProfileOperation(state) {
@@ -1210,7 +1258,7 @@ function isCurrentLearnerProfileOperation(state) {
 
 function hasPersistedLearnerProfile() {
   try {
-    return localStorage.getItem(STORAGE_KEY) !== null
+    return primaryStorage.getItem(STORAGE_KEY) !== null
   } catch {
     return false
   }
@@ -1241,11 +1289,11 @@ function loadOnboardingWorkingState() {
   return loadState()
 }
 
-function saveOnboardingWorkingState(state, options = {}) {
+async function saveOnboardingWorkingState(state, options = {}) {
   if (shouldUseOnboardingProfileDraft()) {
     return onboardingProfileDraftStore.saveWorkingState(state)
   }
-  return saveState(state, options)
+  return await saveState(state, options)
 }
 const legacyProgressMigrationView = createLegacyProgressMigrationView({
   root: document,
@@ -1332,7 +1380,7 @@ const legacyProgressMigrationController =
     relayClient: legacyProgressRelayClient,
     runtimeValid: LEGACY_PROGRESS_RELAY_RUNTIME.valid,
     saveImportedState,
-    storage: localStorage,
+    storage: primaryStorage,
     takeFragment: takeLegacyProgressFragment,
     view: legacyProgressMigrationView
   })
@@ -1966,6 +2014,8 @@ function normalizeLoadedState(state) {
 }
 
 function normalizeStateBeforeSave(state) {
+  budgetUndoState(state)
+  budgetYoutubeMetadata(state)
   normalizeActivityLogState(state)
   normalizeNoAnkiFrequentUserPromptState(state)
   normalizeVideoWatchProgressState(state)
@@ -2460,14 +2510,14 @@ function shouldPromptFrequentUserAboutAnki(state) {
   return !hasRecordedAnkiDataSinceProfileCreation(state)
 }
 
-function completeWalkthrough(state = loadState()) {
+async function completeWalkthrough(state = loadState()) {
   if (!state) return null
   normalizeOnboardingState(state)
   if (!state.onboarding.walkthroughCompleted) {
     state.onboarding.version = ONBOARDING_VERSION
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = new Date().toISOString()
-    saveState(state)
+    if (!await saveState(state)) return false
   }
   synchronizeGoogleIdentityServices()
   return state
@@ -2843,7 +2893,7 @@ function initBackgroundPhysics() {
   }
 }
 
-function startApplicationWithState(initialState, {
+async function startApplicationWithState(initialState, {
   accountAuthInitialized = false,
   deferStarterFeedUntilProfileActivation = false,
   skipUnfinishedOnboarding = false,
@@ -2855,7 +2905,11 @@ function startApplicationWithState(initialState, {
   let state = initialState
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
-    saveState(state)
+    if (!await saveState(state)) {
+      applicationStarted = false
+      showOnboardingRecovery('storage', { state, resume: 'intro' })
+      return false
+    }
   }
   const initialChannelTransition = reconcileTrackedChannelPolicyState(
     state,
@@ -2880,7 +2934,16 @@ function startApplicationWithState(initialState, {
   selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
   setDefaultCityDayOffset(state)
   syncStreak(state)
-  saveState(state)
+  if (!await saveState(state)) {
+    // Opening an existing durable profile must still work when maintenance
+    // writes fail. Render its saved snapshot, without the failed mutation.
+    state = loadState({ persistCleanup: false })
+    if (!state) {
+      applicationStarted = false
+      showOnboardingRecovery('storage')
+      return false
+    }
+  }
   applyTheme(state.config.theme)
   backgroundPhysics = initBackgroundPhysics()
   const unfinishedOnboardingStartsImmediately =
@@ -2995,6 +3058,7 @@ const PUBLIC_ONBOARDING_DOM_SELECTORS = Object.freeze([
 ])
 let parkedLearnerProfileDom = []
 const protectedConflictAnnouncementIds = new Set()
+let learnerProfileAccessRenderEpoch = 0
 
 function parkLearnerProfileDom() {
   const parkedSelectors = new Set(
@@ -3061,7 +3125,8 @@ function trackLearnerProfileOpening(accessState) {
   learnerProfileOpeningFocusHandoffPending = false
 }
 
-function handleLearnerProfileAccessStateChange(accessState) {
+async function handleLearnerProfileAccessStateChange(accessState) {
+  const renderEpoch = ++learnerProfileAccessRenderEpoch
   trackLearnerProfileOpening(accessState)
   if (learnerProfileAccessVisualTestActive) {
     accessState = { status: LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE }
@@ -3155,12 +3220,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     const mainApp = document.getElementById('mainApp')
     mainApp?.removeAttribute('inert')
     if (!applicationStarted) {
-      startApplicationWithState(state, {
+      await startApplicationWithState(state, {
         accountAuthInitialized: true,
         deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId),
         skipUnfinishedOnboarding: hasResetIntent,
         startUnfinishedOnboardingImmediately: Boolean(accessState.ownerId)
       })
+      if (renderEpoch !== learnerProfileAccessRenderEpoch) return
     } else {
       renderActivatedLearnerProfile(state, {
         showMainApplication: !preserveUnfinishedOnboarding
@@ -3171,6 +3237,14 @@ function handleLearnerProfileAccessStateChange(accessState) {
       ) {
         maybeStartOnboarding(state, { startImmediately: true })
       }
+    }
+    if (
+      learnerProfileOpeningCompletionToastPending
+      && learnerProfileSyncViewState?.status === 'up-to-date'
+      && !mainApp?.classList.contains('hidden')
+    ) {
+      learnerProfileOpeningCompletionToastPending = false
+      showToast(t('progressSync.upToDate'))
     }
     if (accessState.protectedConflicts?.length) {
       learnerProfileConflictView.showProtected(
@@ -3335,10 +3409,15 @@ async function init() {
     void stateBackupStorageInitialization.then(init)
     return
   }
+  if (primaryProfileStorageUnavailable) {
+    applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+    showOnboardingRecovery('storage')
+    return
+  }
   if (backupRecoveryUnavailable) {
     let primaryStateIsReadable = false
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw = primaryStorage.getItem(STORAGE_KEY)
       primaryStateIsReadable = Boolean(
         raw && isValidStateShape(JSON.parse(raw))
       )
@@ -3613,15 +3692,13 @@ function initIntroTrailerTouchNavigation() {
   trailer.addEventListener('touchcancel', resetIntroTrailerTouchNavigation, { passive: true })
 }
 
-function changeIntroLocale(locale) {
+async function changeIntroLocale(locale) {
   closeIntroLocaleMenu()
   const state = loadOnboardingWorkingState() || introTrailerState.state
   if (!state?.config) return
   const nextLocale = normalizeLocale(locale)
   state.config.locale = nextLocale
-  if (!saveState(state, { backup: false })) {
-    saveOnboardingWorkingState(state, { backup: false })
-  }
+  if (!await saveOnboardingWorkingState(state, { backup: false })) return false
   applyLocale(nextLocale)
   updateIntroSoundButton()
   updateIntroCityLevelControls(document.getElementById('introCityLevel')?.textContent || '1')
@@ -3698,15 +3775,13 @@ function closeOnboardingLocaleMenuOnOutsideClick(event) {
   closeOnboardingLocaleMenu()
 }
 
-function changeOnboardingLocale(locale) {
+async function changeOnboardingLocale(locale) {
   closeOnboardingLocaleMenu()
   const state = loadOnboardingWorkingState()
   if (!state?.config) return
   const nextLocale = normalizeLocale(locale)
   state.config.locale = nextLocale
-  if (!saveState(state, { backup: false })) {
-    saveOnboardingWorkingState(state, { backup: false })
-  }
+  if (!await saveOnboardingWorkingState(state, { backup: false })) return false
   applyLocale(nextLocale)
   updateDocumentTitle(state)
   renderPersonalizedOnboarding()
@@ -3900,7 +3975,7 @@ function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {
   if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')
 }
 
-function finishIntroTrailer() {
+async function finishIntroTrailer() {
   if (!introTrailerState.active) return
   const wasReplay = introTrailerState.replayMode
 
@@ -3918,7 +3993,7 @@ function finishIntroTrailer() {
 
   normalizeOnboardingState(state)
   state.onboarding.introSeenAt = state.onboarding.introSeenAt || new Date().toISOString()
-  if (!saveOnboardingWorkingState(state, { backup: false })) {
+  if (!await saveOnboardingWorkingState(state, { backup: false })) {
     closeIntroTrailer()
     showOnboardingRecovery('storage', { state, resume: 'personalized' })
     return
@@ -4074,9 +4149,9 @@ async function copyOnboardingRecoveryLink(button) {
   trackEdeniaEvent('onboarding_recovery_link_copy', { success: copied })
 }
 
-function retryOnboardingRecovery(button) {
+async function retryOnboardingRecovery(button) {
   if (!onboardingRecoveryState.active) return
-  if (backupRecoveryUnavailable) {
+  if (backupRecoveryUnavailable || primaryProfileStorageUnavailable) {
     if (button) button.disabled = true
     window.location.reload()
     return
@@ -4093,7 +4168,7 @@ function retryOnboardingRecovery(button) {
 
   const state = onboardingRecoveryState.state || loadState() || defaultState(4, DEFAULT_CHANNELS)
   normalizeOnboardingState(state)
-  if (!saveState(state, { backup: false })) {
+  if (!await saveState(state, { backup: false })) {
     if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
     if (button) button.disabled = false
     trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
@@ -4121,7 +4196,7 @@ function retryOnboardingRecovery(button) {
   trackEdeniaEvent('onboarding_recovery_retry', { success: true, reason: recoveryReason })
 }
 
-function renderPersonalizedOnboarding() {
+async function renderPersonalizedOnboarding() {
   if (!personalizedOnboardingState.active) return
   const content = document.getElementById('onboardingContent')
   const panel = document.getElementById('onboardingPanel')
@@ -4162,7 +4237,7 @@ function renderPersonalizedOnboarding() {
   } else if (personalizedOnboardingState.step === 'level') {
     renderOnboardingLevelStep(content)
   } else if (personalizedOnboardingState.step === 'channels') {
-    if (!prepareOnboardingChannelSelections()) return
+    if (!await prepareOnboardingChannelSelections()) return
     renderOnboardingChannelsStep(content)
   } else if (personalizedOnboardingState.step === 'account') {
     renderOnboardingAccountStep(content)
@@ -4455,7 +4530,7 @@ function renderOnboardingChannelsStep(content) {
   `
 }
 
-function selectOnboardingLanguage(languageId) {
+async function selectOnboardingLanguage(languageId) {
   if (!getLearnerLanguageOption(languageId)) return
   personalizedOnboardingState.languageId = languageId
   if (languageId === 'other' || (languageId === 'english' && personalizedOnboardingState.levelId === 'starting')) {
@@ -4465,7 +4540,7 @@ function selectOnboardingLanguage(languageId) {
   personalizedOnboardingState.channelSelectionsInitialized = false
   if (
     LEARNER_PROFILE_LIFECYCLE_ENABLED
-    && !persistPersonalizedOnboardingDraft()
+    && !await persistPersonalizedOnboardingDraft()
   ) return
   renderPersonalizedOnboarding()
 }
@@ -4474,14 +4549,14 @@ function continuePersonalizedOnboardingFromLanguage() {
   setPersonalizedOnboardingStep(personalizedOnboardingState.languageId === 'other' ? 'other' : 'level')
 }
 
-function selectOnboardingLevel(levelId) {
+async function selectOnboardingLevel(levelId) {
   if (!getLearnerLevelOption(levelId)) return
   personalizedOnboardingState.levelId = levelId
   personalizedOnboardingState.selectedChannelCatalogIds = []
   personalizedOnboardingState.channelSelectionsInitialized = false
   if (
     LEARNER_PROFILE_LIFECYCLE_ENABLED
-    && !persistPersonalizedOnboardingDraft()
+    && !await persistPersonalizedOnboardingDraft()
   ) return
   renderPersonalizedOnboarding()
 }
@@ -4501,7 +4576,7 @@ function startOverPersonalizedOnboarding() {
   }
 }
 
-function persistPersonalizedOnboardingDraft({
+async function persistPersonalizedOnboardingDraft({
   markAccountStepReached = false
 } = {}) {
   const now = new Date().toISOString()
@@ -4518,7 +4593,7 @@ function persistPersonalizedOnboardingDraft({
     updatedAt: now
   }
   if (markAccountStepReached) state.onboarding.accountStepReachedAt = now
-  if (saveOnboardingWorkingState(state)) {
+  if (await saveOnboardingWorkingState(state)) {
     if (!markAccountStepReached) return true
     learnerProfileLifecycleAuthority?.refresh()
     return true
@@ -4527,28 +4602,28 @@ function persistPersonalizedOnboardingDraft({
   return false
 }
 
-function persistOnboardingAccountDraft() {
-  return persistPersonalizedOnboardingDraft({
+async function persistOnboardingAccountDraft() {
+  return await persistPersonalizedOnboardingDraft({
     markAccountStepReached: true
   })
 }
 
-function clearOnboardingAccountDraftMarker() {
+async function clearOnboardingAccountDraftMarker() {
   const state = loadOnboardingWorkingState()
   if (!state) return true
   normalizeOnboardingState(state)
   if (!state.onboarding.accountStepReachedAt) return true
   state.onboarding.accountStepReachedAt = null
-  if (saveState(state)) return true
+  if (await saveState(state)) return true
   if (
     learnerProfileLifecycleAuthority
-    && saveOnboardingWorkingState(state)
+    && await saveOnboardingWorkingState(state)
   ) return true
   showOnboardingRecovery('storage', { state, resume: 'personalized' })
   return false
 }
 
-function setPersonalizedOnboardingStep(step) {
+async function setPersonalizedOnboardingStep(step) {
   const allowedSteps = ['language', 'level', 'channels', 'other']
   if (ACCOUNT_ENTRY_REQUIRED) allowedSteps.push('account')
   if (!allowedSteps.includes(step)) return
@@ -4562,11 +4637,11 @@ function setPersonalizedOnboardingStep(step) {
     && !personalizedOnboardingState.levelId
   ) return
   const previousStep = personalizedOnboardingState.step
-  if (step === 'account' && !persistOnboardingAccountDraft()) return
+  if (step === 'account' && !await persistOnboardingAccountDraft()) return
   if (
     previousStep === 'account'
     && step !== 'account'
-    && !clearOnboardingAccountDraftMarker()
+    && !await clearOnboardingAccountDraftMarker()
   ) return
   const profileStepOrder = personalizedOnboardingState.languageId === 'other'
     ? ['language', 'other']
@@ -4592,7 +4667,7 @@ function setPersonalizedOnboardingStep(step) {
   renderPersonalizedOnboarding()
 }
 
-function prepareOnboardingChannelSelections() {
+async function prepareOnboardingChannelSelections() {
   if (personalizedOnboardingState.channelSelectionsInitialized) return true
   personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
     languages: [personalizedOnboardingState.languageId],
@@ -4600,7 +4675,7 @@ function prepareOnboardingChannelSelections() {
   }).slice(0, getOnboardingChannelSelectionLimit()).map(channel => channel.id)
   personalizedOnboardingState.channelSelectionsInitialized = true
   return !LEARNER_PROFILE_LIFECYCLE_ENABLED
-    || persistPersonalizedOnboardingDraft()
+    || await persistPersonalizedOnboardingDraft()
 }
 
 function getOnboardingChannelSelectionLimit(state = loadState()) {
@@ -4614,7 +4689,7 @@ function getOnboardingChannelSelectionLimit(state = loadState()) {
   return Math.min(ONBOARDING_CHANNEL_SELECTION_LIMIT, remainingAllowance)
 }
 
-function toggleOnboardingChannel(catalogId) {
+async function toggleOnboardingChannel(catalogId) {
   if (!getCuratedChannelEntry(catalogId) || personalizedOnboardingState.isApplyingChannels) return
   const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
   if (selectedIds.has(catalogId)) selectedIds.delete(catalogId)
@@ -4639,7 +4714,7 @@ function toggleOnboardingChannel(catalogId) {
   personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
   if (
     LEARNER_PROFILE_LIFECYCLE_ENABLED
-    && !persistPersonalizedOnboardingDraft()
+    && !await persistPersonalizedOnboardingDraft()
   ) return
   const control = [...document.querySelectorAll('.onboarding-channel')]
     .find(channel => channel.dataset.catalogId === catalogId)
@@ -4763,7 +4838,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
       detail: `${channel.name}: ${fetchError.message || t('log.unknownError')}`,
       meta: { channelId: channel.id }
     })
-    if (!saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
+    if (!await saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
     renderAll(latestState)
     scheduleFirstStudyWalkthrough(latestState)
     throw fetchError
@@ -4785,7 +4860,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
     detail: t('log.channelRefreshed.fetched', { name: storedChannel?.name || channel.name, count: videos.length }),
     meta: { channelId: channel.id, fetchedCount: videos.length }
   })
-  if (!saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
+  if (!await saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
   renderAll(latestState)
   scheduleFirstStudyWalkthrough(latestState)
   return {
@@ -4805,7 +4880,7 @@ async function runPendingStarterFeedPreparation(initialState) {
   if (!runningTask) return null
   runningTask.status = 'running'
   runningTask.startedAt ||= new Date().toISOString()
-  if (!saveState(runningState, { backup: false })) {
+  if (!await saveState(runningState, { backup: false })) {
     showToast(t('onboarding.starterFeed.storageError'), 'error')
     return null
   }
@@ -4845,7 +4920,7 @@ async function runPendingStarterFeedPreparation(initialState) {
     progressTask.addedChannelCount += result?.addedChannelCount || 0
     progressTask.mergedVideoCount += result?.mergedCount || 0
     progressTask.skippedShortCount += result?.skippedShorts || 0
-    if (!saveState(progressState, { backup: false })) {
+    if (!await saveState(progressState, { backup: false })) {
       showToast(t('onboarding.starterFeed.storageError'), 'error')
       return null
     }
@@ -4860,7 +4935,7 @@ async function runPendingStarterFeedPreparation(initialState) {
   completedTask.status = failedCount === 0 ? 'complete' : (successfulCount > 0 ? 'partial' : 'failed')
   completedTask.completedAt = new Date().toISOString()
   completedState.onboarding.recommendationsAppliedAt = completedTask.completedAt
-  if (!saveState(completedState)) {
+  if (!await saveState(completedState)) {
     showToast(t('onboarding.starterFeed.storageError'), 'error')
     return null
   }
@@ -4981,10 +5056,10 @@ async function finishPersonalizedOnboarding() {
   const persisted = EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED
       && learnerProfileLifecycleAuthority
       && !hasPersistedLearnerProfile()
-    ? learnerProfileLocalPersistence?.installLegacyAccountlessProfile(state, {
+    ? await learnerProfileLocalPersistence?.installLegacyAccountlessProfile(state, {
         createdAt: Date.now()
       }) === true
-    : saveState(state)
+    : await saveState(state)
   if (!persisted) {
     personalizedOnboardingState.isApplyingChannels = false
     showOnboardingRecovery('storage', { state, resume: 'complete' })
@@ -5089,7 +5164,7 @@ function saveNoAnkiFrequentUserPromptResponse(response) {
   return state
 }
 
-function declineNoAnkiFrequentUserPrompt(event) {
+async function declineNoAnkiFrequentUserPrompt(event) {
   event?.preventDefault()
   event?.stopPropagation()
   const state = saveNoAnkiFrequentUserPromptResponse('not-interested')
@@ -5112,7 +5187,7 @@ function declineNoAnkiFrequentUserPrompt(event) {
     })
   }
   syncStreak(state)
-  saveState(state)
+  if (!await saveState(state)) return false
   ankiRefreshDeferredForPrompt = false
   applyAnkiRefreshPreference(state)
   const checkbox = document.getElementById('settingsAnkiEnabled')
@@ -5122,7 +5197,7 @@ function declineNoAnkiFrequentUserPrompt(event) {
   endWalkthrough({ markCompleted: false })
 }
 
-function acceptNoAnkiFrequentUserPrompt(event) {
+async function acceptNoAnkiFrequentUserPrompt(event) {
   event?.preventDefault()
   event?.stopPropagation()
   const state = saveNoAnkiFrequentUserPromptResponse('yes')
@@ -5130,7 +5205,7 @@ function acceptNoAnkiFrequentUserPrompt(event) {
     endWalkthrough({ markCompleted: false })
     return
   }
-  saveState(state)
+  if (!await saveState(state)) return false
   ankiRefreshDeferredForPrompt = false
   walkthroughState.highlightOnly = true
   walkthroughState.elements?.card.classList.add('hidden')
@@ -5339,9 +5414,16 @@ function showWalkthroughStep(nextIndex, options = {}) {
   walkthroughState.isTransitioning = false
 }
 
-function endWalkthrough(options = {}) {
+async function endWalkthrough(options = {}) {
   if (!walkthroughState.active) return
   const markCompleted = options.markCompleted ?? walkthroughState.trackCompletion
+  if (markCompleted) {
+    if (walkthroughState.isTransitioning) return
+    walkthroughState.isTransitioning = true
+    const completed = await completeWalkthrough()
+    walkthroughState.isTransitioning = false
+    if (!completed) return false
+  }
   const endReason = options.reason || (markCompleted ? 'completed' : 'exited')
   const analyticsProperties = {
     source: walkthroughState.source,
@@ -5376,7 +5458,6 @@ function endWalkthrough(options = {}) {
   walkthroughState.startedAtMs = null
   walkthroughState.lastTrackedStepKey = null
   runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
-  if (markCompleted) completeWalkthrough()
   if (endReason === 'skipped') {
     trackEdeniaEvent('walkthrough_skipped', analyticsProperties)
   }
@@ -5585,7 +5666,7 @@ function setFixedRect(element, rect) {
   element.style.height = `${Math.max(0, Math.round(rect.height))}px`
 }
 
-function resetSandboxState() {
+async function resetSandboxState() {
   if (!IS_SANDBOX) return
   createStateBackup('before sandbox reset', { force: true })
   const state = createEmptySandboxState()
@@ -5596,7 +5677,7 @@ function resetSandboxState() {
     title: t('log.sandboxReset.title'),
     detail: t('log.sandboxReset.detail')
   })
-  saveState(state, { backup: false })
+  if (!await saveState(state, { backup: false })) return false
   setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
   selectedHistoryRange = 'month'
@@ -5605,7 +5686,7 @@ function resetSandboxState() {
   showToast(t('toast.sandboxReset'), 'success')
 }
 
-function addSandboxDay() {
+async function addSandboxDay() {
   if (!IS_SANDBOX) return
   const state = loadState() || createEmptySandboxState()
   const latestActivityDate = getLastSandboxActivityDate(state)
@@ -5613,7 +5694,7 @@ function addSandboxDay() {
   const scoreTarget = getSandboxAddedDayScoreTarget(state, nextDate)
   addSandboxStudyDay(state, nextDate, scoreTarget)
   syncStreak(state)
-  saveState(state)
+  if (!await saveState(state)) return false
   setDefaultCityDayOffset(state)
   renderAll(state)
   showToast(t('toast.sandboxDayAdded', { date: formatCitySnapshotDate(nextDate) }), 'success')
@@ -5725,7 +5806,7 @@ function createSandboxRecentVideos(state) {
   return videos
 }
 
-function refreshSandboxFeed() {
+async function refreshSandboxFeed() {
   const s = loadState() || createEmptySandboxState()
   if (!s.config.channels.length) {
     showToast(t('toast.addChannelFirst'), 'warn')
@@ -5773,7 +5854,7 @@ function refreshSandboxFeed() {
       meta: { channelId: channel.id }
     })
   })
-  saveState(s)
+  if (!await saveState(s)) return false
   renderAll(s)
   showToast(t('toast.dummyVideosLoaded', { count: videos.length }), 'success')
 }
@@ -5817,7 +5898,7 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function updatePlusEntitlementState(entitlementState) {
+async function updatePlusEntitlementState(entitlementState) {
   plusAccessPolicy = createPlusAccessPolicy({
     ...PLUS_ACCESS_CONFIG,
     entitlementState
@@ -5828,12 +5909,12 @@ function updatePlusEntitlementState(entitlementState) {
     plusAccessPolicy
   )
   if (state && channelTransition.changed) {
-    saveState(state, {
+    if (!await saveState(state, {
       backupReason: channelTransition.channelIdsToRemove.length
         ? 'before Edenia Plus channel downgrade'
         : 'before tracked-channel entitlement update',
       forceBackup: channelTransition.channelIdsToRemove.length > 0
-    })
+    })) return false
     renderAll(state)
     scheduleYoutubeAutoRefresh(state)
   } else if (state) {
@@ -6717,8 +6798,8 @@ async function initializeRequestedReminderDestination() {
   })
   if (!request?.videoId || !request.channelId) return
 
-  const openRequestedVideo = existing => {
-    const opened = openVideoPlayer(request.videoId)
+  const openRequestedVideo = async existing => {
+    const opened = await openVideoPlayer(request.videoId)
     trackEdeniaEvent('reminder_video_destination_opened', {
       email_type: request.emailType,
       video_url: `https://www.youtube.com/watch?v=${encodeURIComponent(request.videoId)}`,
@@ -6790,12 +6871,12 @@ async function initializeRequestedReminderDestination() {
       }),
       meta: { videoId: request.videoId }
     })
-    saveState(state)
+    if (!await saveState(state)) return false
     renderAll(state)
     openRequestedVideo(false)
   } catch (error) {
     console.warn('Could not open the requested reminder video:', error)
-    if (!recordYoutubeQuotaError(error)) showToast(error?.message || t('toast.addVideoFailed'), 'error')
+    if (!await recordYoutubeQuotaError(error)) showToast(error?.message || t('toast.addVideoFailed'), 'error')
   }
 }
 
@@ -7074,13 +7155,13 @@ async function saveSettingsOnTheFly() {
     })
     syncStreak(s)
   }
-  saveState(s)
+  if (!await saveState(s)) return false
   if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
   renderAll(s)
   renderActivityLog(s)
 }
 
-function saveLocaleFromSettings(locale = null) {
+async function saveLocaleFromSettings(locale = null) {
   const s = loadState()
   if (!s?.config) return
   const previousLocale = normalizeLocale(s.config.locale)
@@ -7089,16 +7170,16 @@ function saveLocaleFromSettings(locale = null) {
   if (previousLocale === nextLocale) return
 
   s.config.locale = nextLocale
-  applyLocale(nextLocale)
-  closeLocaleMenu()
   appendActivityLog(s, {
     actor: 'user',
     type: 'locale',
     status: 'success',
-    title: t('log.locale.title'),
-    detail: t('log.locale.detail', { language: getLocaleLabel(nextLocale) })
+    title: t('log.locale.title', {}, nextLocale),
+    detail: t('log.locale.detail', { language: getLocaleLabel(nextLocale) }, nextLocale)
   })
-  saveState(s)
+  if (!await saveState(s)) return false
+  applyLocale(nextLocale)
+  closeLocaleMenu()
   updateDocumentTitle(s)
   applyTheme(s.config.theme)
   renderAll(s)
@@ -7298,7 +7379,7 @@ function importSyncFileFromInput(input) {
         return
       }
 
-      const hadStoredState = Boolean(localStorage.getItem(STORAGE_KEY))
+      const hadStoredState = Boolean(primaryStorage.getItem(STORAGE_KEY))
       const existingBackupIds = new Set(LOCAL_BACKUPS_ENABLED
         ? getStateBackupEntries().map(backup => backup.id)
         : [])
@@ -7332,7 +7413,7 @@ function importSyncFileFromInput(input) {
         detail: file.name || t('log.syncImported.detail')
       })
       syncStreak(importedState)
-      const saveResult = saveImportedState(importedState, {
+      const saveResult = await saveImportedState(importedState, {
         preserveBackupId: rollbackBackup?.id || null
       })
       if (!saveResult.persisted) {
@@ -7737,7 +7818,7 @@ async function restoreStateBackup(id) {
     title: t('log.backupRestored.title'),
     detail: formatBackupTimestamp(entry.createdAt)
   })
-  if (!saveState(state, { backup: false })) {
+  if (!await saveState(state, { backup: false })) {
     if (control?.isConnected) {
       delete control.dataset.backupBusy
       control.removeAttribute('aria-disabled')
@@ -7764,7 +7845,7 @@ function getImportedSyncState(payload) {
   return readImportedState(payload)
 }
 
-function toggleTheme() {
+async function toggleTheme() {
   const s = loadState()
   s.config.theme = normalizeTheme(s.config.theme) === 'dark' ? 'light' : 'dark'
   appendActivityLog(s, {
@@ -7774,7 +7855,7 @@ function toggleTheme() {
     title: t('log.theme.title'),
     detail: t(s.config.theme === 'dark' ? 'log.theme.dark' : 'log.theme.light')
   })
-  saveState(s)
+  if (!await saveState(s)) return false
   applyTheme(s.config.theme)
   renderActivityLog(s)
 }
@@ -7909,7 +7990,7 @@ async function addChannel(options = {}) {
         }
       : await resolveYoutubeChannelInput(raw)
   } catch (err) {
-    if (!recordYoutubeQuotaError(err)) showToast(err.message || t('toast.channelInvalid'), 'warn')
+    if (!await recordYoutubeQuotaError(err)) showToast(err.message || t('toast.channelInvalid'), 'warn')
     idEl?.focus()
     return
   }
@@ -7946,7 +8027,11 @@ async function addChannel(options = {}) {
     detail: name,
     meta: { channelId: id }
   })
-  saveState(s)
+  if (!await saveState(s)) {
+    if (btn) { btn.disabled = false; btn.textContent = idleButtonText }
+    idEl?.focus()
+    return false
+  }
   const catalogSource = String(options.catalogSource || '')
   const isCatalogCandidate = !['curated', 'community', 'discovery'].includes(catalogSource)
   trackEdeniaEvent('channel_added_via_add_button', {
@@ -7998,7 +8083,7 @@ function removeChannelFromFilter(event, channelId) {
   removeChannel(channelId)
 }
 
-function removeChannel(id) {
+async function removeChannel(id) {
   const s = loadState({ persistCleanup: false })
   if (!s) return false
   const channel = s.config.channels.find(c => c.id === id) || getInferredChannelEntry(s, id)
@@ -8023,7 +8108,7 @@ function removeChannel(id) {
     detail: channel?.name || id,
     meta: { channelId: id }
   })
-  if (!persistChannelAction(s, checkpoint)) return false
+  if (!await persistChannelAction(s, checkpoint)) return false
   renderAll(s)
   renderActivityLog(s)
   return true
@@ -8092,10 +8177,14 @@ function captureChannelActionState(state, channelId) {
   }
 }
 
-function persistChannelAction(state, checkpoint) {
+async function persistChannelAction(state, checkpoint) {
   // These actions retain their own Undo record. Do not consume recovery
   // backups in an attempt to fit the change into an exhausted browser quota.
-  if (saveState(state, { backup: false, pruneBackups: false })) return true
+  if (await saveState(state, { backup: false, pruneBackups: false })) return true
+  if (primaryProfileRepository) {
+    showToast(t('toast.channelSaveFailed'), 'error', { durationMs: 10000 })
+    return false
+  }
   for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
   Object.assign(state, checkpoint.metadata)
   for (const [id, fields] of Object.entries(checkpoint.videoVisibility)) {
@@ -8253,7 +8342,7 @@ async function resetApp() {
     title: t('log.reset.title'),
     detail: t('log.reset.detail')
   })
-  if (!saveState(nextState, { backup: false })) {
+  if (!await saveState(nextState, { backup: false })) {
     releaseStartOverControl(control)
     showToast(t('toast.progressSaveFailed'), 'error')
     return
@@ -8290,7 +8379,7 @@ async function undoStartOver() {
 
 let youtubeRequestGate
 
-function recordYoutubeQuotaError(error) {
+async function recordYoutubeQuotaError(error) {
   if (!isYoutubeQuotaError(error)) return false
   const state = loadState()
   if (!state) return true
@@ -8302,7 +8391,7 @@ function recordYoutubeQuotaError(error) {
       detail: error.message,
       meta: { youtubeQuotaId: quotaId, reasons: error.reasons, retryAt: error.retryAt, bucket: error.bucket }
     })
-    saveState(state, { backup: false })
+    if (!await saveState(state, { backup: false })) return false
     renderActivityLog(state)
   }
   return true
@@ -8317,7 +8406,7 @@ async function ytFetch(url) {
   } catch (error) {
     if (isYoutubeQuotaError(error)) {
       error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
-      recordYoutubeQuotaError(error)
+      if (!await recordYoutubeQuotaError(error)) return false
     }
     if (error?.name === 'AbortError') throw Object.assign(new Error(t('toast.youtubeRequestTimeout')), { kind: 'timeout' })
     throw error
@@ -8464,7 +8553,7 @@ async function hydrateStoredManualVideoChannelImages() {
       changed = true
     })
     if (changed) {
-      saveState(state)
+      if (!await saveState(state)) return false
       renderFeed(state)
     }
   } catch (err) {
@@ -8765,10 +8854,14 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
           channels.forEach(channel => Object.assign(channel, details[channel.id]))
         },
         isCurrent: () => isCurrentLearnerProfileOperation(s),
-        readCurrent: loadState,
+        readCurrent: () => {
+          const latest = loadState()
+          primaryProfileRepository?.inheritRevision(s, latest)
+          return latest
+        },
         // Persist each batch without rebuilding the feed during an active card reveal.
-        onChange: current => {
-          if (!isCurrentLearnerProfileOperation(s) || !saveState(current)) return false
+        onChange: async current => {
+          if (!isCurrentLearnerProfileOperation(s) || !await saveState(current)) return false
           return true
         },
         onOutcome: (current, outcome) => appendActivityLog(current, {
@@ -9065,7 +9158,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     errors.forEach(error => markChannelRefreshError(s, error.channelId, error))
 
     if (successfulChannels === 0) {
-      if (!saveState(s)) {
+      if (!await saveState(s)) {
         return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
       }
       if (errors.some(error => error.kind !== 'daily-quota')) showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
@@ -9098,7 +9191,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       })
     }
 
-    if (!saveState(s)) {
+    if (!await saveState(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
     renderAll(s)
@@ -9142,9 +9235,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
         title: t('log.refreshFailed.title'),
         detail: err.message || t('log.unknownRefreshError')
       })
-      saveState(s)
+      if (!await saveState(s)) return false
     }
-    if (!recordYoutubeQuotaError(err)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    if (!await recordYoutubeQuotaError(err)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: 'failure',
@@ -9189,7 +9282,7 @@ async function refreshAddedChannel(channelId, options = {}) {
   const revealNotBefore = Date.now() + Math.max(0, Number(options.revealDelayMs) || 0)
 
   try {
-    const s = loadState()
+    let s = loadState()
     originatingState = s
     const channel = s.config.channels.find(ch => ch.id === channelId)
     if (!channel) {
@@ -9239,6 +9332,12 @@ async function refreshAddedChannel(channelId, options = {}) {
       return
     }
 
+    if (primaryProfileRepository) {
+      s = currentState
+      mergeFetchedVideos(s, videos, detailsById, includeShorts)
+      const tracked = s.config.channels.find(entry => entry.id === channel.id)
+      if (tracked) Object.assign(tracked, { name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt })
+    }
     markChannelRefreshSuccess(s, channel.id, undefined, fetchResult.coverage)
     appendActivityLog(s, {
       actor: 'auto',
@@ -9248,7 +9347,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       detail: t('log.channelRefreshed.loaded', { name: channel.name || channelId, count: mergedCount }),
       meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
     })
-    if (!saveState(s)) return
+    if (!await saveState(s)) return
     if (focusVideoId && s.videos[focusVideoId]) {
       pendingAddedChannelReveal = { channelId, videoId: focusVideoId }
       forcedSearchVideoId = focusVideoId
@@ -9304,9 +9403,9 @@ async function refreshAddedChannel(channelId, options = {}) {
         detail: `${channelId}: ${err.message || t('log.unknownError')}`,
         meta: { channelId }
       })
-      saveState(s)
+      if (!await saveState(s)) return false
     }
-    if (!recordYoutubeQuotaError(err)) showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
+    if (!await recordYoutubeQuotaError(err)) showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger: 'channel_added',
       result: 'failure',
@@ -9385,13 +9484,13 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
   `
 }
 
-function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false) {
+async function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false) {
   if (!prompt || !video) return false
   if (!rewatch && grantWatchedConfirmationUnlock(state, video)) {
-    saveState(state, {
+    if (!await saveState(state, {
       backup: false,
       syncAnalytics: false
-    })
+    })) return false
   }
   trackEdeniaEvent('video_completion_prompt_shown', getVideoAnalyticsProperties(video, {
     is_rewatch: rewatch === true,
@@ -9408,7 +9507,7 @@ function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false)
   return true
 }
 
-function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
+async function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
   event?.preventDefault()
   event?.stopPropagation()
   const targetVideoId = String(videoId ?? '')
@@ -9423,7 +9522,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
   ) return false
   if (rewatch) {
     const video = loadState()?.videos?.[targetVideoId]
-    const completed = completeVideoShelfPlayerRewatchConfirmation(session)
+    const completed = await completeVideoShelfPlayerRewatchConfirmation(session)
     restorePlayerReturnPosition(session)
     if (completed) {
       trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
@@ -9438,7 +9537,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
     captureStoppedPlayback: true
   })
   const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
-  const marked = markVideo(targetVideoId, 'watched', {
+  const marked = await markVideo(targetVideoId, 'watched', {
     creditOnlyRecordedProgress: true,
     surface: 'embedded_player_prompt'
   })
@@ -9513,9 +9612,9 @@ function captureVideoActionState(state, videoId) {
   return { metadata: structuredClone(metadata), videoId, video: structuredClone(videos[videoId]) }
 }
 
-function persistVideoAction(state, checkpoint) {
-  if (saveState(state)) return true
-  if (checkpoint) {
+async function persistVideoAction(state, checkpoint) {
+  if (await saveState(state)) return true
+  if (checkpoint && !primaryProfileRepository) {
     for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
     Object.assign(state, checkpoint.metadata)
     if (checkpoint.video) state.videos[checkpoint.videoId] = checkpoint.video
@@ -9525,7 +9624,7 @@ function persistVideoAction(state, checkpoint) {
   return false
 }
 
-function toggleVideoFavorite(videoId, options = {}) {
+async function toggleVideoFavorite(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return null
@@ -9562,7 +9661,7 @@ function toggleVideoFavorite(videoId, options = {}) {
       favorite: isFavoriteVideo(video)
     }
   })
-  if (!persistVideoAction(s, checkpoint)) return false
+  if (!await persistVideoAction(s, checkpoint)) return false
   trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
   if (shouldRevealWatchedFavorite) {
     revealFavoritedWatchedVideo(videoId, s)
@@ -9595,7 +9694,7 @@ function updateVideoPlayerFavoriteButton(button, isFavorite) {
   button.title = label
 }
 
-function favoriteVideoFromWatchPrompt(event, videoId) {
+async function favoriteVideoFromWatchPrompt(event, videoId) {
   event?.preventDefault()
   event?.stopPropagation()
   const state = loadState()
@@ -9624,7 +9723,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
       favorite: isFavorite
     }
   })
-  if (!persistVideoAction(state, checkpoint)) return false
+  if (!await persistVideoAction(state, checkpoint)) return false
   trackVideoFavoriteChanged(state, video, isFavoriteVideo(beforeVideo), 'completion_prompt')
   syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
   if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
@@ -9636,8 +9735,8 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
   return isFavorite
 }
 
-function toggleVideoPlayerFavorite(videoId, button) {
-  const isFavorite = toggleVideoFavorite(videoId, { surface: 'embedded_player' })
+async function toggleVideoPlayerFavorite(videoId, button) {
+  const isFavorite = await toggleVideoFavorite(videoId, { surface: 'embedded_player' })
   if (typeof isFavorite !== 'boolean' || !button) return
   updateVideoPlayerFavoriteButton(button, isFavorite)
   syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
@@ -9684,7 +9783,7 @@ function trackVideoRewatchCompleted(state, video, rewatchSeconds, surface) {
   }))
 }
 
-function markVideo(videoId, requestedStatus, options = {}) {
+async function markVideo(videoId, requestedStatus, options = {}) {
   requestedStatus = normalizeVideoStatus(requestedStatus)
   const s     = loadState()
   const video = s.videos[videoId]
@@ -9818,7 +9917,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     })
   }
 
-  if (!persistVideoAction(s, checkpoint)) return false
+  if (!await persistVideoAction(s, checkpoint)) return false
   trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
     new_status: newStatus,
@@ -9964,7 +10063,7 @@ function closeVideoOrganizationMenuOnViewportChange(event) {
   return closeVideoOrganizationMenu(true)
 }
 
-function saveVideoOrganizationChange(state, video, beforeVideo, operation, checkpoint) {
+async function saveVideoOrganizationChange(state, video, beforeVideo, operation, checkpoint) {
   const action = pushUndoAction(state, {
     type: 'video-organization',
     operation,
@@ -9985,7 +10084,7 @@ function saveVideoOrganizationChange(state, video, beforeVideo, operation, check
     detail: `"${formatToastTitle(video.title)}"`,
     meta: { videoId: video.id, operation }
   })
-  if (!persistVideoAction(state, checkpoint)) return null
+  if (!await persistVideoAction(state, checkpoint)) return null
   trackEdeniaEvent(eventNames[operation], getVideoAnalyticsProperties(video, {
     operation,
     current_status: getVideoStatus(video),
@@ -9998,11 +10097,11 @@ function saveVideoOrganizationChange(state, video, beforeVideo, operation, check
 function showVideoOrganizationUndoToast(message, action) {
   showToast(message, 'success', {
     actionLabel: t('videos.undo'),
-    onAction: () => undoHistoryActionById(action.id)
+    onAction: async () => await undoHistoryActionById(action.id)
   })
 }
 
-function removeVideoFromContinueWatching(videoId) {
+async function removeVideoFromContinueWatching(videoId) {
   closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -10017,14 +10116,14 @@ function removeVideoFromContinueWatching(videoId) {
   delete video.watchCycleCoverage
   delete video.rewatchCoverage
   clearFocusedVideoPreview(videoId)
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue', checkpoint)
+  const action = await saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue', checkpoint)
   if (!action) return false
   renderAll(state)
   showVideoOrganizationUndoToast(t('toast.videoRemovedFromContinue'), action)
   return true
 }
 
-function removeVideoFromFeed(videoId) {
+async function removeVideoFromFeed(videoId) {
   closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -10033,14 +10132,14 @@ function removeVideoFromFeed(videoId) {
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.removedFromFeedAt = getCurrentAppTimestamp(state)
   clearFocusedVideoPreview(videoId)
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed', checkpoint)
+  const action = await saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed', checkpoint)
   if (!action) return false
   renderAll(state)
   showVideoOrganizationUndoToast(t('toast.videoRemovedFromFeed'), action)
   return true
 }
 
-function restoreVideoToFeed(videoId) {
+async function restoreVideoToFeed(videoId) {
   closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -10048,7 +10147,7 @@ function restoreVideoToFeed(videoId) {
   const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   delete video.removedFromFeedAt
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed', checkpoint)
+  const action = await saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed', checkpoint)
   if (!action) return false
   selectedStatusFilter = 'all'
   forcedSearchVideoId = videoId
@@ -10066,7 +10165,7 @@ function restoreVideoToFeed(videoId) {
   return true
 }
 
-function markVideoInProgressOnOpen(videoId, options = {}) {
+async function markVideoInProgressOnOpen(videoId, options = {}) {
   const shouldRender = options.render !== false
   const s     = loadState()
   const video = s.videos[videoId]
@@ -10086,12 +10185,12 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   }))
   if (previousStatus === 'watched') {
     if (!isFavoriteVideo(video)) {
-      saveState(s, { backup: false })
+      if (!await saveState(s, { backup: false })) return false
       return false
     }
     video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) ?? 0
     video.pausedAt = getCurrentAppTimestamp(s)
-    saveState(s, { backup: false })
+    if (!await saveState(s, { backup: false })) return false
     if (shouldRender) {
       setTimeout(() => {
         const nextState = loadState()
@@ -10102,7 +10201,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   }
   if (previousStatus === 'partial') {
     video.pausedAt = getCurrentAppTimestamp(s)
-    saveState(s, { backup: false })
+    if (!await saveState(s, { backup: false })) return false
     if (shouldRender) {
       setTimeout(() => {
         const nextState = loadState()
@@ -10147,7 +10246,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     meta: { videoId, status: 'partial' }
   })
 
-  saveState(s)
+  if (!await saveState(s)) return false
   if (shouldRender) {
     setTimeout(() => {
       const nextState = loadState()
@@ -10363,7 +10462,7 @@ async function addVideoFromUrl(event) {
         meta: { channelId: metadata.channelId }
       })
     }
-    saveState(s)
+    if (!await saveState(s)) return false
     trackEdeniaEvent('manual_video_added', {
       video_url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
       channel_id: metadata.channelId || null,
@@ -10391,7 +10490,7 @@ async function addVideoFromUrl(event) {
     }
   } catch (err) {
     console.warn(err)
-    if (!recordYoutubeQuotaError(err)) showToast(err.message || t('toast.addVideoFailed'), 'error')
+    if (!await recordYoutubeQuotaError(err)) showToast(err.message || t('toast.addVideoFailed'), 'error')
   } finally {
     if (btn) {
       btn.disabled = false
@@ -10674,11 +10773,11 @@ function cacheYoutubeChannelSearch(query, results) {
         thumbnail: result.thumbnail || ''
       }))
     }
-    const trimmedCache = Object.fromEntries(
+    const trimmedCache = budgetObjectCache(Object.fromEntries(
       Object.entries(cache)
         .sort(([, a], [, b]) => Number(b?.savedAt || 0) - Number(a?.savedAt || 0))
         .slice(0, 20)
-    )
+    ))
     localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, JSON.stringify(trimmedCache))
   } catch {
     // Searching still works when browser storage is unavailable.
@@ -10887,7 +10986,7 @@ async function searchYoutubeChannels(event) {
     renderYoutubeChannelSearchResults(query, results, { cacheHit: false })
   } catch (error) {
     console.warn(error)
-    if (recordYoutubeQuotaError(error)) {
+    if (await recordYoutubeQuotaError(error)) {
       renderManualChannelSuggestions()
     } else renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
     trackEdeniaEvent('search_failed', {
@@ -11093,12 +11192,12 @@ async function addYoutubeInput(event) {
   input?.focus()
 }
 
-function openNextStudyVideoPlayer(event, videoId) {
+async function openNextStudyVideoPlayer(event, videoId) {
   event?.preventDefault()
   event?.stopPropagation()
 
   const targetVideoId = String(videoId ?? '')
-  if (!targetVideoId || !openVideoPlayer(targetVideoId)) {
+  if (!targetVideoId || !await openVideoPlayer(targetVideoId)) {
     showToast(t('toast.videoGone'), 'warn')
   }
   return false
@@ -11212,7 +11311,7 @@ function pushUndoAction(s, action) {
   return action
 }
 
-function undoHistoryActionById(actionId) {
+async function undoHistoryActionById(actionId) {
   const state = loadState({ persistCleanup: false })
   normalizeUndoState(state)
   const index = state.undoStack.findIndex(action => action?.id === actionId)
@@ -11220,7 +11319,7 @@ function undoHistoryActionById(actionId) {
     showToast(t('toast.nothingUndo'), 'warn')
     return false
   }
-  applyHistoryAction('undo', index)
+  if (!await applyHistoryAction('undo', index)) return false
   return true
 }
 
@@ -11236,19 +11335,19 @@ function cloneVideoForHistoryAction(video) {
   } : null
 }
 
-function undoLastVideoAction() {
+async function undoLastVideoAction() {
   const s = loadState({ persistCleanup: false })
   normalizeUndoState(s)
-  applyHistoryAction('undo', s.undoStack.length - 1)
+  if (!await applyHistoryAction('undo', s.undoStack.length - 1)) return false
 }
 
-function redoLastVideoAction() {
+async function redoLastVideoAction() {
   const s = loadState({ persistCleanup: false })
   normalizeUndoState(s)
-  applyHistoryAction('redo', s.redoStack.length - 1)
+  if (!await applyHistoryAction('redo', s.redoStack.length - 1)) return false
 }
 
-function applyHistoryAction(direction, actionIndex) {
+async function applyHistoryAction(direction, actionIndex) {
   const s = loadState({ persistCleanup: false })
   normalizeUndoState(s)
   const sourceStack = direction === 'redo' ? s.redoStack : s.undoStack
@@ -11264,8 +11363,8 @@ function applyHistoryAction(direction, actionIndex) {
   const checkpoint = action.videoId ? captureVideoActionState(s, action.videoId) : null
   const channelCheckpoint = action.type === 'channel-remove'
     ? captureChannelActionState(s, action.channelId) : null
-  const persistAction = () => channelCheckpoint
-    ? persistChannelAction(s, channelCheckpoint) : persistVideoAction(s, checkpoint)
+  const persistAction = async () => channelCheckpoint
+    ? await persistChannelAction(s, channelCheckpoint) : await persistVideoAction(s, checkpoint)
   const targetSnapshot = direction === 'redo' ? action.after : action.before
   const previousSnapshot = direction === 'redo' ? action.before : action.after
   const restoresTrackedChannel = action.type === 'channel-remove'
@@ -11296,7 +11395,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   if (!historyResult) {
-    if (!persistAction()) return false
+    if (!await persistAction()) return false
     renderAll(s)
     showToast(t('toast.videoGone'), 'warn')
     return
@@ -11326,7 +11425,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   closeHistoryActionPopovers()
-  if (!persistAction()) return false
+  if (!await persistAction()) return false
   const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
   trackEdeniaEvent(`${direction}_applied`, {
     action_type: action.type,
@@ -11716,7 +11815,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
   if (ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(loadState())) return
   try {
     ankiStatsCache = await fetchAnkiStats()
-    syncAnkiStatsToState(ankiStatsCache)
+    if (await syncAnkiStatsToState(ankiStatsCache) === false) return false
     renderAnkiStatus(loadState())
   } catch (err) {
     ankiStatsCache = null
@@ -11732,7 +11831,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
         title: t('log.ankiRefreshFailed.title'),
         detail: message
       })
-      saveState(s)
+      if (!await saveState(s)) return false
     }
     renderAnkiStatus(s)
   }
@@ -11764,7 +11863,7 @@ function refreshAnkiStatsOnVisible() {
   if (!IS_SANDBOX && !ankiRefreshDeferredForPrompt && !document.hidden && isAnkiTrackingActive(loadState())) refreshAnkiStats({ silent: true })
 }
 
-function syncAnkiStatsToState(stats) {
+async function syncAnkiStatsToState(stats) {
   const s = loadState()
   if (!s || !stats) return
 
@@ -11796,7 +11895,7 @@ function syncAnkiStatsToState(stats) {
     due_card_count: stats.dueCards
   })
   syncStreak(s)
-  saveState(s)
+  if (!await saveState(s)) return false
   renderHeader(s)
   renderAnalytics(getWeeklyStats(s), s)
   const score = getCurrentCityScore(s)
@@ -13654,7 +13753,7 @@ function getStudyInsightHistoryKey(insight, state, referenceDate = getCurrentApp
   return `${toDateKey(getWeekStart(referenceDate))}:${insight.id}`
 }
 
-function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(state)) {
+async function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(state)) {
   if (!state?.config || !insight) return ''
   normalizeStudyInsightConfig(state)
   const key = getStudyInsightHistoryKey(insight, state, referenceDate)
@@ -13704,7 +13803,7 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     state.config.studyInsights.history.unshift(historyEntry)
   }
   normalizeStudyInsightConfig(state)
-  saveState(state, { backup: false })
+  if (!await saveState(state, { backup: false })) return false
   return key
 }
 
@@ -14108,7 +14207,7 @@ function setStudyInsightView(view) {
   if (state) renderStudyInsight(state)
 }
 
-function renderStudyInsight(state) {
+async function renderStudyInsight(state) {
   const container = document.getElementById('studyInsightCard')
   const reopenButton = document.getElementById('studyInsightReopen')
   const icon = document.getElementById('studyInsightIcon')
@@ -14135,8 +14234,9 @@ function renderStudyInsight(state) {
   const enabled = isStudyInsightsEnabled(state)
   const collapsed = state.config.studyInsights.collapsed === true
   const currentKey = !usingGuidance && insight && viewModel
-    ? (collapsed && enabled ? getStudyInsightHistoryKey(insight, state) : recordStudyInsight(state, insight))
+    ? (collapsed && enabled ? getStudyInsightHistoryKey(insight, state) : await recordStudyInsight(state, insight))
     : ''
+  if (!isCurrentLearnerProfileOperation(state)) return
   const archiveAccess = getStudyInsightArchiveAccess({
     accessPolicy: plusAccessPolicy,
     history: state.config.studyInsights.history
@@ -14225,12 +14325,12 @@ function renderStudyInsight(state) {
   }
 }
 
-function setStudyInsightsCollapsed(collapsed) {
+async function setStudyInsightsCollapsed(collapsed) {
   const state = loadState()
   if (!state) return
   normalizeStudyInsightConfig(state)
   state.config.studyInsights.collapsed = collapsed === true
-  saveState(state, { backup: false })
+  if (!await saveState(state, { backup: false })) return false
   renderStudyInsight(state)
   requestAnimationFrame(() => {
     if (collapsed) document.getElementById('studyInsightReopen')?.focus()
@@ -14441,17 +14541,17 @@ function setHistoryPeriodForRange(range, periodKey) {
   return true
 }
 
-function setHistoryView(view) {
+async function setHistoryView(view) {
   const nextView = view === 'heatmap' ? 'heatmap' : 'summary'
+  const state = loadState()
+  if (state?.config) {
+    state.config.historyView = nextView
+    if (!await saveState(state, { backup: false })) return false
+  }
   if (selectedHistoryView !== nextView) {
     delete document.getElementById('historyHeatmapView')?.dataset.historyScrollSession
   }
   selectedHistoryView = nextView
-  const state = loadState()
-  if (state?.config) {
-    state.config.historyView = selectedHistoryView
-    saveState(state, { backup: false })
-  }
   renderStudyHistoryPanel(state)
 }
 
@@ -14463,7 +14563,8 @@ function setCityDayOffset(offset) {
   const state = loadState()
   if (!state) return
   selectedCityDayOffset = clampCityDayOffset(state, offset)
-  renderCity(getCurrentCityScore(state), state)
+  // Timeline selection only changes the view; it does not award a level.
+  renderCitySnapshot(getCitySnapshot(getCurrentCityScore(state), state), state, true)
 }
 
 function previewCityDayOffset(offset) {
@@ -14476,9 +14577,14 @@ function previewCityDayOffset(offset) {
   renderCitySnapshot(snapshot, state, false)
 }
 
-function renderCity(score, s) {
+async function renderCity(score, s) {
   refreshTownEconomy(s)
-  updatePersistentCityLevel(s, score)
+  if (await updatePersistentCityLevel(s, score) === false) {
+    s = loadState({ persistCleanup: false })
+    if (!s) return
+    score = getCurrentCityScore(s)
+  }
+  if (!isCurrentLearnerProfileOperation(s)) return
   const snapshot = getCitySnapshot(score, s)
   renderCitySnapshot(snapshot, s, true)
 }
@@ -14585,7 +14691,7 @@ function getCitySnapshot(currentScore, s) {
   }
 }
 
-function updatePersistentCityLevel(s, score) {
+async function updatePersistentCityLevel(s, score) {
   const previous = JSON.stringify(s.cityProgress || {})
   normalizeCityProgress(s)
   const earnedLevelIndex = getCityLevelIndex(score)
@@ -14606,7 +14712,7 @@ function updatePersistentCityLevel(s, score) {
   }
   s.cityProgress.scoringVersion = SCORING_RULES_VERSION
   if (JSON.stringify(s.cityProgress) !== previous) {
-    saveState(s)
+    if (!await saveState(s)) return false
   }
   return s.cityProgress.maxLevelIndex
 }
@@ -14628,7 +14734,7 @@ function maybeStartLevelUpGuidance(s) {
     s?.cityProgress?.pendingLevelIndex !== 1
   ) return
 
-  levelUpGuidanceTimer = window.setTimeout(() => {
+  levelUpGuidanceTimer = window.setTimeout(async () => {
     levelUpGuidanceTimer = null
     const currentState = loadState()
     if (!currentState) return
@@ -14647,7 +14753,7 @@ function maybeStartLevelUpGuidance(s) {
     startWalkthrough([LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP], { trackCompletion: false })
     if (!walkthroughState.active || walkthroughState.steps[0]?.id !== LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP.id) return
     currentState.onboarding.levelUpGuidanceShownAt = new Date().toISOString()
-    saveState(currentState)
+    if (!await saveState(currentState)) return false
   }, 450)
 }
 
@@ -14691,7 +14797,7 @@ function launchCityLevelUpConfetti() {
   window.setTimeout(() => burst.remove(), 1700)
 }
 
-function claimCityLevelUp() {
+async function claimCityLevelUp() {
   const s = loadState()
   if (!s) return
   normalizeCityProgress(s)
@@ -14712,7 +14818,7 @@ function claimCityLevelUp() {
     detail: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]),
     meta: { levelIndex: s.cityProgress.maxLevelIndex }
   })
-  saveState(s)
+  if (!await saveState(s)) return false
   renderAll(s)
   launchCityLevelUpConfetti()
   showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
@@ -15777,7 +15883,7 @@ async function loadOlderChannelUploads(track, entry) {
       state.channelRefreshes[channelId] = {
         ...latest, coverage: channelCoverageWithHistory(state, channelId, result.history, result.videos)
       }
-      if (!saveState(state)) {
+      if (!await saveState(state)) {
         previousVideos.forEach((video, id) => {
           if (video) state.videos[id] = video
           else delete state.videos[id]
@@ -15801,7 +15907,7 @@ async function loadOlderChannelUploads(track, entry) {
       state.channelRefreshes[channelId] = {
         ...latest, coverage: channelCoverageWithHistory(state, channelId, { ...latest.coverage?.history, retryAt, failureCount })
       }
-      saveState(state)
+      if (!await saveState(state)) return false
       return { failed: true, retryAt }
     }
   }
@@ -16281,7 +16387,7 @@ function applyChannelVideoFormatSelection(shelf, channelKey, format) {
   return true
 }
 
-function selectChannelVideoFormat(control, channelKey, format) {
+async function selectChannelVideoFormat(control, channelKey, format) {
   const shelf = control?.closest?.('.channel-shelf')
   const selectedFormat = normalizeChannelVideoFormat(format)
   const previousFormat = shelf?.dataset.channelSelectedVideoFormat
@@ -16298,8 +16404,9 @@ function selectChannelVideoFormat(control, channelKey, format) {
     selectedFormat
   )
   const persisted = preferenceUpdated
-    ? saveState(state, { backup: false, syncAnalytics: false })
+    ? await saveState(state, { backup: false, syncAnalytics: false })
     : false
+  if (preferenceUpdated && !persisted) return false
   const applied = applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
   if (!applied) return false
 
@@ -16704,7 +16811,7 @@ function leaveChannelShelfDrag(event, shelf) {
   shelf.classList.remove('drag-over-before', 'drag-over-after')
 }
 
-function saveChannelShelfOrder(grid) {
+async function saveChannelShelfOrder(grid) {
   const visibleOrder = Array.from(grid?.querySelectorAll?.('.channel-shelf') || [])
     .map(shelf => shelf.dataset.channelKey)
     .filter(Boolean)
@@ -16721,7 +16828,7 @@ function saveChannelShelfOrder(grid) {
   state.config.channelShelfOrder = mergedOrder.map(key => (
     visibleKeys.has(key) ? visibleOrder[visibleIndex++] : key
   ))
-  saveState(state)
+  if (!await saveState(state)) return false
 }
 
 function placeChannelShelf(movedShelf, targetShelf, position) {
@@ -16770,7 +16877,7 @@ function finishChannelShelfDrag() {
   document.body.classList.remove('channel-shelf-dragging')
 }
 
-function handleVideoThumbnailClick(event, link) {
+async function handleVideoThumbnailClick(event, link) {
   event?.preventDefault()
   event?.stopPropagation()
 
@@ -16782,7 +16889,7 @@ function handleVideoThumbnailClick(event, link) {
   }
 
   if (link?.dataset?.videoPreviewAction === 'removed-thumbnail') {
-    if (!openVideoPlayer(videoId, {
+    if (!await openVideoPlayer(videoId, {
       mode: VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
     })) {
       showToast(t('toast.videoGone'), 'warn')
@@ -16801,7 +16908,7 @@ function handleVideoThumbnailClick(event, link) {
 
   if (card?.classList.contains('is-previewing')) {
     openVideoShelfPlayer(card, videoId)
-  } else if (!openVideoPlayer(videoId)) {
+  } else if (!await openVideoPlayer(videoId)) {
     showToast(t('toast.videoGone'), 'warn')
   }
   return false
@@ -16884,14 +16991,14 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
   }
 }
 
-function openVideoShelfPlayer(card, videoId) {
+async function openVideoShelfPlayer(card, videoId) {
   if (!card?.classList.contains('is-previewing')) return false
   if (activeNextStudyFocusVideoId === String(videoId ?? '')) {
     clearFocusedVideoPreview(videoId)
   } else {
     closeVideoShelfPreview(card, true)
   }
-  return openVideoPlayer(videoId)
+  return await openVideoPlayer(videoId)
 }
 
 function isStudyVideoShelfPlayerSession(session) {
@@ -16929,7 +17036,7 @@ function restorePlayerReturnPosition(session) {
   card.querySelector('.thumb-link, button')?.focus({ preventScroll: true })
 }
 
-function openVideoPlayer(videoId, options = {}) {
+async function openVideoPlayer(videoId, options = {}) {
   videoId = String(videoId ?? '')
   if (!videoId) return false
   const mode = options.mode === VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
@@ -16951,19 +17058,19 @@ function openVideoPlayer(videoId, options = {}) {
     )
   ) return false
   const wasWatched = getVideoStatus(existingVideo) === 'watched'
-  if (!isRemovedPreview && !wasWatched && !markVideoInProgressOnOpen(videoId, {
+  if (!isRemovedPreview && !wasWatched && !await markVideoInProgressOnOpen(videoId, {
     render: false,
     reminder: false,
     surface: 'channel_shelf',
     playerMode: 'embedded'
   })) return false
   if (!isRemovedPreview && wasWatched && isFavoriteVideo(existingVideo)) {
-    markVideoInProgressOnOpen(videoId, {
+    if (!await markVideoInProgressOnOpen(videoId, {
       render: false,
       reminder: false,
       surface: 'channel_shelf',
       playerMode: 'embedded'
-    })
+    })) return false
   }
 
   const video = loadState()?.videos?.[videoId]
@@ -17087,10 +17194,10 @@ async function hydrateVideoShelfPlayerAspectRatio(session) {
     const video = state?.videos?.[session.videoId]
     if (!video || !isStudyVideoShelfPlayerSession(session)) return
     video.aspectRatio = aspectRatio
-    saveState(state, {
+    if (!await saveState(state, {
       backup: false,
       syncAnalytics: false
-    })
+    })) return false
   } catch {
     // Keep the stored or conservative fallback ratio when metadata is unavailable.
   }
@@ -17196,7 +17303,7 @@ function persistVideoShelfWatchCoverage(video, session, watchedAt) {
   return coverageChanged || progressChanged
 }
 
-function syncActiveVideoShelfPlayer(options = {}) {
+async function syncActiveVideoShelfPlayer(options = {}) {
   const persist = options.persist !== false
   const shouldSyncAnalytics = options.syncAnalytics !== false
   const session = activeVideoShelfPlayer
@@ -17225,8 +17332,6 @@ function syncActiveVideoShelfPlayer(options = {}) {
   const previousResume = session.isRewatch
     ? Math.max(0, Number(session.lastPersistedSeconds) || 0)
     : normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
-  session.lastPersistedAt = Date.now()
-  session.lastPersistedSeconds = nextResume
 
   const watchedAt = getCurrentAppTimestamp(state)
   const progressChanged = persistVideoShelfWatchCoverage(video, session, watchedAt)
@@ -17234,10 +17339,12 @@ function syncActiveVideoShelfPlayer(options = {}) {
   if (session.isRewatch) video.pausedAt = watchedAt
   if (nextResume === previousResume && !progressChanged && !session.isRewatch) return true
   syncStreak(state)
-  saveState(state, {
+  if (!await saveState(state, {
     backup: false,
     syncAnalytics: shouldSyncAnalytics
-  })
+  })) return false
+  session.lastPersistedAt = Date.now()
+  session.lastPersistedSeconds = nextResume
   return true
 }
 
@@ -17393,7 +17500,7 @@ function completeVideoShelfPlayer(session) {
   return true
 }
 
-function completeVideoShelfPlayerRewatchConfirmation(session) {
+async function completeVideoShelfPlayerRewatchConfirmation(session) {
   if (activeVideoShelfPlayer !== session || !session.isRewatch) return false
   syncActiveVideoShelfPlayer({
     persist: true,
@@ -17408,7 +17515,7 @@ function completeVideoShelfPlayerRewatchConfirmation(session) {
     video.duration
   ))
   if (!recordVideoRewatch(state, video, coveredSeconds, { creditProgress: false })) return false
-  saveState(state)
+  if (!await saveState(state)) return false
   trackVideoRewatchCompleted(state, video, coveredSeconds, 'embedded_player')
   renderAll(state)
   return true
@@ -19409,7 +19516,46 @@ bindUndoRedoActions(document, {
 })
 
 bindImageFallbackActions(document)
-stateBackupStorageInitialization = initializeStateBackupStorage()
+async function initializeBrowserStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
+  // Retire only replaceable search metadata before opening a durable profile.
+  // This also gives the small opening markers room in the localStorage pool.
+  try {
+    const raw = localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY)
+    if (raw && raw.length * 2 > 64 * 1024) {
+      const bounded = JSON.stringify(budgetObjectCache(readYoutubeChannelSearchCache()))
+      if (bounded !== raw) localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, bounded)
+    }
+  } catch {}
+  await initializeStateBackupStorage()
+  let migrated = false
+  try { migrated = ['1', 'empty'].includes(localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`))
+    || isIndexedDbProfilePointer(localStorage.getItem(STORAGE_KEY)) } catch {}
+  if (!INDEXED_DB_PROFILE_ENABLED && !migrated) return
+  try {
+    primaryProfileRepository = await openIndexedDbProfile({
+      storage: localStorage, storageKey: STORAGE_KEY,
+      accessKey: LEARNER_PROFILE_ACCESS_KEY,
+      isValidState: isValidStateShape, eventTarget: window,
+      onChange() {
+        channelHistoryProfileEpoch += 1
+        if (!applicationStarted) return
+        if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+        else {
+          const state = loadState({ persistCleanup: false })
+          if (state) renderAll(state)
+        }
+      }
+    })
+    primaryProfileStorageUnavailable = false
+  } catch (error) {
+    console.warn('Edenia durable profile opening failed.', error)
+    // A migrated store may hold newer learner data than any legacy fallback.
+    // Retry opening instead of silently starting from a cookie or old backup.
+    primaryProfileStorageUnavailable = true
+  }
+}
+stateBackupStorageInitialization = initializeBrowserStorage()
   .finally(() => { stateBackupStorageReady = true })
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })

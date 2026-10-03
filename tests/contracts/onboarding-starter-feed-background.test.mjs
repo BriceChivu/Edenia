@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -6,8 +7,8 @@ const appSource = await readFile(new URL('../../src/app.js', import.meta.url), '
 const toastStyles = await readFile(new URL('../../src/styles/90-toast.css', import.meta.url), 'utf8')
 
 function getFunctionSource(name, nextName) {
-  const start = appSource.indexOf(`function ${name}(`)
-  const nextFunction = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const start = indexOfFunction(appSource, name)
+  const nextFunction = indexOfFunction(appSource, nextName, start)
   const nextAsyncFunction = appSource.indexOf(`\nasync function ${nextName}(`, start)
   const end = [nextFunction, nextAsyncFunction]
     .filter(index => index !== -1)
@@ -167,7 +168,7 @@ test('starter channels are fetched sequentially and persisted after every result
   )
   assert.match(source, /progressTask\.processedCatalogIds\.push\(catalogId\)/)
   assert.match(source, /progressTask\.failedCatalogIds\.push\(catalogId\)/)
-  assert.match(source, /if \(!saveState\(progressState, \{ backup: false \}\)\)/)
+  assert.match(source, /if \(!await saveState\(progressState, \{ backup: false \}\)\)/)
   assert.match(source, /showStarterFeedProgress\(progressTask\)/)
   assert.doesNotMatch(source, /Promise\.all|Promise\.allSettled/)
 })
@@ -230,6 +231,6 @@ test('YouTube requests have a bounded timeout and refresh cannot race starter wo
   assert.match(ytSource, /createYoutubeRequestGate/)
   assert.match(ytSource, /timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS/)
   assert.match(ytSource, /if \(error\?\.name === 'AbortError'\) throw Object\.assign\(new Error\(t\('toast\.youtubeRequestTimeout'\)\), \{ kind: 'timeout' \}\)/)
-  assert.match(refreshSource, /^function refreshFeed[\s\S]*?if \(starterFeedPreparationPromise\)/)
+  assert.match(refreshSource, /^(?:async )?function refreshFeed[\s\S]*?if \(starterFeedPreparationPromise\)/)
   assert.match(refreshSource, /reason: 'starter-feed-running'/)
 })

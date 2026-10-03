@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -58,10 +59,7 @@ function createChannelControl(catalogId) {
 const renderStart = appSource.indexOf(
   'function renderOnboardingChannelsStep(content) {'
 )
-const renderEnd = appSource.indexOf(
-  '\nfunction selectOnboardingLanguage(',
-  renderStart
-)
+const renderEnd = indexOfFunction(appSource, 'selectOnboardingLanguage', renderStart)
 assert.notEqual(renderStart, -1)
 assert.notEqual(renderEnd, -1)
 const renderSource = appSource.slice(renderStart, renderEnd)
@@ -118,10 +116,7 @@ test('recommendations preserve zero-to-six order and grid threshold', () => {
   const recommendationStart = appSource.indexOf(
     'function getRecommendedChannelCatalog(profile, limit = 6) {'
   )
-  const recommendationEnd = appSource.indexOf(
-    '\nfunction normalizeLoadedState(',
-    recommendationStart
-  )
+  const recommendationEnd = indexOfFunction(appSource, 'normalizeLoadedState', recommendationStart)
   assert.notEqual(recommendationStart, -1)
   assert.notEqual(recommendationEnd, -1)
   const source = appSource.slice(recommendationStart, recommendationEnd)
@@ -208,10 +203,7 @@ test('first visit selects recommendations in order within the current allowance'
   const start = appSource.indexOf(
     'function prepareOnboardingChannelSelections() {'
   )
-  const end = appSource.indexOf(
-    '\nfunction toggleOnboardingChannel(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'toggleOnboardingChannel', start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   const source = appSource.slice(start, end)
@@ -238,10 +230,7 @@ test('selection updates the live control while limit feedback returns early', ()
   const start = appSource.indexOf(
     'function toggleOnboardingChannel(catalogId) {'
   )
-  const end = appSource.indexOf(
-    '\nfunction resolveCuratedChannelEntry(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'resolveCuratedChannelEntry', start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   const source = appSource.slice(start, end)
@@ -275,10 +264,7 @@ test('removing and re-adding a channel moves it to the end', () => {
   const start = appSource.indexOf(
     'function toggleOnboardingChannel(catalogId) {'
   )
-  const end = appSource.indexOf(
-    '\nfunction resolveCuratedChannelEntry(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'resolveCuratedChannelEntry', start)
   const source = appSource.slice(start, end)
   assert.match(
     source,
@@ -305,10 +291,7 @@ test('applying-state no-op still reaches generic analytics for enabled cards', (
   const start = appSource.indexOf(
     'function toggleOnboardingChannel(catalogId) {'
   )
-  const end = appSource.indexOf(
-    '\nfunction resolveCuratedChannelEntry(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'resolveCuratedChannelEntry', start)
   const source = appSource.slice(start, end)
   assert.match(
     source,
@@ -332,10 +315,7 @@ test('central binder includes channel ownership with no remaining bridge', () =>
   const renderStart = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
-  const renderEnd = appSource.indexOf(
-    '\nfunction renderOnboardingHeading(',
-    renderStart
-  )
+  const renderEnd = indexOfFunction(appSource, 'renderOnboardingHeading', renderStart)
   const centralSource = appSource.slice(renderStart, renderEnd)
   assert.match(
     centralSource,

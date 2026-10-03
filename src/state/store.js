@@ -1,5 +1,8 @@
+import { mapPersistenceResult } from './persistence-result.js'
+
 export function createStateStore({
   storage,
+  getRepository = () => null,
   storageKey,
   discardableCacheKeys = [],
   normalizeLoadedState,
@@ -30,6 +33,16 @@ export function createStateStore({
     syncAnalytics = true
   } = {}, canPersist = () => true) {
     normalizeStateBeforeSave(state)
+    const repository = getRepository()
+    if (repository) {
+      return mapPersistenceResult(repository.save(state, { canPersist, replace: true }), persisted => {
+        if (persisted) {
+          saveConfigCookie(state.config)
+          if (syncAnalytics) syncPersistedStateToAnalytics(state)
+        }
+        return { persisted, error: persisted ? null : new Error('Durable profile save failed') }
+      })
+    }
     const serializedState = JSON.stringify(state)
     let persistenceError = null
 
@@ -68,6 +81,16 @@ export function createStateStore({
     normalizeStateBeforeSave(state)
     if (!canPersist()) return false
     if (backup) createStateBackup(backupReason, { force: forceBackup })
+    const repository = getRepository()
+    if (repository) {
+      return mapPersistenceResult(repository.save(state, { canPersist }), persisted => {
+        if (persisted) {
+          saveConfigCookie(state.config)
+          if (syncAnalytics) syncPersistedStateToAnalytics(state)
+        }
+        return persisted
+      })
+    }
     const serializedState = JSON.stringify(state)
     if (!canPersist()) return false
     let persisted = false
@@ -102,11 +125,12 @@ export function createStateStore({
   function loadState({ persistCleanup = true } = {}) {
     let storageError = false
     try {
-      const raw = storage.getItem(storageKey)
+      const repository = getRepository()
+      const raw = repository ? repository.readRaw() : storage.getItem(storageKey)
       if (raw) {
-        const state = JSON.parse(raw)
+        const state = repository ? repository.snapshot() : JSON.parse(raw)
         const shouldSave = normalizeLoadedState(state)
-        if (shouldSave && persistCleanup) {
+        if (shouldSave && persistCleanup && !repository) {
           saveState(state, {
             backupReason: 'before automatic cleanup',
             forceBackup: true
@@ -129,6 +153,7 @@ export function createStateStore({
   }
 
   function canPersistLocalState() {
+    if (getRepository()) return true
     const probeKey = `${storageKey}_storage_probe`
     try {
       storage.setItem(probeKey, '1')

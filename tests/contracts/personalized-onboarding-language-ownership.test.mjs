@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -58,10 +59,7 @@ function createDirectControl(action, languageId = '') {
 const languageStart = appSource.indexOf(
   'function renderOnboardingLanguageStep(content) {'
 )
-const languageEnd = appSource.indexOf(
-  '\nfunction renderOnboardingOtherStep(',
-  languageStart
-)
+const languageEnd = indexOfFunction(appSource, 'renderOnboardingOtherStep', languageStart)
 assert.notEqual(languageStart, -1)
 assert.notEqual(languageEnd, -1)
 const languageSource = appSource.slice(languageStart, languageEnd)
@@ -189,10 +187,7 @@ test('central renderer binds replacement content after every step branch', () =>
   const renderStart = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
-  const renderEnd = appSource.indexOf(
-    '\nfunction renderOnboardingHeading(',
-    renderStart
-  )
+  const renderEnd = indexOfFunction(appSource, 'renderOnboardingHeading', renderStart)
   assert.notEqual(renderStart, -1)
   assert.notEqual(renderEnd, -1)
   const renderSource = appSource.slice(renderStart, renderEnd)
@@ -251,10 +246,7 @@ test('local language callbacks retain state transitions and replacement', () => 
   const selectionStart = appSource.indexOf(
     'function selectOnboardingLanguage(languageId) {'
   )
-  const selectionEnd = appSource.indexOf(
-    '\nfunction continuePersonalizedOnboardingFromLanguage(',
-    selectionStart
-  )
+  const selectionEnd = indexOfFunction(appSource, 'continuePersonalizedOnboardingFromLanguage', selectionStart)
   assert.notEqual(selectionStart, -1)
   assert.notEqual(selectionEnd, -1)
   const selectionSource = appSource.slice(selectionStart, selectionEnd)
@@ -268,14 +260,11 @@ test('local language callbacks retain state transitions and replacement', () => 
   )
   assert.match(
     selectionSource,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !await persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
 
   const continueStart = selectionEnd + 1
-  const continueEnd = appSource.indexOf(
-    '\nfunction selectOnboardingLevel(',
-    continueStart
-  )
+  const continueEnd = indexOfFunction(appSource, 'selectOnboardingLevel', continueStart)
   const continueSource = appSource.slice(continueStart, continueEnd)
   assert.match(
     continueSource,

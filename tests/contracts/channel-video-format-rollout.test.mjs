@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -73,7 +74,7 @@ test('permanent format views include every duration without migrating the saved 
     /state\.config\.includeShorts = includeShorts/
   )
   const saveSettingsStart = appSource.indexOf('async function saveSettingsOnTheFly')
-  const saveSettingsEnd = appSource.indexOf('\nfunction saveLocaleFromSettings', saveSettingsStart)
+  const saveSettingsEnd = indexOfFunction(appSource, 'saveLocaleFromSettings', saveSettingsStart)
   assert.notEqual(saveSettingsStart, -1)
   assert.notEqual(saveSettingsEnd, -1)
   assert.doesNotMatch(
@@ -83,8 +84,8 @@ test('permanent format views include every duration without migrating the saved 
 })
 
 test('shelf rendering groups before applying independent format visibility', () => {
-  const renderStart = appSource.indexOf('function renderChannelVideoGroups')
-  const renderEnd = appSource.indexOf('\nfunction renderChannelShelfAvatar', renderStart)
+  const renderStart = indexOfFunction(appSource, 'renderChannelVideoGroups')
+  const renderEnd = indexOfFunction(appSource, 'renderChannelShelfAvatar', renderStart)
   const renderSource = appSource.slice(renderStart, renderEnd)
   assert.match(
     renderSource,
@@ -106,8 +107,8 @@ test('shelf rendering groups before applying independent format visibility', () 
 })
 
 test('format controls render accessible icons without visible labels or counts', () => {
-  const controlsStart = appSource.indexOf('function renderChannelVideoFormatIcon')
-  const controlsEnd = appSource.indexOf('function applyChannelVideoFormatSelection', controlsStart)
+  const controlsStart = indexOfFunction(appSource, 'renderChannelVideoFormatIcon')
+  const controlsEnd = indexOfFunction(appSource, 'applyChannelVideoFormatSelection', controlsStart)
   assert.notEqual(controlsStart, -1)
   assert.notEqual(controlsEnd, -1)
   const controlsSource = appSource.slice(controlsStart, controlsEnd)
@@ -195,8 +196,8 @@ test('mobile Shorts cards use permanent portrait geometry and the measured Add w
 })
 
 test('format changes stay shelf-local while persisting the explicit channel preference', () => {
-  const applyStart = appSource.indexOf('function applyChannelVideoFormatSelection')
-  const selectEnd = appSource.indexOf('function renderChannelVideoGroups', applyStart)
+  const applyStart = indexOfFunction(appSource, 'applyChannelVideoFormatSelection')
+  const selectEnd = indexOfFunction(appSource, 'renderChannelVideoGroups', applyStart)
   assert.notEqual(applyStart, -1)
   assert.notEqual(selectEnd, -1)
   const actionSource = appSource.slice(applyStart, selectEnd)

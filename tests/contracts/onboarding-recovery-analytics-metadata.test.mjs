@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -17,10 +18,7 @@ const analyticsSource = await readFile(
 const recoveryStart = appSource.indexOf(
   "function showOnboardingRecovery(reason = 'setup',"
 )
-const recoveryEnd = appSource.indexOf(
-  '\nfunction closeOnboardingRecovery(',
-  recoveryStart
-)
+const recoveryEnd = indexOfFunction(appSource, 'closeOnboardingRecovery', recoveryStart)
 assert.notEqual(recoveryStart, -1)
 assert.notEqual(recoveryEnd, -1)
 const recoverySource = appSource.slice(recoveryStart, recoveryEnd)
@@ -56,7 +54,7 @@ function getFunctionSource(name, nextName) {
   )
   const declaration = declarationPattern.exec(appSource)
   assert.ok(declaration, `Expected ${name}`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, declaration.index)
+  const end = indexOfFunction(appSource, nextName, declaration.index)
   assert.notEqual(end, -1, `Expected boundary after ${name}`)
   return appSource.slice(declaration.index, end)
 }
@@ -216,7 +214,7 @@ test('Retry retains inactive, storage-failure, and disabled state gates', () => 
 
   assert.match(
     source,
-    /^function retryOnboardingRecovery\(button\) \{\s*if \(!onboardingRecoveryState\.active\) return/
+    /^(?:async )?function retryOnboardingRecovery\(button\) \{\s*if \(!onboardingRecoveryState\.active\) return/
   )
   assert.match(
     source,
@@ -232,7 +230,7 @@ test('Retry retains inactive, storage-failure, and disabled state gates', () => 
   )
   assert.match(
     source,
-    /if \(!saveState\(state, \{ backup: false \}\)\) \{\s*if \(status\) status\.textContent = t\('onboarding\.recovery\.storageStillUnavailable'\)\s*if \(button\) button\.disabled = false\s*trackEdeniaEvent\('onboarding_recovery_retry', \{ success: false, reason: 'storage' \}\)\s*return\s*\}/
+    /if \(!await saveState\(state, \{ backup: false \}\)\) \{\s*if \(status\) status\.textContent = t\('onboarding\.recovery\.storageStillUnavailable'\)\s*if \(button\) button\.disabled = false\s*trackEdeniaEvent\('onboarding_recovery_retry', \{ success: false, reason: 'storage' \}\)\s*return\s*\}/
   )
   assert.doesNotMatch(source, /\.preventDefault\(|\.stopPropagation\(/)
 })

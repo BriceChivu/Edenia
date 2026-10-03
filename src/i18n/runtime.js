@@ -54,8 +54,8 @@ export function getLocaleLabel(locale = currentLocale) {
   return LOCALE_LABELS[normalized] || LOCALE_LABELS[DEFAULT_LOCALE]
 }
 
-export function t(key, params = {}) {
-  const dictionary = I18N[currentLocale] || I18N[DEFAULT_LOCALE]
+export function t(key, params = {}, locale = currentLocale) {
+  const dictionary = I18N[normalizeLocale(locale)] || I18N[DEFAULT_LOCALE]
   const template = dictionary?.[key] ?? I18N[DEFAULT_LOCALE]?.[key] ?? key
   return String(template).replace(/\{(\w+)\}/g, (_, name) => {
     return Object.prototype.hasOwnProperty.call(params, name)
