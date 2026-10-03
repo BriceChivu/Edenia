@@ -6,7 +6,7 @@ signal edit_toggled
 signal undo_requested
 signal reset_requested
 
-const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Tree", "stairs": "Stairs", "ground": "Ground", "bridge": "Bridge", "sheep": "Sheep", "house": "House", "remove": "Pick up"}
+const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Tree", "stairs": "Stairs", "ground": "Ground", "bridge": "Bridge", "chicken": "Chicken", "sheep": "Sheep", "house": "House", "remove": "Pick up"}
 var root: Control
 var panel: Control
 var launch: Button
@@ -44,6 +44,13 @@ func _ready() -> void:
 		var button: Button = root.get_node(icon_parent + kind.capitalize().replace(" ", "") + "Button")
 		buttons[kind] = button
 		button.pressed.connect(func(): tool_selected.emit(kind))
+	var chicken: Button = buttons.sheep.duplicate(14)
+	chicken.name = "ChickenButton"
+	chicken.icon = preload("res://assets/chicken.png")
+	chicken.tooltip_text = "Chicken"
+	panel.get_node("Tools").add_child(chicken)
+	chicken.pressed.connect(func(): tool_selected.emit("chicken"))
+	buttons.chicken = chicken
 	var pickup: Button = root.get_node("TerrainButton2/Tools/PickupButton")
 	pickup.pressed.connect(func(): tool_selected.emit("remove"))
 	undo_button.pressed.connect(func(): undo_requested.emit())
@@ -63,11 +70,12 @@ func arrange() -> void:
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	root.size = area
-	var extra := 34 if layout.level >= 5 else 0
+	var extra := (34 if layout.level >= 5 else 0) + (34 if layout.level >= 7 else 0)
 	panel.offset_left = (-274 if layout.bridges_enabled else -206) - extra
 	var tools := root.get_node("TerrainButton2/Tools")
 	tools.get_node("PickupButton").position.x = (252 if layout.bridges_enabled else 184) + extra
 	buttons.sheep.position.x = 252 if layout.bridges_enabled else 184
+	buttons.chicken.position.x = 286 if layout.bridges_enabled else 218
 	buttons.house.position.x = 286 if layout.bridges_enabled else 218
 	undo_button.position.x = (285 if layout.bridges_enabled else 217) + extra
 	if celebration != null:
@@ -92,7 +100,7 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 		for reward_level in layout.LEVEL_REWARDS:
 			if reward_level <= layout.level:
 				for reward_kind in layout.LEVEL_REWARDS[reward_level]:
-					if reward_kind == kind or (kind == "ground" and reward_kind not in ["tree", "stairs", "bridge", "sheep", "house"]):
+					if reward_kind == kind or (kind == "ground" and reward_kind not in ["tree", "stairs", "bridge", "sheep", "chicken", "house"]):
 						unlocked = true
 		# Show the empty tree slot at level 2 as a hint of the next reward.
 		buttons[kind].visible = kind != "house" and (unlocked or (kind == "tree" and layout.level >= 2)) and (kind != "bridge" or layout.bridges_enabled)

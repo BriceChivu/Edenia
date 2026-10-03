@@ -60,9 +60,15 @@ cut with `Pawn_Interact Axe`. Every tree needs 10 seconds of active cutting and 
 These timers are minimums: cutting finishes only when the current axe swing ends.
 The tree stays standing and wood is awarded at that animation boundary; regrowth
 also starts then, including after returning from a suspended preview.
+Standing trees animate at 10 fps. Each axe swipe bends the targeted tree away
+from the pawn on the third pose, then rebounds on the fourth. Four alternating
+strike strengths repeat with the eight ambient tree poses every 2.4 seconds;
+right-side chopping mirrors the reaction. Roots stay anchored and the clipped
+ground shadow does not rotate. The motion uses the website's measured rotation
+as a close reproduction; it is not certified pixel-identical to its GIF.
 Completed trees fade out over 0.2 seconds while Dust_01 and Dust_02 play once
-at the trunk, revealing their matching static Stump PNG. Tree4 regrows after
-five minutes; the others after ten minutes, including time while the preview
+at the trunk, revealing their matching static Stump PNG. Every tree regrows after
+five minutes, including time while the preview
 is closed. The same variant returns at its planted position.
 
 Switching tabs or apps continues the cutting countdown; suspended frames catch up
@@ -640,11 +646,23 @@ opposite-side views for free, including when no wood remains. Pick up a house
 to relocate it without paying again. Hovering a full six-log pyramid shows `Icon_01.png`; click it to select the
 house placement preview. Construction consumes that pile first. Houses occupy
 a 2×2 square footprint on grass or water. Missing grass is created for free;
-bushes and rocks disappear. Trees, stairs, other houses, logs, sheep, and the
-pawn block placement within the footprint. All four foundation tiles block walking
-and remain protected while the house is placed.
+bushes and rocks disappear. Stairs require clear foundations. Trees, other houses, logs, sheep, and the
+pawn block placement where their ground contacts overlap the annotated house
+contact polygon. Front, side, back, and mirrored side views share the same
+PNG-coordinate contact definitions across colors. Rotation also checks contacts.
+Pawn and sheep navigation block these polygons, leaving surrounding foundation
+grass walkable; all four foundation tiles remain protected while placed.
+Focused contact check: `res://tests/house_contacts.gd`.
 
 Save version **19** preserves sheep positions, house facings, and reclaimed
 houses, and free foundation grass; older layouts retain their existing state. Undo restores construction
 costs and physical log piles. Level rewards remain idempotent.
 Focused check: `res://tests/level_five.gd`.
+
+## Level seven chicken
+
+Level seven grants three grass tiles and one chicken, using the supplied
+`assets/chicken.png`. Select Chicken in the inventory to place it on free grass;
+Pick up returns it to inventory. The chicken uses the supplied CHICKEN3.0 artwork at 59.5% scale with a rounded ground shadow. Save version
+20 preserves its placement and grants the chicken to older level-seven-or-higher
+saves. Focused check: `res://tests/chicken.gd`.

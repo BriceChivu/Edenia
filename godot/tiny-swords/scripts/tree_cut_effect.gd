@@ -20,6 +20,9 @@ func setup(source: Sprite2D, height: float) -> void:
 	tree.frame = source.frame
 	tree.offset = source.offset
 	tree.scale = source.scale
+	# Freeze the displayed reaction independently of the standing tree's clock.
+	if source.material != null:
+		tree.material = source.material.duplicate()
 	add_child(tree)
 	for index in DUST_TEXTURES.size():
 		var puff := Sprite2D.new()

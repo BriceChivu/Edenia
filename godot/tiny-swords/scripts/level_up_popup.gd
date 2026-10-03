@@ -8,8 +8,13 @@ extends Control
 func configure(level: int, bridges_enabled := false) -> void:
 	# Every upgrade uses the same confirmation label.
 	$BuildButton.text = "OK"
-	$PineReward.visible = level in [3, 4]
-	$PineCount.visible = level in [3, 4]
+	$PineReward.visible = level in [3, 4, 7]
+	$PineCount.visible = level in [3, 4, 7]
+	if level == 7:
+		$PineReward.texture = preload("res://assets/chicken.png")
+		$PineReward.tooltip_text = "Chicken"
+		$PineReward.accessibility_name = "1 chicken"
+		$PineCount.text = "×1"
 	if level >= 5:
 		$Title.text = "LEVEL %s" % level
 	if level >= 3:

@@ -135,7 +135,7 @@ func run() -> void:
 			check(effect.is_queued_for_deletion(), "Completion effect cleans up after one dust playback")
 		check(world.tree_nodes.back().texture.get_image().get_size() == TreeArt.STUMPS[kind].get_image().get_size() and world.tree_nodes.back().hframes == 1, "Uses matching static stump PNG")
 		check(not harvesting.start(cell), "Cannot harvest a stump")
-		check(layout.tree_stumps[cell] == 1000 + Harvesting.regrowth_duration(kind), "Exact requested regrowth duration")
+		check(layout.tree_stumps[cell] == 1300, "Every tree regrows five minutes after cutting")
 		check(layout.stock == stock_before, "Build inventory does not change")
 		check(not world.pawn.axe_equipped and not world.pawn.chopping, "Pawn puts away axe after cutting")
 		saved = JSON.parse_string(JSON.stringify(layout.snapshot()))

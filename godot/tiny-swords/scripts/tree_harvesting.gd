@@ -5,7 +5,7 @@ extends Node
 ## a saved wall-clock deadline and continues while the preview is closed.
 const EQUIP_SECONDS := 0.35
 const CutEffect = preload("res://scripts/tree_cut_effect.gd")
-# Frame four meets the trunk 44 pixels from the pawn anchor.
+# The axe swipe reaches the trunk 44 pixels from the pawn anchor.
 const CUTTING_REACH := 44.0
 const NO_TREE := Vector2i(999, 999)
 enum Phase { READY, EQUIPPING, APPROACHING, CUTTING }
@@ -17,6 +17,7 @@ var pending_trees: Array[Vector2i] = []
 var equip_remaining := 0.0
 var save_elapsed := 0.0
 var cutting_updated_at := 0.0
+var swing_count := 0
 
 func _ready() -> void:
 	world.pawn.sprite.animation_looped.connect(_on_axe_swing_finished)
@@ -24,8 +25,8 @@ func _ready() -> void:
 static func duration(_kind: String) -> float:
 	return 10.0
 
-static func regrowth_duration(kind: String) -> float:
-	return 300.0 if kind == "tree4" else 600.0
+static func regrowth_duration(_kind: String) -> float:
+	return 300.0
 
 static func wood_yield(_kind: String) -> int:
 	return 1
@@ -136,6 +137,7 @@ func advance(delta: float, now: float) -> void:
 				return
 			phase = Phase.CUTTING
 			cutting_updated_at = now
+			swing_count = 0
 			world.pawn.chopping = true
 			world.pawn.sprite.flip_h = world.layout.tree_position(target).x < world.pawn.position.x
 			world.pawn.sprite.play("axe_interact")
@@ -161,6 +163,7 @@ func _on_axe_swing_finished() -> void:
 	# may remove the tree, grant wood, and put away the axe.
 	if phase != Phase.CUTTING or world.pawn.sprite.animation != "axe_interact":
 		return
+	swing_count += 1
 	if world.layout.tree_cut_remaining.get(target, 1.0) > 0.0:
 		return
 	var kind: String = world.layout.tree_types.get(target, "tree")

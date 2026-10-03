@@ -15,3 +15,22 @@ static func house_rect(layout, cell: Vector2i) -> Rect2:
 
 static func sheep_rect(layout, cell: Vector2i) -> Rect2:
 	return Rect2(layout.center(cell) - Vector2(64, 72 + layout.height_at(cell)), Vector2(128, 128))
+
+const CHICKEN_SCALE := 0.595
+const CHICKEN_OFFSET := Vector2(0, -40)
+const CHICKEN = preload("res://assets/chicken.png")
+
+static func chicken_rect(layout, cell: Vector2i) -> Rect2:
+	var size := CHICKEN.get_size() * CHICKEN_SCALE
+	return Rect2(layout.center(cell) - Vector2(0, layout.height_at(cell)) + CHICKEN_OFFSET * CHICKEN_SCALE - size / 2, size)
+
+static func house_depth_y(layout, cell: Vector2i, facing: int) -> float:
+	if facing == 0:
+		# Front view sorts at the annotated bottom edge in the ground plane.
+		return layout.house_footprint(cell, facing)[2].y
+	if facing in [1, 3]:
+		# Either cyan side corner defines the horizontal perspective line.
+		# Use the first annotated corner (PNG y=148), including its mirror.
+		return layout.house_footprint(cell, facing)[0].y
+	# Back view uses the bottom wall edge, above the two projecting posts.
+	return layout.house_footprint(cell, facing)[4].y

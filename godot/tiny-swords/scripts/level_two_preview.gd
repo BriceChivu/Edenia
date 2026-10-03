@@ -198,7 +198,7 @@ func _process(_delta: float) -> void:
 			terrain.ground_preview_height = option.height
 		else:
 			terrain.hover = clicked_cell(terrain.preview_position)
-		terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height)
+		terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position)
 		if selected == "tree":
 			update_tree_preview(terrain.preview_position)
 	update_cursor()
@@ -325,7 +325,7 @@ func update_cursor() -> void:
 	if mode != cursor_mode:
 		cursor_mode = mode
 		pointer.texture = HOUSE_CURSOR if mode == "house" else AXE_CURSOR if mode == "axe" else UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
-	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else (Vector2(32, 32) if mode == "axe" else Vector2(24, 18))
+	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else (Vector2(32, 32) if mode == "axe" or mode == "house" else Vector2(24, 18))
 	pointer.scale = (game_camera.zoom if game_camera != null else Vector2.ONE * DEFAULT_ZOOM) if mode == "build" else Vector2.ONE
 	# The original handle faces left; mirror it when the pawn is on the right.
 	pointer.flip_h = false
@@ -335,6 +335,9 @@ func update_cursor() -> void:
 		pointer.scale = Vector2.ONE * tool_scale
 		if mode == "axe":
 			pointer.flip_h = pawn.sprite.get_global_transform_with_canvas().origin.x > pointer_position.x
+		else:
+			# The hammer artwork fills twice the span of the white hand.
+			pointer.scale *= 0.5
 	pointer.position = pointer_position - hotspot * pointer.scale
 	pointer.visible = pointer_inside and pointer_focused and mode != "place"
 
@@ -355,14 +358,17 @@ func tree_at(point: Vector2) -> Vector2i:
 		var behind := Rect2(anchor - Vector2(17, 48), Vector2(34, 24))
 		if behind.has_point(point) and layout.walkable_point(point + Vector2(0, layout.height_at(cell))):
 			continue
-		if sprite.is_pixel_opaque(sprite.to_local(point)):
+		if sprite.is_visual_pixel_opaque(sprite.to_local(point)):
 			return cell
 	return Harvesting.NO_TREE
 
 func clicked_cell(point: Vector2) -> Vector2i:
-	if editing and selected in ["house", "sheep", "remove"]:
+	if editing and selected in ["house", "sheep", "chicken", "remove"]:
 		for cell in layout.houses:
 			if selected in ["house", "remove"] and LevelFiveArt.house_rect(layout, cell).has_point(point):
+				return cell
+		for cell in layout.chickens:
+			if selected == "remove" and LevelFiveArt.chicken_rect(layout, cell).has_point(point):
 				return cell
 		for sheep_position in layout.sheep:
 			var cell: Vector2i = layout.cell_at(sheep_position)
@@ -371,7 +377,7 @@ func clicked_cell(point: Vector2) -> Vector2i:
 	if editing and selected in ["tree", "remove"]:
 		for index in range(tree_nodes.size() - 1, -1, -1):
 			var sprite := tree_nodes[index] as Sprite2D
-			if sprite.is_pixel_opaque(sprite.to_local(point)):
+			if sprite.is_visual_pixel_opaque(sprite.to_local(point)):
 				return sprite.get_meta("cell")
 	if editing and selected == "bridge":
 		return bridge_placement_at(point)
@@ -487,7 +493,7 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 	if selected == "tree" and not can_place_tree(cell, tree_placement_offset):
 		return false
 	var before: Dictionary = layout.snapshot()
-	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source):
+	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source, pawn.position):
 		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	history.append(before)
@@ -702,11 +708,30 @@ func rebuild_decorations() -> void:
 		house.texture = LevelFiveArt.HOUSE_TEXTURES[facing]
 		house.flip_h = facing == 3
 		house.scale = Vector2.ONE
-		house.position = layout.center(cell) + Vector2(32, 32)
-		house.offset = Vector2(0, -32 - layout.height_at(cell))
+		house.position = Vector2(layout.center(cell).x + 32, LevelFiveArt.house_depth_y(layout, cell, facing))
+		# Move the sorting anchor without moving the house artwork.
+		house.offset = Vector2(0, layout.center(cell).y - house.position.y - layout.height_at(cell))
 		house.z_index = int(layout.height_at(cell) / 64)
 		$World.add_child(house)
 		asset_nodes.append(house)
+	for cell in layout.chickens:
+		var chicken := Sprite2D.new()
+		chicken.texture = LevelFiveArt.CHICKEN
+		chicken.position = layout.center(cell) - Vector2(0, layout.height_at(cell))
+		chicken.offset = LevelFiveArt.CHICKEN_OFFSET
+		chicken.scale = Vector2.ONE * LevelFiveArt.CHICKEN_SCALE
+		var shadow := Polygon2D.new()
+		var outline := PackedVector2Array()
+		for index in range(32):
+			var angle := TAU * index / 32.0
+			outline.append(Vector2(cos(angle) * 25, -4 + sin(angle) * 8))
+		shadow.polygon = outline
+		shadow.color = Color(0, 0, 0, 0.2)
+		shadow.show_behind_parent = true
+		chicken.add_child(shadow)
+		chicken.z_index = int(layout.height_at(cell) / 64)
+		$World.add_child(chicken)
+		asset_nodes.append(chicken)
 	for index in layout.sheep.size():
 		var sheep_sprite := Sprite2D.new()
 		sheep_sprite.set_script(preload("res://scripts/sheep_visual.gd"))
@@ -725,7 +750,9 @@ func rebuild_decorations() -> void:
 		tree.z_index = int(layout.height_at(cell) / 64.0)
 		tree.position = layout.tree_position(cell)
 		tree.offset = (TreeArt.stump_offset(kind) if stump else TreeArt.art_offset(kind)) - Vector2(0, layout.height_at(cell) / TreeArt.SCALE)
-		tree.set_script(preload("res://scripts/environment_sprite.gd"))
+		tree.set_script(preload("res://scripts/tree_visual.gd"))
+		tree.world = self
+		tree.kind = kind
 		$World.add_child(tree)
 		tree_nodes.append(tree)
 
@@ -869,6 +896,9 @@ func clear_segment(start: Vector2, end: Vector2, moving_sheep: bool = false) -> 
 			return false
 	for cell in layout.log_piles:
 		if layout.log_blocks_contact(cell, start, end) if moving_sheep else layout.log_blocks_feet(cell, start, end):
+			return false
+	for cell in layout.houses:
+		if layout.house_blocks_contact(cell, start, end, moving_sheep):
 			return false
 	var samples := maxi(1, ceili(start.distance_to(end) / 4.0))
 	var previous: Vector2i = layout.cell_at(start)

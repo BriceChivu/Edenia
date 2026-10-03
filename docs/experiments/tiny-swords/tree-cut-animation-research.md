@@ -111,4 +111,14 @@ After reviewing the findings, the user requested a 100% size preview. `TreeArt.S
 
 ![Actual Godot comparison of 80% and 100% tree scale, with the same full-size pawn](../../../artifacts/tree-cut-audit/tree-scale-comparison.png)
 
-The website bend/rebound remains planned; only the visual scale adjustment has been implemented.
+The scale adjustment was implemented first. The follow-up below adds the previously missing strike response.
+
+## Follow-up: implemented strike response
+
+The user reported that the cut animation was still missing. A native rendering regression fixture reproduced that absence for all four tree variants and both chopping sides (eight failures). The new Godot-owned `tree_visual.gd` now plays ambient tree frames at 10 fps, synchronizes the target tree to the six visible axe poses and swing count, bends at pose 2 and rebounds at pose 3. Four measured rotation strengths repeat over the 24-tick reference cycle. A shader samples the opaque body around its own root pivot while preserving the clipped partial-alpha ground shadow. Right-side chopping mirrors the motion. Pointer targeting uses the same inverse transform so the bent crown remains selectable.
+
+`tree_cut_effect.gd` clones the reaction material when taking its completion snapshot, preserving the shown pose throughout the existing 200 ms fade and dust/stump transition. The stale completion capture fixture now emits the required final-swing boundary. Harvest duration, yield, queueing and regrowth behavior are preserved from the checkout at implementation time.
+
+The new render check covers actual crown movement, reversed direction, rebound, recovery and cancellation for all four variants. The existing harvesting, cutting-queue, elevation and shadow checks also pass, as does the integrated preview build. Native animation capture: [tree-cut-reaction.gif](../../../artifacts/tree-cut-audit/tree-cut-reaction.gif).
+
+This is a **close reproduction using the measured rotation**, not a claim of pixel-exact matching. The earlier rotation fits retain pixel differences from the website; the three unchopped variants remain adaptations of the observed Tree3 motion.

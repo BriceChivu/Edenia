@@ -366,7 +366,10 @@ func tree_preview_rect() -> Rect2:
 
 func house_preview_rect() -> Rect2:
 	var area := LevelFiveArt.house_rect(layout, hover)
-	area.position += placement_offset()
+	# Rotation changes the facing at the existing anchor. Only a new house
+	# follows the pointer while choosing its construction location.
+	if not layout.houses.has(hover):
+		area.position += placement_offset()
 	return area
 
 func pickup_outline() -> PackedVector2Array:
@@ -471,8 +474,14 @@ func draw_editor() -> void:
 					area.position.x += area.size.x
 					area.size.x *= -1
 				draw_texture_rect(LevelFiveArt.HOUSE_TEXTURES[facing], area, false, tint)
+			if tool == "chicken":
+				draw_set_transform(placement_offset())
+				draw_texture_rect(LevelFiveArt.CHICKEN, LevelFiveArt.chicken_rect(layout, hover), false, tint)
+				draw_set_transform(Vector2.ZERO)
 			if tool == "sheep":
+				draw_set_transform(placement_offset())
 				draw_texture_rect_region(LevelFiveArt.SHEEP_IDLE, LevelFiveArt.sheep_rect(layout, hover), Rect2(0, 0, 128, 128), tint)
+				draw_set_transform(Vector2.ZERO)
 			if tool == "tree" and not layout.trees.has(hover):
 				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(Vector2.ZERO, TreeArt.frame_size(layout.next_tree_variant)), tint)
 			if tool == "remove" and layout.cells.get(hover) == "stairs":

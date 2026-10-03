@@ -53,6 +53,7 @@ func run() -> void:
 	world.pawn.sprite.frame = 3
 	await capture("axe-cut")
 	world.harvesting.advance(300, Time.get_unix_time_from_system())
+	world.pawn.sprite.animation_looped.emit()
 	var effect
 	for child in world.get_node("World").get_children():
 		if child is CutEffect:
