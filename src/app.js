@@ -15689,7 +15689,7 @@ function channelCoverageWithHistory(state, channelId, history, fetched = []) {
   }
 }
 
-async function loadOlderChannelUploads(track, entry, started) {
+async function loadOlderChannelUploads(track, entry) {
   const origin = loadState()
   const profileEpoch = channelHistoryProfileEpoch
   let state = origin
@@ -15708,7 +15708,6 @@ async function loadOlderChannelUploads(track, entry, started) {
     const history = refresh.coverage?.history
     if (history?.exhausted === true) return { exhausted: true }
     if (history?.retryAt > Date.now()) return { failed: true, retryAt: history.retryAt }
-    started()
     try {
       const result = await fetchOlderUploads({
         history,
@@ -15748,10 +15747,11 @@ async function loadOlderChannelUploads(track, entry, started) {
     } catch (error) {
       if (!current()) return null
       state = loadState()
-      const retryAt = error.retryAt || Date.now() + 30_000
       const latest = getChannelRefreshes(state)[channelId] || {}
+      const failureCount = Math.min(5, (latest.coverage?.history?.failureCount || 0) + 1)
+      const retryAt = error.retryAt || Date.now() + Math.min(300_000, 30_000 * 2 ** (failureCount - 1))
       state.channelRefreshes[channelId] = {
-        ...latest, coverage: channelCoverageWithHistory(state, channelId, { ...latest.coverage?.history, retryAt })
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, { ...latest.coverage?.history, retryAt, failureCount })
       }
       saveState(state)
       return { failed: true, retryAt }
@@ -15777,8 +15777,7 @@ function syncChannelHistoryActions(track, entry) {
   entry.history = null
   entry.historyViewKey = key
   if (enabled) entry.history = bindUploadHistoryActions(track, {
-    load: started => loadOlderChannelUploads(track, entry, started),
-    text: key => t(`videos.history.${key}`)
+    load: () => loadOlderChannelUploads(track, entry)
   })
 }
 

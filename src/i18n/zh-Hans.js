@@ -13,11 +13,6 @@ export const ZH_HANS_LOCALIZED = {
   "townEconomy.notStarted": "尚未开始赚取金币",
   "townEconomy.comparison": "小镇金币与购买记录",
 
-  'videos.history.loading': "正在加载较早的视频…",
-  'videos.history.exhausted': "已加载所有可用视频。",
-  'videos.history.limited': "本批次中没有更多符合条件的视频。",
-  'videos.history.failed': "无法加载较早的视频。",
-  'videos.history.continue': "继续浏览",
 
     'intro.skip': '跳过介绍',
     'intro.sound.off': '声音关闭',

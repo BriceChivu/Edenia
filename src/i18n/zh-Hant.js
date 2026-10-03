@@ -13,11 +13,6 @@ export const ZH_HANT_LOCALIZED = {
   "townEconomy.notStarted": "尚未開始賺取金幣",
   "townEconomy.comparison": "小鎮金幣與購買紀錄",
 
-  'videos.history.loading': "正在載入較早的影片…",
-  'videos.history.exhausted': "已載入所有可用影片。",
-  'videos.history.limited': "本批次中沒有更多符合條件的影片。",
-  'videos.history.failed': "無法載入較早的影片。",
-  'videos.history.continue': "繼續瀏覽",
 
     'intro.skip': '跳過介紹',
     'intro.sound.off': '聲音關閉',
