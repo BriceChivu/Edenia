@@ -82,8 +82,7 @@ test('a rejected removal keeps the saved feed, progress and Undo unchanged throu
   // This is the production symptom: the failed operation must never render a
   // temporary successful removal before a subsequent load restores the row.
   await expect(page.locator('.channel-shelf-track .video-card')).toHaveCount(cardCount)
-  await expect(page.locator('#toast')).toContainText('Could not save')
-  await expect(page.locator('#toast')).toContainText('Export a sync file')
+  await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(before)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1_backups'))).toBe(protection.backups)
   expect(await page.evaluate(() => document.cookie)).toBe(protection.cookie)
@@ -125,6 +124,56 @@ test('large-channel removal fits without full-library Undo copies and survives U
   expect(redone.anki).toEqual(before.anki)
 })
 
+test('quota pressure discards only search results and retries the requested removal without a popup', async ({ page }) => {
+  await seedChannel(page, 200)
+  const protectedValues = await page.evaluate(() => {
+    const cacheKey = 'edenia_v1_youtube_channel_search_cache_v1'
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const protectedValues = {
+      edenia_v1_backups: JSON.stringify([{ id: 'recovery', createdAt: new Date().toISOString(), reason: 'before import', state }]),
+      edenia_v1_youtube_channel_search_usage_v1: JSON.stringify({ date: '2026-10-03', count: 8 }),
+      edenia_unknown_future_key: 'Keep this unrelated value'
+    }
+    for (const [key, value] of Object.entries(protectedValues)) localStorage.setItem(key, value)
+    localStorage.setItem(cacheKey, JSON.stringify({ query: { savedAt: Date.now(), results: [{ id: state.config.channels[0].id, name: 'cached result '.repeat(8000) }] } }))
+    const size = () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
+      .reduce((total, key) => total + key.length + localStorage.getItem(key).length, 0)
+    const limit = size()
+    const original = Storage.prototype.setItem
+    window.removalQuotaFailures = 0
+    Storage.prototype.setItem = function (key, value) {
+      if (this === localStorage && key === 'edenia_v1') {
+        const nextSize = size() - (localStorage.getItem(key)?.length || 0) + value.length
+        if (nextSize > limit) {
+          window.removalQuotaFailures++
+          throw new DOMException('Fixture quota exhausted', 'QuotaExceededError')
+        }
+      }
+      return original.call(this, key, value)
+    }
+    return protectedValues
+  })
+  await removeFromShelf(page)
+  await expect(page.locator('.channel-shelf-remove')).toHaveCount(0)
+  const result = await page.evaluate(() => ({
+    state: JSON.parse(localStorage.getItem('edenia_v1')),
+    cache: localStorage.getItem('edenia_v1_youtube_channel_search_cache_v1'),
+    failures: window.removalQuotaFailures
+  }))
+  expect(result.failures).toBe(1)
+  expect(result.cache).toBeNull()
+  expect(result.state.config.channels).toEqual([])
+  expect(result.state.config.removedChannelIds).toContain(channelId)
+  expect(Object.keys(result.state.videos)).toHaveLength(200)
+  expect(result.state.videos[partialId].resumeAtSeconds).toBe(30)
+  await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/)
+  for (const [key, value] of Object.entries(protectedValues)) {
+    expect(await page.evaluate(key => localStorage.getItem(key), key)).toBe(value)
+  }
+  await page.reload()
+  await expect(page.locator('.channel-shelf-remove')).toHaveCount(0)
+})
+
 test('a failed removal does not spend backups on pending automatic profile cleanup', async ({ page }) => {
   await seedChannel(page)
   const protectedBackup = await page.evaluate(() => {
@@ -151,7 +200,7 @@ test('failed channel Undo and Redo keep the feed and saved history at the last s
   const removed = await limitPrimaryWrites(page, { rejectAll: true })
   await page.evaluate(() => window.undoLastVideoAction())
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(0)
-  await expect(page.locator('#toast')).toContainText('Could not save')
+  await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(removed)
   await page.evaluate(() => { window.restoreRemovalWrites(); window.undoLastVideoAction() })
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)

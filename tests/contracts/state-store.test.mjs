@@ -14,7 +14,7 @@ function quotaError(name = 'QuotaExceededError', code = 22) {
 
 function createHarness(options = {}) {
   const events = []
-  const values = new Map()
+  const values = new Map(Object.entries(options.initialValues || {}))
   if (Object.prototype.hasOwnProperty.call(options, 'raw')) {
     values.set('edenia_v1', options.raw)
   }
@@ -45,6 +45,7 @@ function createHarness(options = {}) {
       events.push(['remove', key])
       if (options.throwOnRemove?.has(key)) throw new Error('remove failed')
       values.delete(key)
+      options.afterRemove?.(key)
     }
   }
   const recoveredState = options.recoveredState ?? null
@@ -52,6 +53,7 @@ function createHarness(options = {}) {
   const store = createStateStore({
     storage,
     storageKey: 'edenia_v1',
+    discardableCacheKeys: options.discardableCacheKeys || [],
     normalizeLoadedState(state) {
       events.push(['normalize-loaded', state])
       if (options.throwDuringLoadNormalization) throw new Error('normalize failed')
@@ -265,6 +267,100 @@ test('non-quota save failures leave backups, cookies and analytics unchanged', (
   const harness = createHarness({ failPrimaryWrites: 1 })
   assert.equal(harness.store.saveState({ config: {} }, { backup: false }), false)
   assert.deepEqual(harness.events.map(event => event[0]), ['normalize-before-save', 'set'])
+})
+
+test('quota recovery retries after discarding only configured replaceable caches', () => {
+  const previous = JSON.stringify({ config: { channels: ['existing'] } })
+  const protectedValues = { backups: 'recovery copy', usage: '8', unknown: 'keep' }
+  const harness = createHarness({
+    raw: previous, primaryWriteErrors: [quotaError()],
+    initialValues: { search: 'cached results', ...protectedValues },
+    discardableCacheKeys: ['search']
+  })
+  const state = { config: { channels: [] } }
+  assert.equal(harness.store.saveState(state, { backup: false, pruneBackups: false }), true)
+  assert.equal(harness.values.get('edenia_v1'), JSON.stringify(state))
+  assert.equal(harness.values.has('search'), false)
+  for (const [key, value] of Object.entries(protectedValues)) assert.equal(harness.values.get(key), value)
+  assert.deepEqual(harness.events.map(event => event[0]), ['normalize-before-save', 'set', 'get', 'remove', 'get', 'set', 'cookie', 'analytics'])
+})
+
+test('non-quota failures never discard caches', () => {
+  const harness = createHarness({
+    failPrimaryWrites: 1, initialValues: { search: 'cached results' }, discardableCacheKeys: ['search']
+  })
+  assert.equal(harness.store.saveState({ config: {} }, { backup: false }), false)
+  assert.equal(harness.values.get('search'), 'cached results')
+  assert.deepEqual(harness.events.map(event => event[0]), ['normalize-before-save', 'set'])
+})
+
+test('insufficient cache space preserves the saved profile and every recovery backup', () => {
+  const previous = JSON.stringify({ config: {}, value: 'saved' })
+  const harness = createHarness({
+    raw: previous, primaryWriteErrors: [quotaError(), quotaError()],
+    initialValues: { search: 'cached results', backups: 'recovery copy' },
+    discardableCacheKeys: ['search']
+  })
+  assert.equal(harness.store.saveState({ config: {}, value: 'candidate' }, {
+    backup: false, pruneBackups: false
+  }), false)
+  assert.equal(harness.values.get('edenia_v1'), previous)
+  assert.equal(harness.values.get('backups'), 'recovery copy')
+  assert.equal(harness.values.has('search'), false)
+  assert.equal(harness.events.some(event => ['prune', 'cookie', 'analytics'].includes(event[0])), false)
+})
+
+test('failed cache eviction leaves the saved profile and cache intact', () => {
+  const previous = JSON.stringify({ config: {}, value: 'saved' })
+  const harness = createHarness({
+    raw: previous, primaryWriteErrors: [quotaError()],
+    initialValues: { search: 'cached results' }, discardableCacheKeys: ['search'],
+    throwOnRemove: new Set(['search'])
+  })
+  assert.equal(harness.store.saveState({ config: {}, value: 'candidate' }, {
+    backup: false, pruneBackups: false
+  }), false)
+  assert.equal(harness.values.get('edenia_v1'), previous)
+  assert.equal(harness.values.get('search'), 'cached results')
+  assert.equal(harness.events.filter(event => event[0] === 'set').length, 1)
+})
+
+test('imports reclaim disposable caches before pruning recovery backups', () => {
+  const harness = createHarness({
+    primaryWriteErrors: [quotaError()], initialValues: { search: 'cached results' },
+    discardableCacheKeys: ['search']
+  })
+  const state = { config: {}, value: 'imported' }
+  assert.deepEqual(harness.store.saveImportedState(state, { preserveBackupId: 'rollback' }), {
+    persisted: true, error: null
+  })
+  assert.equal(harness.values.get('edenia_v1'), JSON.stringify(state))
+  assert.equal(harness.values.has('search'), false)
+  assert.equal(harness.events.some(event => event[0] === 'prune'), false)
+})
+
+test('a quota retry cannot persist after its profile fence is lost', () => {
+  let current = true
+  const previous = JSON.stringify({ config: {}, value: 'saved' })
+  const harness = createHarness({
+    raw: previous, primaryWriteErrors: [quotaError()], initialValues: { search: 'cached results' },
+    discardableCacheKeys: ['search', 'edenia_v1'], afterRemove() { current = false }
+  })
+  assert.equal(harness.store.saveState({ config: {}, value: 'candidate' }, {
+    backup: false, pruneBackups: false
+  }, () => current), false)
+  assert.equal(harness.values.get('edenia_v1'), previous)
+  assert.equal(harness.values.has('search'), false)
+  assert.equal(harness.events.filter(event => event[0] === 'set').length, 1)
+  assert.equal(harness.events.some(event => event[0] === 'cookie'), false)
+})
+
+test('quota recovery never discards the primary profile even if it is listed as a cache', () => {
+  const previous = JSON.stringify({ config: {}, value: 'saved' })
+  const harness = createHarness({ raw: previous, primaryWriteErrors: [quotaError()], discardableCacheKeys: ['edenia_v1'] })
+  assert.equal(harness.store.saveState({ config: {} }, { backup: false, pruneBackups: false }), false)
+  assert.equal(harness.values.get('edenia_v1'), previous)
+  assert.equal(harness.events.some(event => event[0] === 'remove'), false)
 })
 
 test('import saving prunes older backups until a quota retry succeeds', () => {
