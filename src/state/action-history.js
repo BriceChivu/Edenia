@@ -1,3 +1,5 @@
+import { compactChannelRemovalHistory } from './channel-removal-history.js'
+
 export const UNDO_ACTION_TYPES = [
   'video-status',
   'video-resume-time',
@@ -24,4 +26,5 @@ export function normalizeUndoState(state) {
     .filter(action => UNDO_ACTION_TYPES.includes(action?.type))
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
+  compactChannelRemovalHistory(state)
 }

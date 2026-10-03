@@ -1049,6 +1049,7 @@ export const ZH_HANS_LOCALIZED = {
   'toast.backupUnavailable': '找不到这个备份',
   'toast.backupCreateFailed': '无法创建并验证回滚备份。你当前的进度没有更改。',
   'toast.progressSaveFailed': '无法保存这项更改。你当前的进度没有更改。',
+  'toast.channelSaveFailed': '无法保存这项频道更改。你的进度没有改变。清理存储空间之前，请先在设置中导出同步文件。',
   'toast.startOverFailed': '无法重新开始。你当前的进度没有更改。',
   'toast.startOverUndoFailed': '无法恢复之前的进度。你当前的档案和受保护的进度都没有更改。',
   'toast.backupRestored': '备份已恢复',

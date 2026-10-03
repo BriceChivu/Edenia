@@ -427,7 +427,7 @@ test('removal retains snapshots, Undo, activity, save, and render ordering', () 
   assertSourceOrder(
     removeSource,
     [
-      'const s = loadState()',
+      'const s = loadState({ persistCleanup: false })',
       'const channel = s.config.channels.find(c => c.id === id) || getInferredChannelEntry(s, id)',
       'if (!channel) return',
       'const before = getChannelRemoveSnapshot(s, id, channel)',
@@ -440,7 +440,7 @@ test('removal retains snapshots, Undo, activity, save, and render ordering', () 
       'appendActivityLog(s, {',
       "type: 'channel-remove'",
       "status: 'success'",
-      'saveState(s)',
+      'if (!persistChannelAction(s, checkpoint)) return false',
       'renderAll(s)',
       'renderActivityLog(s)'
     ],

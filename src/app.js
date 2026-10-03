@@ -262,6 +262,10 @@ import {
   UNDO_STACK_LIMIT
 } from './state/action-history.js'
 import {
+  getChannelRemovalVideoFields,
+  restoreChannelRemovalVideoFields
+} from './state/channel-removal-history.js'
+import {
   createPendingStarterFeed,
   normalizeOnboardingState,
   ONBOARDING_VERSION,
@@ -1113,11 +1117,11 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   })
 }
 
-function loadState() {
+function loadState(options = {}) {
   if (INTERNAL_PROFILE_PAUSED) return null
   return learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.readActiveProfile()
-    : loadPersistedState()
+    : loadPersistedState(options)
 }
 
 const persistedPortableProfileSnapshots = new WeakMap()
@@ -7992,9 +7996,11 @@ function removeChannelFromFilter(event, channelId) {
 }
 
 function removeChannel(id) {
-  const s = loadState()
+  const s = loadState({ persistCleanup: false })
+  if (!s) return false
   const channel = s.config.channels.find(c => c.id === id) || getInferredChannelEntry(s, id)
   if (!channel) return
+  const checkpoint = captureChannelActionState(s, id)
   const before = getChannelRemoveSnapshot(s, id, channel)
 
   applyChannelRemoval(s, id)
@@ -8014,9 +8020,10 @@ function removeChannel(id) {
     detail: channel?.name || id,
     meta: { channelId: id }
   })
-  saveState(s)
+  if (!persistChannelAction(s, checkpoint)) return false
   renderAll(s)
   renderActivityLog(s)
+  return true
 }
 
 function applyChannelRemoval(s, channelId, { preserveManualVideos = false } = {}) {
@@ -8063,10 +8070,39 @@ function getChannelRemoveSnapshot(s, channelId, channel = null) {
     refresh: refreshes[channelId] ? { ...refreshes[channelId] } : null,
     removedChannelIds: [...(s.config.removedChannelIds || [])],
     removedDefaultChannelIds: [...(s.config.removedDefaultChannelIds || [])],
-    videos: Object.fromEntries(Object.entries(s.videos || {})
+    // Redo computes visibility from the current progress, so only Undo needs
+    // the previous presentation fields. The library retains every video.
+    ...(channel ? { videoVisibility: Object.fromEntries(Object.entries(s.videos || {})
       .filter(([, video]) => isChannelRemovalVideo(video, channelId))
-      .map(([videoId, video]) => [videoId, cloneVideoForHistoryAction(video)]))
+      .map(([videoId, video]) => [videoId, getChannelRemovalVideoFields(video)])) } : {})
   }
+}
+
+function captureChannelActionState(state, channelId) {
+  const { videos, ...metadata } = state
+  return {
+    metadata: structuredClone(metadata),
+    videoVisibility: Object.fromEntries(Object.entries(videos || {})
+      .filter(([, video]) => isChannelRemovalVideo(video, channelId))
+      .map(([id, video]) => [id, getChannelRemovalVideoFields(video, { includeImage: true })])),
+    videoIds: new Set(Object.keys(videos || {}))
+  }
+}
+
+function persistChannelAction(state, checkpoint) {
+  // These actions retain their own Undo record. Do not consume recovery
+  // backups in an attempt to fit the change into an exhausted browser quota.
+  if (saveState(state, { backup: false, pruneBackups: false })) return true
+  for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
+  Object.assign(state, checkpoint.metadata)
+  for (const [id, fields] of Object.entries(checkpoint.videoVisibility)) {
+    if (state.videos[id]) restoreChannelRemovalVideoFields(state.videos[id], fields, { includeImage: true })
+  }
+  for (const id of Object.keys(state.videos)) {
+    if (!checkpoint.videoIds.has(id)) delete state.videos[id]
+  }
+  showToast(t('toast.channelSaveFailed'), 'error', { durationMs: 10000 })
+  return false
 }
 
 function getInferredChannelEntry(s, channelId) {
@@ -11175,7 +11211,7 @@ function pushUndoAction(s, action) {
 }
 
 function undoHistoryActionById(actionId) {
-  const state = loadState()
+  const state = loadState({ persistCleanup: false })
   normalizeUndoState(state)
   const index = state.undoStack.findIndex(action => action?.id === actionId)
   if (index < 0) {
@@ -11199,19 +11235,19 @@ function cloneVideoForHistoryAction(video) {
 }
 
 function undoLastVideoAction() {
-  const s = loadState()
+  const s = loadState({ persistCleanup: false })
   normalizeUndoState(s)
   applyHistoryAction('undo', s.undoStack.length - 1)
 }
 
 function redoLastVideoAction() {
-  const s = loadState()
+  const s = loadState({ persistCleanup: false })
   normalizeUndoState(s)
   applyHistoryAction('redo', s.redoStack.length - 1)
 }
 
 function applyHistoryAction(direction, actionIndex) {
-  const s = loadState()
+  const s = loadState({ persistCleanup: false })
   normalizeUndoState(s)
   const sourceStack = direction === 'redo' ? s.redoStack : s.undoStack
   const targetStack = direction === 'redo' ? s.undoStack : s.redoStack
@@ -11224,6 +11260,10 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   const checkpoint = action.videoId ? captureVideoActionState(s, action.videoId) : null
+  const channelCheckpoint = action.type === 'channel-remove'
+    ? captureChannelActionState(s, action.channelId) : null
+  const persistAction = () => channelCheckpoint
+    ? persistChannelAction(s, channelCheckpoint) : persistVideoAction(s, checkpoint)
   const targetSnapshot = direction === 'redo' ? action.after : action.before
   const previousSnapshot = direction === 'redo' ? action.before : action.after
   const restoresTrackedChannel = action.type === 'channel-remove'
@@ -11254,7 +11294,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   if (!historyResult) {
-    if (!persistVideoAction(s, checkpoint)) return false
+    if (!persistAction()) return false
     renderAll(s)
     showToast(t('toast.videoGone'), 'warn')
     return
@@ -11284,7 +11324,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   closeHistoryActionPopovers()
-  if (!persistVideoAction(s, checkpoint)) return false
+  if (!persistAction()) return false
   const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
   trackEdeniaEvent(`${direction}_applied`, {
     action_type: action.type,
@@ -11336,8 +11376,11 @@ function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo
   }
 
   s.config.channels = Array.isArray(s.config.channels) ? s.config.channels : []
-  s.config.removedChannelIds = [...(snapshot.removedChannelIds || [])]
-  s.config.removedDefaultChannelIds = [...(snapshot.removedDefaultChannelIds || [])]
+  for (const key of ['removedChannelIds', 'removedDefaultChannelIds']) {
+    // Undo one channel without changing intentional removals of other channels.
+    s.config[key] = (s.config[key] || []).filter(id => id !== channelId)
+    if (snapshot[key]?.includes(channelId)) s.config[key].push(channelId)
+  }
 
   const channelIndex = s.config.channels.findIndex(existing => existing.id === channelId)
   if (snapshot.channel) {
@@ -11353,6 +11396,9 @@ function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo
 
   Object.entries(snapshot.videos || {}).forEach(([videoId, video]) => {
     if (video) s.videos[videoId] = cloneVideoForHistoryAction(video)
+  })
+  Object.entries(snapshot.videoVisibility || {}).forEach(([videoId, fields]) => {
+    if (s.videos[videoId]) restoreChannelRemovalVideoFields(s.videos[videoId], fields)
   })
   if (!snapshot.channel) {
     Object.values(s.videos || {}).forEach(video => {
