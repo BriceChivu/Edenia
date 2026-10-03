@@ -105,5 +105,21 @@ func _initialize() -> void:
 	version14.stock.tree = 0
 	version14.stock.tree2 = 1
 	check(reloaded.restore(version14) and reloaded.stock.tree == 1, "Previous level-four inventory migrates to shared trees")
+	var extended = Layout.new()
+	for target in range(2, 11):
+		var before_ground: int = extended.ground_count()
+		var before_cells: Dictionary = extended.cells.duplicate(true)
+		check(extended.unlock(target), "Unlock level %s" % target)
+		check(extended.ground_count() == before_ground + 3, "Every upgrade grants three grass tiles")
+		check(extended.cells == before_cells, "Upgrade preserves placed terrain")
+		var restored = Layout.new()
+		check(restored.restore(extended.snapshot()) and restored.level == target and restored.stock == extended.stock, "Level %s save roundtrip" % target)
+		check(not extended.unlock(target), "Upgrade cannot duplicate rewards")
+		var threshold: int = Layout.XP_THRESHOLDS[target - 1]
+		check(Layout.level_for_xp(threshold - 1) == target - 1 and Layout.level_for_xp(threshold) == target, "XP boundary for level %s" % target)
+	check(not extended.unlock(11) and Layout.level_for_xp(99999) == 10, "Progression stops at level ten")
+	var invalid_extended := extended.snapshot()
+	invalid_extended.stock.meadow += 1
+	check(not Layout.new().restore(invalid_extended), "Extended saves reject extra grass")
 	print("Progression checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

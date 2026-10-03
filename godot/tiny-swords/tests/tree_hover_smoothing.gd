@@ -33,24 +33,24 @@ func run() -> void:
 				check(level.terrain.hover == cell and level.terrain.valid, "Clear grass remains plantable across its visible surface")
 				var offset: Vector2 = level.tree_offset_at(cell, point)
 				check(level.layout.valid_tree_offset(offset), "Snapped roots stay inside the safe margins")
-				check(level.terrain.preview_position.is_equal_approx(center + offset - Vector2(0, height)), "Preview uses the same anchor as placement")
+				check(level.terrain.preview_position.is_equal_approx(point), "Tree preview follows the pointer even outside planting margins")
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = true
 		var edge_point: Vector2 = center + Vector2(30, -20 - height)
 		level.terrain.hover = cell
 		level.update_tree_preview(edge_point)
-		var preview: Vector2 = level.terrain.preview_position
+		var planted: Vector2 = center + level.tree_offset_at(cell, edge_point) - Vector2(0, height)
 		click.position = level.get_global_transform_with_canvas() * edge_point
 		level.handle_world_click(click)
-		check((level.layout.tree_position(cell) - Vector2(0, height)).is_equal_approx(preview), "Edge click plants exactly at the displayed anchor")
+		check((level.layout.tree_position(cell) - Vector2(0, height)).is_equal_approx(planted), "Edge click keeps planted roots inside grass")
 		level.undo()
 	# Clamping must not make water, the home square or pawn overlap plantable.
 	for target in [Vector2i(-10, -10), level.layout.HOME]:
 		level.terrain.hover = target
 		level.update_tree_preview(level.layout.center(target))
 		check(not level.terrain.valid, "Unavailable squares remain blocked")
-	level.pawn.position = center + Vector2(-33, -10)
+	level.pawn.position = center + level.tree_offset_at(cell, center + Vector2(-31, -level.layout.height_at(cell)))
 	check(not level.can_place_tree(cell, level.tree_offset_at(cell, center + Vector2(-31, -level.layout.height_at(cell)))), "Snapped roots still cannot overlap the pawn")
 	print("Tree hover smoothing checks: %s" % ("PASS" if failures == 0 else "FAIL (%d)" % failures))
 	quit(0 if failures == 0 else 1)

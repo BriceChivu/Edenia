@@ -38,7 +38,12 @@ simulate the two local upgrades using the same reward and celebration code:
 | Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
 | Level 3 → 4 | 3 ground tiles + 1 tree | 4 |
 
-Godot owns XP thresholds **0 / 15 / 45 / 90**: level four needs 45 XP after level three.
+Godot owns XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675**.
+The existing curve is `15 × level × (level − 1) / 2` total XP: each upgrade costs
+15 XP more than the previous one. Levels six through ten each grant three new
+grass tiles, with the shared grass-only reward popup. Fresh editor scenes
+`previews/level_six.tscn` through `previews/level_ten.tscn` start at those levels;
+choose **Done**, then **Try level …** to preview the next upgrade.
 Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
 The axe unlocks tree cutting at level four; the inventory rewards are the three grass tiles and shared tree.
 The level-three tree icon represents all four tree atlases. Each placement randomly
@@ -51,31 +56,43 @@ shared tree item. Save version 15 also migrates the earlier separate tree invent
 
 From level four, hovering a standing tree outside build mode shows `Tool_02`.
 Click it to briefly equip `Pawn_Idle Axe`, approach with `Pawn_Run Axe`, and
-cut with `Pawn_Interact Axe`. Tree4 needs 15 seconds of active cutting and
-gives one wood; Tree1, Tree2 and Tree3 need 30 seconds and give two wood each.
+cut with `Pawn_Interact Axe`. Every tree needs 10 seconds of active cutting and gives one log.
+These timers are minimums: cutting finishes only when the current axe swing ends.
+The tree stays standing and wood is awarded at that animation boundary; regrowth
+also starts then, including after returning from a suspended preview.
 Completed trees fade out over 0.2 seconds while Dust_01 and Dust_02 play once
 at the trunk, revealing their matching static Stump PNG. Tree4 regrows after
 five minutes; the others after ten minutes, including time while the preview
 is closed. The same variant returns at its planted position.
 
 Switching tabs or apps continues the cutting countdown; suspended frames catch up
-when the preview resumes. Walking elsewhere or opening Terrain pauses cutting; clicking the tree resumes
-its saved progress. Partly cut standing trees can be picked up, discarding their cutting progress
+when the preview resumes. Clicking another standing tree queues it after the current
+tree, in click order; repeated clicks do not add duplicates or restart cutting.
+The pawn cuts queued trees automatically and accumulates their logs. Removed or
+unreachable queued trees are skipped. Walking elsewhere cancels the queue and
+pauses cutting; clicking the tree resumes its saved progress. Opening Terrain
+keeps cutting active. The pending queue lasts for the current preview session. Partly cut standing trees can be picked up, discarding their cutting progress
 without awarding wood. They cannot be cycled; stumps cannot be picked up or
 cycled until the tree completes regrowth. Save version 17 retains carried wood and deposited log piles, as well as cutting progress,
 regrowth deadlines and `resources.wood`, independently of the build inventory.
 The inventory UI is unchanged. Fresh F6 previews still discard their state.
 
 After cutting, the pawn uses the pack’s Wood idle/run PNGs while carrying the
-harvest (one or two logs). Click grass free of trees, stumps, bushes, rocks and
+harvest. Click grass free of trees, stumps, bushes, rocks and
 other decorations to deliver the harvest; logs appear only after arrival.
 Existing piles fill up to six logs, arranged bottom-up in rows of three, two
 and one. Any remaining carried logs are delivered automatically to the nearest
 reachable grass tile with room and no decorations; if none is available, the
 pawn keeps them. A two-log pile is centered side by side.
-Deliver the current harvest before cutting another tree. A new click or opening
-Terrain cancels delivery without losing the carried logs. Carrying and piles
+A new click or opening Terrain cancels delivery without losing the carried logs. Carrying and piles
 persist across reloads; ground with logs cannot be collected or built over.
+Logs block the annotated parallelogram where their bottom row contacts the grass.
+Navigation reserves the ground contact of both soles across walking poses and checks
+the entire movement segment. Raised boot artwork does not add ground padding,
+so reachable grass along the left side stays accessible. The pile sorts from the contact patch's bottom edge on its left
+side and top edge on its right side, with a continuous depth transition between
+them. Upper rows do not enlarge the footprint; depth changes keep the artwork fixed.
+Focused checks: `res://tests/log_navigation.gd` and `res://tests/log_contact_depth.gd`.
 Focused check: `res://tests/log_delivery.gd`.
 Focused check: `Godot --headless --path godot/tiny-swords --script res://tests/tree_harvesting.gd`.
 
@@ -158,9 +175,9 @@ so the outermost trunk/root pixels across all eight animation frames can touch
 the square boundary but cannot cross it. Its vertical range runs
 from the square's center to 28 scene pixels below it, keeping the visible roots
 on the grass while allowing planting near the bottom, with one tree per square.
-While hovering anywhere on a grass square, the tree anchor clamps to these safe
-root margins instead of switching to the unavailable cursor at their boundaries.
-The preview and click use the same clamped position. Water, protected squares,
+Tree and house previews follow the pointer freely, like the grass preview.
+Clicking a tree clamps its planted anchor to these safe root margins; clicking
+a house uses the selected grid footprint. Water, protected squares,
 stairs, and positions overlapping the pawn remain unavailable.
 The moving preview and placed tree share the same artwork anchor; navigation
 and Y sorting follow the placed trunk. The movement obstacle follows the visible
@@ -180,7 +197,9 @@ trunk blocks movement; the space in front remains walkable. Paths use a finer
 grid around trunks, and Y sorting draws the pawn in front when appropriate; disconnected ground becomes reachable when joined. Paths are simplified
 across clear ground, keep a foot margin around water and tree trunks, and climb only along stair ramps. Raised ground is one 64px step above flat
 ground; a horizontal stair square starts beside flat land and points toward
-an existing or automatically created raised landing. Stairs orient automatically. Pick up stairs before their
+an existing or automatically created raised landing. Stairs orient automatically. With the Stairs tool selected, click an existing staircase
+to reverse it when both endpoints are clear and terrain supports the opposite direction.
+Reversing swaps the foot and landing heights without spending inventory. Pick up stairs before their
 supporting land. No third floor is offered.
 
 The grid renderer selects the guide’s sixteen complete 64×64 ground pieces
@@ -583,3 +602,49 @@ The sandbox does not read or save your layout.
 
 Focused checks: `res://tests/bridges_disabled.gd` verifies the default disabled
 state; `res://tests/bridges.gd` opts into the experiment for its feature checks.
+
+## Level five: sheep and houses
+
+Level five grants **3 grass tiles**, **1 placeable sheep**, and the **House** capability.
+It uses the continuing XP curve: **150 total XP** (60 after level four).
+Open `previews/level_four_to_five.tscn` for the reward transition or
+`previews/level_five.tscn` for a fresh build session.
+
+The sheep alternates 2.4 seconds of idle with one complete 1.2-second
+`Sheep_Grass.png` grazing animation. After a random 10–15 complete grazing
+animations, it tries to walk to a random reachable adjacent grass tile,
+passing through bushes and rocks and using connected stair ramps between
+elevations. Trees, log piles, and houses block their ground contact areas;
+the surrounding ground remains usable even within an occupied tile. Sheep
+route around these contacts and avoid the pawn’s tile.
+If no tile is eligible, it stays and starts another random grazing count.
+Elapsed clock time counts grazing and movement while the Tiny Swords viewport
+is hidden or another browser tab is active; suspended frames catch up on return.
+Building still pauses movement, retaining completed grazing until it closes.
+Focused checks: `res://tests/sheep_grazing.gd` and
+`res://tests/sheep_object_navigation.gd`.
+When the pawn enters its grass tile, it runs opposite the pawn's approach,
+choosing a safe route of 3–5 tile steps. Routes can use stairs and turn
+around obstacles; the initial step prefers the direction opposite the approach.
+If only two or one tiles are available in that direction, it uses that distance.
+It tries sideways routes next and only runs toward the approach when no other
+escape is available, then returns to idle. It stays
+on the island; with no safe escape tile it waits. Sheep movement pauses while
+building. Pick up the sheep to return its one inventory item.
+
+Each new house costs **6 harvested logs**, consuming carried/deposited logs
+from the existing wood balance. Houses do not appear in the inventory;
+click a full six-log pyramid to open house placement.
+Click a placed house with the House tool to cycle front, side, back, and
+opposite-side views for free, including when no wood remains. Pick up a house
+to relocate it without paying again. Hovering a full six-log pyramid shows `Icon_01.png`; click it to select the
+house placement preview. Construction consumes that pile first. Houses occupy
+a 2×2 square footprint on grass or water. Missing grass is created for free;
+bushes and rocks disappear. Trees, stairs, other houses, logs, sheep, and the
+pawn block placement within the footprint. All four foundation tiles block walking
+and remain protected while the house is placed.
+
+Save version **19** preserves sheep positions, house facings, and reclaimed
+houses, and free foundation grass; older layouts retain their existing state. Undo restores construction
+costs and physical log piles. Level rewards remain idempotent.
+Focused check: `res://tests/level_five.gd`.

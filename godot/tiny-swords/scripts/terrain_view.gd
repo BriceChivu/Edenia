@@ -1,5 +1,7 @@
 extends Node2D
 
+const LevelFiveArt = preload("res://scripts/level_five_art.gd")
+
 const TreeArt = preload("res://scripts/tree_art.gd")
 
 var editor_source = null
@@ -14,6 +16,7 @@ var ground_preview_height := -1.0
 var tree_texture: Texture2D = TreeArt.TEXTURE
 var tree_preview_texture: Texture2D
 var tree_preview_kind := ""
+var tree_preview_ground := {}
 var tree_preview_offset := Vector2(INF, INF)
 var valid := false
 var tool := "meadow"
@@ -348,15 +351,23 @@ func placement_offset() -> Vector2:
 
 func clipped_tree_preview_texture() -> Texture2D:
 	var offset: Vector2 = placement_offset()
-	if tree_preview_texture == null or offset != tree_preview_offset or layout.next_tree_variant != tree_preview_kind:
+	offset = Vector2(clampf(offset.x, layout.TREE_OFFSET_X_MIN, layout.TREE_OFFSET_X_MAX), clampf(offset.y, layout.TREE_OFFSET_Y_MIN, layout.TREE_OFFSET_Y_MAX))
+	var ground := TreeArt.shadow_ground(layout, hover)
+	if tree_preview_texture == null or offset != tree_preview_offset or layout.next_tree_variant != tree_preview_kind or ground != tree_preview_ground:
+		tree_preview_ground = ground
 		tree_preview_kind = layout.next_tree_variant
 		tree_preview_offset = offset
-		tree_preview_texture = TreeArt.texture_at(offset, layout.next_tree_variant)
+		tree_preview_texture = TreeArt.texture_at(offset, layout.next_tree_variant, false, ground)
 	return tree_preview_texture
 
 func tree_preview_rect() -> Rect2:
 	var frame_size := TreeArt.frame_size(layout.next_tree_variant)
-	return Rect2(preview_position + (TreeArt.art_offset(layout.next_tree_variant) - frame_size / 2) * 0.8, frame_size * 0.8)
+	return Rect2(preview_position + (TreeArt.art_offset(layout.next_tree_variant) - frame_size / 2) * TreeArt.SCALE, frame_size * TreeArt.SCALE)
+
+func house_preview_rect() -> Rect2:
+	var area := LevelFiveArt.house_rect(layout, hover)
+	area.position += placement_offset()
+	return area
 
 func pickup_outline() -> PackedVector2Array:
 	var origin: Vector2 = layout.stair_pickup_rects(hover)[0].position
@@ -370,9 +381,10 @@ func pickup_outline() -> PackedVector2Array:
 	return points
 
 func draw_stair_preview(tint: Color) -> void:
-	var direction: Vector2i = layout.available_stair_direction(hover)
+	var reversing: bool = layout.cells.get(hover) == "stairs"
+	var direction: Vector2i = -layout.stair_direction(hover) if reversing else layout.available_stair_direction(hover)
 	var landing := hover + direction
-	var height: float = layout.height_at(hover - direction)
+	var height: float = layout.height_at(hover) if reversing else layout.height_at(hover - direction)
 	# Both ghost pieces must see the complete proposed bundle when choosing
 	# joined grass and cliff atlas regions, including over empty water.
 	var live_layout = layout
@@ -380,6 +392,10 @@ func draw_stair_preview(tint: Color) -> void:
 	proposed.cells = layout.cells.duplicate()
 	proposed.elevations = layout.elevations.duplicate()
 	proposed.stair_directions = layout.stair_directions.duplicate()
+	if reversing:
+		var foot := hover - direction
+		proposed.elevations[foot] = height
+		proposed.cells[foot] = layout.kind_at_height(height)
 	proposed.cells[hover] = "stairs"
 	proposed.elevations[hover] = height
 	proposed.stair_directions[hover] = direction
@@ -443,6 +459,20 @@ func draw_editor() -> void:
 				else:
 					draw_tile(hover, tool, tint)
 			draw_set_transform(Vector2.ZERO)
+			if tool == "house":
+				draw_set_transform(placement_offset())
+				for square in layout.house_cells(hover):
+					if not layout.cells.has(square):
+						draw_tile(square, "meadow", tint, layout.height_at(hover))
+				draw_set_transform(Vector2.ZERO)
+				var facing := (int(layout.houses[hover]) + 1) % 4 if layout.houses.has(hover) else 0
+				var area := house_preview_rect()
+				if facing == 3:
+					area.position.x += area.size.x
+					area.size.x *= -1
+				draw_texture_rect(LevelFiveArt.HOUSE_TEXTURES[facing], area, false, tint)
+			if tool == "sheep":
+				draw_texture_rect_region(LevelFiveArt.SHEEP_IDLE, LevelFiveArt.sheep_rect(layout, hover), Rect2(0, 0, 128, 128), tint)
 			if tool == "tree" and not layout.trees.has(hover):
 				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(Vector2.ZERO, TreeArt.frame_size(layout.next_tree_variant)), tint)
 			if tool == "remove" and layout.cells.get(hover) == "stairs":

@@ -10,10 +10,12 @@ test('local map saves and restores independently of lower study claims', () => {
   const handlers={}; const sent=[]
   const node={classList:{add(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){}}
   const frame={...node,contentWindow:{postMessage(data){sent.push(data)}}}
-  const context={location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},window:{addEventListener(type,fn){handlers[type]=fn}},document:{documentElement:node,createElement(){return frame},querySelector(){return node},getElementById(){return node}},loadState(){return {cityProgress:{maxLevelIndex:2}}},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},Image:class{addEventListener(){}},ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}}}
+  const context={location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},window:{addEventListener(type,fn){handlers[type]=fn}},document:{documentElement:node,createElement(){return frame},querySelector(){return node},getElementById(){return node}},loadState(){return {cityProgress:{maxLevelIndex:2}}},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},CITY_LEVELS:[{threshold:0}],renderCity(){},getCurrentCityScore(){return 0},Image:class{addEventListener(){}},ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}}}
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-parent.js','utf8'),context)
   handlers.DOMContentLoaded()
   handlers.message({origin:context.location.origin,source:frame.contentWindow,data:{type:'edenia-tiny-ready'}})
+  assert.equal(sent.length,0,'ready must wait for Godot progression before restoring the saved island')
+  handlers.message({origin:context.location.origin,source:frame.contentWindow,data:{type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]}})
   assert.equal(sent.at(-1).level,4,'refresh must preserve saved preview level even when study claims are lower')
   handlers.message({origin:context.location.origin,source:frame.contentWindow,data:{type:'edenia-tiny-layout',layout:{...saved,resources:{wood:4}}}})
   assert.equal(JSON.parse(storage.get(key)).resources.wood,4,'save higher-level map updates')

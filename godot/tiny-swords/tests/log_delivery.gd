@@ -44,14 +44,18 @@ func run() -> void:
 	check(layout.edit(source, "tree", Layout.HOME), "Place harvest source")
 	layout.tree_types[source] = "tree"
 	world.rebuild_decorations()
-	check(world.harvesting.start(source), "Start two-log harvest")
+	check(world.harvesting.start(source), "Start one-log harvest")
 	world.harvesting.advance(1, 1000)
 	arrive(world)
 	world.harvesting.advance(0, 1000)
-	world.harvesting.advance(30, 1030)
-	check(layout.carried_wood == 2 and layout.resources.wood == 2, "Harvest is carried without duplicating resources")
+	world.harvesting.advance(10, 1010)
+	world.pawn.sprite.animation_looped.emit()
+	check(layout.carried_wood == 1 and layout.resources.wood == 1, "Harvest is carried without duplicating resources")
 	check(world.pawn.sprite.animation == "wood_idle", "Harvest switches immediately to Wood idle PNG")
-	check(not world.harvesting.start(source), "Cannot start another harvest while carrying")
+	check(not world.harvesting.start(source), "Cannot harvest a stump while carrying")
+	# Seed an additional log to exercise multi-log delivery and pickup.
+	layout.carried_wood = 2
+	layout.resources.wood = 2
 	click(world, delivery)
 	check(not layout.log_piles.has(delivery), "Click does not drop before arrival")
 	world.pawn._physics_process(0.01)
@@ -59,6 +63,21 @@ func run() -> void:
 	arrive(world)
 	check(layout.log_piles.get(delivery) == 2 and layout.carried_wood == 0, "Arrival deposits both logs")
 	check(layout.resources.wood == 2, "Delivery preserves harvested wood total")
+	var log_point: Vector2 = layout.center(delivery) + Vector2(-6.5, 6 - layout.height_at(delivery))
+	check(world.log_at(log_point) == delivery, "Visible log targets its pile")
+	var pickup_click := InputEventMouseButton.new()
+	pickup_click.button_index = MOUSE_BUTTON_LEFT
+	pickup_click.pressed = true
+	pickup_click.position = world.get_global_transform_with_canvas() * log_point
+	world.handle_world_click(pickup_click)
+	check(layout.carried_wood == 0 and layout.log_piles[delivery] == 2, "Pickup waits for arrival")
+	arrive(world)
+	check(layout.carried_wood == 1 and layout.log_piles[delivery] == 1, "Pickup removes exactly one log")
+	check(not layout.pick_log(delivery), "Carrying a log prevents another pickup")
+	check(layout.resources.wood == 2, "Pickup preserves harvested wood total")
+	click(world, delivery)
+	arrive(world)
+	check(layout.carried_wood == 0 and layout.log_piles[delivery] == 2, "Picked log can be placed again")
 	for count in [4, 6]:
 		layout.carried_wood = 2
 		layout.resources.wood += 2

@@ -13,11 +13,13 @@ func run() -> void:
 	await process_frame
 	var cell := Vector2i(1, 0)
 	var original := Source.get_image()
+	level.layout.next_tree_variant = "tree"
 	var checked := 0
 	for height in [0.0, 64.0, 128.0]:
-		level.layout.elevations[cell] = height
+		level.layout.cells = {cell: level.layout.kind_at_height(height)}
+		level.layout.elevations = {cell: height}
 		level.layout.cells[cell] = level.layout.kind_at_height(height)
-		for offset in [Vector2.ZERO, Vector2(-20, 0), Vector2(20, 0), Vector2(-20, 28), Vector2(20, 28)]:
+		for offset in [Vector2.ZERO, Vector2(Layout.TREE_OFFSET_X_MIN, 0), Vector2(Layout.TREE_OFFSET_X_MAX, 0), Vector2(Layout.TREE_OFFSET_X_MIN, 28), Vector2(Layout.TREE_OFFSET_X_MAX, 28)]:
 			level.layout.trees = {cell: offset}
 			level.rebuild_decorations()
 			var tree: Sprite2D = level.tree_nodes[0]
@@ -48,6 +50,46 @@ func run() -> void:
 				failures += 1
 				push_error("Height %s offset %s: %d shadow pixels outside tile, %d changed body pixels, %d retained shadow pixels" % [height, offset, overflow, changed_body, retained])
 			checked += 1
+	# A shadow crossing a shared grass edge must keep the original pixels.
+	level.layout.cells = {cell: "meadow", cell + Vector2i.RIGHT: "meadow"}
+	level.layout.elevations = {}
+	level.layout.trees = {cell: Vector2(Layout.TREE_OFFSET_X_MAX, 28)}
+	level.rebuild_decorations()
+	var connected: Image = level.tree_nodes[0].texture.get_image()
+	var crossing := 0
+	for y in original.get_height():
+		for x in original.get_width():
+			var before := original.get_pixel(x, y)
+			var point: Vector2 = Vector2(Layout.TREE_OFFSET_X_MAX, 28) + Vector2(x % 192, y) - Vector2(96, 128) + level.tree_nodes[0].offset
+			if before.a > 0.0 and before.a < 1.0 and point.x >= 32 and point.x < 96 and point.y >= -32 and point.y < 32:
+				crossing += 1
+				if connected.get_pixel(x, y) != before:
+					failures += 1
+					push_error("Shadow cut at shared grass edge")
+					break
+		if failures > 0:
+			break
+	if crossing == 0:
+		failures += 1
+		push_error("Fixture has no shadow across shared grass edge")
+	level.terrain.hover = cell
+	level.terrain.preview_position = level.layout.center(cell) + level.layout.tree_offset(cell)
+	if level.terrain.clipped_tree_preview_texture().get_image().get_data() != connected.get_data():
+		failures += 1
+		push_error("Connected-grass cursor shadow differs from planted tree")
+	for neighbor_kind in ["high_gold", "stairs", "water"]:
+		if neighbor_kind == "water":
+			level.layout.cells.erase(cell + Vector2i.RIGHT)
+		else:
+			level.layout.cells[cell + Vector2i.RIGHT] = neighbor_kind
+		level.rebuild_decorations()
+		var isolated: Image = preload("res://scripts/tree_art.gd").texture_at(level.layout.tree_offset(cell)).get_image()
+		if level.tree_nodes[0].texture.get_image().get_data() != isolated.get_data():
+			failures += 1
+			push_error("Shadow crosses water, stairs or an elevation edge")
+		if level.terrain.clipped_tree_preview_texture().get_image().get_data() != isolated.get_data():
+			failures += 1
+			push_error("Cursor shadow retained stale neighboring grass")
 	if "--capture" in OS.get_cmdline_user_args():
 		level.layout.elevations[cell] = 64
 		level.layout.cells[cell] = "high_gold"

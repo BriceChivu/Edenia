@@ -6,14 +6,17 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     frame.src = 'tiny-swords-xp-game/index.html'
     frame.title = 'Tiny Swords island: earn XP by studying to unlock building'
     frame.className = 'tiny-swords-frame'
+    let gameLevelCount = null
     const layoutKey = 'edenia_tiny_swords_xp_layout_v1'
     function sendStudyLevel() {
+      // Wait for Godot’s capabilities before restoring or accepting saves.
+      if (gameLevelCount === null) return
       const state = loadState()
-      let level = Math.min(4, Math.max(1, (state?.cityProgress?.maxLevelIndex || 0) + 1))
+      let level = Math.min(gameLevelCount, Math.max(1, (state?.cityProgress?.maxLevelIndex || 0) + 1))
       let saved = null
       try { saved = JSON.parse(localStorage.getItem(layoutKey)) } catch {}
       // This local sandbox retains its earned progression with its map.
-      if (Number.isInteger(saved?.level) && saved.level >= 1 && saved.level <= 4) {
+      if (Number.isInteger(saved?.level) && saved.level >= 1 && saved.level <= gameLevelCount) {
         level = Math.max(level, saved.level)
       }
       frame.contentWindow?.postMessage({ type: 'edenia-study-level', level, layout: saved }, location.origin)
@@ -21,6 +24,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     window.addEventListener('message', event => {
       if (event.origin !== location.origin || event.source !== frame.contentWindow) return
       if (event.data?.type === 'edenia-game-progression' && Array.isArray(event.data.thresholds)) {
+        gameLevelCount = event.data.thresholds.length
         // Project the Godot-owned thresholds into the local study XP bar.
         for (const [index, threshold] of event.data.thresholds.entries()) {
           if (index < CITY_LEVELS.length || !Number.isFinite(threshold)) continue
@@ -37,7 +41,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
       if (event.data?.type === 'edenia-tiny-ready') sendStudyLevel()
       if (event.data?.type === 'edenia-tiny-layout') {
         const layout = event.data.layout
-        if (layout && Number.isInteger(layout.level) && layout.level >= 1 && layout.level <= 4) {
+        if (layout && Number.isInteger(layout.level) && layout.level >= 1 && layout.level <= gameLevelCount) {
           localStorage.setItem(layoutKey, JSON.stringify(layout))
         }
       }

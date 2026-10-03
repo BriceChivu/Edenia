@@ -21,6 +21,14 @@ func run() -> void:
   level.layout.elevations[stair] = height
   level.layout.elevations[landing] = height + 64
   var point: Vector2 = level.layout.center(landing) - Vector2(0,height + 64)
+  level.selected = "stairs"
+  check(level.clicked_cell(point) == landing, "Stairs tool keeps landing grass separately targeted")
+  var before_grass_click: Dictionary = level.layout.snapshot()
+  check(not level.apply_edit(level.clicked_cell(point)), "Clicking landing grass cannot reverse its staircase")
+  check(level.layout.snapshot() == before_grass_click, "Landing grass click preserves staircase and terrain")
+  var ramp_point: Vector2 = level.layout.center(stair)
+  ramp_point.y -= level.ground_height(ramp_point)
+  check(level.clicked_cell(ramp_point) == stair, "Stairs tool targets the visible ramp for reversal")
   level.selected = "remove"
   check(level.clicked_cell(point) == stair, "Landing targets its stair bundle in both orientations")
   level.terrain.hover = level.clicked_cell(point)

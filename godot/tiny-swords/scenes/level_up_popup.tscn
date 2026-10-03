@@ -47,9 +47,9 @@ axis_stretch_vertical = 1
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ubx6b"]
 content_margin_left = 8.0
-content_margin_top = 6.0
+content_margin_top = 9.0
 content_margin_right = 8.0
-content_margin_bottom = 11.0
+content_margin_bottom = 8.0
 texture = ExtResource("5_jc0g1")
 texture_margin_left = 16.0
 texture_margin_top = 16.0

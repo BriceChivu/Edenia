@@ -1,0 +1,51 @@
+[gd_scene load_steps=5 format=3]
+[ext_resource type="PackedScene" path="res://scenes/level_four_popup.tscn" id="Base"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Terrain/Resources/Meat/Sheep/Sheep_Idle.png" id="Sheep"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Buildings/Blue Buildings/House1.png" id="House"]
+[sub_resource type="AtlasTexture" id="SheepIcon"]
+atlas = ExtResource("Sheep")
+region = Rect2(36, 32, 56, 56)
+[node name="LevelFivePopup" instance=ExtResource("Base")]
+[node name="Title" parent="." index="2"]
+text = "LEVEL 5"
+[node name="PineCount" parent="." index="8"]
+visible = false
+[node name="PineReward" parent="." index="9"]
+visible = false
+[node name="AxeReward" parent="." index="10"]
+visible = false
+[node name="SheepReward" type="TextureRect" parent="."]
+texture_filter = 1
+offset_left = 190.0
+offset_top = 158.0
+offset_right = 250.0
+offset_bottom = 230.0
+mouse_filter = 2
+texture = SubResource("SheepIcon")
+expand_mode = 1
+stretch_mode = 5
+[node name="SheepCount" type="Label" parent="."]
+offset_left = 250.0
+offset_top = 158.0
+offset_right = 288.0
+offset_bottom = 230.0
+text = "+1"
+vertical_alignment = 1
+[node name="HouseReward" type="TextureRect" parent="."]
+texture_filter = 1
+offset_left = 300.0
+offset_top = 155.0
+offset_right = 350.0
+offset_bottom = 223.0
+mouse_filter = 2
+texture = ExtResource("House")
+expand_mode = 1
+stretch_mode = 5
+[node name="HouseCost" type="Label" parent="."]
+offset_left = 284.0
+offset_top = 222.0
+offset_right = 375.0
+offset_bottom = 242.0
+theme_override_font_sizes/font_size = 12
+text = "6 logs / house"
+horizontal_alignment = 1

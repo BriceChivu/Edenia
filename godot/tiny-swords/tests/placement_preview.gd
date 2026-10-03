@@ -17,7 +17,13 @@ func run() -> void:
  view.preview_position += Vector2(2, 5)
  var second: Rect2 = view.tree_preview_rect()
  assert(second.position - first.position == Vector2(2, 5), "Tree ghost follows the pointer")
- assert(second.size == Vector2(192, 256) * 0.8, "Tree ghost matches placed tree size")
+ assert(second.size == level.TreeArt.frame_size(level.layout.next_tree_variant), "Tree ghost uses the chosen variant's full-size artwork")
+ var house_before: Rect2 = view.house_preview_rect()
+ view.preview_position += Vector2(2, 5)
+ assert(view.house_preview_rect().position - house_before.position == Vector2(2, 5), "House ghost follows sub-cell pointer motion")
+ var house_position: Vector2 = view.house_preview_rect().position
+ view.hover += Vector2i.RIGHT
+ assert(view.house_preview_rect().position == house_position, "House ghost does not jump when the selected grid cell changes")
  level.layout.unlock(2)
  level.editing = true
  level.selected = "ground"

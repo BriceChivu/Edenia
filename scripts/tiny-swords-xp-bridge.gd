@@ -33,7 +33,7 @@ func _process(delta: float) -> void:
 	if study_celebrating != (ui.celebration != null):
 		study_celebrating = ui.celebration != null
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s}, location.origin)" % str(study_celebrating))
-	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, 4)
+	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, Layout.XP_THRESHOLDS.size())
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
 		study_layout_restored = true
 		var saved = JavaScriptBridge.eval("JSON.stringify(window.edeniaStudyLayout || null)")

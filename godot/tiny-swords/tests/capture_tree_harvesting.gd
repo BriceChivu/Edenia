@@ -37,8 +37,8 @@ func run() -> void:
 	for kind in TreeArt.TEXTURES:
 		var full: Texture2D = TreeArt.TEXTURES[kind]
 		var stump: Texture2D = TreeArt.STUMPS[kind]
-		print(kind, " roots: tree ", (opaque_bottom(full) - full.get_height() / 2.0 + TreeArt.art_offset(kind).y) * 0.8,
-			" stump ", (opaque_bottom(stump) - stump.get_height() / 2.0 + TreeArt.stump_offset(kind).y) * 0.8)
+		print(kind, " roots: tree ", (opaque_bottom(full) - full.get_height() / 2.0 + TreeArt.art_offset(kind).y) * TreeArt.SCALE,
+			" stump ", (opaque_bottom(stump) - stump.get_height() / 2.0 + TreeArt.stump_offset(kind).y) * TreeArt.SCALE)
 	world.layout.tree_types[cell] = "tree4"
 	world.rebuild_decorations()
 	world.harvesting.start(cell)

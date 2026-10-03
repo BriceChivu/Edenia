@@ -131,7 +131,7 @@ func run() -> void:
 	check(is_equal_approx(game.ui.buttons.ground.get_theme_color("icon_normal_color").a, 0.25), "Depleted ground icon stays at 25 percent opacity")
 	game.layout.stock.stairs = 0
 	game.refresh()
-	check(game.ui.buttons.stairs.disabled and is_equal_approx(game.ui.buttons.stairs.get_theme_color("icon_disabled_color").a, 0.25), "Other depleted items remain disabled at 25 percent opacity")
+	check(not game.ui.buttons.stairs.disabled and is_equal_approx(game.ui.buttons.stairs.get_theme_color("icon_normal_color").a, 0.25), "Empty stair inventory remains selectable for direction switching at 25 percent opacity")
 	game.layout.restore(stocked)
 	game.water_phase = game.WaterPhase.READY
 	game.ui.max_preview_level = 3

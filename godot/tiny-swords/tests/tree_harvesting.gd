@@ -30,6 +30,14 @@ func run() -> void:
 	layout.level = 3
 	check(not harvesting.start(cell), "Axe cutting is locked below level four")
 	layout.level = 4
+	var walking_destination: Vector2 = world.pawn.position + Vector2(8, 0)
+	world.pawn.walk_to(walking_destination)
+	world.waypoints.append(walking_destination + Vector2(8, 0))
+	world.toggle_editing()
+	check(world.pawn.destination == walking_destination and world.waypoints.size() == 1, "Opening terrain UI preserves walking destination and route")
+	world.toggle_editing()
+	check(world.pawn.destination == walking_destination and world.waypoints.size() == 1, "Closing terrain UI preserves walking destination and route")
+	world.waypoints.clear()
 	var stock_before: Dictionary = layout.stock.duplicate()
 	for kind in Layout.TREE_VARIANTS:
 		layout.carried_wood = 0 # Delivery is covered by log_delivery.gd.
@@ -74,13 +82,18 @@ func run() -> void:
 		world.pawn.position = world.pawn.destination
 		harvesting.advance(0, 1000)
 		check(harvesting.phase == Harvesting.Phase.CUTTING and world.pawn.sprite.animation == "axe_interact", "Arrival starts axe interaction")
+		world.toggle_editing()
+		harvesting.advance(0, 1000)
+		check(harvesting.phase == Harvesting.Phase.CUTTING and world.pawn.chopping, "Opening terrain UI keeps tree cutting active: " + kind)
+		world.toggle_editing()
+		check(harvesting.phase == Harvesting.Phase.CUTTING, "Closing terrain UI keeps tree cutting active: " + kind)
 		var trunk: Vector2 = layout.tree_position(cell)
 		var contact: Vector2 = world.pawn.position + Vector2(-44 if world.pawn.sprite.flip_h else 44, 0)
 		check(contact.is_equal_approx(trunk), "Fourth axe frame aligns with the trunk")
 		var seconds: float = Harvesting.duration(kind)
-		check(seconds == (15 if kind == "tree4" else 30), "Exact requested cut duration")
+		check(seconds == 10, "Exact requested cut duration")
 		harvesting.advance(0.01, 1000 + seconds / 2)
-		check(layout.resources.wood == (0 if kind == "tree" else (2 if kind == "tree2" else (4 if kind == "tree3" else 6))), "No early wood grant")
+		check(layout.resources.wood == ["tree", "tree2", "tree3", "tree4"].find(kind), "No early wood grant")
 		harvesting.cancel()
 		check(layout.tree_cut_remaining[cell] == seconds / 2, "Cancellation retains partial cutting progress")
 		var saved: Dictionary = JSON.parse_string(JSON.stringify(layout.snapshot()))
@@ -95,7 +108,14 @@ func run() -> void:
 		harvesting.advance(0, 1000)
 		harvesting.advance(seconds / 2 - 0.01, 1000)
 		check(not layout.tree_stumps.has(cell), "Tree survives until full cut duration")
+		world.pawn.sprite.set_frame_and_progress(3, 0.5)
 		harvesting.advance(0.02, 1000)
+		check(not layout.tree_stumps.has(cell) and world.pawn.chopping, "Timer expiry keeps tree and axe swing active")
+		check(layout.resources.wood == ["tree", "tree2", "tree3", "tree4"].find(kind), "Timer expiry does not award wood before swing ends")
+		if kind == "tree":
+			await world.pawn.sprite.animation_looped
+		else:
+			world.pawn.sprite.animation_looped.emit()
 		check(layout.tree_stumps.has(cell), "Finished tree becomes stump")
 		var effect
 		for child in world.get_node("World").get_children():
@@ -125,7 +145,37 @@ func run() -> void:
 		check(layout.tree_stumps.has(cell), "Stump stays until regrowth deadline")
 		harvesting.advance(0, 1000 + Harvesting.regrowth_duration(kind))
 		check(not layout.tree_stumps.has(cell) and layout.tree_types[cell] == kind, "Same tree variant regrows at deadline")
-	check(layout.resources.wood == 7, "Tree1/2/3 yield two each and Tree4 yields one")
+	check(layout.resources.wood == 4, "Every tree yields one log")
+	# Work belongs to the tree across real movement clicks and separate visits.
+	layout.carried_wood = 0
+	layout.tree_types[cell] = "tree"
+	world.rebuild_decorations()
+	check(harvesting.start(cell), "Start a ten-second tree for separate visits")
+	harvesting.advance(1, 3000)
+	world.waypoints.clear()
+	world.pawn.position = world.pawn.destination
+	harvesting.advance(0, 3000)
+	harvesting.advance(5, 3005)
+	var walk_click := InputEventMouseButton.new()
+	walk_click.button_index = MOUSE_BUTTON_LEFT
+	walk_click.pressed = true
+	walk_click.position = world.get_global_transform_with_canvas() * layout.center(Layout.HOME)
+	world.handle_world_click(walk_click)
+	check(harvesting.phase == Harvesting.Phase.READY, "Walking away pauses cutting")
+	harvesting.advance(60, 3065)
+	check(layout.tree_cut_remaining[cell] == 5, "Five seconds of work remain saved during a walk")
+	world.pawn.position = world.pawn.destination
+	check(harvesting.start(cell), "Return to the same partly cut tree")
+	harvesting.advance(1, 3065)
+	world.waypoints.clear()
+	world.pawn.position = world.pawn.destination
+	harvesting.advance(0, 3065)
+	harvesting.advance(4.99, 3069.99)
+	check(not layout.tree_stumps.has(cell), "Separate visits still require ten seconds total")
+	harvesting.advance(0.01, 3070)
+	world.pawn.sprite.animation_looped.emit()
+	check(layout.tree_stumps.has(cell) and layout.resources.wood == 5, "Five plus five seconds completes the tree once")
+	layout.tree_stumps.clear()
 	# Legacy saves load with zero harvested resources.
 	var legacy: Dictionary = layout.snapshot()
 	legacy.version = 15
@@ -166,6 +216,7 @@ func run() -> void:
 			check(layout.walkable_point(world.pawn.position), "Shoreline cutting position stays on land")
 			harvesting.advance(0, 2000)
 			harvesting.advance(Harvesting.duration(kind), 2000)
+			world.pawn.sprite.animation_looped.emit()
 			check(layout.tree_stumps.has(shore) and layout.resources.wood == wood_before + Harvesting.wood_yield(kind), "Shoreline cutting completes and awards wood")
 			layout.tree_stumps.clear()
 	# A completely suspended tab catches up and awards wood exactly once.
@@ -177,9 +228,11 @@ func run() -> void:
 	harvesting.advance(0, 2000)
 	var background_wood: int = layout.resources.wood
 	harvesting.advance(0.01, 2020)
+	check(not layout.tree_stumps.has(shore), "Suspended timer expiry still waits for visible swing completion")
+	world.pawn.sprite.animation_looped.emit()
 	check(layout.tree_stumps.has(shore), "Suspended cutting finishes from elapsed clock time")
 	check(layout.resources.wood == background_wood + 1, "Background completion awards wood once")
-	check(layout.tree_stumps.get(shore) == 2315, "Regrowth starts at actual background completion time")
+	check(layout.tree_stumps.get(shore) == 2320, "Regrowth starts when the final swing completes")
 	harvesting.advance(0.01, 2021)
 	check(layout.resources.wood == background_wood + 1, "Resume does not duplicate wood")
 	# A disconnected tree cannot trigger movement or wood.

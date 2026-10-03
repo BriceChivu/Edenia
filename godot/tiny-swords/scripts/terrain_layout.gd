@@ -6,6 +6,7 @@ const DecorationRules = preload("res://scripts/decoration_rules.gd")
 
 const ORIGIN := Vector2(512, 176)
 const SIZE := 64
+const HOUSE_LOG_COST := 6
 # All eight frames have opaque trunk/root pixels at atlas X 77..117.
 # Include their full pixel widths at the tree's 0.8 scale (anchor X 96).
 const TREE_OFFSET_X_MIN := -32.0 - (77 - 96) * 0.8
@@ -21,8 +22,9 @@ const MIN_CELL := Vector2i(-17, -9)
 const MAX_CELL := Vector2i(19, 10)
 const KINDS := ["meadow", "gold", "violet", "high_meadow", "high_gold", "stairs"]
 const COLORS := {"meadow": 3, "gold": 3, "violet": 3, "high_meadow": 1, "high_gold": 1, "stairs": 1}
-const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1, "bridge": 1}
-const XP_THRESHOLDS := [0, 15, 45, 90]
+const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1, "bridge": 1, "sheep": 0, "house": 0}
+# Total XP = 15 * level * (level - 1) / 2; each next upgrade costs 15 XP more.
+const XP_THRESHOLDS := [0, 15, 45, 90, 150, 225, 315, 420, 540, 675]
 
 static func level_for_xp(xp: int) -> int:
 	var earned := 1
@@ -35,6 +37,12 @@ const LEVEL_REWARDS := {
 	2: {"meadow": 2, "gold": 1, "stairs": 1},
 	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1, "bridge": 1},
 	4: {"meadow": 3, "tree": 1},
+	5: {"meadow": 3, "sheep": 1, "house": 0},
+	6: {"meadow": 3},
+	7: {"meadow": 3},
+	8: {"meadow": 3},
+	9: {"meadow": 3},
+	10: {"meadow": 3},
 }
 const TREE_VARIANTS := ["tree", "tree2", "tree3", "tree4"]
 const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
@@ -42,6 +50,9 @@ const NAV_STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN, V
 var cells: Dictionary = {}
 var bridges_enabled := BridgeRules.ENABLED
 var bridges: Dictionary = {}
+var free_house_grass := 0
+var houses: Dictionary = {} # Cell -> four-way facing.
+var sheep: Array[Vector2] = [] # Ground-plane positions; one sheep reward.
 var trees: Dictionary = {}
 var tree_types: Dictionary = {}
 var tree_stumps: Dictionary = {} # Cell -> Unix regrowth deadline.
@@ -66,7 +77,7 @@ func _init() -> void:
 	next_tree_variant = TREE_VARIANTS[flora_rng.randi_range(0, TREE_VARIANTS.size() - 1)]
 	for cell in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(3, 2)]:
 		cells[cell] = "meadow"
-	for kind in KINDS + ["tree", "bridge"]:
+	for kind in KINDS + ["tree", "bridge", "sheep", "house"]:
 		stock[kind] = 0
 
 func unlock(target_level: int = 2) -> bool:
@@ -95,34 +106,106 @@ func tree_offset(cell: Vector2i) -> Vector2:
 func tree_position(cell: Vector2i) -> Vector2:
 	return center(cell) + tree_offset(cell)
 
-func tree_obstacle(position: Vector2) -> Rect2:
-	# Block only the trunk/root footprint; extra pawn padding makes nearby
-	# visible grass unnecessarily unreachable.
-	return Rect2(position - Vector2(10, 24), Vector2(20, 18))
+# Ground contact traced from the user's root outlines, in ground-anchor space.
+# Variant names map to Tree1, Tree3, Tree2, Tree4 respectively. Canopies and
+# translucent shadows never enlarge these footprints.
+const TREE_CONTACT := {
+	"tree": [Vector2(-20, -10), Vector2(-17, -18), Vector2(-7, -26), Vector2(0, -28), Vector2(8, -24), Vector2(15, -17), Vector2(22, -11), Vector2(12, -4), Vector2(0, -2), Vector2(-12, -4)],
+	"tree3": [Vector2(-17, -13), Vector2(-8, -20), Vector2(0, -25), Vector2(7, -22), Vector2(15, -14), Vector2(17, -7), Vector2(7, -2), Vector2(-5, -2), Vector2(-15, -6)],
+	"tree2": [Vector2(-9, 0), Vector2(-8, -5), Vector2(-3, -8), Vector2(4, -8), Vector2(9, -3), Vector2(10, 2), Vector2(5, 5), Vector2(-4, 5)],
+	"tree4": [Vector2(-8, -1), Vector2(-6, -7), Vector2(-1, -9), Vector2(4, -6), Vector2(8, -1), Vector2(6, 3), Vector2(-3, 3)],
+}
 
-func log_obstacle(cell: Vector2i) -> Rect2:
-	# Only the bottom row occupies ground. A full bottom row closes the
-	# right-side passage; the left lane stays open on a single grass tile.
-	var bottom_logs := mini(int(log_piles.get(cell, 0)), 3)
-	var half_width := 10.0 + (bottom_logs - 1) * 6.5
-	var right_edge := 32.0 if bottom_logs == 3 else half_width
-	return Rect2(center(cell) + Vector2(-half_width, 8), Vector2(half_width + right_edge, 16))
+func tree_footprint(position: Vector2, kind := "tree") -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for point in TREE_CONTACT.get(kind, TREE_CONTACT["tree"]):
+		points.append(position + point)
+	return points
+
+func tree_blocks_point(position: Vector2, point: Vector2, kind := "tree") -> bool:
+	return Geometry2D.is_point_in_polygon(point, tree_footprint(position, kind))
+
+func tree_blocks_segment(cell: Vector2i, start: Vector2, end: Vector2) -> bool:
+	var footprint := tree_footprint(tree_position(cell), tree_types.get(cell, "tree"))
+	if Geometry2D.is_point_in_polygon(start, footprint) or Geometry2D.is_point_in_polygon(end, footprint):
+		return true
+	for index in footprint.size():
+		if Geometry2D.segment_intersects_segment(start, end, footprint[index], footprint[(index + 1) % footprint.size()]) != null:
+			return true
+	return false
+
+# Ground-plane contact of both soles across walking poses and either facing.
+# Raised boots and the translucent shadow do not extend ground contact upwards.
+const PAWN_LOG_FEET := Rect2(-20, -1, 40, 2)
+
+func log_footprint(cell: Vector2i) -> PackedVector2Array:
+	# Annotated contact patch in the 64px Wood Resource PNG, at its 0.9 scale.
+	# Only the bottom row widens the parallelogram; upper logs add no ground area.
+	var spread := (mini(int(log_piles.get(cell, 0)), 3) - 1) * 6.5
+	var anchor := center(cell) + Vector2(0, 6)
+	return PackedVector2Array([
+		anchor + Vector2(-18 * 0.9 - spread, 14 * 0.9),
+		anchor + Vector2(-6 * 0.9 + spread, 14 * 0.9),
+		anchor + Vector2(21 * 0.9 + spread, 6 * 0.9),
+		anchor + Vector2(9 * 0.9 - spread, 6 * 0.9),
+	])
+
+func log_blocks_contact(cell: Vector2i, start: Vector2, end: Vector2) -> bool:
+	var patch := log_footprint(cell)
+	if Geometry2D.is_point_in_polygon(start, patch) or Geometry2D.is_point_in_polygon(end, patch):
+		return true
+	for index in patch.size():
+		if Geometry2D.segment_intersects_segment(start, end, patch[index], patch[(index + 1) % patch.size()]) != null:
+			return true
+	return false
+
+func log_depth_y(cell: Vector2i, pawn_x: float) -> float:
+	var patch := log_footprint(cell)
+	var front_x := (patch[0].x + patch[1].x) * 0.5
+	var back_x := (patch[2].x + patch[3].x) * 0.5
+	# Left-side overlap uses the bottom edge; right-side overlap uses the top.
+	# The centerline of the contact patch joins those references continuously.
+	return lerpf(patch[0].y, patch[2].y, clampf((pawn_x - front_x) / (back_x - front_x), 0, 1))
+
+func log_blocks_feet(cell: Vector2i, start: Vector2, end: Vector2) -> bool:
+	var patch := log_footprint(cell)
+	var feet_center := PAWN_LOG_FEET.get_center()
+	var half_size := PAWN_LOG_FEET.size * 0.5
+	var side := patch[3] - patch[0]
+	var travel := end - start
+	# Separating axes for the contact patch and the swept boot rectangle.
+	var axes := [Vector2.RIGHT, Vector2.DOWN, Vector2(-side.y, side.x)]
+	if not travel.is_zero_approx():
+		axes.append(Vector2(-travel.y, travel.x))
+	for axis: Vector2 in axes:
+		var low := INF
+		var high := -INF
+		for vertex in patch:
+			var projection := vertex.dot(axis)
+			low = minf(low, projection)
+			high = maxf(high, projection)
+		var radius := absf(axis.x) * half_size.x + absf(axis.y) * half_size.y
+		var first := (start + feet_center).dot(axis)
+		var last := (end + feet_center).dot(axis)
+		if maxf(first, last) + radius < low or minf(first, last) - radius > high:
+			return false
+	return true
 
 func valid_tree_offset(offset: Vector2) -> bool:
 	return offset.is_finite() and offset.x >= TREE_OFFSET_X_MIN and offset.x <= TREE_OFFSET_X_MAX and offset.y >= TREE_OFFSET_Y_MIN and offset.y <= TREE_OFFSET_Y_MAX
 
 func spawn_cell() -> Vector2i:
-	if cells.has(HOME) and not trees.has(HOME) and cells[HOME] != "stairs":
+	if cells.has(HOME) and not trees.has(HOME) and house_owner(HOME) == Vector2i(999, 999) and cells[HOME] != "stairs":
 		return HOME
 	for cell in cells:
-		if not trees.has(cell) and cells[cell] != "stairs":
+		if not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and cells[cell] != "stairs":
 			return cell
 	return HOME
 
 func random_respawn_cell() -> Vector2i:
 	var candidates: Array[Vector2i] = []
 	for cell in cells:
-		if cells[cell] != "stairs" and not trees.has(cell):
+		if cells[cell] != "stairs" and not trees.has(cell) and house_owner(cell) == Vector2i(999, 999):
 			candidates.append(cell)
 	return candidates.pick_random() if not candidates.is_empty() else spawn_cell()
 
@@ -192,6 +275,18 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 		return false
 	if tool == "remove" and cells.get(cell) == "stairs" and log_piles.has(cell + stair_direction(cell)):
 		return false
+	if tool == "house":
+		if level < 5:
+			return false
+		if houses.has(cell):
+			return true
+		return (stock.house > 0 or resources.wood >= HOUSE_LOG_COST) and house_space_free(cell, occupied)
+	if tool == "sheep":
+		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell) and cell != occupied
+	if house_owner(cell) != Vector2i(999, 999):
+		return tool == "remove" and occupied not in house_cells(house_owner(cell))
+	if sheep_at(cell) >= 0:
+		return tool == "remove" and cell != occupied
 	if tool == "bridge":
 		var start := BridgeRules.candidate(self, cell)
 		return bridges_enabled and level >= 3 and stock.bridge > 0 and BridgeRules.valid(self, start) and occupied not in [start, start + Vector2i.RIGHT]
@@ -209,14 +304,14 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 			var landing := cell + stair_direction(cell)
 			if BridgeRules.touches(self, landing):
 				return false
-			if landing == occupied or trees.has(landing):
+			if landing == occupied or trees.has(landing) or house_owner(landing) != Vector2i(999, 999) or sheep_at(landing) >= 0:
 				return false
 			# This landing may also be the foot of another stair bundle.
 			# Collecting it must not leave that ramp connected to water.
 			for other in stair_directions:
 				if other != cell and landing == other - stair_direction(other):
 					return false
-		if not trees.has(cell) and cells[cell] != "stairs":
+		if not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and cells[cell] != "stairs":
 			for step in [Vector2i.LEFT, Vector2i.RIGHT]:
 				if cells.get(cell + step) == "stairs":
 					return false
@@ -224,16 +319,18 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 	if tool == "tree":
 		if trees.has(cell):
 			return true
-		return valid_tree_offset(tree_placement_offset) and stock[tool] > 0 and cells.has(cell) and not trees.has(cell) and cells[cell] != "stairs" and cell != HOME and cell != occupied
+		return valid_tree_offset(tree_placement_offset) and stock[tool] > 0 and cells.has(cell) and not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and cells[cell] != "stairs" and cell != HOME and cell != occupied
 	if tool == "ground":
 		if ground_height >= 0:
 			var target := ground_target(cell, ground_height)
-			if BridgeRules.touches(self, target) or log_piles.has(target):
+			if BridgeRules.touches(self, target) or log_piles.has(target) or house_owner(target) != Vector2i(999, 999) or sheep_at(target) >= 0:
 				return false
 			var allowed: bool = ground_height in ground_options(cell) or (target != cell and cell != occupied and target != occupied)
 			return allowed and (cells.has(cell) or ground_count() > 0)
 		return can_raise_ground(cell) if cells.has(cell) else ground_count() > 0
 	if tool == "stairs":
+		if cells.get(cell) == "stairs":
+			return can_reverse_stair(cell, occupied)
 		var direction := available_stair_direction(cell)
 		return stock.stairs > 0 and direction != Vector2i.ZERO and cell != occupied and cell + direction != occupied and not BridgeRules.touches(self, cell + direction) and not log_piles.has(cell + direction)
 	return tool in KINDS and stock.get(tool, 0) > 0 and not cells.has(cell)
@@ -297,7 +394,10 @@ func normalize_ground_continuations() -> void:
 		elevations.erase(flat)
 		cells[base] = kind_at_height(SIZE)
 		elevations[base] = SIZE
-		for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, flora, decorations]:
+		for index in sheep.size():
+			if cell_at(sheep[index]) == flat:
+				sheep[index] += Vector2(0, SIZE)
+		for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, flora, decorations]:
 			if records.has(flat):
 				records[base] = records[flat]
 				records.erase(flat)
@@ -407,8 +507,25 @@ func proposed_stair_direction(cell: Vector2i) -> Vector2i:
 			return direction
 	return Vector2i.ZERO
 
+# Reversing a bundle swaps its plain foot and bundled upper landing.
+func can_reverse_stair(cell: Vector2i, occupied: Vector2i) -> bool:
+	var direction := stair_direction(cell)
+	var foot := cell - direction
+	var landing := cell + direction
+	if direction == Vector2i.ZERO or occupied in [cell, foot, landing]:
+		return false
+	for endpoint in [foot, landing]:
+		if not cells.has(endpoint) or cells[endpoint] == "stairs" or trees.has(endpoint) or tree_stumps.has(endpoint) or log_piles.has(endpoint) or house_owner(endpoint) != Vector2i(999, 999) or sheep_at(endpoint) >= 0 or BridgeRules.touches(self, endpoint):
+			return false
+		if height_at(cell) > height_at(endpoint + Vector2i.DOWN):
+			return false
+		for other in stair_directions:
+			if other != cell and endpoint in [other - stair_direction(other), other + stair_direction(other)]:
+				return false
+	return height_at(cell) <= height_at(cell + Vector2i.DOWN)
+
 func available_stair_direction(cell: Vector2i) -> Vector2i:
-	if cells.get(cell) == "stairs" or trees.has(cell):
+	if cells.get(cell) == "stairs" or trees.has(cell) or house_owner(cell) != Vector2i(999, 999) or sheep_at(cell) >= 0:
 		return Vector2i.ZERO
 	for direction in [Vector2i.RIGHT, Vector2i.LEFT]:
 		var low: Vector2i = cell - direction
@@ -424,7 +541,7 @@ func available_stair_direction(cell: Vector2i) -> Vector2i:
 		# support must cover all lower tiers, leaving only that single cliff.
 		if height_at(low) > height_at(landing + Vector2i.DOWN):
 			continue
-		if not in_bounds(landing) or cells.get(landing) == "stairs" or trees.has(landing):
+		if not in_bounds(landing) or cells.get(landing) == "stairs" or trees.has(landing) or house_owner(landing) != Vector2i(999, 999) or sheep_at(landing) >= 0:
 			continue
 		var shared := false
 		for other in stair_directions:
@@ -453,16 +570,19 @@ func spend_ground() -> void:
 			stock[kind] -= 1
 			return
 
-func walkable_point(point: Vector2) -> bool:
-	for offset in [Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]:
+func walkable_point(point: Vector2, moving_sheep: bool = false) -> bool:
+	var ground_offsets := [Vector2.ZERO] if moving_sheep else [Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]
+	for offset in ground_offsets:
 		if not cells.has(cell_at(point + offset)):
 			return false
 	for cell in trees:
-		# A small trunk obstacle leaves a walkable strip in front of the tree.
-		if tree_obstacle(tree_position(cell)).has_point(point):
+		if tree_blocks_point(tree_position(cell), point, tree_types.get(cell, "tree")):
+			return false
+	for cell in houses:
+		if house_obstacle(cell).grow(0 if moving_sheep else 7).has_point(point):
 			return false
 	for cell in log_piles:
-		if log_obstacle(cell).has_point(point):
+		if log_blocks_contact(cell, point, point) if moving_sheep else log_blocks_feet(cell, point, point):
 			return false
 	return true
 
@@ -502,9 +622,41 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 		return direction != Vector2i.ZERO and cells[from] != "stairs" and ((from == to + direction and height_at(from) == height_at(to) + SIZE) or (from == to - direction and height_at(from) == height_at(to)))
 	return height_at(from) == height_at(to)
 
-func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
+func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO, log_source := Vector2i(999, 999)) -> bool:
 	if not can_edit(cell, tool, occupied, ground_height, tree_placement_offset):
 		return false
+	if tool == "remove" and house_owner(cell) != Vector2i(999, 999):
+		cell = house_owner(cell)
+	if tool == "house":
+		if houses.has(cell):
+			houses[cell] = (int(houses[cell]) + 1) % 4
+		else:
+			if stock.house > 0:
+				stock.house -= 1
+			else:
+				spend_wood(HOUSE_LOG_COST, log_source)
+			for square in house_cells(cell):
+				flora.erase(square)
+				decorations.erase(square)
+				if not cells.has(square):
+					cells[square] = "meadow"
+					elevations[square] = height_at(cell)
+					free_house_grass += 1
+			houses[cell] = 0
+			prune_decorations()
+		return true
+	if tool == "sheep":
+		sheep.append(center(cell))
+		stock.sheep -= 1
+		return true
+	if tool == "remove" and houses.has(cell):
+		houses.erase(cell)
+		stock.house += 1
+		return true
+	if tool == "remove" and sheep_at(cell) >= 0:
+		sheep.remove_at(sheep_at(cell))
+		stock.sheep += 1
+		return true
 	if tool == "bridge":
 		var start := BridgeRules.candidate(self, cell)
 		bridges[start] = height_at(start + Vector2i.LEFT)
@@ -541,6 +693,12 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			tree_types[cell] = next_tree_variant
 			next_tree_variant = TREE_VARIANTS[flora_rng.randi_range(0, TREE_VARIANTS.size() - 1)]
 			stock[tool] -= 1
+	elif tool == "stairs" and cells.get(cell) == "stairs":
+		var direction := stair_direction(cell)
+		for endpoint in [cell - direction, cell + direction]:
+			elevations[endpoint] = height_at(cell) + (SIZE if endpoint == cell - direction else 0)
+			cells[endpoint] = kind_at_height(height_at(endpoint))
+		stair_directions[cell] = -direction
 	elif tool == "ground":
 		if ground_height >= 0:
 			manual_ground_elevation = true
@@ -556,7 +714,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 				# shifting their owner would leave a diagonal saved reference.
 				if decorations.has(cell) and decorations[cell].kind in DecorationRules.WATER_KINDS:
 					decorations.erase(cell)
-				for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, flora, decorations]:
+				for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, flora, decorations]:
 					if records.has(cell):
 						records[target] = records[cell]
 						records.erase(cell)
@@ -646,7 +804,13 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 17, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 19, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	saved.houses = []
+	for cell in houses:
+		saved.houses.append([cell.x, cell.y, houses[cell]])
+	saved.sheep = []
+	for point in sheep:
+		saved.sheep.append([point.x, point.y])
 	saved.carried_wood = carried_wood
 	saved.log_piles = []
 	for cell in log_piles:
@@ -663,7 +827,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	if not data.get("manual_ground_elevation", false) is bool:
 		return false
@@ -671,7 +835,7 @@ func restore(data: Dictionary) -> bool:
 	if saved_tree_variant not in TREE_VARIANTS:
 		return false
 	var next_level := int(data.get("level", 0)) if int(data.version) >= 6 else (3 if data.get("unlocked", false) else 1)
-	if next_level not in [1, 2, 3, 4]:
+	if next_level < 1 or next_level > XP_THRESHOLDS.size():
 		return false
 	var next_cells := {}
 	var next_trees := {}
@@ -741,11 +905,13 @@ func restore(data: Dictionary) -> bool:
 			safe_spawn = true
 	if not safe_spawn:
 		return false
-	for kind in KINDS + ["tree", "bridge"]:
-		var amount := int(data.stock.get(kind, (1 if next_level >= 3 else 0) if kind == "bridge" and int(data.version) < 11 else (0 if kind == "stairs" and data.get("version") == 1 else -1)))
-		if amount < 0 or amount > 13:
+	for kind in KINDS + ["tree", "bridge", "sheep", "house"]:
+		var amount := int(data.stock.get(kind, (1 if next_level >= 3 else 0) if kind == "bridge" and int(data.version) < 11 else (0 if (kind in ["sheep", "house"] and int(data.version) < 18) or (kind == "stairs" and data.get("version") == 1) else -1)))
+		if amount < 0 or amount > maxi(13, 18 + (next_level - 4) * 3):
 			return false
 		next_stock[kind] = amount
+		if kind == "sheep" and int(data.version) < 18 and next_level >= 5:
+			next_stock[kind] = 1
 	if int(data.version) == 14:
 		var old_tree_stock := int(data.stock.get("tree2", 0))
 		if old_tree_stock < 0 or old_tree_stock > 1:
@@ -790,10 +956,13 @@ func restore(data: Dictionary) -> bool:
 			landings[landing] = true
 	for kind in KINDS:
 		total += next_stock[kind] * (2 if kind == "stairs" and int(data.version) >= 5 else 1)
-	var expected_total: int = {1: 5, 2: 10, 3: 15, 4: 18}[next_level] if int(data.version) >= 6 else ((15 if int(data.version) >= 5 else (10 if int(data.version) == 1 else 13)) if next_level >= 3 else 5)
-	if total != expected_total:
+	var expected_total: int = ({1: 5, 2: 10, 3: 15}[next_level] if next_level < 4 else 18 + (next_level - 4) * 3) if int(data.version) >= 6 else ((15 if int(data.version) >= 5 else (10 if int(data.version) == 1 else 13)) if next_level >= 3 else 5)
+	var bonus = data.get("free_house_grass", 0) if int(data.version) >= 19 else 0
+	if not (bonus is int or bonus is float) or not is_finite(float(bonus)) or bonus < 0 or float(bonus) != floorf(float(bonus)):
 		return false
-	if next_trees.size() + next_stock.tree != ({1: 0, 2: 0, 3: 1, 4: 2}[next_level]):
+	if total != expected_total + int(bonus):
+		return false
+	if next_trees.size() + next_stock.tree != (0 if next_level < 3 else (1 if next_level == 3 else 2)):
 		return false
 	var next_bridges := {}
 	if int(data.version) >= 11:
@@ -844,7 +1013,7 @@ func restore(data: Dictionary) -> bool:
 					return false
 				if field == "tree_cut_remaining" and (next_stumps.has(cell) or float(record[2]) > (300.0 if next_tree_types.get(cell, "tree") == "tree4" else 600.0)):
 					return false
-				records[cell] = minf(float(record[2]), 15.0 if next_tree_types.get(cell, "tree") == "tree4" else 30.0) if field == "tree_cut_remaining" else float(record[2])
+				records[cell] = minf(float(record[2]), 10.0) if field == "tree_cut_remaining" else float(record[2])
 	var next_carried := 0
 	var next_logs := {}
 	if int(data.version) >= 17:
@@ -866,6 +1035,55 @@ func restore(data: Dictionary) -> bool:
 			physical_wood += int(record[2])
 		if physical_wood > next_resources.wood:
 			return false
+	var next_houses := {}
+	var next_sheep: Array[Vector2] = []
+	if int(data.version) >= 18:
+		if not data.get("houses") is Array or not data.get("sheep") is Array:
+			return false
+		for record in data.houses:
+			if not record is Array or record.size() != 3:
+				return false
+			for value in record:
+				if not (value is int or value is float) or not is_finite(float(value)) or float(value) != int(value):
+					return false
+			var cell := Vector2i(int(record[0]), int(record[1]))
+			if next_level < 5 or not next_cells.has(cell) or next_cells[cell] == "stairs" or next_trees.has(cell) or next_logs.has(cell) or next_flora.has(cell) or next_decorations.has(cell) or next_houses.has(cell) or int(record[2]) not in [0, 1, 2, 3]:
+				return false
+			if int(data.version) >= 19:
+				for square in house_cells(cell):
+					if not next_cells.has(square) or next_cells[square] == "stairs" or next_trees.has(square) or next_logs.has(square) or next_flora.has(square) or next_decorations.has(square) or next_elevations[square] != next_elevations[cell]:
+						return false
+					for owner in next_houses:
+						if square in house_cells(owner):
+							return false
+			next_houses[cell] = int(record[2])
+		for record in data.sheep:
+			if not record is Array or record.size() != 2:
+				return false
+			for value in record:
+				if not (value is int or value is float) or not is_finite(float(value)):
+					return false
+			var point := Vector2(float(record[0]), float(record[1]))
+			var cell := cell_at(point)
+			if next_level < 5 or not next_cells.has(cell):
+				return false
+			for owner in next_houses:
+				if house_obstacle(owner).has_point(point):
+					return false
+			var contact_layout = get_script().new()
+			contact_layout.log_piles = next_logs
+			for log_cell in next_logs:
+				if contact_layout.log_blocks_contact(log_cell, point, point):
+					return false
+			for tree_cell in next_trees:
+				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
+					return false
+			next_sheep.append(point)
+		if next_sheep.size() + next_stock.sheep != (1 if next_level >= 5 else 0) or (next_level < 5 and next_stock.house > 0):
+			return false
+	free_house_grass = int(bonus)
+	houses = next_houses
+	sheep = next_sheep
 	carried_wood = next_carried
 	log_piles = next_logs
 	resources = next_resources
@@ -903,8 +1121,20 @@ func restore(data: Dictionary) -> bool:
 	normalize_cliff_terraces()
 	return true
 
+func can_pick_log(cell: Vector2i) -> bool:
+	return carried_wood == 0 and int(log_piles.get(cell, 0)) > 0
+
+func pick_log(cell: Vector2i) -> bool:
+	if not can_pick_log(cell):
+		return false
+	log_piles[cell] -= 1
+	if log_piles[cell] == 0:
+		log_piles.erase(cell)
+	carried_wood = 1
+	return true
+
 func can_drop_logs(cell: Vector2i) -> bool:
-	return carried_wood > 0 and cells.has(cell) and cells[cell] != "stairs" and not trees.has(cell) and not flora.has(cell) and not decorations.has(cell) and not BridgeRules.touches(self, cell) and int(log_piles.get(cell, 0)) < 6
+	return carried_wood > 0 and cells.has(cell) and cells[cell] != "stairs" and not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and sheep_at(cell) < 0 and not flora.has(cell) and not decorations.has(cell) and not BridgeRules.touches(self, cell) and int(log_piles.get(cell, 0)) < 6
 
 func drop_logs(cell: Vector2i) -> bool:
 	if not can_drop_logs(cell):
@@ -913,3 +1143,68 @@ func drop_logs(cell: Vector2i) -> bool:
 	log_piles[cell] = int(log_piles.get(cell, 0)) + deposited
 	carried_wood -= deposited
 	return true
+
+func sheep_at(cell: Vector2i) -> int:
+	for index in sheep.size():
+		if cell_at(sheep[index]) == cell:
+			return index
+	return -1
+
+func asset_ground_free(cell: Vector2i, moving_sheep: bool = false) -> bool:
+	if not cells.has(cell):
+		return false
+	# Movement checks contact footprints and segment crossings, not occupied
+	# tile ownership. Placement still reserves whole object/stair tiles.
+	if moving_sheep:
+		return true
+	if cells[cell] == "stairs" or trees.has(cell) or house_owner(cell) != Vector2i(999, 999) or sheep_at(cell) >= 0 or log_piles.has(cell) or BridgeRules.touches(self, cell) or flora.has(cell) or decorations.has(cell):
+		return false
+	# Keep stair connections clear.
+	for stair in stair_directions:
+		if cell in [stair - stair_direction(stair), stair + stair_direction(stair)]:
+			return false
+	return true
+
+func house_cells(cell: Vector2i) -> Array[Vector2i]:
+	return [cell, cell + Vector2i.RIGHT, cell + Vector2i.DOWN, cell + Vector2i.ONE]
+
+func house_owner(cell: Vector2i) -> Vector2i:
+	for owner in houses:
+		if cell in house_cells(owner):
+			return owner
+	return Vector2i(999, 999)
+
+func house_space_free(cell: Vector2i, occupied: Vector2i) -> bool:
+	for square in house_cells(cell):
+		if not in_bounds(square) or square == occupied or trees.has(square) or house_owner(square) != Vector2i(999, 999) or sheep_at(square) >= 0 or log_piles.has(square) or cells.get(square) == "stairs" or BridgeRules.touches(self, square):
+			return false
+		if cells.has(square) and height_at(square) != height_at(cell):
+			return false
+		for stair in stair_directions:
+			if square in [stair - stair_direction(stair), stair + stair_direction(stair)]:
+				return false
+	return true
+
+func house_obstacle(cell: Vector2i) -> Rect2:
+	return Rect2(center(cell) - Vector2(32, 32), Vector2(128, 128))
+
+func spend_wood(amount: int, preferred_pile := Vector2i(999, 999)) -> void:
+	# Harvested wood is counted once in resources, including carried/deposited logs.
+	resources.wood -= amount
+	if log_piles.has(preferred_pile):
+		var taken := mini(int(log_piles[preferred_pile]), amount)
+		log_piles[preferred_pile] -= taken
+		amount -= taken
+		if log_piles[preferred_pile] == 0:
+			log_piles.erase(preferred_pile)
+	var from_pack := mini(carried_wood, amount)
+	carried_wood -= from_pack
+	amount -= from_pack
+	for cell in log_piles.keys():
+		var taken := mini(int(log_piles[cell]), amount)
+		log_piles[cell] -= taken
+		amount -= taken
+		if log_piles[cell] == 0:
+			log_piles.erase(cell)
+		if amount == 0:
+			break
