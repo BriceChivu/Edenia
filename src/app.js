@@ -1112,6 +1112,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     if (
       state?.status === 'up-to-date'
       && learnerProfileOpeningCompletionToastPending
+      && document.getElementById('mainApp')?.classList.contains('hidden') === false
     ) {
       learnerProfileOpeningCompletionToastPending = false
       showToast(t('progressSync.upToDate'))
@@ -3054,6 +3055,7 @@ const PUBLIC_ONBOARDING_DOM_SELECTORS = Object.freeze([
 ])
 let parkedLearnerProfileDom = []
 const protectedConflictAnnouncementIds = new Set()
+let learnerProfileAccessRenderEpoch = 0
 
 function parkLearnerProfileDom() {
   const parkedSelectors = new Set(
@@ -3120,7 +3122,8 @@ function trackLearnerProfileOpening(accessState) {
   learnerProfileOpeningFocusHandoffPending = false
 }
 
-function handleLearnerProfileAccessStateChange(accessState) {
+async function handleLearnerProfileAccessStateChange(accessState) {
+  const renderEpoch = ++learnerProfileAccessRenderEpoch
   trackLearnerProfileOpening(accessState)
   if (learnerProfileAccessVisualTestActive) {
     accessState = { status: LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE }
@@ -3214,12 +3217,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     const mainApp = document.getElementById('mainApp')
     mainApp?.removeAttribute('inert')
     if (!applicationStarted) {
-      startApplicationWithState(state, {
+      await startApplicationWithState(state, {
         accountAuthInitialized: true,
         deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId),
         skipUnfinishedOnboarding: hasResetIntent,
         startUnfinishedOnboardingImmediately: Boolean(accessState.ownerId)
       })
+      if (renderEpoch !== learnerProfileAccessRenderEpoch) return
     } else {
       renderActivatedLearnerProfile(state, {
         showMainApplication: !preserveUnfinishedOnboarding
@@ -3230,6 +3234,14 @@ function handleLearnerProfileAccessStateChange(accessState) {
       ) {
         maybeStartOnboarding(state, { startImmediately: true })
       }
+    }
+    if (
+      learnerProfileOpeningCompletionToastPending
+      && learnerProfileSyncViewState?.status === 'up-to-date'
+      && !mainApp?.classList.contains('hidden')
+    ) {
+      learnerProfileOpeningCompletionToastPending = false
+      showToast(t('progressSync.upToDate'))
     }
     if (accessState.protectedConflicts?.length) {
       learnerProfileConflictView.showProtected(
@@ -7159,8 +7171,8 @@ async function saveLocaleFromSettings(locale = null) {
     actor: 'user',
     type: 'locale',
     status: 'success',
-    title: t('log.locale.title'),
-    detail: t('log.locale.detail', { language: getLocaleLabel(nextLocale) })
+    title: t('log.locale.title', {}, nextLocale),
+    detail: t('log.locale.detail', { language: getLocaleLabel(nextLocale) }, nextLocale)
   })
   if (!await saveState(s)) return false
   applyLocale(nextLocale)
@@ -14549,7 +14561,8 @@ function setCityDayOffset(offset) {
   const state = loadState()
   if (!state) return
   selectedCityDayOffset = clampCityDayOffset(state, offset)
-  renderCity(getCurrentCityScore(state), state)
+  // Timeline selection only changes the view; it does not award a level.
+  renderCitySnapshot(getCitySnapshot(getCurrentCityScore(state), state), state, true)
 }
 
 function previewCityDayOffset(offset) {
@@ -19502,11 +19515,12 @@ bindUndoRedoActions(document, {
 
 bindImageFallbackActions(document)
 async function initializeBrowserStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
   // Retire only replaceable search metadata before opening a durable profile.
   // This also gives the small opening markers room in the localStorage pool.
   try {
     const raw = localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY)
-    if (raw) {
+    if (raw && raw.length * 2 > 64 * 1024) {
       const bounded = JSON.stringify(budgetObjectCache(readYoutubeChannelSearchCache()))
       if (bounded !== raw) localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, bounded)
     }

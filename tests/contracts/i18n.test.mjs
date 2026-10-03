@@ -279,6 +279,15 @@ test('translation runtime preserves selection, fallback, labels, and interpolati
   setCurrentLocale(DEFAULT_LOCALE)
 })
 
+test('pending locale changes can translate activity without changing the visible locale', () => {
+  setCurrentLocale('en')
+  assert.equal(t('log.locale.title', {}, 'fr'), I18N.fr['log.locale.title'])
+  assert.equal(t('log.locale.detail', { language: 'Français' }, 'fr'),
+    I18N.fr['log.locale.detail'].replace('{language}', 'Français'))
+  assert.equal(getCurrentLocale(), 'en')
+  assert.equal(t('settings.title'), I18N.en['settings.title'])
+})
+
 test('locale date formatting preserves invalid and Intl behavior', () => {
   const date = new Date(2026, 6, 28, 13, 45)
   const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' }

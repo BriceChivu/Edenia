@@ -135,6 +135,7 @@ function createHarness({ delayedVerification = false, delayedImport = false } = 
     trackLearnerProfileOpening() {},
     learnerProfileAccessVisualTestActive: false,
     protectedConflictAnnouncementIds: new Set(),
+    learnerProfileAccessRenderEpoch: 0,
     accountlessProfileMigrationController: null,
     learnerProfileAccessView: { render() {} },
     learnerProfileConflictView: { hideConflict() {}, hideProtected() {} },
@@ -147,7 +148,7 @@ function createHarness({ delayedVerification = false, delayedImport = false } = 
   })
   vm.runInContext([
     sourceBetween('let legacyProgressManualImportDone', '\nfunction normalizeLegacyProgressState('),
-    sourceBetween('function handleLearnerProfileAccessStateChange(', '\nfunction synchronizeAccountStudySnapshotForProfile('),
+    sourceBetween('async function handleLearnerProfileAccessStateChange(', '\nfunction synchronizeAccountStudySnapshotForProfile('),
     sourceBetween('function startLearnerProfileReverification()', '\nfunction initializeAccountAuth()'),
     sourceBetween('function closeSettings()', '\nfunction setSettingsAccordionOpen('),
     sourceBetween('async function exportSyncFile()', '\nfunction formatBackupTimestamp('),
