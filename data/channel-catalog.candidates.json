@@ -713,7 +713,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2006-08-09T04:50:09Z",
-      "metadataRefreshedAt": "2026-09-04T07:25:31.218Z",
+      "metadataRefreshedAt": "2026-10-04T08:49:40.135Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-04T12:10:59.194Z",
@@ -775,6 +775,33 @@
       ],
       "reviewReasons": [],
       "searchText": "realfake realfakepod"
+    },
+    {
+      "catalogId": "community-UCe0NJY133u_NwqDOIxfz3og",
+      "channelId": "UCe0NJY133u_NwqDOIxfz3og",
+      "handle": "@竹子zhuzi",
+      "name": "Talking China Learning Chinese 说中国学中文",
+      "thumbnailUrl": "https://yt3.ggpht.com/m-XO1J-cZrws51dheb3kk57g8ftgY_hztZPai-xNZaH5QJtCTF7y09T_4pXFgIwreli4Sq4f=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "beginner"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2011-11-15T19:25:54Z",
+      "metadataRefreshedAt": "2026-10-04T08:49:40.135Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-10-04T03:08:12.916Z",
+      "lastSeenAt": "2026-10-04T03:08:12.916Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "talking china learning chinese 说中国学中文 竹子zhuzi beginner"
     },
     {
       "catalogId": "community-UCfq75-6J5seC82CmtLSFxXw",
@@ -979,5 +1006,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-10-02T09:01:31.596Z"
+  "generatedAt": "2026-10-04T08:49:40.135Z"
 }
