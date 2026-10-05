@@ -3,6 +3,9 @@ extends "res://scripts/level_two_preview.gd"
 const IslandPresentation = preload("res://scripts/island_presentation.gd")
 var island_presentation = IslandPresentation.new()
 var study_visibility_callback: JavaScriptObject
+var study_size_callback: JavaScriptObject
+var study_canvas_width := 1152.0
+var study_camera_callback: JavaScriptObject
 var study_presented := true
 var study_bridge_ready := false
 var study_layout_restored := false
@@ -22,6 +25,13 @@ func _ready() -> void:
 	if OS.has_feature("web"):
 		study_visibility_callback = JavaScriptBridge.create_callback(receive_host_visibility)
 		JavaScriptBridge.get_interface("window").edeniaReceiveHostVisibility = study_visibility_callback
+		study_size_callback = JavaScriptBridge.create_callback(receive_canvas_width)
+		JavaScriptBridge.get_interface("window").edeniaReceiveCanvasWidth = study_size_callback
+		study_canvas_width = maxf(1, float(JavaScriptBridge.eval("window.edeniaCanvasWidth || 1152")))
+		get_viewport().size_changed.connect(update_drag_threshold)
+		update_drag_threshold()
+		study_camera_callback = JavaScriptBridge.create_callback(receive_camera_command)
+		JavaScriptBridge.get_interface("window").edeniaReceiveCameraCommand = study_camera_callback
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-progression',thresholds:%s},location.origin)" % JSON.stringify(Layout.XP_THRESHOLDS))
 
 func receive_host_visibility(arguments: Array) -> void:
@@ -31,11 +41,23 @@ func receive_host_visibility(arguments: Array) -> void:
 	if study_restore_attempted:
 		island_presentation.set_presented(self, study_presented)
 
+func receive_canvas_width(arguments: Array) -> void:
+	if arguments.size() != 1 or not (arguments[0] is float or arguments[0] is int):
+		return
+	study_canvas_width = maxf(1, float(arguments[0]))
+	update_drag_threshold()
+
+func receive_camera_command(arguments: Array) -> void:
+	if arguments.size() == 1 and arguments[0] is String:
+		camera_command(arguments[0])
+
+func update_drag_threshold() -> void:
+	world_drag_threshold = 6.0 * get_viewport().get_visible_rect().size.x / study_canvas_width
+
 func _process(delta: float) -> void:
 	super._process(delta)
 	if not study_bridge_ready or not OS.has_feature("web"):
 		return
-	world_drag_threshold = 6.0 * get_viewport().get_visible_rect().size.x / maxf(1, float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width")))
 	study_poll_elapsed += delta
 	if study_poll_elapsed < 0.2:
 		return

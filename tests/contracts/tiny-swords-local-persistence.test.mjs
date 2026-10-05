@@ -125,6 +125,7 @@ test('host visibility preserves the frame, resumes partial intersection, and ign
 test('visibility receiver accepts only current parent/session facts', () => {
   const handlers={};const calls=[];const parent={}
   const context={parent,location:{origin:'http://localhost:8037'},window:{edeniaStudySession:2,edeniaReceiveHostVisibility:value=>calls.push(value),addEventListener(type,fn){handlers[type]=fn}}}
+  context.document={readyState:'loading',addEventListener(){}}
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-visibility.js','utf8'),context)
   const message={origin:context.location.origin,source:parent,data:{type:'edenia-host-visibility',session:2,visible:false}}
   handlers.message({...message,source:{}})
