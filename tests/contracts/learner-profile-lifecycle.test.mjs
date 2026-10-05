@@ -4152,3 +4152,27 @@ for (const completionOrder of [[0, 1], [1, 0]]) {
     })
   }
 }
+
+
+test('signed-in island checkpoints honor analytics suppression without changing profile guards', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { tinySwordsIsland: { version: 23, level: 7 } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: { generation: 2, ownerId, profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001', revision: 7, status: 'activate' },
+    local: { status: 'empty' }, markDirtyResult: true
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const before = harness.calls.filter(([name]) => name === 'analytics-saved').length
+  assert.equal(harness.authority.saveActiveProfile(profile, {
+    backup: false, syncAnalytics: false
+  }), true)
+  assert.equal(harness.calls.filter(([name]) => name === 'analytics-saved').length, before)
+  assert.ok(harness.calls.some(([name]) => name === 'cloud-mark-dirty'))
+  const saved = harness.calls.find(([name]) => name === 'local-save')
+  assert.deepEqual(saved[2], { backup: false, syncAnalytics: false })
+  harness.authentication.publish({ status: 'signed-out', userId: null })
+  assert.equal(harness.authority.saveActiveProfile(profile, { syncAnalytics: false }), false)
+})
