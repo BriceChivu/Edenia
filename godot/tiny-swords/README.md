@@ -269,6 +269,11 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
   (native texture Y for variants 01–08: 146, 148, 134, 134, 149, 144, 131, 126): trees,
   pawns and raised terrain with a greater ground Y occlude them. Altitude changes
   size, shadow offset and opacity, without overriding this order.
+  Mask copies synchronize the current sprite sheet dimensions before its frame,
+  including sheep transitions between idle, grazing and running sheets.
+  Visual revisions are shared between clouds at pre-draw; each cloud retains its
+  own candidate set and depth texture. Changed masks render again on the following
+  frame to include queued canvas redraws, then sleep until their inputs change.
 - `scripts/rare_cloud.gd`: a rare foreground cloud first enters after 4–7 minutes,
   then waits 6–10 minutes after leaving before another pass. Each pass varies in
   height, scale, direction, and speed.
@@ -433,6 +438,9 @@ node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
 The builder recreates its disposable `.cache/tiny-swords-xp/project` from this
 source, adds the study adapter, and checks the configured main scene and shared
 gameplay suite before exporting. It never patches gameplay or grid dimensions.
+It also prepares Brotli/gzip WASM, asset-pack and engine-script variants. The
+static server negotiates current compressed variants while retaining the
+original MIME type; a hosted export needs equivalent Content-Encoding handling.
 Directly exporting the base Godot project into `_site/tiny-swords-xp-game`
 replaces the study adapter and browser message/scroll hooks.
 Use the integration builder for every update to that preview, then refresh.
@@ -440,8 +448,25 @@ The direct export command above applies to the separate base preview on port 418
 
 ## Checks
 
+Terrain retains static draw commands and sorted base cells until geometry changes;
+foam is a separate canvas item advancing at the authored 5 fps. Editor overlays
+still follow pointer and eligibility changes. Cloud-depth, terrain-transform and
+outline-render checks cover retained geometry and visible depth/preview behavior.
+
+The shared Godot web rendering policy limits the backing canvas to a pixel ratio
+of two while retaining `canvas_items` scaling and fractional pointer movement.
+Native rendering is unchanged. Project settings `edenia/web/max_pixel_ratio`
+and `edenia/web/frame_interval` default to `2.0` and `1`; the latter is an
+asynchronous RAF divisor for the current single-threaded export, with guarded
+fallback for unsupported templates. Divisor two is available for testing but
+showed no clear CPU saving on the M3. Keep `Engine.max_fps` at zero on web.
+Physical-device startup, battery, memory and long suspension checks remain
+required; the runnable protocol is in
+`scripts/diagnostics/tiny-swords-performance/README.md` at the repository root.
+
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/environment.gd
+/Applications/Godot.app/Contents/MacOS/Godot --path godot/tiny-swords --script res://tests/cloud_depth.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/movement.gd
 node scripts/verify-tiny-swords-preview.mjs
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path godot/tiny-swords --script res://tests/builder.gd

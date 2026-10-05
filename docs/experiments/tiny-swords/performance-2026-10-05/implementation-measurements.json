@@ -1,0 +1,406 @@
+{
+  "environment": "Apple M3 MacBook Air, Godot 4.7.2, Chrome for Testing and desktop Playwright WebKit; physical devices not tested",
+  "rendererStage": "Shared cloud visual revisions; measured before the final geometry-key memory reduction",
+  "renderer": [
+    {
+      "label": "forced-redraw",
+      "rendererCpuPercent": 27.117722653915123,
+      "gpuProcessCpuPercent": 16.901474397290293,
+      "fpsSamples": [
+        60,
+        57,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60
+      ],
+      "inclusiveMsPerSecond": {
+        "cloud_visual.gd:mask": 45.08924878354887,
+        "terrain_view.gd:_draw": 54.94958185966553
+      },
+      "errors": 0
+    },
+    {
+      "label": "cached",
+      "rendererCpuPercent": 23.5301466919469,
+      "gpuProcessCpuPercent": 20.075421614609322,
+      "fpsSamples": [
+        59,
+        59,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        61
+      ],
+      "inclusiveMsPerSecond": {
+        "cloud_visual.gd:mask": 50.63011107695055
+      },
+      "errors": 0
+    },
+    {
+      "label": "forced-mask",
+      "rendererCpuPercent": 24.727598602096855,
+      "gpuProcessCpuPercent": 20.98426360459311,
+      "fpsSamples": [
+        59,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60
+      ],
+      "inclusiveMsPerSecond": {
+        "cloud_visual.gd:mask": 60.46
+      },
+      "errors": 0
+    },
+    {
+      "label": "raf-divisor-2",
+      "rendererCpuPercent": 24.290184722915615,
+      "gpuProcessCpuPercent": 17.493529705441837,
+      "fpsSamples": [
+        29,
+        30,
+        30,
+        30,
+        30,
+        30,
+        30,
+        30,
+        30,
+        30
+      ],
+      "inclusiveMsPerSecond": {
+        "cloud_visual.gd:mask": 34.53280346140723
+      },
+      "errors": 0
+    },
+    {
+      "label": "cached-repeat",
+      "rendererCpuPercent": 23.43222843450481,
+      "gpuProcessCpuPercent": 20.26362819488818,
+      "fpsSamples": [
+        38,
+        60,
+        59,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60
+      ],
+      "inclusiveMsPerSecond": {
+        "cloud_visual.gd:mask": 56.85248801943151
+      },
+      "errors": 0
+    }
+  ],
+  "webkit": [
+    {
+      "params": {
+        "viewport": {
+          "width": 1054,
+          "height": 900
+        },
+        "deviceScaleFactor": 2
+      },
+      "canvas": [
+        2108,
+        908
+      ],
+      "fpsSamples": [
+        60,
+        60,
+        60,
+        60,
+        60,
+        59,
+        60,
+        60,
+        60,
+        60
+      ],
+      "engineVideoBytes": 131680235,
+      "errors": []
+    },
+    {
+      "params": {
+        "viewport": {
+          "width": 393,
+          "height": 852
+        },
+        "deviceScaleFactor": 3,
+        "isMobile": true,
+        "hasTouch": true
+      },
+      "canvas": [
+        786,
+        908
+      ],
+      "fpsSamples": [
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60,
+        60
+      ],
+      "engineVideoBytes": 167457771,
+      "errors": []
+    }
+  ],
+  "soak": {
+    "actions": 1000,
+    "warm": {
+      "actions": 200,
+      "nodes": 177,
+      "objects": 1856,
+      "resources": 201,
+      "orphans": 0,
+      "wasmCapacityBytes": [
+        58064896
+      ],
+      "errors": 0
+    },
+    "final": {
+      "actions": 1000,
+      "nodes": 177,
+      "objects": 1856,
+      "resources": 201,
+      "orphans": 0,
+      "wasmCapacityBytes": [
+        58064896
+      ],
+      "errors": 0
+    },
+    "retainedTerrainAndInventory": true
+  },
+  "startup": [
+    {
+      "config": {
+        "dpr": 1
+      },
+      "startup": {
+        "readyAfterLoadMs": 1413,
+        "totalFromNavigationMs": 1588,
+        "resources": [
+          {
+            "name": "index.js",
+            "duration": 5.5999999940395355,
+            "transfer": 280115,
+            "decoded": 279815
+          },
+          {
+            "name": "index.wasm",
+            "duration": 182.2999999821186,
+            "transfer": 8182323,
+            "decoded": 39514754
+          },
+          {
+            "name": "index.pck",
+            "duration": 60.400000005960464,
+            "transfer": 1742982,
+            "decoded": 2297156
+          }
+        ]
+      },
+      "canvas": [
+        1054,
+        454
+      ],
+      "maxPixelRatio": 2,
+      "errors": 0
+    },
+    {
+      "config": {
+        "dpr": 2
+      },
+      "startup": {
+        "readyAfterLoadMs": 1039,
+        "totalFromNavigationMs": 1136,
+        "resources": [
+          {
+            "name": "index.js",
+            "duration": 3.600000023841858,
+            "transfer": 280115,
+            "decoded": 279815
+          },
+          {
+            "name": "index.pck",
+            "duration": 24.700000017881393,
+            "transfer": 1742982,
+            "decoded": 2297156
+          },
+          {
+            "name": "index.wasm",
+            "duration": 140.80000001192093,
+            "transfer": 8182323,
+            "decoded": 39514754
+          }
+        ]
+      },
+      "canvas": [
+        2108,
+        908
+      ],
+      "maxPixelRatio": 2,
+      "errors": 0
+    },
+    {
+      "config": {
+        "dpr": 3,
+        "mobile": true
+      },
+      "startup": {
+        "readyAfterLoadMs": 1077,
+        "totalFromNavigationMs": 1163,
+        "resources": [
+          {
+            "name": "index.js",
+            "duration": 3.300000011920929,
+            "transfer": 280115,
+            "decoded": 279815
+          },
+          {
+            "name": "index.wasm",
+            "duration": 155.7999999821186,
+            "transfer": 8182323,
+            "decoded": 39514754
+          },
+          {
+            "name": "index.pck",
+            "duration": 19.400000005960464,
+            "transfer": 1742982,
+            "decoded": 2297156
+          }
+        ]
+      },
+      "canvas": [
+        786,
+        908
+      ],
+      "maxPixelRatio": 2,
+      "errors": 0
+    },
+    {
+      "config": {
+        "dpr": 3,
+        "mobile": true,
+        "slow": true
+      },
+      "startup": {
+        "readyAfterLoadMs": 9105,
+        "totalFromNavigationMs": 9787,
+        "resources": [
+          {
+            "name": "index.js",
+            "duration": 354,
+            "transfer": 280115,
+            "decoded": 279815
+          },
+          {
+            "name": "index.wasm",
+            "duration": 8116.100000023842,
+            "transfer": 8182323,
+            "decoded": 39514754
+          },
+          {
+            "name": "index.pck",
+            "duration": 2900.300000011921,
+            "transfer": 1742982,
+            "decoded": 2297156
+          }
+        ]
+      },
+      "canvas": [
+        786,
+        908
+      ],
+      "maxPixelRatio": 2,
+      "errors": 0
+    }
+  ],
+  "deviceHarness": {
+    "initial": {
+      "canvas": [
+        786,
+        908
+      ],
+      "width": 393,
+      "camera": {
+        "editing": false,
+        "height": 1330,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "afterResize": {
+      "canvas": [
+        1200,
+        908
+      ],
+      "width": 600
+    },
+    "dragBelowThreshold": [
+      544,
+      176
+    ],
+    "dragAboveThreshold": [
+      527.200012207031,
+      175.999984741211
+    ],
+    "errors": [],
+    "gameErrors": []
+  },
+  "clockTests": {
+    "sheepSimulatedSeconds": [
+      60.37,
+      1800.37,
+      7200.37
+    ],
+    "matchedContinuousPlayback": true,
+    "actualOffscreenConstructionAndCuttingPassed": true
+  },
+  "openChecks": [
+    "physical iOS/Android",
+    "battery/thermal/total footprint",
+    "real video playback",
+    "30-minute and two-hour actual suspension",
+    "multi-hour retention",
+    "five-second slow startup",
+    "legacy localStorage whole-profile checkpoint cost"
+  ],
+  "offscreenGate": {
+    "profilerEnabledInBothSamples": false,
+    "totalRendererCpuPercent": 4.207418130990421,
+    "iframeRemovedControlCpuPercent": 3.549295774647884,
+    "excessCpuPercent": 0.658122356342537,
+    "budgetPercentOfOneCore": 5,
+    "passed": true,
+    "sameIframePresentationResumedAndSuspendedAgain": true,
+    "scope": "Synthetic visible parent tab; not physical-device or long background certification"
+  }
+}

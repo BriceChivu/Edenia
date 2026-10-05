@@ -1,10 +1,20 @@
 # Tiny Swords performance investigation — 2026-10-05
 
-Tiny Swords is not ready for public performance sign-off. A confirmed per-frame shadow-generation hotspot consumed almost one renderer core on a 66-tile terraced island, reducing it to about 14 fps. A diagnostic cache restored 60 fps and reduced CPU to about 28%. The current release export also adds sustained rendering work while the island is offscreen in a visible Edenia tab. Island checkpoints also become noticeable main-thread operations as the learner's video library grows. These are measured issues. Editing has a separate confirmed hotspot: rebuilding the inventory's eligibility scan every frame.
+The original Tiny Swords baseline was not ready for public performance sign-off. A confirmed per-frame shadow-generation hotspot consumed almost one renderer core on a 66-tile terraced island, reducing it to about 14 fps. A diagnostic cache restored 60 fps and reduced CPU to about 28%. The baseline export also added sustained rendering work while the island was offscreen in a visible Edenia tab. Island checkpoints became noticeable main-thread operations as the learner's video library grew. Editing had a separate confirmed hotspot: rebuilding the inventory's eligibility scan every frame. Implementation follow-ups below describe subsequent fixes; physical-device performance sign-off remains open.
 
 The original Mac lag cannot be attributed entirely to Tiny Swords. This 8 GiB Mac was already swapping heavily, with little free disk space. The original preview's roughly one-core CPU consumption did not recur on every fresh island. Public hosting will change download delivery; it will not remove these client-side runtime costs.
 
-This investigation changed only diagnostic helpers and documentation; the shadow cache and cloud-copy fixes remain diagnostic proposals. It did not optimize gameplay, overwrite the existing export, alter learner data, deploy, or publicly enable Tiny Swords. Existing uncommitted game, bridge, UI and test changes were preserved. All instrumentation and experimental work-removal flags were confined to generated `.cache/tiny-swords-perf` copies.
+The original investigation changed only diagnostic helpers and documentation; at that stage the shadow cache and cloud-copy fixes were diagnostic proposals. It did not optimize gameplay, overwrite the existing export, alter learner data, deploy, or publicly enable Tiny Swords. Later implementation work changed shared Godot rendering and the local integration and rebuilt the preview. Instrumentation and experimental work-removal flags remain confined to generated `.cache/tiny-swords-perf` copies.
+
+Current implementation status: terrain shadows, offscreen suspension, editor
+eligibility, cloud sheet correctness, static terrain/foam separation, cloud mask
+dirtiness and shared visual revisions, resize-driven bridge width, immediate
+camera commands, and the web pixel-ratio policy are implemented. Independent
+island checkpoints are implemented for the opt-in accountless IndexedDB path;
+legacy localStorage and signed-in storage retain their existing behavior.
+The asynchronous RAF divisor is configurable and defaults to one display frame.
+Physical iOS/Android, sustained video playback, real 30-minute/two-hour suspension,
+and battery/thermal validation remain open. No rollout flags or deployment changed.
 
 ## Evidence and reproducibility
 
@@ -24,7 +34,7 @@ Unless stated otherwise, each sample lasted 10 seconds after at least six second
 
 Instrumentation includes inclusive wall timers and bounded engine telemetry at approximately 1 Hz. Web time resolution is coarse; small individual calls are not precisely resolved. Nested timers must not be added together. Browser profiles are sampled, mostly contain stripped WASM function numbers, and are not source-level GDScript flame graphs. Work-removal probes deliberately alter visuals or behavior and establish attribution; they are not production-ready fixes.
 
-The final diagnostic helpers passed Python/JavaScript syntax checks, Godot import and release export, and owning-generator fixture validation. Recorded source and original-export fingerprints remained unchanged. The offscreen budget gate failed as documented below. Generated projects, export binaries and the disposable normal-browser profile were removed; raw measured evidence was retained locally.
+The original diagnostic helpers passed Python/JavaScript syntax checks, Godot import and release export, and owning-generator fixture validation. Recorded source and original-export fingerprints remained unchanged during that investigation. The original offscreen budget gate failed as documented below; the implementation follow-up passed a corrected matched-profiler gate. Generated diagnostic projects, export binaries and disposable browser profiles were removed; raw measured evidence was retained locally. The ordinary preview was rebuilt with the implementation changes.
 
 ## Integrated preview, parent and game comparisons
 
@@ -55,6 +65,14 @@ node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=gate --assert-b
 ```
 
 The recorded invocation failed its five-percent excess-CPU budget: **23.8% total renderer CPU − 3.6% paired parent control = 20.2% excess**. This is an investigation regression signal, not a claim that the issue was fixed. The paired parent control also avoids treating all Edenia CPU as game CPU.
+
+Implementation follow-up: the gate now disables CPU profiling in both samples;
+the earlier profiled-island/unprofiled-control comparison included unmatched
+measurement overhead. The rebuilt preview measured **4.2% total renderer CPU −
+3.5% paired parent control = 0.7% excess**, passing the five-percent gate and the
+proposed two-percent target in this sample. The same iframe resumed WebGL
+presentation and suspended again successfully. This synthetic visible-tab result
+does not certify physical phones, video playback or long background intervals.
 
 ## True background tabs
 
@@ -127,6 +145,23 @@ The uncapped matched-FPS probe reduced renderer CPU from 27.0% to 21.4% when ter
 
 `terrain_view.gd` queues redraw each process frame. The base draw sorts keys and traverses all cells multiple times, even though foam advances at 5 fps and most terrain is static. Raised surfaces, backing and shadows have additional view instances. Separate static terrain from animated foam/editor overlays, retain sorted geometry until the layout changes, and redraw animated portions when their frame changes. The 5-Hz probe freezes or delays other terrain/overlay updates too; applying it wholesale would break hover responsiveness and is not the proposed implementation.
 
+Implementation follow-up: static surfaces retain their canvas draw commands and
+sorted base geometry until layout geometry or editor inputs change. Foam now has
+a separate canvas item behind the grass and redraws at its authored 5-fps phase.
+Editor overlays follow pointer, rules and silhouette changes independently. Cloud
+masks compare their own candidate set/camera/visual revisions, render on changes
+and the following frame needed for queued canvas commands, then retain their
+texture. Source visual revisions are shared across clouds at each pre-draw
+boundary; each cloud still owns its depth ordering and mask.
+
+The 100-tile `remaining` suite compared forced per-frame redraws with caching at
+matched 60-fps cadence: renderer CPU was **27.1% versus 23.5%**, with **23.4%** in
+the cached repeat. Static terrain draw work was about **55 ms/s** in the control
+and absent from unchanged cached samples. Forcing only masks while leaving
+terrain cached used 24.7% CPU. GPU-process measurements varied (about 17–21%) and
+do not establish dominant GPU savings. Native terrain-preview, stationary-cache,
+cloud depth and six exact outline-render fixtures passed.
+
 ### Cloud depth masks and recurring errors
 
 There are seven cloud depth viewports; six were active in these samples. Their logical mask size was 1152×496, independent of DPR in the desktop tests, and their active mode was `UPDATE_ALWAYS`. Each mask scans world children, synchronizes duplicate visuals and may queue terrain-copy redraws. Measured synchronization cost was roughly 31–45 ms/s. Disabling masks or throttling synchronization did not establish a dominant GPU saving; total CPU/GPU differences were small and varied.
@@ -145,11 +180,32 @@ copy.frame = source.frame
 
 Place these assignments in the Sprite2D branch and cover idle/grazing/run transitions in the cloud occluder regression check. These assignments were not applied to source gameplay in this investigation.
 
+Implementation follow-up (2026-10-05): the shared Godot `sync_visual` now copies
+both sheet dimensions before assigning the frame. The expanded `cloud_depth.gd`
+check keeps the same occluder across all idle (6), grazing (12), running (4),
+and returning idle frames, plus a two-row sheet. It reproduced the dimension
+mismatch and out-of-range errors before the fix, then passed without errors
+afterward. The existing rendered overlap checks also passed at all four viewport
+sizes. The integrated preview rebuilt with no script/import errors. A fresh
+Chromium context restored the 66-tile terrace with one sheep and chicken and ran
+for 15 seconds after readiness with **zero console/page errors**; evidence is in
+`.cache/tiny-swords-perf/cloud-sheet-web.json` and the native before/after logs.
+The diagnostic-only `copy_frames` flag is retired because ordinary and
+instrumented exports now share the fix. This resolves the confirmed error spam;
+it does not establish a large CPU/GPU improvement or a dirty-only mask renderer.
+
 ### Engine/browser work and frame caps
 
 The browser profiles contain substantial WebGL `getParameter` work. Its stack reaches Emscripten `blitOffscreenFramebuffer` / `_emscripten_webgl_do_commit_frame`, distinguishing engine/browser frame presentation from Edenia layout work. In initial idle profiles `getParameter` accounted for about 4.5–6.2% of sampled wall time. This is evidence of presentation overhead, not a complete attribution of GPU time or proof that a particular shader dominates.
 
 **Do not ship `Engine.max_fps` as a simple web power optimization based on these results.** The default project has no explicit cap. In repeated diagnostic runs, caps at 60/30/10 fps drove renderer CPU to roughly 83/100/100%, although the actual game FPS fell as requested. A profiled 10-fps run spent **77.4%** of sampled self time in `_emscripten_get_now` and **15.9%** in `now`: clock-reading busy work dominated rather than terrain or navigation. An earlier 30-fps sample appeared cheaper because the surrounding frame cadence differed; the repeated tests invalidate a blanket recommendation from that one result.
+
+Implementation follow-up: `web_rendering_policy.gd` uses a guarded RAF-divisor
+hook in the current single-threaded export, keeping `Engine.max_fps` at zero.
+Divisor two produced steady 30-fps engine samples at 24.3% renderer CPU in the
+100-tile test, without the earlier near-one-core spin. This did not improve CPU
+over the cached 60-fps samples, so the game default remains divisor one; lower
+cadence is an option for further device testing, not a promised power saving.
 
 Godot 4.7's frame-delay source calls `delay_usec` for the target-FPS delay; the Unix implementation uses `nanosleep`, and the web OS inherits this path unless using proxy-to-pthread. The profile and cap intervention confirm spinning in this export. The exact stripped WASM symbol responsible for the wait was not resolved, so the detailed libc implementation is an inference, not a symbolized result. See [Godot web OS](https://raw.githubusercontent.com/godotengine/godot/4.7-stable/platform/web/os_web.cpp), [frame delay](https://raw.githubusercontent.com/godotengine/godot/4.7-stable/core/os/os.cpp), and [Unix delay](https://raw.githubusercontent.com/godotengine/godot/4.7-stable/drivers/unix/os_unix.cpp).
 
@@ -160,6 +216,13 @@ A native Godot comparison at 60 fps measured about 19.8% process CPU for 100-til
 Bridge CSS-width reads cost roughly 1–2 ms/s in the timed runs; suppressing them or most bridge work did not produce a large repeatable saving. Browser layout counts did not show a per-frame forced-layout storm in the warmed idle samples. The current synchronous `getBoundingClientRect` read is an avoidable integration dependency, but it is **not the measured main cause**.
 
 Cache the CSS width through a resize notification and keep transport event-driven where practical. Preserve six-CSS-pixel drag thresholds and existing scroll coordination. This belongs in integration; gameplay rules and policies remain in the Godot project.
+
+Implementation follow-up: the browser adapter publishes canvas width from a
+ResizeObserver; the bridge recomputes the six-CSS-pixel threshold on that event
+and Godot viewport-size changes. Host camera commands call the bridge immediately,
+with the existing startup queue retained. Width is no longer read from DOM layout
+on every game frame. Study-level reconciliation and telemetry retain their
+existing bounded polling.
 
 ## Large video libraries and island checkpoints
 
@@ -239,6 +302,27 @@ At DPR 2 the main canvas was 2108×908 versus 1054×454 at DPR 1: four times the
 
 Desktop WebKit loaded the fresh game and ran mostly at 60 fps with occasional lower engine samples. A corrected 393×852 touch/viewport emulation at DPR 3 produced a 1179×1362 game canvas, 60-fps samples and roughly 167 MiB engine video-memory estimate. This runs on the Mac's hardware and desktop WebKit; it is not an iPhone result. An initial emulation lacked a parent viewport meta tag and produced a 980-CSS-pixel layout; that run was replaced and excluded.
 
+Implementation follow-up: the shared Godot web policy caps the engine pixel ratio
+at two while preserving `canvas_items` scaling and fractional input. The repeat
+WebKit phone-size/DPR-3 case produced a **786×908** backing canvas, steady 60-fps
+samples, no errors and a 159.7-MiB engine video-memory estimate. The backing pixel
+count is 56% lower than the original DPR-3 case; total memory is not reduced by
+that same percentage because textures, engine and browser allocations remain.
+Desktop DPR-2 stayed at 2108×908 with mostly 60 fps. A Chromium device-harness
+check verified resize publication, five-CSS-pixel movement without panning,
+seven-pixel movement with panning, and immediate host camera commands.
+
+The 1,000-action tree edit/undo stress run retained the original terrain, tree
+variants, stock and wood. After the 200-action warmup and queued-free flush, all
+samples retained **177 nodes, 1,856 objects, 201 resources, zero orphan nodes**
+and **58,064,896 bytes (55.4 MiB) of WASM capacity**, including the final sample.
+This is a short synthetic action stress check, not a 30-minute soak or proof of
+physical-mobile memory safety. Native sheep catch-up for simulated 60.37,
+1,800.37 and 7,200.37 seconds matched continuous playback. Actual browser loop
+suspension/resume preserved construction reservation/completion and cutting's
+clock/final-swing/log award in the `offscreen-actions` suite. Real hour-long
+suspension and video playback remain distinct open checks.
+
 | Existing release file | Raw | Gzip, local estimate | Brotli quality 6, local estimate |
 |---|---:|---:|---:|
 | WASM | 39,514,754 bytes | 10,114,291 | 8,182,023 |
@@ -248,6 +332,21 @@ Desktop WebKit loaded the fresh game and ran mostly at 60 fps with occasional lo
 The local HTTP server served uncompressed files. Typical local resource transfer durations were milliseconds to a few hundred milliseconds; readiness after page load was often around 1.6–2.1 seconds in later runs. These are neither cold-device startup nor public-network results. Brotli estimates total about 10 MB before the Edenia app, images and other traffic. At 10 Mb/s, transmission alone would be about eight seconds for those game files, excluding latency and compilation; this is an arithmetic scenario, not a network measurement.
 
 Require compression, immutable content-versioned caching, correct WASM MIME and lazy startup when the island is needed. Consider a trimmed web export template only after correctness/compatibility testing. There is no evidence here that a public host by itself will reduce runtime CPU. Godot's [web export requirements and limitations](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html) also make real mobile/WebKit verification necessary. The current export is single-threaded; enabling threads is not a demonstrated solution and requires cross-origin isolation/embedding review.
+
+Implementation follow-up: the integration builder now writes Brotli/gzip
+WASM/PCK/JavaScript variants alongside the ordinary export; the static server
+negotiates current variants and retains the original MIME type. A transport
+contract checked decoded bytes, encoding quality preferences and HEAD lengths;
+the real WASM response retained `application/wasm`. Brotli WASM/PCK total about
+9.5 MiB. Fresh Chromium contexts became ready in 1.1–1.6 seconds on local delivery
+at DPR 1/2/3 with no errors. The phone-size 10-Mb/s, 100-ms-latency compressed
+probe took **9.8 seconds** from navigation to readiness. This misses the proposed
+five-second slow-start target; compression alone cannot close the download and
+compilation gate. These are Mac and network-emulation measurements. Physical
+startup, lazy public loading, hosting cache configuration and a trimmed engine
+template remain unvalidated. The device harness and reproducible suites live in
+the diagnostic README; condensed evidence is in
+[implementation-measurements.json](implementation-measurements.json).
 
 ## Prioritized recommendations and rollout gates
 
@@ -279,4 +378,4 @@ The following are **proposed acceptance criteria**, not claims that all existing
 | Resume correctness | 1 minute / 30 minutes / 2 hours hidden: clocks, final swing, reservations, animals, persistence and cross-tab replacement remain correct; catch-up does not produce a long task or save storm |
 | Coverage | Chrome/Edge and Firefox on ordinary desktop hardware; Safari macOS; actual iPhone/iPad WebKit; Android Chrome with 4 GiB-class hardware; DPR 1/2/3; plugged-in and battery; current normal island and deliberately larger/terraced/house-heavy fixtures |
 
-The existing build fails the terraced-island frame-rate, offscreen and large-library checkpoint targets on this Mac. The experiments do not establish a memory leak, systemwide CPU saturation, a dominant bridge/layout storm, or a universal mobile FPS number. Physical-device battery/thermal/GPU counters, Firefox/Windows/Android, real video playback, a full parent-page normal-background trial, slow-network cold startup, hour-long catch-up, and multi-hour retention remain unverified. These are explicit rollout work items, not reasons to discard the confirmed findings.
+The original baseline failed the terraced-island frame-rate, offscreen and large-library checkpoint targets on this Mac. Implementation follow-ups address the measured hotspots but do not establish universal mobile performance or public readiness. Physical-device battery/thermal/GPU counters, Firefox/Windows/Android, real video playback, a full parent-page normal-background trial, physical cold startup, hour-long suspension, and multi-hour retention remain unverified. The compressed 10-Mb/s startup probe still exceeded five seconds. These are explicit rollout work items, not reasons to discard the confirmed findings.
