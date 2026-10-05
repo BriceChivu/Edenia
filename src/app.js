@@ -8313,8 +8313,10 @@ async function resetApp() {
     control.setAttribute('aria-disabled', 'true')
   }
   if (learnerProfileLifecycleAuthority) {
+    const resetState = defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale())
+    initializeExperience(resetState, SCORING_RULES_VERSION)
     const startedOver = await learnerProfileLifecycleAuthority.startOverProfile(
-      defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale()),
+      resetState,
       { confirmed: true }
     )
     if (!startedOver) {
