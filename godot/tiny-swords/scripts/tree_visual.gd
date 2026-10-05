@@ -16,6 +16,9 @@ func _ready() -> void:
 	if hframes == 1:
 		set_process(false)
 		return
+	# Stable per-cell phases keep ambient loops staggered after every rebuild.
+	var cell: Vector2i = get_meta("cell")
+	elapsed = fposmod(cell.x * 0.173 + cell.y * 0.317, hframes / 10.0)
 	var reaction := ShaderMaterial.new()
 	reaction.shader = REACTION_SHADER
 	var size := TreeArt.frame_size(kind)

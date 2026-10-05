@@ -46,7 +46,8 @@ func run() -> void:
 		world.pawn.position = layout.center(Layout.HOME)
 		world.pawn.walk_to(world.pawn.position)
 		var sprite: Sprite2D = world.tree_nodes.back()
-		var frame_image: Image = sprite.texture.get_image().get_region(Rect2i(0, 0, 192, int(sprite.texture.get_height())))
+		sprite.set_process(false)
+		var frame_image: Image = sprite.texture.get_image().get_region(Rect2i(sprite.frame * 192, 0, 192, int(sprite.texture.get_height())))
 		var canopy_pixel := Vector2.ZERO
 		var found := false
 		for y in frame_image.get_height():

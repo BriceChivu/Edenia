@@ -702,7 +702,12 @@ It uses the continuing XP curve: **150 total XP** (60 after level four).
 Open `previews/level_four_to_five.tscn` for the reward transition or
 `previews/level_five.tscn` for a fresh build session.
 
-The sheep alternates 2.4 seconds of idle with one complete 1.2-second
+Sheep and chickens start with separate animation phases. Each additional animal
+has a slightly longer idle interval, and its idle/run clock continues through
+movement and grazing resets so pairs do not animate in lockstep.
+Trees use stable per-cell offsets for their ambient loops; axe reactions still
+follow the pawn's cutting poses.
+The sheep alternates a base 2.4 seconds of idle with one complete 1.2-second
 `Sheep_Grass.png` grazing animation. After a random 10–15 complete grazing
 animations, it tries to walk to a random reachable adjacent grass tile,
 passing through bushes and rocks and using connected stair ramps between

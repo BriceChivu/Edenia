@@ -18,6 +18,7 @@ var escape_route: Array[Vector2] = []
 var tile_destinations: Array[Vector2] = []
 var animation_time := 0.0
 var resting_time := 0.0
+var idle_seconds := IDLE_SECONDS
 var previous_pawn_position := Vector2.ZERO
 var approach_direction := Vector2.ZERO
 var grazing_cycles := 0
@@ -25,8 +26,14 @@ var grazing_target := randi_range(10, 15)
 var updated_at := 0.0
 
 func _ready() -> void:
+	# Separate phases survive simultaneous spawning, movement and grazing resets.
+	# A slightly different idle duration also keeps eating loops from locking together.
+	idle_seconds = IDLE_SECONDS + sheep_index * 0.17
+	resting_time = fmod(0.45 + sheep_index * 0.9, IDLE_SECONDS)
+	animation_time = 0.13 + sheep_index * 0.17
 	texture = idle_texture
 	hframes = 6
+	frame = int(animation_time * 10) % hframes
 	scale = Vector2.ONE * art_scale
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	position = animal_positions()[sheep_index]
@@ -251,10 +258,11 @@ func advance(delta: float, now: float) -> void:
 					reset_grazing()
 					world.save_layout()
 		else:
-			var cycle_seconds := IDLE_SECONDS + GRASS_SECONDS
+			var cycle_seconds := idle_seconds + GRASS_SECONDS
 			var remaining := cycle_seconds - resting_time
 			var step := minf(elapsed, remaining)
 			resting_time += step
+			animation_time += step
 			elapsed -= step
 			if remaining - step <= 0.000001:
 				resting_time = 0.0
@@ -267,10 +275,10 @@ func advance(delta: float, now: float) -> void:
 		hframes = 4
 		frame = int(animation_time * 10) % hframes
 	else:
-		var grazing := resting_time >= IDLE_SECONDS
+		var grazing := resting_time >= idle_seconds
 		texture = grass_texture if grazing else idle_texture
 		hframes = 12 if grazing else 6
-		var phase_time := resting_time - IDLE_SECONDS if grazing else resting_time
+		var phase_time := resting_time - idle_seconds if grazing else animation_time
 		frame = int(phase_time * 10) % hframes
 	var height: float = world.ground_height(position)
 	offset = art_offset - Vector2(0, height / art_scale)
