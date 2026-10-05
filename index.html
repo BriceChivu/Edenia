@@ -6,6 +6,25 @@
   <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing city.">
   <title>Edenia</title>
   <script>
+    // Keep the dedicated game preview free of legacy artwork even when a normal
+    // site build has removed its generated integration, or scripts cannot load.
+    if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === '8037') {
+      document.documentElement.classList.add('tiny-swords-preview');
+    }
+  </script>
+  <style>
+    .tiny-swords-preview .city-image-wrap { background: #47aba9; }
+    .tiny-swords-preview .city-image-wrap > :not(.tiny-swords-frame):not(.tiny-swords-camera-controls):not(.tiny-swords-save-status),
+    .tiny-swords-preview [data-intro-city-frame] { visibility: hidden !important; pointer-events: none !important; }
+    .tiny-swords-preview .city-image-wrap:not(:has(.tiny-swords-frame))::after {
+      content: 'Tiny Swords preview needs rebuilding.';
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+    }
+  </style>
+  <script>
     (() => {
       const match = window.location.hash.match(
         /^#edenia-legacy-progress=(transfer\.[A-Za-z0-9_-]{43}|none|deferred)$/

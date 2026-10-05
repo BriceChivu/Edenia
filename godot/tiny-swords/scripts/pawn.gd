@@ -41,6 +41,13 @@ func _ready() -> void:
 func walk_to(point: Vector2) -> void:
 	destination = point
 
+func tile_step_allowed(target: Vector2) -> bool:
+	var allowed := true
+	for animal in get_tree().get_nodes_in_group("pawn_tile_avoiders"):
+		if not animal.is_queued_for_deletion() and animal.world.pawn == self and not animal.allow_pawn_step(position, target):
+			allowed = false
+	return allowed
+
 func _physics_process(delta: float) -> void:
 	if hammering:
 		sprite.play("hammer_interact")
@@ -53,7 +60,10 @@ func _physics_process(delta: float) -> void:
 		if absf(direction.x) > 0.1:
 			sprite.flip_h = direction.x < 0.0
 		sprite.play("wood_run" if carrying_wood else ("axe_run" if axe_equipped else "run"))
-		position = position.move_toward(destination, speed * delta)
+		var next_position := position.move_toward(destination, speed * delta)
+		if tile_step_allowed(next_position):
+			position = next_position
 	else:
-		position = destination
+		if tile_step_allowed(destination):
+			position = destination
 		sprite.play("wood_idle" if carrying_wood else ("axe_idle" if axe_equipped else "idle"))

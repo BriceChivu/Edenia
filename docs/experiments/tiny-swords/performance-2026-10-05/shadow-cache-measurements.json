@@ -1,0 +1,80 @@
+{
+  "diagnostic_shadow_cache": false,
+  "date": "2026-10-05",
+  "method": "Existing shadows suite, production / shadows removed / production repeat; fresh contexts for the 66-tile terrace and ordinary seven-tile stair island. Same 10-second CPU-time sampling, release export and DPR 2 as the investigation. Instrumentation only in generated copies.",
+  "source_sha256": "d45a1b8d439f5fa279af79ebb9f225b4c6ce3f5bccc5ea98649eac00248a9395",
+  "raw_evidence": ".cache/tiny-swords-perf/production-shadows.json and production-shadows-*.cpuprofile",
+  "results": [
+    {
+      "label": "production-shadows-99-production",
+      "renderer_cpu_percent_one_core": 28.592588153031674,
+      "engine_fps": [
+        57,
+        60
+      ],
+      "shadow_inclusive_ms_per_second": 1.0065479719711599,
+      "shadow_receiver_calls": 0,
+      "seconds": 10.047,
+      "p95_parent_raf_ms": 17.69999999999709
+    },
+    {
+      "label": "production-shadows-99-shadow-stop",
+      "renderer_cpu_percent_one_core": 28.129507541704125,
+      "engine_fps": [
+        59,
+        60,
+        61
+      ],
+      "shadow_inclusive_ms_per_second": 0.0,
+      "shadow_receiver_calls": 0,
+      "seconds": 10.033,
+      "p95_parent_raf_ms": 17.600000000002183
+    },
+    {
+      "label": "production-shadows-99-production-repeat",
+      "renderer_cpu_percent_one_core": 26.913693028822177,
+      "engine_fps": [
+        60
+      ],
+      "shadow_inclusive_ms_per_second": 0.7475708864420151,
+      "shadow_receiver_calls": 0,
+      "seconds": 10.065,
+      "p95_parent_raf_ms": 17.599999999998545
+    },
+    {
+      "label": "production-shadows-98-production",
+      "renderer_cpu_percent_one_core": 22.52142003584943,
+      "engine_fps": [
+        58,
+        60
+      ],
+      "shadow_inclusive_ms_per_second": 0.7479257163843934,
+      "shadow_receiver_calls": 0,
+      "seconds": 10.071,
+      "p95_parent_raf_ms": 17.600000000000364
+    },
+    {
+      "label": "production-shadows-98-shadow-stop",
+      "renderer_cpu_percent_one_core": 23.64939590614079,
+      "engine_fps": [
+        58,
+        60
+      ],
+      "shadow_inclusive_ms_per_second": 0.0,
+      "shadow_receiver_calls": 0,
+      "seconds": 10.082,
+      "p95_parent_raf_ms": 17.600000000002183
+    },
+    {
+      "label": "production-shadows-98-production-repeat",
+      "renderer_cpu_percent_one_core": 21.009622302158267,
+      "engine_fps": [
+        60
+      ],
+      "shadow_inclusive_ms_per_second": 0.6799999999999999,
+      "shadow_receiver_calls": 0,
+      "seconds": 10.049,
+      "p95_parent_raf_ms": 17.69999999999709
+    }
+  ]
+}

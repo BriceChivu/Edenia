@@ -30,6 +30,16 @@ var tool := "meadow"
 var elapsed := 0.0
 var textures: Dictionary = {}
 var shadow_textures: Array[Texture2D] = []
+var shadow_positions: Array[Vector2] = []
+var shadow_source: Image
+var shadow_atlases: Dictionary = {}
+var shadow_cache_cells: Dictionary = {}
+var shadow_cache_elevations: Dictionary = {}
+var shadow_cache_stairs: Dictionary = {}
+var shadow_cache_height := INF
+var shadow_receiver_mask: Dictionary = {}
+var shadow_receivers_ready := false
+var shadow_textures_ready := false
 var shadow := preload("res://Tiny Swords (Free Pack)/Terrain/Tileset/Shadow.png")
 var foam := preload("res://Tiny Swords (Free Pack)/Terrain/Tileset/Water Foam.png")
 var water_stair := preload("res://assets/terrain/stair-ramp-water.png")
@@ -183,10 +193,35 @@ func shadow_rect(cell: Vector2i, layer_height: float = -1) -> Rect2:
 	# A 128px shadow centered on the 64px top, shifted one full tile down.
 	return Rect2(top + Vector2(-32, 32), Vector2(128, 128))
 
-func draw_shadows(height: float) -> void:
+func update_shadow_geometry(height: float) -> void:
+	# _draw can substitute a newly allocated preview every frame. Compare the
+	# actual geometry, not layout identity or the transient proposed_terrain.
+	# Rebuild paths replace these views; this also covers in-place edits/restores.
+	if shadow_cache_height == height and shadow_cache_cells == layout.cells and shadow_cache_elevations == layout.elevations and shadow_cache_stairs == layout.stair_directions:
+		return
+	shadow_cache_height = height
+	shadow_cache_cells = layout.cells.duplicate()
+	shadow_cache_elevations = layout.elevations.duplicate()
+	shadow_cache_stairs = layout.stair_directions.duplicate()
+	shadow_receiver_mask.clear()
 	shadow_textures.clear()
+	shadow_positions.clear()
+	shadow_receivers_ready = false
+	shadow_textures_ready = false
+
+func draw_shadows(height: float) -> void:
+	prepare_shadow_textures(height)
+	for index in shadow_textures.size():
+		draw_texture(shadow_textures[index], shadow_positions[index])
+
+func prepare_shadow_textures(height: float) -> void:
+	update_shadow_geometry(height)
+	if shadow_textures_ready:
+		return
 	var receivers := shadow_receivers(height - 64)
-	var source := shadow.get_image()
+	if shadow_source == null:
+		shadow_source = shadow.get_image()
+	var source := shadow_source
 	for cell in layout.cells:
 		# Each supporting tier has its own footprint, even when another floor
 		# covers its top. The ramp itself also casts onto its lower floor.
@@ -203,7 +238,8 @@ func draw_shadows(height: float) -> void:
 					clipped.set_pixel(x, y, source.get_pixel(32 + x, 32 + y))
 		var texture := ImageTexture.create_from_image(clipped)
 		shadow_textures.append(texture)
-		draw_texture(texture, destination.position)
+		shadow_positions.append(destination.position)
+	shadow_textures_ready = true
 
 func add_shadow_receiver(receivers: Dictionary, destination: Vector2, region: Rect2, atlas: Image) -> void:
 	for y in range(int(region.size.y)):
@@ -212,8 +248,14 @@ func add_shadow_receiver(receivers: Dictionary, destination: Vector2, region: Re
 				receivers[Vector2i(destination) + Vector2i(x, y)] = true
 
 func shadow_receivers(floor_height: float) -> Dictionary:
-	var receivers: Dictionary = {}
-	var atlas = floor_texture(floor_height).get_image()
+	update_shadow_geometry(floor_height + 64)
+	if shadow_receivers_ready:
+		return shadow_receiver_mask
+	var receivers := shadow_receiver_mask
+	var palette: int = layout.palette_at_height(floor_height)
+	if not shadow_atlases.has(palette):
+		shadow_atlases[palette] = floor_texture(floor_height).get_image()
+	var atlas: Image = shadow_atlases[palette]
 	for cell in layout.cells:
 		var origin: Vector2 = layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, floor_height)
 		if layout.height_at(cell) == floor_height:
@@ -225,6 +267,7 @@ func shadow_receivers(floor_height: float) -> Dictionary:
 		var ground := receiving_ground_region(cell, floor_height)
 		for region in ground_backing_regions(cell, floor_height):
 			add_shadow_receiver(receivers, origin + region.position - ground.position, region, atlas)
+	shadow_receivers_ready = true
 	return receivers
 
 func water_level_cliff(cell: Vector2i, height: float = -1) -> bool:
@@ -311,24 +354,10 @@ func _draw() -> void:
 func terrain_render_layout():
 	if not editing or not valid or not transform_preview or tool not in ["ground", "stairs"]:
 		return null
+	if editor_source != null:
+		return editor_source.terrain_render_layout()
 	if proposed_terrain == null:
-		proposed_terrain = layout.get_script().new()
-		proposed_terrain.cells = layout.cells.duplicate()
-		proposed_terrain.elevations = layout.elevations.duplicate()
-		proposed_terrain.stair_directions = layout.stair_directions.duplicate()
-		proposed_terrain.flora = layout.flora.duplicate()
-		proposed_terrain.manual_ground_elevation = true
-		if tool == "stairs":
-			proposed_terrain.reverse_stair(hover)
-			return proposed_terrain
-		var height := grass_preview_height()
-		var target := grass_preview_cell()
-		if target != hover:
-			proposed_terrain.cells.erase(hover)
-			proposed_terrain.elevations.erase(hover)
-		proposed_terrain.cells[target] = proposed_terrain.kind_at_height(height)
-		proposed_terrain.elevations[target] = height
-		proposed_terrain.normalize_cliff_terraces()
+		proposed_terrain = layout.terrain_edit_preview(hover, tool, grass_preview_height() if tool == "ground" else -1)
 	return proposed_terrain
 
 func draw_contents() -> void:
@@ -355,11 +384,6 @@ func draw_contents() -> void:
 	if piece != null:
 		if not layout.cells.has(piece) or (layout.height_at(piece) == 0 and layout.cells[piece] != "stairs"):
 			return
-		if render_source != null and render_source.terrain_render_layout() != null:
-			if render_source.tool == "ground" and piece == render_source.grass_preview_cell():
-				return # The editor draws the replacement at its new elevation.
-			if render_source.tool == "stairs" and piece in [render_source.hover, render_source.hover + render_source.layout.stair_direction(render_source.hover)]:
-				return # The editor draws the reversed ramp and raised landing.
 		draw_set_transform(-position)
 		draw_tile(piece, layout.cells[piece])
 		return
@@ -399,7 +423,8 @@ func placement_offset() -> Vector2:
 	# Follow mouse motion relative to the current surface. draw_tile already
 	# raises grass to its proposed floor; using that floor here cancels the rise.
 	var height: float = layout.height_at(hover)
-	return preview_position - (layout.center(hover) - Vector2(0, height))
+	var offset: Vector2 = preview_position - (layout.center(hover) - Vector2(0, height))
+	return layout.house_placement_offset(offset) if tool == "house" else offset
 
 func tree_preview_variant() -> String:
 	if layout.trees.has(hover):
@@ -553,7 +578,7 @@ func draw_editor() -> void:
 					draw_rect(area, (InventoryOutline.COLOR if transform_preview else Color(0.85, 1, 0.8, 0.45)), false, InventoryOutline.WIDTH if transform_preview else 1)
 				return
 			draw_set_transform(placement_offset())
-			if (tool == "ground" or tool in layout.KINDS) and (tool in ["stairs", "ground"] or not layout.cells.has(hover)):
+			if not transform_preview and (tool == "ground" or tool in layout.KINDS) and (tool in ["stairs", "ground"] or not layout.cells.has(hover)):
 				if tool == "stairs":
 					draw_stair_preview(tint)
 				elif tool == "ground":
@@ -562,7 +587,7 @@ func draw_editor() -> void:
 					draw_tile(hover, tool, tint)
 			draw_set_transform(Vector2.ZERO)
 			if tool == "house":
-				draw_set_transform(placement_offset())
+				draw_set_transform(Vector2.ZERO)
 				for square in layout.house_cells(hover):
 					if not layout.cells.has(square):
 						draw_tile(square, "meadow", tint, layout.height_at(hover))

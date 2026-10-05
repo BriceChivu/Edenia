@@ -24,7 +24,7 @@ func run() -> void:
 			check(scene.pawn.position == scene.layout.center(scene.layout.HOME), "Pawn starts at home")
 			check(scene.layout.level == initial_level and scene.ui.celebration == null, "Expected initial level without a startup celebration: " + entry)
 			check(scene.editing == (entry in ["level_two", "level_three", "level_four"]), "Direct unlocked previews open ready to build")
-			check(scene.ui.upgrade.visible == (entry in ["level_two_to_three", "level_three_to_four"]), "Only second-transition entry offers Try level 3")
+			check(not scene.ui.root.has_node("UpgradeButton"), "Legacy level button is removed")
 			if entry == "level_one":
 				check(not scene.ui.launch.visible, "Pure level one exposes no upgrade")
 			if initial_level >= 2:
@@ -35,8 +35,7 @@ func run() -> void:
 			var position: Vector2 = scene.pawn.position
 			if entry in ["level_one_to_two", "level_two_to_three", "level_three_to_four"]:
 				var target := initial_level + 1
-				if target == 2: scene.ui.launch.pressed.emit()
-				else: scene.ui.upgrade.pressed.emit()
+				check(scene.playground.run_action("level"), "Playground runs the preview transition")
 				check(scene.layout.level == target and scene.ui.celebration != null, "Transition invokes real upgrade and ribbon")
 				check(scene.layout.cells == cells and scene.pawn.position == position, "Transition preserves placements and pawn")
 				if target == 4:

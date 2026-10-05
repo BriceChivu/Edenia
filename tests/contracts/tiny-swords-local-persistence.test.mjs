@@ -4,45 +4,52 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
-function harness({ legacy = null, island = 'absent', denied = false } = {}) {
+function harness({ legacy = null, island = 'absent', denied = false, delayed = false } = {}) {
   const handlers = {}; const sent = []; const frames = []; const storage = new Map()
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
   let durable = structuredClone(state); let writes = 0
+  let finishPending
   const persistence = createTinySwordsPersistence({
     read: () => state, readDurable: () => structuredClone(durable),
     save(next, options) {
       assert.equal(options.backup, false); assert.equal(options.syncAnalytics, false)
       if (denied) return false
-      durable = structuredClone(next); writes++; return true
+      durable = structuredClone(next); writes++
+      if (delayed) return new Promise(resolve => { finishPending = () => resolve(true) })
+      return true
     }
   })
   const node = { setAttribute(){}, classList:{add(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){} }
   const context = {
     location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},
     window:{edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn}},
-    document:{documentElement:node,createElement(type){
+    document:{documentElement:node,visibilityState:'visible',addEventListener(type,fn){handlers[type]=fn},createElement(type){
       if(type!=='iframe') return {...node}
       const frame = {...node,contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
     },querySelector(){return node},getElementById(){return node}},
     localStorage:{getItem:k=>storage.get(k)??null,removeItem:k=>storage.delete(k)},
-    TextEncoder, CITY_LEVELS:[{threshold:0}],renderCity(){},getCurrentCityScore(){return 0},Image:class{addEventListener(){}},ResizeObserver:class{observe(){}},MutationObserver:class{observe(){}}
+    TextEncoder, CITY_LEVELS:[{threshold:0}],renderCity(){},getCurrentCityScore(){return 0},Image:class{addEventListener(){}},ResizeObserver:class{observe(){} unobserve(){}},MutationObserver:class{observe(){}},
+    IntersectionObserver:class{constructor(fn){handlers.intersection=fn}observe(){}unobserve(){}}
   }
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-parent.js','utf8'),context)
   handlers.DOMContentLoaded()
   const emit = data => handlers.message({origin:context.location.origin,source:frames.at(-1).contentWindow,data})
   const ready = async () => {
     await emit({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]})
-    await emit({type:'edenia-tiny-restored', session:sent.at(-1).session, accepted:true})
+    await emit({type:'edenia-tiny-restored', session:sent.findLast(x=>x.type==='edenia-study-level').session, accepted:true})
   }
-  return { ready, emit, sent, storage, frames, handlers, get writes(){return writes},get durable(){return durable},replace(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{replacement:true}})} }
+  return { ready, emit, sent, storage, frames, handlers, document:context.document,finishPending(){finishPending()},get writes(){return writes},get durable(){return durable},replace(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{replacement:true}})} }
 }
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
 
 test('integrated developer save transfers only after accepted restore and successful profile persistence', async () => {
   const h = harness({legacy:JSON.stringify(island),island:undefined,denied:true})
   await h.emit({type:'edenia-tiny-ready'}); assert.equal(h.sent.length,0)
-  await h.ready(); assert.equal(h.sent.at(-1).level,4)
+  await h.ready()
+  const restored = h.sent.findLast(x=>x.type==='edenia-study-level')
+  assert.equal(restored.level,3,'only claimed study progress sets the upgrade floor')
+  assert.equal(restored.layout.level,4,'Godot receives the higher saved game level to restore')
   await h.emit({type:'edenia-tiny-layout',session:1,id:1,layout:island})
   assert.equal(h.sent.at(-1).persisted,false); assert.equal(h.storage.size,1); assert.equal(h.writes,0)
 })
@@ -53,7 +60,7 @@ test('successful migration retires the old source, while reset cannot resurrect 
   assert.equal(h.sent.at(-1).persisted,true); assert.equal(h.storage.size,0)
   h.storage.set('edenia_tiny_swords_xp_layout_v1',JSON.stringify(island))
   h.replace({cityProgress:{maxLevelIndex:0},tinySwordsIsland:null})
-  await h.ready(); assert.equal(h.sent.at(-1).layout,null); assert.equal(h.sent.at(-1).level,1)
+  await h.ready(); const restored=h.sent.findLast(x=>x.type==='edenia-study-level');assert.equal(restored.layout,null); assert.equal(restored.level,1)
   await h.emit({type:'edenia-tiny-layout',session:1,id:2,layout:island})
   assert.equal(h.durable.tinySwordsIsland,null,'retired session cannot save')
 })
@@ -76,4 +83,56 @@ test('one stale tab cannot overwrite a replacement even before its storage event
   durable = {tinySwordsIsland:null}
   assert.equal(await adapter.save({...island,resources:{wood:10}},expected),false)
   assert.equal(durable.tinySwordsIsland,null)
+})
+
+test('profile replacement during an acknowledgment clears the old frame even with an identical island', async () => {
+  const h = harness({ island, delayed: true })
+  await h.ready()
+  const pending = h.emit({ type: 'edenia-tiny-layout', session: 1, id: 1, layout: island })
+  h.replace({ cityProgress: { maxLevelIndex: 0 }, tinySwordsIsland: island })
+  h.finishPending()
+  await pending
+  assert.equal(h.frames.length, 2, 'replacement must clear transient actions after the pending acknowledgment')
+  await h.ready()
+  await h.emit({ type: 'edenia-tiny-layout', session: 1, id: 2, layout: island })
+  assert.equal(h.writes, 1, 'the retired frame cannot save again')
+})
+
+test('host visibility preserves the frame, resumes partial intersection, and ignores retired observers', async () => {
+  const h = harness({island})
+  await h.ready()
+  const original = h.frames[0]
+  const report = (target, shown) => h.handlers.intersection([{target,isIntersecting:shown,intersectionRect:{width:shown?100:0,height:shown?1:0}}])
+  report(original,false)
+  assert.deepEqual({...h.sent.at(-1)},{type:'edenia-host-visibility',session:1,visible:false})
+  report(original,true)
+  assert.equal(h.sent.at(-1).visible,true,'even a partially visible island must run')
+  h.document.visibilityState='hidden';h.handlers.visibilitychange()
+  assert.equal(h.sent.at(-1).visible,false)
+  h.document.visibilityState='visible';h.handlers.visibilitychange()
+  assert.equal(h.sent.at(-1).visible,true)
+  assert.equal(h.frames.length,1,'scroll and tab visibility never replace the iframe')
+  h.replace({cityProgress:{maxLevelIndex:0},tinySwordsIsland:null})
+  await h.ready()
+  const count=h.sent.length
+  report(original,false)
+  assert.equal(h.sent.length,count,'an old observer cannot suspend the new island')
+  report(h.frames.at(-1),false)
+  assert.equal(h.sent.at(-1).session,2)
+  assert.equal(h.writes,0,'visibility facts do not write learner data')
+})
+
+test('visibility receiver accepts only current parent/session facts', () => {
+  const handlers={};const calls=[];const parent={}
+  const context={parent,location:{origin:'http://localhost:8037'},window:{edeniaStudySession:2,edeniaReceiveHostVisibility:value=>calls.push(value),addEventListener(type,fn){handlers[type]=fn}}}
+  vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-visibility.js','utf8'),context)
+  const message={origin:context.location.origin,source:parent,data:{type:'edenia-host-visibility',session:2,visible:false}}
+  handlers.message({...message,source:{}})
+  handlers.message({...message,origin:'https://example.com'})
+  handlers.message({...message,data:{...message.data,session:1}})
+  handlers.message({...message,data:{...message.data,visible:'false'}})
+  assert.equal(calls.length,0)
+  handlers.message(message)
+  handlers.message({...message,data:{...message.data,visible:true}})
+  assert.deepEqual(calls,[false,true])
 })

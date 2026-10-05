@@ -22,7 +22,7 @@ const MIN_CELL := Vector2i(-17, -9)
 const MAX_CELL := Vector2i(19, 10)
 const KINDS := ["meadow", "gold", "violet", "high_meadow", "high_gold", "stairs"]
 const COLORS := {"meadow": 3, "gold": 3, "violet": 3, "high_meadow": 1, "high_gold": 1, "stairs": 1}
-const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1, "bridge": 1, "sheep": 0, "chicken": 0, "house": 0}
+const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1, "bridge": 1, "sheep": 0, "chicken": 1, "house": 0}
 # Total XP = 15 * level * (level - 1) / 2; each next upgrade costs 15 XP more.
 const XP_THRESHOLDS := [0, 15, 45, 90, 150, 225, 315, 420, 540, 675]
 
@@ -34,13 +34,13 @@ static func level_for_xp(xp: int) -> int:
 	return earned
 
 const LEVEL_REWARDS := {
-	2: {"meadow": 2, "gold": 1, "stairs": 1},
+	2: {"meadow": 2, "gold": 1, "stairs": 1, "chicken": 1},
 	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1, "bridge": 1},
 	4: {"meadow": 3, "tree": 1},
 	5: {"meadow": 3, "sheep": 1, "house": 0},
 	6: {"meadow": 3},
 	7: {"meadow": 3, "chicken": 1},
-	8: {"meadow": 3},
+	8: {"meadow": 3, "sheep": 1},
 	9: {"meadow": 3},
 	10: {"meadow": 3},
 }
@@ -54,7 +54,7 @@ var free_house_grass := 0
 var houses: Dictionary = {} # Cell -> four-way facing.
 var house_offsets: Dictionary = {} # Cell -> chosen ground-plane offset.
 var chickens: Array[Vector2] = [] # Ground-plane positions, like sheep.
-var sheep: Array[Vector2] = [] # Ground-plane positions; one sheep reward.
+var sheep: Array[Vector2] = [] # Ground-plane positions; rewards at levels five and eight.
 var trees: Dictionary = {}
 var tree_types: Dictionary = {}
 var tree_stumps: Dictionary = {} # Cell -> Unix regrowth deadline.
@@ -73,6 +73,9 @@ var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2}
 var decorations: Dictionary = {Vector2i(3, 2): {"kind": "land_rock", "variant": 1}}
 var flora_rng := RandomNumberGenerator.new()
 var level := 1
+# Explicit extra-item accounting for local testing snapshots. Normal rewards
+# remain conserved; this ledger survives editing, save/load and undo.
+var playground_grants: Dictionary = {}
 var unlocked: bool:
 	get: return level >= 2
 
@@ -286,7 +289,7 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 			return house_space_free(cell, occupied, (int(houses[cell]) + 1) % 4, occupied_position)
 		return (stock.house > 0 or resources.wood >= HOUSE_LOG_COST) and stock.meadow >= house_foundation_cost(cell) and house_space_free(cell, occupied, 1 if house_bundle > 0 else 0, occupied_position, house_placement_offset)
 	if tool == "chicken":
-		return level >= 7 and stock.chicken > 0 and asset_ground_free(cell) and cell != occupied
+		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell) and cell != occupied
 	if tool == "sheep":
 		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell) and cell != occupied
 	if house_owner(cell) != Vector2i(999, 999):
@@ -479,8 +482,6 @@ func ground_continuation_target(cell: Vector2i) -> Vector2i:
 			return cell
 		if trees.has(cell) and trees.has(target):
 			return cell
-		if (flora.has(cell) or decorations.has(cell)) and (flora.has(target) or decorations.has(target)):
-			return cell
 	if not cells.has(front) or cells[front] == "stairs" or height_at(front) != height:
 		return cell
 	return target if height in ground_options(target) else cell
@@ -532,7 +533,7 @@ func can_reverse_stair(cell: Vector2i, occupied: Vector2i) -> bool:
 	if not cells.has(foot) or cells[foot] == "stairs" or height_at(foot) != height:
 		return false
 	for square in [cell, landing]:
-		if not cells.has(square) or decorations.has(square) or trees.has(square) or tree_stumps.has(square) or log_piles.has(square) or house_owner(square) != Vector2i(999, 999) or chicken_at(square) >= 0 or sheep_at(square) >= 0 or BridgeRules.touches(self, square):
+		if not cells.has(square) or trees.has(square) or tree_stumps.has(square) or log_piles.has(square) or house_owner(square) != Vector2i(999, 999) or chicken_at(square) >= 0 or sheep_at(square) >= 0 or BridgeRules.touches(self, square):
 			return false
 		if height > height_at(square + Vector2i.DOWN):
 			return false
@@ -546,6 +547,7 @@ func reverse_stair(cell: Vector2i) -> void:
 	var direction := stair_direction(cell)
 	var landing := cell + direction
 	var height := height_at(cell)
+	decorations.erase(landing)
 	cells[cell] = kind_at_height(height + SIZE)
 	elevations[cell] = height + SIZE
 	cells[landing] = "stairs"
@@ -654,6 +656,21 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 		return direction != Vector2i.ZERO and cells[from] != "stairs" and ((from == to + direction and height_at(from) == height_at(to) + SIZE) or (from == to - direction and height_at(from) == height_at(to)))
 	return height_at(from) == height_at(to)
 
+# Apply the real edit to an isolated copy so terrain previews include every
+# moved decoration, merged footprint, normalized terrace and stair join.
+func terrain_edit_preview(cell: Vector2i, tool: String, ground_height: float = -1):
+	var proposed = get_script().new()
+	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_offsets", "bridges", "stock", "resources", "house_build"]:
+		proposed.set(field, get(field).duplicate(true))
+	proposed.chickens = chickens.duplicate()
+	proposed.sheep = sheep.duplicate()
+	proposed.level = level
+	proposed.bridges_enabled = bridges_enabled
+	proposed.manual_ground_elevation = manual_ground_elevation
+	proposed.free_house_grass = free_house_grass
+	proposed.flora_rng.state = flora_rng.state
+	return proposed if proposed.edit(cell, tool, Vector2i(999, 999), ground_height) else null
+
 func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO, log_source := Vector2i(999, 999), occupied_position: Vector2 = Vector2.INF, house_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not can_edit(cell, tool, occupied, ground_height, tree_placement_offset, occupied_position, house_placement_offset):
 		return false
@@ -661,24 +678,26 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		cell = house_owner(cell)
 	if tool == "house":
 		if houses.has(cell):
+			clear_house_occupants(cell, (int(houses[cell]) + 1) % 4, house_offsets.get(cell, Vector2.ZERO), center(occupied) if occupied_position == Vector2.INF else occupied_position)
 			houses[cell] = (int(houses[cell]) + 1) % 4
 		else:
+			var placing_facing := 1 if house_bundle > 0 else 0
 			if stock.house > 0 and house_bundle == 0:
 				stock.house -= 1
 			else:
 				spend_wood(HOUSE_LOG_COST, log_source)
 			for square in house_cells(cell):
-				flora.erase(square)
-				decorations.erase(square)
 				if not cells.has(square):
 					cells[square] = "meadow"
 					elevations[square] = height_at(cell)
 					stock.meadow -= 1
-			houses[cell] = 0
+			clear_house_occupants(cell, placing_facing, house_placement_offset, center(occupied) if occupied_position == Vector2.INF else occupied_position)
+			houses[cell] = placing_facing
 			house_offsets[cell] = house_placement_offset
 			prune_decorations()
 		return true
 	if tool == "chicken":
+		clear_generated_scenery(cell)
 		chickens.append(center(cell))
 		stock.chicken -= 1
 		return true
@@ -687,6 +706,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		stock.chicken += 1
 		return true
 	if tool == "sheep":
+		clear_generated_scenery(cell)
 		sheep.append(center(cell))
 		stock.sheep -= 1
 		return true
@@ -694,6 +714,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		var refund := house_refund_cell(cell, occupied)
 		houses.erase(cell)
 		house_offsets.erase(cell)
+		clear_generated_scenery(refund)
 		log_piles[refund] = HOUSE_LOG_COST
 		resources.wood += HOUSE_LOG_COST
 		return true
@@ -733,6 +754,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			var current := TREE_VARIANTS.find(tree_types.get(cell, "tree"))
 			tree_types[cell] = TREE_VARIANTS[(current + 1) % TREE_VARIANTS.size()]
 		else:
+			clear_generated_scenery(cell)
 			trees[cell] = tree_placement_offset
 			tree_types[cell] = next_tree_variant
 			var placed_variant := TREE_VARIANTS.find(next_tree_variant)
@@ -776,7 +798,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 				stock[cells[landing]] += 1
 			if cells.has(cell):
 				stock[cells[cell]] += 1
-			flora.erase(cell)
+			clear_generated_scenery(cell)
 			cells[cell] = "stairs"
 			var new_landing: bool = not cells.has(landing)
 			elevations[landing] = height_at(cell) + SIZE
@@ -846,7 +868,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 23, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 26, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.houses = []
 	for cell in houses:
 		var offset: Vector2 = house_offsets.get(cell, Vector2.ZERO)
@@ -872,11 +894,22 @@ func snapshot() -> Dictionary:
 		saved.tree_cut_remaining.append([cell.x, cell.y, tree_cut_remaining[cell]])
 	if manual_ground_elevation:
 		saved.manual_ground_elevation = true
+	if not playground_grants.is_empty():
+		saved.playground_grants = playground_grants.duplicate()
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
+	var next_grants: Dictionary = {}
+	if int(data.version) >= 24:
+		if not data.get("playground_grants", {}) is Dictionary:
+			return false
+		for kind in data.get("playground_grants", {}):
+			var amount = data.playground_grants[kind]
+			if kind not in ["ground", "tree", "sheep", "chicken"] or not (amount is int or amount is float) or not is_finite(float(amount)) or amount < 0 or amount > 100000 or float(amount) != floorf(float(amount)):
+				return false
+			next_grants[kind] = int(amount)
 	if not data.get("manual_ground_elevation", false) is bool:
 		return false
 	var saved_tree_variant: String = str(data.get("next_tree_variant", next_tree_variant))
@@ -957,7 +990,8 @@ func restore(data: Dictionary) -> bool:
 		var amount := int(data.stock.get(kind, (1 if next_level >= 3 else 0) if kind == "bridge" and int(data.version) < 11 else (0 if (kind in ["sheep", "house"] and int(data.version) < 18) or (kind == "stairs" and data.get("version") == 1) else -1)))
 		if kind == "chicken" and int(data.version) < 20:
 			amount = 1 if next_level >= 7 else 0
-		if amount < 0 or amount > maxi(13, 18 + (next_level - 4) * 3):
+		var extra: int = int(next_grants.get("ground" if kind in KINDS else kind, 0))
+		if amount < 0 or amount > maxi(13, 18 + (next_level - 4) * 3) + extra:
 			return false
 		next_stock[kind] = amount
 		if kind == "sheep" and int(data.version) < 18 and next_level >= 5:
@@ -1010,9 +1044,9 @@ func restore(data: Dictionary) -> bool:
 	var bonus = data.get("free_house_grass", 0) if int(data.version) >= 19 else 0
 	if not (bonus is int or bonus is float) or not is_finite(float(bonus)) or bonus < 0 or float(bonus) != floorf(float(bonus)):
 		return false
-	if total != expected_total + int(bonus):
+	if total != expected_total + int(bonus) + int(next_grants.get("ground", 0)):
 		return false
-	if next_trees.size() + next_stock.tree != (0 if next_level < 3 else (1 if next_level == 3 else 2)):
+	if next_trees.size() + next_stock.tree != (0 if next_level < 3 else (1 if next_level == 3 else 2)) + int(next_grants.get("tree", 0)):
 		return false
 	var next_bridges := {}
 	if int(data.version) >= 11:
@@ -1071,7 +1105,10 @@ func restore(data: Dictionary) -> bool:
 	var next_logs := {}
 	if int(data.version) >= 17:
 		var carried = data.get("carried_wood", -1)
-		if not (carried is int or carried is float) or not is_finite(float(carried)) or float(carried) != floorf(float(carried)) or carried < 0 or carried > 2 or not data.get("log_piles") is Array:
+		# Earlier saves allowed larger packs. Retain those logs across migration
+		# and subsequent saves; physical_wood below validates the resource total.
+		# The harvesting rules enforce capacity for newly collected logs.
+		if not (carried is int or carried is float) or not is_finite(float(carried)) or float(carried) != floorf(float(carried)) or carried < 0 or not data.get("log_piles") is Array:
 			return false
 		next_carried = int(carried)
 		var physical_wood: int = next_carried + next_bundle
@@ -1105,12 +1142,14 @@ func restore(data: Dictionary) -> bool:
 			var offset := Vector2(record[3], record[4]) if int(data.version) >= 23 else Vector2.ZERO
 			if absf(offset.x) > 32 or absf(offset.y) > 32:
 				return false
+			# Correct earlier free placements that overhung their supporting grass.
+			offset = house_placement_offset(offset)
 			next_house_offsets[cell] = offset
-			if next_level < 5 or not next_cells.has(cell) or next_cells[cell] == "stairs" or next_flora.has(cell) or next_decorations.has(cell) or next_houses.has(cell) or int(record[2]) not in [0, 1, 2, 3]:
+			if next_level < 5 or not next_cells.has(cell) or next_cells[cell] == "stairs" or next_houses.has(cell) or int(record[2]) not in [0, 1, 2, 3]:
 				return false
 			if int(data.version) >= 19:
 				for square in house_cells(cell):
-					if not next_cells.has(square) or next_cells[square] == "stairs" or next_flora.has(square) or next_decorations.has(square) or next_elevations[square] != next_elevations[cell]:
+					if not next_cells.has(square) or next_cells[square] == "stairs" or next_elevations[square] != next_elevations[cell]:
 						return false
 					for owner in next_houses:
 						if not Geometry2D.intersect_polygons(house_footprint(cell, int(record[2]), offset), house_footprint(owner, int(next_houses[owner]), next_house_offsets[owner])).is_empty():
@@ -1122,6 +1161,13 @@ func restore(data: Dictionary) -> bool:
 			contacts.tree_types = next_tree_types
 			contacts.log_piles = next_logs
 			var patch := house_footprint(cell, int(record[2]), offset)
+			for square in next_flora:
+				if Geometry2D.is_point_in_polygon(center(square) + Vector2(0, 12), patch):
+					return false
+			for square in next_decorations:
+				var item: Dictionary = next_decorations[square]
+				if item.kind not in DecorationRules.WATER_KINDS and Geometry2D.is_point_in_polygon(center(square) + (Vector2(0, 12) if item.kind == "land_rock" else Vector2.ZERO), patch):
+					return false
 			for tree in next_trees:
 				if not Geometry2D.intersect_polygons(patch, contacts.tree_footprint(contacts.tree_position(tree), next_tree_types.get(tree, "tree"))).is_empty():
 					return false
@@ -1151,8 +1197,12 @@ func restore(data: Dictionary) -> bool:
 				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
 					return false
 			next_sheep.append(point)
-		if next_sheep.size() + next_stock.sheep != (1 if next_level >= 5 else 0) or (next_level < 5 and next_stock.house > 0):
+		var sheep_rewards := (1 if next_level >= 5 else 0) + (1 if int(data.version) >= 26 and next_level >= 8 else 0)
+		if next_sheep.size() + next_stock.sheep != sheep_rewards + int(next_grants.get("sheep", 0)) or (next_level < 5 and next_stock.house > 0):
 			return false
+	# Grant the new level-eight reward once when upgrading older saves.
+	if int(data.version) < 26 and next_level >= 8:
+		next_stock.sheep += 1
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
 		if not data.get("chickens") is Array:
@@ -1171,7 +1221,7 @@ func restore(data: Dictionary) -> bool:
 			if int(data.version) < 22:
 				point = center(Vector2i(int(record[0]), int(record[1])))
 			var cell := cell_at(point)
-			if next_level < 7 or not next_cells.has(cell) or next_chickens.has(point):
+			if next_level < (7 if int(data.version) < 25 else 2) or not next_cells.has(cell) or next_chickens.has(point):
 				return false
 			for owner in next_houses:
 				if Geometry2D.is_point_in_polygon(point, house_footprint(owner, int(next_houses[owner]), next_house_offsets[owner])):
@@ -1185,8 +1235,12 @@ func restore(data: Dictionary) -> bool:
 				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
 					return false
 			next_chickens.append(point)
-	if next_chickens.size() + next_stock.chicken != (1 if next_level >= 7 else 0):
+	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
+	if next_chickens.size() + next_stock.chicken != chicken_rewards + int(next_grants.get("chicken", 0)):
 		return false
+	# Older islands have not received the new level-two reward.
+	if int(data.version) < 25 and next_level >= 2:
+		next_stock.chicken += 1
 	var next_build = data.get("house_build", {}) if int(data.version) >= 21 else {}
 	if not next_build is Dictionary:
 		return false
@@ -1201,6 +1255,7 @@ func restore(data: Dictionary) -> bool:
 		if next_build.x != owner.x or next_build.y != owner.y or next_houses.get(owner, -1) != 1 or next_build.started_at <= 0 or next_bundle != 0:
 			return false
 	chickens = next_chickens
+	playground_grants = next_grants
 	house_build = next_build.duplicate(true)
 	free_house_grass = int(bonus)
 	houses = next_houses
@@ -1256,12 +1311,17 @@ func pick_log(cell: Vector2i) -> bool:
 	carried_wood = 1
 	return true
 
+func clear_generated_scenery(cell: Vector2i) -> void:
+	flora.erase(cell)
+	decorations.erase(cell)
+
 func can_drop_logs(cell: Vector2i) -> bool:
 	return carried_wood > 0 and cells.has(cell) and cells[cell] != "stairs" and not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and not (chicken_at(cell) >= 0) and sheep_at(cell) < 0 and not flora.has(cell) and not decorations.has(cell) and not BridgeRules.touches(self, cell) and int(log_piles.get(cell, 0)) < 6
 
 func drop_logs(cell: Vector2i) -> bool:
 	if not can_drop_logs(cell):
 		return false
+	clear_generated_scenery(cell)
 	var deposited := mini(carried_wood, 6 - int(log_piles.get(cell, 0)))
 	log_piles[cell] = int(log_piles.get(cell, 0)) + deposited
 	carried_wood -= deposited
@@ -1286,7 +1346,7 @@ func asset_ground_free(cell: Vector2i, moving_sheep: bool = false) -> bool:
 	# tile ownership. Placement still reserves whole object/stair tiles.
 	if moving_sheep:
 		return true
-	if cells[cell] == "stairs" or trees.has(cell) or house_owner(cell) != Vector2i(999, 999) or (chicken_at(cell) >= 0) or sheep_at(cell) >= 0 or log_piles.has(cell) or BridgeRules.touches(self, cell) or flora.has(cell) or decorations.has(cell):
+	if cells[cell] == "stairs" or trees.has(cell) or house_owner(cell) != Vector2i(999, 999) or (chicken_at(cell) >= 0) or sheep_at(cell) >= 0 or log_piles.has(cell) or BridgeRules.touches(self, cell):
 		return false
 	# Keep stair connections clear.
 	for stair in stair_directions:
@@ -1298,7 +1358,7 @@ func house_refund_cell(owner: Vector2i, occupied: Vector2i) -> Vector2i:
 	var nearest := Vector2i(999, 999)
 	var distance := INF
 	for candidate in cells:
-		if candidate == occupied or cells[candidate] == "stairs" or trees.has(candidate) or log_piles.has(candidate) or flora.has(candidate) or decorations.has(candidate) or chicken_at(candidate) >= 0 or sheep_at(candidate) >= 0 or BridgeRules.touches(self, candidate):
+		if candidate == occupied or cells[candidate] == "stairs" or trees.has(candidate) or log_piles.has(candidate) or chicken_at(candidate) >= 0 or sheep_at(candidate) >= 0 or BridgeRules.touches(self, candidate):
 			continue
 		var other_owner := house_owner(candidate)
 		if other_owner != owner and other_owner != Vector2i(999, 999):
@@ -1339,6 +1399,23 @@ const HOUSE_CONTACTS := [
 	[Vector2(18, 124), Vector2(106, 124), Vector2(114, 176), Vector2(105, 180), Vector2(96, 174), Vector2(32, 174), Vector2(25, 180), Vector2(15, 177)],
 ]
 
+func house_placement_offset(offset: Vector2) -> Vector2:
+	# Keep every facing's ground contacts inside the same 2x2 foundation.
+	# Roof overhang is visual only; rotation must not move the foundation.
+	var minimum := Vector2(-SIZE / 2.0, -SIZE / 2.0)
+	var maximum := Vector2(SIZE * 1.5, SIZE * 1.5)
+	var lower := Vector2(-INF, -INF)
+	var upper := Vector2(INF, INF)
+	for facing in 4:
+		for pixel in HOUSE_CONTACTS[1 if facing == 3 else facing]:
+			var local: Vector2 = pixel - Vector2(64, 96)
+			if facing == 3:
+				local.x = -local.x
+			local += Vector2(32, 0)
+			lower = lower.max(minimum - local)
+			upper = upper.min(maximum - local)
+	return offset.clamp(lower, upper)
+
 func house_footprint(cell: Vector2i, facing: int = -1, offset: Vector2 = Vector2.INF) -> PackedVector2Array:
 	if facing < 0:
 		facing = int(houses.get(cell, 0))
@@ -1368,7 +1445,75 @@ func house_blocks_contact(cell: Vector2i, start: Vector2, end: Vector2, moving_s
 			sweep.append(point + sole_offset)
 	return not Geometry2D.intersect_polygons(patch, Geometry2D.convex_hull(sweep)).is_empty()
 
+# Transient animation routes; durable positions are already safe for saves/undo.
+var house_displacements: Array[Dictionary] = []
+
+func house_escape_route(start: Vector2, patch: PackedVector2Array, pawn_point: Vector2) -> Array[Vector2]:
+	var frontier: Array[Array] = [[start]]
+	var visited := {cell_at(start): true}
+	var cursor := 0
+	while cursor < frontier.size():
+		var route: Array = frontier[cursor]
+		cursor += 1
+		var point: Vector2 = route.back()
+		if not Geometry2D.is_point_in_polygon(point, patch) and cells.get(cell_at(point)) != "stairs" and cell_at(point) != cell_at(pawn_point) and sheep_at(cell_at(point)) < 0 and chicken_at(cell_at(point)) < 0:
+			var result: Array[Vector2] = []
+			result.assign(route.slice(1))
+			return result
+		for step in STEPS:
+			var next: Vector2i = cell_at(point) + step
+			if visited.has(next) or not can_cross(cell_at(point), next):
+				continue
+			for offset in [Vector2.ZERO, Vector2(0, 20), Vector2(0, -20), Vector2(-20, 0), Vector2(20, 0)]:
+				var target: Vector2 = center(next) + offset
+				var clear := true
+				for sample in range(1, 33):
+					if not walkable_point(point.lerp(target, sample / 32.0), true):
+						clear = false
+						break
+				if not clear:
+					continue
+				visited[next] = true
+				var extended := route.duplicate()
+				extended.append(target)
+				frontier.append(extended)
+				break
+	return []
+
+func clear_house_occupants(cell: Vector2i, facing: int, placement: Vector2, pawn_point: Vector2) -> void:
+	house_displacements.clear()
+	var previous_facing: int = houses.get(cell, -1)
+	houses.erase(cell) # Allow occupants to leave the old footprint during rotation.
+	var patch := house_footprint(cell, facing, placement)
+	for kind in ["sheep", "chicken"]:
+		var animals: Array[Vector2] = sheep if kind == "sheep" else chickens
+		for index in range(animals.size() - 1, -1, -1):
+			var start: Vector2 = animals[index]
+			if not Geometry2D.is_point_in_polygon(start, patch):
+				continue
+			var route := house_escape_route(start, patch, pawn_point)
+			if route.is_empty():
+				animals.remove_at(index)
+				stock[kind] += 1
+				for displaced in house_displacements:
+					if displaced.kind == kind:
+						displaced.index -= 1
+			else:
+				animals[index] = route.back()
+				house_displacements.append({"kind": kind, "index": index, "start": start, "route": route})
+	if previous_facing >= 0:
+		houses[cell] = previous_facing
+	for square in flora.keys():
+		if Geometry2D.is_point_in_polygon(center(square) + Vector2(0, 12), patch):
+			flora.erase(square)
+	for square in decorations.keys():
+		if decorations[square].kind not in DecorationRules.WATER_KINDS and Geometry2D.is_point_in_polygon(center(square) + (Vector2(0, 12) if decorations[square].kind == "land_rock" else Vector2.ZERO), patch):
+			decorations.erase(square)
+
 func house_space_free(cell: Vector2i, occupied: Vector2i, facing: int = 0, occupied_position: Vector2 = Vector2.INF, offset: Vector2 = Vector2.INF) -> bool:
+	var placement: Vector2 = house_offsets.get(cell, Vector2.ZERO) if offset == Vector2.INF else offset
+	if not placement.is_equal_approx(house_placement_offset(placement)):
+		return false
 	# Foundation tiles still supply and protect level ground, while objects use contacts.
 	for square in house_cells(cell):
 		if not in_bounds(square) or cells.get(square) == "stairs" or BridgeRules.touches(self, square):
@@ -1382,9 +1527,6 @@ func house_space_free(cell: Vector2i, occupied: Vector2i, facing: int = 0, occup
 	var pawn_point := center(occupied) if occupied_position == Vector2.INF else occupied_position
 	if house_blocks_contact(cell, pawn_point, pawn_point, false, facing, offset):
 		return false
-	for point in sheep + chickens:
-		if Geometry2D.is_point_in_polygon(point, patch):
-			return false
 	for owner in houses:
 		if owner != cell and not Geometry2D.intersect_polygons(patch, house_footprint(owner)).is_empty():
 			return false

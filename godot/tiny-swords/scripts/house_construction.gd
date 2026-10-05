@@ -71,10 +71,7 @@ func placement_plan(cell: Vector2i, placement_offset: Vector2 = Vector2.ZERO) ->
 	planned.houses[cell] = 1
 	var route: Array[Vector2] = []
 	world.layout = planned
-	for offset in [Vector2(-49, 68), Vector2(-24, 68)]:
-		var point: Vector2 = planned.center(cell) + placement_offset + offset
-		if not planned.house_space_free(cell, planned.cell_at(point), 1, point):
-			continue
+	for point in work_points(planned, cell, placement_offset):
 		var candidate: Array[Vector2] = world.land_route(world.pawn.position, planned.cell_at(point), point)
 		if not candidate.is_empty() and candidate.back().is_equal_approx(point):
 			route = candidate
@@ -84,9 +81,26 @@ func placement_plan(cell: Vector2i, placement_offset: Vector2 = Vector2.ZERO) ->
 		return {}
 	return {"layout": planned, "route": route}
 
+func on_house_floor(layout, cell: Vector2i, point: Vector2) -> bool:
+	# Both soles must rest on level grass, never a neighboring cliff or ramp.
+	for offset in [Vector2.ZERO, Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]:
+		var square: Vector2i = layout.cell_at(point + offset)
+		if not layout.cells.has(square) or layout.cells[square] == "stairs" or layout.height_at(square) != layout.height_at(cell):
+			return false
+	return true
+
+func work_points(layout, cell: Vector2i, placement_offset: Vector2) -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	for offset in [Vector2(-49, 68), Vector2(-24, 68), Vector2(-16, 68), Vector2(-8, 68)]:
+		var point: Vector2 = layout.center(cell) + placement_offset + offset
+		if on_house_floor(layout, cell, point) and layout.walkable_point(point):
+			points.append(point)
+	return points
+
 func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 	if placement_offset == Vector2.INF:
 		placement_offset = world.terrain.placement_offset() if world.terrain.hover == cell else Vector2.ZERO
+	placement_offset = world.layout.house_placement_offset(placement_offset)
 	var plan := placement_plan(cell, placement_offset)
 	if plan.is_empty():
 		world.ui.panel.accessibility_description = "Choose a house site the pawn can reach."
@@ -102,8 +116,6 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 			original.cells[square] = planned.cells[square]
 			original.elevations[square] = planned.elevations[square]
 			original.stock.meadow -= 1
-		original.flora.erase(square)
-		original.decorations.erase(square)
 	world.history.append(before)
 	world.preserve_history_on_reopen = true
 	world.harvesting.cancel()
@@ -136,11 +148,15 @@ func _process(_delta: float) -> void:
 		else:
 			phase = Phase.READY
 	elif phase == Phase.APPROACHING:
+		if not on_house_floor(world.layout, target, world.pawn.position):
+			open_placement()
+			return
 		if not world.layout.edit(target, "house", world.layout.cell_at(world.pawn.position), -1, Vector2.ZERO, NO_CELL, world.pawn.position, target_offset):
 			open_placement()
 			return
 		world.layout.houses[target] = 1
 		world.rebuild_decorations()
+		world.animate_house_displacements()
 		phase = Phase.HAMMERING
 		build_started_at = Time.get_unix_time_from_system()
 		world.layout.house_build = {"x": target.x, "y": target.y, "started_at": build_started_at, "pawn_x": world.pawn.position.x, "pawn_y": world.pawn.position.y}
@@ -205,7 +221,16 @@ func resume_build() -> void:
 		return
 	target = Vector2i(saved.x, saved.y)
 	build_started_at = saved.started_at
-	world.pawn.position = Vector2(saved.pawn_x, saved.pawn_y)
+	var point := Vector2(saved.pawn_x, saved.pawn_y)
+	if not on_house_floor(world.layout, target, point):
+		# Older saves may have selected reachable grass below the house's cliff.
+		var points := work_points(world.layout, target, world.layout.house_offsets.get(target, Vector2.ZERO))
+		if points.is_empty():
+			return
+		point = points[0]
+		saved.pawn_x = point.x
+		saved.pawn_y = point.y
+	world.pawn.position = point
 	world.pawn.walk_to(world.pawn.position)
 	world.pawn.hammering = true
 	world.pawn.sprite.flip_h = false

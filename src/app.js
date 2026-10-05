@@ -19553,13 +19553,19 @@ async function initializeBrowserStorage() {
       storage: localStorage, storageKey: STORAGE_KEY,
       accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window,
-      onChange() {
+      onChange({ islandOnly, replacement } = {}) {
+        if (islandOnly && !learnerProfileLifecycleAuthority) {
+          if (!applicationStarted) return
+          window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { islandOnly: true, replacement } }))
+          return
+        }
         channelHistoryProfileEpoch += 1
         if (!applicationStarted) return
         if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
         else {
           const state = loadState({ persistCleanup: false })
           if (state) renderAll(state)
+          window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { replacement } }))
         }
       }
     })
@@ -19654,6 +19660,12 @@ if (IS_LOCALHOST && location.port === '8037') {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
     readDurable: () => loadPersistedState({ persistCleanup: false }),
-    save: saveState
+    save: saveState,
+    // Keep signed-in lifecycle/cloud persistence on its existing fenced path.
+    getCheckpointRepository: () => !INTERNAL_PROFILE_PAUSED && !primaryProfileStorageUnavailable
+      && !learnerProfileLifecycleAuthority ? primaryProfileRepository : null,
+    onCheckpoint: () => window.dispatchEvent(new CustomEvent('edenia-profile-persisted', {
+      detail: { islandOnly: true }
+    }))
   })
 }

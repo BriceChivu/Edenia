@@ -1,6 +1,8 @@
 const STORE = 'profiles'
 const HEAD = 'active'
 const RECOVERY = 'legacy-recovery'
+const BODY = 'active-body'
+const HEAD_SCHEMA = 'edenia-profile-head-v2'
 const POINTER_SCHEMA = 'edenia-indexed-db-profile-v1'
 const CONFLICT = Symbol('conflicting profile changes')
 
@@ -72,12 +74,72 @@ function open(indexedDb, name) {
   })
 }
 
-async function read(database, key = HEAD) {
+function splitHead(value) { return value?.schema === HEAD_SCHEMA }
+function checkpointFields(state) {
+  return { islandRaw: JSON.stringify(state.tinySwordsIsland) ?? null, cityProgress: state.cityProgress ?? null }
+}
+function replacementFields(previous, revision, replace = false) {
+  return replace ? { replacementRevision: revision }
+    : previous?.replacementRevision ? { replacementRevision: previous.replacementRevision } : {}
+}
+function hydrate(head, bodyRaw) {
+  if (!splitHead(head)) return head
+  if (typeof bodyRaw !== 'string' || !Number.isSafeInteger(head.revision) || head.revision < 1
+    || !Number.isSafeInteger(head.bodyRevision) || head.bodyRevision < 1 || head.bodyRevision > head.revision
+    || !(head.islandRaw === null || typeof head.islandRaw === 'string')) {
+    throw new Error('Invalid durable profile body')
+  }
+  if (head.islandRaw !== null) JSON.parse(head.islandRaw)
+  let raw
+  Object.defineProperties(head, {
+    bodyRaw: { value: bodyRaw },
+    raw: { get() {
+      if (raw === undefined) {
+        const state = JSON.parse(bodyRaw)
+        if (head.islandRaw === null) delete state.tinySwordsIsland
+        else state.tinySwordsIsland = JSON.parse(head.islandRaw)
+        raw = JSON.stringify(state)
+      }
+      return raw
+    } }
+  })
+  return head
+}
+function durableHead(head) {
+  return splitHead(head) ? { ...head } : head
+}
+function sameHead(left, right) {
+  return left?.revision === right?.revision && (splitHead(right)
+    ? splitHead(left) && left.bodyRevision === right.bodyRevision && left.islandRaw === right.islandRaw
+    : left?.raw === right?.raw)
+}
+// Cache the large, immutable body across island revisions. Warm checkpoints
+// neither fetch nor serialize it; complete profile reads compose it lazily.
+async function read(database, key = HEAD, cached = null, headOnly = false) {
   const transaction = database.transaction(STORE, 'readonly')
   const finished = complete(transaction)
-  const request = transaction.objectStore(STORE).get(key)
+  const store = transaction.objectStore(STORE)
+  const request = store.get(key)
+  let result
+  request.onsuccess = () => {
+    try {
+      result = request.result || null
+      if (headOnly || !splitHead(result)) return
+      if (cached?.bodyRevision === result.bodyRevision && typeof cached.bodyRaw === 'string') {
+        result = hydrate(result, cached.bodyRaw)
+      } else {
+        const body = store.get(BODY)
+        body.onsuccess = () => {
+          try {
+            if (body.result?.revision !== result.bodyRevision) throw new Error('Missing durable profile body')
+            result = hydrate(result, body.result.raw)
+          } catch { transaction.abort() }
+        }
+      }
+    } catch { transaction.abort() }
+  }
   await finished
-  return request.result || null
+  return result
 }
 
 // The primary profile, its original recovery copy and its revision are owned by
@@ -175,23 +237,37 @@ export async function openIndexedDbProfile({
   const pendingByState = new WeakMap()
   const localRevisions = new Set()
   const listeners = new Set()
+  const islandStates = new WeakMap()
   const channel = typeof eventTarget?.BroadcastChannel === 'function'
     ? new eventTarget.BroadcastChannel(databaseName) : null
   function snapshot() {
     if (!current) return null
     const state = JSON.parse(current.raw)
     revisions.set(state, current.revision)
-    baselines.set(state, current.raw)
+    baselines.set(state, current)
+    return state
+  }
+  function readIslandState() {
+    if (!current) return null
+    let fields = islandStates.get(current)
+    if (!fields) {
+      fields = splitHead(current) ? current : checkpointFields(JSON.parse(current.raw))
+      islandStates.set(current, fields)
+    }
+    const state = { cityProgress: structuredClone(fields.cityProgress) }
+    if (fields.islandRaw !== null) state.tinySwordsIsland = JSON.parse(fields.islandRaw)
     return state
   }
   async function refresh() {
     refreshQueue = refreshQueue.catch(() => {}).then(async () => {
-      const next = await read(database)
-      validate(next)
+      const next = await read(database, HEAD, current)
       if (next?.revision === current?.revision) return
+      const islandOnly = splitHead(next) && next.bodyRevision === current?.bodyRevision
+      const replacement = (next?.replacementRevision || 0) !== (current?.replacementRevision || 0)
+      if (!islandOnly) validate(next)
       current = next
       for (const listener of listeners) listener()
-      onChange()
+      onChange({ islandOnly, replacement })
     })
     return refreshQueue
   }
@@ -215,8 +291,14 @@ export async function openIndexedDbProfile({
     const latest = store.get(HEAD)
     latest.onsuccess = () => {
       try {
-        if (latest.result?.revision !== next.revision || latest.result.raw !== next.raw) return
-        if (previous) store.put({ ...previous, revision: next.revision + 1 })
+        if (!sameHead(latest.result, next)) return
+        if (previous) {
+          store.put({ ...durableHead(previous), revision: next.revision + 1 })
+          if (splitHead(previous) && previous.bodyRevision !== next.bodyRevision) {
+            store.put({ key: BODY, revision: previous.bodyRevision, raw: previous.bodyRaw })
+          }
+          else if (!splitHead(previous)) store.delete(BODY)
+        }
         else store.delete(HEAD)
       } catch { rollback.abort() }
     }
@@ -229,7 +311,7 @@ export async function openIndexedDbProfile({
     const raw = JSON.stringify(state)
     if (!isValidState(JSON.parse(raw))) return Promise.resolve(false)
     const expectedRevision = revisions.get(state) ?? (replace || !current ? current?.revision || 0 : -1)
-    const expectedRaw = baselines.get(state)
+    const expectedBaseline = baselines.get(state)
     const capturedAccess = storage.getItem(accessKey)
     const previousOperation = pendingByState.get(state)
     const predecessor = previousOperation?.pending ? previousOperation : null
@@ -244,10 +326,10 @@ export async function openIndexedDbProfile({
       const finished = complete(transaction)
       const store = transaction.objectStore(STORE)
       const request = store.get(HEAD)
-      request.onsuccess = () => {
+      const apply = latest => {
         try {
-          const latestRevision = request.result?.revision || 0
-          const baseline = predecessor ? predecessor.raw : expectedRaw
+          const latestRevision = latest?.revision || 0
+          const baseline = predecessor ? predecessor.raw : expectedBaseline?.raw
           let ownInterveningWrites = baseRevision >= 1 && baseline !== undefined && !replace
           for (let revision = baseRevision + 1; ownInterveningWrites && revision <= latestRevision; revision += 1) {
             if (!localRevisions.has(revision)) ownInterveningWrites = false
@@ -257,7 +339,7 @@ export async function openIndexedDbProfile({
             transaction.abort()
             return
           }
-          previous = request.result || null
+          previous = latest || null
           let nextRaw = raw
           if (baseline !== undefined && previous?.raw !== baseline) {
             if (!ownInterveningWrites) { transaction.abort(); return }
@@ -265,9 +347,26 @@ export async function openIndexedDbProfile({
             if (!merged || !isValidState(merged)) { transaction.abort(); return }
             nextRaw = JSON.stringify(merged)
           }
-          next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1 }
-          store.put(next)
+          if (splitHead(previous)) {
+            next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latestRevision + 1,
+              bodyRevision: latestRevision + 1, ...checkpointFields(JSON.parse(nextRaw)),
+              ...replacementFields(previous, latestRevision + 1, replace) }, nextRaw)
+            store.put({ key: BODY, revision: next.bodyRevision, raw: nextRaw })
+          } else next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1,
+            ...replacementFields(previous, latestRevision + 1, replace) }
+          store.put(durableHead(next))
         } catch { transaction.abort() }
+      }
+      request.onsuccess = () => {
+        const latest = request.result
+        if (!splitHead(latest)) { apply(latest); return }
+        const body = store.get(BODY)
+        body.onsuccess = () => {
+          try {
+            if (body.result?.revision !== latest.bodyRevision) throw new Error('Missing durable profile body')
+            apply(hydrate(latest, body.result.raw))
+          } catch { transaction.abort() }
+        }
       }
       await finished
       let verified
@@ -277,7 +376,7 @@ export async function openIndexedDbProfile({
       }
       // A newer transaction can win before readback. Never claim that this
       // snapshot is the latest state or render it over the other tab's update.
-      if (verified?.raw !== next.raw || verified?.revision !== next.revision) {
+      if (!sameHead(verified, next) || verified.raw !== next.raw) {
         await refresh()
         return false
       }
@@ -287,7 +386,7 @@ export async function openIndexedDbProfile({
         await restoreUnacknowledgedHead(next, previous)
         return false
       }
-      localRevisions.add(next.revision)
+      if (!replace) localRevisions.add(next.revision)
       if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
       current = verified
       // The same live object can have another queued mutation. A caller that
@@ -296,7 +395,7 @@ export async function openIndexedDbProfile({
       for (const key of Object.keys(state)) delete state[key]
       Object.defineProperties(state, Object.getOwnPropertyDescriptors(JSON.parse(next.raw)))
       revisions.set(state, current.revision)
-      baselines.set(state, current.raw)
+      baselines.set(state, current)
       token.revision = current.revision
       signal()
       return true
@@ -308,15 +407,75 @@ export async function openIndexedDbProfile({
     writeQueue = operation
     return operation
   }
+  function saveIsland(layout, expected, { canPersist = () => true } = {}) {
+    const islandRaw = JSON.stringify(layout)
+    const expectedRevision = current?.revision
+    const capturedAccess = storage.getItem(accessKey)
+    const operation = writeQueue.catch(() => {}).then(async () => {
+      if (expectedRevision === undefined || islandRaw === undefined || !canPersist()) return false
+      let previous
+      let next
+      const transaction = database.transaction(STORE, 'readwrite', { durability: 'strict' })
+      const finished = complete(transaction)
+      const store = transaction.objectStore(STORE)
+      const request = store.get(HEAD)
+      request.onsuccess = () => {
+        try {
+          const latest = request.result
+          let owned = latest && latest.revision >= expectedRevision
+          for (let revision = expectedRevision + 1; owned && revision <= latest.revision; revision += 1) {
+            if (!localRevisions.has(revision)) owned = false
+          }
+          const fields = splitHead(latest) ? latest : latest && checkpointFields(JSON.parse(latest.raw))
+          if (!owned || (fields.islandRaw ?? 'absent') !== expected
+            || !canPersist() || storage.getItem(accessKey) !== capturedAccess) {
+            transaction.abort(); return
+          }
+          // The queue owns local writes. An external body change cannot pass
+          // the revision fence, so the cached body is safe to reuse here.
+          previous = splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest
+          const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
+          next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latest.revision + 1,
+            bodyRevision: splitHead(latest) ? latest.bodyRevision : latest.revision,
+            islandRaw, cityProgress: fields.cityProgress, ...replacementFields(latest) }, bodyRaw)
+          if (!splitHead(previous)) store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
+          store.put(durableHead(next))
+        } catch { transaction.abort() }
+      }
+      await finished
+      let verified
+      try { verified = await read(database, HEAD, null, true) } catch {
+        await restoreUnacknowledgedHead(next, previous)
+        return false
+      }
+      if (!sameHead(verified, next)) { await refresh(); return false }
+      if (!canPersist() || storage.getItem(accessKey) !== capturedAccess) {
+        await restoreUnacknowledgedHead(next, previous)
+        return false
+      }
+      current = hydrate(verified, next.bodyRaw)
+      localRevisions.add(next.revision)
+      if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
+      signal()
+      return true
+    }).catch(async () => {
+      try { await refresh() } catch {}
+      return false
+    })
+    writeQueue = operation
+    return operation
+  }
   return {
     snapshot,
+    readIslandState,
+    saveIsland,
     save,
     refresh,
     hasProfile: () => Boolean(current),
     readRaw: () => current?.raw || null,
     adoptSnapshot(state) {
       revisions.set(state, current?.revision || 0)
-      baselines.set(state, current?.raw)
+      baselines.set(state, current)
     },
     inheritRevision(state, source) {
       revisions.set(state, revisions.get(source))

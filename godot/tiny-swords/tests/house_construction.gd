@@ -45,7 +45,9 @@ func run() -> void:
 	scene.update_house_preview()
 	scene.update_cursor()
 	check(scene.terrain.valid and scene.cursor_mode == "place", "Reachable house site keeps placement preview")
-	scene.terrain.preview_position = scene.layout.center(site) + Vector2(11, -13)
+	scene.terrain.preview_position = scene.layout.center(site) + Vector2(31, 31)
+	check(scene.terrain.placement_offset() == scene.layout.house_placement_offset(Vector2(31, 31)), "Pointer preview clamps to its four supporting tiles")
+	scene.terrain.preview_position = scene.layout.center(site) + Vector2.ZERO
 	var preview: Rect2 = scene.terrain.house_preview_rect()
 	check(scene.construction.build(site), "Reachable site starts carrying approach")
 	check(scene.layout.house_bundle == 6 and scene.layout.houses.is_empty() and not scene.pawn.hammering, "Walking does not spend logs or start hammer")
@@ -55,12 +57,16 @@ func run() -> void:
 	scene.construction._process(0.0)
 	check(scene.pawn.hammering and scene.layout.houses.get(site) == 1 and scene.layout.house_bundle == 0 and scene.layout.carried_wood == 2 and scene.layout.resources.wood == 2, "Arrival builds side-view house, spends only bundle, and equips hammer")
 	check(copy.restore(JSON.parse_string(JSON.stringify(scene.layout.snapshot()))) and not copy.house_build.is_empty(), "Active construction clock survives JSON reload")
-	check(copy.house_offsets.get(site) == Vector2(11, -13), "Reload preserves chosen house offset")
-	check(copy.edit(site, "house", Vector2i(-10, -10)) and copy.house_offsets[site] == Vector2(11, -13), "Rotation preserves free placement anchor")
+	check(copy.house_offsets.get(site) == Vector2.ZERO, "Reload preserves chosen house offset")
+	check(copy.edit(site, "house", Vector2i(-10, -10)) and copy.house_offsets[site] == Vector2.ZERO, "Rotation preserves free placement anchor")
+	var old_placement: Dictionary = scene.layout.snapshot()
+	old_placement.houses[0][3] = 31
+	old_placement.houses[0][4] = 31
+	check(copy.restore(old_placement) and copy.house_offsets[site] == copy.house_placement_offset(Vector2(31, 31)), "Earlier overhanging save moves back onto the same foundation")
 	check(copy.restore(scene.layout.snapshot()), "Restore construction after rotation check")
 	var footprint: PackedVector2Array = scene.layout.house_footprint(site)
 	var centered: PackedVector2Array = scene.layout.house_footprint(site, 1, Vector2.ZERO)
-	check(footprint[0] - centered[0] == Vector2(11, -13), "House contacts follow the preview offset")
+	check(footprint[0] - centered[0] == Vector2.ZERO, "House contacts follow the preview offset")
 	check(scene.pawn.sprite.sprite_frames.get_frame_count("hammer_interact") == 3 and scene.pawn.sprite.sprite_frames.get_animation_speed("hammer_interact") == 10, "Three original hammer frames at website 10 fps")
 	scene.construction.phase = scene.construction.Phase.READY
 	scene.pawn.hammering = false

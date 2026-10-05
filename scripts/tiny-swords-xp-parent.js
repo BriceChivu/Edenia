@@ -8,16 +8,43 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     let expected = 'absent'
     let restored = false
     let saving = false
+    let replacementPending = false
     let legacy = false
+    let intersects = true
+    let reportedVisibility = null
     const layoutKey = 'edenia_tiny_swords_xp_layout_v1'
     const persistence = () => window.edeniaTinySwordsPersistence
+    const readIsland = () => {
+      const adapter = persistence()
+      return adapter?.readIsland ? adapter.readIsland() : adapter?.read()
+    }
     const identity = state => JSON.stringify(state?.tinySwordsIsland) ?? 'absent'
     const status = document.createElement('span')
     status.setAttribute('role', 'status')
     status.className = 'tiny-swords-save-status'
     function reportFailure(text) { status.textContent = text }
+    function sendVisibility() {
+      if (!frame || gameLevelCount === null) return
+      const visible = intersects && document.visibilityState !== 'hidden'
+      if (visible === reportedVisibility) return
+      reportedVisibility = visible
+      frame.contentWindow?.postMessage({ type: 'edenia-host-visibility', session, visible }, location.origin)
+    }
+    const visibilityObserver = typeof IntersectionObserver === 'function'
+      ? new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (entry.target !== frame) continue
+          intersects = entry.isIntersecting && entry.intersectionRect.width > 0 && entry.intersectionRect.height > 0
+          sendVisibility()
+        }
+      }) : null
+    document.addEventListener?.('visibilitychange', sendVisibility)
     function mountFrame() {
       const previous = frame
+      if (previous) {
+        cameraObserver.unobserve(previous)
+        visibilityObserver?.unobserve(previous)
+      }
       frame = document.createElement('iframe')
       frame.src = 'tiny-swords-xp-game/index.html'
       frame.title = 'Tiny Swords island: earn XP by studying to unlock building'
@@ -26,23 +53,26 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
       restored = false
       legacy = false
       gameLevelCount = null
-      expected = identity(persistence()?.read())
+      intersects = true
+      reportedVisibility = null
+      expected = identity(readIsland())
       status.textContent = ''
       controls.hidden = false
       cameraObserver.observe(frame)
       frame.addEventListener('load', sendStudyLevel)
       if (previous) previous.replaceWith(frame)
       else document.querySelector('.city-image-wrap').append(frame)
+      visibilityObserver?.observe(frame)
     }
     function sendStudyLevel() {
       if (gameLevelCount === null || !persistence()) return
-      const state = persistence().read()
+      const state = readIsland()
       if (!state) {
         restored = false
         reportFailure('Open a learner profile to save the island.')
         return
       }
-      let level = Math.min(gameLevelCount, Math.max(1, (state.cityProgress?.maxLevelIndex || 0) + 1))
+      const level = Math.min(gameLevelCount, Math.max(1, (state.cityProgress?.maxLevelIndex || 0) + 1))
       let saved = state.tinySwordsIsland
       if (saved === undefined) {
         // Only the old integrated developer save can migrate. Native saves are separate.
@@ -62,14 +92,14 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         reportFailure('This island exceeds the save limit. Island saving is blocked; the saved data is retained.')
         return
       }
-      if (Number.isInteger(saved?.level) && saved.level >= 1 && saved.level <= gameLevelCount) {
-        level = Math.max(level, saved.level)
-      }
+      // Godot restores the saved game level itself. Only claimed study progress
+      // is a progression floor; test levels must not turn into study claims.
       frame.contentWindow?.postMessage({ type: 'edenia-study-level', session, level, layout: saved ?? null }, location.origin)
+      sendVisibility()
     }
     function checkReplacement(force = false) {
-      if (saving) return
-      if (force || identity(persistence()?.read()) !== expected) mountFrame()
+      if (saving) { replacementPending ||= force; return }
+      if (force || identity(readIsland()) !== expected) mountFrame()
       else sendStudyLevel()
     }
     window.addEventListener('edenia-profile-persisted', event => checkReplacement(event.detail?.replacement))
@@ -96,7 +126,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
       if (data?.session !== session) return
       if (data.type === 'edenia-tiny-restored') {
         restored = data.accepted === true
-        if (!restored) reportFailure('This island could not be restored. Island saving is blocked; the saved data is retained.')
+        status.textContent = restored ? '' : 'The saved island could not be restored. Island saving is blocked; the saved data is retained.'
       }
       if (data.type === 'edenia-tiny-layout') {
         const target = frame
@@ -107,7 +137,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
           try { persisted = await persistence().save(data.layout, expected) } catch {}
           saving = false
           if (persisted) {
-            expected = identity(persistence().read())
+            expected = identity({ tinySwordsIsland: data.layout })
             if (legacy) { try { localStorage.removeItem(layoutKey) } catch {} }
             legacy = false
           }
@@ -115,7 +145,10 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         target.contentWindow?.postMessage({ type: 'edenia-tiny-saved', session: targetSession, id: data.id, persisted }, location.origin)
         if (target !== frame) return
         status.textContent = persisted ? '' : 'Island changes could not be saved.'
-        if (!persisted && identity(persistence()?.read()) !== expected) checkReplacement()
+        if (replacementPending) {
+          replacementPending = false
+          checkReplacement(true)
+        } else if (identity(readIsland()) !== expected) checkReplacement()
       }
     })
     // Clone the owning Edenia markup: exact SVG icons, labels, classes and CSS.

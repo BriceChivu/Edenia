@@ -534,27 +534,6 @@ icon = SubResource("AtlasTexture_jtllo")
 icon_alignment = 1
 expand_icon = true
 
-[node name="UpgradeButton" type="Button" parent="." unique_id=318817312]
-visible = false
-texture_filter = 1
-custom_minimum_size = Vector2(100, 40)
-layout_mode = 0
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 14.0
-offset_top = -58.0
-offset_right = 154.0
-offset_bottom = -14.0
-mouse_default_cursor_shape = 2
-theme_override_colors/font_color = Color(1, 0.9529412, 0.827451, 1)
-theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("StyleBoxTexture_i4wcc")
-theme_override_styles/pressed = SubResource("StyleBoxTexture_6ekhe")
-theme_override_styles/hover = SubResource("StyleBoxTexture_fsr7w")
-theme_override_styles/disabled = SubResource("StyleBoxTexture_abfod")
-text = "Try level 3"
-
 [node name="SheepButton" type="Button" parent="TerrainButton2/Tools"]
 texture_filter = 1
 custom_minimum_size = Vector2(32, 32)

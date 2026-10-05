@@ -13,6 +13,7 @@ var art_offset := Vector2(0, -8)
 var faces_left := false
 var destination := Vector2.ZERO
 var fleeing := false
+var house_fleeing := false
 var escape_route: Array[Vector2] = []
 var tile_destinations: Array[Vector2] = []
 var animation_time := 0.0
@@ -172,6 +173,9 @@ func try_wandering() -> void:
 			fleeing = true
 			face_destination()
 
+func movement_segment_allowed(_start: Vector2, _target: Vector2) -> bool:
+	return true
+
 func movement_speed() -> float:
 	return 110.0
 
@@ -179,6 +183,8 @@ func _process(delta: float) -> void:
 	advance(delta, Time.get_unix_time_from_system())
 
 func advance(delta: float, now: float) -> void:
+	if not fleeing:
+		house_fleeing = false
 	var animals := animal_positions()
 	if sheep_index >= animals.size():
 		return
@@ -189,7 +195,7 @@ func advance(delta: float, now: float) -> void:
 	if pawn_movement.length_squared() > 0.001:
 		approach_direction = pawn_movement.normalized()
 	previous_pawn_position = world.pawn.position
-	var can_move: bool = not world.editing and world.water_phase == world.WaterPhase.READY
+	var can_move: bool = house_fleeing or (not world.editing and world.water_phase == world.WaterPhase.READY)
 	if can_move:
 		if not fleeing and world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position):
 			destination = escape_target()
@@ -202,7 +208,9 @@ func advance(delta: float, now: float) -> void:
 	elif fleeing:
 		# Finish this tile step at its safe resting point before editing changes
 		# its ground. Fine navigation bends may lie on a tile boundary.
-		position = tile_destinations[0] if not tile_destinations.is_empty() else tile_target(world.layout.cell_at(destination))
+		var resting_point: Vector2 = tile_destinations[0] if not tile_destinations.is_empty() else tile_target(world.layout.cell_at(destination))
+		if movement_segment_allowed(position, resting_point):
+			position = resting_point
 		destination = position
 		animals[sheep_index] = position
 		fleeing = false
@@ -214,15 +222,24 @@ func advance(delta: float, now: float) -> void:
 	# complete eating loop and can cross several grazing destinations.
 	while elapsed > 0.0:
 		if fleeing:
+			if not movement_segment_allowed(position, destination):
+				fleeing = false
+				escape_route.clear()
+				tile_destinations.clear()
+				destination = position
+				reset_grazing()
+				continue
 			var travel_seconds := position.distance_to(destination) / movement_speed()
 			var step := minf(elapsed, travel_seconds)
 			position = position.move_toward(destination, step * movement_speed())
-			animals[sheep_index] = position
+			if not house_fleeing:
+				animals[sheep_index] = position
 			animation_time += step
 			elapsed -= step
 			if step >= travel_seconds:
 				position = destination
-				animals[sheep_index] = position
+				if not house_fleeing:
+					animals[sheep_index] = position
 				if not tile_destinations.is_empty() and position.is_equal_approx(tile_destinations[0]):
 					tile_destinations.pop_front()
 				escape_route.pop_front()

@@ -12,10 +12,22 @@ export function islandIdentity(state) {
   return JSON.stringify(state?.tinySwordsIsland) ?? 'absent'
 }
 
-export function createTinySwordsPersistence({ read, readDurable, save }) {
+export function createTinySwordsPersistence({ read, readDurable, save,
+  getCheckpointRepository = () => null, onCheckpoint = () => {} }) {
   return {
     read,
+    readIsland: () => getCheckpointRepository()?.readIslandState() ?? read(),
     async save(layout, expected) {
+      const repository = getCheckpointRepository()
+      if (repository) {
+        try {
+          const persisted = await repository.saveIsland(copyTinySwordsIsland(layout), expected, {
+            canPersist: () => getCheckpointRepository() === repository
+          })
+          if (persisted) onCheckpoint()
+          return persisted
+        } catch { return false }
+      }
       const state = read()
       if (!state || islandIdentity(state) !== expected
         || islandIdentity(readDurable()) !== expected) return false

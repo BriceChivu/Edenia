@@ -9,10 +9,10 @@ Mac uses the function keys for system controls):
 | Scene | Starts with |
 | --- | --- |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
-| `previews/level_one_to_two.tscn` | Fresh level one. Click **Try level 2** to run the real unlock, rewards and animated ribbon, then **Start building**. |
-| `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles and one stair bundle; toolbar open. |
-| `previews/level_two_to_three.tscn` | Fresh level two. Build if desired, choose **Done**, then **Try level 3** to run the real second upgrade on that same island. |
-| `previews/level_three_to_four.tscn` | Fresh level three. Choose **Try level 4** to preview the next popup. |
+| `previews/level_one_to_two.tscn` | Fresh level one. Click **Playground → Level +1** to run the real unlock, rewards and animated ribbon, then **Start building**. |
+| `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles, one stair bundle and one chicken; toolbar open. |
+| `previews/level_two_to_three.tscn` | Fresh level two. Build if desired, choose **Done**, then **Playground → Level +1** to run the real second upgrade on that same island. |
+| `previews/level_three_to_four.tscn` | Fresh level three. Choose **Playground → Level +1** to preview the next popup. |
 | `previews/level_four.tscn` | Fresh level four with one additional shared tree item and three additional grass tiles. |
 | `previews/level_three.tscn` | Fresh level three with all active cumulative rewards; toolbar open, no transition required. |
 | `previews/bridge_level_three.tscn` | Retained bridge sandbox; the bridge experiment is currently disabled. |
@@ -29,21 +29,21 @@ below; use **F6** to test whichever named scene you opened.
 
 Open `project.godot` in Godot 4.7, then **F5 / Play Project**.
 The default scene is now `scenes/level_two_preview.tscn`, which inherits the preserved
-level-one environment. **Try level 2**, then **Try level 3** (outside build mode),
+level-one environment. **Playground → Level +1**, then **Playground → Level +1** (outside build mode),
 simulate the two local upgrades using the same reward and celebration code:
 
 | Upgrade | Newly granted inventory | Item count |
 | --- | --- | --- |
-| Level 1 → 2 | 3 ground tiles + 1 stair bundle | 4 |
+| Level 1 → 2 | 3 ground tiles + 1 stair bundle + 1 chicken | 5 |
 | Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
 | Level 3 → 4 | 3 ground tiles + 1 tree | 4 |
 
 Godot owns XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675**.
 The existing curve is `15 × level × (level − 1) / 2` total XP: each upgrade costs
 15 XP more than the previous one. Levels six through ten each grant three new
-grass tiles, with the shared grass-only reward popup. Fresh editor scenes
+grass tiles; level seven also grants a second chicken, and level eight grants a second sheep. They share the grass reward popup. Fresh editor scenes
 `previews/level_six.tscn` through `previews/level_ten.tscn` start at those levels;
-choose **Done**, then **Try level …** to preview the next upgrade.
+choose **Done**, then **Playground → Level +1** to preview the next upgrade.
 Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
 The axe unlocks tree cutting at level four; the inventory rewards are the three grass tiles and shared tree.
 The level-three tree icon represents all four tree atlases. Each placement randomly
@@ -103,8 +103,8 @@ Focused checks: `res://tests/log_navigation.gd` and `res://tests/log_contact_dep
 Focused check: `res://tests/log_delivery.gd`.
 Focused check: `Godot --headless --path godot/tiny-swords --script res://tests/tree_harvesting.gd`.
 
-The active inventory grants nine items: six ground tiles,
-two stair bundles and one tree. Each stair bundle includes its upper landing;
+The active inventory grants ten items: six ground tiles,
+two stair bundles, one tree and one chicken. Each stair bundle includes its upper landing;
 that landing is not an additional inventory item. Upgrades preserve every
 placement, decoration and the pawn position. There is no island reset. Undo
 history starts a new editing session after an upgrade so it cannot revoke rewards.
@@ -324,8 +324,9 @@ and in-game UI. Native and Edenia-integrated previews must share that implementa
 
 The Edenia bridge is restricted to specific areas that require Edenia integration:
 passing claimed study progress into the game, exchanging layout data with Edenia
-persistence, forwarding host camera commands, browser telemetry, and coordinating
-browser input with Edenia page scrolling. The bridge translates data and commands;
+persistence, forwarding host camera commands, browser telemetry, relaying host
+viewport/page visibility, and coordinating browser input with Edenia page scrolling.
+The bridge translates data and commands;
 Godot determines their gameplay effects. Any additional bridge responsibility must
 have a concrete Edenia integration requirement.
 
@@ -348,6 +349,16 @@ transport to 512 KiB and leaves gameplay validation and save migrations to Godot
 Animal checkpoints skip whole-profile backups and analytics. Camera settings remain
 local to the device; selection, action queues and game undo history are transient.
 
+Accountless profiles already using Edenia's opt-in IndexedDB repository write
+island checkpoints through a small versioned profile head. The first checkpoint
+splits the stored profile into that head and an immutable body; subsequent island
+writes and cross-tab island refreshes touch only the head. Ordinary profile saves
+update both atomically. Full reads, portable exports and recovery backups compose
+the latest island into the profile. Checkpoints share the profile revision queue,
+durable readback and access fences; failed acknowledgments restore only their exact
+head and retain newer writers. The legacy localStorage and signed-in lifecycle
+paths retain their existing behavior and costs; storage rollout flags are unchanged.
+
 Import, backup restore and reset replace the iframe, clearing transient actions.
 Messages must come from that frame and its current session; each save also checks
 that the active and durable island still match the frame's predecessor. Another
@@ -357,10 +368,49 @@ that has never stored an island field, and its source is removed only after an
 accepted restore and successful profile save. Reset profiles explicitly store
 `null`, preventing legacy preview data from resurrecting an island.
 
+The host reports whether the island intersects the viewport and whether the page
+is visible. Godot suspends its web engine loop and audio while fully offscreen,
+keeping the scene and elapsed-time action clocks alive for resume. Partial visibility resumes
+the same iframe. The single-threaded web runtime pause/resume and keepalive hooks
+must be verified with the offscreen diagnostic gate after engine upgrades.
+
 This remains a local developer preview. The ordinary site build does not include
 the game export or enable Tiny Swords; Auth remains paused.
 
 ## Rebuild the integrated XP preview
+
+At **http://localhost:8037/**, the plain **Playground** button at the top-right
+opens local testing controls implemented in Godot. **Level +1** runs the normal
+upgrade and reward popup without watching a video; it changes only the game level,
+not study XP. **Random terrain** replaces the island with seeded connected land,
+valid stair terraces and unlocked trees/animals using owned placed pieces plus
+remaining inventory. Houses return their logs, and harvested wood is retained.
+The seed appears in the panel. It grants no extra items and leaves items in
+inventory when no valid placement fits. **+ Supplies** adds
+grass, stairs and any unlocked trees/animals. **6 house logs** reserves a bundle
+and opens the normal house placement workflow from level five. **Fresh island**
+returns to level one with starting terrain and pawn position, clearing inventory,
+resources, placements and unlocks. Fresh islands use manual Playground level
+control instead of automatically reapplying study levels, including after reload.
+The saved checkpoint remains available for explicit restore.
+
+**Level −1** selects the previous level for popup testing, down to level one.
+The island and all unlocked items/abilities stay intact. **Level +1** then replays
+the matching real popup without granting those rewards again. Levels above the
+highest unlock still grant their normal rewards. This popup preview selection
+lasts until reload and is included in saved checkpoints.
+
+The first test action automatically captures a checkpoint. **Save checkpoint**
+replaces it explicitly, and **Restore checkpoint** returns the island, inventory,
+level and pawn to that point. Checkpoints persist through refresh and localhost restarts in the existing local
+profile save, including the pawn position and popup preview selection. Controls wait for successful profile restore and
+pause during upgrades, construction and water falls. They are enabled only by the
+local integration on port 8037 and are absent from normal game builds.
+Testing supplies and random terrain use version-24 snapshots with an explicit
+extra-item ledger, so save validation retains inventory accounting after reload,
+upgrades and undo. Ordinary snapshots retain their existing version.
+
+Focused check: `Godot --headless --path godot/tiny-swords --script res://tests/playground.gd`.
 
 At `http://localhost:8037/`, map edits save immediately in browser storage.
 Refreshing retains terrain, decorations, tree variants, inventory, harvested wood,
@@ -551,7 +601,7 @@ Title, Message, and BuildButton text are the level-two copy. Select the root
 **LevelUpPopup** to edit the exported **Level three text** fields. Both upgrades
 use this same visual layout. To test the animated popup and button behavior,
 run `previews/level_one_to_two.tscn` or `previews/level_two_to_three.tscn` with
-**F6**, then click **Try level 2** or **Try level 3**. Running the popup alone
+**F6**, then click **Playground → Level +1** or **Playground → Level +1**. Running the popup alone
 shows the static design; its button is connected by the gameplay scene.
 
 Shared gameplay regression checks (disable preview saves):
@@ -684,7 +734,11 @@ repeating for **20 seconds**. Every impact briefly widens and compresses the
 house about its fixed base; recovery restores its shape. Opacity increases
 linearly to **100% at 20 seconds**. The pawn works beside the front-left door,
 using the website's 81px horizontal / 68px vertical offset when the ground
-allows it, with a closer approach on narrow foundations. The impact transform
+allows it, with a closer approach on narrow foundations. Both soles must stay
+on grass at the house's floor level; a reachable lower terrace cannot serve as
+the work spot. Older construction saves move the worker onto that same floor
+when resumed. `tests/house_worker_floor.gd` checks elevated work spots and reloads.
+The impact transform
 is measured from the website GIF; its rasterization is a close reproduction,
 not certified pixel-identical. Reserved logs and the construction clock survive
 reloads. Undo returns the reserved bundle without duplicating a ground pile.
@@ -692,13 +746,19 @@ Houses stay outside the inventory. Click a placed house while the inventory is o
 to cycle front, side, back, and opposite-side views for free. Pick up a house
 to return its six logs as a pyramid on the nearest clear grass tile, including
 the freed foundation. Pick up that pyramid to rebuild the house. Hovering a full pyramid shows `Icon_01.png`.
-New houses retain the exact pointer preview position within their 2×2 foundation;
+New houses follow the pointer within their 2×2 foundation, with the placement offset
+clamped so every facing’s ground contacts remain on those same four grass tiles at
+one floor level. Missing-grass previews align with the actual foundation grid.
+Earlier saved offsets that overhung the foundation are corrected on load.
+Houses retain the exact preview position;
 construction, rotation, contacts, saves and undo retain that offset.
 Houses occupy
 a 2×2 square footprint on grass or water. Each missing foundation square costs one meadow grass tile from inventory;
 pickup leaves that paid foundation in place without refunding grass. Existing
 grass requires no additional tiles;
-bushes and rocks disappear. Stairs require clear foundations. Trees, other houses, logs, sheep, and the
+bushes and rocks disappear only when their ground anchors lie under the house contact polygon.
+Sheep and chickens run to reachable free grass, or return to inventory when trapped.
+Stairs require clear foundations. Trees, other houses, logs, and the
 pawn block placement where their ground contacts overlap the annotated house
 contact polygon. Front, side, back, and mirrored side views share the same
 PNG-coordinate contact definitions across colors. Rotation also checks contacts.
@@ -711,9 +771,9 @@ houses, and free foundation grass; older layouts retain their existing state. Un
 costs and physical log piles. Level rewards remain idempotent.
 Focused check: `res://tests/level_five.gd`.
 
-## Level seven chicken
+## Level two chicken
 
-Level seven grants three grass tiles and one chicken. Select Chicken in the inventory
+Level two grants three grass tiles, one stair bundle and one chicken. Select Chicken in the inventory
 to place it on free grass; Pick up returns it to inventory. The CHICKEN4.0 animation
 sheets in `assets/chicken/` use 128×128 cells at 10 fps: six idle frames, twelve eating
 frames, and four run frames. The chicken alternates 2.4 seconds of idle with a complete
@@ -728,8 +788,16 @@ tile away, avoiding tiles occupied by sheep or the pawn. If none is available, i
 Building pauses movement at the current step's safe destination. Background time
 catches up on return. The sprite retains 59.5% scale, a rounded ground shadow, and a fixed foot
 baseline. `assets/chicken.png` is its new first idle frame for inventory, placement,
-and the level-seven reward. Save version 22 retains the chicken's exact ground-plane
+and the level-two reward. Save version 22 retains the chicken's exact ground-plane
 position; versions 20–21 migrate their stored grass cells to positions. Earlier
-level-seven-or-higher saves retain the chicken reward migration.
+Save version 25 adds the level-two chicken to existing level-two-or-higher islands once.
+Level seven grants another chicken, for two chickens in total.
+Level eight grants another sheep, for two sheep in total. Save version 26 adds this
+reward once to existing level-eight-or-higher islands.
 Focused checks: `res://tests/chicken.gd`, `res://tests/chicken_animation.gd`,
 and `res://tests/chicken_following.gd`.
+
+Generated scenery (rocks, bushes, flowers and water decorations) never blocks
+placement or free terrain transformations. Conflicting scenery is cleared by
+committed edits; previews use the same rules. Player-built objects retain their
+normal protection. Focused check: `res://tests/scenery_placement.gd`.

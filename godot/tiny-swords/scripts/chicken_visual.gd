@@ -14,6 +14,7 @@ func _ready() -> void:
 	art_offset = Art.CHICKEN_OFFSET
 	faces_left = true
 	super._ready()
+	add_to_group("pawn_tile_avoiders")
 
 func animal_positions() -> Array[Vector2]:
 	return world.layout.chickens
@@ -83,13 +84,55 @@ func clear_following() -> void:
 		destination = position
 	following = false
 
+func segment_enters_cell(start: Vector2, target: Vector2, cell: Vector2i) -> bool:
+	var layout = world.layout
+	if layout.cell_at(start) == cell or layout.cell_at(target) == cell:
+		return true
+	var corner: Vector2 = layout.center(cell) - Vector2.ONE * layout.SIZE / 2.0
+	var corners := [corner, corner + Vector2(layout.SIZE, 0), corner + Vector2.ONE * layout.SIZE, corner + Vector2(0, layout.SIZE)]
+	for index in 4:
+		if Geometry2D.segment_intersects_segment(start, target, corners[index], corners[(index + 1) % 4]) != null:
+			return true
+	return false
+
 func safe_follow_segment(start: Vector2, target: Vector2) -> bool:
-	var pawn_cell: Vector2i = world.layout.cell_at(world.pawn.position)
-	var samples := maxi(1, ceili(start.distance_to(target) / 4.0))
-	for index in range(samples + 1):
-		if world.layout.cell_at(start.lerp(target, float(index) / samples)) == pawn_cell:
-			return false
-	return world.clear_segment(start, target, true)
+	return not segment_enters_cell(start, target, world.layout.cell_at(world.pawn.position)) and world.clear_segment(start, target, true)
+
+func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
+	if house_fleeing:
+		return true
+	# Legacy saves or an externally restored pawn can begin on this tile.
+	# Permit an escape from that origin; normal movement never enters it.
+	if world.layout.cell_at(start) == world.layout.cell_at(world.pawn.position):
+		return world.clear_segment(start, target, true)
+	return safe_follow_segment(start, target)
+
+func route_to_tile(start: Vector2, cell: Vector2i) -> Array[Vector2]:
+	var route := super.route_to_tile(start, cell)
+	for point in route:
+		if not movement_segment_allowed(start, point):
+			return []
+		start = point
+	return route
+
+func allow_pawn_step(start: Vector2, target: Vector2) -> bool:
+	if not segment_enters_cell(start, target, world.layout.cell_at(position)):
+		return true
+	# Reserve the occupied tile until the chicken has actually left it. This
+	# also starts escape before contact, rather than waiting for an overlap.
+	if following:
+		clear_following()
+	wandering = false
+	pawn_trail.clear()
+	trail_position = Vector2.INF
+	approach_direction = (target - start).normalized()
+	if not fleeing:
+		destination = escape_target()
+		fleeing = destination != position
+		if fleeing:
+			reset_grazing()
+			face_destination()
+	return false
 
 func follow_pawn() -> void:
 	while not pawn_trail.is_empty():
@@ -127,6 +170,9 @@ func follow_pawn() -> void:
 			face_destination()
 
 func advance(delta: float, now: float) -> void:
+	if house_fleeing:
+		super.advance(delta, now)
+		return
 	if chicken_index >= animal_positions().size():
 		return
 	pawn_moving = not world.pawn.position.is_equal_approx(previous_pawn_position)

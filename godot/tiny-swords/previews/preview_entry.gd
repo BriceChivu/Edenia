@@ -6,6 +6,7 @@ enum StartMode { LEVEL_ONE, LEVEL_ONE_TO_TWO, LEVEL_TWO, LEVEL_TWO_TO_THREE, LEV
 @export var start_mode: StartMode = StartMode.LEVEL_ONE
 
 func _ready() -> void:
+	playground_enabled = start_mode in [StartMode.LEVEL_ONE_TO_TWO, StartMode.LEVEL_TWO_TO_THREE, StartMode.LEVEL_THREE_TO_FOUR, StartMode.LEVEL_FOUR_TO_FIVE]
 	preview_save_enabled = false
 	super._ready()
 	ui.max_preview_level = 1 if start_mode == StartMode.LEVEL_ONE else (2 if start_mode in [StartMode.LEVEL_ONE_TO_TWO, StartMode.LEVEL_TWO] else (5 if start_mode >= StartMode.LEVEL_FOUR_TO_FIVE else (4 if start_mode >= StartMode.LEVEL_THREE_TO_FOUR else 3)))

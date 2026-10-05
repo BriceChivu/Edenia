@@ -2,11 +2,10 @@ extends SceneTree
 const Layout = preload("res://scripts/terrain_layout.gd")
 func _initialize() -> void:
 	var layout = Layout.new()
-	for level in range(2, 7):
-		assert(layout.unlock(level))
+	assert(not layout.can_edit(Vector2i(1, 0), "chicken", Vector2i.ZERO))
 	assert(layout.stock.chicken == 0)
-	assert(layout.unlock(7) and layout.stock.chicken == 1)
-	assert(not layout.unlock(7))
+	assert(layout.unlock(2) and layout.stock.chicken == 1)
+	assert(not layout.unlock(2))
 	var cell := Vector2i(1, 0)
 	assert(layout.edit(cell, "chicken", Vector2i.ZERO))
 	assert(layout.stock.chicken == 0 and layout.chicken_at(cell) == 0)
@@ -25,14 +24,31 @@ func _initialize() -> void:
 	old.erase("chickens")
 	old.stock.erase("chicken")
 	assert(Layout.new().restore(old))
+	for target in range(2, 11):
+		var previous = Layout.new()
+		for next_level in range(2, target + 1):
+			assert(previous.unlock(next_level))
+		var expected := 2 if target >= 7 else 1
+		assert(previous.stock.chicken == expected, "Levels two and seven each grant one chicken")
+		var legacy := previous.snapshot()
+		legacy.version = 23
+		legacy.stock.chicken -= 1
+		if target >= 8:
+			legacy.stock.sheep -= 1
+		var migrated = Layout.new()
+		assert(migrated.restore(legacy) and migrated.stock.chicken == expected)
+		assert(migrated.restore(migrated.snapshot()) and migrated.stock.chicken == expected)
+	var forged := layout.snapshot()
+	forged.stock.chicken += 1
+	assert(not Layout.new().restore(forged), "New saves reject duplicate chickens")
 	var scene = load("res://previews/level_one.tscn").instantiate()
 	root.add_child.call_deferred(scene)
 	await process_frame
-	for level in range(2, 8):
-		scene.layout.unlock(level)
+	scene.layout.unlock(2)
 	scene.ui.refresh(true, "chicken", false)
-	assert(scene.ui.buttons.chicken.visible)
+	assert(scene.ui.buttons.chicken.visible and not scene.ui.buttons.chicken.disabled)
 	scene.ui.celebrate()
 	assert(scene.ui.celebration.get_node("PineReward").visible)
+	assert(scene.ui.celebration.get_node("PineReward").accessibility_name == "1 chicken")
 	print("Chicken checks: PASS")
 	quit()

@@ -46,6 +46,7 @@ var log_delivery := Vector2i(999, 999)
 var asset_nodes: Array[Node] = []
 var tree_nodes: Array[Node] = []
 var flora_nodes: Array[Node] = []
+var terrain_preview_change := {}
 var preview_save_enabled := true
 var build_cursor: Texture2D
 var build_cursor_size := Vector2i.ZERO
@@ -54,6 +55,11 @@ var pointer: Sprite2D
 var pointer_inside := false
 var pointer_focused := true
 var pointer_position := Vector2.ZERO
+var playground_manual_progression := false
+var playground_enabled := false
+var playground_ready := true
+var playground
+var saved_playground_checkpoint: Dictionary = {}
 
 func _ready() -> void:
 	super._ready()
@@ -94,7 +100,6 @@ func _ready() -> void:
 	get_window().focus_entered.connect(func():
 		pointer_focused = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN))
-	ui.unlock_requested.connect(unlock_level)
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
 		if construction != null and construction.busy():
@@ -124,6 +129,10 @@ func _ready() -> void:
 	game_camera.zoom = Vector2.ONE * DEFAULT_ZOOM
 	add_child(game_camera)
 	load_camera_view()
+	if playground_enabled:
+		playground = preload("res://scripts/playground.gd").new()
+		playground.world = self
+		add_child(playground)
 	get_window().mouse_exited.connect(func():
 		if world_dragging:
 			save_camera_view()
@@ -136,6 +145,10 @@ func refresh() -> void:
 	terrain.tool = selected
 	terrain.valid = false
 	ui.refresh(editing, selected, not history.is_empty())
+
+func apply_study_level(claimed_level: int) -> void:
+	if not playground_manual_progression and layout.level < claimed_level:
+		unlock_level(layout.level + 1)
 
 func unlock_level_two() -> void:
 	unlock_level(2)
@@ -198,7 +211,6 @@ func _process(_delta: float) -> void:
 			if layout.carried_wood > 0:
 				continue_log_delivery()
 	ui.launch.disabled = false
-	ui.upgrade.disabled = water_phase != WaterPhase.READY
 	ui.launch.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	if water_phase == WaterPhase.READY or water_phase == WaterPhase.APPROACHING:
 		pawn.sprite.position.y = -32.0 - ground_height(pawn.position)
@@ -252,6 +264,17 @@ func inventory_change_at(point: Vector2, changes: Array[Dictionary]) -> Dictiona
 	return {}
 
 func update_inventory_preview(point: Vector2, allow_hover := true) -> void:
+	update_inventory_preview_state(point, allow_hover)
+	var change := {"cell": terrain.hover, "tool": terrain.tool, "height": terrain.ground_preview_height} if terrain.transform_preview and terrain.tool in ["ground", "stairs"] else {}
+	if change != terrain_preview_change:
+		rebuild_decorations(terrain.terrain_render_layout())
+		terrain_preview_change = change
+		if change.is_empty():
+			# Rebuilding restored object sprites; apply tree/house hiding to
+			# those new nodes when moving directly off a terrain preview.
+			update_inventory_preview_state(point, allow_hover)
+
+func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void:
 	terrain.proposed_terrain = null
 	terrain.changes = inventory_changes()
 	terrain.outline_trees = tree_nodes
@@ -618,6 +641,8 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 	if history.size() > 40:
 		history.pop_front()
 	rebuild_decorations()
+	if selected == "house":
+		animate_house_displacements()
 	save_layout()
 	if editing and selected not in ["remove", "ground", "tree", "house", "stairs"] and layout.ground_count() + layout.stock.stairs + layout.stock.tree + (layout.stock.bridge if layout.bridges_enabled else 0) == 0:
 		editing = false
@@ -638,27 +663,47 @@ func undo() -> void:
 	save_layout()
 	refresh()
 
-func rebuild_decorations() -> void:
+func animate_house_displacements() -> void:
+	for displaced in layout.house_displacements:
+		for node in asset_nodes:
+			if not node.has_method("animal_positions") or node.is_queued_for_deletion():
+				continue
+			var kind := "chicken" if node.get_script() == preload("res://scripts/chicken_visual.gd") else "sheep"
+			if kind == displaced.kind and node.sheep_index == displaced.index:
+				node.position = displaced.start
+				node.escape_route.assign(displaced.route)
+				node.tile_destinations.assign([displaced.route.back()])
+				node.destination = node.escape_route[0]
+				node.house_fleeing = true
+				node.fleeing = true
+				node.reset_grazing()
+				node.face_destination()
+	layout.house_displacements.clear()
+
+func rebuild_decorations(display_layout = null) -> void:
+	var render_layout = display_layout if display_layout != null else layout
+	if display_layout == null:
+		terrain_preview_change = {}
 	for node in get_children():
 		if node.has_meta("terrain_shadow") or node.has_meta("terrain_backing"):
 			remove_child(node)
 			node.queue_free()
 	var shadow_heights: Dictionary = {}
-	for cell in layout.cells:
-		var casting_height: float = layout.height_at(cell) + (64 if layout.cells[cell] == "stairs" else 0)
+	for cell in render_layout.cells:
+		var casting_height: float = render_layout.height_at(cell) + (64 if render_layout.cells[cell] == "stairs" else 0)
 		for height in range(64, int(casting_height) + 1, 64):
 			shadow_heights[float(height)] = true
 	for height in shadow_heights:
 		if height > 64:
 			var backing := TerrainView.new()
-			backing.layout = layout
+			backing.layout = render_layout
 			backing.render_source = terrain
 			backing.backing_height = height - 64
 			backing.z_index = int(height / 64.0) - 2
 			backing.set_meta("terrain_backing", true)
 			add_child(backing)
 		var shadows := TerrainView.new()
-		shadows.layout = layout
+		shadows.layout = render_layout
 		shadows.render_source = terrain
 		shadows.shadow_height = height
 		# After World at the receiving surface's depth, before its characters
@@ -670,29 +715,29 @@ func rebuild_decorations() -> void:
 		if node.has_meta("terrain_occluder"):
 			$World.remove_child(node)
 			node.queue_free()
-	for cell in layout.cells:
-		if layout.height_at(cell) > 0 or layout.cells[cell] == "stairs":
+	for cell in render_layout.cells:
+		if render_layout.height_at(cell) > 0 or render_layout.cells[cell] == "stairs":
 			var surface := TerrainView.new()
-			surface.layout = layout
+			surface.layout = render_layout
 			surface.render_source = terrain
 			surface.piece = cell
-			surface.z_index = maxi(0, int(layout.height_at(cell) / 64.0) - (0 if layout.cells[cell] == "stairs" else 1))
-			surface.position = layout.ORIGIN + Vector2(cell) * 64
+			surface.z_index = maxi(0, int(render_layout.height_at(cell) / 64.0) - (0 if render_layout.cells[cell] == "stairs" else 1))
+			surface.position = render_layout.ORIGIN + Vector2(cell) * 64
 			surface.set_meta("terrain_occluder", true)
 			$World.add_child(surface)
-	for start in (layout.bridges if layout.bridges_enabled else {}):
+	for start in (render_layout.bridges if render_layout.bridges_enabled else {}):
 		var bridge := Sprite2D.new()
 		bridge.texture = Layout.BridgeRules.TEXTURE
 		bridge.centered = false
-		bridge.position = Layout.BridgeRules.art_rect(layout, start).position
-		bridge.z_index = int(layout.bridges[start] / 64.0) - 1
+		bridge.position = Layout.BridgeRules.art_rect(render_layout, start).position
+		bridge.z_index = int(render_layout.bridges[start] / 64.0) - 1
 		bridge.set_meta("terrain_occluder", true)
 		$World.add_child(bridge)
 	for rock in $WaterRocks.get_children():
 		rock.visible = true
-		for cell in layout.cells:
-			var height: float = layout.height_at(cell) + 64.0 if layout.cells[cell] == "stairs" else layout.height_at(cell)
-			var occupied_area := Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, height), Vector2(64, 64 + height))
+		for cell in render_layout.cells:
+			var height: float = render_layout.height_at(cell) + 64.0 if render_layout.cells[cell] == "stairs" else render_layout.height_at(cell)
+			var occupied_area := Rect2(render_layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, height), Vector2(64, 64 + height))
 			if occupied_area.has_point(rock.position):
 				rock.hide()
 				break
@@ -709,24 +754,24 @@ func rebuild_decorations() -> void:
 	$World/IsletRock.hide() # Editable layouts render the rock through decorations.
 	for pair in [["MainBush", Vector2i(0, 0), 1], ["LeafyTuft", Vector2i(1, 1), 2]]:
 		var node = $World.get_node(pair[0])
-		node.visible = layout.flora.get(pair[1], 0) == pair[2]
-		node.offset.y = -15 - layout.height_at(pair[1]) / node.scale.y
-		node.z_index = int(layout.height_at(pair[1]) / 64.0)
-	for cell in layout.flora:
-		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2}.get(cell) == layout.flora[cell]:
+		node.visible = render_layout.flora.get(pair[1], 0) == pair[2]
+		node.offset.y = -15 - render_layout.height_at(pair[1]) / node.scale.y
+		node.z_index = int(render_layout.height_at(pair[1]) / 64.0)
+	for cell in render_layout.flora:
+		if {Vector2i(0, 0): 1, Vector2i(1, 1): 2}.get(cell) == render_layout.flora[cell]:
 			continue
 		var plant := Sprite2D.new()
-		plant.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe1.png") if layout.flora[cell] == 1 else preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png")
+		plant.texture = preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe1.png") if render_layout.flora[cell] == 1 else preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Bushes/Bushe4.png")
 		plant.hframes = 8
 		plant.scale = Vector2.ONE * 0.75
-		plant.z_index = int(layout.height_at(cell) / 64.0)
-		plant.position = layout.center(cell) + Vector2(0, 12)
-		plant.offset = Vector2(0, -15 - layout.height_at(cell) / 0.75)
+		plant.z_index = int(render_layout.height_at(cell) / 64.0)
+		plant.position = render_layout.center(cell) + Vector2(0, 12)
+		plant.offset = Vector2(0, -15 - render_layout.height_at(cell) / 0.75)
 		plant.set_script(preload("res://scripts/environment_sprite.gd"))
 		$World.add_child(plant)
 		flora_nodes.append(plant)
-	for cell in layout.decorations:
-		var item: Dictionary = layout.decorations[cell]
+	for cell in render_layout.decorations:
+		var item: Dictionary = render_layout.decorations[cell]
 		var in_water: bool = item.kind in Layout.DecorationRules.WATER_KINDS
 		var decoration := Sprite2D.new()
 		var directory := "res://Tiny Swords (Free Pack)/Terrain/Decorations/"
@@ -746,56 +791,56 @@ func rebuild_decorations() -> void:
 				decoration.texture = load(directory + "Rubber Duck/Rubber duck.png")
 				decoration.hframes = 3
 				decoration.flip_h = item.variant == 2
-		decoration.position = layout.center(item.water if in_water else cell)
+		decoration.position = render_layout.center(item.water if in_water else cell)
 		if item.kind == "land_rock":
 			# Sort from the near edge like foliage, without moving the artwork.
 			decoration.position.y += 12
 			decoration.offset.y -= 12 / decoration.scale.y
-		decoration.z_index = -17 if in_water else int(layout.height_at(cell) / 64.0)
+		decoration.z_index = -17 if in_water else int(render_layout.height_at(cell) / 64.0)
 		if not in_water:
-			decoration.offset.y -= layout.height_at(cell) / decoration.scale.y
+			decoration.offset.y -= render_layout.height_at(cell) / decoration.scale.y
 		if decoration.hframes > 1:
 			decoration.set_script(preload("res://scripts/environment_sprite.gd"))
 			decoration.phase = float(cell.x * 7 + cell.y * 11) / 5.0
 		decoration.set_meta("random_decoration", item.kind)
 		$World.add_child(decoration)
 		flora_nodes.append(decoration)
-	for cell in layout.log_piles:
+	for cell in render_layout.log_piles:
 		var pile := Node2D.new()
 		# Keep the whole pile together while its depth follows the contact patch.
 		pile.set_script(preload("res://scripts/log_pile.gd"))
-		pile.layout = layout
+		pile.layout = render_layout
 		pile.cell = cell
 		pile.pawn = pawn
-		pile.position = layout.center(cell) + Vector2(0, 12)
+		pile.position = render_layout.center(cell) + Vector2(0, 12)
 		pile.y_sort_enabled = false
 		pile.set_meta("log_pile", cell)
-		pile.z_index = int(layout.height_at(cell) / 64.0)
+		pile.z_index = int(render_layout.height_at(cell) / 64.0)
 		# Bottom row fills first, then the middle row, then the apex.
 		var positions := [Vector2(-13, 0), Vector2(0, 0), Vector2(13, 0), Vector2(-6.5, -14), Vector2(6.5, -14), Vector2(0, -28)]
 		# Center incomplete bottom rows, including the two-log harvest.
-		if layout.log_piles[cell] == 1:
+		if render_layout.log_piles[cell] == 1:
 			positions[0] = Vector2.ZERO
-		elif layout.log_piles[cell] == 2:
+		elif render_layout.log_piles[cell] == 2:
 			positions[0] = Vector2(-6.5, 0)
 			positions[1] = Vector2(6.5, 0)
 		var ground_shadow := Node2D.new()
 		# Ground shadows sort before every pawn position on this grass tile.
-		ground_shadow.position = layout.center(cell) - Vector2(0, 32)
+		ground_shadow.position = render_layout.center(cell) - Vector2(0, 32)
 		ground_shadow.z_index = pile.z_index
 		ground_shadow.set_meta("log_shadow", cell)
 		var shadow_material := ShaderMaterial.new()
 		shadow_material.shader = LOG_SHADOW_SHADER
-		var height: float = layout.height_at(cell)
-		var grass_region: Rect2 = terrain.ground_region(cell, "meadow" if height == 0 else layout.kind_at_height(height))
+		var height: float = render_layout.height_at(cell)
+		var grass_region: Rect2 = terrain.ground_region(cell, "meadow" if height == 0 else render_layout.kind_at_height(height))
 		shadow_material.set_shader_parameter("grass_atlas", terrain.floor_texture(height))
 		shadow_material.set_shader_parameter("grass_region", Vector4(grass_region.position.x, grass_region.position.y, 64, 64))
 		var local_from_world := global_transform.affine_inverse()
 		shadow_material.set_shader_parameter("ground_axes", Vector4(local_from_world.x.x, local_from_world.y.x, local_from_world.x.y, local_from_world.y.y))
-		shadow_material.set_shader_parameter("ground_origin", local_from_world.origin - (layout.center(cell) - Vector2(32, 32 + height)))
+		shadow_material.set_shader_parameter("ground_origin", local_from_world.origin - (render_layout.center(cell) - Vector2(32, 32 + height)))
 		# Render the union once so intersecting log silhouettes never darken.
 		var shadow_centers := PackedVector2Array()
-		for index in int(layout.log_piles[cell]):
+		for index in int(render_layout.log_piles[cell]):
 			shadow_centers.append(Vector2(positions[index].x, 44 + positions[index].y * 0.25 - height))
 		shadow_material.set_shader_parameter("log_texture", LOG_TEXTURE)
 		shadow_material.set_shader_parameter("log_count", shadow_centers.size())
@@ -815,30 +860,30 @@ func rebuild_decorations() -> void:
 		flora_nodes.append(ground_shadow)
 		# Back-to-front: logs 1, 4, 2, 6, 5, 3 (numbered by rows).
 		for index in [0, 3, 1, 5, 4, 2]:
-			if index >= int(layout.log_piles[cell]):
+			if index >= int(render_layout.log_piles[cell]):
 				continue
 			var log_sprite := Sprite2D.new()
 			log_sprite.texture = LOG_TEXTURE
 			log_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			log_sprite.scale = Vector2.ONE * 0.9
-			log_sprite.position = positions[index] - Vector2(0, 6 + layout.height_at(cell))
+			log_sprite.position = positions[index] - Vector2(0, 6 + render_layout.height_at(cell))
 			pile.add_child(log_sprite)
 		$World.add_child(pile)
 		flora_nodes.append(pile)
-	for cell in layout.houses:
+	for cell in render_layout.houses:
 		var house := Sprite2D.new()
-		var facing: int = layout.houses[cell]
+		var facing: int = render_layout.houses[cell]
 		house.texture = LevelFiveArt.HOUSE_TEXTURES[facing]
 		house.flip_h = facing == 3
 		house.scale = Vector2.ONE
-		house.position = Vector2(layout.center(cell).x + 32 + layout.house_offsets.get(cell, Vector2.ZERO).x, LevelFiveArt.house_depth_y(layout, cell, facing))
+		house.position = Vector2(render_layout.center(cell).x + 32 + render_layout.house_offsets.get(cell, Vector2.ZERO).x, LevelFiveArt.house_depth_y(render_layout, cell, facing))
 		# Move the sorting anchor without moving the house artwork.
-		house.offset = Vector2(0, layout.center(cell).y + layout.house_offsets.get(cell, Vector2.ZERO).y - house.position.y - layout.height_at(cell))
+		house.offset = Vector2(0, render_layout.center(cell).y + render_layout.house_offsets.get(cell, Vector2.ZERO).y - house.position.y - render_layout.height_at(cell))
 		house.set_meta("house_cell", cell)
-		house.z_index = int(layout.height_at(cell) / 64)
+		house.z_index = int(render_layout.height_at(cell) / 64)
 		$World.add_child(house)
 		asset_nodes.append(house)
-	for chicken_index in layout.chickens.size():
+	for chicken_index in render_layout.chickens.size():
 		var chicken := Sprite2D.new()
 		chicken.set_script(preload("res://scripts/chicken_visual.gd"))
 		chicken.world = self
@@ -855,24 +900,24 @@ func rebuild_decorations() -> void:
 		chicken.add_child(shadow)
 		$World.add_child(chicken)
 		asset_nodes.append(chicken)
-	for index in layout.sheep.size():
+	for index in render_layout.sheep.size():
 		var sheep_sprite := Sprite2D.new()
 		sheep_sprite.set_script(preload("res://scripts/sheep_visual.gd"))
 		sheep_sprite.world = self
 		sheep_sprite.sheep_index = index
 		$World.add_child(sheep_sprite)
 		asset_nodes.append(sheep_sprite)
-	for cell in layout.trees:
+	for cell in render_layout.trees:
 		var tree := Sprite2D.new()
-		var kind: String = layout.tree_types.get(cell, "tree")
-		var stump: bool = layout.tree_stumps.has(cell)
-		tree.texture = TreeArt.texture_at(layout.tree_offset(cell), kind, stump, TreeArt.shadow_ground(layout, cell))
+		var kind: String = render_layout.tree_types.get(cell, "tree")
+		var stump: bool = render_layout.tree_stumps.has(cell)
+		tree.texture = TreeArt.texture_at(render_layout.tree_offset(cell), kind, stump, TreeArt.shadow_ground(render_layout, cell))
 		tree.set_meta("cell", cell)
 		tree.hframes = 1 if stump else 8
 		tree.scale = Vector2.ONE * TreeArt.SCALE
-		tree.z_index = int(layout.height_at(cell) / 64.0)
-		tree.position = layout.tree_position(cell)
-		tree.offset = (TreeArt.stump_offset(kind) if stump else TreeArt.art_offset(kind)) - Vector2(0, layout.height_at(cell) / TreeArt.SCALE)
+		tree.z_index = int(render_layout.height_at(cell) / 64.0)
+		tree.position = render_layout.tree_position(cell)
+		tree.offset = (TreeArt.stump_offset(kind) if stump else TreeArt.art_offset(kind)) - Vector2(0, render_layout.height_at(cell) / TreeArt.SCALE)
 		tree.set_script(preload("res://scripts/tree_visual.gd"))
 		tree.world = self
 		tree.kind = kind
@@ -1112,10 +1157,19 @@ func fall_into_water(point: Vector2) -> void:
 	await perform_water_fall(edge, direction, height, layout.center(spawn_cell), layout.height_at(spawn_cell))
 
 
+func saved_snapshot() -> Dictionary:
+	var data: Dictionary = layout.snapshot()
+	if playground_manual_progression:
+		data["playground_manual_progression"] = true
+	var saved: Dictionary = playground.checkpoint_snapshot() if playground != null else saved_playground_checkpoint
+	if not saved.is_empty():
+		data["playground_checkpoint"] = saved
+	return data
+
 func save_layout() -> void:
 	if not preview_save_enabled:
 		return
-	var json := JSON.stringify(layout.snapshot())
+	var json := JSON.stringify(saved_snapshot())
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("localStorage.setItem('%s', %s)" % [SAVE_KEY, JSON.stringify(json)])
 	else:
@@ -1133,9 +1187,15 @@ func load_layout() -> void:
 		if data is Dictionary:
 			restore_saved_layout(data)
 
-func restore_saved_layout(data: Dictionary) -> bool:
+func restore_saved_layout(data: Dictionary, restore_checkpoint: bool = true) -> bool:
 	if not layout.restore(data):
 		return false
+	playground_manual_progression = playground_enabled and data.get("playground_manual_progression", false) == true
+	if restore_checkpoint:
+		var saved = data.get("playground_checkpoint", {})
+		saved_playground_checkpoint = saved.duplicate(true) if saved is Dictionary else {}
+		if playground != null:
+			playground.load_checkpoint(saved_playground_checkpoint)
 	# Native startup initializes actors below load_layout; an integrated frame
 	# receives its profile snapshot after those same actors are ready.
 	if construction != null:

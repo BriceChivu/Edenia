@@ -1,6 +1,5 @@
 extends CanvasLayer
 
-signal unlock_requested(target_level: int)
 signal tool_selected(tool: String)
 signal edit_toggled
 signal undo_requested
@@ -10,7 +9,6 @@ const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_me
 var root: Control
 var panel: Control
 var launch: Button
-var upgrade: Button
 var max_preview_level := preload("res://scripts/terrain_layout.gd").XP_THRESHOLDS.size()
 var buttons := {}
 var action_buttons: Array[Button] = []
@@ -28,7 +26,6 @@ func _ready() -> void:
 	root = preload("res://scenes/terrain_ui.tscn").instantiate()
 	add_child(root)
 	launch = root.get_node("TerrainButton")
-	upgrade = root.get_node("UpgradeButton")
 	panel = root.get_node("TerrainButton2")
 	undo_button = root.get_node("TerrainButton2/Tools/UndoButton")
 	done_button = root.get_node("TerrainButton2/CloseButton")
@@ -36,9 +33,7 @@ func _ready() -> void:
 		if editing:
 			collapsed = false
 			refresh(editing, "", not undo_button.disabled)
-		elif layout.unlocked: edit_toggled.emit()
-		else: unlock_requested.emit(2))
-	upgrade.pressed.connect(func(): unlock_requested.emit(layout.level + 1))
+		elif layout.unlocked: edit_toggled.emit())
 	for kind in ["ground", "stairs", "tree", "bridge", "sheep", "house"]:
 		var icon_parent := "TerrainButton2/Tools/" + ("TallIconsClip/" if kind in ["stairs", "tree", "tree2"] else "")
 		var button: Button = root.get_node(icon_parent + kind.capitalize().replace(" ", "") + "Button")
@@ -70,12 +65,12 @@ func arrange() -> void:
 	root.scale = Vector2.ONE * scale_ui
 	var area := size / scale_ui
 	root.size = area
-	var extra := (34 if layout.level >= 5 else 0) + (34 if layout.level >= 7 else 0)
+	var extra := (34 if layout.level >= 5 else 0) + (34 if layout.level >= 2 else 0)
 	panel.offset_left = (-274 if layout.bridges_enabled else -206) - extra
 	var tools := root.get_node("TerrainButton2/Tools")
 	tools.get_node("PickupButton").position.x = (252 if layout.bridges_enabled else 184) + extra
 	buttons.sheep.position.x = 252 if layout.bridges_enabled else 184
-	buttons.chicken.position.x = 286 if layout.bridges_enabled else 218
+	buttons.chicken.position.x = (252 if layout.bridges_enabled else 184) + (34 if layout.level >= 5 else 0)
 	buttons.house.position.x = 286 if layout.bridges_enabled else 218
 	undo_button.position.x = (285 if layout.bridges_enabled else 217) + extra
 	if celebration != null:
@@ -88,11 +83,9 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 		collapsed = false
 	editing = is_editing
 	arrange()
-	launch.accessibility_name = "Inventory" if editing and collapsed else ("Terrain" if layout.unlocked else "Try level 2")
+	launch.accessibility_name = "Inventory" if editing and collapsed else "Terrain"
 	launch.tooltip_text = launch.accessibility_name
-	launch.visible = (not editing or collapsed) and celebration == null and (layout.unlocked or max_preview_level > 1)
-	upgrade.text = "Try level %s" % (layout.level + 1)
-	upgrade.visible = layout.level >= 2 and layout.level < max_preview_level and celebration == null and not editing
+	launch.visible = (not editing or collapsed) and celebration == null and layout.unlocked
 	panel.visible = editing and not collapsed and celebration == null
 	done_button.visible = panel.visible
 	for kind in buttons:
@@ -122,15 +115,15 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	undo_button.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if undo_button.disabled else Control.CURSOR_POINTING_HAND
 	arrange()
 
-func celebrate() -> void:
+func celebrate(target_level: int = 0) -> void:
+	var popup_level := target_level if target_level > 0 else int(layout.level)
 	done_button.hide()
 	launch.hide()
-	upgrade.hide()
 	panel.hide()
-	var popup_scene := preload("res://scenes/grass_level_popup.tscn") if layout.level >= 6 else preload("res://scenes/level_five_popup.tscn") if layout.level == 5 else preload("res://scenes/level_four_popup.tscn") if layout.level == 4 else preload("res://scenes/level_three_popup.tscn") if layout.level == 3 else preload("res://scenes/level_up_popup.tscn")
+	var popup_scene := preload("res://scenes/grass_level_popup.tscn") if popup_level >= 6 else preload("res://scenes/level_five_popup.tscn") if popup_level == 5 else preload("res://scenes/level_four_popup.tscn") if popup_level == 4 else preload("res://scenes/level_three_popup.tscn") if popup_level == 3 else preload("res://scenes/level_up_popup.tscn")
 	celebration = popup_scene.instantiate()
 	root.add_child(celebration)
-	celebration.configure(layout.level, layout.bridges_enabled)
+	celebration.configure(popup_level, layout.bridges_enabled)
 	celebration.get_node("BuildButton").pressed.connect(func():
 		celebration.queue_free()
 		celebration = null
