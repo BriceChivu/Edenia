@@ -57,6 +57,16 @@ func run() -> void:
 	await RenderingServer.frame_post_draw
 	var original_shadows := shadow_pixels()
 	check(not shadow_ids().is_empty(), "Shadow fixture renders clipped textures")
+	scene.terrain.refresh_drawing()
+	var static_revision: int = scene.terrain.drawing_revision
+	var static_keys: Array = scene.terrain.sorted_cells
+	var foam_phase: int = scene.terrain.foam_layer.phase
+	scene.terrain._process(0.21)
+	check(scene.terrain.foam_layer.phase != foam_phase, "Foam advances on its own animation clock")
+	check(scene.terrain.drawing_revision == static_revision and is_same(scene.terrain.sorted_cells, static_keys), "Foam advancement retains static terrain commands and sorted geometry")
+	for repeat in 120:
+		scene.terrain.refresh_drawing()
+	check(scene.terrain.drawing_revision == static_revision, "Unchanged terrain does not rebuild drawing commands")
 	var point: Vector2 = l.center(source)
 	scene.update_inventory_preview(point)
 	var proposed = scene.terrain.terrain_render_layout()

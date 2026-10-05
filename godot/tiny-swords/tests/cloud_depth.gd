@@ -53,6 +53,12 @@ func run() -> void:
 	level.get_node("World").add_child(animal)
 	cloud.update_depth_mask()
 	var animal_copy: Sprite2D = cloud.depth_occluders[animal]
+	var revision: int = cloud.depth_revision
+	for repeat in 120:
+		cloud.update_depth_mask()
+	if cloud.depth_revision != revision:
+		failures += 1
+		push_error("Unchanged occluders must retain the completed mask")
 	for sheet in [[level.LevelFiveArt.SHEEP_IDLE, 6, 1], [level.LevelFiveArt.SHEEP_GRASS, 12, 1], [level.LevelFiveArt.SHEEP_RUN, 4, 1], [level.LevelFiveArt.SHEEP_IDLE, 6, 1], [level.LevelFiveArt.SHEEP_GRASS, 6, 2]]:
 		animal.frame = 0
 		animal.texture = sheet[0]

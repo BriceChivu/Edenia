@@ -43,6 +43,14 @@ var baked_shadow_offset := Vector2.ZERO
 var shadow_center := Vector2.ZERO
 var depth_viewport: SubViewport
 var depth_occluders: Dictionary = {}
+var depth_inputs: Array = []
+var depth_revision := 0
+var depth_draw_pending := false
+static var visual_frame := -1
+static var previous_visuals: Dictionary = {}
+static var frame_visuals: Dictionary = {}
+static var visual_revision := 0
+var share_frame_visuals := false
 const TerrainPiece = preload("res://scripts/terrain_view.gd")
 
 func _ready() -> void:
@@ -119,13 +127,25 @@ func setup_depth_mask() -> void:
 	depth_viewport = SubViewport.new()
 	depth_viewport.transparent_bg = true
 	depth_viewport.disable_3d = true
-	depth_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	depth_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(depth_viewport)
 	material.set_shader_parameter("depth_mask", depth_viewport.get_texture())
 	material.set_shader_parameter("use_depth_mask", true)
 	# Both drift scripts own _process; pre-draw also catches animation, pawn
 	# movement and terrain edits after their respective process callbacks.
-	RenderingServer.frame_pre_draw.connect(update_depth_mask)
+	RenderingServer.frame_pre_draw.connect(update_depth_mask_frame)
+
+func update_depth_mask_frame() -> void:
+	# Several clouds observe the same world in this pre-draw boundary. Compare
+	# each source once, then share its revision, not its rendered depth ordering.
+	var frame := Engine.get_process_frames()
+	if frame != visual_frame:
+		visual_frame = frame
+		previous_visuals = frame_visuals
+		frame_visuals = {}
+	share_frame_visuals = true
+	update_depth_mask()
+	share_frame_visuals = false
 
 func strip_behavior(node: Node) -> void:
 	node.set_script(null)
@@ -139,6 +159,7 @@ func sync_visual(source: Node, copy: Node) -> void:
 		copy.modulate = source.modulate
 		copy.self_modulate = source.self_modulate
 		copy.visible = source.visible
+		copy.material = source.material
 	if source is Sprite2D:
 		copy.texture = source.texture
 		# Animation transitions can change the sheet grid on an existing copy.
@@ -148,6 +169,9 @@ func sync_visual(source: Node, copy: Node) -> void:
 		copy.offset = source.offset
 		copy.flip_h = source.flip_h
 		copy.flip_v = source.flip_v
+		copy.centered = source.centered
+		copy.region_enabled = source.region_enabled
+		copy.region_rect = source.region_rect
 	if source is AnimatedSprite2D:
 		copy.sprite_frames = source.sprite_frames
 		copy.animation = source.animation
@@ -155,8 +179,46 @@ func sync_visual(source: Node, copy: Node) -> void:
 		copy.offset = source.offset
 		copy.flip_h = source.flip_h
 		copy.flip_v = source.flip_v
+		copy.centered = source.centered
+	if source is Polygon2D:
+		copy.polygon = source.polygon
+		copy.color = source.color
+		copy.texture = source.texture
 	for index in range(mini(source.get_child_count(), copy.get_child_count())):
 		sync_visual(source.get_child(index), copy.get_child(index))
+
+func visual_inputs(source: Node) -> Array:
+	var identity := source.get_instance_id()
+	if share_frame_visuals and frame_visuals.has(identity):
+		return [identity, frame_visuals[identity].revision]
+	var inputs: Array = [source]
+	if source is Node2D:
+		inputs.append_array([source.transform, source.modulate, source.self_modulate, source.visible, source.material])
+	if source is Sprite2D:
+		inputs.append_array([source.texture, source.hframes, source.vframes, source.frame,
+			source.offset, source.flip_h, source.flip_v, source.centered, source.region_enabled, source.region_rect])
+		if source.has_method("is_visual_pixel_opaque"):
+			inputs.append(source.bend_angle)
+	if source is AnimatedSprite2D:
+		inputs.append_array([source.sprite_frames, source.animation, source.frame, source.offset, source.flip_h, source.flip_v, source.centered])
+	if source is Polygon2D:
+		inputs.append_array([source.polygon, source.color, source.texture])
+	if source is TerrainPiece:
+		source.refresh_drawing()
+		inputs.append(source.drawing_revision)
+	for child in source.get_children():
+		inputs.append(visual_inputs(child))
+	if share_frame_visuals:
+		var previous: Dictionary = previous_visuals.get(identity, {})
+		var record: Dictionary
+		if not previous.is_empty() and previous.inputs == inputs:
+			record = previous
+		else:
+			visual_revision += 1
+			record = {"inputs": inputs, "revision": visual_revision}
+		frame_visuals[identity] = record
+		return [identity, record.revision]
+	return inputs
 
 func update_depth_mask() -> void:
 	if depth_viewport == null or not is_inside_tree():
@@ -170,19 +232,32 @@ func update_depth_mask() -> void:
 	var world := owner_scene.get_node("World")
 	# Keep the mask in logical canvas coordinates. Window stretch is applied
 	# only when displaying the completed main viewport.
-	depth_viewport.size = Vector2i(get_viewport().get_visible_rect().size)
-	depth_viewport.canvas_transform = get_viewport().canvas_transform
-	var mask_transform := depth_viewport.canvas_transform
-	material.set_shader_parameter("mask_size", Vector2(depth_viewport.size))
-	material.set_shader_parameter("mask_axes", Vector4(mask_transform.x.x, mask_transform.x.y, mask_transform.y.x, mask_transform.y.y))
-	material.set_shader_parameter("mask_origin", mask_transform.origin)
+	var mask_size := Vector2i(get_viewport().get_visible_rect().size)
+	var mask_transform := get_viewport().canvas_transform
 	var candidates: Dictionary = {}
+	var inputs: Array = [mask_size, mask_transform]
 	if is_visible_in_tree():
 		for item in world.get_children():
 			if item is Node2D and item.is_visible_in_tree() and item.z_index >= 0 and item.global_position.y > shadow_ground_position().y:
 				candidates[item] = true
+				inputs.append_array([item.global_transform, visual_inputs(item)])
+	if inputs == depth_inputs:
+		# Canvas redraws queued during pre-draw become available next frame.
+		# Render that frame too, then retain the completed mask texture.
+		if depth_draw_pending:
+			depth_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+			depth_draw_pending = false
+		return
+	depth_inputs = inputs.duplicate(true)
+	depth_revision += 1
+	depth_draw_pending = not candidates.is_empty()
+	depth_viewport.size = mask_size
+	depth_viewport.canvas_transform = mask_transform
+	material.set_shader_parameter("mask_size", Vector2(mask_size))
+	material.set_shader_parameter("mask_axes", Vector4(mask_transform.x.x, mask_transform.x.y, mask_transform.y.x, mask_transform.y.y))
+	material.set_shader_parameter("mask_origin", mask_transform.origin)
 	material.set_shader_parameter("use_depth_mask", not candidates.is_empty())
-	depth_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if not candidates.is_empty() else SubViewport.UPDATE_DISABLED
+	depth_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE if not candidates.is_empty() else SubViewport.UPDATE_DISABLED
 	for item in depth_occluders.keys():
 		if not is_instance_valid(item) or not candidates.has(item):
 			var copy: Node = depth_occluders[item]

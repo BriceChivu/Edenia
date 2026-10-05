@@ -29,6 +29,12 @@ var valid := false
 var tool := "meadow"
 var elapsed := 0.0
 var textures: Dictionary = {}
+var drawing_inputs: Array = []
+var drawing_revision := 0
+var geometry_inputs: Array = []
+var geometry_revision := 0
+var sorted_cells: Array = []
+var foam_layer
 var shadow_textures: Array[Texture2D] = []
 var shadow_positions: Array[Vector2] = []
 var shadow_source: Image
@@ -47,14 +53,50 @@ var water_stair := preload("res://assets/terrain/stair-ramp-water.png")
 func _ready() -> void:
 	for kind in layout.KINDS:
 		textures[kind] = load("res://Tiny Swords (Free Pack)/Terrain/Tileset/Tilemap_color%s.png" % layout.COLORS[kind])
+	if piece == null and shadow_height < 0 and backing_height < 0 and editor_source == null:
+		foam_layer = preload("res://scripts/terrain_foam.gd").new()
+		foam_layer.terrain = self
+		foam_layer.show_behind_parent = true
+		add_child(foam_layer)
 
 func _process(delta: float) -> void:
-	if piece != null or shadow_height >= 0 or backing_height >= 0:
-		if render_source != null:
-			queue_redraw()
-		return
 	elapsed += delta
+	refresh_drawing()
+	if foam_layer != null:
+		foam_layer.update_frame(sorted_cells, int(elapsed * 5.0) % 16)
+
+func display_layout():
+	var source = render_source if render_source != null else self
+	var proposed = source.terrain_render_layout() if editor_source == null else null
+	return proposed if proposed != null else layout
+
+func refresh_drawing() -> bool:
+	var current = display_layout()
+	if current == null:
+		return false
+	var geometry: Array = [current.cells, current.elevations, current.stair_directions, current.manual_ground_elevation]
+	if geometry != geometry_inputs:
+		geometry_inputs = geometry.duplicate(true)
+		geometry_revision += 1
+		if piece == null and shadow_height < 0 and backing_height < 0 and editor_source == null:
+			sorted_cells = current.cells.keys()
+			sorted_cells.sort_custom(func(a, b): return a.y < b.y if a.y != b.y else a.x < b.x)
+	var inputs: Array = [geometry_revision, piece, shadow_height, backing_height]
+	if editor_source != null:
+		var source = editor_source
+		inputs.append_array([source.editing, source.hover, source.valid, source.tool,
+			source.preview_position, source.ground_preview_height, source.changes,
+			source.transform_preview, current.trees, current.tree_types, current.houses,
+			current.house_offsets, current.house_bundle, current.bridges, current.next_tree_variant])
+		if source.editing:
+			for tree in source.outline_trees:
+				inputs.append_array([tree.get_meta("cell"), tree.frame])
+	if inputs == drawing_inputs:
+		return false
+	drawing_inputs = inputs.duplicate(true)
+	drawing_revision += 1
 	queue_redraw()
+	return true
 
 func joined(cell: Vector2i, step: Vector2i) -> bool:
 	var neighbor := cell + step
@@ -342,6 +384,7 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE, preview_height
 	draw_texture_rect_region(texture, Rect2(origin, Vector2(64, 64)), ground_region(cell, kind), tint)
 
 func _draw() -> void:
+	refresh_drawing()
 	var live_layout = layout
 	var source = render_source if render_source != null else self
 	if editor_source == null:
@@ -387,14 +430,9 @@ func draw_contents() -> void:
 		draw_set_transform(-position)
 		draw_tile(piece, layout.cells[piece])
 		return
-	var keys: Array = layout.cells.keys()
-	keys.sort_custom(func(a, b): return a.y < b.y if a.y != b.y else a.x < b.x)
-
-	for cell in keys:
-		var p: Vector2 = layout.ORIGIN + Vector2(cell) * 64
-		# Neighboring waves start at different frames.
-		var frame := (int(elapsed * 5.0) + absi(cell.x * 7 + cell.y * 11)) % 16
-		draw_texture_rect_region(foam, Rect2(p - Vector2(32, 32), Vector2(128, 128)), Rect2(frame * 192 + 32, 32, 128, 128))
+	var keys: Array = sorted_cells
+	if foam_layer != null:
+		foam_layer.update_frame(keys, int(elapsed * 5.0) % 16)
 	# Shadow layers render separately above their receiving floor.
 	for cell in keys:
 		# Solid cliff supports replace the base tile. Drawing grass beneath
