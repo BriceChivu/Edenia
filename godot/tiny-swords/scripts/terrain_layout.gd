@@ -38,7 +38,7 @@ const LEVEL_REWARDS := {
 	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1, "bridge": 1},
 	4: {"meadow": 3, "tree": 1},
 	5: {"meadow": 3, "sheep": 1, "house": 0},
-	6: {"meadow": 3},
+	6: {"meadow": 3, "tree": 1},
 	7: {"meadow": 3, "chicken": 1},
 	8: {"meadow": 3, "sheep": 1},
 	9: {"meadow": 3},
@@ -868,7 +868,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 27, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 28, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.houses = []
 	for cell in houses:
 		var offset: Vector2 = house_offsets.get(cell, Vector2.ZERO)
@@ -899,7 +899,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
@@ -1046,8 +1046,12 @@ func restore(data: Dictionary) -> bool:
 		return false
 	if total != expected_total + int(bonus) + int(next_grants.get("ground", 0)):
 		return false
-	if next_trees.size() + next_stock.tree != (0 if next_level < 3 else (1 if next_level == 3 else 2)) + int(next_grants.get("tree", 0)):
+	var tree_rewards := (0 if next_level < 3 else (1 if next_level == 3 else 2)) + (1 if int(data.version) >= 28 and next_level >= 6 else 0)
+	if next_trees.size() + next_stock.tree != tree_rewards + int(next_grants.get("tree", 0)):
 		return false
+	# Grant the new level-six tree once to existing islands.
+	if int(data.version) < 28 and next_level >= 6:
+		next_stock.tree += 1
 	var next_bridges := {}
 	if int(data.version) >= 11:
 		if not data.get("bridges") is Array:
