@@ -27,6 +27,8 @@
 
 
 ## Feel and design:
+- fix the log and logs perspective  
+
 - hover animations of video cards: video duration's animation is not smooth (top right corner of the video card)
 - on small viewports and mobile, do not show the outer blue rounded rectangle around the "return to feed" icon. Similar to favorite heart button in watched. The Rectangle should remain on desktop and tablets though.
 - revamp filter (All, unwatched, in progress, watch later, favorite) button and videos/shorts button

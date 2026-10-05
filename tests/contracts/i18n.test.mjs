@@ -25,11 +25,11 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  "en": "ec56a11b8d53d81482de10e2e41bd2f2cabad700cedf6a6c6f3fcb19812015f7",
-  "zh-Hant": "b1fad3ec84c0f9a694f2d57d2c1d25647a1e44a1cc806bf8cde0f81cbc3ffbb6",
-  "zh-Hans": "434f6cad520c2dd8967787a4950c2827d75201eff92fa33ad362dc1e8acb6320",
-  "es": "7bde6869cf96645694a9ff9aab7c87242c77c42d3dc5230178bb9a8435c1157e",
-  "fr": "a9323b8d01cea2461c64838768c8555c44936277c1fe1ff7a3359479f08fa3ce"
+  "en": "8711f7db6151d08134c526df1ccc98f035e8a2ebd896ab4810c6facf9d0d8140",
+  "zh-Hant": "8e47a620e54aa24aeacb4c6f3d86404425d09d3e0b5a38d1fe75eb3f0c99300c",
+  "zh-Hans": "4314f700f88cdf6890d1bb86500140a327373a5d6f81335748de898474505eb3",
+  "es": "6ba12946fc3213f7ddc54614d8e3426c9a55c07415bdbc4a4067339188248841",
+  "fr": "57ecaca83648a9354723b0100e4d8f3771103210de80264575a8af06f3abcbae"
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
@@ -318,10 +318,10 @@ const heatmapLabelSource = heatmapAppSource.slice(
   heatmapAppSource.indexOf('function formatHeatmapAriaLabel('),
   heatmapAppSource.indexOf('\nfunction getWeekMonday(')
 )
-const formatHeatmapLabel = new Function('t', 'formatHeatmapTitle', 'getHistoryDayPoints', 'formatHistoryTime', `
+const formatHeatmapLabel = new Function('t', 'formatHeatmapTitle', 'getHistoryDayPoints', 'formatHistoryTime', 'formatHistoryPointNumber', `
   ${heatmapLabelSource}
   return formatHeatmapAriaLabel
-`)(t, () => 'DATE', () => 12, () => 'TIME')
+`)(t, () => 'DATE', () => 12, () => 'TIME', String)
 
 for (const [locale, streakTerm] of Object.entries({
   en: 'day streak', 'zh-Hant': '天連續', 'zh-Hans': '天连续',
@@ -330,7 +330,7 @@ for (const [locale, streakTerm] of Object.entries({
   test(`heatmap accessible name preserves complete localized details and optional streak in ${locale}`, () => {
     setCurrentLocale(locale)
     try {
-      const row = { secondsWatched: 60, videosWatched: 3, ankiReviewed: 6, ankiCreated: 1 }
+      const row = { hasExperience: true, secondsWatched: 60, videosWatched: 3, ankiReviewed: 6, ankiCreated: 1 }
       for (const ankiEnabled of [true, false]) {
         const base = t(ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki', {
           date: 'DATE', points: 12, time: 'TIME', videos: 3, reviewed: 6, created: 1

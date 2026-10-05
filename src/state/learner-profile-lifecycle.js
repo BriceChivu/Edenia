@@ -957,7 +957,7 @@ export function createLearnerProfileLifecycleAuthority({
     )
     return mapPersistenceResult(persisted, saved => {
       if (!saved || !getCurrentActivationFor(profile)) return false
-      analytics.profileSaved(profile, { activation })
+      if (options.syncAnalytics !== false) analytics.profileSaved(profile, { activation })
       if (syncCloud) enqueueCloudSave(profile, activation)
       return true
     })

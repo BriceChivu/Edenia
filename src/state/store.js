@@ -2,6 +2,7 @@ import { mapPersistenceResult } from './persistence-result.js'
 
 export function createStateStore({
   storage,
+  onPersisted = () => {},
   getRepository = () => null,
   storageKey,
   discardableCacheKeys = [],
@@ -37,6 +38,7 @@ export function createStateStore({
     if (repository) {
       return mapPersistenceResult(repository.save(state, { canPersist, replace: true }), persisted => {
         if (persisted) {
+          onPersisted(state, { replacement: true })
           saveConfigCookie(state.config)
           if (syncAnalytics) syncPersistedStateToAnalytics(state)
         }
@@ -64,6 +66,7 @@ export function createStateStore({
 
     const persisted = persistenceError === null
     if (persisted) {
+      onPersisted(state, { replacement: true })
       saveConfigCookie(state.config)
       if (syncAnalytics) syncPersistedStateToAnalytics(state)
     }
@@ -85,6 +88,7 @@ export function createStateStore({
     if (repository) {
       return mapPersistenceResult(repository.save(state, { canPersist }), persisted => {
         if (persisted) {
+          onPersisted(state, { replacement: options.replaceIsland === true })
           saveConfigCookie(state.config)
           if (syncAnalytics) syncPersistedStateToAnalytics(state)
         }
@@ -117,7 +121,10 @@ export function createStateStore({
         } catch {}
       }
     }
-    if (persisted) saveConfigCookie(state.config)
+    if (persisted) {
+      onPersisted(state, { replacement: options.replaceIsland === true })
+      saveConfigCookie(state.config)
+    }
     if (persisted && syncAnalytics) syncPersistedStateToAnalytics(state)
     return persisted
   }
