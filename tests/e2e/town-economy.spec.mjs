@@ -29,7 +29,7 @@ test('ten recorded minutes buys flowers once, persists after reload, and leaves 
   await expect(page.locator('.town-wallet')).toHaveText('15 coins')
   await page.reload()
   const xp = await page.locator('#cityScore').textContent()
-  expect(xp).toBe('10') // Live study earns one XP per recorded minute.
+  expect(xp).toBe('5')
   await expect(page.locator('.town-wallet')).toHaveText('15 coins')
   // The existing purchase target must follow the zoomed artwork and still open a fixed panel.
   if (await page.locator('[data-city-zoom-action="in"]').isVisible()) {

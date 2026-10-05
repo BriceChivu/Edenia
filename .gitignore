@@ -10,7 +10,6 @@ _site/
 _legacy_migration_site/
 playwright-report/
 test-results/
-/artifacts/
 blob-report/
 .cache/
 coverage/

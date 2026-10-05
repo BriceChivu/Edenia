@@ -15,15 +15,7 @@ export function normalizeVideoWatchProgress(progress, duration = null) {
       const seconds = maxSeconds === null
         ? Math.max(0, rawSeconds)
         : clampNumber(rawSeconds, 0, maxSeconds)
-      if (!watchedAt || seconds <= 0) return null
-      return {
-        watchedAt,
-        seconds,
-        ...(entry.experienceSeconds === undefined ? {} : {
-          experienceSeconds: clampNumber(Math.floor(Number(entry.experienceSeconds) || 0), 0, seconds)
-        }),
-        ...(typeof entry.studyDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.studyDay) ? { studyDay: entry.studyDay } : {})
-      }
+      return watchedAt && seconds > 0 ? { watchedAt, seconds } : null
     })
     .filter(Boolean)
     .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))

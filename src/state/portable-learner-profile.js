@@ -1,4 +1,3 @@
-import { copyTinySwordsIsland } from './tiny-swords-island.js'
 import { validateTownEconomy } from './town-economy.js'
 import { isValidTimestamp, toDateKey } from '../core/date-keys.js'
 import {
@@ -206,12 +205,7 @@ function normalizeWatchProgress(videoId, progress, duration, options = {}) {
       const studyDay = isValidDateKey(entry.studyDay)
         ? entry.studyDay
         : toDateKey(new Date(watchedAt))
-      return {
-        seconds, studyDay, watchedAt,
-        ...(entry.experienceSeconds === undefined ? {} : {
-          experienceSeconds: Math.min(seconds, Math.max(0, Math.floor(Number(entry.experienceSeconds) || 0)))
-        })
-      }
+      return { seconds, studyDay, watchedAt }
     })
     .filter(Boolean)
 
@@ -237,7 +231,6 @@ function normalizeWatchProgress(videoId, progress, duration, options = {}) {
     ))
     .map((entry, index) => ({
       id: `video:${encodeURIComponent(videoId)}:${entry.watchedAt}:${entry.seconds}:${index + 1}`,
-      ...(entry.experienceSeconds === undefined ? {} : { experienceSeconds: entry.experienceSeconds }),
       seconds: entry.seconds,
       studyDay: entry.studyDay,
       watchedAt: entry.watchedAt
@@ -355,12 +348,6 @@ export function reconcilePortableAnkiDays(...sources) {
       const observedAt = normalizeTimestamp(value.observedAt || value.loggedAt)
       const existing = byDate.get(studyDay)
       const next = {
-        ...(value.experienceWatermark === undefined && existing?.experienceWatermark === undefined ? {} : {
-          experienceWatermark: Math.max(existing?.experienceWatermark || 0, Math.max(0, Math.floor(Number(value.experienceWatermark) || 0)))
-        }),
-        ...(value.experienceReviews === undefined && existing?.experienceReviews === undefined ? {} : {
-          experienceReviews: Math.max(existing?.experienceReviews || 0, Math.max(0, Math.floor(Number(value.experienceReviews) || 0)))
-        }),
         created: Math.max(
           existing?.created || 0,
           normalizeAnkiCount(value.created)
@@ -387,11 +374,11 @@ export function reconcilePortableAnkiDays(...sources) {
 function normalizeCityProgress(value) {
   const cityProgress = isPlainRecord(value) ? value : {}
   return {
-    ...(cityProgress.experienceVersion === 1 ? { experienceVersion: 1 } : {}),
     maxLevelIndex: Math.max(
       0,
       Math.floor(Number(cityProgress.maxLevelIndex) || 0)
-    )
+    ),
+    ...(cityProgress.experienceVersion === 1 ? { experienceVersion: 1 } : {})
   }
 }
 
@@ -492,7 +479,6 @@ function createPortableProfile(state) {
     throw new TypeError('Portable learner profile source is invalid')
   }
   return {
-    ...(state.tinySwordsIsland == null ? {} : { tinySwordsIsland: copyTinySwordsIsland(state.tinySwordsIsland) }),
     ...(state.townEconomy === undefined ? {} : { townEconomy: cloneJson(validateTownEconomy(state.townEconomy)) }),
     activityLog: normalizeActivityLog(state.activityLog),
     anki: reconcilePortableAnkiDays(state.anki),

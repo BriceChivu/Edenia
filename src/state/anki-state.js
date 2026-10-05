@@ -102,8 +102,6 @@ export function normalizeAnkiDateKeys(state) {
 
     const existing = state.anki[ankiDateKey]
     state.anki[ankiDateKey] = {
-      ...(day.experienceReviews === undefined && existing?.experienceReviews === undefined ? {} : { experienceReviews: Math.max(day.experienceReviews || 0, existing?.experienceReviews || 0) }),
-      ...(day.experienceWatermark === undefined && existing?.experienceWatermark === undefined ? {} : { experienceWatermark: Math.max(day.experienceWatermark || 0, existing?.experienceWatermark || 0) }),
       reviewed: Math.max(existing?.reviewed || 0, day.reviewed || 0),
       created: Math.max(existing?.created || 0, day.created || 0),
       loggedAt: existing?.loggedAt && new Date(existing.loggedAt) > loggedAt ? existing.loggedAt : day.loggedAt,
