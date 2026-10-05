@@ -16,6 +16,7 @@ var water_phase: WaterPhase = WaterPhase.READY
 @onready var splash: AnimatedSprite2D = $WaterSplash
 
 func _ready() -> void:
+	preload("res://scripts/web_rendering_policy.gd").configure()
 	splash.reparent($World)
 	# Water effects sit below solid shores and rocks, including foreground land.
 	splash.z_index = -18
