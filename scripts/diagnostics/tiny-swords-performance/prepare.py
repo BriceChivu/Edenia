@@ -23,6 +23,8 @@ func _process(delta: float) -> void:
  var incoming = JSON.parse_string(JavaScriptBridge.eval("JSON.stringify(window.__perfFlags || {})"))
  if incoming is Dictionary: flags = incoming
  Engine.max_fps = int(flags.get("cap",0))
+ if flags.has("raf_interval"):
+  preload("res://scripts/web_rendering_policy.gd").set_frame_interval(int(flags.raf_interval))
  var world = get_tree().current_scene
  var data = {"seconds":duration,"timings":totals.duplicate(true),"fps":Engine.get_frames_per_second(),"nodes":Performance.get_monitor(Performance.OBJECT_NODE_COUNT),"objects":Performance.get_monitor(Performance.OBJECT_COUNT),"resources":Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT),"orphans":Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT),"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"render_objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"process_s":Performance.get_monitor(Performance.TIME_PROCESS),"physics_s":Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS),"static_bytes":Performance.get_monitor(Performance.MEMORY_STATIC),"video_bytes":Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED),"tiles":world.layout.cells.size(),"trees":world.layout.trees.size(),"sheep":world.layout.sheep.size(),"chickens":world.layout.chickens.size()}
  JavaScriptBridge.eval("window.__godotPerf=%s;window.__godotSamples=window.__godotSamples||[];window.__godotSamples.push(window.__godotPerf);if(window.__godotSamples.length>600)window.__godotSamples.shift()" % JSON.stringify(data))
@@ -41,12 +43,13 @@ for name,guards in files.items():
   wrapper=f'func {fn}({m.group(1)}) -> void:\n{guard}\tvar perf_start := Time.get_ticks_usec()\n\t_perf{fn}({arg})\n\tPerf.record("{name}:{fn}",Time.get_ticks_usec()-perf_start)\n\nfunc _perf{fn}({m.group(1)}) -> void:\n'
   s=s[:m.start()]+wrapper+s[m.end():]
  p.write_text(s)
-p=target/'scripts/xp_bridge.gd';s=p.read_text();s=s.replace('world_drag_threshold = 6.0','if not Perf.flags.get("layout_stop",false):\n\t\tworld_drag_threshold = 6.0');s=s.replace('\tsuper._process(delta)','\tvar perf_start := Time.get_ticks_usec()\n\tsuper._process(delta)\n\tPerf.record("bridge:super",Time.get_ticks_usec()-perf_start)\n\tif Perf.flags.get("bridge_stop",false): return\n\tperf_start = Time.get_ticks_usec()');s=s.replace('\tstudy_poll_elapsed += delta','\tPerf.record("bridge:css_read",Time.get_ticks_usec()-perf_start)\n\tstudy_poll_elapsed += delta');p.write_text(s)
+p=target/'scripts/xp_bridge.gd';s=p.read_text();s=s.replace('\tsuper._process(delta)','\tvar perf_start := Time.get_ticks_usec()\n\tsuper._process(delta)\n\tPerf.record("bridge:super",Time.get_ticks_usec()-perf_start)\n\tif Perf.flags.get("bridge_stop",false): return');p.write_text(s)
 
 from pathlib import Path
 import re
 base=Path('.cache/tiny-swords-perf/project/scripts')
 p=base/'terrain_view.gd';s=p.read_text().replace('var changes:', 'var perf_accum := 0.0\nvar changes:');s=s.replace('\tif Perf.flags.get("terrain_stop",false): return', '\tif Perf.flags.get("terrain_stop",false): return\n\tif Perf.flags.get("terrain_hz",0) > 0:\n\t\tperf_accum += delta\n\t\tif perf_accum < 1.0 / float(Perf.flags.terrain_hz):\n\t\t\telapsed += delta\n\t\t\treturn\n\t\tperf_accum = 0.0');p.write_text(s)
+p=base/'terrain_view.gd';s=p.read_text().replace('\t_perf_process(delta)', '\tif Perf.flags.get("terrain_uncached",false):\n\t\tdrawing_inputs.clear()\n\t\tgeometry_inputs.clear()\n\t\tif foam_layer != null: foam_layer.phase = -1\n\t_perf_process(delta)');p.write_text(s)
 for name,functions in {'level_two_preview.gd':['update_inventory_preview','inventory_changes','build_inventory_changes','update_cursor','land_route','clear_segment','rebuild_decorations'], 'house_construction.gd':['placement_plan'], 'terrain_layout.gd':['snapshot','path']}.items():
  p=base/name;s=p.read_text()
  for fn in functions:
@@ -78,6 +81,7 @@ s=s.replace('func update_depth_mask() -> void:\n','''func update_depth_mask() ->
  Perf.record("cloud_visual.gd:mask",Time.get_ticks_usec()-perf_start)
 func _perf_update_depth_mask() -> void:
 ''')
+s=s.replace('\n _perf_update_depth_mask()\n', '\n if Perf.flags.get("mask_uncached",false): depth_inputs.clear()\n _perf_update_depth_mask()\n')
 p.write_text(s)
 # Include masks in telemetry as a count and total pixel area.
 p=Path('.cache/tiny-swords-perf/project/scripts/perf.gd');s=p.read_text().replace(' var data = {',' var masks = []\n for c in get_tree().get_nodes_in_group("perf_clouds"):\n  masks.append({"width":c.depth_viewport.size.x,"height":c.depth_viewport.size.y,"occluders":c.depth_occluders.size(),"mode":c.depth_viewport.render_target_update_mode})\n var data = {"masks":masks,');p.write_text(s)
@@ -93,6 +97,7 @@ p.write_text('\n'.join(lines)+'\n')
 p=target/'scripts/perf.gd'
 s=p.read_text().replace('extends Node','extends Node\nconst Outline = preload("res://scripts/inventory_outline.gd")')
 s=s.replace('  if command.type == "edit": world.toggle_editing()', '  if command.type == "edit": world.toggle_editing()\n  if command.type == "cut": world.harvesting.start(Vector2i(int(command.x),int(command.y)))\n  if command.type == "cycle":\n   world.selected = "tree"\n   world.editing = true\n   world.ui.collapsed = false\n   world.apply_edit(Vector2i(int(command.x),int(command.y)))')
+s=s.replace('  if command.type == "cycle":', '  if command.type == "batch":\n   world.selected = "tree"\n   world.editing = true\n   world.ui.collapsed = false\n   for repeat in int(command.count):\n    if not world.apply_edit(Vector2i(8,8)): push_error("Soak edit rejected")\n    world.undo()\n   JavaScriptBridge.eval("window.__godotBatchDone=%s" % command.id)\n  if command.type == "cycle":')
 p.write_text(s)
 
 # Diagnostic-only cached/removed shadow probes. Cache lacks production

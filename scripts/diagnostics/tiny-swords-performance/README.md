@@ -28,6 +28,10 @@ excess offscreen renderer CPU exceeds five percent of one logical core. The gate
 also checks that suspended WebGL presentation stops and the same frame resumes
 and suspends again. Without `--assert-budgets`, it records the CPU result without
 failing its budget.
+Gate CPU samples disable the JS CPU profiler in both the island and no-island
+control; the baseline suite enables it in both. Keep profiler overhead matched
+when comparing excess CPU. The earlier gate used a profiled island and an
+unprofiled control, so its CPU delta is not a matched comparison.
 
 Prepare a separate instrumented Godot copy and export:
 
@@ -56,6 +60,9 @@ WASM instantiation and GL query wrappers also add measurement overhead.
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=baseline
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=causal
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=inventory
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=remaining
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=soak
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=startup
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=cloud
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=shadows
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=caps
@@ -97,6 +104,51 @@ The shared cloud sheet fix is present in every sample. Warmed unchanged samples 
 to `build_inventory_changes`; compare the repeated CPU and inclusive preview
 timings in `.cache/tiny-swords-perf/inventory.json` and retain both pairs to show
 run-to-run variation. This suite measures the instrumented game wrapper.
+
+`remaining` compares forced terrain/mask redraws, cached rendering, forced masks
+alone, asynchronous RAF divisor two, and a cached repeat. The forced modes retain
+the rendered choices and visuals. The default game keeps divisor one; the
+30-fps mode is not an established CPU saving. `soak` performs 1,000 successful
+tree edits/undo operations, flushes queued frees, checks retained terrain/stock,
+and rejects more than 10% growth in nodes/resources/objects after warmup. WASM
+capacity and error counts are retained in `soak-cycles.json`; capacity is not
+equivalent to live memory. This is a short action stress test, not a 30-minute run.
+
+`startup` uses fresh uninstrumented contexts at DPR 1/2/3, including phone-size
+touch emulation and a cold 10-Mb/s, 100-ms-latency network probe. It records total
+navigation-to-ready time, resource transfer timings and the actual backing canvas.
+It negotiates the builder's Brotli WASM/PCK artifacts when present; use `--plain`
+to measure uncompressed delivery. This remains a Mac/browser/network-emulation
+measurement, not startup on a physical phone or production hosting.
+The integration builder prepares `.br`/`.gz` variants. The ordinary static server
+also negotiates those variants with original MIME types and `Vary: Accept-Encoding`;
+restart an already-running server to load the updated serving code. Neither
+compression artifacts nor this diagnostic helper configure a public host.
+
+For real suspension intervals, `offscreen-actions` accepts `--hidden-ms=60000`,
+`--hidden-ms=1800000` or `--hidden-ms=7200000` for the construction/reservation
+check. Keep the browser running for the actual requested interval. Native
+`sheep_grazing.gd` separately compares continuous playback with simulated
+one-minute, 30-minute and two-hour clock jumps; clock simulation does not replace
+actual app/tab suspension or physical-device coverage.
+
+To collect physical-device evidence after preparing the instrumented export:
+
+```sh
+node scripts/diagnostics/tiny-swords-performance/device.mjs --host=0.0.0.0 --port=8051
+```
+
+Open the computer's LAN address on the device. Without `--host`, this helper
+binds only to loopback. It serves only the disposable game export and synthetic
+terraced fixture. Record device/OS/browser and power conditions, run the default
+cadence and optional divisor two, pan/zoom/edit, scroll fully offscreen, switch
+apps, and resume after 1/30/120 minutes. Download its JSON measurements. Inspect
+visible frame pacing, startup, engine/WASM memory estimates, errors, retained
+island state, and actual OS tab termination; use OS tools for total footprint,
+battery/thermal/GPU measurements. Repeat with real video playback in the normal
+integration and supported physical iPhone/iPad and low-memory Android hardware.
+Those last checks cannot be certified by the Mac's viewport emulation. Stop the
+server when finished; it does not expose learner data or deployment controls.
 
 `background` launches normal Chrome for Testing without Playwright's launch-time
 anti-throttling flags. It disconnects all CDP sessions and samples OS cumulative

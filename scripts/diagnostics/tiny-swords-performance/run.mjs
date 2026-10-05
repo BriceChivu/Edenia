@@ -7,7 +7,10 @@ const checkpointSuite=suite==='checkpoints'||suite==='checkpoint-game';
 const root=process.cwd(), out=resolve('.cache/tiny-swords-perf');let variant='original';
 const server=createServer(async(req,res)=>{try{
  const u=new URL(req.url,'http://localhost'); let p=u.pathname==='/'?'/index.html':u.pathname;
- let body; if(p==='/alone.html'){body=Buffer.from('<!doctype html><style>body{margin:0}iframe{width:1054px;height:454px;border:0;display:block}</style><iframe src="tiny-swords-xp-game/index.html"></iframe>')}else body=await readFile(p.startsWith('/tiny-swords-xp-game/')&&variant==='instrument'?resolve(out,'export3',p.split('/').at(-1)):resolve(root,'_site','.'+p));
+ let body; if(p==='/alone.html'){body=Buffer.from('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}iframe{width:min(1054px,100vw);height:454px;border:0;display:block}</style><iframe src="tiny-swords-xp-game/index.html"></iframe>')}else body=await readFile(p.startsWith('/tiny-swords-xp-game/')&&variant==='instrument'?resolve(out,'export3',p.split('/').at(-1)):resolve(root,'_site','.'+p));
+ if(!process.argv.includes('--plain')&&variant==='original'&&p.startsWith('/tiny-swords-xp-game/')&&/\.(wasm|pck)$/.test(p)&&req.headers['accept-encoding']?.includes('br')){
+  try{body=await readFile(resolve(root,'_site','.'+p+'.br'));res.setHeader('Content-Encoding','br');res.setHeader('Vary','Accept-Encoding');}catch{}
+ }
  if(p.endsWith('.js'))body=Buffer.from(body.toString().replaceAll('8037','8047'));
  if(p==='/index.html'&&u.searchParams.has('nogame'))body=Buffer.from(body.toString().replace('<script src="tiny-swords-xp-parent.js"></script>',''));
  res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.wasm':'application/wasm','.css':'text/css','.json':'application/json','.png':'image/png'})[extname(p)]||'application/octet-stream');res.end(body);
@@ -33,12 +36,14 @@ function island(side=0,animals=true){if(!side)return null;const a=structuredClon
 for(let y=side===20?-9:0;y<(side===20?11:side);y++)for(let x=0;x<side;x++){const tree=(x%3===2&&y%3===2);a.tiles.push([x,y,'meadow',tree,0,0,0]);if(tree)a.tree_offsets.push([x,y,0,0,'tree2']);}
 a.chickens=animals?[[608,272]]:[];a.sheep=animals?[[672,208]]:[];a.version=24;a.playground_grants={ground:a.tiles.length+Object.entries(a.stock).filter(([k])=>['meadow','gold','high_gold','high_meadow','violet','stairs'].includes(k)).reduce((n,[k,v])=>n+v*(k==='stairs'?2:1),0)-27,tree:a.tree_offsets.length+a.stock.tree-2,sheep:a.sheep.length+a.stock.sheep-1,chicken:a.chickens.length+a.stock.chicken-1};return a;}
 function natural(){const a=structuredClone(fixture);a.level=10;a.tiles=[];a.tree_offsets=[];a.tree_cut_remaining=[];a.house_bundle=0;a.decorations=[];for(const k of Object.keys(a.stock))a.stock[k]=0;a.stock.bridge=1;for(let y=0;y<6;y++)for(let x=0;x<6;x++){const tree=(x===2&&y===2)||(x===5&&y===5);a.tiles.push([x,y,'meadow',tree,0,0,0]);if(tree)a.tree_offsets.push([x,y,0,0,'tree2']);}a.chickens=[[608,272]];a.sheep=[[672,208]];return a;}
-async function setup({mode='integrated',side=0,dpr=2,instrument=false,channels=0,videos=0}={}){
- variant=instrument?'instrument':'original'; const context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:dpr});const page=await context.newPage();page.on('console',m=>{if(m.text().includes('ERROR')||m.type()==='error')console.log('GAME_CONSOLE',m.text().slice(0,300))});
+async function setup({mode='integrated',side=0,dpr=2,instrument=false,channels=0,videos=0,mobile=false,slow=false}={}){
+ variant=instrument?'instrument':'original'; const context=await browser.newContext({viewport:mobile?{width:393,height:852}:{width:1440,height:1000},deviceScaleFactor:dpr,isMobile:mobile,hasTouch:mobile});const page=await context.newPage();page.on('console',m=>{if(m.text().includes('ERROR')||m.type()==='error')console.log('GAME_CONSOLE',m.text().slice(0,300))});
+ if(slow){const network=await context.newCDPSession(page);await network.send('Network.enable');await network.send('Network.emulateNetworkConditions',{offline:false,latency:100,downloadThroughput:1250000,uploadThroughput:1250000});}
  await page.addInitScript(()=>{window.__memories=[];for(const k of ['instantiate','instantiateStreaming']){const original=WebAssembly[k];WebAssembly[k]=async function(...args){const result=await original.apply(WebAssembly,args);const exports=result.instance?.exports||result.exports;for(const v of Object.values(exports||{}))if(v instanceof WebAssembly.Memory)window.__memories.push(v);return result}};window.__errorCount=0;const e=console.error;console.error=function(...args){window.__errorCount++;return e.apply(console,args)};window.__gl={};for(const C of [WebGLRenderingContext,WebGL2RenderingContext]){const get=C.prototype.getParameter;C.prototype.getParameter=function(p){const t=performance.now();const r=get.call(this,p);const k=String(p);const v=window.__gl[k]||{calls:0,ms:0};v.calls++;v.ms+=performance.now()-t;window.__gl[k]=v;return r;}};window.__longTasks=[];new PerformanceObserver(l=>window.__longTasks.push(...l.getEntries().map(e=>({at:e.startTime,ms:e.duration})))).observe({type:'longtask',buffered:true});if(navigator.serviceWorker)Object.defineProperty(navigator.serviceWorker,'getRegistration',{value:async()=>undefined})});
  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  if(checkpointSuite)await page.route('**/config.local.js*',r=>r.fulfill({contentType:'text/javascript',body:'window.EDENIA_CONFIG={accountFeaturesRollout:"off",learnerProfileLifecycleEnabled:false,indexedDbProfileEnabled:true,indexedDbBackupsEnabled:true}'}));
  const target='http://127.0.0.1:8047/'+(mode==='nogame'?'?nogame':''); const a=side===98?JSON.parse(await readFile(out+'/stair-fixture.json')):side===99?JSON.parse(await readFile(out+'/terraced-fixture.json')):side===6?natural():island(side);
+ const navigationBegan=Date.now();
  if(mode==='alone'){
  await page.addInitScript(a=>{window.addEventListener('DOMContentLoaded',()=>{window.edeniaStudySession=1;window.edeniaStudyReady=true;window.edeniaStudyLevel=a?7:1;window.edeniaStudyLayout=a})},a);await page.goto('http://127.0.0.1:8047/alone.html');
  }else{
@@ -48,7 +53,7 @@ async function setup({mode='integrated',side=0,dpr=2,instrument=false,channels=0
  }
  const gf=mode==='nogame'?null:page.frames().find(f=>f.url().includes('tiny-swords-xp-game'));
  const start=Date.now();if(gf){try{await gf.waitForFunction(()=>window.edeniaGameLevel>=1,null,{timeout:60000})}catch(e){console.log('RESTORE DEBUG',await gf.evaluate(()=>({level:window.edeniaGameLevel,perf:window.__godotPerf,body:document.body.innerText})),await page.locator('.tiny-swords-save-status').innerText());throw e;}}
- const startup={readyAfterLoadMs:Date.now()-start,resources:gf?await gf.evaluate(()=>performance.getEntriesByType('resource').filter(x=>/wasm|pck|index.js/.test(x.name)).map(x=>({name:x.name.split('/').at(-1),duration:x.duration,transfer:x.transferSize,decoded:x.decodedBodySize}))):[]};console.log('STARTUP',startup);
+ const startup={readyAfterLoadMs:Date.now()-start,totalFromNavigationMs:Date.now()-navigationBegan,resources:gf?await gf.evaluate(()=>performance.getEntriesByType('resource').filter(x=>/wasm|pck|index.js/.test(x.name)).map(x=>({name:x.name.split('/').at(-1),duration:x.duration,transfer:x.transferSize,decoded:x.decodedBodySize}))):[]};console.log('STARTUP',startup);
  await new Promise(r=>setTimeout(r,6000));return {context,page,gf,startup};
 }
 async function flags(gf,value){await gf.evaluate(v=>window.__perfFlags=v,value);await new Promise(r=>setTimeout(r,1400));}
@@ -56,13 +61,13 @@ async function worldClick(page,gf,x,y){const c=await gf.evaluate(()=>window.eden
 try {
  if(suite==='gate'||suite==='baseline') {
   for(const mode of suite==='gate'?['integrated']:['nogame','integrated','alone']) {
-   const s=await setup({mode});await sample(s.page,mode+'-idle',10,true);
+   const s=await setup({mode});await sample(s.page,mode+'-idle',10,suite!=='gate');
    if(mode==='integrated'){
     await s.page.evaluate(()=>{document.body.append(Object.assign(document.createElement('div'),{style:'height:2000px'}));scrollTo(0,1500)});
     const bounds=await s.page.locator('iframe.tiny-swords-frame').boundingBox();if(bounds.y+bounds.height>=0)throw new Error('Offscreen fixture failed');
     if(suite==='gate')await s.gf.waitForFunction(()=>window.edeniaPresentationSuspended===true,null,{timeout:5000});
     const queriesBefore=await s.gf.evaluate(()=>window.__gl['36006']?.calls||0);
-    const row=await sample(s.page,'integrated-offscreen',10,true);const cpu=row.processes.filter(p=>p.type==='renderer').reduce((n,p)=>n+p.cpuPercent,0);
+    const row=await sample(s.page,'integrated-offscreen',10,suite!=='gate');const cpu=row.processes.filter(p=>p.type==='renderer').reduce((n,p)=>n+p.cpuPercent,0);
     if(suite==='gate'){
      const queriesAfter=await s.gf.evaluate(()=>window.__gl['36006']?.calls||0);
      if(queriesAfter!==queriesBefore)throw new Error('Suspended island continued WebGL frame presentation');
@@ -72,14 +77,14 @@ try {
      await s.gf.waitForFunction(()=>window.edeniaPresentationSuspended===true,null,{timeout:5000});
      console.log('OFFSCREEN_RESUME PASS: same frame resumed WebGL presentation and suspended again');
     }
-    await s.page.locator('iframe.tiny-swords-frame').evaluate(frame=>frame.remove());await new Promise(r=>setTimeout(r,6000));const control=await sample(s.page,'iframe-removed-control',10);const controlCpu=control.processes.filter(p=>p.type==='renderer').reduce((n,p)=>n+p.cpuPercent,0);const excess=Math.max(0,cpu-controlCpu);const pass=excess<=5;console.log(`OFFSCREEN_BUDGET ${pass?'PASS':'FAIL'}: ${cpu.toFixed(1)}% total renderer CPU, ${controlCpu.toFixed(1)}% without iframe, ${excess.toFixed(1)}% excess, budget 5% of one core`);
+    await s.page.locator('iframe.tiny-swords-frame').evaluate(frame=>frame.remove());await new Promise(r=>setTimeout(r,6000));const control=await sample(s.page,'iframe-removed-control',10,suite!=='gate');const controlCpu=control.processes.filter(p=>p.type==='renderer').reduce((n,p)=>n+p.cpuPercent,0);const excess=Math.max(0,cpu-controlCpu);const pass=excess<=5;console.log(`OFFSCREEN_BUDGET ${pass?'PASS':'FAIL'}: ${cpu.toFixed(1)}% total renderer CPU, ${controlCpu.toFixed(1)}% without iframe, ${excess.toFixed(1)}% excess, budget 5% of one core`);
     if(process.argv.includes('--assert-budgets')&&!pass)process.exitCode=1;
    }
    await s.context.close();
   }
  } else if(suite==='causal') {
   const s=await setup({instrument:true,side:10});
-  for(const [label,value] of [['base',{}],['terrain-stop',{terrain_stop:true}],['terrain5',{terrain_hz:5}],['layout-stop',{layout_stop:true}],['bridge-stop',{bridge_stop:true}],['animals-stop',{animals_stop:true}],['base-repeat',{}]]){await flags(s.gf,value);await sample(s.page,label,10,true);}
+  for(const [label,value] of [['base',{}],['terrain-stop',{terrain_stop:true}],['terrain5',{terrain_hz:5}],['bridge-stop',{bridge_stop:true}],['animals-stop',{animals_stop:true}],['base-repeat',{}]]){await flags(s.gf,value);await sample(s.page,label,10,true);}
   await s.gf.evaluate(()=>window.__perfCommand={type:'edit'});await new Promise(r=>setTimeout(r,1200));await sample(s.page,'editor',10,true);await flags(s.gf,{preview_stop:true});await sample(s.page,'editor-no-preview',10,true);await flags(s.gf,{});await sample(s.page,'editor-repeat',10,true);await s.context.close();
  } else if(suite==='inventory') {
   const s=await setup({instrument:true,side:10});
@@ -89,6 +94,38 @@ try {
   for(const[label,uncached]of [['inventory-uncached',true],['inventory-cached',false],['inventory-uncached-repeat',true],['inventory-cached-repeat',false]]){
    await flags(s.gf,{inventory_uncached:uncached});await sample(s.page,label,10,true);
   }
+  await s.context.close();
+ } else if(suite==='startup') {
+  for(const config of [{dpr:1},{dpr:2},{dpr:3,mobile:true},{dpr:3,mobile:true,slow:true}]){
+   const s=await setup({mode:'alone',...config});
+   results.push({config,startup:s.startup,...await s.gf.evaluate(()=>({canvas:[canvas.width,canvas.height],maxPixelRatio:window.edeniaMaxPixelRatio,errors:window.__errorCount||0}))});
+   await writeFile(out+'/startup.json',JSON.stringify(results,null,2));await s.context.close();
+  }
+ } else if(suite==='remaining') {
+  const s=await setup({instrument:true,side:10});
+  for(const[label,value]of [['forced-redraw',{terrain_uncached:true,mask_uncached:true,raf_interval:1}],['cached',{raf_interval:1}],['forced-mask',{mask_uncached:true,raf_interval:1}],['raf-divisor-2',{raf_interval:2}],['cached-repeat',{raf_interval:1}]]){
+   await flags(s.gf,value);const row=await sample(s.page,label,10,true);
+   if(row.consoleErrors)throw new Error('Remaining-work sample emitted console errors');
+  }
+  await s.context.close();
+ } else if(suite==='soak') {
+  const s=await setup({instrument:true,side:10}),memory=[];
+  const original=await s.page.evaluate(()=>{const l=loadState().tinySwordsIsland;return JSON.stringify([l.tiles,l.tree_offsets,l.stock,l.resources]);});
+  for(let batch=0;batch<50;batch++){
+   await s.gf.evaluate(id=>window.__perfCommand={type:'batch',count:10,id},batch);
+   await s.gf.waitForFunction(id=>window.__godotBatchDone===id,batch,{timeout:10000});
+   await s.page.waitForTimeout(100);
+   if(batch%5===4){await s.page.waitForTimeout(1200);memory.push({actions:(batch+1)*20,data:await s.gf.evaluate(()=>({perf:window.__godotPerf,wasm:window.__memories.map(m=>m.buffer.byteLength),errors:window.__errorCount}))});}
+  }
+  await s.page.waitForTimeout(3000);
+  memory.push({actions:1000,data:await s.gf.evaluate(()=>({perf:window.__godotPerf,wasm:window.__memories.map(m=>m.buffer.byteLength),errors:window.__errorCount}))});
+  await writeFile(out+'/soak-cycles.json',JSON.stringify(memory,null,2));
+  if(memory.some(x=>x.data.errors))throw new Error('Soak emitted console errors');
+  const retained=await s.page.evaluate(()=>{const l=loadState().tinySwordsIsland;return JSON.stringify([l.tiles,l.tree_offsets,l.stock,l.resources]);});
+  if(retained!==original)throw new Error('Soak edits/undo changed retained terrain or inventory');
+  const warm=memory.find(x=>x.actions>=200).data.perf,final=memory.at(-1).data.perf;
+  for(const key of ['nodes','resources','objects'])if(final[key]>warm[key]*1.1)throw new Error('Soak retained '+key+' grew by more than 10% after warmup');
+  console.log('SOAK PASS: 1000 tree edits/undo operations completed; inspect retained-resource samples');
   await s.context.close();
  } else if(suite==='cloud') {
   for(const dpr of [2,1]){const s=await setup({instrument:true,side:10,dpr});for(const[label,value]of [['base',{}],['mask-stop',{mask_stop:true}],['mask5',{mask_hz:5}],['base-repeat',{}]]){await flags(s.gf,value);await sample(s.page,`dpr${dpr}-${label}`,10,true);}await s.context.close();}
@@ -146,7 +183,8 @@ try {
   const resume=async()=>{await s.page.evaluate(()=>scrollTo(0,0));await s.gf.waitForFunction(()=>window.edeniaPresentationSuspended===false,null,{timeout:5000});};
   await s.gf.evaluate(()=>window.__perfCommand={type:'build',x:3,y:0});
   await s.page.waitForFunction(()=>Object.keys(loadState().tinySwordsIsland?.house_build||{}).length>0,null,{timeout:15000});
-  const building=await durable();await hide();await new Promise(r=>setTimeout(r,21000));
+  const hiddenMs=Number(process.argv.find(x=>x.startsWith('--hidden-ms='))?.split('=')[1]||21000);
+  const building=await durable();await hide();await new Promise(r=>setTimeout(r,Math.max(21000,hiddenMs)));
   if(JSON.stringify((await durable()).house_build)!==JSON.stringify(building.house_build))throw new Error('Suspension altered durable construction before resume');
   await resume();await s.page.waitForFunction(()=>Object.keys(loadState().tinySwordsIsland?.house_build||{}).length===0,null,{timeout:10000});
   const built=await durable();if(built.houses.length!==building.houses.length||built.house_bundle!==0||built.resources.wood!==building.resources.wood)throw new Error('Construction resume lost or duplicated house/logs');

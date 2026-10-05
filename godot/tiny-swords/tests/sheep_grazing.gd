@@ -74,6 +74,27 @@ func run() -> void:
 	sheep.updated_at = 100.0
 	sheep.advance(0.016, 220.0)
 	check(sheep.position.distance_to(active_position) < 0.001 and sheep.grazing_cycles == active_cycles and sheep.grazing_target == active_target and absf(sheep.resting_time - active_rest) < 0.001, "Two-minute background catch-up matches continuous playback")
+	for hidden_seconds in [60.37, 1800.37, 7200.37]:
+		var states: Array = []
+		for suspended in [false, true]:
+			seed(12345)
+			sheep.position = origin
+			scene.layout.sheep[0] = origin
+			sheep.fleeing = false
+			sheep.escape_route.clear()
+			sheep.tile_destinations.clear()
+			sheep.reset_grazing()
+			sheep.updated_at = 100.0
+			if suspended:
+				sheep.advance(0.016, 100.0 + hidden_seconds)
+			else:
+				var remaining: float = hidden_seconds
+				while remaining > 0:
+					var step := minf(0.1, remaining)
+					sheep.advance(step, 100.0)
+					remaining -= step
+			states.append([sheep.position, sheep.grazing_cycles, sheep.grazing_target, sheep.resting_time])
+		check(states[0][0].distance_to(states[1][0]) < 0.001 and states[0][1] == states[1][1] and states[0][2] == states[1][2] and absf(states[0][3] - states[1][3]) < 0.001, "Long clock catch-up matches continuous grazing: %s seconds" % hidden_seconds)
 	# Building counts grazing but defers wandering until gameplay resumes.
 	sheep.position = origin
 	scene.layout.sheep[0] = origin
