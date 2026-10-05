@@ -374,7 +374,7 @@ func pawn_view_center() -> Vector2:
 func camera_command(command: String) -> void:
 	match command:
 		"in": game_camera.zoom = Vector2.ONE * minf(1.5, game_camera.zoom.x + 0.1)
-		"out": game_camera.zoom = Vector2.ONE * maxf(0.5, game_camera.zoom.x - 0.1)
+		"out": game_camera.zoom = Vector2.ONE * maxf(preload("res://scripts/cloud_visual.gd").MIN_VIEW_ZOOM, game_camera.zoom.x - 0.1)
 		"reset":
 			game_camera.position = pawn_view_center()
 			game_camera.zoom = Vector2.ONE * DEFAULT_ZOOM
@@ -412,7 +412,7 @@ func load_camera_view() -> void:
 		if not is_finite(float(data[field])):
 			return
 	game_camera.position = Vector2(data.x, data.y)
-	game_camera.zoom = Vector2.ONE * clampf(float(data.zoom), 0.5, 1.5)
+	game_camera.zoom = Vector2.ONE * clampf(float(data.zoom), preload("res://scripts/cloud_visual.gd").MIN_VIEW_ZOOM, 1.5)
 
 func fit_build_cursor() -> void:
 	# Assemble one grid square at 1x; camera zoom scales the whole pickup cursor.

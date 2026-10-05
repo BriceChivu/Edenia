@@ -83,10 +83,21 @@ func run() -> void:
 			cloud.update_depth_mask()
 			check(not cloud.depth_occluders.has(depth_probe), "Cloud covers objects above the annotated shadow line")
 	depth_probe.queue_free()
+	var boundary_camera := Camera2D.new()
+	boundary_camera.position = Vector2(900.0, 248.0)
+	level.add_child(boundary_camera)
+	boundary_camera.make_current()
+	for zoom in [0.5, 0.8, 1.5]:
+		boundary_camera.zoom = Vector2.ONE * zoom
+		var bounds: Vector2 = cloud.crossing_bounds()
+		var half_canvas: float = cloud.texture.get_width() * cloud.scale.x / 2.0
+		var half_view: float = cloud.get_viewport_rect().size.x / 0.5 / 2.0
+		check(is_equal_approx(bounds.x + half_canvas, 900.0 - half_view) and is_equal_approx(bounds.y - half_canvas, 900.0 + half_view), "Cloud transitions stay at the widest view edges across camera zoom and pan")
+	boundary_camera.free()
 	cloud.set_variant(0)
 	for cycle in range(8):
 		seen[cloud.variant_index] = true
-		cloud.position.x = 1600.0
+		cloud.global_position.x = cloud.crossing_bounds().y + 1.0
 		cloud._process(0.0)
 	check(seen.size() == 8, "Real offscreen wrap uses all eight cloud variants")
 	cloud.position.x = 100.0
@@ -101,9 +112,10 @@ func run() -> void:
 		for moving_cloud in level.get_node("Clouds").get_children():
 			moving_cloud._process(10.0)
 			var half_width: float = moving_cloud.texture.get_width() * moving_cloud.scale.x / 2
-			if moving_cloud.position.x + half_width > 0 and moving_cloud.position.x - half_width < 1152:
+			var half_view: float = moving_cloud.get_viewport_rect().size.x / 0.5 / 2.0
+			if moving_cloud.position.x + half_width > 576.0 - half_view and moving_cloud.position.x - half_width < 576.0 + half_view:
 				visible_clouds += 1
-		check(visible_clouds >= 1, "Clouds remain present as their speeds vary")
+		check(visible_clouds >= 1, "Clouds remain present in the widest view as their speeds vary")
 	check(load("res://scenes/pawn_playground.tscn") != null, "Reusable pawn playground preserved")
 	var passing = level.get_node("PassingCloud")
 	passing.set_process(false)
@@ -115,7 +127,7 @@ func run() -> void:
 	check(passing.visible and passing.z_index > 0, "Rare cloud passes in front of terrain and pawn")
 	passing._process(abs(576.0 - passing.position.x) / passing.speed)
 	check(abs(passing.position.x - 576.0) < 1.0, "Rare cloud crosses the main island")
-	passing._process(110.0)
+	passing._process((passing.crossing_bounds().y - passing.crossing_bounds().x) / passing.speed + 1.0)
 	check(not passing.visible and passing.wait_remaining >= 360.0, "Cloud leaves before a long quiet interval")
 	print("Environment checks: ", "PASS" if failures == 0 else "FAIL (%s)" % failures)
 	quit(0 if failures == 0 else 1)

@@ -13,14 +13,17 @@ func _process(delta: float) -> void:
 			return
 		direction = 1.0 if randf() > 0.5 else -1.0
 		speed = randf_range(16.0, 26.0)
-		position = Vector2(-400.0 if direction > 0 else 1552.0, randf_range(175.0, 285.0))
+		position.y = randf_range(175.0, 285.0)
 		next_variant(true)
 		set_altitude(randf_range(0.7, 1.0))
+		var bounds := crossing_bounds()
+		global_position.x = bounds.x if direction > 0 else bounds.y
 		crossing = true
 		show()
 		return
 	position.x += speed * direction * delta
-	if (direction > 0 and position.x > 1552.0) or (direction < 0 and position.x < -400.0):
+	var bounds := crossing_bounds()
+	if (direction > 0 and global_position.x > bounds.y) or (direction < 0 and global_position.x < bounds.x):
 		crossing = false
 		hide()
 		wait_remaining = randf_range(360.0, 600.0)

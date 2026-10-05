@@ -13,9 +13,11 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	position.x += drift_speed * delta
-	if (direction > 0 and position.x > 1512.0) or (direction < 0 and position.x < -360.0):
-		position.x = -360.0 if direction > 0 else 1512.0
+	var bounds := crossing_bounds()
+	if (direction > 0 and global_position.x > bounds.y) or (direction < 0 and global_position.x < bounds.x):
 		next_variant()
 		set_altitude(randf_range(0.65, 1.0) if randf() < 0.25 else randf_range(0.0, 0.3))
 		position.y = randf_range(20.0, 90.0) if upper_lane else randf_range(415.0, 480.0)
+		bounds = crossing_bounds()
+		global_position.x = bounds.x if direction > 0 else bounds.y
 		drift_speed = randf_range(2.0, 5.0) * direction

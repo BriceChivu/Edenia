@@ -1,5 +1,7 @@
 extends Sprite2D
 
+const MIN_VIEW_ZOOM := 0.5
+
 const ORIGINAL_VARIANTS := [
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_01.png"),
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_02.png"),
@@ -204,3 +206,12 @@ func update_depth_mask() -> void:
 		if item is TerrainPiece:
 			copy.layout = item.layout
 			copy.queue_redraw()
+
+# Keep transitions beyond the widest view even when the camera pans or the
+# viewport expands. Include the full body/shadow canvas before recycling.
+func crossing_bounds() -> Vector2:
+	var camera := get_viewport().get_camera_2d()
+	var center_x := camera.global_position.x if camera != null else 576.0
+	var half_view := get_viewport_rect().size.x / MIN_VIEW_ZOOM / 2.0
+	var half_cloud := texture.get_width() * absf(global_scale.x) / 2.0
+	return Vector2(center_x - half_view - half_cloud, center_x + half_view + half_cloud)
