@@ -41,7 +41,7 @@ simulate the two local upgrades using the same reward and celebration code:
 Godot owns XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675**.
 The existing curve is `15 × level × (level − 1) / 2` total XP: each upgrade costs
 15 XP more than the previous one. Levels six through ten each grant three new
-grass tiles; level seven also grants a second chicken, and level eight grants a second sheep. They share the grass reward popup. Fresh editor scenes
+grass tiles; level six also grants a third tree, level seven grants a second chicken, and level eight grants a second sheep. They share the grass reward popup. Fresh editor scenes
 `previews/level_six.tscn` through `previews/level_ten.tscn` start at those levels;
 choose **Done**, then **Playground → Level +1** to preview the next upgrade.
 Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
@@ -617,7 +617,10 @@ disconnected islands and every elevation; stair ramps are excluded. The pawn's
 height and drawing depth match the chosen floor. `tests/random_respawn.gd`
 checks selection and a complete water fall onto higher ground.
 
-Inventory may open throughout the fall, but edits and undo wait until respawn. Depleted
+Inventory stays usable while the pawn walks, builds a house, cuts a tree, or falls
+in water. Tool selection, placement, pickup, transformations, and undo remain
+available. Unrelated edits preserve ongoing work; removing or undoing its target
+ends that work. Respawn rechecks its chosen tile after inventory edits. Depleted
 ground retains 25% icon opacity while remaining selectable for free terrain
 transformations; other depleted items remain disabled. Wheel and trackpad
 scrolling leave the game camera unchanged; dragging pans without a gameplay click.

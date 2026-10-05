@@ -47,17 +47,35 @@ func open_placement() -> void:
 
 func handle_click(cell: Vector2i, point: Vector2 = Vector2.INF) -> bool:
 	if busy():
-		return true
+		return not world.editing
 	if world.layout.house_bundle == 0:
 		phase = Phase.READY
 		return false
-	if not world.editing or world.selected != "house":
+	if not world.editing:
 		open_placement()
 		return true
+	if world.selected != "house":
+		return false
 	if not world.layout.houses.has(cell):
 		build(cell, point - world.layout.center(cell) + Vector2(0, world.layout.height_at(cell)) if point != Vector2.INF else Vector2.INF)
 		return true
 	return false
+
+func reconcile_inventory_edit() -> void:
+	if phase == Phase.HAMMERING:
+		if world.layout.house_build.is_empty() or not world.layout.houses.has(target):
+			world.layout.house_build.clear()
+			phase = Phase.READY
+			world.pawn.hammering = false
+			world.pawn.walk_to(world.pawn.position)
+		else:
+			build_started_at = world.layout.house_build.started_at
+	elif phase == Phase.APPROACHING and world.layout.house_bundle == 0:
+		phase = Phase.READY
+		world.waypoints.clear()
+		world.pawn.walk_to(world.pawn.position)
+	if phase == Phase.READY and not world.layout.house_build.is_empty():
+		resume_build()
 
 func placement_plan(cell: Vector2i, placement_offset: Vector2 = Vector2.ZERO) -> Dictionary:
 	# Plan against the future foundation and house contacts, so the pawn

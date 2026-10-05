@@ -89,32 +89,36 @@ func run() -> void:
 		check(not game.ui.launch.disabled, "Build launcher stays enabled during water phase %s" % phase)
 		game.ui.launch.pressed.emit()
 		check(game.editing and game.water_phase == phase, "Build mode opens without interrupting water phase %s" % phase)
-		game._process(0.01)
-		check(not game.terrain.valid, "Placement preview is invalid during water animation")
-		game.history.append(before_animation_build)
+		game.ui.buttons.ground.pressed.emit()
+		var cell := Vector2i(2, 0)
+		var point: Vector2 = game.layout.center(cell)
+		game.update_inventory_preview(point)
+		check(game.terrain.valid, "Placement preview remains valid during water animation")
+		check(game.apply_edit(cell), "Direct inventory edits work during water animation")
 		game.undo()
-		check(game.history.size() == 1 and game.layout.snapshot() == before_animation_build, "Undo waits during water animation")
-		game.history.clear()
-		check(not game.apply_edit(Vector2i(2, 0)), "Direct edits also wait during water animation")
-		var blocked_press := InputEventMouseButton.new()
-		blocked_press.pressed = true
-		blocked_press.button_index = MOUSE_BUTTON_LEFT
-		blocked_press.position = Vector2(672, 208)
-		game._unhandled_input(blocked_press)
-		var blocked_release := InputEventMouseButton.new()
-		blocked_release.button_index = MOUSE_BUTTON_LEFT
-		blocked_release.position = blocked_press.position
-		game._input(blocked_release)
-		check(game.layout.snapshot() == before_animation_build, "Terrain edits wait safely during water phase %s" % phase)
+		check(game.history.is_empty() and game.layout.snapshot() == before_animation_build, "Undo works during water animation")
+		var water_press := InputEventMouseButton.new()
+		water_press.pressed = true
+		water_press.button_index = MOUSE_BUTTON_LEFT
+		water_press.position = game.get_global_transform_with_canvas() * point
+		game._unhandled_input(water_press)
+		var water_release := InputEventMouseButton.new()
+		water_release.button_index = MOUSE_BUTTON_LEFT
+		water_release.position = water_press.position
+		game._input(water_release)
+		check(game.layout.cells.has(cell), "Inventory clicks edit terrain during water phase %s" % phase)
+		game.undo()
 		game.toggle_editing()
 	check(game.layout.snapshot() == before_animation_build, "Opening build mode during animation does not edit terrain")
 	game.water_phase = game.WaterPhase.READY
 	game.layout.cells[Vector2i(0, 0)] = "high_meadow"
+	game.layout.elevations[Vector2i(0, 0)] = 64
 	game.pawn.position = game.layout.center(Vector2i(0, 0))
 	game.pawn.walk_to(game.pawn.position)
 	game.fall_into_water(Vector2(400, 208))
 	check(game.water_phase == game.WaterPhase.READY and game.pawn.destination == game.pawn.position, "High ground cannot initiate a water jump")
 	game.layout.cells[Vector2i(0, 0)] = "meadow"
+	game.layout.elevations[Vector2i(0, 0)] = 0
 	game.fall_into_water(Vector2(400, 208))
 	check(game.water_phase != game.WaterPhase.READY, "Ground-level shore still permits water jumps")
 	var grid_size: Vector2i = game.layout.MAX_CELL - game.layout.MIN_CELL + Vector2i.ONE

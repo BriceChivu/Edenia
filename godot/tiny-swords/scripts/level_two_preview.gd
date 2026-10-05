@@ -102,8 +102,6 @@ func _ready() -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN))
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
-		if construction != null and construction.busy():
-			return
 		selected = tool
 		house_log_source = Vector2i(999, 999)
 		ui.collapsed = false
@@ -173,8 +171,6 @@ func unlock_level(target_level: int) -> void:
 	ui.celebrate()
 
 func toggle_editing() -> void:
-	if construction != null and construction.busy():
-		return
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
 	# Opening inventory changes input tools, not the pawn's current work.
@@ -225,7 +221,7 @@ func _process(_delta: float) -> void:
 # The toolbar selection stays independent of the object under the pointer.
 func inventory_changes() -> Array[Dictionary]:
 	var changes: Array[Dictionary] = []
-	if not editing or selected != "" or water_phase != WaterPhase.READY or ui.collapsed or ui.celebration != null or construction.busy():
+	if not editing or selected != "" or ui.collapsed or ui.celebration != null:
 		return changes
 	var occupied: Vector2i = layout.cell_at(pawn.position)
 	for cell in layout.houses:
@@ -318,7 +314,7 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 		terrain.ground_preview_height = option.height
 	else:
 		terrain.hover = clicked_cell(point)
-	terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position, terrain.placement_offset() if selected == "house" else Vector2.ZERO)
+	terrain.valid = (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position, terrain.placement_offset() if selected == "house" else Vector2.ZERO)
 	if selected == "house":
 		update_house_preview()
 	if selected == "tree":
@@ -351,7 +347,7 @@ func _input(event: InputEvent) -> void:
 		world_pointer_down = null
 		if world_dragging:
 			save_camera_view()
-		if not world_dragging and (not editing or water_phase == WaterPhase.READY):
+		if not world_dragging:
 			handle_world_click(click)
 		world_dragging = false
 		get_viewport().set_input_as_handled()
@@ -541,7 +537,7 @@ func update_tree_preview(point: Vector2) -> void:
 	# Like grass, the held artwork follows the pointer; only the click anchor
 	# is constrained to the selected tile's safe planting margins.
 	terrain.preview_position = point
-	terrain.valid = water_phase == WaterPhase.READY and can_place_tree(terrain.hover, offset)
+	terrain.valid = can_place_tree(terrain.hover, offset)
 
 func can_place_tree(cell: Vector2i, offset: Vector2) -> bool:
 	if layout.trees.has(cell):
@@ -572,13 +568,13 @@ func surface_cell(point: Vector2) -> Vector2i:
 	return layout.cell_at(point)
 
 func handle_world_click(event: InputEvent) -> void:
-	if ui == null or ui.celebration != null or water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]:
+	if ui == null or ui.celebration != null or (not editing and water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
 		var change := inventory_change_at(point, inventory_changes()) if editing and selected != "remove" and layout.house_bundle == 0 else {}
 		var cell: Vector2i = change.cell if not change.is_empty() else clicked_cell(point)
-		if construction.handle_click(cell, point):
+		if (not editing or (selected == "house" and water_phase == WaterPhase.READY and not construction.busy())) and construction.handle_click(cell, point):
 			return
 		log_pickup = Vector2i(999, 999)
 		log_delivery = Vector2i(999, 999)
@@ -627,16 +623,13 @@ func handle_world_click(event: InputEvent) -> void:
 			fall_into_water(point)
 
 func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
-	if water_phase != WaterPhase.READY:
-		return false
-	if construction != null and construction.busy():
-		return false
 	if selected == "tree" and not can_place_tree(cell, tree_placement_offset):
 		return false
 	var before: Dictionary = layout.snapshot()
 	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source, pawn.position, terrain.placement_offset() if selected == "house" and not layout.houses.has(cell) else Vector2.ZERO):
 		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
+	reconcile_inventory_work()
 	history.append(before)
 	if history.size() > 40:
 		history.pop_front()
@@ -651,17 +644,22 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 	return true
 
 func undo() -> void:
-	if construction != null and construction.busy():
-		return
-	if water_phase != WaterPhase.READY or not editing or history.is_empty():
+	if not editing or history.is_empty():
 		return
 	layout.restore(history.pop_back())
-	if not layout.cells.has(layout.cell_at(pawn.position)):
+	reconcile_inventory_work()
+	if water_phase == WaterPhase.READY and not layout.cells.has(layout.cell_at(pawn.position)):
 		pawn.position = layout.center(layout.spawn_cell())
 		pawn.walk_to(pawn.position)
 	rebuild_decorations()
 	save_layout()
 	refresh()
+
+func reconcile_inventory_work() -> void:
+	# Edits elsewhere preserve work. Removing or undoing its target ends it.
+	if harvesting.phase != harvesting.Phase.READY and (not harvesting.available(harvesting.target) or (harvesting.phase == harvesting.Phase.CUTTING and not layout.tree_cut_remaining.has(harvesting.target))):
+		harvesting.cancel()
+	construction.reconcile_inventory_edit()
 
 func animate_house_displacements() -> void:
 	for displaced in layout.house_displacements:
@@ -1156,6 +1154,13 @@ func fall_into_water(point: Vector2) -> void:
 	var spawn_cell: Vector2i = layout.random_respawn_cell()
 	await perform_water_fall(edge, direction, height, layout.center(spawn_cell), layout.height_at(spawn_cell))
 
+
+func respawn_location(spawn: Vector2, _spawn_height: float) -> Dictionary:
+	# Inventory edits can remove, raise, or occupy the chosen tile during a fall.
+	var cell: Vector2i = layout.cell_at(spawn)
+	if not layout.cells.has(cell) or layout.cells[cell] == "stairs" or layout.trees.has(cell) or layout.house_owner(cell) != Vector2i(999, 999):
+		cell = layout.random_respawn_cell()
+	return {"position": layout.center(cell), "height": layout.height_at(cell)}
 
 func saved_snapshot() -> Dictionary:
 	var data: Dictionary = layout.snapshot()

@@ -77,6 +77,9 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 	water_phase = WaterPhase.WAITING
 	await get_tree().create_timer(RESPAWN_DELAY).timeout
 	water_phase = WaterPhase.RESPAWNING
+	var location := respawn_location(spawn, spawn_height)
+	spawn = location.position
+	spawn_height = location.height
 	pawn.position = spawn
 	pawn.destination = spawn
 	pawn.z_index = int(ceil(spawn_height / 64.0))
@@ -89,3 +92,6 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 	pawn.set_physics_process(true)
 	water_phase = WaterPhase.READY
 	respawned.emit()
+
+func respawn_location(spawn: Vector2, spawn_height: float) -> Dictionary:
+	return {"position": spawn, "height": spawn_height}
