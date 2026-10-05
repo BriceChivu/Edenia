@@ -46,7 +46,7 @@ func run() -> void:
 	scene.update_cursor()
 	check(scene.terrain.valid and scene.cursor_mode == "place", "Reachable house site keeps placement preview")
 	scene.terrain.preview_position = scene.layout.center(site) + Vector2(31, 31)
-	check(scene.terrain.placement_offset() == scene.layout.house_placement_offset(Vector2(31, 31)), "Pointer preview clamps to its four supporting tiles")
+	check(scene.terrain.placement_offset() == Vector2(31, 31), "Pointer preview follows freely without clamping")
 	scene.terrain.preview_position = scene.layout.center(site) + Vector2.ZERO
 	var preview: Rect2 = scene.terrain.house_preview_rect()
 	check(scene.construction.build(site), "Reachable site starts carrying approach")
@@ -60,9 +60,10 @@ func run() -> void:
 	check(copy.house_offsets.get(site) == Vector2.ZERO, "Reload preserves chosen house offset")
 	check(copy.edit(site, "house", Vector2i(-10, -10)) and copy.house_offsets[site] == Vector2.ZERO, "Rotation preserves free placement anchor")
 	var old_placement: Dictionary = scene.layout.snapshot()
+	old_placement.version = 26
 	old_placement.houses[0][3] = 31
 	old_placement.houses[0][4] = 31
-	check(copy.restore(old_placement) and copy.house_offsets[site] == copy.house_placement_offset(Vector2(31, 31)), "Earlier overhanging save moves back onto the same foundation")
+	check(copy.restore(old_placement) and copy.house_offsets[site] == copy.legacy_house_placement_offset(Vector2(31, 31)), "Earlier overhanging save moves back onto the same foundation")
 	check(copy.restore(scene.layout.snapshot()), "Restore construction after rotation check")
 	var footprint: PackedVector2Array = scene.layout.house_footprint(site)
 	var centered: PackedVector2Array = scene.layout.house_footprint(site, 1, Vector2.ZERO)

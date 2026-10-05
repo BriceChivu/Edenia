@@ -424,7 +424,7 @@ func placement_offset() -> Vector2:
 	# raises grass to its proposed floor; using that floor here cancels the rise.
 	var height: float = layout.height_at(hover)
 	var offset: Vector2 = preview_position - (layout.center(hover) - Vector2(0, height))
-	return layout.house_placement_offset(offset) if tool == "house" else offset
+	return offset
 
 func tree_preview_variant() -> String:
 	if layout.trees.has(hover):
@@ -588,7 +588,7 @@ func draw_editor() -> void:
 			draw_set_transform(Vector2.ZERO)
 			if tool == "house":
 				draw_set_transform(Vector2.ZERO)
-				for square in layout.house_cells(hover):
+				for square in layout.house_cells(hover, Vector2.INF if layout.houses.has(hover) else placement_offset()):
 					if not layout.cells.has(square):
 						draw_tile(square, "meadow", tint, layout.height_at(hover))
 				draw_set_transform(Vector2.ZERO)

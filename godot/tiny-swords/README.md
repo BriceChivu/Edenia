@@ -751,14 +751,16 @@ Houses stay outside the inventory. Click a placed house while the inventory is o
 to cycle front, side, back, and opposite-side views for free. Pick up a house
 to return its six logs as a pyramid on the nearest clear grass tile, including
 the freed foundation. Pick up that pyramid to rebuild the house. Hovering a full pyramid shows `Icon_01.png`.
-New houses follow the pointer within their 2×2 foundation, with the placement offset
-clamped so every facing’s ground contacts remain on those same four grass tiles at
-one floor level. Missing-grass previews align with the actual foundation grid.
-Earlier saved offsets that overhung the foundation are corrected on load.
+New houses follow the pointer freely, without snapping or clamping. The foundation
+covers the grass tiles beneath every facing’s ground contacts at the chosen position,
+all at one floor level. Moving across a tile edge can require additional foundation
+grass, without moving the house. Missing-grass previews align with the actual
+foundation grid. Save version 27 retains the exact free position; earlier saved
+offsets keep their legacy foundation correction.
 Houses retain the exact preview position;
 construction, rotation, contacts, saves and undo retain that offset.
 Houses occupy
-a 2×2 square footprint on grass or water. Each missing foundation square costs one meadow grass tile from inventory;
+a foundation on grass or water, usually 2×2 tiles and enlarged as needed for free placement. Each missing foundation square costs one meadow grass tile from inventory;
 pickup leaves that paid foundation in place without refunding grass. Existing
 grass requires no additional tiles;
 bushes and rocks disappear only when their ground anchors lie under the house contact polygon.
@@ -768,7 +770,7 @@ pawn block placement where their ground contacts overlap the annotated house
 contact polygon. Front, side, back, and mirrored side views share the same
 PNG-coordinate contact definitions across colors. Rotation also checks contacts.
 Pawn and sheep navigation block these polygons, leaving surrounding foundation
-grass walkable; all four foundation tiles remain protected while placed.
+grass walkable; all foundation tiles remain protected while placed.
 Focused contact check: `res://tests/house_contacts.gd`.
 
 Save version **19** preserves sheep positions, house facings, and reclaimed

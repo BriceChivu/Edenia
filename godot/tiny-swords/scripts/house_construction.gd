@@ -100,7 +100,6 @@ func work_points(layout, cell: Vector2i, placement_offset: Vector2) -> Array[Vec
 func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 	if placement_offset == Vector2.INF:
 		placement_offset = world.terrain.placement_offset() if world.terrain.hover == cell else Vector2.ZERO
-	placement_offset = world.layout.house_placement_offset(placement_offset)
 	var plan := placement_plan(cell, placement_offset)
 	if plan.is_empty():
 		world.ui.panel.accessibility_description = "Choose a house site the pawn can reach."

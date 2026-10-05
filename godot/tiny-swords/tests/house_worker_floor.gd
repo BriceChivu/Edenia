@@ -34,11 +34,11 @@ func run() -> void:
 	scene.pawn.walk_to(lower)
 	check(scene.construction.placement_plan(site).is_empty(), "Lower-floor worker cannot build an unreachable elevated house")
 	for requested in [Vector2.ZERO, Vector2(-32, -32), Vector2(32, 32)]:
-		var offset: Vector2 = scene.layout.house_placement_offset(requested)
+		var offset: Vector2 = requested
 		scene.pawn.position = scene.layout.center(site) + Vector2(-20, 0)
 		scene.pawn.walk_to(scene.pawn.position)
 		var plan: Dictionary = scene.construction.placement_plan(site, offset)
-		check(not plan.is_empty(), "Elevated house remains reachable at pointer offset %s" % offset)
+		check(not plan.is_empty() if offset == Vector2.ZERO else plan.is_empty(), "Free elevated placement requires all supporting tiles on the same floor at %s" % offset)
 		if not plan.is_empty():
 			check(plan.layout.height_at(plan.layout.cell_at(plan.route.back())) == plan.layout.height_at(site), "Work destination shares the house floor")
 	scene.pawn.position = scene.layout.center(site) + Vector2(-20, 0)

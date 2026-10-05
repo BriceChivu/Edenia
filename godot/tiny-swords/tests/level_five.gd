@@ -237,6 +237,8 @@ func run() -> void:
 	check(scene.editing and scene.selected == "house" and scene.layout.house_bundle == 6, "Arrival reserves full pyramid and opens house placement")
 	scene.editing = true
 	scene.selected = "house"
+	scene.terrain.hover = Vector2i(1, 1)
+	scene.terrain.preview_position = scene.layout.center(scene.terrain.hover)
 	check(scene.apply_edit(Vector2i(1, 1)), "Runtime house placement")
 	check(not scene.layout.log_piles.has(pile_cell) and scene.layout.carried_wood == 2 and scene.layout.house_bundle == 0, "Construction consumes reserved pyramid before carried logs")
 	check(not scene.ui.buttons.house.visible, "House stays outside the inventory")

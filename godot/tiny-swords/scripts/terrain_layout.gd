@@ -287,7 +287,7 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 			return false
 		if houses.has(cell):
 			return house_space_free(cell, occupied, (int(houses[cell]) + 1) % 4, occupied_position)
-		return (stock.house > 0 or resources.wood >= HOUSE_LOG_COST) and stock.meadow >= house_foundation_cost(cell) and house_space_free(cell, occupied, 1 if house_bundle > 0 else 0, occupied_position, house_placement_offset)
+		return (stock.house > 0 or resources.wood >= HOUSE_LOG_COST) and stock.meadow >= house_foundation_cost(cell, house_placement_offset) and house_space_free(cell, occupied, 1 if house_bundle > 0 else 0, occupied_position, house_placement_offset)
 	if tool == "chicken":
 		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell) and cell != occupied
 	if tool == "sheep":
@@ -686,7 +686,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 				stock.house -= 1
 			else:
 				spend_wood(HOUSE_LOG_COST, log_source)
-			for square in house_cells(cell):
+			for square in house_cells(cell, house_placement_offset):
 				if not cells.has(square):
 					cells[square] = "meadow"
 					elevations[square] = height_at(cell)
@@ -868,7 +868,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 26, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 27, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.houses = []
 	for cell in houses:
 		var offset: Vector2 = house_offsets.get(cell, Vector2.ZERO)
@@ -899,7 +899,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
@@ -1142,14 +1142,15 @@ func restore(data: Dictionary) -> bool:
 			var offset := Vector2(record[3], record[4]) if int(data.version) >= 23 else Vector2.ZERO
 			if absf(offset.x) > 32 or absf(offset.y) > 32:
 				return false
-			# Correct earlier free placements that overhung their supporting grass.
-			offset = house_placement_offset(offset)
+			# Older saves used a fixed foundation and clamped their offsets.
+			if int(data.version) < 27:
+				offset = legacy_house_placement_offset(offset)
 			next_house_offsets[cell] = offset
 			if next_level < 5 or not next_cells.has(cell) or next_cells[cell] == "stairs" or next_houses.has(cell) or int(record[2]) not in [0, 1, 2, 3]:
 				return false
 			if int(data.version) >= 19:
-				for square in house_cells(cell):
-					if not next_cells.has(square) or next_cells[square] == "stairs" or next_elevations[square] != next_elevations[cell]:
+				for square in house_cells(cell, offset):
+					if not in_bounds(square) or not next_cells.has(square) or next_cells[square] == "stairs" or next_elevations[square] != next_elevations[cell]:
 						return false
 					for owner in next_houses:
 						if not Geometry2D.intersect_polygons(house_footprint(cell, int(record[2]), offset), house_footprint(owner, int(next_houses[owner]), next_house_offsets[owner])).is_empty():
@@ -1375,15 +1376,31 @@ func house_refund_cell(owner: Vector2i, occupied: Vector2i) -> Vector2i:
 			nearest = candidate
 	return nearest
 
-func house_foundation_cost(cell: Vector2i) -> int:
+func house_foundation_cost(cell: Vector2i, offset: Vector2 = Vector2.INF) -> int:
 	var missing := 0
-	for square in house_cells(cell):
+	for square in house_cells(cell, offset):
 		if not cells.has(square):
 			missing += 1
 	return missing
 
-func house_cells(cell: Vector2i) -> Array[Vector2i]:
-	return [cell, cell + Vector2i.RIGHT, cell + Vector2i.DOWN, cell + Vector2i.ONE]
+func house_cells(cell: Vector2i, offset: Vector2 = Vector2.INF) -> Array[Vector2i]:
+	if offset == Vector2.INF:
+		offset = house_offsets.get(cell, Vector2.ZERO)
+	# Cover every facing at the exact pointer anchor. The ground stays tiled,
+	# but its coverage grows when a freely positioned house crosses an edge.
+	var minimum := Vector2.INF
+	var maximum := -Vector2.INF
+	for facing in 4:
+		for point in house_footprint(cell, facing, offset):
+			minimum = minimum.min(point)
+			maximum = maximum.max(point)
+	var first := cell_at(minimum + Vector2.ONE * 0.001)
+	var last := cell_at(maximum - Vector2.ONE * 0.001)
+	var foundation: Array[Vector2i] = []
+	for y in range(first.y, last.y + 1):
+		for x in range(first.x, last.x + 1):
+			foundation.append(Vector2i(x, y))
+	return foundation
 
 func house_owner(cell: Vector2i) -> Vector2i:
 	for owner in houses:
@@ -1399,7 +1416,7 @@ const HOUSE_CONTACTS := [
 	[Vector2(18, 124), Vector2(106, 124), Vector2(114, 176), Vector2(105, 180), Vector2(96, 174), Vector2(32, 174), Vector2(25, 180), Vector2(15, 177)],
 ]
 
-func house_placement_offset(offset: Vector2) -> Vector2:
+func legacy_house_placement_offset(offset: Vector2) -> Vector2:
 	# Keep every facing's ground contacts inside the same 2x2 foundation.
 	# Roof overhang is visual only; rotation must not move the foundation.
 	var minimum := Vector2(-SIZE / 2.0, -SIZE / 2.0)
@@ -1512,10 +1529,10 @@ func clear_house_occupants(cell: Vector2i, facing: int, placement: Vector2, pawn
 
 func house_space_free(cell: Vector2i, occupied: Vector2i, facing: int = 0, occupied_position: Vector2 = Vector2.INF, offset: Vector2 = Vector2.INF) -> bool:
 	var placement: Vector2 = house_offsets.get(cell, Vector2.ZERO) if offset == Vector2.INF else offset
-	if not placement.is_equal_approx(house_placement_offset(placement)):
+	if not is_finite(placement.x) or not is_finite(placement.y) or absf(placement.x) > 32 or absf(placement.y) > 32:
 		return false
 	# Foundation tiles still supply and protect level ground, while objects use contacts.
-	for square in house_cells(cell):
+	for square in house_cells(cell, placement):
 		if not in_bounds(square) or cells.get(square) == "stairs" or BridgeRules.touches(self, square):
 			return false
 		if cells.has(square) and height_at(square) != height_at(cell):

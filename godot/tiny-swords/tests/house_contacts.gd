@@ -12,14 +12,12 @@ func _initialize() -> void:
 		for y in range(-2, 4):
 			layout.cells[Vector2i(x, y)] = "meadow"
 	var anchor: Vector2 = layout.center(cell) + Vector2(32, 0)
-	for offset in [Vector2(32, 32), Vector2(-32, -32)]:
-		check(not layout.house_space_free(cell, Vector2i(-10, -10), 1, Vector2.INF, offset), "House cannot slide off its four foundation tiles")
-	var foundation := Rect2(layout.center(cell) - Vector2.ONE * 32, Vector2.ONE * 128)
-	for requested in [Vector2(32, 32), Vector2(-32, -32), Vector2(32, -32), Vector2(-32, 32)]:
-		var safe: Vector2 = layout.house_placement_offset(requested)
+	for requested in [Vector2(31, 31), Vector2(-31, -31), Vector2(31, -31), Vector2(-31, 31)]:
+		check(layout.house_space_free(cell, Vector2i(-10, -10), 1, Vector2.INF, requested), "House accepts free offsets on level ground")
+		var squares: Array[Vector2i] = layout.house_cells(cell, requested)
 		for facing in 4:
-			for point in layout.house_footprint(cell, facing, safe):
-				check(point.x >= foundation.position.x and point.x <= foundation.end.x and point.y >= foundation.position.y and point.y <= foundation.end.y, "All rotations remain on the same four tiles at pointer extremes")
+			for point in layout.house_footprint(cell, facing, requested):
+				check(layout.cell_at(point) in squares, "Foundation covers all rotations at the free pointer position")
 	layout.elevations[cell + Vector2i.ONE] = 64
 	check(not layout.house_space_free(cell, Vector2i(-10, -10)), "House cannot straddle foundation floor levels")
 	layout.elevations.clear()
