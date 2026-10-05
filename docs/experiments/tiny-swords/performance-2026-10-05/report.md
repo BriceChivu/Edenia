@@ -79,6 +79,31 @@ The code iterates houses, trees and ground every frame, computes candidate eleva
 
 Owning source: `godot/tiny-swords/scripts/level_two_preview.gd`, especially `inventory_changes`, `update_inventory_preview_state` and `update_inventory_preview`.
 
+Implementation follow-up (2026-10-05): eligibility now reuses the last scan until
+the relevant layout records or actor occupancy change. Layout inputs are compared
+each update and copied only when changed, so direct construction, harvesting,
+undo and restore mutations invalidate the cache without requiring every writer
+to emit a signal. Pawn position is retained for house contact rules. Pointer
+previews reuse their state until the pointer, camera, rules, UI, artwork generation
+or relevant animated silhouette changes; stationary terrain previews retain their
+proposed layout. Clicks still validate against the live placement rules.
+
+The new `--suite=inventory` paired control forces cache misses while retaining
+the same choices and visuals. In its repeated 100-tile samples, renderer CPU fell
+from **45.9% to 26.6% of one logical core**, full eligibility scans went from
+**205.7 ms/s at 59.6 calls/s to zero calls** in the warmed unchanged sample, and
+inclusive preview work fell from **221.4 to 6.2 ms/s**. Cheap input comparisons
+remain. Engine FPS stayed mostly at 60. The first uncached sample was higher
+(65.4% CPU, 306.4 ms/s scan work); the first cached sample was 26.9% CPU with
+6.2 ms/s preview work, so the repeated pair is the steadier comparison.
+`copy_frames` was enabled throughout these diagnostic samples to hold the
+separate cloud-mask issue constant, and no new console errors accumulated during
+the samples. Evidence is retained in `.cache/tiny-swords-perf/inventory.json`
+and its CPU profiles. These are instrumented desktop stress measurements, not
+physical mobile performance claims. Native eligibility, terrain-preview and
+outline-render checks passed, including six outline fixtures with zero pixel
+mismatches.
+
 ### Per-frame shadow generation: dominant terraced-island cost
 
 The flat-island tests understated this issue. A valid seeded 66-tile island with three stairs ran at roughly **14 fps and 96% renderer CPU while idle**. Repeated probes isolated the cause to `terrain_view.gd::draw_shadows`, not the Edenia parent, bridge, editor scan or animal routing.

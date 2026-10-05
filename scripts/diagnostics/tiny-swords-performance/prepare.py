@@ -47,7 +47,7 @@ from pathlib import Path
 import re
 base=Path('.cache/tiny-swords-perf/project/scripts')
 p=base/'terrain_view.gd';s=p.read_text().replace('var changes:', 'var perf_accum := 0.0\nvar changes:');s=s.replace('\tif Perf.flags.get("terrain_stop",false): return', '\tif Perf.flags.get("terrain_stop",false): return\n\tif Perf.flags.get("terrain_hz",0) > 0:\n\t\tperf_accum += delta\n\t\tif perf_accum < 1.0 / float(Perf.flags.terrain_hz):\n\t\t\telapsed += delta\n\t\t\treturn\n\t\tperf_accum = 0.0');p.write_text(s)
-for name,functions in {'level_two_preview.gd':['update_inventory_preview','inventory_changes','update_cursor','land_route','clear_segment','rebuild_decorations'], 'house_construction.gd':['placement_plan'], 'terrain_layout.gd':['snapshot','path']}.items():
+for name,functions in {'level_two_preview.gd':['update_inventory_preview','inventory_changes','build_inventory_changes','update_cursor','land_route','clear_segment','rebuild_decorations'], 'house_construction.gd':['placement_plan'], 'terrain_layout.gd':['snapshot','path']}.items():
  p=base/name;s=p.read_text()
  for fn in functions:
   m=re.search(r'func '+fn+r'\(([^\n]*)\)( -> [^:\n]+)?:\n',s)
@@ -56,7 +56,7 @@ for name,functions in {'level_two_preview.gd':['update_inventory_preview','inven
   for a in m.group(1).split(', '): args.append(a.split(':')[0].split('=')[0].strip())
   rettype=m.group(2) or '';returns=rettype!=' -> void'
   call='_perf_'+fn+'('+', '.join(args)+')'
-  guard='\tif Perf.flags.get("preview_stop",false): return\n' if fn=='update_inventory_preview' else ''
+  guard='\tif Perf.flags.get("preview_stop",false): return\n\tif Perf.flags.get("inventory_uncached",false):\n\t\tinventory_preview_inputs.clear()\n\t\tinventory_change_inputs.clear()\n' if fn=='update_inventory_preview' else ''
   wrapper=f'func {fn}({m.group(1)}){rettype}:\n{guard}\tvar perf_start := Time.get_ticks_usec()\n\t'+('var perf_result = ' if returns else '')+call+f'\n\tPerf.record("{name}:{fn}",Time.get_ticks_usec()-perf_start)\n'+('\treturn perf_result\n' if returns else '')+'\nfunc _perf_'+fn+'('+m.group(1)+')'+rettype+':\n'
   s=s[:m.start()]+wrapper+s[m.end():]
  p.write_text(s)

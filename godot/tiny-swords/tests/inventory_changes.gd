@@ -88,6 +88,25 @@ func run() -> void:
 	scene.update_inventory_preview(Vector2.ZERO, false)
 	for pair in [[TREE, "tree"], [HOUSE, "house"], [STAIR, "stairs"], [GROUND, "ground"]]:
 		check(has_change(pair[0], pair[1]), "Inventory outlines available " + pair[1] + " changes")
+	var cached: Array = scene.inventory_changes()
+	for repeat in 120:
+		check(is_same(cached, scene.inventory_changes()), "Unchanged inventory reuses its eligibility scan")
+	l.chickens.append(l.center(STAIR) - Vector2(20, 0))
+	check(not has_change(STAIR, "stairs"), "An animal entering a stair tile removes its change outline")
+	cached = scene.inventory_changes()
+	l.chickens[l.chickens.size() - 1] += Vector2(10, 0)
+	check(is_same(cached, scene.inventory_changes()), "Animal movement inside its tile reuses terrain eligibility")
+	l.chickens.pop_back()
+	check(has_change(STAIR, "stairs"), "The outline returns when the animal leaves")
+	var pawn_position: Vector2 = scene.pawn.position
+	l.houses[HOUSE] = 1
+	scene.pawn.position = l.center(HOUSE) + Vector2(-8, 0)
+	check(has_change(HOUSE, "house"), "House rotation is offered outside the next facing's contact")
+	var pawn_cell: Vector2i = l.cell_at(scene.pawn.position)
+	scene.pawn.position += Vector2(0, 25)
+	check(l.cell_at(scene.pawn.position) == pawn_cell and not has_change(HOUSE, "house"), "Pawn contact within the same tile invalidates house rotation")
+	l.houses[HOUSE] = 0
+	scene.pawn.position = pawn_position
 	await capture("open")
 	var before: Dictionary = l.snapshot().duplicate(true)
 	check(l.get_script().new().restore(before), "Fixture is a valid saved layout")
@@ -150,6 +169,9 @@ func run() -> void:
 	check(not l.cells.has(empty) and l.stock == stock, "No tool selected means empty-space clicks cannot place inventory")
 	l.tree_cut_remaining[TREE] = 8.0
 	check(not has_change(TREE, "tree"), "Partly cut trees have no swap outline")
+	cached = scene.inventory_changes()
+	l.tree_cut_remaining[TREE] = 7.0
+	check(is_same(cached, scene.inventory_changes()), "An active cutting clock does not repeat the eligibility scan")
 	l.tree_cut_remaining.clear()
 	l.tree_stumps[TREE] = Time.get_unix_time_from_system() + 300
 	check(not has_change(TREE, "tree"), "Stumps have no swap outline")

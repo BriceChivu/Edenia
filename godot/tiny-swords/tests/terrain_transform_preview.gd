@@ -76,9 +76,10 @@ func run() -> void:
 	var preview_ids := shadow_ids()
 	check(preview_shadows != original_shadows, "Terrace preview replaces the original shadow footprint")
 	scene.update_inventory_preview(point)
+	check(is_same(proposed, scene.terrain.terrain_render_layout()), "Stationary hover retains the proposed layout")
 	await process_frame
 	await RenderingServer.frame_post_draw
-	check(shadow_ids() == preview_ids and shadow_pixels() == preview_shadows, "Recreated proposed layout and ordinary redraw reuse the same clipped textures")
+	check(shadow_ids() == preview_ids and shadow_pixels() == preview_shadows, "Stationary preview and ordinary redraw reuse the same clipped textures")
 	check(is_instance_valid(target_surface) and not target_surface.is_queued_for_deletion(), "Repeated hover retains terrain nodes")
 	check(l.snapshot() == before, "Hover leaves saved terrain, inventory and decorations unchanged")
 	var click := InputEventMouseButton.new()

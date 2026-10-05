@@ -55,6 +55,7 @@ WASM instantiation and GL query wrappers also add measurement overhead.
 ```sh
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=baseline
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=causal
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=inventory
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=cloud
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=shadows
 node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=caps
@@ -88,6 +89,15 @@ the default storage configuration. `checkpoint-game` uses the real uninstrumente
 Godot export with the same isolated IndexedDB opt-in and checks save acknowledgment,
 a study save without remount, and island/study retention after reload. Neither suite
 changes the repository's rollout flags or the user's browser profile.
+
+`inventory` opens editing on the 100-tile stress island and alternates two pairs
+of 10-second uncached/cached samples. `inventory_uncached` forces eligibility and
+preview cache misses without changing the available choices or rendered preview.
+The diagnostic `copy_frames` fix stays enabled for every sample to hold that
+separate cloud-mask issue constant. Warmed unchanged samples should have no calls
+to `build_inventory_changes`; compare the repeated CPU and inclusive preview
+timings in `.cache/tiny-swords-perf/inventory.json` and retain both pairs to show
+run-to-run variation. This suite measures the instrumented game wrapper.
 
 `background` launches normal Chrome for Testing without Playwright's launch-time
 anti-throttling flags. It disconnects all CDP sessions and samples OS cumulative

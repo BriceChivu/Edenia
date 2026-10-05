@@ -47,6 +47,12 @@ var asset_nodes: Array[Node] = []
 var tree_nodes: Array[Node] = []
 var flora_nodes: Array[Node] = []
 var terrain_preview_change := {}
+var inventory_layout_inputs: Array = []
+var inventory_layout_revision := 0
+var inventory_change_inputs: Array = []
+var cached_inventory_changes: Array[Dictionary] = []
+var inventory_preview_inputs: Array = []
+var inventory_art_revision := 0
 var preview_save_enabled := true
 var build_cursor: Texture2D
 var build_cursor_size := Vector2i.ZERO
@@ -138,6 +144,7 @@ func _ready() -> void:
 		world_dragging = false)
 
 func refresh() -> void:
+	inventory_preview_inputs.clear()
 	update_cursor()
 	terrain.editing = editing
 	terrain.tool = selected
@@ -219,10 +226,44 @@ func _process(_delta: float) -> void:
 
 # Existing-object changes use the same rule checks and edit path as tools.
 # The toolbar selection stays independent of the object under the pointer.
+func update_inventory_layout_revision() -> void:
+	# Layout records are also changed by construction, harvesting and restore.
+	# Compare their rule inputs instead of relying on every writer to emit a signal.
+	# Copy only on change; active timer values and animal subpixel movement do not
+	# alter the terrain rules. This inexpensive comparison replaces the full scan.
+	var inputs: Array = [layout, layout.level, layout.cells, layout.elevations,
+		layout.stair_directions, layout.manual_ground_elevation, layout.trees,
+		layout.tree_types, layout.tree_stumps.keys(), layout.tree_cut_remaining.keys(),
+		layout.houses, layout.house_offsets, layout.log_piles, layout.stock,
+		layout.resources.wood, layout.carried_wood, layout.house_bundle, layout.free_house_grass,
+		layout.playground_grants, layout.bridges_enabled, layout.bridges,
+		layout.next_tree_variant, layout.flora, layout.decorations]
+	if inputs != inventory_layout_inputs:
+		inventory_layout_inputs = inputs.duplicate(true)
+		inventory_layout_revision += 1
+
+func inventory_occupied_cells() -> Array:
+	var occupied: Array = []
+	for positions in [layout.chickens, layout.sheep]:
+		var cells: Array[Vector2i] = []
+		for position in positions:
+			cells.append(layout.cell_at(position))
+		occupied.append(cells)
+	return occupied
+
 func inventory_changes() -> Array[Dictionary]:
-	var changes: Array[Dictionary] = []
 	if not editing or selected != "" or ui.collapsed or ui.celebration != null:
-		return changes
+		return []
+	update_inventory_layout_revision()
+	var inputs: Array = [inventory_layout_revision, layout.cell_at(pawn.position),
+		pawn.position if not layout.houses.is_empty() else Vector2.ZERO, inventory_occupied_cells()]
+	if inputs != inventory_change_inputs:
+		cached_inventory_changes = build_inventory_changes()
+		inventory_change_inputs = inputs
+	return cached_inventory_changes
+
+func build_inventory_changes() -> Array[Dictionary]:
+	var changes: Array[Dictionary] = []
 	var occupied: Vector2i = layout.cell_at(pawn.position)
 	for cell in layout.houses:
 		if layout.can_edit(cell, "house", occupied, -1, Vector2.ZERO, pawn.position):
@@ -260,6 +301,9 @@ func inventory_change_at(point: Vector2, changes: Array[Dictionary]) -> Dictiona
 	return {}
 
 func update_inventory_preview(point: Vector2, allow_hover := true) -> void:
+	var inputs := inventory_preview_key(point, allow_hover)
+	if inputs == inventory_preview_inputs:
+		return
 	update_inventory_preview_state(point, allow_hover)
 	var change := {"cell": terrain.hover, "tool": terrain.tool, "height": terrain.ground_preview_height} if terrain.transform_preview and terrain.tool in ["ground", "stairs"] else {}
 	if change != terrain_preview_change:
@@ -269,6 +313,31 @@ func update_inventory_preview(point: Vector2, allow_hover := true) -> void:
 			# Rebuilding restored object sprites; apply tree/house hiding to
 			# those new nodes when moving directly off a terrain preview.
 			update_inventory_preview_state(point, allow_hover)
+	# Terrain previews can rebuild the artwork. Capture the resulting generation
+	# so the new nodes stay hidden correctly without repeating the rebuild next frame.
+	inventory_preview_inputs = inventory_preview_key(point, allow_hover).duplicate(true)
+
+func inventory_preview_key(point: Vector2, allow_hover: bool) -> Array:
+	var inputs: Array = [editing, selected, allow_hover, water_phase, ui.collapsed,
+		ui.celebration != null, construction.busy(), inventory_art_revision]
+	if not editing:
+		return inputs
+	update_inventory_layout_revision()
+	inputs.append(inventory_layout_revision)
+	inputs.append(pawn.position)
+	inputs.append(inventory_occupied_cells())
+	if allow_hover:
+		inputs.append(point)
+		inputs.append(get_viewport().get_canvas_transform())
+		if selected in ["remove", "chicken", "sheep", "house"]:
+			inputs.append(layout.chickens)
+			inputs.append(layout.sheep)
+		# A fixed pointer can cross the opaque silhouette as tree animation changes.
+		if selected in ["", "tree", "remove"]:
+			for tree in tree_nodes:
+				inputs.append(tree.frame)
+				inputs.append(tree.bend_angle)
+	return inputs
 
 func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void:
 	terrain.proposed_terrain = null
@@ -679,6 +748,8 @@ func animate_house_displacements() -> void:
 	layout.house_displacements.clear()
 
 func rebuild_decorations(display_layout = null) -> void:
+	inventory_art_revision += 1
+	inventory_preview_inputs.clear()
 	var render_layout = display_layout if display_layout != null else layout
 	if display_layout == null:
 		terrain_preview_change = {}

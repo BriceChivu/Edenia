@@ -81,6 +81,15 @@ try {
   const s=await setup({instrument:true,side:10});
   for(const [label,value] of [['base',{}],['terrain-stop',{terrain_stop:true}],['terrain5',{terrain_hz:5}],['layout-stop',{layout_stop:true}],['bridge-stop',{bridge_stop:true}],['animals-stop',{animals_stop:true}],['base-repeat',{}]]){await flags(s.gf,value);await sample(s.page,label,10,true);}
   await s.gf.evaluate(()=>window.__perfCommand={type:'edit'});await new Promise(r=>setTimeout(r,1200));await sample(s.page,'editor',10,true);await flags(s.gf,{preview_stop:true});await sample(s.page,'editor-no-preview',10,true);await flags(s.gf,{});await sample(s.page,'editor-repeat',10,true);await s.context.close();
+ } else if(suite==='inventory') {
+  const s=await setup({instrument:true,side:10});
+  await flags(s.gf,{copy_frames:true});await s.gf.evaluate(()=>window.__perfCommand={type:'edit'});
+  await s.gf.waitForFunction(()=>window.__godotPerf?.editing===true,null,{timeout:5000});
+  await s.page.mouse.move(600,150);
+  for(const[label,uncached]of [['inventory-uncached',true],['inventory-cached',false],['inventory-uncached-repeat',true],['inventory-cached-repeat',false]]){
+   await flags(s.gf,{copy_frames:true,inventory_uncached:uncached});await sample(s.page,label,10,true);
+  }
+  await s.context.close();
  } else if(suite==='cloud') {
   for(const dpr of [2,1]){const s=await setup({instrument:true,side:10,dpr});for(const[label,value]of [['base',{}],['mask-stop',{mask_stop:true}],['mask5',{mask_hz:5}],['copy-fix',{copy_frames:true}],['base-repeat',{}]]){await flags(s.gf,value);await sample(s.page,`dpr${dpr}-${label}`,10,true);}await s.context.close();}
  } else if(suite==='shadows') {
