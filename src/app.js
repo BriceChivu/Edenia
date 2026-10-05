@@ -1,3 +1,4 @@
+import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
 import { mapPersistenceResult } from './state/persistence-result.js'
@@ -900,6 +901,9 @@ async function createVerifiedStateBackupFromState(
   return entry
 }
 const stateStore = createStateStore({
+  onPersisted: (state, detail) => window.dispatchEvent(new CustomEvent(
+    'edenia-profile-persisted', { detail }
+  )),
   storage: localStorage,
   getRepository: () => primaryProfileRepository,
   storageKey: STORAGE_KEY,
@@ -3127,6 +3131,7 @@ function trackLearnerProfileOpening(accessState) {
 }
 
 async function handleLearnerProfileAccessStateChange(accessState) {
+  if (window.edeniaTinySwordsPersistence) window.dispatchEvent(new Event('edenia-profile-access'))
   const renderEpoch = ++learnerProfileAccessRenderEpoch
   trackLearnerProfileOpening(accessState)
   if (learnerProfileAccessVisualTestActive) {
@@ -5678,7 +5683,7 @@ async function resetSandboxState() {
     title: t('log.sandboxReset.title'),
     detail: t('log.sandboxReset.detail')
   })
-  if (!await saveState(state, { backup: false })) return false
+  if (!await saveState(state, { backup: false, replaceIsland: true })) return false
   setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
   selectedHistoryRange = 'month'
@@ -8343,7 +8348,7 @@ async function resetApp() {
     title: t('log.reset.title'),
     detail: t('log.reset.detail')
   })
-  if (!await saveState(nextState, { backup: false })) {
+  if (!await saveState(nextState, { backup: false, replaceIsland: true })) {
     releaseStartOverControl(control)
     showToast(t('toast.progressSaveFailed'), 'error')
     return
@@ -19642,3 +19647,12 @@ window.addEventListener('pagehide', event => {
   trackVideoPlaybackSessionEnded(session, 'page_hidden')
 })
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
+
+// Local developer integration only; normal builds retain the paused rollout.
+if (IS_LOCALHOST && location.port === '8037') {
+  window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
+    read: loadState,
+    readDurable: () => loadPersistedState({ persistCleanup: false }),
+    save: saveState
+  })
+}

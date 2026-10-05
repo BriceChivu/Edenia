@@ -64,6 +64,11 @@ function isEmptyRecord(value) {
 }
 
 export function isMeaningfullyEmptyLearnerProfile(profile) {
+  if (profile?.tinySwordsIsland !== undefined) {
+    if (profile.tinySwordsIsland !== null) return false
+    const { tinySwordsIsland, ...withoutIsland } = profile
+    profile = withoutIsland
+  }
   if (profile?.townEconomy !== undefined) {
     const economy = profile.townEconomy
     if (!hasExactKeys(economy, ['version', 'mode', 'rewards', 'purchases'])

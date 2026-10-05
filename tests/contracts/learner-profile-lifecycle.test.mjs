@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
@@ -3962,8 +3963,8 @@ test('a failed Start over leaves the active local profile and generation unchang
 test('Undo discovered on another device restores progress through the current generation fence', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
-  const blankProfile = { marker: 'blank-profile' }
-  const restoredProfile = { marker: 'restored-progress' }
+  const blankProfile = { marker: 'blank-profile', tinySwordsIsland: null }
+  const restoredProfile = { marker: 'restored-progress', tinySwordsIsland: JSON.parse(readFileSync('tests/fixtures/tiny-swords-populated-island.json', 'utf8')) }
   const protectedReset = {
     id: '323e4567-e89b-42d3-a456-426614174002',
     ownerId,

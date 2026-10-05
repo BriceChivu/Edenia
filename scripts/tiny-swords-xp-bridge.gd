@@ -35,16 +35,15 @@ func _process(delta: float) -> void:
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s}, location.origin)" % str(study_celebrating))
 	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, Layout.XP_THRESHOLDS.size())
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
-		study_layout_restored = true
-		var saved = JavaScriptBridge.eval("JSON.stringify(window.edeniaStudyLayout || null)")
-		if saved is String:
-			var data = JSON.parse_string(saved)
-			if data is Dictionary and int(data.get("level", 1)) <= claimed_level:
-				layout.restore(data)
-				rebuild_decorations()
-				pawn.position = layout.center(layout.spawn_cell())
-				pawn.walk_to(pawn.position)
-				refresh()
+		var saved = JavaScriptBridge.eval("JSON.stringify(window.edeniaStudyLayout)")
+		var data = JSON.parse_string(saved) if saved is String else null
+		study_layout_restored = restore_study_layout(data)
+		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-restored',session:window.edeniaStudySession,accepted:%s},location.origin)" % str(study_layout_restored))
+		JavaScriptBridge.eval("window.edeniaStudyReady=false")
+		if study_layout_restored:
+			save_layout()
+	if not study_layout_restored:
+		return
 	ui.max_preview_level = claimed_level
 	if layout.level < claimed_level:
 		unlock_level(layout.level + 1)
@@ -54,9 +53,11 @@ func _process(delta: float) -> void:
 		ui.launch.hide()
 	JavaScriptBridge.eval("window.edeniaGameLevel = %s" % layout.level)
 
+func restore_study_layout(data: Variant) -> bool:
+	if data == null:
+		return true
+	return data is Dictionary and restore_saved_layout(data)
+
 func save_layout() -> void:
 	if study_bridge_ready and study_layout_restored and OS.has_feature("web"):
-		# Synchronous storage survives refresh even before the parent receives the message.
-		var json := JSON.stringify(layout.snapshot())
-		JavaScriptBridge.eval("localStorage.setItem('edenia_tiny_swords_xp_layout_v1', %s)" % JSON.stringify(json))
-		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-layout',layout:%s}, location.origin)" % JSON.stringify(layout.snapshot()))
+		JavaScriptBridge.eval("window.edeniaQueueLayout(%s)" % JSON.stringify(layout.snapshot()))

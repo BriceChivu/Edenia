@@ -12,6 +12,13 @@ func _initialize() -> void:
 	assert(layout.stock.chicken == 0 and layout.chicken_at(cell) == 0)
 	var restored = Layout.new()
 	assert(restored.restore(layout.snapshot()) and restored.chickens == layout.chickens)
+	var before := restored.snapshot()
+	var invalid := before.duplicate(true)
+	invalid.chickens = []
+	invalid.stock.chicken = 1
+	invalid.house_build = {"started_at": -1}
+	assert(not restored.restore(invalid))
+	assert(restored.snapshot() == before, "Rejected construction must not mutate chickens or any live layout state")
 	assert(restored.edit(cell, "remove", Vector2i.ZERO) and restored.stock.chicken == 1)
 	var old := restored.snapshot()
 	old.version = 19

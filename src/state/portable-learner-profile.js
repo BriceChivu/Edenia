@@ -1,3 +1,4 @@
+import { copyTinySwordsIsland } from './tiny-swords-island.js'
 import { validateTownEconomy } from './town-economy.js'
 import { isValidTimestamp, toDateKey } from '../core/date-keys.js'
 import {
@@ -491,6 +492,7 @@ function createPortableProfile(state) {
     throw new TypeError('Portable learner profile source is invalid')
   }
   return {
+    ...(state.tinySwordsIsland === undefined ? {} : { tinySwordsIsland: copyTinySwordsIsland(state.tinySwordsIsland) }),
     ...(state.townEconomy === undefined ? {} : { townEconomy: cloneJson(validateTownEconomy(state.townEconomy)) }),
     activityLog: normalizeActivityLog(state.activityLog),
     anki: reconcilePortableAnkiDays(state.anki),

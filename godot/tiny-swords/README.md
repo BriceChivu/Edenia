@@ -333,6 +333,33 @@ Implement gameplay fixes and features in the Godot source, not in bridge scripts
 browser adapters, export builders, or generated exports. Rebuild the integrated
 preview from that source after changes.
 
+## Island persistence in the local Edenia integration
+
+The explicit localhost:8037 build stores Godot's versioned snapshot in the active
+learner profile's `tinySwordsIsland` field. Portable export/import and existing
+backup restore and reset/Undo carry it with study state. New or imported profiles
+without an island start fresh using their retained study progression. Native F5
+saves and fresh F6 preview behavior remain as described above.
+
+Edenia is the only durable writer for this integration. Godot acknowledges restore
+acceptance; Edenia acknowledges each save only after profile persistence succeeds.
+A rejected restore blocks island saves and retains the original input. Edenia bounds
+transport to 512 KiB and leaves gameplay validation and save migrations to Godot.
+Animal checkpoints skip whole-profile backups and analytics. Camera settings remain
+local to the device; selection, action queues and game undo history are transient.
+
+Import, backup restore and reset replace the iframe, clearing transient actions.
+Messages must come from that frame and its current session; each save also checks
+that the active and durable island still match the frame's predecessor. Another
+tab's island change replaces this tab's frame rather than combining islands.
+Only a legacy integrated developer snapshot can transfer into an older profile
+that has never stored an island field, and its source is removed only after an
+accepted restore and successful profile save. Reset profiles explicitly store
+`null`, preventing legacy preview data from resurrecting an island.
+
+This remains a local developer preview. The ordinary site build does not include
+the game export or enable Tiny Swords; Auth remains paused.
+
 ## Rebuild the integrated XP preview
 
 At `http://localhost:8037/`, map edits save immediately in browser storage.

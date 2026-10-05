@@ -15,7 +15,7 @@ test('XP camera preview export cannot be overwritten by standalone Godot export'
 
 test('study bridge delegates gameplay and builder copies canonical Godot rules', async () => {
   const bridge = await readFile('scripts/tiny-swords-xp-bridge.gd', 'utf8')
-  assert.deepEqual([...bridge.matchAll(/^func (\w+)\(/gm)].map(match => match[1]), ['_ready', '_process', 'save_layout'])
+  assert.deepEqual([...bridge.matchAll(/^func (\w+)\(/gm)].map(match => match[1]), ['_ready', '_process', 'restore_study_layout', 'save_layout'])
   const build = await readFile('scripts/build-experience-tiny-swords.mjs', 'utf8')
   assert.ok(build.includes("'res://tests/gameplay.gd'"), 'integrated build exercises shared gameplay suite')
   assert.ok(build.includes('tiny-swords-export-contract.gd'), 'integrated build checks the configured adapter entry point')

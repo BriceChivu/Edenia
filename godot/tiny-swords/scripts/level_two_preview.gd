@@ -1131,7 +1131,22 @@ func load_layout() -> void:
 	if json is String:
 		var data = JSON.parse_string(json)
 		if data is Dictionary:
-			layout.restore(data)
+			restore_saved_layout(data)
+
+func restore_saved_layout(data: Dictionary) -> bool:
+	if not layout.restore(data):
+		return false
+	# Native startup initializes actors below load_layout; an integrated frame
+	# receives its profile snapshot after those same actors are ready.
+	if construction != null:
+		rebuild_decorations()
+		pawn.position = layout.center(layout.spawn_cell())
+		pawn.walk_to(pawn.position)
+		if layout.house_bundle > 0:
+			construction.open_placement()
+		construction.resume_build()
+		refresh()
+	return true
 
 func _exit_tree() -> void:
 	if harvesting != null:

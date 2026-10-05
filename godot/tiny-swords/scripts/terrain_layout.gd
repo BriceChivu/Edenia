@@ -1187,7 +1187,6 @@ func restore(data: Dictionary) -> bool:
 			next_chickens.append(point)
 	if next_chickens.size() + next_stock.chicken != (1 if next_level >= 7 else 0):
 		return false
-	chickens = next_chickens
 	var next_build = data.get("house_build", {}) if int(data.version) >= 21 else {}
 	if not next_build is Dictionary:
 		return false
@@ -1201,6 +1200,7 @@ func restore(data: Dictionary) -> bool:
 		var owner := Vector2i(int(next_build.x), int(next_build.y))
 		if next_build.x != owner.x or next_build.y != owner.y or next_houses.get(owner, -1) != 1 or next_build.started_at <= 0 or next_bundle != 0:
 			return false
+	chickens = next_chickens
 	house_build = next_build.duplicate(true)
 	free_house_grass = int(bonus)
 	houses = next_houses
