@@ -49,11 +49,17 @@ func run() -> void:
 	water_house.resources.wood = 6
 	var water_origin := Vector2i(8, 4)
 	var water_before := water_house.snapshot()
+	var foundation_stock: int = water_house.stock.meadow
 	check(water_house.edit(water_origin, "house", Layout.HOME), "House builds directly on four water squares")
-	check(water_house.free_house_grass == 4 and water_house.resources.wood == 0, "Four free foundation tiles cost only six logs")
+	check(water_house.free_house_grass == 0 and water_house.stock.meadow == foundation_stock - 4 and water_house.resources.wood == 0, "Water foundation spends four inventory grass tiles and six logs")
 	for square in water_house.house_cells(water_origin):
 		check(water_house.cells.get(square) == "meadow" and not water_house.can_edit(square, "ground", Layout.HOME), "Every foundation tile is grass and protected")
 	check(copy.restore(water_house.snapshot()) and copy.snapshot() == water_house.snapshot(), "Water foundation survives reload")
+	check(water_house.edit(water_origin, "remove", Layout.HOME), "Water house pickup returns logs")
+	check(water_house.stock.meadow == foundation_stock - 4 and water_house.free_house_grass == 0, "Pickup does not refund foundation grass")
+	water_house.stock.meadow = 0
+	var blocked := water_house.snapshot()
+	check(not water_house.edit(Vector2i(10, 4), "house", Layout.HOME) and water_house.snapshot() == blocked, "Repeated water construction cannot generate grass with empty inventory")
 	check(water_house.restore(water_before) and water_house.free_house_grass == 0 and not water_house.cells.has(water_origin), "Undo removes free foundation and restores logs")
 	layout.resources.wood = 6
 	layout.flora[Vector2i(2, 1)] = 1
@@ -223,11 +229,16 @@ func run() -> void:
 	click.pressed = true
 	click.position = scene.get_global_transform_with_canvas() * pile_point
 	scene.handle_world_click(click)
-	check(scene.editing and scene.selected == "house" and scene.house_log_source == pile_cell, "Click full pyramid opens house placement")
+	check(scene.construction.phase == scene.construction.Phase.PICKUP and scene.layout.log_piles.has(pile_cell), "Full pyramid click begins approach without removing logs")
+	scene.waypoints.clear()
+	scene.pawn.position = scene.layout.center(pile_cell)
+	scene.pawn.walk_to(scene.pawn.position)
+	scene.construction._process(0.0)
+	check(scene.editing and scene.selected == "house" and scene.layout.house_bundle == 6, "Arrival reserves full pyramid and opens house placement")
 	scene.editing = true
 	scene.selected = "house"
 	check(scene.apply_edit(Vector2i(1, 1)), "Runtime house placement")
-	check(not scene.layout.log_piles.has(pile_cell) and scene.layout.carried_wood == 2, "Construction consumes selected pyramid before carried logs")
+	check(not scene.layout.log_piles.has(pile_cell) and scene.layout.carried_wood == 2 and scene.layout.house_bundle == 0, "Construction consumes reserved pyramid before carried logs")
 	check(not scene.ui.buttons.house.visible, "House stays outside the inventory")
 	check(scene.apply_edit(Vector2i(1, 1)), "Runtime house rotation")
 	scene.layout.level = 5

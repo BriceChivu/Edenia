@@ -86,7 +86,10 @@ func _initialize() -> void:
 	var variants := {}
 	for iteration in range(64):
 		check(fourth.edit(Vector2i(2, 0), "remove", Vector2i.ZERO), "Pick up randomized tree")
+		var preview_variant: String = fourth.next_tree_variant
 		check(fourth.edit(Vector2i(2, 0), "tree", Vector2i.ZERO), "Place shared tree item")
+		check(fourth.tree_types[Vector2i(2, 0)] == preview_variant, "Placement matches the held preview")
+		check(fourth.next_tree_variant != preview_variant, "Next tree preview always changes after placement")
 		variants[fourth.tree_types[Vector2i(2, 0)]] = true
 	check(variants.size() == 4, "Shared tree item can produce every tree variant")
 	var cycling_stock: Dictionary = fourth.stock.duplicate()

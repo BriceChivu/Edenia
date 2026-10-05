@@ -11,6 +11,7 @@ const HOUSE_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elem
 const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_01.png")
 const INVALID_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_03.png")
 const BUILD_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png")
+const Construction = preload("res://scripts/house_construction.gd")
 const Harvesting = preload("res://scripts/tree_harvesting.gd")
 const AXE_CURSOR := preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Tools/Tool_02.png")
 const SAVE_KEY := "edenia_tiny_swords_builder_preview_v1"
@@ -31,7 +32,7 @@ var layout = Layout.new()
 var terrain
 var ui
 var editing := false
-var selected := "ground"
+var selected := ""
 var house_log_source := Vector2i(999, 999)
 var preserve_history_on_reopen := false
 var history: Array[Dictionary] = []
@@ -39,6 +40,7 @@ var walking_bridges: Array[Vector2i] = []
 var movement_generation := 0
 var waypoints: Array[Vector2] = []
 var harvesting
+var construction
 var log_pickup := Vector2i(999, 999)
 var log_delivery := Vector2i(999, 999)
 var asset_nodes: Array[Node] = []
@@ -95,18 +97,27 @@ func _ready() -> void:
 	ui.unlock_requested.connect(unlock_level)
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
+		if construction != null and construction.busy():
+			return
 		selected = tool
 		house_log_source = Vector2i(999, 999)
 		ui.collapsed = false
 		ui.panel.accessibility_description = "Pick up tree first, then ground." if tool == "remove" else "Choose a square for " + BuilderUI.NAMES[tool] + "."
-		refresh())
+		refresh()
+		update_inventory_preview(get_global_mouse_position(), false))
 	ui.undo_requested.connect(undo)
 	pawn.position = layout.center(layout.spawn_cell())
 	pawn.walk_to(pawn.position)
 	harvesting = Harvesting.new()
 	harvesting.world = self
 	add_child(harvesting)
+	construction = Construction.new()
+	construction.world = self
+	add_child(construction)
+	if layout.house_bundle > 0:
+		construction.open_placement()
 	rebuild_decorations()
+	construction.resume_build()
 	refresh()
 	game_camera = Camera2D.new()
 	game_camera.position = pawn_view_center()
@@ -123,12 +134,15 @@ func refresh() -> void:
 	update_cursor()
 	terrain.editing = editing
 	terrain.tool = selected
+	terrain.valid = false
 	ui.refresh(editing, selected, not history.is_empty())
 
 func unlock_level_two() -> void:
 	unlock_level(2)
 
 func unlock_level(target_level: int) -> void:
+	if construction != null and construction.busy():
+		return
 	if water_phase != WaterPhase.READY or ui.celebration != null or target_level > ui.max_preview_level:
 		return
 	if not layout.unlock(target_level):
@@ -146,6 +160,8 @@ func unlock_level(target_level: int) -> void:
 	ui.celebrate()
 
 func toggle_editing() -> void:
+	if construction != null and construction.busy():
+		return
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
 	# Opening inventory changes input tools, not the pawn's current work.
@@ -156,7 +172,9 @@ func toggle_editing() -> void:
 		if not preserve_history_on_reopen:
 			history.clear()
 		preserve_history_on_reopen = false
+		selected = ""
 	refresh()
+	update_inventory_preview(get_global_mouse_position(), false)
 
 func _process(_delta: float) -> void:
 	if terrain == null:
@@ -167,13 +185,13 @@ func _process(_delta: float) -> void:
 			rebuild_decorations()
 			save_layout()
 		log_pickup = Vector2i(999, 999)
-	pawn.carrying_wood = layout.carried_wood > 0 and not pawn.axe_equipped
+	pawn.carrying_wood = (layout.carried_wood > 0 or layout.house_bundle > 0) and not pawn.axe_equipped and not pawn.hammering
 	if log_delivery != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 		var delivered := not editing and water_phase == WaterPhase.READY and layout.drop_logs(log_delivery)
 		log_pickup = Vector2i(999, 999)
 		log_delivery = Vector2i(999, 999)
 		if delivered:
-			pawn.carrying_wood = layout.carried_wood > 0 and not pawn.axe_equipped
+			pawn.carrying_wood = (layout.carried_wood > 0 or layout.house_bundle > 0) and not pawn.axe_equipped and not pawn.hammering
 			history.clear()
 			rebuild_decorations()
 			save_layout()
@@ -187,21 +205,101 @@ func _process(_delta: float) -> void:
 		pawn.z_index = int(ceil(ground_height(pawn.position) / 64.0))
 		if not waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 			pawn.walk_to(waypoints.pop_front())
-	if editing:
-		terrain.preview_position = get_global_mouse_position()
-		terrain.ground_preview_height = -1
-		if selected == "bridge":
-			terrain.hover = bridge_placement_at(terrain.preview_position)
-		elif selected == "ground":
-			var option := ground_placement_at(terrain.preview_position)
-			terrain.hover = option.cell
-			terrain.ground_preview_height = option.height
-		else:
-			terrain.hover = clicked_cell(terrain.preview_position)
-		terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position)
-		if selected == "tree":
-			update_tree_preview(terrain.preview_position)
+	var over_ui := get_viewport().gui_get_hovered_control() != null
+	update_inventory_preview(get_global_mouse_position(), pointer_inside and pointer_focused and not over_ui and not world_dragging)
 	update_cursor()
+
+# Existing-object changes use the same rule checks and edit path as tools.
+# The toolbar selection stays independent of the object under the pointer.
+func inventory_changes() -> Array[Dictionary]:
+	var changes: Array[Dictionary] = []
+	if not editing or selected != "" or water_phase != WaterPhase.READY or ui.collapsed or ui.celebration != null or construction.busy():
+		return changes
+	var occupied: Vector2i = layout.cell_at(pawn.position)
+	for cell in layout.houses:
+		if layout.can_edit(cell, "house", occupied, -1, Vector2.ZERO, pawn.position):
+			changes.append({"cell": cell, "tool": "house", "height": -1.0})
+	for cell in layout.trees:
+		if layout.can_edit(cell, "tree", occupied):
+			changes.append({"cell": cell, "tool": "tree", "height": -1.0})
+	for cell in layout.cells:
+		if layout.cells[cell] == "stairs":
+			if layout.can_edit(cell, "stairs", occupied):
+				changes.append({"cell": cell, "tool": "stairs", "height": -1.0})
+		else:
+			var height: float = layout.next_ground_height(cell)
+			if height >= 0 and layout.can_edit(cell, "ground", occupied, height, Vector2.ZERO, pawn.position):
+				changes.append({"cell": cell, "tool": "ground", "height": height})
+	return changes
+
+func inventory_change_at(point: Vector2, changes: Array[Dictionary]) -> Dictionary:
+	# Artwork takes precedence over the terrain beneath it.
+	var tree := tree_at(point)
+	for change in changes:
+		if change.tool == "house" and LevelFiveArt.house_rect(layout, change.cell).has_point(point):
+			return change
+		if change.tool == "tree" and change.cell == tree:
+			return change
+	for change in changes:
+		if change.tool == "stairs":
+			for area in layout.stair_pickup_rects(change.cell):
+				if area.has_point(point):
+					return change
+	var cell := surface_cell(point)
+	for change in changes:
+		if change.tool == "ground" and change.cell == cell:
+			return change
+	return {}
+
+func update_inventory_preview(point: Vector2, allow_hover := true) -> void:
+	terrain.proposed_terrain = null
+	terrain.changes = inventory_changes()
+	terrain.outline_trees = tree_nodes
+	terrain.transform_preview = false
+	terrain.tool = selected
+	terrain.valid = false
+	terrain.ground_preview_height = -1
+	# Restore any artwork hidden by the previous frame's swap preview.
+	for sprite in tree_nodes:
+		sprite.visible = true
+	for sprite in asset_nodes:
+		if sprite.has_meta("house_cell"):
+			sprite.visible = true
+	if not editing or not allow_hover:
+		return
+	terrain.preview_position = point
+	var change := inventory_change_at(point, terrain.changes) if selected != "remove" and layout.house_bundle == 0 else {}
+	if not change.is_empty():
+		terrain.transform_preview = true
+		terrain.tool = change.tool
+		terrain.hover = change.cell
+		terrain.ground_preview_height = change.height
+		terrain.preview_position = layout.center(change.cell) - Vector2(0, layout.height_at(change.cell))
+		terrain.valid = true
+		if change.tool == "tree":
+			for sprite in tree_nodes:
+				if sprite.get_meta("cell") == change.cell:
+					sprite.hide()
+		elif change.tool == "house":
+			for sprite in asset_nodes:
+				if sprite.get_meta("house_cell", Vector2i(999, 999)) == change.cell:
+					sprite.hide()
+		return
+	if selected == "":
+		return
+	if selected == "bridge":
+		terrain.hover = bridge_placement_at(point)
+	elif selected == "ground":
+		var option := ground_placement_at(point)
+		terrain.hover = option.cell
+		terrain.ground_preview_height = option.height
+	else:
+		terrain.hover = clicked_cell(point)
+	terrain.valid = water_phase == WaterPhase.READY and (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position, terrain.placement_offset() if selected == "house" else Vector2.ZERO)
+	if selected == "house":
+		update_house_preview()
+	if selected == "tree":
+		update_tree_preview(point)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and editing and ui.celebration == null:
@@ -308,11 +406,17 @@ func fit_build_cursor() -> void:
 	build_cursor = ImageTexture.create_from_image(assembled)
 	cursor_mode = ""
 
+func update_house_preview() -> void:
+	if terrain.valid and layout.house_bundle > 0 and not layout.houses.has(terrain.hover):
+		terrain.valid = not construction.placement_plan(terrain.hover, terrain.placement_offset()).is_empty()
+
 func update_cursor() -> void:
 	if pointer == null:
 		return
 	fit_build_cursor()
-	var mode := "walk" if not editing else (("build" if selected == "remove" else "place") if terrain.valid else "invalid")
+	var mode := "walk" if not editing else (("build" if selected == "remove" else "place") if terrain.valid else ("ui" if selected == "" else "invalid"))
+	if editing and selected == "":
+		mode = "ui"
 	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and harvesting != null and harvesting.available(tree_at(get_global_mouse_position())):
 		mode = "axe"
 	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and layout.can_pick_log(log_at(get_global_mouse_position())):
@@ -324,7 +428,7 @@ func update_cursor() -> void:
 		mode = "invalid" if hovered is BaseButton and hovered.disabled else "ui"
 	if mode != cursor_mode:
 		cursor_mode = mode
-		pointer.texture = HOUSE_CURSOR if mode == "house" else AXE_CURSOR if mode == "axe" else UI_CURSOR if mode == "ui" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
+		pointer.texture = HOUSE_CURSOR if mode == "house" else AXE_CURSOR if mode == "axe" else UI_CURSOR if mode == "ui" or mode == "place" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
 	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else (Vector2(32, 32) if mode == "axe" or mode == "house" else Vector2(24, 18))
 	pointer.scale = (game_camera.zoom if game_camera != null else Vector2.ONE * DEFAULT_ZOOM) if mode == "build" else Vector2.ONE
 	# The original handle faces left; mirror it when the pawn is on the right.
@@ -339,7 +443,7 @@ func update_cursor() -> void:
 			# The hammer artwork fills twice the span of the white hand.
 			pointer.scale *= 0.5
 	pointer.position = pointer_position - hotspot * pointer.scale
-	pointer.visible = pointer_inside and pointer_focused and mode != "place"
+	pointer.visible = pointer_inside and pointer_focused
 
 func bridge_placement_at(point: Vector2) -> Vector2i:
 	for bank in layout.cells:
@@ -367,8 +471,12 @@ func clicked_cell(point: Vector2) -> Vector2i:
 		for cell in layout.houses:
 			if selected in ["house", "remove"] and LevelFiveArt.house_rect(layout, cell).has_point(point):
 				return cell
-		for cell in layout.chickens:
-			if selected == "remove" and LevelFiveArt.chicken_rect(layout, cell).has_point(point):
+		for point_on_ground in layout.chickens:
+			var cell: Vector2i = layout.cell_at(point_on_ground)
+			var chicken_rect := LevelFiveArt.chicken_rect(layout, cell)
+			chicken_rect.position += point_on_ground - layout.center(cell)
+			chicken_rect.position.y += layout.height_at(cell) - ground_height(point_on_ground)
+			if selected == "remove" and chicken_rect.has_point(point):
 				return cell
 		for sheep_position in layout.sheep:
 			var cell: Vector2i = layout.cell_at(sheep_position)
@@ -445,16 +553,16 @@ func handle_world_click(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
-		var cell := clicked_cell(point)
+		var change := inventory_change_at(point, inventory_changes()) if editing and selected != "remove" and layout.house_bundle == 0 else {}
+		var cell: Vector2i = change.cell if not change.is_empty() else clicked_cell(point)
+		if construction.handle_click(cell, point):
+			return
 		log_pickup = Vector2i(999, 999)
 		log_delivery = Vector2i(999, 999)
 		if not editing:
 			var pile := log_at(point)
 			if layout.level >= 5 and int(layout.log_piles.get(pile, 0)) == 6:
-				harvesting.cancel()
-				selected = "house"
-				house_log_source = pile
-				toggle_editing()
+				construction.pickup(pile)
 				return
 			if layout.can_pick_log(pile):
 				var destination: Vector2 = layout.center(pile)
@@ -476,6 +584,14 @@ func handle_world_click(event: InputEvent) -> void:
 				return
 			harvesting.cancel()
 		if editing:
+			if not change.is_empty():
+				var held_tool := selected
+				selected = change.tool
+				apply_edit(cell, change.height)
+				selected = held_tool
+				refresh()
+				update_inventory_preview(point)
+				return
 			var height: float = ground_placement_at(point).height if selected == "ground" else -1.0
 			if selected != "ground" or height >= 0:
 				apply_edit(cell, height, tree_offset_at(cell, point) if selected == "tree" else Vector2.ZERO)
@@ -490,10 +606,12 @@ func handle_world_click(event: InputEvent) -> void:
 func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if water_phase != WaterPhase.READY:
 		return false
+	if construction != null and construction.busy():
+		return false
 	if selected == "tree" and not can_place_tree(cell, tree_placement_offset):
 		return false
 	var before: Dictionary = layout.snapshot()
-	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source, pawn.position):
+	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source, pawn.position, terrain.placement_offset() if selected == "house" and not layout.houses.has(cell) else Vector2.ZERO):
 		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	history.append(before)
@@ -508,6 +626,8 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 	return true
 
 func undo() -> void:
+	if construction != null and construction.busy():
+		return
 	if water_phase != WaterPhase.READY or not editing or history.is_empty():
 		return
 	layout.restore(history.pop_back())
@@ -532,12 +652,14 @@ func rebuild_decorations() -> void:
 		if height > 64:
 			var backing := TerrainView.new()
 			backing.layout = layout
+			backing.render_source = terrain
 			backing.backing_height = height - 64
 			backing.z_index = int(height / 64.0) - 2
 			backing.set_meta("terrain_backing", true)
 			add_child(backing)
 		var shadows := TerrainView.new()
 		shadows.layout = layout
+		shadows.render_source = terrain
 		shadows.shadow_height = height
 		# After World at the receiving surface's depth, before its characters
 		# and the casting floor. Keep the authored one-tile downward offset.
@@ -552,6 +674,7 @@ func rebuild_decorations() -> void:
 		if layout.height_at(cell) > 0 or layout.cells[cell] == "stairs":
 			var surface := TerrainView.new()
 			surface.layout = layout
+			surface.render_source = terrain
 			surface.piece = cell
 			surface.z_index = maxi(0, int(layout.height_at(cell) / 64.0) - (0 if layout.cells[cell] == "stairs" else 1))
 			surface.position = layout.ORIGIN + Vector2(cell) * 64
@@ -708,20 +831,20 @@ func rebuild_decorations() -> void:
 		house.texture = LevelFiveArt.HOUSE_TEXTURES[facing]
 		house.flip_h = facing == 3
 		house.scale = Vector2.ONE
-		house.position = Vector2(layout.center(cell).x + 32, LevelFiveArt.house_depth_y(layout, cell, facing))
+		house.position = Vector2(layout.center(cell).x + 32 + layout.house_offsets.get(cell, Vector2.ZERO).x, LevelFiveArt.house_depth_y(layout, cell, facing))
 		# Move the sorting anchor without moving the house artwork.
-		house.offset = Vector2(0, layout.center(cell).y - house.position.y - layout.height_at(cell))
+		house.offset = Vector2(0, layout.center(cell).y + layout.house_offsets.get(cell, Vector2.ZERO).y - house.position.y - layout.height_at(cell))
+		house.set_meta("house_cell", cell)
 		house.z_index = int(layout.height_at(cell) / 64)
 		$World.add_child(house)
 		asset_nodes.append(house)
-	for cell in layout.chickens:
+	for chicken_index in layout.chickens.size():
 		var chicken := Sprite2D.new()
 		chicken.set_script(preload("res://scripts/chicken_visual.gd"))
-		chicken.texture = LevelFiveArt.CHICKEN
-		chicken.position = layout.center(cell) - Vector2(0, layout.height_at(cell))
-		chicken.offset = LevelFiveArt.CHICKEN_OFFSET
-		chicken.scale = Vector2.ONE * LevelFiveArt.CHICKEN_SCALE
+		chicken.world = self
+		chicken.chicken_index = chicken_index
 		var shadow := Polygon2D.new()
+		shadow.name = "GroundShadow"
 		var outline := PackedVector2Array()
 		for index in range(32):
 			var angle := TAU * index / 32.0
@@ -730,7 +853,6 @@ func rebuild_decorations() -> void:
 		shadow.color = Color(0, 0, 0, 0.2)
 		shadow.show_behind_parent = true
 		chicken.add_child(shadow)
-		chicken.z_index = int(layout.height_at(cell) / 64)
 		$World.add_child(chicken)
 		asset_nodes.append(chicken)
 	for index in layout.sheep.size():

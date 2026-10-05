@@ -74,5 +74,17 @@ func run() -> void:
  assert(level.apply_edit(grass), "Clicking flat grass beside higher ground transforms it")
  assert(level.layout.height_at(grass) == level.layout.height_at(right), "Transformed grass joins the ground on its right")
  assert(level.layout.stock == stock, "Click transformation consumes no grass")
+ view.tool = "tree"
+ view.hover = grass
+ level.layout.trees[grass] = Vector2(6, 4)
+ for kind in level.layout.TREE_VARIANTS:
+  level.layout.tree_types[grass] = kind
+  var expected_kind = level.layout.TREE_VARIANTS[(level.layout.TREE_VARIANTS.find(kind) + 1) % 4]
+  assert(view.tree_preview_variant() == expected_kind, "Existing tree hover previews the next click variant")
+  var anchored: Rect2 = view.tree_preview_rect()
+  view.preview_position += Vector2(9, 7)
+  assert(view.tree_preview_rect() == anchored, "Variant preview stays at the existing tree anchor")
+  view.clipped_tree_preview_texture()
+  assert(view.tree_preview_kind == expected_kind, "Preview artwork uses the replacement variant")
  print("Placement preview checks: PASS")
  quit()

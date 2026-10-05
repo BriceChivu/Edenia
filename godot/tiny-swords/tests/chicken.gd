@@ -9,7 +9,7 @@ func _initialize() -> void:
 	assert(not layout.unlock(7))
 	var cell := Vector2i(1, 0)
 	assert(layout.edit(cell, "chicken", Vector2i.ZERO))
-	assert(layout.stock.chicken == 0 and layout.chickens.has(cell))
+	assert(layout.stock.chicken == 0 and layout.chicken_at(cell) == 0)
 	var restored = Layout.new()
 	assert(restored.restore(layout.snapshot()) and restored.chickens == layout.chickens)
 	assert(restored.edit(cell, "remove", Vector2i.ZERO) and restored.stock.chicken == 1)

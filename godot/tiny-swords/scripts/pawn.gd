@@ -6,9 +6,11 @@ var destination: Vector2
 var axe_equipped := false
 var chopping := false
 var carrying_wood := false
+var hammering := false
 # Movement stays at its existing anchor; drawing sorts at the bottom foot pixel.
 const FOOT_DEPTH_Y := 6.0
 const AXE_ATLASES := {
+	"hammer_interact": preload("res://Tiny Swords (Free Pack)/Units/Blue Units/Pawn/Pawn_Interact Hammer.png"),
 	"wood_idle": preload("res://Tiny Swords (Free Pack)/Units/Blue Units/Pawn/Pawn_Idle Wood.png"),
 	"wood_run": preload("res://Tiny Swords (Free Pack)/Units/Blue Units/Pawn/Pawn_Run Wood.png"),
 	"axe_idle": preload("res://Tiny Swords (Free Pack)/Units/Blue Units/Pawn/Pawn_Idle Axe.png"),
@@ -40,6 +42,9 @@ func walk_to(point: Vector2) -> void:
 	destination = point
 
 func _physics_process(delta: float) -> void:
+	if hammering:
+		sprite.play("hammer_interact")
+		return
 	if chopping:
 		sprite.play("axe_interact")
 		return

@@ -5,6 +5,12 @@ const IDLE_SECONDS := 2.4
 const GRASS_SECONDS := 1.2
 var world
 var sheep_index := 0
+var idle_texture: Texture2D = Art.SHEEP_IDLE
+var grass_texture: Texture2D = Art.SHEEP_GRASS
+var run_texture: Texture2D = Art.SHEEP_RUN
+var art_scale := 1.0
+var art_offset := Vector2(0, -8)
+var faces_left := false
 var destination := Vector2.ZERO
 var fleeing := false
 var escape_route: Array[Vector2] = []
@@ -18,14 +24,20 @@ var grazing_target := randi_range(10, 15)
 var updated_at := 0.0
 
 func _ready() -> void:
-	texture = Art.SHEEP_IDLE
+	texture = idle_texture
 	hframes = 6
-	scale = Vector2.ONE
+	scale = Vector2.ONE * art_scale
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	position = world.layout.sheep[sheep_index]
+	position = animal_positions()[sheep_index]
+	var height: float = world.ground_height(position)
+	offset = art_offset - Vector2(0, height / art_scale)
+	z_index = int(ceil(height / 64.0))
 	destination = position
 	previous_pawn_position = world.pawn.position
 	updated_at = Time.get_unix_time_from_system()
+
+func animal_positions() -> Array[Vector2]:
+	return world.layout.sheep
 
 func tile_target(cell: Vector2i) -> Vector2:
 	var center: Vector2 = world.layout.center(cell)
@@ -147,7 +159,7 @@ func reset_grazing() -> void:
 
 func face_destination() -> void:
 	if absf(destination.x - position.x) > 0.001:
-		flip_h = destination.x < position.x
+		flip_h = (destination.x > position.x) if faces_left else (destination.x < position.x)
 
 func try_wandering() -> void:
 	destination = adjacent_grass_target()
@@ -160,11 +172,15 @@ func try_wandering() -> void:
 			fleeing = true
 			face_destination()
 
+func movement_speed() -> float:
+	return 110.0
+
 func _process(delta: float) -> void:
 	advance(delta, Time.get_unix_time_from_system())
 
 func advance(delta: float, now: float) -> void:
-	if sheep_index >= world.layout.sheep.size():
+	var animals := animal_positions()
+	if sheep_index >= animals.size():
 		return
 	# Hidden iframes and background tabs may suspend frames or clamp delta.
 	var elapsed := maxf(delta, maxf(0.0, now - updated_at))
@@ -188,25 +204,25 @@ func advance(delta: float, now: float) -> void:
 		# its ground. Fine navigation bends may lie on a tile boundary.
 		position = tile_destinations[0] if not tile_destinations.is_empty() else tile_target(world.layout.cell_at(destination))
 		destination = position
-		world.layout.sheep[sheep_index] = position
+		animals[sheep_index] = position
 		fleeing = false
 		escape_route.clear()
 		tile_destinations.clear()
 		reset_grazing()
 		world.save_layout()
 	# Advance to animation/movement boundaries so a suspended frame counts every
-	# complete Sheep_Grass loop and can cross several grazing destinations.
+	# complete eating loop and can cross several grazing destinations.
 	while elapsed > 0.0:
 		if fleeing:
-			var travel_seconds := position.distance_to(destination) / 110.0
+			var travel_seconds := position.distance_to(destination) / movement_speed()
 			var step := minf(elapsed, travel_seconds)
-			position = position.move_toward(destination, step * 110.0)
-			world.layout.sheep[sheep_index] = position
+			position = position.move_toward(destination, step * movement_speed())
+			animals[sheep_index] = position
 			animation_time += step
 			elapsed -= step
 			if step >= travel_seconds:
 				position = destination
-				world.layout.sheep[sheep_index] = position
+				animals[sheep_index] = position
 				if not tile_destinations.is_empty() and position.is_equal_approx(tile_destinations[0]):
 					tile_destinations.pop_front()
 				escape_route.pop_front()
@@ -230,15 +246,19 @@ func advance(delta: float, now: float) -> void:
 					try_wandering()
 	frame = 0
 	if fleeing:
-		texture = Art.SHEEP_RUN
+		texture = run_texture
 		hframes = 4
 		frame = int(animation_time * 10) % hframes
 	else:
 		var grazing := resting_time >= IDLE_SECONDS
-		texture = Art.SHEEP_GRASS if grazing else Art.SHEEP_IDLE
+		texture = grass_texture if grazing else idle_texture
 		hframes = 12 if grazing else 6
 		var phase_time := resting_time - IDLE_SECONDS if grazing else resting_time
 		frame = int(phase_time * 10) % hframes
 	var height: float = world.ground_height(position)
-	offset = Vector2(0, -8 - height)
+	offset = art_offset - Vector2(0, height / art_scale)
 	z_index = int(ceil(height / 64.0))
+
+	var shadow := get_node_or_null("GroundShadow") as Polygon2D
+	if shadow != null:
+		shadow.position.y = -height / art_scale

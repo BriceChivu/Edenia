@@ -48,8 +48,9 @@ Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_l
 The axe unlocks tree cutting at level four; the inventory rewards are the three grass tiles and shared tree.
 The level-three tree icon represents all four tree atlases. Each placement randomly
 chooses a variant in advance, so the hover preview matches the placed tree.
+After placement, the next preview randomly chooses one of the other three types.
 The pending variant stays fixed until a successful placement and is saved with
-the layout, including undo. Clicking a placed tree again with the tree tool cycles through
+the layout, including undo. Clicking a placed tree while the inventory is open cycles through
 all four variants for free. The tool stays available even with zero tree stock.
 Saves and undo retain the chosen variant. Picking it up returns one
 shared tree item. Save version 15 also migrates the earlier separate tree inventory.
@@ -156,7 +157,14 @@ right and bottom. Celebration buttons and game cursors retain their existing sca
 
 Ground, stairs and pine are image-only choices, with no title or individual
 button backgrounds. Small bottom-right ×N counters show remaining ground, stairs
-and pine. A small underline marks selection; faded artwork is unavailable.
+and pine. Opening the inventory clears tool selection. A small underline marks a tool only
+after it is chosen; faded artwork is unavailable. While the inventory is open with no tool selected,
+objects with a valid next change have a soft white two-pixel outline: tree types,
+house facings, staircase directions, and grass elevations. Hovering previews that
+next change at the existing anchor; clicking applies it without selecting an
+inventory button. Selecting any tool hides these outlines and uses its normal
+preview. Pickup retains its own preview. Protected objects do not offer
+a change, and closing the inventory removes the outlines and previews.
 The four-corner Cursor 04 icon picks up, and the orange back arrow undoes. A small
 cross at the top-right (24×24 hit target) or Escape exits building and returns to walking. All controls retain accessible names; item counts remain in their accessible
 names and inventory state. Selecting a tool keeps the strip open.
@@ -398,7 +406,8 @@ Cursors 01–03 retain their original 64px dimensions; Cursor 04 is assembled
 to span one 64px grid square, then scales as a whole with the camera zoom
 so its corners match the visible grid square corners. All cursors use scene
 coordinates with no browser-specific enlargement, matching native Godot.
-The pointer moves freely rather than snapping.
+The pointer moves freely rather than snapping, and remains visible during placement
+alongside the grid-aligned terrain preview.
 Leaving the game window or losing focus immediately hides the drawn cursor.
 Inactive native windows leave the pointer to macOS; returning focus restores
 the hidden system pointer and the game cursor. Web canvases still support
@@ -638,14 +647,30 @@ escape is available, then returns to idle. It stays
 on the island; with no safe escape tile it waits. Sheep movement pauses while
 building. Pick up the sheep to return its one inventory item.
 
-Each new house costs **6 harvested logs**, consuming carried/deposited logs
-from the existing wood balance. Houses do not appear in the inventory;
-click a full six-log pyramid to open house placement.
-Click a placed house with the House tool to cycle front, side, back, and
-opposite-side views for free, including when no wood remains. Pick up a house
-to relocate it without paying again. Hovering a full six-log pyramid shows `Icon_01.png`; click it to select the
-house placement preview. Construction consumes that pile first. Houses occupy
-a 2×2 square footprint on grass or water. Missing grass is created for free;
+Each new house costs **6 harvested logs**. Clicking a full six-log pyramid
+sends the pawn to it. Only on arrival does the pyramid disappear instantly;
+one carried log represents the reserved six-log bundle. The pawn keeps the
+log while the user chooses a house preview position and while approaching it.
+On arrival at a reachable site, the side-view house appears at **50% opacity**.
+The pawn uses the original three-frame `Pawn_Interact Hammer.png` at **10 fps**,
+repeating for **20 seconds**. Every impact briefly widens and compresses the
+house about its fixed base; recovery restores its shape. Opacity increases
+linearly to **100% at 20 seconds**. The pawn works beside the front-left door,
+using the website's 81px horizontal / 68px vertical offset when the ground
+allows it, with a closer approach on narrow foundations. The impact transform
+is measured from the website GIF; its rasterization is a close reproduction,
+not certified pixel-identical. Reserved logs and the construction clock survive
+reloads. Undo returns the reserved bundle without duplicating a ground pile.
+Houses stay outside the inventory. Click a placed house while the inventory is open
+to cycle front, side, back, and opposite-side views for free. Pick up a house
+to return its six logs as a pyramid on the nearest clear grass tile, including
+the freed foundation. Pick up that pyramid to rebuild the house. Hovering a full pyramid shows `Icon_01.png`.
+New houses retain the exact pointer preview position within their 2×2 foundation;
+construction, rotation, contacts, saves and undo retain that offset.
+Houses occupy
+a 2×2 square footprint on grass or water. Each missing foundation square costs one meadow grass tile from inventory;
+pickup leaves that paid foundation in place without refunding grass. Existing
+grass requires no additional tiles;
 bushes and rocks disappear. Stairs require clear foundations. Trees, other houses, logs, sheep, and the
 pawn block placement where their ground contacts overlap the annotated house
 contact polygon. Front, side, back, and mirrored side views share the same
@@ -661,11 +686,23 @@ Focused check: `res://tests/level_five.gd`.
 
 ## Level seven chicken
 
-Level seven grants three grass tiles and one chicken, using the supplied
-`assets/chicken.png`. Select Chicken in the inventory to place it on free grass;
-Pick up returns it to inventory. The chicken loops the six PNG frames extracted from
-`pixil-gif-drawing.gif` in `assets/chicken/` at the original 100 ms per frame,
-at 59.5% scale with a rounded ground shadow. Exterior white background is transparent;
-`assets/chicken.png` is the first frame used for inventory and placement previews. Save version
-20 preserves its placement and grants the chicken to older level-seven-or-higher
-saves. Focused check: `res://tests/chicken.gd`.
+Level seven grants three grass tiles and one chicken. Select Chicken in the inventory
+to place it on free grass; Pick up returns it to inventory. The CHICKEN4.0 animation
+sheets in `assets/chicken/` use 128×128 cells at 10 fps: six idle frames, twelve eating
+frames, and four run frames. The chicken alternates 2.4 seconds of idle with a complete
+1.2-second pecking sequence. It replays the pawn’s actual movement trail after a
+three-second delay, stopping on the preceding tile instead of entering the pawn’s
+current tile. Random wandering after 10–15 grazing cycles remains active while the
+pawn is stationary. Pawn contact interrupts following and triggers escape over 3–5 safe tile steps,
+including shorter and sideways fallbacks. It follows the same paths through bushes,
+rocks and connected stairs, avoiding tree, log and house contact footprints.
+When a sheep enters its grass tile, the chicken moves one reachable adjacent grass
+tile away, avoiding tiles occupied by sheep or the pawn. If none is available, it waits.
+Building pauses movement at the current step's safe destination. Background time
+catches up on return. The sprite retains 59.5% scale, a rounded ground shadow, and a fixed foot
+baseline. `assets/chicken.png` is its new first idle frame for inventory, placement,
+and the level-seven reward. Save version 22 retains the chicken's exact ground-plane
+position; versions 20–21 migrate their stored grass cells to positions. Earlier
+level-seven-or-higher saves retain the chicken reward migration.
+Focused checks: `res://tests/chicken.gd`, `res://tests/chicken_animation.gd`,
+and `res://tests/chicken_following.gd`.

@@ -36,6 +36,16 @@ func run() -> void:
 	game._input(motion)
 	game.update_cursor()
 	check(game.pointer.visible, "Returning focus restores the game cursor")
+	game.editing = true
+	game.selected = "ground"
+	game.terrain.valid = true
+	game.update_cursor()
+	check(game.pointer.visible and game.pointer.texture == game.UI_CURSOR, "Placement keeps the mouse pointer visible")
+	var previous: Vector2 = game.pointer.position
+	motion.position += Vector2(0.5, 0.25)
+	game._input(motion)
+	game.update_cursor()
+	check((game.pointer.position - previous).is_equal_approx(Vector2(0.5, 0.25)), "Placement pointer moves freely within a grid cell")
 	if DisplayServer.get_name() != "headless":
 		check(Input.mouse_mode == Input.MOUSE_MODE_HIDDEN, "Returning focus hides the system pointer")
 	game.queue_free()

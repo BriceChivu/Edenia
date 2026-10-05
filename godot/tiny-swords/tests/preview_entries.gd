@@ -28,6 +28,7 @@ func run() -> void:
 			if entry == "level_one":
 				check(not scene.ui.launch.visible, "Pure level one exposes no upgrade")
 			if initial_level >= 2:
+				scene.ui.tool_selected.emit("ground")
 				check(scene.apply_edit(Vector2i(2,0)), "Shared editing works before upgrade")
 			var cells: Dictionary = scene.layout.cells.duplicate()
 			var stock: Dictionary = scene.layout.stock.duplicate()

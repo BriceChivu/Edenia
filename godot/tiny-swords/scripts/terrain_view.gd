@@ -2,9 +2,16 @@ extends Node2D
 
 const LevelFiveArt = preload("res://scripts/level_five_art.gd")
 
+const InventoryOutline = preload("res://scripts/inventory_outline.gd")
+
 const TreeArt = preload("res://scripts/tree_art.gd")
 
+var changes: Array[Dictionary] = []
+var outline_trees: Array[Node] = []
+var transform_preview := false
 var editor_source = null
+var render_source = null
+var proposed_terrain = null
 var piece = null
 var shadow_height := -1.0
 var backing_height := -1.0
@@ -33,6 +40,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if piece != null or shadow_height >= 0 or backing_height >= 0:
+		if render_source != null:
+			queue_redraw()
 		return
 	elapsed += delta
 	queue_redraw()
@@ -290,6 +299,39 @@ func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE, preview_height
 	draw_texture_rect_region(texture, Rect2(origin, Vector2(64, 64)), ground_region(cell, kind), tint)
 
 func _draw() -> void:
+	var live_layout = layout
+	var source = render_source if render_source != null else self
+	if editor_source == null:
+		var proposed = source.terrain_render_layout()
+		if proposed != null:
+			layout = proposed
+	draw_contents()
+	layout = live_layout
+
+func terrain_render_layout():
+	if not editing or not valid or not transform_preview or tool not in ["ground", "stairs"]:
+		return null
+	if proposed_terrain == null:
+		proposed_terrain = layout.get_script().new()
+		proposed_terrain.cells = layout.cells.duplicate()
+		proposed_terrain.elevations = layout.elevations.duplicate()
+		proposed_terrain.stair_directions = layout.stair_directions.duplicate()
+		proposed_terrain.flora = layout.flora.duplicate()
+		proposed_terrain.manual_ground_elevation = true
+		if tool == "stairs":
+			proposed_terrain.reverse_stair(hover)
+			return proposed_terrain
+		var height := grass_preview_height()
+		var target := grass_preview_cell()
+		if target != hover:
+			proposed_terrain.cells.erase(hover)
+			proposed_terrain.elevations.erase(hover)
+		proposed_terrain.cells[target] = proposed_terrain.kind_at_height(height)
+		proposed_terrain.elevations[target] = height
+		proposed_terrain.normalize_cliff_terraces()
+	return proposed_terrain
+
+func draw_contents() -> void:
 	if layout == null:
 		return
 	if backing_height >= 0:
@@ -305,9 +347,19 @@ func _draw() -> void:
 		tool = editor_source.tool
 		preview_position = editor_source.preview_position
 		ground_preview_height = editor_source.ground_preview_height
+		changes = editor_source.changes
+		outline_trees = editor_source.outline_trees
+		transform_preview = editor_source.transform_preview
 		draw_editor()
 		return
 	if piece != null:
+		if not layout.cells.has(piece) or (layout.height_at(piece) == 0 and layout.cells[piece] != "stairs"):
+			return
+		if render_source != null and render_source.terrain_render_layout() != null:
+			if render_source.tool == "ground" and piece == render_source.grass_preview_cell():
+				return # The editor draws the replacement at its new elevation.
+			if render_source.tool == "stairs" and piece in [render_source.hover, render_source.hover + render_source.layout.stair_direction(render_source.hover)]:
+				return # The editor draws the reversed ramp and raised landing.
 		draw_set_transform(-position)
 		draw_tile(piece, layout.cells[piece])
 		return
@@ -349,20 +401,33 @@ func placement_offset() -> Vector2:
 	var height: float = layout.height_at(hover)
 	return preview_position - (layout.center(hover) - Vector2(0, height))
 
+func tree_preview_variant() -> String:
+	if layout.trees.has(hover):
+		var current: int = layout.TREE_VARIANTS.find(layout.tree_types.get(hover, "tree"))
+		return layout.TREE_VARIANTS[(current + 1) % layout.TREE_VARIANTS.size()]
+	return layout.next_tree_variant
+
+func tree_preview_position() -> Vector2:
+	if layout.trees.has(hover):
+		return layout.center(hover) + layout.tree_offset(hover) - Vector2(0, layout.height_at(hover))
+	return preview_position
+
 func clipped_tree_preview_texture() -> Texture2D:
-	var offset: Vector2 = placement_offset()
+	var offset: Vector2 = layout.tree_offset(hover) if layout.trees.has(hover) else placement_offset()
 	offset = Vector2(clampf(offset.x, layout.TREE_OFFSET_X_MIN, layout.TREE_OFFSET_X_MAX), clampf(offset.y, layout.TREE_OFFSET_Y_MIN, layout.TREE_OFFSET_Y_MAX))
 	var ground := TreeArt.shadow_ground(layout, hover)
-	if tree_preview_texture == null or offset != tree_preview_offset or layout.next_tree_variant != tree_preview_kind or ground != tree_preview_ground:
+	var kind := tree_preview_variant()
+	if tree_preview_texture == null or offset != tree_preview_offset or kind != tree_preview_kind or ground != tree_preview_ground:
 		tree_preview_ground = ground
-		tree_preview_kind = layout.next_tree_variant
+		tree_preview_kind = kind
 		tree_preview_offset = offset
-		tree_preview_texture = TreeArt.texture_at(offset, layout.next_tree_variant, false, ground)
+		tree_preview_texture = TreeArt.texture_at(offset, kind, false, ground)
 	return tree_preview_texture
 
 func tree_preview_rect() -> Rect2:
-	var frame_size := TreeArt.frame_size(layout.next_tree_variant)
-	return Rect2(preview_position + (TreeArt.art_offset(layout.next_tree_variant) - frame_size / 2) * TreeArt.SCALE, frame_size * TreeArt.SCALE)
+	var kind := tree_preview_variant()
+	var frame_size := TreeArt.frame_size(kind)
+	return Rect2(tree_preview_position() + (TreeArt.art_offset(kind) - frame_size / 2) * TreeArt.SCALE, frame_size * TreeArt.SCALE)
 
 func house_preview_rect() -> Rect2:
 	var area := LevelFiveArt.house_rect(layout, hover)
@@ -372,9 +437,10 @@ func house_preview_rect() -> Rect2:
 		area.position += placement_offset()
 	return area
 
-func pickup_outline() -> PackedVector2Array:
-	var origin: Vector2 = layout.stair_pickup_rects(hover)[0].position
-	var direction: Vector2i = layout.stair_direction(hover)
+func pickup_outline(cell := hover, direction := Vector2i.ZERO) -> PackedVector2Array:
+	var origin: Vector2 = layout.stair_pickup_rects(cell)[0].position
+	if direction == Vector2i.ZERO:
+		direction = layout.stair_direction(cell)
 	# Trace the same three squares used by pickup hit testing.
 	var points := PackedVector2Array([Vector2(0, 0), Vector2(64, 0), Vector2(64, -64), Vector2(128, -64), Vector2(128, 64), Vector2(0, 64), Vector2(0, 0)])
 	for i in points.size():
@@ -385,27 +451,26 @@ func pickup_outline() -> PackedVector2Array:
 
 func draw_stair_preview(tint: Color) -> void:
 	var reversing: bool = layout.cells.get(hover) == "stairs"
-	var direction: Vector2i = -layout.stair_direction(hover) if reversing else layout.available_stair_direction(hover)
-	var landing := hover + direction
+	var direction: Vector2i = layout.stair_direction(hover) if reversing else layout.available_stair_direction(hover)
+	var ramp := hover + direction if reversing else hover
+	var landing := hover if reversing else hover + direction
 	var height: float = layout.height_at(hover) if reversing else layout.height_at(hover - direction)
-	# Both ghost pieces must see the complete proposed bundle when choosing
-	# joined grass and cliff atlas regions, including over empty water.
 	var live_layout = layout
 	var proposed = layout.get_script().new()
 	proposed.cells = layout.cells.duplicate()
 	proposed.elevations = layout.elevations.duplicate()
 	proposed.stair_directions = layout.stair_directions.duplicate()
+	proposed.flora = layout.flora.duplicate()
 	if reversing:
-		var foot := hover - direction
-		proposed.elevations[foot] = height
-		proposed.cells[foot] = layout.kind_at_height(height)
-	proposed.cells[hover] = "stairs"
-	proposed.elevations[hover] = height
-	proposed.stair_directions[hover] = direction
-	proposed.cells[landing] = layout.kind_at_height(height + 64)
-	proposed.elevations[landing] = height + 64
+		proposed.reverse_stair(hover)
+	else:
+		proposed.cells[ramp] = "stairs"
+		proposed.elevations[ramp] = height
+		proposed.stair_directions[ramp] = direction
+		proposed.cells[landing] = layout.kind_at_height(height + 64)
+		proposed.elevations[landing] = height + 64
 	layout = proposed
-	draw_tile(hover, "stairs", tint)
+	draw_tile(ramp, "stairs", tint)
 	draw_tile(landing, proposed.cells[landing], tint)
 	layout = live_layout
 
@@ -419,6 +484,7 @@ func draw_ground_preview(tint: Color) -> void:
 	proposed.cells = layout.cells.duplicate()
 	proposed.elevations = layout.elevations.duplicate()
 	proposed.stair_directions = layout.stair_directions.duplicate()
+	proposed.flora = layout.flora.duplicate()
 	proposed.manual_ground_elevation = true
 	if target != hover:
 		proposed.cells.erase(hover)
@@ -429,6 +495,38 @@ func draw_ground_preview(tint: Color) -> void:
 	layout = proposed
 	draw_tile(target, proposed.cells[target], tint)
 	layout = live_layout
+
+func draw_art_outline(texture: Texture2D, area: Rect2, region := Rect2i(), mirrored := false) -> void:
+	if region.size == Vector2i.ZERO:
+		region = Rect2i(Vector2i.ZERO, Vector2i(texture.get_size()))
+	var scale := area.size / Vector2(region.size)
+	area = area.grow_individual(InventoryOutline.WIDTH * scale.x, InventoryOutline.WIDTH * scale.y, InventoryOutline.WIDTH * scale.x, InventoryOutline.WIDTH * scale.y)
+	if mirrored:
+		# Negative width flips the texture while keeping the rectangle origin.
+		area.size.x *= -1
+	draw_texture_rect(InventoryOutline.texture_for(texture, region), area, false, InventoryOutline.COLOR)
+
+func draw_change_outlines() -> void:
+	for change in changes:
+		var cell: Vector2i = change.cell
+		if transform_preview and hover == cell and tool == change.tool:
+			continue # The hovered replacement gets its own outline below.
+		match change.tool:
+			"tree":
+				for sprite in outline_trees:
+					if sprite.get_meta("cell") != cell:
+						continue
+					var kind: String = layout.tree_types.get(cell, "tree")
+					var size := TreeArt.frame_size(kind)
+					var area := Rect2(layout.tree_position(cell) - Vector2(0, layout.height_at(cell)) + TreeArt.art_offset(kind) - size / 2, size)
+					draw_art_outline(TreeArt.TEXTURES[kind], area, Rect2i(Vector2i(sprite.frame * int(size.x), 0), Vector2i(size)))
+			"house":
+				var facing: int = layout.houses[cell]
+				draw_art_outline(LevelFiveArt.HOUSE_TEXTURES[facing], LevelFiveArt.house_rect(layout, cell), Rect2i(), facing == 3)
+			"stairs":
+				draw_polyline(pickup_outline(cell), InventoryOutline.COLOR, InventoryOutline.WIDTH)
+			"ground":
+				draw_rect(Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.height_at(cell)), Vector2(64, 64)), InventoryOutline.COLOR, false, InventoryOutline.WIDTH)
 
 func draw_editor() -> void:
 	if editing:
@@ -443,15 +541,16 @@ func draw_editor() -> void:
 		for y in range(layout.MIN_CELL.y, layout.MAX_CELL.y + 2):
 			var line_y: float = layout.ORIGIN.y + y * 64
 			draw_line(Vector2(grid_start.x, line_y), Vector2(grid_end.x, line_y), grid_color, -1)
+		draw_change_outlines()
 		if layout.in_bounds(hover) and valid:
-			var tint := Color(0.7, 1, 0.65, 0.6)
+			var tint := Color.WHITE if transform_preview else Color(0.7, 1, 0.65, 0.6)
 			if tool == "bridge" or (tool == "remove" and layout.bridges.has(layout.BridgeRules.owner(layout, hover))):
 				var start: Vector2i = layout.BridgeRules.candidate(layout, hover) if tool == "bridge" else layout.BridgeRules.owner(layout, hover)
 				var area: Rect2 = layout.BridgeRules.art_rect(layout, start)
 				if tool == "bridge":
 					draw_texture_rect(layout.BridgeRules.TEXTURE, area, false, tint)
 				else:
-					draw_rect(area, Color(0.85, 1, 0.8, 0.45), false, 1)
+					draw_rect(area, (InventoryOutline.COLOR if transform_preview else Color(0.85, 1, 0.8, 0.45)), false, InventoryOutline.WIDTH if transform_preview else 1)
 				return
 			draw_set_transform(placement_offset())
 			if (tool == "ground" or tool in layout.KINDS) and (tool in ["stairs", "ground"] or not layout.cells.has(hover)):
@@ -468,12 +567,13 @@ func draw_editor() -> void:
 					if not layout.cells.has(square):
 						draw_tile(square, "meadow", tint, layout.height_at(hover))
 				draw_set_transform(Vector2.ZERO)
-				var facing := (int(layout.houses[hover]) + 1) % 4 if layout.houses.has(hover) else 0
+				var facing := (int(layout.houses[hover]) + 1) % 4 if layout.houses.has(hover) else (1 if layout.house_bundle > 0 else 0)
 				var area := house_preview_rect()
 				if facing == 3:
-					area.position.x += area.size.x
 					area.size.x *= -1
 				draw_texture_rect(LevelFiveArt.HOUSE_TEXTURES[facing], area, false, tint)
+				if transform_preview:
+					draw_art_outline(LevelFiveArt.HOUSE_TEXTURES[facing], house_preview_rect(), Rect2i(), facing == 3)
 			if tool == "chicken":
 				draw_set_transform(placement_offset())
 				draw_texture_rect(LevelFiveArt.CHICKEN, LevelFiveArt.chicken_rect(layout, hover), false, tint)
@@ -482,11 +582,21 @@ func draw_editor() -> void:
 				draw_set_transform(placement_offset())
 				draw_texture_rect_region(LevelFiveArt.SHEEP_IDLE, LevelFiveArt.sheep_rect(layout, hover), Rect2(0, 0, 128, 128), tint)
 				draw_set_transform(Vector2.ZERO)
-			if tool == "tree" and not layout.trees.has(hover):
-				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(Vector2.ZERO, TreeArt.frame_size(layout.next_tree_variant)), tint)
+			if tool == "tree":
+				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(Vector2.ZERO, TreeArt.frame_size(tree_preview_variant())), tint)
+				if transform_preview:
+					draw_art_outline(TreeArt.TEXTURES[tree_preview_variant()], tree_preview_rect(), Rect2i(Vector2i.ZERO, Vector2i(TreeArt.frame_size(tree_preview_variant()))))
+			if transform_preview and tool in ["tree", "house"]:
+				return
+			if transform_preview and tool == "stairs":
+				var live_layout = layout
+				layout = terrain_render_layout()
+				draw_polyline(pickup_outline(hover + live_layout.stair_direction(hover)), InventoryOutline.COLOR, InventoryOutline.WIDTH)
+				layout = live_layout
+				return
 			if tool == "remove" and layout.cells.get(hover) == "stairs":
 				draw_polyline(pickup_outline(), Color(0.85, 1, 0.8, 0.55), 1)
 			else:
 				var outline_height: float = grass_preview_height() if tool == "ground" else layout.height_at(hover)
 				var outline_cell: Vector2i = grass_preview_cell() if tool == "ground" else hover
-				draw_rect(Rect2(layout.ORIGIN + Vector2(outline_cell) * 64 - Vector2(0, outline_height), Vector2(64, 64)), Color(0.85, 1, 0.8, 0.45), false, 1)
+				draw_rect(Rect2(layout.ORIGIN + Vector2(outline_cell) * 64 - Vector2(0, outline_height), Vector2(64, 64)), InventoryOutline.COLOR if transform_preview else Color(0.85, 1, 0.8, 0.45), false, InventoryOutline.WIDTH if transform_preview else 1)

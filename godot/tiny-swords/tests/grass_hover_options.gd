@@ -41,8 +41,10 @@ func run() -> void:
 	assert(layout.height_at(target) == 64 and layout.ground_count() == stock - 1, "Second click raises grass for free")
 	var before: Dictionary = layout.snapshot()
 	click_grass(level, target)
-	assert(layout.snapshot() == before, "No floor-one support means floor two is unavailable, with no mutation")
+	assert(layout.height_at(target) == 0, "Without floor-one support, raised grass cycles back to water level")
 	assert(not layout.edit(target, "ground", Vector2i(1,2), 128))
+	click_grass(level, target)
+	assert(layout.height_at(target) == 64)
 	# Once a receiving terrace is present, the same tile can extend floor two.
 	layout.cells[Vector2i(1,1)] = "high_gold"
 	layout.elevations[Vector2i(1,1)] = 64
@@ -53,7 +55,7 @@ func run() -> void:
 	assert(layout.height_at(target) == 128 and layout.ground_count() == stock - 1)
 	before = layout.snapshot()
 	click_grass(level, target)
-	assert(layout.snapshot() == before, "Further clicks at the highest available elevation leave grass unchanged")
+	assert(layout.height_at(target) == 0, "Highest available grass cycles back to water level")
 	# Stair endpoints stay protected, and raising works with empty inventory.
 	layout.cells[Vector2i(-1,0)] = "stairs"
 	layout.stair_directions[Vector2i(-1,0)] = Vector2i.RIGHT

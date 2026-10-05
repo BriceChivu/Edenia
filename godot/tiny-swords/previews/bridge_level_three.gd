@@ -13,6 +13,6 @@ func _ready() -> void:
 	pawn.walk_to(pawn.position)
 	game_camera.position = Vector2(672, 208)
 	game_camera.zoom = Vector2.ONE
-	selected = "bridge" if layout.bridges_enabled else "ground"
+	selected = ""
 	rebuild_decorations()
 	refresh()

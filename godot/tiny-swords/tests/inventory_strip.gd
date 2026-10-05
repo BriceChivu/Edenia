@@ -15,7 +15,11 @@ func run() -> void:
  level.pointer_inside = true
  level.terrain.valid = true
  level.update_cursor()
- check(level.cursor_mode == "place" and not level.pointer.visible, "Valid placement uses only the terrain preview, without cursor four")
+ check(level.cursor_mode == "place" and level.pointer.visible and level.pointer.texture == level.UI_CURSOR, "Valid placement keeps a freely moving pointer visible beside the terrain preview")
+ var previous_pointer: Vector2 = level.pointer.position
+ level.pointer_position += Vector2(0.5, 0.25)
+ level.update_cursor()
+ check((level.pointer.position - previous_pointer).is_equal_approx(Vector2(0.5, 0.25)), "Placement pointer follows subpixel movement without snapping to the grid")
  level.ui.action_buttons[0].pressed.emit()
  level.terrain.valid = true
  level.update_cursor()

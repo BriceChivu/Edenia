@@ -13,7 +13,7 @@ func run() -> void:
 	await process_frame
 	var layout = level.layout
 	check(not layout.bridges_enabled and not level.ui.buttons.bridge.visible and level.ui.buttons.bridge.disabled, "Bridge is hidden and disabled at level three")
-	check(level.selected == "ground" and not layout.can_edit(Vector2i(1, 0), "bridge", Vector2i.ZERO), "Dormant sandbox cannot select or place the bridge")
+	check(level.selected == "" and not layout.can_edit(Vector2i(1, 0), "bridge", Vector2i.ZERO), "Dormant sandbox cannot select or place the bridge")
 	layout.bridges[Vector2i(1, 0)] = 64.0
 	layout.stock.bridge = 0
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(layout.snapshot()))

@@ -11,14 +11,17 @@ const SHEEP_GRASS = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Mea
 const SHEEP_RUN = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Meat/Sheep/Sheep_Move.png")
 
 static func house_rect(layout, cell: Vector2i) -> Rect2:
-	return Rect2(layout.center(cell) - Vector2(32, 96 + layout.height_at(cell)), Vector2(128, 192))
+	return Rect2(layout.center(cell) + layout.house_offsets.get(cell, Vector2.ZERO) - Vector2(32, 96 + layout.height_at(cell)), Vector2(128, 192))
 
 static func sheep_rect(layout, cell: Vector2i) -> Rect2:
 	return Rect2(layout.center(cell) - Vector2(64, 72 + layout.height_at(cell)), Vector2(128, 128))
 
 const CHICKEN_SCALE := 0.595
-const CHICKEN_OFFSET := Vector2(0, -40)
+const CHICKEN_OFFSET := Vector2(0, -39)
 const CHICKEN = preload("res://assets/chicken.png")
+const CHICKEN_IDLE = preload("res://assets/chicken/chicken_idle.png")
+const CHICKEN_EATING = preload("res://assets/chicken/chicken_eating.png")
+const CHICKEN_RUN = preload("res://assets/chicken/chicken_run.png")
 
 static func chicken_rect(layout, cell: Vector2i) -> Rect2:
 	var size := CHICKEN.get_size() * CHICKEN_SCALE
