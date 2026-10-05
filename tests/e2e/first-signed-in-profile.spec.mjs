@@ -424,6 +424,9 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
 
     await page.locator('.gear-btn').click()
     await page.getByRole('button', { name: 'Account' }).click()
+    const stateBeforeSignOut = await page.evaluate(
+      key => localStorage.getItem(key), STATE_STORAGE_KEY
+    )
     await page.getByRole('button', { name: 'Sign out everywhere' }).click()
     await expect(page.locator('html')).toHaveAttribute(
       'data-learner-profile-access-state',
@@ -445,7 +448,7 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
       verificationKey: OWNER_VERIFICATION_STORAGE_KEY
     })
     expect(signedOutStorage).toEqual({
-      state: activated.stateSerialized,
+      state: stateBeforeSignOut,
       verification: null
     })
   } finally {
