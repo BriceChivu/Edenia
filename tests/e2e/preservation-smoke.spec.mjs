@@ -175,7 +175,6 @@ async function seedCompletedState(page, locale = 'en', targetUrl = '/') {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
-    state.onboarding.levelUpGuidanceShownAt = completedAt
     const storageKey = new URL(location.href).searchParams.get('internal_test') === '1'
       ? 'edenia_v1_internal_test' : 'edenia_v1'
     localStorage.setItem(storageKey, JSON.stringify(state))
@@ -200,15 +199,12 @@ async function seedCityClaimState(page, reviewedCards, locale = 'en') {
     state.onboarding.levelUpGuidanceShownAt = completedAt
     state.anki['2026-07-28'] = {
       reviewed,
-      experienceReviews: Math.floor(reviewed / 9),
-      experienceWatermark: reviewed,
       created: 0
     }
     state.cityProgress = {
       maxLevelIndex: 0,
       pendingLevelIndex: 1,
-      scoringVersion: 7,
-      experienceVersion: 1
+      scoringVersion: 7
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
     localStorage.removeItem('edenia_v1_backups')
@@ -3863,7 +3859,7 @@ test('Activity Log filter listeners preserve live values, rendering, keyboard, a
         status: 'success',
         title: 'Protected point adjustment',
         detail: '',
-        meta: { pointsDelta: 7, experienceVersion: 1 }
+        meta: { pointsDelta: 7 }
       }
     ]
     localStorage.setItem('edenia_v1', JSON.stringify(state))
@@ -4062,8 +4058,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
     cityProgress: {
       maxLevelIndex: 1,
       pendingLevelIndex: null,
-      scoringVersion: 7,
-      experienceVersion: 1
+      scoringVersion: 7
     },
     levelClaim: {
       actor: 'user',
@@ -4102,8 +4097,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
     cityProgress: {
       maxLevelIndex: 0,
       pendingLevelIndex: 1,
-      scoringVersion: 7,
-      experienceVersion: 1
+      scoringVersion: 7
     }
   })
   const removedBridgeAction = await page.evaluate(() => (
@@ -4122,8 +4116,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   ))).toEqual({
     maxLevelIndex: 1,
     pendingLevelIndex: null,
-    scoringVersion: 7,
-    experienceVersion: 1
+    scoringVersion: 7
   })
 
   await seedCityClaimState(page, 420)
@@ -4154,8 +4147,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
     cityProgress: {
       maxLevelIndex: 1,
       pendingLevelIndex: 2,
-      scoringVersion: 7,
-      experienceVersion: 1
+      scoringVersion: 7
     },
     claimLevels: [1],
     disabled: false,
@@ -4199,8 +4191,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
     cityProgress: {
       maxLevelIndex: 2,
       pendingLevelIndex: null,
-      scoringVersion: 7,
-      experienceVersion: 1
+      scoringVersion: 7
     },
     claimLevels: [2, 1],
     disabled: true,
@@ -4219,7 +4210,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   ))).toBe(1)
 })
 
-test('city level-up control is vertically centered on an unchanged progress rail', async ({
+test('city level-up control floats above an unchanged centered progress rail', async ({
   page
 }) => {
   await seedCompletedState(page, 'fr')
@@ -4280,7 +4271,7 @@ test('city level-up control is vertically centered on an unchanged progress rail
   expect(layout.textLineCount).toBe(1)
   expect(layout.fontSize).toBeGreaterThanOrEqual(14)
   expect(layout.railHeight).toBe(baselineRailHeight)
-  expect(layout.configuredLift).toBe(0)
+  expect(layout.configuredLift).toBe(8)
   expect(layout.fillComplete).toBe(true)
   expect(layout.fillBackgroundImage).toContain('linear-gradient')
   expect(layout.buttonBounds.left).toBeGreaterThanOrEqual(
@@ -4571,8 +4562,8 @@ test('city waveform bar listeners preserve preview, selection, analytics, and re
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
     state.anki = {
-      '2026-04-01': { reviewed: 60, created: 0, experienceReviews: 20, experienceWatermark: 60 },
-      '2026-07-28': { reviewed: 60, created: 0, experienceReviews: 20, experienceWatermark: 60 }
+      '2026-04-01': { reviewed: 60, created: 0 },
+      '2026-07-28': { reviewed: 60, created: 0 }
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
     localStorage.removeItem('edenia_posthog_state_v2')
@@ -5026,9 +5017,9 @@ test('Study History period listeners preserve generated options and runtime-only
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
     state.anki = {
-      '2026-07-28': { reviewed: 3, created: 0, experienceReviews: 1, experienceWatermark: 3 },
-      '2026-07-20': { reviewed: 6, created: 0, experienceReviews: 2, experienceWatermark: 6 },
-      '2026-06-15': { reviewed: 9, created: 0, experienceReviews: 3, experienceWatermark: 9 }
+      '2026-07-28': { reviewed: 3, created: 0 },
+      '2026-07-20': { reviewed: 6, created: 0 },
+      '2026-06-15': { reviewed: 9, created: 0 }
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
@@ -5629,8 +5620,6 @@ test('Study History points popover listeners preserve fine and coarse interactio
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
     state.anki['2026-07-28'] = {
       reviewed: 6,
-      experienceReviews: 2,
-      experienceWatermark: 6,
       created: 1
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
@@ -5754,8 +5743,6 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
       const state = JSON.parse(localStorage.getItem(storageKey))
       state.anki['2026-07-28'] = {
         reviewed: 6,
-        experienceReviews: 2,
-        experienceWatermark: 6,
         created: 1
       }
       localStorage.setItem(storageKey, JSON.stringify(state))
@@ -5811,7 +5798,7 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
     if (testInfo.project.name === 'desktop-standard') {
       await day.hover()
       await expect(tooltip).toHaveClass(/\bshow\b/)
-      await expect(tooltip).toContainText('2 XP')
+      await expect(tooltip).toContainText('2 pts')
       await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
       expect(await tooltip.ariaSnapshot()).toBe('')
       await expect(tooltip).toHaveCSS('position', 'fixed')
@@ -5839,7 +5826,7 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
     } else {
       await day.press('Space')
       await expect(tooltip).toHaveClass(/\bshow\b/)
-      await expect(tooltip).toContainText('2 XP')
+      await expect(tooltip).toContainText('2 pts')
       await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
       expect(await tooltip.ariaSnapshot()).toBe('')
       await expect(tooltip).toHaveCSS('position', 'absolute')
@@ -5898,9 +5885,9 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
         const state = JSON.parse(localStorage.getItem(key))
         state.onboarding.levelUpGuidanceShownAt = '2026-07-20T04:00:00.000Z'
         for (let day = 23; day <= 27; day += 1) {
-          state.anki[`2026-07-${day}`] = { reviewed: 60, created: 1, experienceReviews: 20, experienceWatermark: 60 }
+          state.anki[`2026-07-${day}`] = { reviewed: 60, created: 1 }
         }
-        state.anki['2026-07-28'] = { reviewed: 6, created: 1, experienceReviews: 2, experienceWatermark: 6 }
+        state.anki['2026-07-28'] = { reviewed: 6, created: 1 }
         localStorage.setItem(key, JSON.stringify(state))
       }, storageKey)
       await page.reload()
@@ -5916,7 +5903,7 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
         expect(await tooltip.ariaSnapshot()).toBe('')
         const data = await day.evaluate(element => ({ ...element.dataset }))
         const key = data.ankiEnabled === 'true' ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
-        const expected = I18N[locale][key].replace(/\{(\w+)\}/g, (_, name) => name === 'points' ? (data.points || '—') : data[name])
+        const expected = I18N[locale][key].replace(/\{(\w+)\}/g, (_, name) => data[name])
           + (streakDays ? `; ${streakDays} ${I18N[locale]['streak.day']}` : '')
         await expect(day).toHaveAccessibleName(expected)
         await expect(day).not.toHaveAttribute('aria-describedby')

@@ -14,9 +14,17 @@ import {
 test('city levels preserve exact thresholds, translation keys, labels, and order', () => {
   assert.deepEqual(CITY_LEVELS, [
     { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
-    { threshold: 15, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
-    { threshold: 45, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
-
+    { threshold: 60, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
+    { threshold: 140, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
+    { threshold: 230, labelKey: 'city.level.4', label: 'Kids are gonna have fun now!' },
+    { threshold: 320, labelKey: 'city.level.5', label: "Let's add a pool to chill" },
+    { threshold: 400, labelKey: 'city.level.6', label: 'Oh! Some friends are coming to say hi...' },
+    { threshold: 480, labelKey: 'city.level.7', label: 'You expanded your small island!' },
+    { threshold: 570, labelKey: 'city.level.8', label: "That's a nice deckchair and some pretty flowers! 🌸" },
+    { threshold: 680, labelKey: 'city.level.9', label: 'You built a cute house in the backyard' },
+    { threshold: 800, labelKey: 'city.level.10', label: 'Oh wow! You got a neighbor! 🏠' },
+    { threshold: 920, labelKey: 'city.level.11', label: 'The little purple house has a cute garden!' },
+    { threshold: 1050, labelKey: 'city.level.12', label: 'Damn! A volcano appeared! I hope it won\'t erupt...' }
   ])
 })
 
@@ -43,23 +51,23 @@ test('city image sources preserve exact WebP-first and PNG-fallback mapping', ()
 test('city level lookups preserve thresholds, coercion, and shared object identity', () => {
   assert.equal(getCityLevelIndex(-1), 0)
   assert.equal(getCityLevelIndex(0), 0)
-  assert.equal(getCityLevelIndex(14.99), 0)
-  assert.equal(getCityLevelIndex(15), 1)
-  assert.equal(getCityLevelIndex(44.99), 1)
-  assert.equal(getCityLevelIndex(45), 2)
-  assert.equal(getCityLevelIndex(1049), 2)
-  assert.equal(getCityLevelIndex(1050), 2)
-  assert.equal(getCityLevelIndex(Infinity), 2)
+  assert.equal(getCityLevelIndex(59), 0)
+  assert.equal(getCityLevelIndex(60), 1)
+  assert.equal(getCityLevelIndex(139), 1)
+  assert.equal(getCityLevelIndex(140), 2)
+  assert.equal(getCityLevelIndex(1049), 10)
+  assert.equal(getCityLevelIndex(1050), 11)
+  assert.equal(getCityLevelIndex(Infinity), 11)
   assert.equal(getCityLevelIndex(NaN), 0)
-  assert.equal(getCityLevelIndex('15'), 1)
-  assert.equal(getCityLevel(45), CITY_LEVELS[2])
+  assert.equal(getCityLevelIndex('60'), 1)
+  assert.equal(getCityLevel(140), CITY_LEVELS[2])
 })
 
 test('city score lookup preserves clamping and invalid-index fallbacks', () => {
   assert.equal(getCityScoreForLevelIndex(-1), 0)
   assert.equal(getCityScoreForLevelIndex(0), 0)
-  assert.equal(getCityScoreForLevelIndex(1), 15)
-  assert.equal(getCityScoreForLevelIndex(99), 45)
+  assert.equal(getCityScoreForLevelIndex(1), 60)
+  assert.equal(getCityScoreForLevelIndex(99), 1050)
   assert.equal(getCityScoreForLevelIndex(1.5), 0)
   assert.equal(getCityScoreForLevelIndex(NaN), 0)
 })
@@ -77,8 +85,7 @@ test('city progress normalization preserves defaults and strips unrelated fields
   assert.deepEqual(state.cityProgress, {
     maxLevelIndex: 0,
     pendingLevelIndex: null,
-    scoringVersion: 1,
-    experienceVersion: 0
+    scoringVersion: 1
   })
 })
 
@@ -92,10 +99,9 @@ test('city progress normalization clamps indices and clears already revealed pen
   }
   normalizeCityProgress(clamped)
   assert.deepEqual(clamped.cityProgress, {
-    maxLevelIndex: 2,
+    maxLevelIndex: 11,
     pendingLevelIndex: null,
-    scoringVersion: 7,
-    experienceVersion: 0
+    scoringVersion: 7
   })
 
   const future = {
@@ -107,10 +113,9 @@ test('city progress normalization clamps indices and clears already revealed pen
   }
   normalizeCityProgress(future)
   assert.deepEqual(future.cityProgress, {
-    maxLevelIndex: 2,
-    pendingLevelIndex: null,
-    scoringVersion: 0,
-    experienceVersion: 0
+    maxLevelIndex: 3,
+    pendingLevelIndex: 5,
+    scoringVersion: 0
   })
 })
 

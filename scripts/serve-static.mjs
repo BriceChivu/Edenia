@@ -12,11 +12,8 @@ const MIME_TYPES = {
   '.mp4': 'video/mp4',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
-  '.wasm': 'application/wasm',
   '.webp': 'image/webp',
-  '.woff2': 'font/woff2',
-  '.wasm': 'application/wasm',
-  '.pck': 'application/octet-stream'
+  '.woff2': 'font/woff2'
 }
 
 function argumentValue(name, fallback = '') {

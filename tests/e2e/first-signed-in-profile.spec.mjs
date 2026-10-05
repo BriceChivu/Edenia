@@ -152,7 +152,7 @@ async function createReturningOwnerEnvelope({ setupCompleted = true, studyFacts 
   const { envelope } = await createPortableLearnerProfileEnvelope({
     activityLog: [],
     anki: {},
-    cityProgress: { maxLevelIndex: 0, experienceVersion: 1 },
+    cityProgress: { maxLevelIndex: 2 },
     config: {
       ankiEnabled: true,
       channelShelfOrder: ['returning-owner-channel'],
@@ -424,9 +424,6 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
 
     await page.locator('.gear-btn').click()
     await page.getByRole('button', { name: 'Account' }).click()
-    const stateBeforeSignOut = await page.evaluate(
-      key => localStorage.getItem(key), STATE_STORAGE_KEY
-    )
     await page.getByRole('button', { name: 'Sign out everywhere' }).click()
     await expect(page.locator('html')).toHaveAttribute(
       'data-learner-profile-access-state',
@@ -448,7 +445,7 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
       verificationKey: OWNER_VERIFICATION_STORAGE_KEY
     })
     expect(signedOutStorage).toEqual({
-      state: stateBeforeSignOut,
+      state: activated.stateSerialized,
       verification: null
     })
   } finally {
@@ -675,7 +672,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   if (restoreCase.olderReset) {
     const storedVideo = await page.evaluate(key => JSON.parse(localStorage.getItem(key))
       .videos['synthetic-study-video'], STATE_STORAGE_KEY)
-    expect(storedVideo.watchProgress).toMatchObject([{ seconds: 120, watchedAt: '2026-08-20T21:00:00.000Z' }])
+    expect(storedVideo.watchProgress).toEqual([{ seconds: 120, watchedAt: '2026-08-20T21:00:00.000Z' }])
   }
   await page.evaluate(() => {
     window.EDENIA_ANALYTICS_ENABLED = true
@@ -810,7 +807,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     restoreCase.setupCompleted
   )
   if (restoreCase.olderReset) {
-    expect(restored.state.videos['synthetic-study-video'].watchProgress).toMatchObject(
+    expect(restored.state.videos['synthetic-study-video'].watchProgress).toEqual(
       returningEnvelope.profile.videos['synthetic-study-video'].watchProgress.map(
         ({ seconds, watchedAt }) => ({ seconds, watchedAt })
       )

@@ -1,8 +1,0 @@
-[gd_scene load_steps=3 format=3]
-
-[ext_resource type="PackedScene" path="res://scenes/level_two_preview.tscn" id="Gameplay"]
-[ext_resource type="Script" path="res://previews/preview_entry.gd" id="Entry"]
-
-[node name="Level7" instance=ExtResource("Gameplay")]
-script = ExtResource("Entry")
-starting_level = 7

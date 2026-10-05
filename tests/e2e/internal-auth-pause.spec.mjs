@@ -20,7 +20,6 @@ async function seedTown(page, key) {
     const state = window.defaultState(4, [], 'light', [], 'en')
     const date = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
-    window.initializeExperience(state)
     window.updatePersistentCityLevel(state, 0)
     Object.assign(state.onboarding, { introSeenAt: date, setupCompleted: true, setupCompletedAt: date, walkthroughCompleted: true, walkthroughCompletedAt: date })
     await window.saveState(state, { backup: false, syncAnalytics: false })

@@ -106,12 +106,10 @@ async function createConflictEnvelope({
       '2026-08-21': {
         created: Math.floor(reviewed / 4),
         observedAt: updatedAt,
-        reviewed,
-        experienceReviews: reviewed,
-        experienceWatermark: reviewed
+        reviewed
       }
     },
-    cityProgress: { maxLevelIndex, experienceVersion: 1 },
+    cityProgress: { maxLevelIndex },
     config: {
       ankiEnabled: true,
       channelShelfOrder: [channelId],
@@ -171,7 +169,7 @@ async function prepareConflictPage(page, {
     language: 'spanish',
     level: 'intermediate',
     locale: 'es',
-    maxLevelIndex: 1,
+    maxLevelIndex: 4,
     reviewed: 24,
     updatedAt: '2026-08-21T09:15:00.000Z'
   })
@@ -181,7 +179,7 @@ async function prepareConflictPage(page, {
     language: 'french',
     level: 'beginner',
     locale: 'fr',
-    maxLevelIndex: 0,
+    maxLevelIndex: 2,
     reviewed: 8,
     selectedChannelCatalogIds: cloudSetupCompleted
       ? ['cloud-channel']
