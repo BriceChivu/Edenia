@@ -3,6 +3,7 @@
 import { cp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
+import { brotliCompressSync, gzipSync, constants } from 'node:zlib'
 const projectIndex = process.argv.indexOf('--project')
 if (projectIndex < 0 || !process.argv[projectIndex + 1]) throw new Error('Pass --project with the existing Tiny Swords Godot project directory')
 const source = resolve(process.argv[projectIndex + 1])
@@ -21,6 +22,13 @@ const godot = process.env.GODOT_BIN || '/Applications/Godot.app/Contents/MacOS/G
 for (const args of [['--headless', '--path', project, '--editor', '--import'], ['--headless', '--path', project, '--script', resolve('tests/godot/tiny-swords-export-contract.gd')], ['--headless', '--path', project, '--script', 'res://tests/gameplay.gd'], ['--headless', '--path', project, '--export-release', 'Web', resolve(output, 'index.html')]]) {
   const result = spawnSync(godot, args, { stdio: 'inherit' })
   if (result.error || result.status !== 0) throw result.error || new Error('Godot export failed')
+}
+// Delivery artifacts stay alongside the disposable export. A serving host must
+// negotiate Content-Encoding and retain application/wasm for the WASM response.
+for (const name of ['index.wasm', 'index.pck', 'index.js']) {
+  const bytes = await readFile(resolve(output, name))
+  await writeFile(resolve(output, name + '.br'), brotliCompressSync(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 6 } }))
+  await writeFile(resolve(output, name + '.gz'), gzipSync(bytes))
 }
 let game = await readFile(resolve(output, 'index.html'), 'utf8')
 const receiver = `<script>window.edeniaCameraCommands=[];document.addEventListener('wheel',event=>{event.preventDefault();event.stopImmediatePropagation();const canvas=document.getElementById('canvas');const scale=event.deltaMode===1?16:event.deltaMode===2?canvas.getBoundingClientRect().height:1;parent.postMessage({type:'edenia-page-scroll',x:event.deltaX*scale,y:event.deltaY*scale},location.origin)},{passive:false,capture:true});window.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===parent&&event.data?.type==='edenia-camera')window.edeniaCameraCommands.push(event.data.command)});window.edeniaStudySession=null;window.edeniaSaveId=0;window.edeniaSaveInFlight=null;window.edeniaPendingLayout=null;window.edeniaQueueLayout=layout=>{window.edeniaPendingLayout=layout;if(window.edeniaSaveInFlight!==null)return;window.edeniaSaveInFlight=++window.edeniaSaveId;const next=window.edeniaPendingLayout;window.edeniaPendingLayout=null;parent.postMessage({type:'edenia-tiny-layout',session:window.edeniaStudySession,id:window.edeniaSaveInFlight,layout:next},location.origin)};window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='edenia-tiny-saved'||event.data.session!==window.edeniaStudySession||event.data.id!==window.edeniaSaveInFlight)return;window.edeniaLastSavePersisted=event.data.persisted===true;window.edeniaSaveInFlight=null;if(window.edeniaPendingLayout!==null)window.edeniaQueueLayout(window.edeniaPendingLayout)});window.edeniaStudyLevel=1;window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='edenia-study-level')return;window.edeniaStudySession=event.data.session;window.edeniaStudyLevel=Math.max(1,Number(event.data.level)||1);window.edeniaStudyLayout=event.data.layout;window.edeniaStudyReady=true});parent.postMessage({type:'edenia-tiny-ready'},location.origin)</script>`

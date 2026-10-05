@@ -66,20 +66,43 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  let servedPath = filePath
+  let encoding = ''
+  if (['.wasm', '.pck', '.js'].includes(extname(filePath).toLowerCase())) {
+    const accepted = new Map(String(request.headers['accept-encoding'] || '').split(',').map(value => {
+      const [name, ...parameters] = value.trim().split(';')
+      const quality = parameters.find(value => value.trim().startsWith('q='))
+      return [name.trim().toLowerCase(), quality ? Number(quality.trim().slice(2)) : 1]
+    }))
+    const quality = name => accepted.get(name) ?? accepted.get('*') ?? 0
+    for (const candidate of ['br', 'gzip'].sort((a, b) => quality(b) - quality(a))) {
+      if (!(quality(candidate) > 0)) continue
+      const variant = filePath + (candidate === 'br' ? '.br' : '.gz')
+      try {
+        const compressed = await stat(variant)
+        if (!compressed.isFile() || compressed.mtimeMs < (await stat(filePath)).mtimeMs) continue
+        servedPath = variant
+        encoding = candidate
+        break
+      } catch {}
+    }
+  }
   response.writeHead(200, {
     // GIS requires this policy for HTTP localhost; keep hosted policy separate.
     ...(host === 'localhost' && extname(filePath).toLowerCase() === '.html'
       ? { 'Referrer-Policy': 'no-referrer-when-downgrade' }
       : {}),
     'Cache-Control': 'no-store',
-    'Content-Length': String((await stat(filePath)).size),
+    ...(encoding ? { 'Content-Encoding': encoding } : {}),
+    'Vary': 'Accept-Encoding',
+    'Content-Length': String((await stat(servedPath)).size),
     'Content-Type': MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream'
   })
   if (request.method === 'HEAD') {
     response.end()
     return
   }
-  createReadStream(filePath).pipe(response)
+  createReadStream(servedPath).pipe(response)
 })
 
 server.listen(port, host, () => {
