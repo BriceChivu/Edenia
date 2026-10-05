@@ -51,7 +51,7 @@ test('live seconds across sessions reach exactly 15 and 45 XP; legacy and undo c
   liveWatch(video, 1800, {}, '2026-09-30T04:00:00.000Z')
   assert.equal(score(video), 45)
   assert.equal(getCityLevelIndex(score(video)), 2)
-  assert.equal(getCityLevelIndex(10000), 2)
+  assert.equal(getCityLevelIndex(10000), 9)
 })
 
 test('one new Anki review equals one watched minute and uses the same level thresholds', () => {

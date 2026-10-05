@@ -6,6 +6,9 @@ var study_visibility_callback: JavaScriptObject
 var study_size_callback: JavaScriptObject
 var study_canvas_width := 1152.0
 var study_camera_callback: JavaScriptObject
+var study_save_callback: JavaScriptObject
+var study_unlock_retry_elapsed := 0.0
+var study_requires_save_acknowledgment := OS.has_feature("web")
 var study_presented := true
 var study_bridge_ready := false
 var study_layout_restored := false
@@ -16,6 +19,7 @@ var study_celebrating := false
 func _ready() -> void:
 	# This integration has its own browser layout; standalone editor saves stay intact.
 	preview_save_enabled = false
+	study_claims_authoritative = true
 	playground_enabled = true # This adapter is mounted only by the explicit local build.
 	playground_ready = false
 	super._ready()
@@ -32,6 +36,8 @@ func _ready() -> void:
 		update_drag_threshold()
 		study_camera_callback = JavaScriptBridge.create_callback(receive_camera_command)
 		JavaScriptBridge.get_interface("window").edeniaReceiveCameraCommand = study_camera_callback
+		study_save_callback = JavaScriptBridge.create_callback(receive_layout_saved)
+		JavaScriptBridge.get_interface("window").edeniaReceiveLayoutSaved = study_save_callback
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-progression',thresholds:%s},location.origin)" % JSON.stringify(Layout.XP_THRESHOLDS))
 
 func receive_host_visibility(arguments: Array) -> void:
@@ -54,11 +60,29 @@ func receive_camera_command(arguments: Array) -> void:
 func update_drag_threshold() -> void:
 	world_drag_threshold = 6.0 * get_viewport().get_visible_rect().size.x / study_canvas_width
 
+func receive_layout_saved(arguments: Array) -> void:
+	if arguments.size() == 2 and (arguments[0] is float or arguments[0] is int) and arguments[1] is bool:
+		complete_level_unlock(int(arguments[0]), arguments[1])
+		study_unlock_retry_elapsed = 0.0
+
+func save_unlocked_level() -> void:
+	# The host's durable acknowledgment opens the Godot celebration.
+	if not study_requires_save_acknowledgment:
+		super.save_unlocked_level()
+		return
+	study_unlock_retry_elapsed = 0.0
+	save_layout()
+
 func _process(delta: float) -> void:
 	super._process(delta)
 	if not study_bridge_ready or not OS.has_feature("web"):
 		return
 	study_poll_elapsed += delta
+	if pending_unlock_level > 0:
+		study_unlock_retry_elapsed += delta
+		if study_unlock_retry_elapsed >= 2.0 and JavaScriptBridge.eval("window.edeniaSaveInFlight === null"):
+			study_unlock_retry_elapsed = 0.0
+			save_layout()
 	if study_poll_elapsed < 0.2:
 		return
 	study_poll_elapsed = 0.0

@@ -1,4 +1,5 @@
 import { preparePixelTownHtml } from './pixel-town-html.mjs'
+import { generateTinySwordsProgression } from './tiny-swords-progression.mjs'
 import { execFileSync } from 'node:child_process'
 import {
   cp,
@@ -21,6 +22,7 @@ import {
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
+await generateTinySwordsProgression(new URL('../', import.meta.url))
 const outputDir = resolve(projectRoot, '_site')
 
 if (relative(projectRoot, outputDir) !== '_site') {

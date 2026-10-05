@@ -17,6 +17,13 @@ export function createTinySwordsPersistence({ read, readDurable, save,
   return {
     read,
     readIsland: () => getCheckpointRepository()?.readIslandState() ?? read(),
+    // Active state can contain an in-flight claim. Publish only the durable
+    // revision, using the small IndexedDB head when available.
+    readClaimedLevel() {
+      const repository = getCheckpointRepository()
+      const state = repository ? repository.readIslandState() : read() ? readDurable() : null
+      return state ? Math.max(1, (state.cityProgress?.maxLevelIndex || 0) + 1) : null
+    },
     async save(layout, expected) {
       const repository = getCheckpointRepository()
       if (repository) {

@@ -1,11 +1,16 @@
 import { clampNumber } from '../../core/numbers.js'
+import { TINY_SWORDS_XP_THRESHOLDS } from './tiny-swords-progression.js'
 
-export const CITY_LEVELS = [
+const LEGACY_LEVEL_LABELS = [
   { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
   { threshold: 15, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
   { threshold: 45, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
 
 ]
+
+export const CITY_LEVELS = Object.freeze(TINY_SWORDS_XP_THRESHOLDS.map((threshold, index) =>
+  Object.freeze({ ...(LEGACY_LEVEL_LABELS[index] || { label: `Level ${index + 1}` }), threshold })
+))
 
 export const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',

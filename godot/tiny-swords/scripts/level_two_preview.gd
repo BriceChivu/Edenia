@@ -62,9 +62,11 @@ var pointer_inside := false
 var pointer_focused := true
 var pointer_position := Vector2.ZERO
 var playground_manual_progression := false
+var study_claims_authoritative := false
 var playground_enabled := false
 var playground_ready := true
 var playground
+var pending_unlock_level := 0
 var saved_playground_checkpoint: Dictionary = {}
 
 func _ready() -> void:
@@ -152,13 +154,15 @@ func refresh() -> void:
 	ui.refresh(editing, selected, not history.is_empty())
 
 func apply_study_level(claimed_level: int) -> void:
-	if not playground_manual_progression and layout.level < claimed_level:
+	if (study_claims_authoritative or not playground_manual_progression) and layout.level < claimed_level:
 		unlock_level(layout.level + 1)
 
 func unlock_level_two() -> void:
 	unlock_level(2)
 
 func unlock_level(target_level: int) -> void:
+	if pending_unlock_level > 0:
+		return
 	if construction != null and construction.busy():
 		return
 	if water_phase != WaterPhase.READY or ui.celebration != null or target_level > ui.max_preview_level:
@@ -174,8 +178,19 @@ func unlock_level(target_level: int) -> void:
 	selected = "ground"
 	ui.collapsed = false
 	refresh()
+	pending_unlock_level = target_level
+	save_unlocked_level()
+
+func save_unlocked_level() -> void:
 	save_layout()
-	ui.celebrate()
+	complete_level_unlock(pending_unlock_level, true)
+
+func complete_level_unlock(saved_level: int, persisted: bool) -> void:
+	if not persisted or pending_unlock_level == 0 or saved_level != pending_unlock_level:
+		return
+	var unlocked_level := pending_unlock_level
+	pending_unlock_level = 0
+	ui.celebrate(unlocked_level)
 
 func toggle_editing() -> void:
 	log_pickup = Vector2i(999, 999)

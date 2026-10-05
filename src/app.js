@@ -14707,10 +14707,9 @@ async function updatePersistentCityLevel(s, score) {
   const previous = JSON.stringify(s.cityProgress || {})
   normalizeCityProgress(s)
   const earnedLevelIndex = getCityLevelIndex(score)
-  if (earnedLevelIndex < s.cityProgress.maxLevelIndex) {
-    s.cityProgress.maxLevelIndex = earnedLevelIndex
-    s.cityProgress.pendingLevelIndex = null
-  } else if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
+  // XP reflects current study facts; claimed rewards survive later reductions.
+  // Reset/import/restore explicitly replace both claims and the island.
+  if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
     const nextLevelIndex = s.cityProgress.maxLevelIndex + 1
     s.cityProgress.pendingLevelIndex = Math.min(
       Math.max(s.cityProgress.pendingLevelIndex || nextLevelIndex, nextLevelIndex),
@@ -14809,7 +14808,9 @@ function launchCityLevelUpConfetti() {
   window.setTimeout(() => burst.remove(), 1700)
 }
 
+let cityClaimInFlight = false
 async function claimCityLevelUp() {
+  if (cityClaimInFlight) return false
   const s = loadState()
   if (!s) return
   normalizeCityProgress(s)
@@ -14830,10 +14831,19 @@ async function claimCityLevelUp() {
     detail: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]),
     meta: { levelIndex: s.cityProgress.maxLevelIndex }
   })
-  if (!await saveState(s)) return false
-  renderAll(s)
-  launchCityLevelUpConfetti()
-  showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
+  cityClaimInFlight = true
+  try {
+    if (!await saveState(s)) return false
+    if (!isCurrentLearnerProfileOperation(s)) return false
+    renderAll(s)
+    if (!window.edeniaTinySwordsPersistence) {
+      launchCityLevelUpConfetti()
+      showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
+    }
+    return true
+  } finally {
+    cityClaimInFlight = false
+  }
 }
 
 function clampCityDayOffset(s, offset) {

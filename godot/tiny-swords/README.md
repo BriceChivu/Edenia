@@ -365,6 +365,20 @@ head and retain newer writers. The legacy localStorage and signed-in lifecycle
 paths retain their existing behavior and costs; storage rollout flags are unchanged.
 
 Import, backup restore and reset replace the iframe, clearing transient actions.
+Study-history Undo can lower current XP, but never revokes an already claimed
+level, inventory reward or placement. Reset starts a new island and clears claims;
+explicit import and backup restore replace both from the chosen profile. Anki
+counter rollbacks retain earned XP. Legacy study facts remain preserved and
+unmarked for new XP; old `townEconomy` data stays intact without granting logs or
+game rewards.
+
+The site build generates all ten host thresholds from Godot before profile
+normalization. The integration reads claimed progress from durable application
+state. A failed claim save publishes no new level. Godot catches up sequentially
+from the saved island level, ignoring the sandbox's manual-progression flag for
+active profile claims. Each unlock's single Godot celebration waits for Edenia's
+durable island-save acknowledgment; failed saves retry while the game is running.
+
 Messages must come from that frame and its current session; each save also checks
 that the active and durable island still match the frame's predecessor. Another
 tab's island change replaces this tab's frame rather than combining islands.

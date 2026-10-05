@@ -59,7 +59,7 @@ func arrange() -> void:
 	panel.position = Vector2(area.x - 298, 42)
 
 func available() -> bool:
-	return world.playground_ready and world.water_phase == world.WaterPhase.READY and world.ui.celebration == null and not world.construction.busy()
+	return world.playground_ready and world.pending_unlock_level == 0 and world.water_phase == world.WaterPhase.READY and world.ui.celebration == null and not world.construction.busy()
 
 func current_level() -> int:
 	return preview_level if preview_level > 0 else world.layout.level

@@ -92,10 +92,10 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   } })
   await expect.poll(async () => (await pawn())[0]).toBeGreaterThan(initialPawn[0] + 20)
   async function watch(seconds) {
-    await page.evaluate(seconds => {
+    await page.evaluate(async seconds => {
       const state = loadState()
       addVideoShelfSessionProgress(state.videos.lesson, seconds, {}, new Date().toISOString())
-      saveState(state)
+      await saveState(state)
       renderAll(state)
     }, seconds)
   }
@@ -126,7 +126,8 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)).toEqual(reward2)
   expect(await pawn()).toEqual(initialPawn)
   // Opening inventory clears selection; explicitly choose Ground.
-  await canvas.click({ position: { x: bounds.width - 179, y: bounds.height - 32 } })
+  // Level two's chicken slot shifts Ground left in the canonical Godot strip.
+  await canvas.click({ position: { x: bounds.width - 213, y: bounds.height - 44 } })
   const view = await camera()
   await canvas.click({ position: {
     x: ((672 - view.x) * view.zoom + view.width / 2) * bounds.width / view.width,
@@ -178,6 +179,61 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   )).toBe(true)
 })
 
+test('high-level claims survive delayed game startup, save failure, and reload', async ({page}) => {
+  test.setTimeout(180000)
+  await page.addInitScript(() => { if (navigator.serviceWorker) Object.defineProperty(navigator.serviceWorker, 'getRegistration', {value:async()=>undefined}) })
+  await page.route('**/tiny-swords-xp-game/index.html', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Delayed game</title>'}))
+  await page.goto('/',{waitUntil:'load'})
+  test.skip(await page.locator('.tiny-swords-frame').count()===0,'Requires the explicit local Godot integration build')
+  const {readFile} = await import('node:fs/promises')
+  const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json','utf8'))
+  // Remove construction work so catch-up is eligible immediately. The logs
+  // remain owned, just carried rather than reserved for a house.
+  island.carried_wood += island.house_bundle
+  island.house_bundle = 0
+  island.playground_manual_progression = true
+  await page.evaluate(island => {
+    const state=defaultState(4,[],'light',[],'en')
+    const at=new Date().toISOString()
+    state.onboarding={...state.onboarding,introSeenAt:at,setupCompleted:true,setupCompletedAt:at,walkthroughCompleted:true,walkthroughCompletedAt:at}
+    state.config.ankiEnabled=false
+    state.cityProgress={maxLevelIndex:6,pendingLevelIndex:7,experienceVersion:1}
+    state.videos.lesson={id:'lesson',title:'High-level XP',duration:25200,status:'partial',watchProgress:[{watchedAt:at,seconds:25200,experienceSeconds:25200}]}
+    state.tinySwordsIsland=island
+    localStorage.setItem('edenia_v1',JSON.stringify(state))
+  },island)
+  await page.reload({waitUntil:'load'})
+  await expect(page.locator('#levelUpButton')).toBeEnabled()
+  const progress = () => page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).cityProgress)
+  expect((await progress()).maxLevelIndex).toBe(6)
+  expect((await progress()).pendingLevelIndex).toBe(7)
+  // Reproduce a rejected durable host write through the actual save path.
+  await page.evaluate(async () => {
+    const original=Storage.prototype.setItem
+    Storage.prototype.setItem=function(key,value){if(key==='edenia_v1')throw new Error('Injected claim write failure');return original.call(this,key,value)}
+    try { if(await claimCityLevelUp()!==false)throw new Error('Failed claim was accepted') }
+    finally {Storage.prototype.setItem=original}
+  })
+  expect((await progress()).maxLevelIndex).toBe(6)
+  expect(await page.locator('.city-level-up-confetti').count()).toBe(0)
+  await page.evaluate(()=>claimCityLevelUp())
+  expect((await progress()).maxLevelIndex).toBe(7)
+  expect(await page.locator('.city-level-up-confetti').count()).toBe(0)
+  await page.unroute('**/tiny-swords-xp-game/index.html')
+  await page.reload({waitUntil:'domcontentloaded'})
+  const game=()=>page.frames().find(frame=>frame.url().includes('/tiny-swords-xp-game/index.html'))
+  const durable=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
+  await expect.poll(()=>game()?.evaluate(()=>window.edeniaGameLevel),{timeout:60000}).toBe(8)
+  await expect.poll(async()=>(await durable()).level).toBe(8)
+  const reward=await durable()
+  expect(reward.stock.meadow).toBe(island.stock.meadow+3)
+  expect(reward.stock.sheep).toBe(island.stock.sheep+1)
+  await page.reload({waitUntil:'domcontentloaded'})
+  await expect.poll(()=>game()?.evaluate(()=>window.edeniaGameLevel),{timeout:60000}).toBe(8)
+  expect((await progress()).maxLevelIndex).toBe(7)
+  expect((await durable()).stock).toEqual(reward.stock)
+})
+
 test('profile replacement recreates the island, resets it, and blocks a rejected snapshot', async ({ page }) => {
   test.setTimeout(180000)
   await page.addInitScript(() => { if (navigator.serviceWorker) Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => undefined }) })
@@ -199,7 +255,9 @@ test('profile replacement recreates the island, resets it, and blocks a rejected
   const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
   await expect.poll(() => game()?.evaluate(() => window.edeniaLastSavePersisted),{timeout:60000}).toBe(true)
   const populated = await durable()
-  expect(populated.stock).toEqual(island.stock)
+  // The retained v23 fixture predates the level-six tree and level-two
+  // chicken rewards. Godot migrates these once during its accepted restore.
+  expect(populated.stock).toEqual({...island.stock,tree:island.stock.tree+1,chicken:island.stock.chicken+1})
   expect(populated.house_bundle).toBe(6)
   expect(populated.tree_cut_remaining).toEqual(island.tree_cut_remaining)
   const oldFrame = game()

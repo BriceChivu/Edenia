@@ -72,7 +72,9 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         reportFailure('Open a learner profile to save the island.')
         return
       }
-      const level = Math.min(gameLevelCount, Math.max(1, (state.cityProgress?.maxLevelIndex || 0) + 1))
+      const claimedLevel = persistence().readClaimedLevel()
+      if (claimedLevel === null) return
+      const level = Math.min(gameLevelCount, claimedLevel)
       let saved = state.tinySwordsIsland
       if (saved === undefined) {
         // Only the old integrated developer save can migrate. Native saves are separate.
@@ -110,12 +112,6 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
       const data = event.data
       if (data?.type === 'edenia-game-progression' && Array.isArray(data.thresholds)) {
         gameLevelCount = data.thresholds.length
-        for (const [index, threshold] of data.thresholds.entries()) {
-          if (index < CITY_LEVELS.length || !Number.isFinite(threshold)) continue
-          CITY_LEVELS.push({ threshold, label: `Level ${index + 1}` })
-        }
-        const state = persistence()?.read()
-        if (state) renderCity(getCurrentCityScore(state), state)
         sendStudyLevel()
       }
       if (data?.type === 'edenia-page-scroll' && Number.isFinite(data.x) && Number.isFinite(data.y)) {
@@ -148,7 +144,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         if (replacementPending) {
           replacementPending = false
           checkReplacement(true)
-        } else if (identity(readIsland()) !== expected) checkReplacement()
+        } else checkReplacement()
       }
     })
     // Clone the owning Edenia markup: exact SVG icons, labels, classes and CSS.
@@ -187,6 +183,5 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     }
     document.querySelector('.city-image-wrap').append(status)
     mountFrame()
-    new MutationObserver(sendStudyLevel).observe(document.getElementById('cityCurrentLevel'), { childList: true, characterData: true, subtree: true })
   }, { once: true })
 }
