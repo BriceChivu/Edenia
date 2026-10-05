@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -61,10 +62,7 @@ function createLevelControl(levelId) {
 const levelStart = appSource.indexOf(
   'function renderOnboardingLevelStep(content) {'
 )
-const levelEnd = appSource.indexOf(
-  '\nfunction renderOnboardingChannelsStep(',
-  levelStart
-)
+const levelEnd = indexOfFunction(appSource, 'renderOnboardingChannelsStep', levelStart)
 assert.notEqual(levelStart, -1)
 assert.notEqual(levelEnd, -1)
 const levelRenderSource = appSource.slice(levelStart, levelEnd)
@@ -196,10 +194,7 @@ test('central replacement binding includes the level callback', () => {
   const renderStart = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
-  const renderEnd = appSource.indexOf(
-    '\nfunction renderOnboardingHeading(',
-    renderStart
-  )
+  const renderEnd = indexOfFunction(appSource, 'renderOnboardingHeading', renderStart)
   assert.notEqual(renderStart, -1)
   assert.notEqual(renderEnd, -1)
   const renderSource = appSource.slice(renderStart, renderEnd)
@@ -221,10 +216,7 @@ test('level selection retains validation, reset, and synchronous rerender', () =
   const start = appSource.indexOf(
     'function selectOnboardingLevel(levelId) {'
   )
-  const end = appSource.indexOf(
-    '\nfunction setPersonalizedOnboardingStep(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'setPersonalizedOnboardingStep', start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   const source = appSource.slice(start, end)
@@ -236,7 +228,7 @@ test('level selection retains validation, reset, and synchronous rerender', () =
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !await persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
   assert.doesNotMatch(source, /\.preventDefault\(|\.stopPropagation\(/)
 })

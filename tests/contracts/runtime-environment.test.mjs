@@ -15,6 +15,7 @@ import {
   getGoogleSignInMode,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
+  getIndexedDbProfileEnabled,
   getLegacyProgressMigrationEnabled,
   getLearnerProfileLifecycleEnabled,
   getPlusCheckoutEnabled,
@@ -221,6 +222,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasTurnstileRuntimeConfig(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
+  assert.equal(getIndexedDbProfileEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
   assert.equal(getLegacyProgressMigrationEnabled(target), false)
   assert.equal(getLearnerProfileLifecycleEnabled(target), false)
@@ -241,6 +243,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: true,
     indexedDbBackupsEnabled: true,
+    indexedDbProfileEnabled: true,
     indexedDbBackupCleanupEnabled: true,
     legacyProgressMigrationEnabled: true,
     learnerProfileLifecycleEnabled: true,
@@ -267,6 +270,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasTurnstileRuntimeConfig(target), true)
   assert.equal(getStudyGuidanceEnabled(target), true)
   assert.equal(getIndexedDbBackupsEnabled(target), true)
+  assert.equal(getIndexedDbProfileEnabled(target), true)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), true)
   assert.equal(getLegacyProgressMigrationEnabled(target), true)
   assert.equal(getLearnerProfileLifecycleEnabled(target), true)
@@ -284,6 +288,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',
+    indexedDbProfileEnabled: 'true',
     indexedDbBackupCleanupEnabled: 1,
     legacyProgressMigrationEnabled: 'true',
     learnerProfileLifecycleEnabled: 'true'
@@ -297,6 +302,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
+  assert.equal(getIndexedDbProfileEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
   assert.equal(getLegacyProgressMigrationEnabled(target), false)
   assert.equal(getLearnerProfileLifecycleEnabled(target), false)

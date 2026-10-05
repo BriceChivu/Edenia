@@ -1,3 +1,4 @@
+import { mapPersistenceResult } from './persistence-result.js'
 import {
   ACCOUNTLESS_PROFILE_MIGRATION_STATES
 } from '../domain/accountless-profile-migration.js'
@@ -450,7 +451,7 @@ export function createLearnerProfileLifecycleAuthority({
           localProfile?.status === 'empty'
           || result.freshProfile === true
         ) {
-          if (!localPersistence.installSignedInProfile(result.profile, {
+          let installed = localPersistence.installSignedInProfile(result.profile, {
             generation: result.generation,
             installedAt: clock.now(),
             onboardingFinalizationPending: result.created === true,
@@ -458,7 +459,9 @@ export function createLearnerProfileLifecycleAuthority({
             profileId: result.profileId,
             replaceExisting: result.freshProfile === true,
             revision: result.revision
-          })) {
+          })
+          if (installed?.then) installed = await installed
+          if (!installed) {
             publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
             return
           }
@@ -479,7 +482,7 @@ export function createLearnerProfileLifecycleAuthority({
             profileId: result.profileId,
             revision: result.revision
           }
-          const reconciled = result.backupRequired === true
+          let reconciled = result.backupRequired === true
             ? localPersistence.adoptCloudIdentity?.({
                 ...identity,
                 previousProfileId: localProfile.profileId
@@ -488,6 +491,7 @@ export function createLearnerProfileLifecycleAuthority({
                 result.profile,
                 identity
               )
+          if (reconciled?.then) reconciled = await reconciled
           if (!reconciled) {
             publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
             return
@@ -523,6 +527,9 @@ export function createLearnerProfileLifecycleAuthority({
           if (typeof localPersistence.completeOnboardingFinalization === 'function') {
             localFinalizationCompleted =
               localPersistence.completeOnboardingFinalization(activation)
+            if (localFinalizationCompleted?.then) {
+              localFinalizationCompleted = await localFinalizationCompleted
+            }
           }
         } catch {
           localFinalizationCompleted = false
@@ -948,10 +955,12 @@ export function createLearnerProfileLifecycleAuthority({
       persistenceOptions,
       activation
     )
-    if (!persisted || !getCurrentActivationFor(profile)) return false
-    analytics.profileSaved(profile, { activation })
-    if (syncCloud) enqueueCloudSave(profile, activation)
-    return true
+    return mapPersistenceResult(persisted, saved => {
+      if (!saved || !getCurrentActivationFor(profile)) return false
+      analytics.profileSaved(profile, { activation })
+      if (syncCloud) enqueueCloudSave(profile, activation)
+      return true
+    })
   }
 
   function replaceActiveProfile(profile, options = {}) {
@@ -981,20 +990,22 @@ export function createLearnerProfileLifecycleAuthority({
       return { persisted: false, error: null }
     }
     const result = localPersistence.replace(profile, options, activation)
-    if (
-      !result?.persisted
-      || !localPersistence.isActivationCurrent(activation)
-    ) {
-      localPersistence.releaseActivation(activation)
-      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
-      return result || { persisted: false, error: null }
-    }
-    activateProfile({ profile }, activation, {
-      offlineExpiresAt: previousOfflineExpiresAt
+    return mapPersistenceResult(result, result => {
+      if (
+        !result?.persisted
+        || !localPersistence.isActivationCurrent(activation)
+      ) {
+        localPersistence.releaseActivation(activation)
+        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        return result || { persisted: false, error: null }
+      }
+      activateProfile({ profile }, activation, {
+        offlineExpiresAt: previousOfflineExpiresAt
+      })
+      analytics.profileSaved(profile, { activation })
+      enqueueCloudSave(profile, activation)
+      return result
     })
-    analytics.profileSaved(profile, { activation })
-    enqueueCloudSave(profile, activation)
-    return result
   }
 
   async function importActiveProfile(profile, { confirmed = false } = {}) {
@@ -1088,7 +1099,7 @@ export function createLearnerProfileLifecycleAuthority({
         publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
         return { status: 'recovery-required' }
       }
-      const restored = localPersistence.reconcileSignedInProfile(
+      const restored = await localPersistence.reconcileSignedInProfile(
         previousProfile,
         {
           generation: protectedImport.generation,
@@ -1119,7 +1130,7 @@ export function createLearnerProfileLifecycleAuthority({
       })
       return { status: 'rolled-back' }
     }
-    const reconciled = localPersistence.reconcileSignedInProfile(
+    const reconciled = await localPersistence.reconcileSignedInProfile(
       profile,
       identity
     )
@@ -1329,7 +1340,7 @@ export function createLearnerProfileLifecycleAuthority({
     }
   }
 
-  function installCloudProfileTransition(result, {
+  async function installCloudProfileTransition(result, {
     protectedConflicts = [],
     protectedReset = null,
     resetIntent = false
@@ -1356,7 +1367,7 @@ export function createLearnerProfileLifecycleAuthority({
         && localBeforeChoice.revision === undefined
       ? localBeforeChoice.profileId
       : null
-    const reconciled = localPersistence.reconcileSignedInProfile(
+    const reconciled = await localPersistence.reconcileSignedInProfile(
       result.profile,
       {
         generation: result.generation,
@@ -1441,7 +1452,7 @@ export function createLearnerProfileLifecycleAuthority({
       || result.profileId !== previousState.profileId
       || result.protectedReset?.status !== 'available'
     ) return false
-    const installed = installCloudProfileTransition(result, {
+    const installed = await installCloudProfileTransition(result, {
       protectedConflicts: previousState.protectedConflicts || [],
       protectedReset: result.protectedReset
     })
@@ -1488,7 +1499,7 @@ export function createLearnerProfileLifecycleAuthority({
       || result.generation !== previousState.activation?.generation
       || result.revision <= previousState.activation?.revision
     ) return false
-    return installCloudProfileTransition(result, {
+    return await installCloudProfileTransition(result, {
       protectedConflicts: previousState.protectedConflicts || []
     })
   }
@@ -1601,7 +1612,7 @@ export function createLearnerProfileLifecycleAuthority({
       publishProfileOpeningFailure(currentAuth, 'resolve-signed-in-profile')
       return false
     }
-    return installCloudProfileTransition(result, {
+    return await installCloudProfileTransition(result, {
       protectedConflicts: result.protectedConflicts,
       protectedReset: reset.protectedReset,
       resetIntent: reset.resetIntent

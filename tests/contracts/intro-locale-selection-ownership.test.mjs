@@ -314,7 +314,7 @@ test('local locale-change callbacks retain their synchronous state behavior', ()
   assert.match(introSource, /^function changeIntroLocale\(locale\)/)
   assert.match(introSource, /closeIntroLocaleMenu\(\)/)
   assert.match(introSource, /const nextLocale = normalizeLocale\(locale\)/)
-  assert.match(introSource, /saveState\(state, \{ backup: false \}\)/)
+  assert.match(introSource, /await saveOnboardingWorkingState\(state, \{ backup: false \}\)/)
   assert.match(introSource, /applyLocale\(nextLocale\)/)
 
   const onboardingSource = getFunctionSlice(
@@ -330,7 +330,7 @@ test('local locale-change callbacks retain their synchronous state behavior', ()
     onboardingSource,
     /const nextLocale = normalizeLocale\(locale\)/
   )
-  assert.match(onboardingSource, /saveState\(state, \{ backup: false \}\)/)
+  assert.match(onboardingSource, /await saveOnboardingWorkingState\(state, \{ backup: false \}\)/)
   assert.match(onboardingSource, /applyLocale\(nextLocale\)/)
   assert.match(onboardingSource, /renderPersonalizedOnboarding\(\)/)
 

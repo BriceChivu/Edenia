@@ -89,13 +89,20 @@ function requestResult(request) {
 
 function transactionComplete(transaction) {
   return new Promise((resolve, reject) => {
-    transaction.addEventListener('complete', () => resolve(), { once: true })
-    transaction.addEventListener('abort', () => reject(
-      transaction.error || new Error('IndexedDB transaction was aborted')
-    ), { once: true })
-    transaction.addEventListener('error', () => reject(
-      transaction.error || new Error('IndexedDB transaction failed')
-    ), { once: true })
+    const timeout = setTimeout(() => {
+      try { transaction.abort() } catch {}
+      reject(new Error('IndexedDB backup transaction timed out'))
+    }, 8000)
+    transaction.addEventListener('complete', () => {
+      clearTimeout(timeout)
+      resolve()
+    }, { once: true })
+    for (const event of ['abort', 'error']) {
+      transaction.addEventListener(event, () => {
+        clearTimeout(timeout)
+        reject(transaction.error || new Error('IndexedDB backup transaction failed'))
+      }, { once: true })
+    }
   })
 }
 
@@ -105,6 +112,11 @@ function openBackupDatabase(indexedDb, databaseName) {
       databaseName,
       STATE_BACKUP_DATABASE_VERSION
     )
+    let settled = false
+    const timeout = setTimeout(() => {
+      settled = true
+      reject(new Error('IndexedDB backup database opening timed out'))
+    }, 8000)
     request.addEventListener('upgradeneeded', () => {
       const database = request.result
       if (!database.objectStoreNames.contains(BACKUP_STORE_NAME)) {
@@ -116,15 +128,19 @@ function openBackupDatabase(indexedDb, databaseName) {
     })
     request.addEventListener('success', () => {
       const database = request.result
+      clearTimeout(timeout)
+      if (settled) { database.close(); return }
+      settled = true
       database.addEventListener('versionchange', () => database.close())
       resolve(database)
     }, { once: true })
-    request.addEventListener('blocked', () => reject(
-      new Error('IndexedDB backup database upgrade was blocked')
-    ), { once: true })
-    request.addEventListener('error', () => reject(
-      request.error || new Error('Could not open IndexedDB backup database')
-    ), { once: true })
+    for (const event of ['blocked', 'error']) {
+      request.addEventListener(event, () => {
+        clearTimeout(timeout)
+        settled = true
+        reject(request.error || new Error('Could not open IndexedDB backup database'))
+      }, { once: true })
+    }
   })
 }
 
@@ -135,6 +151,11 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
       STATE_BACKUP_DATABASE_VERSION
     )
     let missing = false
+    let settled = false
+    const timeout = setTimeout(() => {
+      settled = true
+      reject(new Error('IndexedDB existing backup database opening timed out'))
+    }, 8000)
     request.addEventListener('upgradeneeded', event => {
       if (event.oldVersion === 0) {
         missing = true
@@ -143,6 +164,9 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
     })
     request.addEventListener('success', () => {
       const database = request.result
+      clearTimeout(timeout)
+      if (settled) { database.close(); return }
+      settled = true
       if (missing) {
         database.close()
         resolve(null)
@@ -151,10 +175,14 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
       database.addEventListener('versionchange', () => database.close())
       resolve(database)
     }, { once: true })
-    request.addEventListener('blocked', () => reject(
-      new Error('IndexedDB backup database open was blocked')
-    ), { once: true })
+    request.addEventListener('blocked', () => {
+      clearTimeout(timeout)
+      settled = true
+      reject(new Error('IndexedDB backup database open was blocked'))
+    }, { once: true })
     request.addEventListener('error', () => {
+      clearTimeout(timeout)
+      settled = true
       if (missing && request.error?.name === 'AbortError') {
         resolve(null)
         return
@@ -215,18 +243,30 @@ export async function readIndexedDbBackupEntries({
   }
 }
 
-async function replaceBackupEntries(database, entries) {
-  const transaction = database.transaction(BACKUP_STORE_NAME, 'readwrite')
+// Apply only this adapter's changes in one transaction. A stale tab must not
+// clear recovery entries created by another tab since its last read.
+async function applyBackupChanges(database, previous, next) {
+  const previousById = new Map(previous.map(entry => [entry.id, entry]))
+  const nextById = new Map(next.map(entry => [entry.id, entry]))
+  const transaction = database.transaction(BACKUP_STORE_NAME, 'readwrite', { durability: 'strict' })
+  const finished = transactionComplete(transaction)
   const store = transaction.objectStore(BACKUP_STORE_NAME)
-  store.clear()
-  entries.forEach(entry => store.put(cloneJson(entry)))
-  await transactionComplete(transaction)
-
-  const persistedEntries = await readBackupEntries(database)
-  if (!stateBackupEntriesMatch(entries, persistedEntries)) {
-    throw new Error('IndexedDB backup verification failed')
+  const request = store.getAll()
+  request.addEventListener('success', () => {
+    try {
+      for (const id of previousById.keys()) if (!nextById.has(id)) store.delete(id)
+      for (const entry of next) {
+        if (JSON.stringify(previousById.get(entry.id)) !== JSON.stringify(entry)) store.put(cloneJson(entry))
+      }
+    } catch { transaction.abort() }
+  }, { once: true })
+  await finished
+  const persisted = await readBackupEntries(database)
+  const persistedById = new Map(persisted.map(entry => [entry.id, entry]))
+  if (!next.every(entry => JSON.stringify(persistedById.get(entry.id)) === JSON.stringify(entry))) {
+    throw new Error('IndexedDB backup change verification failed')
   }
-  return persistedEntries
+  return persisted
 }
 
 async function writeMigrationMetadata(database, metadata) {
@@ -252,15 +292,17 @@ function createIndexedDbStorageAdapter({
 
   function scheduleWrite(entries) {
     const snapshot = cloneJson(entries)
+    const previous = cloneJson(currentEntries)
     const revision = currentRevision + 1
     currentRevision = revision
     currentEntries = snapshot
 
     const operation = latestOperation
       .catch(() => {})
-      .then(() => replaceBackupEntries(database, snapshot))
+      .then(() => applyBackupChanges(database, previous, snapshot))
       .then(writtenEntries => {
         persistedEntries = cloneJson(writtenEntries)
+        if (revision === currentRevision) currentEntries = cloneJson(writtenEntries)
         return writtenEntries
       })
       .catch(error => {
@@ -271,6 +313,7 @@ function createIndexedDbStorageAdapter({
       })
     latestOperation = operation
     void operation.catch(() => {})
+    return operation
   }
 
   const storage = {
@@ -299,8 +342,9 @@ function createIndexedDbStorageAdapter({
         legacyStorage.removeItem(key)
         return
       }
-      scheduleWrite([])
-      try { legacyStorage.removeItem(backupKey) } catch {}
+      void scheduleWrite([]).then(() => {
+        try { legacyStorage.removeItem(backupKey) } catch {}
+      }).catch(() => {})
     }
   }
 
@@ -346,8 +390,9 @@ export async function createIndexedDbBackupStorage({
 
   const database = await openBackupDatabase(indexedDb, databaseName)
   try {
+    const capturedLegacyRaw = legacyStorage.getItem(backupKey)
     const legacy = parseLegacyStateBackupEntries(
-      legacyStorage.getItem(backupKey),
+      capturedLegacyRaw,
       isValidEntry
     )
     const indexedEntries = await readBackupEntries(database)
@@ -357,7 +402,7 @@ export async function createIndexedDbBackupStorage({
     const mergedEntries = legacy.valid
       ? mergeStateBackupEntries(indexedEntries, legacy.entries)
       : mergeStateBackupEntries(indexedEntries)
-    const verifiedEntries = await replaceBackupEntries(database, mergedEntries)
+    const verifiedEntries = await applyBackupChanges(database, [], mergedEntries)
     const legacyWasVerified = legacy.valid && legacy.entries.every(entry => (
       verifiedEntries.some(candidate => stateBackupEntriesMatch(
         [entry],
@@ -379,7 +424,7 @@ export async function createIndexedDbBackupStorage({
     if (cleanupLegacy && legacy.exists && legacyWasVerified) {
       try {
         const cleanupAuthorized = await beforeLegacyCleanup()
-        if (cleanupAuthorized !== false) {
+        if (cleanupAuthorized !== false && legacyStorage.getItem(backupKey) === capturedLegacyRaw) {
           legacyStorage.removeItem(backupKey)
           legacyRemoved = legacyStorage.getItem(backupKey) === null
         }

@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
@@ -13,8 +14,8 @@ const stateActionsSource = fs.readFileSync(
 )
 
 function functionSource(name, nextName) {
-  const start = appSource.indexOf(`function ${name}(`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const start = indexOfFunction(appSource, name)
+  const end = indexOfFunction(appSource, nextName, start)
   assert.notEqual(start, -1, `Missing function ${name}`)
   assert.notEqual(end, -1, `Missing function ${nextName}`)
   return appSource.slice(start, end)

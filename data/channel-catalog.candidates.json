@@ -41,7 +41,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2023-05-14T17:22:37.445893Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-02T17:56:18.033Z",
@@ -66,7 +66,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2014-04-06T12:43:08Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 2,
       "distinctUserCount": 2,
       "firstSeenAt": "2026-08-02T17:58:06.863Z",
@@ -76,6 +76,33 @@
       ],
       "reviewReasons": [],
       "searchText": "bricelearnstuff bricelearnstuff"
+    },
+    {
+      "catalogId": "community-UCSKdvgqdnj72_SLggp7BDTg",
+      "channelId": "UCSKdvgqdnj72_SLggp7BDTg",
+      "handle": "@brutfr",
+      "name": "Brut",
+      "thumbnailUrl": "https://yt3.ggpht.com/hOyx1o7pvwZNexn88f1I51C0d9-6qaNRN4GPXQDAL55w--uZtcV-LVdey5NvwjTPo6rEz2_Zng=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-10-28T12:43:30Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T08:06:24.335Z",
+      "lastSeenAt": "2026-09-29T08:06:24.335Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "brut brutfr advanced"
     },
     {
       "catalogId": "community-UC_r4ZilNQUhKLPP6B2dRDtQ",
@@ -93,7 +120,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2024-08-16T16:33:21.621784Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-02T11:20:45.505Z",
@@ -168,7 +195,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2024-05-14T00:05:12.513613Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-02T17:55:58.688Z",
@@ -178,6 +205,33 @@
       ],
       "reviewReasons": [],
       "searchText": "extra medium stuff extramediummedia"
+    },
+    {
+      "catalogId": "community-UCmg7kXjk-WOxYb5i3kwACUw",
+      "channelId": "UCmg7kXjk-WOxYb5i3kwACUw",
+      "handle": "@frenchmorningspodcast",
+      "name": "French Mornings Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/31SPCAjGJBPQPlQqNyp2rfkgzBxhNXjJFwAvUg4Jgt9zbhbOQBJ20hgsbBJTSGMvgdt3kKHhZQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-08-28T15:48:57.320354Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T08:05:05.433Z",
+      "lastSeenAt": "2026-09-29T08:05:05.433Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "french mornings podcast frenchmorningspodcast advanced"
     },
     {
       "catalogId": "community-UCeh9Sa5OJf8RGszwkHCVa0A",
@@ -245,7 +299,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2021-05-26T10:58:09.268646Z",
-      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
+      "metadataRefreshedAt": "2026-10-01T09:26:17.194Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-31T18:07:57.049Z",
@@ -280,6 +334,87 @@
       ],
       "reviewReasons": [],
       "searchText": "ggsgamerchinese ggsgamerchinese"
+    },
+    {
+      "catalogId": "community-UCAcAnMF0OrCtUep3Y4M-ZPw",
+      "channelId": "UCAcAnMF0OrCtUep3Y4M-ZPw",
+      "handle": "@hugodecrypteactus",
+      "name": "HugoDécrypte - Actus du jour",
+      "thumbnailUrl": "https://yt3.ggpht.com/doPajjcwkXA71S2WCZsvhXSGapCsp46InwN9048iQa327OXZwxXvXJCY3FnGL6BpymL4k9jATA=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-11-19T19:48:59Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T07:57:43.326Z",
+      "lastSeenAt": "2026-09-29T07:57:43.326Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "hugodecrypte actus du jour hugodecrypteactus advanced"
+    },
+    {
+      "catalogId": "community-UCUo1RqYV8tGjV38sQ8S5p9A",
+      "channelId": "UCUo1RqYV8tGjV38sQ8S5p9A",
+      "handle": "@hugodecryptegrandsformats",
+      "name": "HugoDécrypte - Grands formats",
+      "thumbnailUrl": "https://yt3.ggpht.com/K9oQlDW3f-YUPAw7A-rjg4DQDP8HJMohnhpjoJrL7zhhvvSCD-6ykCkFvHaCVujCJyK2sgAH=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-04-23T12:54:10.592875Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T07:56:33.283Z",
+      "lastSeenAt": "2026-09-29T07:56:33.283Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "hugodecrypte grands formats hugodecryptegrandsformats advanced"
+    },
+    {
+      "catalogId": "community-UC50uCdUubc04xXZz7bqv5ng",
+      "channelId": "UC50uCdUubc04xXZz7bqv5ng",
+      "handle": "@investigation",
+      "name": "Investigation",
+      "thumbnailUrl": "https://yt3.ggpht.com/qWcsNvuUR8jPbAsHW_xYvS3IeMDe4MKA05Owzz7YPhdKMSuuaPSPCTGSzVOK4zelqHs3V6smMQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-12-02T15:22:56Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T08:09:13.096Z",
+      "lastSeenAt": "2026-09-29T08:09:13.096Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "investigation investigation advanced"
     },
     {
       "catalogId": "community-UCqqJQ_cXSat0KIAVfIfKkVA",
@@ -320,7 +455,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2014-06-30T15:52:08Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-02T17:58:51.155Z",
@@ -347,7 +482,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2017-01-28T03:44:08Z",
-      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
+      "metadataRefreshedAt": "2026-10-01T09:26:17.194Z",
       "addCount": 2,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-31T22:14:50.814Z",
@@ -461,6 +596,33 @@
       "searchText": "mandarin blueprint mandarinblueprint starting"
     },
     {
+      "catalogId": "community-UCPHJfLg1VeNBsfzzTszpmmQ",
+      "channelId": "UCPHJfLg1VeNBsfzzTszpmmQ",
+      "handle": "@montreuxcomedy",
+      "name": "Montreux Comedy",
+      "thumbnailUrl": "https://yt3.ggpht.com/5Sa5EN8bXQe-aDdZupws5foSTFd7W-5OmpJI2rcNR6gp2TGxUA6CIsKa8tYIMVnm377dIu-H6RQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2009-10-29T11:04:03Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T08:08:15.329Z",
+      "lastSeenAt": "2026-09-29T08:08:15.329Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "montreux comedy montreuxcomedy advanced"
+    },
+    {
       "catalogId": "community-UCIYAzXc6_EkPU6I9qmNSD0g",
       "channelId": "UCIYAzXc6_EkPU6I9qmNSD0g",
       "handle": "@stellatuan.chinese",
@@ -476,7 +638,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2021-07-23T09:19:09.29614Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-02T17:06:48.297Z",
@@ -501,7 +663,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2014-03-27T01:58:47Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 2,
       "distinctUserCount": 2,
       "firstSeenAt": "2026-08-02T17:55:33.610Z",
@@ -526,7 +688,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2022-05-11T16:11:59.257408Z",
-      "metadataRefreshedAt": "2026-09-02T07:19:53.020Z",
+      "metadataRefreshedAt": "2026-10-02T09:01:31.596Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-02T17:55:19.957Z",
@@ -551,7 +713,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2006-08-09T04:50:09Z",
-      "metadataRefreshedAt": "2026-09-04T07:25:31.218Z",
+      "metadataRefreshedAt": "2026-10-04T08:49:40.135Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-04T12:10:59.194Z",
@@ -561,6 +723,33 @@
       ],
       "reviewReasons": [],
       "searchText": "rainbolt2 rainbolt2"
+    },
+    {
+      "catalogId": "community-UCAww4kiWYtXLmkT2KKIjjAg",
+      "channelId": "UCAww4kiWYtXLmkT2KKIjjAg",
+      "handle": "@reallife_reportages",
+      "name": "Real Life ▸ Reportages & Enquêtes",
+      "thumbnailUrl": "https://yt3.ggpht.com/8cPr1OS1u8JbLJof2Z2hxQrx1n0gQj6J5nCG0wqgTIM5IK-AlmVTl6tnCvaWRh_-S8nSEGNKTZo=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-06-01T10:11:21.548499Z",
+      "metadataRefreshedAt": "2026-09-29T09:04:00.027Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-29T08:07:30.056Z",
+      "lastSeenAt": "2026-09-29T08:07:30.056Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "real life reportages enquetes reallife reportages advanced"
     },
     {
       "catalogId": "community-UCosbGL8QDp-4iPPswvMeDWw",
@@ -586,6 +775,33 @@
       ],
       "reviewReasons": [],
       "searchText": "realfake realfakepod"
+    },
+    {
+      "catalogId": "community-UCe0NJY133u_NwqDOIxfz3og",
+      "channelId": "UCe0NJY133u_NwqDOIxfz3og",
+      "handle": "@竹子zhuzi",
+      "name": "Talking China Learning Chinese 说中国学中文",
+      "thumbnailUrl": "https://yt3.ggpht.com/m-XO1J-cZrws51dheb3kk57g8ftgY_hztZPai-xNZaH5QJtCTF7y09T_4pXFgIwreli4Sq4f=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "beginner"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2011-11-15T19:25:54Z",
+      "metadataRefreshedAt": "2026-10-04T08:49:40.135Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-10-04T03:08:12.916Z",
+      "lastSeenAt": "2026-10-04T03:08:12.916Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "talking china learning chinese 说中国学中文 竹子zhuzi beginner"
     },
     {
       "catalogId": "community-UCfq75-6J5seC82CmtLSFxXw",
@@ -653,7 +869,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2018-05-28T18:04:47Z",
-      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
+      "metadataRefreshedAt": "2026-10-01T09:26:17.194Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-30T12:27:56.492Z",
@@ -678,7 +894,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2016-10-25T02:47:41Z",
-      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
+      "metadataRefreshedAt": "2026-10-01T09:26:17.194Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-31T05:48:53.461Z",
@@ -703,7 +919,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2020-05-01T16:59:14.088126Z",
-      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
+      "metadataRefreshedAt": "2026-10-01T09:26:17.194Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-31T05:50:28.485Z",
@@ -790,5 +1006,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-09-22T07:57:16.369Z"
+  "generatedAt": "2026-10-04T08:49:40.135Z"
 }

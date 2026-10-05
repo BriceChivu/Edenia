@@ -6,6 +6,7 @@ import {
   createPortableLearnerProfileEnvelope,
   LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
 } from '../../src/state/portable-learner-profile.js'
+import { ACTIVITY_LOG_BYTE_LIMIT } from '../../src/state/activity-log.js'
 
 const SUPABASE_ORIGIN = 'https://profile-import-test.supabase.co'
 const USER_ID = '123e4567-e89b-42d3-a456-426614174000'
@@ -475,10 +476,17 @@ test('confirmed same- and cross-account imports replace only after protection', 
   }), { stateKey: STATE_KEY, syncKey: SYNC_KEY })
   expect(stored.state.config.locale).toBe('fr')
   expect(stored.state.learnerProfile.languages).toEqual(['japanese'])
-  expect(stored.state.activityLog).toHaveLength(500)
-  expect(new Set(stored.state.activityLog.map(entry => entry.id))).toEqual(
-    new Set(importedEnvelope.profile.activityLog.map(entry => entry.id))
+  // Activity history is disposable and byte-bounded; imports retain the exact
+  // newest prefix of the source history.
+  const retainedActivity = stored.state.activityLog
+  expect(retainedActivity.length).toBeGreaterThan(0)
+  expect(retainedActivity.length).toBeLessThan(500)
+  expect(JSON.stringify(retainedActivity).length * 2).toBeLessThanOrEqual(
+    ACTIVITY_LOG_BYTE_LIMIT
   )
+  expect(retainedActivity).toEqual(importedEnvelope.profile.activityLog
+    .toSorted((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, retainedActivity.length))
   expect(stored.sync).toMatchObject({
     generation: 2,
     ownerId: USER_ID,
@@ -498,6 +506,17 @@ test('confirmed same- and cross-account imports replace only after protection', 
     JSON.parse(localStorage.getItem(stateKey))
   ), STATE_KEY)
   expect(reloaded.learnerProfile.languages).toEqual(['japanese'])
+  const reloadedSourceActivity = reloaded.activityLog.filter(
+    entry => entry.id.startsWith('source-entry-')
+  )
+  // Background integration refreshes can append newer events after reload.
+  expect(reloadedSourceActivity.length).toBeGreaterThan(0)
+  expect(reloadedSourceActivity).toEqual(
+    retainedActivity.slice(0, reloadedSourceActivity.length)
+  )
+  expect(JSON.stringify(reloaded.activityLog).length * 2).toBeLessThanOrEqual(
+    ACTIVITY_LOG_BYTE_LIMIT
+  )
 })
 
 test('a stale cloud head leaves the current local profile untouched', async ({

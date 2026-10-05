@@ -13,11 +13,6 @@ export const FR_LOCALIZED = {
   "townEconomy.notStarted": "Économie non commencée",
   "townEconomy.comparison": "Pièces et achats de la ville",
 
-  'videos.history.loading': "Chargement des anciennes vidéos…",
-  'videos.history.exhausted': "Toutes les vidéos disponibles sont chargées.",
-  'videos.history.limited': "Aucune autre vidéo correspondante dans ce lot.",
-  'videos.history.failed': "Impossible de charger les anciennes vidéos.",
-  'videos.history.continue': "Continuer à parcourir",
 
     'intro.skip': 'Passer l’introduction',
     'intro.sound.off': 'Son désactivé',
@@ -1054,6 +1049,7 @@ export const FR_LOCALIZED = {
   'toast.backupUnavailable': 'Cette sauvegarde n’est plus disponible',
   'toast.backupCreateFailed': 'Impossible de créer une sauvegarde de restauration vérifiée. Votre progression actuelle n’a pas été modifiée.',
   'toast.progressSaveFailed': 'Impossible d’enregistrer cette modification. Votre progression actuelle n’a pas été modifiée.',
+  'toast.channelSaveFailed': 'Impossible d’enregistrer ce changement de chaîne. Votre progression est inchangée. Exportez un fichier de synchronisation depuis les Paramètres avant tout nettoyage du stockage.',
   'toast.startOverFailed': 'Impossible de recommencer. Votre progression actuelle n’a pas été modifiée.',
   'toast.startOverUndoFailed': 'Impossible de restaurer votre progression précédente. Votre profil actuel et la progression protégée n’ont pas été modifiés.',
   'toast.backupRestored': 'Sauvegarde restaurée',

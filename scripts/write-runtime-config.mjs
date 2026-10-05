@@ -78,6 +78,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_STUDY_GUIDANCE_ENABLED,
     'EDENIA_STUDY_GUIDANCE_ENABLED'
   ),
+  indexedDbProfileEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_INDEXED_DB_PROFILE_ENABLED,
+    'EDENIA_INDEXED_DB_PROFILE_ENABLED'
+  ),
   indexedDbBackupsEnabled: parseRuntimeConfigFlag(
     process.env.EDENIA_INDEXED_DB_BACKUPS_ENABLED,
     'EDENIA_INDEXED_DB_BACKUPS_ENABLED'

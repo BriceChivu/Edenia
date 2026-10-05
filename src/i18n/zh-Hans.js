@@ -13,11 +13,6 @@ export const ZH_HANS_LOCALIZED = {
   "townEconomy.notStarted": "尚未开始赚取金币",
   "townEconomy.comparison": "小镇金币与购买记录",
 
-  'videos.history.loading': "正在加载较早的视频…",
-  'videos.history.exhausted': "已加载所有可用视频。",
-  'videos.history.limited': "本批次中没有更多符合条件的视频。",
-  'videos.history.failed': "无法加载较早的视频。",
-  'videos.history.continue': "继续浏览",
 
     'intro.skip': '跳过介绍',
     'intro.sound.off': '声音关闭',
@@ -1054,6 +1049,7 @@ export const ZH_HANS_LOCALIZED = {
   'toast.backupUnavailable': '找不到这个备份',
   'toast.backupCreateFailed': '无法创建并验证回滚备份。你当前的进度没有更改。',
   'toast.progressSaveFailed': '无法保存这项更改。你当前的进度没有更改。',
+  'toast.channelSaveFailed': '无法保存这项频道更改。你的进度没有改变。清理存储空间之前，请先在设置中导出同步文件。',
   'toast.startOverFailed': '无法重新开始。你当前的进度没有更改。',
   'toast.startOverUndoFailed': '无法恢复之前的进度。你当前的档案和受保护的进度都没有更改。',
   'toast.backupRestored': '备份已恢复',

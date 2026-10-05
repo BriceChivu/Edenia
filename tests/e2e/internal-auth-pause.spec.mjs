@@ -1,10 +1,10 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 const internalKey = 'edenia_v1_internal_test'
-async function pauseConfig(page) {
+async function pauseConfig(page, indexedDbProfileEnabled = false) {
   await page.route('**/config.local.js', route => route.fulfill({
     contentType: 'text/javascript',
-    body: 'window.EDENIA_CONFIG = { accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false, indexedDbBackupsEnabled: true, supabaseUrl: "https://paused-test.supabase.co", supabasePublishableKey: "test-key" };'
+    body: `window.EDENIA_CONFIG = { accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false, indexedDbBackupsEnabled: true, indexedDbProfileEnabled: ${indexedDbProfileEnabled}, supabaseUrl: "https://paused-test.supabase.co", supabasePublishableKey: "test-key" };`
   }))
 }
 function watchExperimentalRequests(page) {
@@ -16,13 +16,13 @@ function watchExperimentalRequests(page) {
 }
 async function seedTown(page, key) {
   await page.waitForFunction(() => typeof window.defaultState === 'function')
-  await page.evaluate(key => {
+  await page.evaluate(async key => {
     const state = window.defaultState(4, [], 'light', [], 'en')
     const date = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
     window.updatePersistentCityLevel(state, 0)
     Object.assign(state.onboarding, { introSeenAt: date, setupCompleted: true, setupCompletedAt: date, walkthroughCompleted: true, walkthroughCompletedAt: date })
-    window.saveState(state, { backup: false, syncAnalytics: false })
+    await window.saveState(state, { backup: false, syncAnalytics: false })
     if (key.endsWith('_internal_test')) {
       localStorage.setItem(`${key}_learner_profile_access_v1`, JSON.stringify({
         version: 1, ownerId: null, profileId: `accountless:${key}`,
@@ -53,8 +53,9 @@ for (const internal of [false, true]) {
     expect(calls).toEqual([])
   })
 }
+for (const indexedDbProfileEnabled of [false, true]) {
 for (const access of ['owned', 'malformed', 'legacy-auth']) {
-  test(`retained ${access} internal state stays byte-for-byte preserved and unopened`, async ({ page }) => {
+  test(`retained ${access} internal state stays byte-for-byte preserved and unopened${indexedDbProfileEnabled ? ' with IndexedDB enabled' : ''}`, async ({ page }) => {
     await pauseConfig(page)
     const calls = watchExperimentalRequests(page)
     await page.goto('/?internal_test=1')
@@ -66,9 +67,16 @@ for (const access of ['owned', 'malformed', 'legacy-auth']) {
         ? JSON.stringify({version:1,ownerId:'synthetic-owner',profileId:'synthetic-profile',activationId:null,activatedAt:1,generation:1,revision:1}) : '{invalid')
       return Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith(key)))
     }, {key:internalKey,access})
+    await pauseConfig(page, indexedDbProfileEnabled)
     await page.addInitScript(key => {
       const get = Storage.prototype.getItem
       window.retainedProfileReads = 0
+      window.retainedDatabaseOpens = 0
+      const open = IDBFactory.prototype.open
+      IDBFactory.prototype.open = function(...args) {
+        window.retainedDatabaseOpens++
+        return open.apply(this, args)
+      }
       Storage.prototype.getItem = function(k) {
         if (k === key || k === `${key}_backups`) window.retainedProfileReads++
         return get.call(this,k)
@@ -79,9 +87,11 @@ for (const access of ['owned', 'malformed', 'legacy-auth']) {
     await expect(page.getByRole('heading', { name: 'Authentication testing is paused' })).toBeVisible()
     await expect(page.locator('#mainApp')).toHaveCount(0)
     expect(await page.evaluate(() => window.retainedProfileReads)).toBe(0)
+    expect(await page.evaluate(() => window.retainedDatabaseOpens)).toBe(0)
     expect(await page.evaluate(key => Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith(key))), internalKey)).toEqual(before)
     expect(calls).toEqual([])
     await page.goto('/')
     await expect(page.locator('#internalAuthPaused')).toHaveCount(0)
   })
+}
 }

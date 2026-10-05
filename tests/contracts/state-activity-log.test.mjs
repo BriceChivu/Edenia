@@ -1,3 +1,5 @@
+import { storageBytes } from '../../src/state/storage-budget.js'
+import { ACTIVITY_LOG_BYTE_LIMIT } from '../../src/state/activity-log.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
@@ -59,7 +61,7 @@ test('activity-log normalization preserves defaults, ordering, and metadata iden
   assert.equal(normalizeActivityLogState(state), false)
 })
 
-test('activity-log normalization retains only the newest 500 entries', () => {
+test('activity-log normalization retains recent entries within count and byte limits', () => {
   const state = {
     activityLog: Array.from({ length: 505 }, (_, index) => ({
       id: `entry-${index}`,
@@ -72,9 +74,10 @@ test('activity-log normalization retains only the newest 500 entries', () => {
     }))
   }
   normalizeActivityLogState(state)
-  assert.equal(state.activityLog.length, 500)
+  assert.ok(state.activityLog.length <= 500)
+  assert.ok(storageBytes(state.activityLog) <= ACTIVITY_LOG_BYTE_LIMIT)
   assert.equal(state.activityLog[0].id, 'entry-504')
-  assert.equal(state.activityLog.at(-1).id, 'entry-5')
+  assert.ok(Number(state.activityLog.at(-1).id.split('-')[1]) >= 5)
 })
 
 test('activity-log appends dedupe by type, status, and detail only', () => {

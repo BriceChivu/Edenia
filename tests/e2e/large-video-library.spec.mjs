@@ -538,7 +538,7 @@ test('watched, undo and redo retain the neighbor in both formats through failed 
       const neighbor = slot.nextElementSibling.querySelector('.video-card').dataset.videoId
       const state = window.loadState()
       state.videos[id].watchedConfirmationUnlockedAt = new Date().toISOString()
-      window.saveState(state)
+      await window.saveState(state)
       slot.querySelector('.favorite-btn').focus({ preventScroll: true })
       await new Promise(resolve => setTimeout(resolve, 300))
       const left = slot.getBoundingClientRect().left
@@ -548,18 +548,18 @@ test('watched, undo and redo retain the neighbor in both formats through failed 
         return setItem.call(this, key, value)
       } }
       fail()
-      const failed = window.markVideo(id, 'watched')
+      const failed = await window.markVideo(id, 'watched')
       Storage.prototype.setItem = setItem
-      const marked = window.markVideo(id, 'watched')
+      const marked = await window.markVideo(id, 'watched')
       const next = element.querySelector(`.video-card[data-video-id="${neighbor}"]`)
       const delta = next?.closest('.channel-shelf-slot').getBoundingClientRect().left - left
       fail()
-      window.undoLastVideoAction()
+      await window.undoLastVideoAction()
       const failedUndoRetained = !element.querySelector(`.video-card[data-video-id="${id}"]`)
       Storage.prototype.setItem = setItem
-      window.undoLastVideoAction()
+      await window.undoLastVideoAction()
       const undone = Boolean(element.querySelector(`.video-card[data-video-id="${id}"]`))
-      window.redoLastVideoAction()
+      await window.redoLastVideoAction()
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       return { failed, marked, delta, failedUndoRetained, undone, redone: !element.querySelector(`.video-card[data-video-id="${id}"]`), focused: element.contains(document.activeElement) }
     })

@@ -11,6 +11,7 @@ export function isValidStateBackupEntry(entry, isValidStateShape) {
 
 export function createStateBackupStore({
   storage,
+  readPrimary = () => storage.getItem(storageKey),
   storageKey,
   stateBackupKey,
   isSandbox,
@@ -77,7 +78,7 @@ export function createStateBackupStore({
 
   function getStoredStateForBackup() {
     try {
-      const raw = storage.getItem(storageKey)
+      const raw = readPrimary()
       if (!raw) return null
       return prepareStateForBackup(JSON.parse(raw))
     } catch {

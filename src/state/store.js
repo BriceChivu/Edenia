@@ -1,6 +1,10 @@
+import { mapPersistenceResult } from './persistence-result.js'
+
 export function createStateStore({
   storage,
+  getRepository = () => null,
   storageKey,
+  discardableCacheKeys = [],
   normalizeLoadedState,
   normalizeStateBeforeSave,
   createStateBackup,
@@ -11,11 +15,34 @@ export function createStateStore({
   loadConfigCookie,
   createDefaultStateFromConfig
 }) {
+  function discardReplaceableCaches(canPersist) {
+    let reclaimed = false
+    for (const key of discardableCacheKeys) {
+      if (key === storageKey || !canPersist()) continue
+      try {
+        if (storage.getItem(key) === null || !canPersist()) continue
+        storage.removeItem(key)
+        if (storage.getItem(key) === null) reclaimed = true
+      } catch {}
+    }
+    return reclaimed
+  }
+
   function saveImportedState(state, {
     preserveBackupId = null,
     syncAnalytics = true
   } = {}, canPersist = () => true) {
     normalizeStateBeforeSave(state)
+    const repository = getRepository()
+    if (repository) {
+      return mapPersistenceResult(repository.save(state, { canPersist, replace: true }), persisted => {
+        if (persisted) {
+          saveConfigCookie(state.config)
+          if (syncAnalytics) syncPersistedStateToAnalytics(state)
+        }
+        return { persisted, error: persisted ? null : new Error('Durable profile save failed') }
+      })
+    }
     const serializedState = JSON.stringify(state)
     let persistenceError = null
 
@@ -29,11 +56,9 @@ export function createStateStore({
         break
       } catch (error) {
         persistenceError = error
-        if (
-          !canPersist()
-          || !isStorageQuotaError(error)
-          || !pruneOldestStateBackup({ preserveId: preserveBackupId })
-        ) break
+        if (!canPersist() || !isStorageQuotaError(error)) break
+        if (discardReplaceableCaches(canPersist)) continue
+        if (!pruneOldestStateBackup({ preserveId: preserveBackupId })) break
       }
     }
 
@@ -50,27 +75,49 @@ export function createStateStore({
       backup = true,
       backupReason = 'automatic backup',
       forceBackup = false,
-      syncAnalytics = true
+      syncAnalytics = true,
+      pruneBackups = true
     } = options
     normalizeStateBeforeSave(state)
     if (!canPersist()) return false
     if (backup) createStateBackup(backupReason, { force: forceBackup })
+    const repository = getRepository()
+    if (repository) {
+      return mapPersistenceResult(repository.save(state, { canPersist }), persisted => {
+        if (persisted) {
+          saveConfigCookie(state.config)
+          if (syncAnalytics) syncPersistedStateToAnalytics(state)
+        }
+        return persisted
+      })
+    }
     const serializedState = JSON.stringify(state)
     if (!canPersist()) return false
     let persisted = false
     try {
       storage.setItem(storageKey, serializedState)
       persisted = true
-    } catch {
+    } catch (error) {
       if (!canPersist()) return false
-      pruneOldestStateBackup()
-      if (!canPersist()) return false
-      try {
-        storage.setItem(storageKey, serializedState)
-        persisted = true
-      } catch {}
+      if (!isStorageQuotaError(error)) return false
+      if (discardReplaceableCaches(canPersist)) {
+        if (!canPersist()) return false
+        try {
+          storage.setItem(storageKey, serializedState)
+          persisted = true
+        } catch (retryError) {
+          if (!isStorageQuotaError(retryError)) return false
+        }
+      }
+      if (!persisted && pruneBackups && canPersist() && pruneOldestStateBackup()) {
+        if (!canPersist()) return false
+        try {
+          storage.setItem(storageKey, serializedState)
+          persisted = true
+        } catch {}
+      }
     }
-    saveConfigCookie(state.config)
+    if (persisted) saveConfigCookie(state.config)
     if (persisted && syncAnalytics) syncPersistedStateToAnalytics(state)
     return persisted
   }
@@ -78,11 +125,12 @@ export function createStateStore({
   function loadState({ persistCleanup = true } = {}) {
     let storageError = false
     try {
-      const raw = storage.getItem(storageKey)
+      const repository = getRepository()
+      const raw = repository ? repository.readRaw() : storage.getItem(storageKey)
       if (raw) {
-        const state = JSON.parse(raw)
+        const state = repository ? repository.snapshot() : JSON.parse(raw)
         const shouldSave = normalizeLoadedState(state)
-        if (shouldSave && persistCleanup) {
+        if (shouldSave && persistCleanup && !repository) {
           saveState(state, {
             backupReason: 'before automatic cleanup',
             forceBackup: true
@@ -105,6 +153,7 @@ export function createStateStore({
   }
 
   function canPersistLocalState() {
+    if (getRepository()) return true
     const probeKey = `${storageKey}_storage_probe`
     try {
       storage.setItem(probeKey, '1')

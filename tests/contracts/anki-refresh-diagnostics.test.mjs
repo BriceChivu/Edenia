@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
@@ -5,7 +6,7 @@ import test from 'node:test'
 
 const source = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
 const start = source.indexOf('async function refreshAnkiStats(')
-const end = source.indexOf('\nfunction startAnkiAutoRefresh', start)
+const end = indexOfFunction(source, 'startAnkiAutoRefresh', start)
 assert.ok(start > 0 && end > start)
 
 function harness({ signedIn, fails }) {
@@ -22,7 +23,7 @@ function harness({ signedIn, fails }) {
     renderAnkiStatus: () => { calls.rendered += 1 },
     formatAnkiConnectError: () => 'unavailable',
     appendActivityLog: (target, entry) => target.activityLog.push(entry),
-    saveState: () => { calls.saved += 1 },
+    saveState: () => { calls.saved += 1; return true },
     t: key => key
   })
   vm.runInContext(source.slice(start, end), context)

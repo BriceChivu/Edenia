@@ -54,10 +54,10 @@ export function mountEconomy(wrap, town) {
       outline.focus({ preventScroll: true })
     }
   })
-  confirm.addEventListener('click', () => {
+  confirm.addEventListener('click', async () => {
     if (confirm.disabled) return
     confirm.disabled = true
-    const result = purchase?.()
+    const result = await purchase?.()
     panel.hidden = true
     status.textContent = town.translate(`townEconomy.${['purchased', 'owned', 'insufficient'].includes(result) ? result : 'saveFailed'}`)
     confirm.disabled = false

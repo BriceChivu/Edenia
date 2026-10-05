@@ -25,27 +25,27 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  "en": "d53ffc913f5243b254504b5ac9d1976fd9966b8642d1822836009d1a91207585",
-  "zh-Hant": "9178009bb6aa2b348ec62f6bab0278b54f51644775878c3d80e6c398c80a8cb7",
-  "zh-Hans": "8febffbfbb98d3dbf7802a1188f38f118ca00b8dff5bad9d66d18b0635304145",
-  "es": "d62ef31c04042670050c33f1626ba4298c4ab61f530dbc5d137ea23b53183fa4",
-  "fr": "247cc7c4484fd653d95295040c3ee149f83306c4874ba95a7cf1f88a7dcc46c6"
+  "en": "8711f7db6151d08134c526df1ccc98f035e8a2ebd896ab4810c6facf9d0d8140",
+  "zh-Hant": "8e47a620e54aa24aeacb4c6f3d86404425d09d3e0b5a38d1fe75eb3f0c99300c",
+  "zh-Hans": "4314f700f88cdf6890d1bb86500140a327373a5d6f81335748de898474505eb3",
+  "es": "6ba12946fc3213f7ddc54614d8e3426c9a55c07415bdbc4a4067339188248841",
+  "fr": "57ecaca83648a9354723b0100e4d8f3771103210de80264575a8af06f3abcbae"
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
-  "en": "9feaea0c0625546cb2a2181e1f58db92f04f22507960a039ad428347159c39aa",
-  "zh-Hant": "9dc9577288c4d66f5f8609dabc16e5fcab19d086e5802deb600657a52418a53c",
-  "zh-Hans": "9dc9577288c4d66f5f8609dabc16e5fcab19d086e5802deb600657a52418a53c",
-  "es": "9dc9577288c4d66f5f8609dabc16e5fcab19d086e5802deb600657a52418a53c",
-  "fr": "9dc9577288c4d66f5f8609dabc16e5fcab19d086e5802deb600657a52418a53c"
+  "en": "cbcdcad9d9e8ac9b7865b2d42ed352bbdec22065332d934871e556c668be4801",
+  "zh-Hant": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557",
+  "zh-Hans": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557",
+  "es": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557",
+  "fr": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557"
 }
 
 const EXPECTED_COUNTS = {
-  "en": 1152,
-  "zh-Hant": 1156,
-  "zh-Hans": 1156,
-  "es": 1156,
-  "fr": 1156
+  "en": 1148,
+  "zh-Hant": 1152,
+  "zh-Hans": 1152,
+  "es": 1152,
+  "fr": 1152
 }
 
 const LEGACY_NON_ENGLISH_EXTRA_KEYS = [
@@ -277,6 +277,15 @@ test('translation runtime preserves selection, fallback, labels, and interpolati
   )
   assert.deepEqual(getMissingI18nKeys(), [])
   setCurrentLocale(DEFAULT_LOCALE)
+})
+
+test('pending locale changes can translate activity without changing the visible locale', () => {
+  setCurrentLocale('en')
+  assert.equal(t('log.locale.title', {}, 'fr'), I18N.fr['log.locale.title'])
+  assert.equal(t('log.locale.detail', { language: 'Français' }, 'fr'),
+    I18N.fr['log.locale.detail'].replace('{language}', 'Français'))
+  assert.equal(getCurrentLocale(), 'en')
+  assert.equal(t('settings.title'), I18N.en['settings.title'])
 })
 
 test('locale date formatting preserves invalid and Intl behavior', () => {

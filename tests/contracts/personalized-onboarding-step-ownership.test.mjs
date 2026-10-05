@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -41,7 +42,7 @@ function getElements(source, tagName) {
 
 function getRenderSource(name, nextName) {
   const start = appSource.indexOf(`function ${name}(content) {`)
-  const end = appSource.indexOf(`\nfunction ${nextName}(`, start)
+  const end = indexOfFunction(appSource, nextName, start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   return appSource.slice(start, end)
@@ -211,10 +212,7 @@ test('central replacement binding includes setStep after every branch', () => {
   const start = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
-  const end = appSource.indexOf(
-    '\nfunction renderOnboardingHeading(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'renderOnboardingHeading', start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   const source = appSource.slice(start, end)
@@ -240,10 +238,7 @@ test('step callback retains every validation and directional transition', () => 
   const start = appSource.indexOf(
     'function setPersonalizedOnboardingStep(step) {'
   )
-  const end = appSource.indexOf(
-    '\nfunction prepareOnboardingChannelSelections(',
-    start
-  )
+  const end = indexOfFunction(appSource, 'prepareOnboardingChannelSelections', start)
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
   const source = appSource.slice(start, end)
@@ -289,10 +284,7 @@ test('step analytics remain advanced-or-backed then viewed then generic', () => 
   const renderStart = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
-  const renderEnd = appSource.indexOf(
-    '\nfunction renderOnboardingHeading(',
-    renderStart
-  )
+  const renderEnd = indexOfFunction(appSource, 'renderOnboardingHeading', renderStart)
   const renderSource = appSource.slice(renderStart, renderEnd)
   assert.match(
     renderSource,

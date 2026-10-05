@@ -1,3 +1,4 @@
+import { mapPersistenceResult } from './persistence-result.js'
 import { createPendingStarterFeed } from './onboarding-state.js'
 
 const PROFILE_ACCESS_RECORD_VERSION = 1
@@ -103,6 +104,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   eventTarget,
   hasProfile = () => true,
   loadProfile,
+  inheritProfileRevision = () => {},
   replaceProfile,
   saveProfile,
   storage
@@ -191,11 +193,13 @@ export function createLearnerProfileLocalPersistenceAdapter({
         backup: false,
         syncAnalytics: false
       }, isInstallCurrent)
-      if (result?.persisted && isInstallCurrent()) return true
-      if (!hasProfile() && isInstallCurrent()) {
-        storage.removeItem(accessStorageKey)
-      }
-      return false
+      return mapPersistenceResult(result, result => {
+        if (result?.persisted && isInstallCurrent()) return true
+        if (!hasProfile() && isInstallCurrent()) {
+          storage.removeItem(accessStorageKey)
+        }
+        return false
+      })
     } catch {
       try {
         if (!hasProfile() && isInstallCurrent()) {
@@ -228,6 +232,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
       || !Number.isFinite(installedAt)
     ) return false
     const hadProfile = hasProfile()
+    const previousAccessRaw = storage.getItem(accessStorageKey)
     const previousAccess = readAccessRecord(storage, accessStorageKey)
     const previousProfile = hadProfile ? loadProfile() : null
     if (
@@ -262,19 +267,21 @@ export function createLearnerProfileLocalPersistenceAdapter({
       const result = replaceProfile(profile, {
         syncAnalytics: false
       }, isInstallCurrent)
-      if (result?.persisted && isInstallCurrent()) return true
-      if (isInstallCurrent()) {
-        if (replaceExisting && previousAccess.record) {
-          storage.setItem(accessStorageKey, JSON.stringify(previousAccess.record))
-        } else if (!hasProfile()) {
-          storage.removeItem(accessStorageKey)
+      return mapPersistenceResult(result, result => {
+        if (result?.persisted && isInstallCurrent()) return true
+        if (isInstallCurrent()) {
+          if (replaceExisting && previousAccess.record) {
+            storage.setItem(accessStorageKey, previousAccessRaw)
+          } else if (!hasProfile()) {
+            storage.removeItem(accessStorageKey)
+          }
         }
-      }
-      return false
+        return false
+      })
     } catch {
       try {
         if (replaceExisting && previousAccess.record && isInstallCurrent()) {
-          storage.setItem(accessStorageKey, JSON.stringify(previousAccess.record))
+          storage.setItem(accessStorageKey, previousAccessRaw)
         } else if (!hasProfile() && isInstallCurrent()) {
           storage.removeItem(accessStorageKey)
         }
@@ -531,7 +538,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const isCurrent = () => isOwnerReplacementCurrent(transition)
     let result
     try {
-      result = replaceProfile(profile, {
+      result = await replaceProfile(profile, {
         backup: false,
         syncAnalytics: false
       }, isCurrent)
@@ -617,11 +624,13 @@ export function createLearnerProfileLocalPersistenceAdapter({
       const result = replaceProfile(profile, {
         syncAnalytics: false
       }, isReconcileCurrent)
-      if (result?.persisted && isReconcileCurrent()) return true
-      if (isReconcileCurrent()) {
-        storage.setItem(accessStorageKey, JSON.stringify(current))
-      }
-      return false
+      return mapPersistenceResult(result, result => {
+        if (result?.persisted && isReconcileCurrent()) return true
+        if (isReconcileCurrent()) {
+          storage.setItem(accessStorageKey, JSON.stringify(current))
+        }
+        return false
+      })
     } catch {
       try {
         if (isReconcileCurrent()) {
@@ -736,18 +745,21 @@ export function createLearnerProfileLocalPersistenceAdapter({
           )
         }
       }
-      if (!saveProfile(finalizedProfile, {
+      inheritProfileRevision(finalizedProfile, profile)
+      const persisted = saveProfile(finalizedProfile, {
         backup: false,
         syncAnalytics: false
-      }, () => isActivationCurrent(fence))) return false
-      if (!isActivationCurrent(fence)) return false
-      storage.setItem(accessStorageKey, JSON.stringify({
-        ...current,
-        onboardingFinalizationPending: false
-      }))
-      const completed = readAccessRecord(storage, accessStorageKey).record
-      return completed?.onboardingFinalizationPending === false
-        && isActivationCurrent(fence)
+      }, () => isActivationCurrent(fence))
+      return mapPersistenceResult(persisted, saved => {
+        if (!saved || !isActivationCurrent(fence)) return false
+        storage.setItem(accessStorageKey, JSON.stringify({
+          ...current,
+          onboardingFinalizationPending: false
+        }))
+        const completed = readAccessRecord(storage, accessStorageKey).record
+        return completed?.onboardingFinalizationPending === false
+          && isActivationCurrent(fence)
+      })
     } catch {
       return false
     }
@@ -759,7 +771,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
       ...options,
       syncAnalytics: false
     }, () => isActivationCurrent(fence))
-    return persisted === true && isActivationCurrent(fence)
+    return mapPersistenceResult(persisted, saved => saved === true && isActivationCurrent(fence))
   }
 
   function replace(profile, options, fence) {
@@ -770,10 +782,12 @@ export function createLearnerProfileLocalPersistenceAdapter({
       ...options,
       syncAnalytics: false
     }, () => isActivationCurrent(fence))
-    if (result?.persisted && !isActivationCurrent(fence)) {
-      return { persisted: false, error: result.error || null }
-    }
-    return result
+    return mapPersistenceResult(result, result => {
+      if (result?.persisted && !isActivationCurrent(fence)) {
+        return { persisted: false, error: result.error || null }
+      }
+      return result
+    })
   }
 
   function subscribe(listener) {

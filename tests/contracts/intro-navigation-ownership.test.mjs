@@ -1,3 +1,4 @@
+import { indexOfFunction } from '../support/function-source.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -230,10 +231,7 @@ test('keyboard and swipe navigation retain their lexical calls', () => {
   const keydownStart = appSource.indexOf(
     'function handleIntroTrailerKeydown(event) {'
   )
-  const keydownEnd = appSource.indexOf(
-    '\nfunction toggleIntroLocaleMenu(',
-    keydownStart
-  )
+  const keydownEnd = indexOfFunction(appSource, 'toggleIntroLocaleMenu', keydownStart)
   assert.notEqual(keydownStart, -1)
   assert.notEqual(keydownEnd, -1)
   const keydownSource = appSource.slice(keydownStart, keydownEnd)
@@ -250,10 +248,7 @@ test('keyboard and swipe navigation retain their lexical calls', () => {
   const touchStart = appSource.indexOf(
     'function initIntroTrailerTouchNavigation() {'
   )
-  const touchEnd = appSource.indexOf(
-    '\nfunction changeIntroLocale(',
-    touchStart
-  )
+  const touchEnd = indexOfFunction(appSource, 'changeIntroLocale', touchStart)
   assert.notEqual(touchStart, -1)
   assert.notEqual(touchEnd, -1)
   const touchSource = appSource.slice(touchStart, touchEnd)
@@ -309,10 +304,7 @@ test('target navigation runs before disabled-boundary generic analytics checks',
   const navigationStart = appSource.indexOf(
     'function navigateIntroTrailer(direction) {'
   )
-  const navigationEnd = appSource.indexOf(
-    '\nfunction resetIntroTrailerTouchNavigation(',
-    navigationStart
-  )
+  const navigationEnd = indexOfFunction(appSource, 'resetIntroTrailerTouchNavigation', navigationStart)
   assert.notEqual(navigationStart, -1)
   assert.notEqual(navigationEnd, -1)
   const navigationSource = appSource.slice(
@@ -328,10 +320,7 @@ test('target navigation runs before disabled-boundary generic analytics checks',
   const sceneStart = appSource.indexOf(
     'function setIntroTrailerScene(sceneIndex,'
   )
-  const sceneEnd = appSource.indexOf(
-    '\nfunction navigateIntroTrailer(',
-    sceneStart
-  )
+  const sceneEnd = indexOfFunction(appSource, 'navigateIntroTrailer', sceneStart)
   assert.notEqual(sceneStart, -1)
   assert.notEqual(sceneEnd, -1)
   const sceneSource = appSource.slice(sceneStart, sceneEnd)

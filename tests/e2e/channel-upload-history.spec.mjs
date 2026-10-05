@@ -63,28 +63,24 @@ test('browsing saved cards crosses into older uploads without moving the shelf o
   expect(requests.slice(5)).toEqual(['100', '150', '100', '200', '150'])
   await reachEnd(page)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('260 videos')
-  await expect(page.locator('[data-upload-history-status]')).toHaveText('All available uploads loaded.')
+  await expect(page.locator('.channel-shelf-track')).toHaveAttribute('data-history-exhausted', 'true')
+  await expect(page.locator('[data-upload-history-status]')).toHaveCount(0)
 })
 
-test('a nonmatching format batch pauses until explicit continuation and keeps both formats', async ({ page }, testInfo) => {
+test('nonmatching batches continue silently after a delay and keep both formats', async ({ page }) => {
+  await page.clock.install()
   const { requests } = await setup(page, { shorts: true })
   await reachEnd(page)
-  await expect(page.locator('[data-upload-history-status]')).toContainText('No more matching uploads in this batch.')
+  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('edenia_v1')).videos).length)).toBe(150)
   expect(requests).toHaveLength(5)
-  if (['desktop-standard', 'phone-standard'].includes(testInfo.project.name)) {
-    for (const theme of ['dark', 'light']) {
-      await page.evaluate(theme => {
-        document.documentElement.dataset.theme = theme
-        document.body.dataset.theme = theme
-      }, theme)
-      await page.locator('.channel-shelf').screenshot({ path: testInfo.outputPath(`history-${theme}.png`) })
-    }
-  }
+  await expect(page.locator('[data-upload-history-status]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Continue browsing' })).toHaveCount(0)
   await reachEnd(page)
+  await page.clock.fastForward(10_000)
   expect(requests).toHaveLength(5)
-  await page.getByRole('button', { name: 'Continue browsing' }).click()
+  await page.clock.fastForward(21_000)
   await expect.poll(() => requests.length).toBe(10)
-  await expect(page.locator('[data-upload-history-status]')).toContainText('No more matching uploads in this batch.')
+  await expect.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('edenia_v1')).videos).length)).toBe(250)
   await page.locator('[data-channel-video-format-action="select"][data-channel-video-format="shorts"]').click()
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('200 videos')
 })
@@ -114,19 +110,20 @@ for (const quota of [false, true]) {
       return route.fulfill({ status: quota ? 403 : 503, json: { error: { message: 'Unavailable', errors: [{ reason: quota ? 'quotaExceeded' : 'backendError' }] } } })
     })
     await reachEnd(page)
-    await expect(page.locator('[data-upload-history-status]')).toContainText('Older uploads could not be loaded.')
-    await expect(page.getByRole('button', { name: 'Continue browsing' })).toBeDisabled()
+    await expect.poll(() => page.evaluate(channelId => JSON.parse(localStorage.getItem('edenia_v1')).channelRefreshes[channelId].coverage.history.retryAt, channelId)).toBeGreaterThan(Date.now())
+    await expect(page.locator('[data-upload-history-status]')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Continue browsing' })).toHaveCount(0)
     expect(failures).toBe(1)
     await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('50 videos')
     await page.reload()
     await reachEnd(page)
-    await expect(page.getByRole('button', { name: 'Continue browsing' })).toBeDisabled()
+    await expect(page.locator('[data-upload-history-status]')).toHaveCount(0)
     expect(failures).toBe(1)
     expect(requests).toEqual([])
   })
 }
 
-test('temporary failure can be retried after its cooldown', async ({ page }) => {
+test('temporary failure retries automatically after its cooldown', async ({ page }) => {
   await page.clock.install()
   const { requests } = await setup(page)
   let fail = true
@@ -134,12 +131,56 @@ test('temporary failure can be retried after its cooldown', async ({ page }) => 
     ? route.fulfill({ status: 503, json: { error: { message: 'Unavailable' } } })
     : route.fallback())
   await reachEnd(page)
-  await expect(page.getByRole('button', { name: 'Continue browsing' })).toBeDisabled()
+  await expect.poll(() => page.evaluate(channelId => JSON.parse(localStorage.getItem('edenia_v1')).channelRefreshes[channelId].coverage.history.retryAt, channelId)).toBeGreaterThan(Date.now())
   fail = false
   await page.clock.fastForward(31_000)
-  await page.getByRole('button', { name: 'Continue browsing' }).click()
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
   expect(requests).toEqual(['', '50', '', '100', '50'])
+})
+
+test('automatic retry waits until browsing returns to the boundary', async ({ page }) => {
+  await page.clock.install()
+  await setup(page)
+  let failures = 0
+  await page.route('https://www.googleapis.com/youtube/v3/playlistItems?*', route => {
+    failures++
+    return route.fulfill({ status: 503, json: { error: { message: 'Unavailable' } } })
+  })
+  await reachEnd(page)
+  await expect.poll(() => page.evaluate(channelId => JSON.parse(localStorage.getItem('edenia_v1')).channelRefreshes[channelId].coverage.history.retryAt, channelId)).toBeGreaterThan(Date.now())
+  await page.locator('.channel-shelf-track').evaluate(track => track.scrollTo({ left: 0, behavior: 'instant' }))
+  await page.clock.fastForward(31_000)
+  expect(failures).toBe(1)
+  await reachEnd(page)
+  await expect.poll(() => failures).toBe(2)
+  await expect.poll(() => page.evaluate(channelId => JSON.parse(localStorage.getItem('edenia_v1')).channelRefreshes[channelId].coverage.history.failureCount, channelId)).toBe(2)
+  await page.clock.fastForward(31_000)
+  expect(failures).toBe(2)
+  await page.clock.fastForward(30_000)
+  await expect.poll(() => failures).toBe(3)
+})
+
+test('automatic retry pauses in a hidden tab and resumes when visible', async ({ page }) => {
+  await page.clock.install()
+  const { requests } = await setup(page)
+  let fail = true
+  await page.route('https://www.googleapis.com/youtube/v3/playlistItems?*', route => fail
+    ? route.fulfill({ status: 503, json: { error: { message: 'Unavailable' } } })
+    : route.fallback())
+  await reachEnd(page)
+  await expect.poll(() => page.evaluate(channelId => JSON.parse(localStorage.getItem('edenia_v1')).channelRefreshes[channelId].coverage.history.retryAt, channelId)).toBeGreaterThan(Date.now())
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  fail = false
+  await page.clock.fastForward(31_000)
+  expect(requests).toEqual([])
+  await page.evaluate(() => {
+    delete document.hidden
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
 })
 
 test('leaving the active profile during retrieval discards the result', async ({ page }) => {
@@ -182,7 +223,7 @@ test('hourly new uploads and history retrieval preserve each other and learner o
   await page.evaluate(() => { window.historyRefreshTest = window.refreshFeed({ silent: true }) })
   await expect.poll(() => started).toBe(true)
   await reachEnd(page)
-  await expect(page.locator('[data-upload-history-status]')).toContainText('Loading older uploads…')
+  await expect(page.locator('[data-upload-history-status]')).toHaveCount(0)
   // The shared provider gate waits for the in-flight refresh metadata request.
   release()
   await page.evaluate(() => window.historyRefreshTest)

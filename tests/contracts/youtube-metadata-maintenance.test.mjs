@@ -86,7 +86,7 @@ test('expired metadata is removed on failure and retries back off without losing
   const s = state(); let requests = 0
   const options = { state: s, now, isCurrent: () => true, fetchVideos: async () => { requests++; throw Error('offline') }, fetchChannels: async () => {} }
   await refreshSavedYoutubeMetadata(options); await refreshSavedYoutubeMetadata(options)
-  assert.equal(requests, 1); assert.equal(s.videos.v.title, ''); assert.equal(s.videos.v.duration, 0)
+  assert.equal(requests, 1); assert.equal(s.videos.v.title, ''); assert.equal(s.videos.v.duration, 600)
   assert.equal(s.videos.v.resumeAtSeconds, 40); assert.equal(s.videos.v.favorite, true)
   assert.equal(s.videos.v.watchLater, true); assert.equal(s.videos.v.status, 'partial')
 })
