@@ -47,8 +47,8 @@ It never exports over the existing preview. `terrain-stop`, `mask-stop`,
 `preview_stop`, `shadow-stop`, and animation-stop probes deliberately remove work or change
 visuals; they establish attribution and are not ready-to-ship optimizations.
 `mask_hz` throttles mask synchronization but leaves UPDATE_ALWAYS rendering in
-place. `copy_frames` mutates existing mask-copy dimensions; disabling the flag
-is not a complete reset of copies, so use a fresh context for rigorous repeats.
+place. The earlier diagnostic `copy_frames` probe is retired: sheet dimensions
+are now synchronized in the shared Godot source, including uninstrumented builds.
 `shadow_cache` reuses the initial shadow textures without layout/preview invalidation: it is valid only as a static-island diagnostic and is not a shippable cache.
 WASM instantiation and GL query wrappers also add measurement overhead.
 
@@ -93,8 +93,7 @@ changes the repository's rollout flags or the user's browser profile.
 `inventory` opens editing on the 100-tile stress island and alternates two pairs
 of 10-second uncached/cached samples. `inventory_uncached` forces eligibility and
 preview cache misses without changing the available choices or rendered preview.
-The diagnostic `copy_frames` fix stays enabled for every sample to hold that
-separate cloud-mask issue constant. Warmed unchanged samples should have no calls
+The shared cloud sheet fix is present in every sample. Warmed unchanged samples should have no calls
 to `build_inventory_changes`; compare the repeated CPU and inclusive preview
 timings in `.cache/tiny-swords-perf/inventory.json` and retain both pairs to show
 run-to-run variation. This suite measures the instrumented game wrapper.

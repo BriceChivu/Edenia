@@ -141,6 +141,9 @@ func sync_visual(source: Node, copy: Node) -> void:
 		copy.visible = source.visible
 	if source is Sprite2D:
 		copy.texture = source.texture
+		# Animation transitions can change the sheet grid on an existing copy.
+		copy.hframes = source.hframes
+		copy.vframes = source.vframes
 		copy.frame = source.frame
 		copy.offset = source.offset
 		copy.flip_h = source.flip_h

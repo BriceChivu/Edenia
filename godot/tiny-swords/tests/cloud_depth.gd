@@ -43,7 +43,30 @@ func run() -> void:
 			if cloud.depth_occluders.has(subject) != (difference > 0):
 				failures += 1
 				push_error("Pawn and raised terrain must also use cloud shadow Y")
-		subject.position = original
+			subject.position = original
+	# Keep one occluder copy across sheet changes, including grazing frames
+	# beyond the idle sheet's six columns and a subsequent smaller run sheet.
+	var animal := Sprite2D.new()
+	animal.position = Vector2(576, cloud.shadow_ground_position().y + 10)
+	animal.texture = level.LevelFiveArt.SHEEP_IDLE
+	animal.hframes = 6
+	level.get_node("World").add_child(animal)
+	cloud.update_depth_mask()
+	var animal_copy: Sprite2D = cloud.depth_occluders[animal]
+	for sheet in [[level.LevelFiveArt.SHEEP_IDLE, 6, 1], [level.LevelFiveArt.SHEEP_GRASS, 12, 1], [level.LevelFiveArt.SHEEP_RUN, 4, 1], [level.LevelFiveArt.SHEEP_IDLE, 6, 1], [level.LevelFiveArt.SHEEP_GRASS, 6, 2]]:
+		animal.frame = 0
+		animal.texture = sheet[0]
+		animal.hframes = sheet[1]
+		animal.vframes = sheet[2]
+		for pose in range(animal.hframes * animal.vframes):
+			animal.frame = pose
+			cloud.update_depth_mask()
+			if cloud.depth_occluders[animal] != animal_copy or animal_copy.texture != animal.texture or animal_copy.hframes != animal.hframes or animal_copy.vframes != animal.vframes or animal_copy.frame != pose or animal_copy.get_rect() != animal.get_rect():
+				failures += 1
+				push_error("Cloud occluder must match the current animation sheet and frame: %s" % [sheet])
+	level.get_node("World").remove_child(animal)
+	animal.queue_free()
+	cloud.update_depth_mask()
 	# A red marker overlaps an opaque cloud pixel while its ground anchor
 	# moves behind/in front. Keep its displayed position fixed with offset.
 	var marker_image := Image.create(20, 20, false, Image.FORMAT_RGBA8)

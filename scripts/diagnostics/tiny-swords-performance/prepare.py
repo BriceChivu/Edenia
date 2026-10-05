@@ -64,7 +64,6 @@ p=base/'perf.gd';s=p.read_text();s=s.replace(' var data = {',' var command = JSO
 
 from pathlib import Path
 p=Path('.cache/tiny-swords-perf/project/scripts/cloud_visual.gd');s=p.read_text().replace('var variant_index := 0','var perf_mask_accum := 0\nvar variant_index := 0')
-s=s.replace('\t\tcopy.frame = source.frame\n\t\tcopy.offset = source.offset','\t\tif Perf.flags.get("copy_frames",false):\n\t\t\tcopy.hframes = source.hframes\n\t\t\tcopy.vframes = source.vframes\n\t\tcopy.frame = source.frame\n\t\tcopy.offset = source.offset',1)
 s=s.replace('func update_depth_mask() -> void:\n','''func update_depth_mask() -> void:
  if Perf.flags.get("mask_stop",false):
   depth_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
