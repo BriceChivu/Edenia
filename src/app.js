@@ -1965,7 +1965,7 @@ function getRecommendedChannelCatalog(profile, limit = 6) {
 }
 
 function normalizeLoadedState(state) {
-  let shouldSave = initializeExperience(state)
+  let shouldSave = initializeExperience(state, SCORING_RULES_VERSION)
   if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
   if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
   if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
@@ -2019,6 +2019,7 @@ function normalizeLoadedState(state) {
 }
 
 function normalizeStateBeforeSave(state) {
+  initializeExperience(state, SCORING_RULES_VERSION)
   budgetUndoState(state)
   budgetYoutubeMetadata(state)
   normalizeActivityLogState(state)
@@ -11724,9 +11725,7 @@ function syncStreak(s) {
     cursor = getPreviousDateKey(cursor)
   }
 
-  s.streak.current = current
-  s.streak.longest = longest
-  s.streak.lastActivityDate = qualifyingDays[qualifyingDays.length - 1] || null
+  s.streak = { current, longest, lastActivityDate: qualifyingDays[qualifyingDays.length - 1] || null }
 }
 
 function isStreakAlive(s) {

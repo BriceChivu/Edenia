@@ -492,7 +492,7 @@ function createPortableProfile(state) {
     throw new TypeError('Portable learner profile source is invalid')
   }
   return {
-    ...(state.tinySwordsIsland === undefined ? {} : { tinySwordsIsland: copyTinySwordsIsland(state.tinySwordsIsland) }),
+    ...(state.tinySwordsIsland == null ? {} : { tinySwordsIsland: copyTinySwordsIsland(state.tinySwordsIsland) }),
     ...(state.townEconomy === undefined ? {} : { townEconomy: cloneJson(validateTownEconomy(state.townEconomy)) }),
     activityLog: normalizeActivityLog(state.activityLog),
     anki: reconcilePortableAnkiDays(state.anki),

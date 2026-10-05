@@ -185,6 +185,8 @@ function restoredSession(userId) {
 async function seedPrivateLearnerProfile(page) {
   return page.evaluate(({ channelName, storageKey }) => {
     const state = window.defaultState(4, [], 'light', [], 'en')
+    window.initializeExperience(state)
+    window.updatePersistentCityLevel(state, 0)
     const completedAt = '2026-08-18T00:00:00.000Z'
     state.onboarding.introSeenAt = completedAt
     state.onboarding.setupCompleted = true

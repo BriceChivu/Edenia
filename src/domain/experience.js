@@ -1,7 +1,7 @@
 // Only live activity writers attach XP provenance. Legacy facts remain unmarked.
-export function initializeExperience(state) {
+export function initializeExperience(state, scoringVersion = state.cityProgress?.scoringVersion || 1) {
   if (state.cityProgress?.experienceVersion === 1) return false
-  state.cityProgress = { maxLevelIndex: 0, pendingLevelIndex: null, scoringVersion: 1, experienceVersion: 1 }
+  state.cityProgress = { maxLevelIndex: 0, pendingLevelIndex: null, scoringVersion, experienceVersion: 1 }
   return true
 }
 

@@ -98,3 +98,11 @@ test('portable profiles retain XP provenance and cumulative Anki watermark witho
   assert.equal(profile.cityProgress.experienceVersion, 1)
   assert.equal(reconcilePortableAnkiDays(profile.anki, profile.anki)['2026-09-30'].experienceReviews, 3)
 })
+
+
+test('XP migration accepts the host scoring version and is stable on reload', () => {
+  const state = { cityProgress: { maxLevelIndex: 5, scoringVersion: 7 } }
+  assert.equal(initializeExperience(state, 7), true)
+  assert.equal(state.cityProgress.scoringVersion, 7)
+  assert.equal(initializeExperience(state, 7), false)
+})
