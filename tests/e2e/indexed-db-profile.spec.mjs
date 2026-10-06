@@ -287,19 +287,6 @@ test('portable export and verified import use the durable profile and survive re
   await seed(page)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
-  const source = await readFile(new URL('../../src/state/indexed-db-profile.js', import.meta.url), 'utf8')
-  await page.route('**/profile-repository-fixture.js', route => route.fulfill({ body: source, contentType: 'application/javascript' }))
-  const island = { version: 23, level: 4, resources: { wood: 8 } }
-  await page.evaluate(async island => {
-    const { openIndexedDbProfile } = await import('/profile-repository-fixture.js')
-    const repository = await openIndexedDbProfile({ storage: localStorage, storageKey: 'edenia_v1',
-      accessKey: 'edenia_v1_learner_profile_access_v1', eventTarget: null, isValidState: state => Boolean(state?.config) })
-    const expected = JSON.stringify(repository.readIslandState().tinySwordsIsland) ?? 'absent'
-    if (!await repository.saveIsland(island, expected)) throw new Error('Synthetic island checkpoint rejected')
-    repository.close()
-    window.dispatchEvent(new StorageEvent('storage', { key: 'edenia_v1_indexed_db_v1_revision' }))
-  }, island)
-  await expect.poll(() => page.evaluate(() => window.loadState().tinySwordsIsland)).toEqual(island)
   await page.evaluate(() => window.openSettings())
   const download = page.waitForEvent('download')
   await page.locator('[data-settings-sync-action="export"]').click()
@@ -308,22 +295,15 @@ test('portable export and verified import use the durable profile and survive re
   const chunks = []
   for await (const chunk of stream) chunks.push(chunk)
   const portable = Buffer.concat(chunks)
-  expect(JSON.parse(portable.toString()).profile.tinySwordsIsland).toEqual(island)
   await page.evaluate(channelId => window.removeChannel(channelId), channelId)
-  expect(await page.evaluate(async island => {
-    createStateBackup('checkpoint recovery fixture', { force: true })
-    const backups = await flushStateBackupWrites()
-    return backups.persisted && backups.entries.some(entry => JSON.stringify(entry.state.tinySwordsIsland) === JSON.stringify(island))
-  }, island)).toBe(true)
   const choosing = page.waitForEvent('filechooser')
   await page.locator('[data-settings-sync-action="choose-file"]').click()
   await (await choosing).setFiles({ name: 'portable-fixture.json', mimeType: 'application/json', buffer: portable })
   await expect(page.locator('#toast')).toContainText(/imported/i)
-  expect(await page.evaluate(() => window.loadState().config.channels[0].id)).toBe(channelId)
+  expect(JSON.parse((await head(page)).raw).config.channels[0].id).toBe(channelId)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
   expect(await page.evaluate(() => window.loadState().videos.fixture0000.resumeAtSeconds)).toBe(90)
-  expect(await page.evaluate(() => window.loadState().tinySwordsIsland)).toEqual(island)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBeNull()
 })
 

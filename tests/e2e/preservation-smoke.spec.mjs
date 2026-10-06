@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
-import { I18N } from '../../src/i18n/index.js'
+import { loadProductionModule } from '../support/production-module.mjs'
 import { GLOBAL_ACTION_NAMES } from '../../src/core/global-action-contract.js'
+
+const { I18N } = await loadProductionModule('src/i18n/index.js')
 
 const fixedNow = new Date('2026-07-28T04:00:00.000Z')
 const PHONE_PROJECT_NAMES = new Set(['phone-standard', 'phone-small'])
@@ -175,7 +177,6 @@ async function seedCompletedState(page, locale = 'en', targetUrl = '/') {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
-    state.onboarding.levelUpGuidanceShownAt = completedAt
     const storageKey = new URL(location.href).searchParams.get('internal_test') === '1'
       ? 'edenia_v1_internal_test' : 'edenia_v1'
     localStorage.setItem(storageKey, JSON.stringify(state))
@@ -200,15 +201,12 @@ async function seedCityClaimState(page, reviewedCards, locale = 'en') {
     state.onboarding.levelUpGuidanceShownAt = completedAt
     state.anki['2026-07-28'] = {
       reviewed,
-      experienceReviews: Math.floor(reviewed / 9),
-      experienceWatermark: reviewed,
       created: 0
     }
     state.cityProgress = {
       maxLevelIndex: 0,
       pendingLevelIndex: 1,
-      scoringVersion: 7,
-      experienceVersion: 1
+      scoringVersion: 7
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
     localStorage.removeItem('edenia_v1_backups')
@@ -218,6 +216,22 @@ async function seedCityClaimState(page, reviewedCards, locale = 'en') {
   await waitForApplication(page)
   await page.addStyleTag({
     content: '#levelUpButton.show { animation: none !important; }'
+  })
+}
+
+async function installCityAnalyticsProbe(page) {
+  await page.evaluate(() => {
+    window.__cityAnalyticsEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__cityAnalyticsEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'preservation-city-claim'
+      },
+      setPersonProperties() {}
+    }
   })
 }
 
@@ -277,7 +291,7 @@ test('completed local state preserves settings and feedback interactions', async
   await expect(page.locator('#introTrailer')).toHaveClass(/\bhidden\b/)
   await expect(page.locator('#onboardingPanel')).toHaveClass(/\bhidden\b/)
   await stabilizeVisuals(page)
-  // Phone text wrapping can vary by a few pixels.
+  // Phone text wrapping and city cover positioning can vary by a few pixels.
   // Protect the responsive contracts directly instead of snapshotting the page.
   if (PHONE_PROJECT_NAMES.has(testInfo.project.name)) {
     await expectCompletedPhoneDashboardLayout(page)
@@ -694,12 +708,6 @@ test('Settings replay listeners preserve walkthrough and trailer handoffs', asyn
   test.skip(testInfo.project.name !== 'desktop-standard')
 
   await seedCompletedState(page)
-  if (process.env.EDENIA_TEST_TINY_SWORDS === 'true') {
-    // Capture the baseline after the initial island checkpoint, so an engine
-    // startup write is not mistaken for an onboarding/replay mutation.
-    await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
-    await expect.poll(() => page.evaluate(() => loadState().tinySwordsIsland)).not.toBeNull()
-  }
   const panel = page.locator('#settingsPanel')
   const opener = page.locator('.gear-btn[data-settings-shell-action="open"]')
   const walkthroughControl = page.locator(
@@ -3853,7 +3861,7 @@ test('Activity Log filter listeners preserve live values, rendering, keyboard, a
         status: 'success',
         title: 'Protected point adjustment',
         detail: '',
-        meta: { pointsDelta: 7, experienceVersion: 1 }
+        meta: { pointsDelta: 7 }
       }
     ]
     localStorage.setItem('edenia_v1', JSON.stringify(state))
@@ -4005,7 +4013,206 @@ test('Activity Log pagination listener survives generated-button replacement', a
   expect(removedBridgeAction).toBe(false)
 })
 
-test('city level-up control is vertically centered on an unchanged progress rail', async ({
+test('city level-up listener preserves staged claims and outcome-dependent analytics', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCityClaimState(page, 180)
+  const control = page.locator(
+    '#levelUpButton[data-city-level-action="claim"]'
+  )
+  await expect(control).toBeEnabled()
+  await expect(control).toHaveClass(/\bshow\b/)
+  await installCityAnalyticsProbe(page)
+  await page.evaluate(() => {
+    window.__cityClaimAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-city-level-action="claim"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const button = document.getElementById('levelUpButton')
+      window.__cityClaimAtDocumentBubble = {
+        cityProgress: state.cityProgress,
+        levelClaim: state.activityLog.find(entry => entry.type === 'level-claim'),
+        button: {
+          disabled: button.disabled,
+          ariaHidden: button.getAttribute('aria-hidden'),
+          shown: button.classList.contains('show')
+        },
+        progressReady: document.getElementById('cityLevelProgress')
+          .classList.contains('is-level-ready'),
+        confettiCount: document.querySelectorAll(
+          '.city-level-up-confetti'
+        ).length,
+        toastShown: document.getElementById('toast').classList.contains('show'),
+        eventNames: window.__cityAnalyticsEvents.map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await control.click()
+
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).not.toBeNull()
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).toMatchObject({
+    cityProgress: {
+      maxLevelIndex: 1,
+      pendingLevelIndex: null,
+      scoringVersion: 7
+    },
+    levelClaim: {
+      actor: 'user',
+      type: 'level-claim',
+      status: 'success',
+      meta: { levelIndex: 1 }
+    },
+    button: {
+      disabled: true,
+      ariaHidden: 'true',
+      shown: false
+    },
+    progressReady: false,
+    confettiCount: 1,
+    toastShown: true
+  })
+  const finalClaimEvents = await page.evaluate(
+    () => window.__cityClaimAtDocumentBubble.eventNames
+  )
+  expect(finalClaimEvents.filter(name => name === 'town_level_updated'))
+    .toHaveLength(1)
+  expect(finalClaimEvents).not.toContain('city_level_up_clicked')
+  const finalClaimBackup = await page.evaluate(() => {
+    const backups = JSON.parse(
+      localStorage.getItem('edenia_v1_backups') || '[]'
+    )
+    return {
+      count: backups.length,
+      reason: backups[0]?.reason,
+      cityProgress: backups[0]?.state?.cityProgress
+    }
+  })
+  expect(finalClaimBackup).toEqual({
+    count: 1,
+    reason: 'automatic backup',
+    cityProgress: {
+      maxLevelIndex: 0,
+      pendingLevelIndex: 1,
+      scoringVersion: 7
+    }
+  })
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'claimCityLevelUp'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+
+  await page.reload()
+  await waitForApplication(page)
+  await expect(control).toBeDisabled()
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).cityProgress
+  ))).toEqual({
+    maxLevelIndex: 1,
+    pendingLevelIndex: null,
+    scoringVersion: 7
+  })
+
+  await seedCityClaimState(page, 420)
+  await expect(control).toBeEnabled()
+  await installCityAnalyticsProbe(page)
+  await page.evaluate(() => {
+    window.__cityClaimAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-city-level-action="claim"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const button = document.getElementById('levelUpButton')
+      window.__cityClaimAtDocumentBubble = {
+        cityProgress: state.cityProgress,
+        claimLevels: state.activityLog
+          .filter(entry => entry.type === 'level-claim')
+          .map(entry => entry.meta?.levelIndex),
+        disabled: button.disabled,
+        ariaHidden: button.getAttribute('aria-hidden'),
+        shown: button.classList.contains('show'),
+        eventNames: window.__cityAnalyticsEvents.map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await control.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).toMatchObject({
+    cityProgress: {
+      maxLevelIndex: 1,
+      pendingLevelIndex: 2,
+      scoringVersion: 7
+    },
+    claimLevels: [1],
+    disabled: false,
+    ariaHidden: 'false',
+    shown: true
+  })
+  const intermediateEvents = await page.evaluate(
+    () => window.__cityClaimAtDocumentBubble.eventNames
+  )
+  expect(intermediateEvents.filter(name => name === 'town_level_updated'))
+    .toHaveLength(2)
+  expect(intermediateEvents.filter(name => name === 'city_level_up_clicked'))
+    .toHaveLength(1)
+
+  await page.evaluate(() => {
+    window.__cityAnalyticsEvents.length = 0
+    window.__cityClaimAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-city-level-action="claim"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const button = document.getElementById('levelUpButton')
+      window.__cityClaimAtDocumentBubble = {
+        cityProgress: state.cityProgress,
+        claimLevels: state.activityLog
+          .filter(entry => entry.type === 'level-claim')
+          .map(entry => entry.meta?.levelIndex),
+        disabled: button.disabled,
+        ariaHidden: button.getAttribute('aria-hidden'),
+        shown: button.classList.contains('show'),
+        confettiCount: document.querySelectorAll(
+          '.city-level-up-confetti'
+        ).length,
+        eventNames: window.__cityAnalyticsEvents.map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await control.press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).toMatchObject({
+    cityProgress: {
+      maxLevelIndex: 2,
+      pendingLevelIndex: null,
+      scoringVersion: 7
+    },
+    claimLevels: [2, 1],
+    disabled: true,
+    ariaHidden: 'true',
+    shown: false,
+    confettiCount: 1
+  })
+  const secondClaimEvents = await page.evaluate(
+    () => window.__cityClaimAtDocumentBubble.eventNames
+  )
+  expect(secondClaimEvents.filter(name => name === 'town_level_updated'))
+    .toHaveLength(1)
+  expect(secondClaimEvents).not.toContain('city_level_up_clicked')
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1_backups') || '[]').length
+  ))).toBe(1)
+})
+
+test('city level-up control floats above an unchanged centered progress rail', async ({
   page
 }) => {
   await seedCompletedState(page, 'fr')
@@ -4066,7 +4273,7 @@ test('city level-up control is vertically centered on an unchanged progress rail
   expect(layout.textLineCount).toBe(1)
   expect(layout.fontSize).toBeGreaterThanOrEqual(14)
   expect(layout.railHeight).toBe(baselineRailHeight)
-  expect(layout.configuredLift).toBe(0)
+  expect(layout.configuredLift).toBe(8)
   expect(layout.fillComplete).toBe(true)
   expect(layout.fillBackgroundImage).toContain('linear-gradient')
   expect(layout.buttonBounds.left).toBeGreaterThanOrEqual(
@@ -4087,6 +4294,722 @@ test('city level-up control is vertically centered on an unchanged progress rail
   )).toBeLessThanOrEqual(1)
 })
 
+test('city waveform mouse listeners preserve edge scrolling, clearing, and phone inertness', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  const waveform = page.locator(
+    '#cityTimeWaveform[data-city-waveform-action="mouse-preview"]'
+  )
+  const bars = page.locator('#cityWaveBars')
+  const track = page.locator('#cityWaveTrack')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+
+  await expect(waveform).not.toHaveAttribute('onmouseenter')
+  await expect(waveform).not.toHaveAttribute('onmousemove')
+  await expect(waveform).not.toHaveAttribute('onmouseleave')
+
+  const singleDayDimensions = await bars.evaluate(element => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    scrollLeft: element.scrollLeft
+  }))
+  expect(singleDayDimensions.scrollWidth).toBeLessThanOrEqual(
+    singleDayDimensions.clientWidth
+  )
+  expect(singleDayDimensions.scrollLeft).toBe(0)
+
+  await waveform.evaluate(element => {
+    const rect = element.getBoundingClientRect()
+    const eventInit = {
+      bubbles: false,
+      cancelable: true,
+      clientX: rect.right - 1,
+      clientY: rect.top + rect.height / 2
+    }
+    element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+    element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+  })
+  await page.waitForTimeout(80)
+  await expect.poll(() => bars.evaluate(element => element.scrollLeft)).toBe(0)
+  await waveform.dispatchEvent('mouseleave')
+
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki['2026-04-01'] = { reviewed: 1, created: 0 }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const scrollableDimensions = await bars.evaluate(element => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth
+  }))
+  expect(scrollableDimensions.scrollWidth).toBeGreaterThan(
+    scrollableDimensions.clientWidth
+  )
+  await expect(bars).toHaveClass(/\bis-scrollable\b/)
+
+  if (testInfo.project.name === 'phone-standard') {
+    await expect(track.locator('.city-wave-bar').first())
+      .toHaveCSS('pointer-events', 'none')
+    await bars.evaluate(element => {
+      element.scrollLeft = 0
+    })
+    await waveform.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const eventInit = {
+        bubbles: false,
+        cancelable: true,
+        clientX: rect.right - 1,
+        clientY: rect.top + rect.height / 2
+      }
+      element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+      element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+    })
+    await page.waitForTimeout(80)
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft)).toBe(0)
+    await waveform.dispatchEvent('mouseleave')
+  } else {
+    await bars.evaluate(element => {
+      element.scrollLeft = 0
+    })
+    await waveform.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const eventInit = {
+        bubbles: false,
+        cancelable: true,
+        clientX: rect.right - 1,
+        clientY: rect.top + rect.height / 2
+      }
+      element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+      element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+    })
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+      .toBeGreaterThan(0)
+
+    const barBeforeLeave = await track.locator('.city-wave-bar').first()
+      .evaluate(element => {
+        window.__cityWaveBarBeforeLeave = element
+        return element.dataset.offset
+      })
+    await waveform.dispatchEvent('mouseleave')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityWaveBarBeforeLeave?.isConnected
+    )).toBe(false)
+    await expect(track.locator('.city-wave-bar').first())
+      .toHaveAttribute('data-offset', barBeforeLeave)
+
+    const rightAligned = await bars.evaluate(element => element.scrollLeft)
+    expect(rightAligned).toBeGreaterThan(0)
+    await waveform.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const eventInit = {
+        bubbles: false,
+        cancelable: true,
+        clientX: rect.left + 1,
+        clientY: rect.top + rect.height / 2
+      }
+      element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+      element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+    })
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+      .toBeLessThan(rightAligned)
+
+    await waveform.dispatchEvent('mouseleave')
+    const settledScroll = await bars.evaluate(element => element.scrollLeft)
+    await page.waitForTimeout(80)
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+      .toBe(settledScroll)
+  }
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .not.toBe(storedBefore)
+  const storedAfterHistorySeed = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    return {
+      anki: state.anki,
+      activityLog: state.activityLog
+    }
+  })
+  expect(storedAfterHistorySeed).toEqual({
+    anki: {
+      '2026-04-01': { reviewed: 1, created: 0 }
+    },
+    activityLog: []
+  })
+  const removedBridgeActions = await page.evaluate(() => ({
+    handleCityWaveformMouseMove: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'handleCityWaveformMouseMove'
+    ),
+    clearCityWaveformPreview: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'clearCityWaveformPreview'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    handleCityWaveformMouseMove: false,
+    clearCityWaveformPreview: false
+  })
+})
+
+test('city waveform touch dragging remains at both scroll endpoints after release', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki['2026-04-01'] = { reviewed: 1, created: 0 }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const bars = page.locator('#cityWaveBars')
+  const track = page.locator('#cityWaveTrack')
+  await expect(bars).toHaveClass(/\bis-scrollable\b/)
+  const endpointOffsets = await track.evaluate(element => {
+    const dayBars = element.querySelectorAll('.city-wave-bar')
+    return {
+      first: dayBars[0]?.dataset.offset,
+      last: dayBars[dayBars.length - 1]?.dataset.offset
+    }
+  })
+
+  const dragToEndpoint = async direction => {
+    await bars.evaluate((element, dragDirection) => {
+      const rect = element.getBoundingClientRect()
+      const pointerId = dragDirection === 'right' ? 401 : 402
+      const startX = rect.left + rect.width / 2
+      const endX = dragDirection === 'right'
+        ? startX - element.scrollWidth
+        : startX + element.scrollWidth
+      const eventInit = {
+        bubbles: true,
+        cancelable: true,
+        clientY: rect.top + rect.height / 2,
+        pointerId,
+        pointerType: 'touch'
+      }
+      element.dispatchEvent(new PointerEvent('pointerdown', {
+        ...eventInit,
+        clientX: startX
+      }))
+      element.dispatchEvent(new PointerEvent('pointermove', {
+        ...eventInit,
+        clientX: endX
+      }))
+      element.dispatchEvent(new PointerEvent('pointerup', {
+        ...eventInit,
+        clientX: endX
+      }))
+    }, direction)
+  }
+
+  await dragToEndpoint('right')
+  expect(await bars.evaluate(element => (
+    element.scrollWidth - element.clientWidth
+  ))).toBeGreaterThan(0)
+  await expect.poll(() => bars.evaluate(element => (
+    Math.abs(element.scrollLeft - (element.scrollWidth - element.clientWidth))
+  ))).toBeLessThanOrEqual(1)
+  await expect(track.locator('.city-wave-bar.selected'))
+    .toHaveAttribute('data-offset', endpointOffsets.last)
+  await expect.poll(() => bars.evaluate(element => {
+    const selected = element.querySelector('.city-wave-bar.selected')
+    const barsRect = element.getBoundingClientRect()
+    const selectedRect = selected?.getBoundingClientRect()
+    if (!selectedRect) return Number.POSITIVE_INFINITY
+    return Math.abs(
+      (selectedRect.left + selectedRect.width / 2)
+      - (barsRect.left + barsRect.width / 2)
+    )
+  })).toBeLessThanOrEqual(1)
+
+  await dragToEndpoint('left')
+  await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+    .toBeLessThanOrEqual(1)
+  await expect(track.locator('.city-wave-bar.selected'))
+    .toHaveAttribute('data-offset', endpointOffsets.first)
+  await expect.poll(() => bars.evaluate(element => {
+    const selected = element.querySelector('.city-wave-bar.selected')
+    const barsRect = element.getBoundingClientRect()
+    const selectedRect = selected?.getBoundingClientRect()
+    if (!selectedRect) return Number.POSITIVE_INFINITY
+    return Math.abs(
+      (selectedRect.left + selectedRect.width / 2)
+      - (barsRect.left + barsRect.width / 2)
+    )
+  })).toBeLessThanOrEqual(1)
+})
+
+test('city waveform bar listeners preserve preview, selection, analytics, and replacement ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki = {
+      '2026-04-01': { reviewed: 60, created: 0 },
+      '2026-07-28': { reviewed: 60, created: 0 }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await installCityAnalyticsProbe(page)
+
+  const waveform = page.locator('#cityTimeWaveform')
+  const track = page.locator('#cityWaveTrack')
+  const bars = track.locator('[data-city-wave-action="select"]')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const activityBefore = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('edenia_v1')).activityLog
+  )
+
+  await expect(bars.first()).not.toHaveAttribute('onclick')
+  await expect(bars.first()).not.toHaveAttribute('onmouseenter')
+  await expect(bars.first()).not.toHaveAttribute('onmousemove')
+  await expect(bars.first()).not.toHaveAttribute('onfocus')
+  await expect(bars.first()).toHaveAttribute(
+    'data-analytics-action',
+    'selectCityWaveBar'
+  )
+
+  const todayScore = Number(await page.locator('#cityScore').textContent())
+  const firstBar = bars.first()
+  const firstLabel = await firstBar.getAttribute('data-label')
+  await firstBar.dispatchEvent('mouseenter')
+  const previewScore = Number(await page.locator('#cityScore').textContent())
+  expect(previewScore).toBeLessThan(todayScore)
+  await expect(firstBar).toHaveCSS('--hover-boost', '16px')
+  await expect(page.locator('#cityWaveTooltip')).toHaveText(firstLabel)
+  await firstBar.dispatchEvent('mousemove')
+  await firstBar.focus()
+  expect(await page.evaluate(() => window.__cityAnalyticsEvents)).toEqual([])
+
+  const firstNodeStillConnected = await firstBar.evaluate(element => {
+    window.__cityWavePreviewBar = element
+    return element.isConnected
+  })
+  expect(firstNodeStillConnected).toBe(true)
+  await waveform.dispatchEvent('mouseleave')
+  await expect.poll(() => page.evaluate(
+    () => window.__cityWavePreviewBar?.isConnected
+  )).toBe(false)
+  await expect(page.locator('#cityScore')).toHaveText(String(todayScore))
+
+  if (testInfo.project.name === 'desktop-standard') {
+    const selectionLabel = await track.locator(
+      '[data-city-wave-action="select"][data-offset="-1"]'
+    ).getAttribute('aria-label')
+    await page.evaluate(() => {
+      window.__cityWaveMutationCount = 0
+      window.__cityWaveSelectionAtDocument = null
+      const trackElement = document.getElementById('cityWaveTrack')
+      const observer = new MutationObserver(records => {
+        window.__cityWaveMutationCount += records.filter(
+          record => record.type === 'childList'
+        ).length
+      })
+      observer.observe(trackElement, { childList: true })
+      window.__cityWaveMutationObserver = observer
+      document.addEventListener('click', event => {
+        if (!event.target.matches?.('[data-city-wave-action="select"]')) return
+        window.__cityWaveSelectionAtDocument = {
+          targetConnected: event.target.isConnected,
+          selectedOffset: document.querySelector(
+            '#cityWaveTrack .city-wave-bar.selected'
+          )?.dataset.offset,
+          touchPreview: document.getElementById('cityTimeWaveform')
+            .classList.contains('has-touch-preview'),
+          eventNames: window.__cityAnalyticsEvents.map(
+            entry => entry.eventName
+          ),
+          buttonName: window.__cityAnalyticsEvents[0]
+            ?.properties?.button_name
+        }
+      }, { once: true })
+    })
+    await page.evaluate(() => {
+      document.querySelector(
+        '[data-city-wave-action="select"][data-offset="-1"]'
+      ).click()
+    })
+
+    await expect.poll(() => page.evaluate(
+      () => window.__cityWaveSelectionAtDocument
+    )).toEqual({
+      targetConnected: false,
+      selectedOffset: '-1',
+      touchPreview: false,
+      eventNames: ['select_city_wave_bar_clicked'],
+      buttonName: selectionLabel
+    })
+    await expect.poll(() => page.evaluate(
+      () => window.__cityWaveMutationCount
+    )).toBe(2)
+    await page.evaluate(() => {
+      window.__cityWaveMutationObserver.disconnect()
+    })
+
+    await page.evaluate(() => {
+      window.__cityAnalyticsEvents.length = 0
+    })
+    const enterBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-2"]'
+    )
+    await enterBar.focus()
+    expect(await page.evaluate(() => window.__cityAnalyticsEvents)).toEqual([])
+    await enterBar.press('Enter')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual(['select_city_wave_bar_clicked'])
+    await expect(track.locator(
+      '[data-city-wave-action="select"][data-offset="-2"]'
+    )).not.toBeFocused()
+
+    const spaceBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-3"]'
+    )
+    await spaceBar.focus()
+    await spaceBar.press('Space')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual([
+      'select_city_wave_bar_clicked',
+      'select_city_wave_bar_clicked'
+    ])
+  } else {
+    const phoneBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-1"]'
+    )
+    await expect(phoneBar).toHaveCSS('pointer-events', 'none')
+    await phoneBar.focus()
+    expect(await page.evaluate(() => window.__cityAnalyticsEvents)).toEqual([])
+    await phoneBar.press('Enter')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual(['select_city_wave_bar_clicked'])
+
+    const replacementBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-2"]'
+    )
+    await replacementBar.focus()
+    await replacementBar.press('Space')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual([
+      'select_city_wave_bar_clicked',
+      'select_city_wave_bar_clicked'
+    ])
+  }
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  expect(await page.evaluate(
+    () => JSON.parse(localStorage.getItem('edenia_v1')).activityLog
+  )).toEqual(activityBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    selectCityWaveBar: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'selectCityWaveBar'
+    ),
+    previewCityWaveBar: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'previewCityWaveBar'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    selectCityWaveBar: false,
+    previewCityWaveBar: false
+  })
+})
+
+test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  const zoomOut = page.locator('[data-city-zoom-action="out"]')
+  const reset = page.locator('[data-city-zoom-action="reset"]')
+  const zoomIn = page.locator('[data-city-zoom-action="in"]')
+  const zoomControls = page.locator('.city-zoom-controls')
+
+  await page.mouse.move(0, 0)
+  await expect(zoomControls).toHaveCSS('opacity', '0.38')
+  await wrap.hover()
+  await expect(zoomControls).toHaveCSS('opacity', '1')
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+  await zoomOut.click()
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+
+  await page.evaluate(() => {
+    window.__cityZoomAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-city-zoom-action="in"]')) return
+      window.__cityZoomAtDocumentBubble = {
+        transform: document.getElementById('cityMilestoneImage').style.transform,
+        zoomed: document.querySelector('.city-image-wrap').classList.contains('is-zoomed')
+      }
+    }, { once: true })
+  })
+  await zoomIn.click()
+  await expect(wrap).toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => page.evaluate(
+    () => window.__cityZoomAtDocumentBubble
+  )).toEqual({
+    transform: 'translate(0px, 0px) scale(1.25)',
+    zoomed: true
+  })
+
+  await zoomIn.focus()
+  await zoomIn.press('Enter')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(1.5)')
+
+  await zoomOut.focus()
+  await zoomOut.press('Space')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(1.25)')
+
+  for (let index = 0; index < 8; index += 1) {
+    await zoomIn.click()
+  }
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(2)')
+
+  await reset.focus()
+  await reset.press('Enter')
+  await expect(wrap).not.toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(1)')
+
+  const removedBridgeActions = await page.evaluate(() => ({
+    zoomCityImage: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'zoomCityImage'
+    ),
+    resetCityImageView: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions || {},
+      'resetCityImageView'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    zoomCityImage: false,
+    resetCityImageView: false
+  })
+})
+
+test('city image pans across its cover crop at minimum zoom without exposing background', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  await wrap.scrollIntoViewIfNeeded()
+
+  await expect.poll(() => image.evaluate(element => (
+    element.naturalWidth > 0
+    && Number.isFinite(Number.parseFloat(element.style.width))
+    && Number.isFinite(Number.parseFloat(element.style.height))
+  ))).toBe(true)
+
+  const initialGeometry = await page.evaluate(() => {
+    const wrapElement = document.querySelector('.city-image-wrap')
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const wrapRect = wrapElement.getBoundingClientRect()
+    return {
+      maxX: Math.max(
+        0,
+        (Number.parseFloat(imageElement.style.width) - wrapRect.width) / 2
+      ),
+      maxY: Math.max(
+        0,
+        (Number.parseFloat(imageElement.style.height) - wrapRect.height) / 2
+      ),
+      transform: imageElement.style.transform,
+      pannable: wrapElement.classList.contains('is-pannable'),
+      zoomed: wrapElement.classList.contains('is-zoomed')
+    }
+  })
+  expect(initialGeometry.maxX).toBeLessThan(0.01)
+  expect(initialGeometry.maxY).toBeGreaterThan(1)
+  expect(initialGeometry.transform).toBe('translate(0px, 0px) scale(1)')
+  expect(initialGeometry.pannable).toBe(true)
+  expect(initialGeometry.zoomed).toBe(false)
+
+  const wrapBox = await wrap.boundingBox()
+  const startX = wrapBox.x + wrapBox.width / 2
+  const startY = wrapBox.y + wrapBox.height / 2
+  await page.mouse.move(startX, startY)
+  await page.mouse.down()
+  await page.mouse.move(startX, startY - wrapBox.height / 3, { steps: 4 })
+  await page.mouse.up()
+
+  const pannedGeometry = await page.evaluate(() => {
+    const wrapRect = document.querySelector('.city-image-wrap').getBoundingClientRect()
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const imageRect = imageElement.getBoundingClientRect()
+    const matrix = new DOMMatrix(imageElement.style.transform)
+    return {
+      x: matrix.m41,
+      y: matrix.m42,
+      coversTop: imageRect.top <= wrapRect.top + 0.5,
+      coversRight: imageRect.right >= wrapRect.right - 0.5,
+      coversBottom: imageRect.bottom >= wrapRect.bottom - 0.5,
+      coversLeft: imageRect.left <= wrapRect.left + 0.5,
+      zoomed: document.querySelector('.city-image-wrap').classList.contains('is-zoomed')
+    }
+  })
+  expect(Math.abs(pannedGeometry.x)).toBeLessThan(0.01)
+  expect(pannedGeometry.y).toBeCloseTo(-initialGeometry.maxY, 1)
+  expect(pannedGeometry).toMatchObject({
+    coversTop: true,
+    coversRight: true,
+    coversBottom: true,
+    coversLeft: true,
+    zoomed: false
+  })
+})
+
+test('phone city image defaults to 75% zoom and pans without exposing background', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  const reset = page.locator('[data-city-zoom-action="reset"]')
+  const zoomIn = page.locator('[data-city-zoom-action="in"]')
+  await wrap.scrollIntoViewIfNeeded()
+  await expect(wrap).toHaveCSS('touch-action', 'none')
+  await expect(wrap).toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, -40px) scale(1.75)')
+
+  await expect.poll(() => page.evaluate(() => {
+    const wrapElement = document.querySelector('.city-image-wrap')
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const wrapRect = wrapElement.getBoundingClientRect()
+    const renderedWidth = Number.parseFloat(imageElement.style.width)
+    const renderedHeight = Number.parseFloat(imageElement.style.height)
+    const scale = new DOMMatrix(imageElement.style.transform).a
+    return {
+      ready: imageElement.naturalWidth > 0 && Number.isFinite(renderedWidth),
+      maxX: Math.max(0, (renderedWidth * scale - wrapRect.width) / 2),
+      maxY: Math.max(0, (renderedHeight * scale - wrapRect.height) / 2)
+    }
+  })).toMatchObject({
+    ready: true
+  })
+  const geometry = await page.evaluate(() => {
+    const wrapElement = document.querySelector('.city-image-wrap')
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const wrapRect = wrapElement.getBoundingClientRect()
+    const renderedWidth = Number.parseFloat(imageElement.style.width)
+    const renderedHeight = Number.parseFloat(imageElement.style.height)
+    const scale = new DOMMatrix(imageElement.style.transform).a
+    return {
+      maxX: Math.max(0, (renderedWidth * scale - wrapRect.width) / 2),
+      maxY: Math.max(0, (renderedHeight * scale - wrapRect.height) / 2),
+      centerX: wrapRect.left + wrapRect.width / 2,
+      centerY: wrapRect.top + wrapRect.height / 2
+    }
+  })
+  expect(geometry.maxX).toBeGreaterThan(1)
+  expect(geometry.maxY).toBeGreaterThan(1)
+
+  await image.dispatchEvent('pointerdown', {
+    bubbles: true,
+    cancelable: true,
+    clientX: geometry.centerX,
+    clientY: geometry.centerY,
+    isPrimary: true,
+    pointerId: 41,
+    pointerType: 'touch'
+  })
+  await image.dispatchEvent('pointermove', {
+    bubbles: true,
+    cancelable: true,
+    clientX: geometry.centerX - geometry.maxX * 2,
+    clientY: geometry.centerY,
+    isPrimary: true,
+    pointerId: 41,
+    pointerType: 'touch'
+  })
+  await image.dispatchEvent('pointerup', {
+    bubbles: true,
+    cancelable: true,
+    clientX: geometry.centerX - geometry.maxX * 2,
+    clientY: geometry.centerY,
+    isPrimary: true,
+    pointerId: 41,
+    pointerType: 'touch'
+  })
+
+  const pannedGeometry = await page.evaluate(() => {
+    const wrapRect = document.querySelector('.city-image-wrap').getBoundingClientRect()
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const imageRect = imageElement.getBoundingClientRect()
+    const matrix = new DOMMatrix(imageElement.style.transform)
+    return {
+      x: matrix.m41,
+      y: matrix.m42,
+      coversTop: imageRect.top <= wrapRect.top + 0.5,
+      coversRight: imageRect.right >= wrapRect.right - 0.5,
+      coversBottom: imageRect.bottom >= wrapRect.bottom - 0.5,
+      coversLeft: imageRect.left <= wrapRect.left + 0.5,
+      zoomed: document.querySelector('.city-image-wrap').classList.contains('is-zoomed')
+    }
+  })
+  expect(pannedGeometry.x).toBeCloseTo(-geometry.maxX, 1)
+  expect(pannedGeometry.y).toBeCloseTo(-40, 1)
+  expect(pannedGeometry).toMatchObject({
+    coversTop: true,
+    coversRight: true,
+    coversBottom: true,
+    coversLeft: true,
+    zoomed: true
+  })
+
+  for (let index = 0; index < 12; index += 1) {
+    await zoomIn.dispatchEvent('click')
+  }
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toContain('scale(4)')
+  await zoomIn.dispatchEvent('click')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toContain('scale(4)')
+
+  await reset.dispatchEvent('click')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, -40px) scale(1.75)')
+})
+
 test('Study History period listeners preserve generated options and runtime-only selection', async ({
   page
 }, testInfo) => {
@@ -4096,9 +5019,9 @@ test('Study History period listeners preserve generated options and runtime-only
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
     state.anki = {
-      '2026-07-28': { reviewed: 3, created: 0, experienceReviews: 1, experienceWatermark: 3 },
-      '2026-07-20': { reviewed: 6, created: 0, experienceReviews: 2, experienceWatermark: 6 },
-      '2026-06-15': { reviewed: 9, created: 0, experienceReviews: 3, experienceWatermark: 9 }
+      '2026-07-28': { reviewed: 3, created: 0 },
+      '2026-07-20': { reviewed: 6, created: 0 },
+      '2026-06-15': { reviewed: 9, created: 0 }
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
@@ -4699,8 +5622,6 @@ test('Study History points popover listeners preserve fine and coarse interactio
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
     state.anki['2026-07-28'] = {
       reviewed: 6,
-      experienceReviews: 2,
-      experienceWatermark: 6,
       created: 1
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
@@ -4824,8 +5745,6 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
       const state = JSON.parse(localStorage.getItem(storageKey))
       state.anki['2026-07-28'] = {
         reviewed: 6,
-        experienceReviews: 2,
-        experienceWatermark: 6,
         created: 1
       }
       localStorage.setItem(storageKey, JSON.stringify(state))
@@ -4881,7 +5800,7 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
     if (testInfo.project.name === 'desktop-standard') {
       await day.hover()
       await expect(tooltip).toHaveClass(/\bshow\b/)
-      await expect(tooltip).toContainText('2 XP')
+      await expect(tooltip).toContainText('2 pts')
       await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
       expect(await tooltip.ariaSnapshot()).toBe('')
       await expect(tooltip).toHaveCSS('position', 'fixed')
@@ -4909,7 +5828,7 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
     } else {
       await day.press('Space')
       await expect(tooltip).toHaveClass(/\bshow\b/)
-      await expect(tooltip).toContainText('2 XP')
+      await expect(tooltip).toContainText('2 pts')
       await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
       expect(await tooltip.ariaSnapshot()).toBe('')
       await expect(tooltip).toHaveCSS('position', 'absolute')
@@ -4968,9 +5887,9 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
         const state = JSON.parse(localStorage.getItem(key))
         state.onboarding.levelUpGuidanceShownAt = '2026-07-20T04:00:00.000Z'
         for (let day = 23; day <= 27; day += 1) {
-          state.anki[`2026-07-${day}`] = { reviewed: 60, created: 1, experienceReviews: 20, experienceWatermark: 60 }
+          state.anki[`2026-07-${day}`] = { reviewed: 60, created: 1 }
         }
-        state.anki['2026-07-28'] = { reviewed: 6, created: 1, experienceReviews: 2, experienceWatermark: 6 }
+        state.anki['2026-07-28'] = { reviewed: 6, created: 1 }
         localStorage.setItem(key, JSON.stringify(state))
       }, storageKey)
       await page.reload()
@@ -4986,7 +5905,7 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
         expect(await tooltip.ariaSnapshot()).toBe('')
         const data = await day.evaluate(element => ({ ...element.dataset }))
         const key = data.ankiEnabled === 'true' ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
-        const expected = I18N[locale][key].replace(/\{(\w+)\}/g, (_, name) => name === 'points' ? (data.points || '—') : data[name])
+        const expected = I18N[locale][key].replace(/\{(\w+)\}/g, (_, name) => data[name])
           + (streakDays ? `; ${streakDays} ${I18N[locale]['streak.day']}` : '')
         await expect(day).toHaveAccessibleName(expected)
         await expect(day).not.toHaveAttribute('aria-describedby')

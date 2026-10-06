@@ -23,14 +23,13 @@
       "exportedAt": "2026-09-04T12:00:00.000Z",
       "integrity": {
         "algorithm": "SHA-256",
-        "byteLength": 961,
-        "payloadSha256": "vapxbjw-VYnMOvIOPhpt2DlHG9h4zmHMeYiWdAXkXTs"
+        "byteLength": 939,
+        "payloadSha256": "76fLIUxeH7rfAY27Eshu31bS8VHUais1-Ei5OQHErTE"
       },
       "profile": {
         "activityLog": [],
         "anki": {},
         "cityProgress": {
-          "experienceVersion": 1,
           "maxLevelIndex": 0
         },
         "config": {
