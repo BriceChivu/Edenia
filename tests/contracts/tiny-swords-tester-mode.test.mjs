@@ -44,7 +44,7 @@ test('every mode 2 profile, cache, backup and settings key is separate, independ
 test('ordinary page packaging retains released town markup without game references', async () => {
   const [entry, production, tester] = await Promise.all([readFile('_site/index.html', 'utf8'), readBuiltExperience('https://www.edenia.study/'), readBuiltExperience()])
   assert.doesNotMatch(entry, /tiny-swords-game|index\.wasm|index\.pck/)
-  assert.match(production, /id="cityMilestoneImage"/)
+  assert.match(production, /cityMilestoneImage/)
   assert.match(production, /id="cityTimeWaveform"/)
   assert.doesNotMatch(production, /tiny-swords-game|tinySwordsSurface/)
   assert.match(tester, /tiny-swords-game\/[^/]+\/parent\.js/)

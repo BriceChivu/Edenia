@@ -391,7 +391,8 @@ function normalizeCityProgress(value) {
     maxLevelIndex: Math.max(
       0,
       Math.floor(Number(cityProgress.maxLevelIndex) || 0)
-    )
+    ),
+    ...(cityProgress.experienceVersion === 1 ? { experienceVersion: 1 } : {})
   }
 }
 
