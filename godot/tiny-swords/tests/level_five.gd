@@ -51,15 +51,14 @@ func run() -> void:
 	var water_before := water_house.snapshot()
 	var foundation_stock: int = water_house.stock.meadow
 	check(water_house.edit(water_origin, "house", Layout.HOME), "House builds directly on four water squares")
-	check(water_house.free_house_grass == 0 and water_house.stock.meadow == foundation_stock - 4 and water_house.resources.wood == 0, "Water foundation spends four inventory grass tiles and six logs")
+	check(water_house.free_house_grass == 4 and water_house.stock.meadow == foundation_stock and water_house.resources.wood == 0, "Water foundation adds four free grass tiles and spends six logs")
 	for square in water_house.house_cells(water_origin):
 		check(water_house.cells.get(square) == "meadow" and not water_house.can_edit(square, "ground", Layout.HOME), "Every foundation tile is grass and protected")
 	check(copy.restore(water_house.snapshot()) and copy.snapshot() == water_house.snapshot(), "Water foundation survives reload")
 	check(water_house.edit(water_origin, "remove", Layout.HOME), "Water house pickup returns logs")
-	check(water_house.stock.meadow == foundation_stock - 4 and water_house.free_house_grass == 0, "Pickup does not refund foundation grass")
+	check(water_house.stock.meadow == foundation_stock and water_house.free_house_grass == 0 and not water_house.cells.has(water_origin), "Pickup removes free foundation without changing inventory")
 	water_house.stock.meadow = 0
-	var blocked := water_house.snapshot()
-	check(not water_house.edit(Vector2i(10, 4), "house", Layout.HOME) and water_house.snapshot() == blocked, "Repeated water construction cannot generate grass with empty inventory")
+	check(water_house.edit(Vector2i(10, 4), "house", Layout.HOME) and water_house.stock.meadow == 0 and water_house.free_house_grass == 4, "Layout can add another free foundation with empty inventory")
 	check(water_house.restore(water_before) and water_house.free_house_grass == 0 and not water_house.cells.has(water_origin), "Undo removes free foundation and restores logs")
 	layout.resources.wood = 6
 	layout.flora[Vector2i(2, 1)] = 1

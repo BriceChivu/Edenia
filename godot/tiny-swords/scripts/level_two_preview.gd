@@ -161,11 +161,18 @@ func _ready() -> void:
 		world_pointer_down = null
 		world_dragging = false)
 
+func house_placement_active() -> bool:
+	return not editing and construction != null and construction.is_placing()
+
 func refresh() -> void:
+	if arrival == null or not arrival.blocks_gameplay():
+		pawn.visible = not editing
+	$Clouds.visible = not editing
+	$PassingCloud.inventory_hidden = editing
 	inventory_preview_inputs.clear()
 	update_cursor()
-	terrain.editing = editing
-	terrain.tool = selected
+	terrain.editing = editing or house_placement_active()
+	terrain.tool = "house" if house_placement_active() else selected
 	terrain.valid = false
 	ui.refresh(editing, selected, not history.is_empty())
 
@@ -221,6 +228,8 @@ func toggle_editing() -> void:
 	editing = not editing
 	if not editing:
 		house_log_source = Vector2i(999, 999)
+		if house_placement_active():
+			selected = "house"
 	if editing:
 		if not preserve_history_on_reopen:
 			history.clear()
@@ -316,6 +325,9 @@ func build_inventory_changes() -> Array[Dictionary]:
 			if layout.can_edit(cell, "stairs", occupied):
 				changes.append({"cell": cell, "tool": "stairs", "height": -1.0})
 		else:
+			# A covered grass top cannot be selected by clicking its outline.
+			if layout.ground_surface_cell(layout.ground_surface_rect(cell).get_center()) != cell:
+				continue
 			var height: float = layout.next_ground_height(cell)
 			if height >= 0 and layout.can_edit(cell, "ground", occupied, height, Vector2.ZERO, pawn.position):
 				changes.append({"cell": cell, "tool": "ground", "height": height})
@@ -334,7 +346,8 @@ func inventory_change_at(point: Vector2, changes: Array[Dictionary]) -> Dictiona
 			for area in layout.stair_pickup_rects(change.cell):
 				if area.has_point(point):
 					return change
-	var cell := surface_cell(point)
+	# Ground outlines and clicks use the same visible grass top.
+	var cell: Vector2i = layout.ground_surface_cell(point)
 	for change in changes:
 		if change.tool == "ground" and change.cell == cell:
 			return change
@@ -346,6 +359,8 @@ func update_inventory_preview(point: Vector2, allow_hover := true) -> void:
 		return
 	update_inventory_preview_state(point, allow_hover)
 	var change := {"cell": terrain.hover, "tool": terrain.tool, "height": terrain.ground_preview_height} if terrain.transform_preview and terrain.tool in ["ground", "stairs"] else {}
+	if terrain.tool == "house" and terrain.proposed_terrain != null:
+		change = {"tool": "house", "cells": terrain.proposed_terrain.cells.duplicate(), "elevations": terrain.proposed_terrain.elevations.duplicate()}
 	if change != terrain_preview_change:
 		rebuild_decorations(terrain.terrain_render_layout())
 		terrain_preview_change = change
@@ -358,9 +373,9 @@ func update_inventory_preview(point: Vector2, allow_hover := true) -> void:
 	inventory_preview_inputs = inventory_preview_key(point, allow_hover).duplicate(true)
 
 func inventory_preview_key(point: Vector2, allow_hover: bool) -> Array:
-	var inputs: Array = [editing, selected, allow_hover, water_phase, ui.collapsed,
+	var inputs: Array = [editing, house_placement_active(), selected, allow_hover, water_phase, ui.collapsed,
 		ui.celebration != null, construction.busy(), inventory_art_revision]
-	if not editing:
+	if not editing and not house_placement_active():
 		return inputs
 	update_inventory_layout_revision()
 	inputs.append(inventory_layout_revision)
@@ -384,7 +399,8 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 	terrain.changes = inventory_changes()
 	terrain.outline_trees = tree_nodes
 	terrain.transform_preview = false
-	terrain.tool = selected
+	var tool := "house" if house_placement_active() else selected
+	terrain.tool = tool
 	terrain.valid = false
 	terrain.ground_preview_height = -1
 	# Restore any artwork hidden by the previous frame's swap preview.
@@ -393,10 +409,10 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 	for sprite in asset_nodes:
 		if sprite.has_meta("house_cell"):
 			sprite.visible = true
-	if not editing or not allow_hover:
+	if (not editing and not house_placement_active()) or not allow_hover:
 		return
 	terrain.preview_position = point
-	var change := inventory_change_at(point, terrain.changes) if selected != "remove" and layout.house_bundle == 0 else {}
+	var change := inventory_change_at(point, terrain.changes) if tool != "remove" and layout.house_bundle == 0 else {}
 	if not change.is_empty():
 		terrain.transform_preview = true
 		terrain.tool = change.tool
@@ -413,27 +429,31 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 				if sprite.get_meta("house_cell", Vector2i(999, 999)) == change.cell:
 					sprite.hide()
 		return
-	if selected == "":
+	if tool == "":
 		return
-	if selected == "bridge":
+	if tool == "bridge":
 		terrain.hover = bridge_placement_at(point)
-	elif selected == "ground":
+	elif tool == "ground":
 		var option := ground_placement_at(point)
 		terrain.hover = option.cell
 		terrain.ground_preview_height = option.height
 	else:
 		terrain.hover = clicked_cell(point)
-	terrain.valid = (selected != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, selected, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position, terrain.placement_offset() if selected == "house" else Vector2.ZERO)
-	if selected == "house":
+	terrain.valid = (tool != "ground" or terrain.ground_preview_height >= 0) and layout.can_edit(terrain.hover, tool, layout.cell_at(pawn.position), terrain.ground_preview_height, Vector2.ZERO, pawn.position, terrain.placement_offset() if tool == "house" else Vector2.ZERO)
+	if tool == "house":
 		update_house_preview()
-	if selected == "tree":
+	if tool == "tree":
 		update_tree_preview(point)
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and editing and ui.celebration == null:
-		toggle_editing()
-		get_viewport().set_input_as_handled()
-		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and ui.celebration == null:
+		if construction.cancel_placement():
+			get_viewport().set_input_as_handled()
+			return
+		if editing:
+			toggle_editing()
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseMotion:
 		# Web canvases can be hovered without keyboard focus (including Edenia's
 		# iframe). Native inactive windows still belong to the system pointer.
@@ -473,7 +493,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		world_drag_origin = game_camera.position
 		world_dragging = false
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
-		if not editing and water_phase in [WaterPhase.READY, WaterPhase.APPROACHING] and layout.cells.has(clicked_cell(point)) and not layout.bridges.has(Layout.BridgeRules.hit(layout, point)):
+		if not editing and not house_placement_active() and water_phase in [WaterPhase.READY, WaterPhase.APPROACHING] and layout.cells.has(clicked_cell(point)) and not layout.bridges.has(Layout.BridgeRules.hit(layout, point)):
 			set_cursor_pressed(true)
 		get_viewport().set_input_as_handled()
 		return
@@ -542,21 +562,33 @@ func fit_build_cursor() -> void:
 	cursor_mode = ""
 
 func update_house_preview() -> void:
-	if terrain.valid and layout.house_bundle > 0 and not layout.houses.has(terrain.hover):
-		terrain.valid = not construction.placement_plan(terrain.hover, terrain.placement_offset()).is_empty()
+	if house_placement_active() and layout.houses.has(terrain.hover):
+		terrain.valid = false
+		return
+	if terrain.valid and not layout.houses.has(terrain.hover):
+		if layout.house_bundle > 0:
+			var plan: Dictionary = construction.placement_plan(terrain.hover, terrain.placement_offset())
+			terrain.valid = not plan.is_empty()
+		if terrain.valid:
+			# Render the real foundation, including its joins with existing grass.
+			# The held house stays in the editor overlay until construction starts.
+			terrain.proposed_terrain = layout.get_script().new()
+			terrain.proposed_terrain.restore(layout.snapshot())
+			terrain.proposed_terrain.add_house_foundation(terrain.hover, terrain.placement_offset())
 
 func update_cursor() -> void:
 	if pointer == null:
 		return
 	fit_build_cursor()
-	var mode := "walk" if not editing else (("build" if selected == "remove" else "place") if terrain.valid else ("ui" if selected == "" else "invalid"))
+	var placing_house := house_placement_active()
+	var mode := "walk" if not editing and not placing_house else (("build" if selected == "remove" else "place") if terrain.valid else ("ui" if selected == "" else "invalid"))
 	if editing and selected == "":
 		mode = "ui"
-	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and harvesting != null and harvesting.available(tree_at(get_global_mouse_position())):
+	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and harvesting != null and harvesting.available(tree_at(get_global_mouse_position())):
 		mode = "axe"
-	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and layout.can_pick_log(log_at(get_global_mouse_position())):
+	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and layout.can_pick_log(log_at(get_global_mouse_position())):
 		mode = "ui"
-	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and layout.level >= 5 and int(layout.log_piles.get(log_at(get_global_mouse_position()), 0)) == 6:
+	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and layout.level >= 5 and int(layout.log_piles.get(log_at(get_global_mouse_position()), 0)) == 6:
 		mode = "house"
 	var hovered := get_viewport().gui_get_hovered_control()
 	if arrival != null and arrival.blocks_gameplay():
@@ -615,14 +647,21 @@ func tree_at(point: Vector2) -> Vector2i:
 		var cell: Vector2i = sprite.get_meta("cell")
 		var anchor: Vector2 = layout.tree_position(cell) - Vector2(0, layout.height_at(cell))
 		var behind := Rect2(anchor - Vector2(17, 48), Vector2(34, 24))
-		if behind.has_point(point) and layout.walkable_point(point + Vector2(0, layout.height_at(cell))):
+		# Walking may target ground behind the canopy; inventory edits target
+		# the visible tree artwork instead.
+		if not editing and behind.has_point(point) and layout.walkable_point(point + Vector2(0, layout.height_at(cell))):
 			continue
 		if sprite.is_visual_pixel_opaque(sprite.to_local(point)):
 			return cell
 	return Harvesting.NO_TREE
 
 func clicked_cell(point: Vector2) -> Vector2i:
-	if editing and selected in ["house", "sheep", "chicken", "remove"]:
+	if editing and selected in ["tree", "remove"]:
+		for index in range(tree_nodes.size() - 1, -1, -1):
+			var sprite := tree_nodes[index] as Sprite2D
+			if sprite.is_visual_pixel_opaque(sprite.to_local(point)):
+				return sprite.get_meta("cell")
+	if house_placement_active() or (editing and selected in ["house", "sheep", "chicken", "remove"]):
 		for cell in layout.houses:
 			if selected in ["house", "remove"] and LevelFiveArt.house_rect(layout, cell).has_point(point):
 				return cell
@@ -637,11 +676,6 @@ func clicked_cell(point: Vector2) -> Vector2i:
 			var cell: Vector2i = layout.cell_at(sheep_position)
 			if selected == "remove" and LevelFiveArt.sheep_rect(layout, cell).has_point(point):
 				return cell
-	if editing and selected in ["tree", "remove"]:
-		for index in range(tree_nodes.size() - 1, -1, -1):
-			var sprite := tree_nodes[index] as Sprite2D
-			if sprite.is_visual_pixel_opaque(sprite.to_local(point)):
-				return sprite.get_meta("cell")
 	if editing and selected == "bridge":
 		return bridge_placement_at(point)
 	var bridge := Layout.BridgeRules.hit(layout, point)
@@ -764,10 +798,15 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 	if selected == "tree" and not can_place_tree(cell, tree_placement_offset):
 		return false
 	var before: Dictionary = layout.snapshot()
+	var picked_cells: Array[Vector2i] = []
+	if selected == "remove":
+		picked_cells = layout.pickup_cells(cell)
 	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source, pawn.position, terrain.placement_offset() if selected == "house" and not layout.houses.has(cell) else Vector2.ZERO):
-		ui.panel.accessibility_description = "Move the pawn off this tile. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
+		ui.panel.accessibility_description = "That pickup is unavailable. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
 		return false
 	reconcile_inventory_work()
+	if selected == "remove":
+		relocate_pawn_after_pickup(picked_cells)
 	history.append(before)
 	if history.size() > 40:
 		history.pop_front()
@@ -780,6 +819,43 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 		preserve_history_on_reopen = true
 	refresh()
 	return true
+
+func relocate_pawn_after_pickup(picked_cells: Array[Vector2i]) -> void:
+	# An ongoing fall already resolves its respawn against the edited layout.
+	if water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]:
+		return
+	var occupied := layout.cell_at(pawn.position)
+	if occupied not in picked_cells and layout.walkable_point(pawn.position):
+		return
+	var destination := Vector2.INF
+	var distance := INF
+	# Prefer surviving ground outside the collected object's footprint. A
+	# house refund can leave logs on the pawn's tile, so check actual contacts.
+	for allow_picked in [false, true]:
+		for cell in layout.cells:
+			if layout.cells[cell] == "stairs" or (not allow_picked and cell in picked_cells):
+				continue
+			for offset in [Vector2.ZERO, Vector2(0, -20), Vector2(-20, 0), Vector2(20, 0), Vector2(0, 20)]:
+				var point: Vector2 = layout.center(cell) + offset
+				if point.is_equal_approx(pawn.position) or not layout.walkable_point(point):
+					continue
+				var separation: float = pawn.position.distance_squared_to(point)
+				if separation < distance:
+					distance = separation
+					destination = point
+		if destination != Vector2.INF:
+			break
+	if destination == Vector2.INF:
+		return
+	harvesting.cancel()
+	movement_generation += 1
+	water_phase = WaterPhase.READY
+	waypoints.clear()
+	walking_bridges.clear()
+	pawn.position = destination
+	pawn.walk_to(destination)
+	pawn.sprite.position.y = -32.0 - ground_height(destination)
+	pawn.z_index = int(ceil(ground_height(destination) / 64.0))
 
 func undo() -> void:
 	if not editing or history.is_empty():
@@ -928,6 +1004,7 @@ func rebuild_decorations(display_layout = null) -> void:
 			"ducks":
 				decoration.texture = load(directory + "Rubber Duck/Rubber duck.png")
 				decoration.hframes = 3
+				decoration.scale = Vector2.ONE * 0.8
 				decoration.flip_h = item.variant == 2
 		decoration.position = render_layout.center(item.water if in_water else cell)
 		if item.kind == "land_rock":
@@ -1159,9 +1236,13 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 		start = next
 	return route
 
-func tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[Vector2i] = [], moving_sheep: bool = false) -> Array[Vector2]:
+func tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[Vector2i] = [], moving_sheep: bool = false, alternative_targets: Array[Vector2] = []) -> Array[Vector2]:
 	var result: Array[Vector2] = []
-	if not layout.walkable_point(target, moving_sheep):
+	var targets: Array[Vector2] = []
+	for point in [target] + alternative_targets:
+		if layout.walkable_point(point, moving_sheep):
+			targets.append(point)
+	if targets.is_empty():
 		return result
 	var source := Vector2i(((start - Layout.ORIGIN) / 8.0).floor())
 	var queue: Array[Vector2i] = [source]
@@ -1173,12 +1254,13 @@ func tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[
 		var current_point: Vector2 = start if current == source else Layout.ORIGIN + Vector2(current) * 8
 		# A valid cursor target can lie beside a blocked grid sample at a root
 		# or shore. Connect the last short segment to the exact target.
-		if current_point.distance_squared_to(target) <= 144 and clear_segment(current_point, target, moving_sheep):
-			while current != source:
-				result.push_front(Layout.ORIGIN + Vector2(current) * 8)
-				current = previous[current]
-			result.append(target)
-			return result
+		for point in targets:
+			if current_point.distance_squared_to(point) <= 144 and clear_segment(current_point, point, moving_sheep):
+				while current != source:
+					result.push_front(Layout.ORIGIN + Vector2(current) * 8)
+					current = previous[current]
+				result.append(point)
+				return result
 		for step in Layout.NAV_STEPS:
 			var next: Vector2i = current + step
 			if previous.has(next):

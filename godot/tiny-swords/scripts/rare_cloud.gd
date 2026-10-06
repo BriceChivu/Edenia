@@ -3,6 +3,10 @@ extends "res://scripts/cloud_visual.gd"
 # A foreground visitor, with long quiet gaps and a different pass each time.
 var wait_remaining: float = randf_range(240.0, 420.0)
 var crossing: bool = false
+var inventory_hidden := false:
+	set(value):
+		inventory_hidden = value
+		visible = crossing and not inventory_hidden
 var speed: float = 20.0
 var direction: float = 1.0
 
@@ -19,7 +23,7 @@ func _process(delta: float) -> void:
 		var bounds := crossing_bounds()
 		global_position.x = bounds.x if direction > 0 else bounds.y
 		crossing = true
-		show()
+		visible = not inventory_hidden
 		return
 	position.x += speed * direction * delta
 	var bounds := crossing_bounds()

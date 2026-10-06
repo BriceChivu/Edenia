@@ -119,6 +119,7 @@ func advance(delta: float, now: float) -> void:
 		world.history.clear()
 		world.rebuild_decorations()
 		world.save_layout()
+		world.refresh()
 	if phase == Phase.READY:
 		return
 	if not available(target) or world.water_phase != world.WaterPhase.READY:
@@ -181,6 +182,7 @@ func _on_axe_swing_finished() -> void:
 	world.history.clear()
 	world.rebuild_decorations()
 	_stop()
+	world.refresh()
 	# Recompute reachability from each completed tree; removed or blocked entries
 	# are skipped without interrupting the rest of the click-order queue.
 	while not pending_trees.is_empty():

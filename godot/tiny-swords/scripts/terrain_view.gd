@@ -395,10 +395,14 @@ func _draw() -> void:
 	layout = live_layout
 
 func terrain_render_layout():
-	if not editing or not valid or not transform_preview or tool not in ["ground", "stairs"]:
+	if not editing or not valid:
 		return null
 	if editor_source != null:
 		return editor_source.terrain_render_layout()
+	if tool == "house":
+		return proposed_terrain
+	if not transform_preview or tool not in ["ground", "stairs"]:
+		return null
 	if proposed_terrain == null:
 		proposed_terrain = layout.terrain_edit_preview(hover, tool, grass_preview_height() if tool == "ground" else -1)
 	return proposed_terrain
@@ -572,8 +576,9 @@ func draw_art_outline(texture: Texture2D, area: Rect2, region := Rect2i(), mirro
 func draw_change_outlines() -> void:
 	for change in changes:
 		var cell: Vector2i = change.cell
-		if transform_preview and hover == cell and tool == change.tool:
-			continue # The hovered replacement gets its own outline below.
+		# Replacement artwork hides the hovered tree or house's original border.
+		if transform_preview and valid and cell == hover and change.tool == tool and tool in ["tree", "house"]:
+			continue
 		match change.tool:
 			"tree":
 				for sprite in outline_trees:
@@ -589,7 +594,7 @@ func draw_change_outlines() -> void:
 			"stairs":
 				draw_polyline(pickup_outline(cell), InventoryOutline.COLOR, InventoryOutline.WIDTH)
 			"ground":
-				draw_rect(Rect2(layout.ORIGIN + Vector2(cell) * 64 - Vector2(0, layout.height_at(cell)), Vector2(64, 64)), InventoryOutline.COLOR, false, InventoryOutline.WIDTH)
+				draw_rect(layout.ground_surface_rect(cell), InventoryOutline.COLOR, false, InventoryOutline.WIDTH)
 
 func draw_editor() -> void:
 	if editing:
@@ -626,17 +631,11 @@ func draw_editor() -> void:
 			draw_set_transform(Vector2.ZERO)
 			if tool == "house":
 				draw_set_transform(Vector2.ZERO)
-				for square in layout.house_cells(hover, Vector2.INF if layout.houses.has(hover) else placement_offset()):
-					if not layout.cells.has(square):
-						draw_tile(square, "meadow", tint, layout.height_at(hover))
-				draw_set_transform(Vector2.ZERO)
 				var facing := (int(layout.houses[hover]) + 1) % 4 if layout.houses.has(hover) else (1 if layout.house_bundle > 0 else 0)
 				var area := house_preview_rect()
 				if facing == 3:
 					area.size.x *= -1
 				draw_texture_rect(LevelFiveArt.HOUSE_TEXTURES[facing], area, false, tint)
-				if transform_preview:
-					draw_art_outline(LevelFiveArt.HOUSE_TEXTURES[facing], house_preview_rect(), Rect2i(), facing == 3)
 			if tool == "chicken":
 				draw_set_transform(placement_offset())
 				draw_texture_rect(LevelFiveArt.CHICKEN, LevelFiveArt.chicken_rect(layout, hover), false, tint)
@@ -647,15 +646,8 @@ func draw_editor() -> void:
 				draw_set_transform(Vector2.ZERO)
 			if tool == "tree":
 				draw_texture_rect_region(clipped_tree_preview_texture(), tree_preview_rect(), Rect2(Vector2.ZERO, TreeArt.frame_size(tree_preview_variant())), tint)
-				if transform_preview:
-					draw_art_outline(TreeArt.TEXTURES[tree_preview_variant()], tree_preview_rect(), Rect2i(Vector2i.ZERO, Vector2i(TreeArt.frame_size(tree_preview_variant()))))
-			if transform_preview and tool in ["tree", "house"]:
-				return
-			if transform_preview and tool == "stairs":
-				var live_layout = layout
-				layout = terrain_render_layout()
-				draw_polyline(pickup_outline(hover + live_layout.stair_direction(hover)), InventoryOutline.COLOR, InventoryOutline.WIDTH)
-				layout = live_layout
+			# Other change targets keep their outlines while showing replacement art.
+			if transform_preview:
 				return
 			if tool == "remove" and layout.cells.get(hover) == "stairs":
 				draw_polyline(pickup_outline(), Color(0.85, 1, 0.8, 0.55), 1)

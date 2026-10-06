@@ -43,12 +43,34 @@ func run() -> void:
 			check(plan.layout.height_at(plan.layout.cell_at(plan.route.back())) == plan.layout.height_at(site), "Work destination shares the house floor")
 	scene.pawn.position = scene.layout.center(site) + Vector2(-20, 0)
 	scene.pawn.walk_to(scene.pawn.position)
+	var missing := Vector2i(2, 2)
+	scene.layout.cells.erase(missing)
+	scene.layout.elevations.erase(missing)
+	scene.layout.stock.meadow += 1
+	var foundation_plan: Dictionary = scene.construction.placement_plan(site)
+	check(not foundation_plan.is_empty(), "Raised house can add a reachable missing foundation tile")
+	if not foundation_plan.is_empty():
+		check(foundation_plan.layout.height_at(missing) == 64 and foundation_plan.layout.cells[missing] == scene.layout.kind_at_height(64), "Free foundation uses the house floor and raised grass artwork")
 	check(scene.construction.build(site, Vector2.ZERO), "Same-floor approach starts construction")
+	check(scene.layout.height_at(missing) == 64 and scene.layout.cells[missing] == scene.layout.kind_at_height(64), "Approach adds visible foundation grass at floor one")
+	var migrated: Dictionary = scene.layout.snapshot()
+	for tile in migrated.tiles:
+		if Vector2i(tile[0], tile[1]) == missing:
+			tile[2] = "meadow"
+	var migrated_layout = scene.Layout.new()
+	check(migrated_layout.restore(migrated) and migrated_layout.cells[missing] == scene.layout.kind_at_height(64), "Reload repairs earlier free foundation artwork at the saved house floor")
 	scene.pawn.position = scene.waypoints.back() if not scene.waypoints.is_empty() else scene.pawn.destination
 	scene.waypoints.clear()
 	scene.pawn.walk_to(scene.pawn.position)
 	scene.construction._process(0)
 	check(scene.pawn.hammering and scene.ground_height(scene.pawn.position) == scene.layout.height_at(site), "Hammering starts on the house floor")
+	var old_house: Dictionary = scene.layout.snapshot()
+	old_house.version = 29
+	old_house.erase("house_free_tiles")
+	for tile in old_house.tiles:
+		if Vector2i(tile[0], tile[1]) == missing:
+			tile[2] = "meadow"
+	check(migrated_layout.restore(old_house) and migrated_layout.cells[missing] == scene.layout.kind_at_height(64), "Legacy built house repairs foundation artwork without changing its elevation")
 	scene.layout.house_build.pawn_x = lower.x
 	scene.layout.house_build.pawn_y = lower.y
 	scene.construction.phase = scene.construction.Phase.READY

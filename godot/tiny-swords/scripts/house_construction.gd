@@ -5,7 +5,7 @@ extends Node
 const NO_CELL := Vector2i(999, 999)
 const BUILD_SECONDS := 20.0
 const STRIKE_SCALE := Vector2(130.0 / 128.0, 0.98)
-enum Phase { READY, PICKUP, PLACING, APPROACHING, HAMMERING }
+enum Phase { READY, PICKUP, PLACING, APPROACHING, HAMMERING, RETURNING }
 var world
 var phase := Phase.READY
 var source := NO_CELL
@@ -21,7 +21,44 @@ func _ready() -> void:
 	world.pawn.sprite.animation_looped.connect(finish_swing)
 
 func busy() -> bool:
-	return phase in [Phase.PICKUP, Phase.APPROACHING, Phase.HAMMERING]
+	return phase in [Phase.PICKUP, Phase.APPROACHING, Phase.HAMMERING, Phase.RETURNING]
+
+func cancel_placement() -> bool:
+	if phase == Phase.RETURNING:
+		world.editing = false
+		world.refresh()
+		return true
+	if world.layout.house_bundle == 0 or phase == Phase.HAMMERING:
+		return false
+	var origin: Vector2i = world.layout.house_bundle_source
+	var candidates: Array[Vector2i] = [origin]
+	# Old saves did not retain the origin. If terrain edits removed it, use
+	# a reachable clear grass tile without dropping or duplicating the logs.
+	var fallback: Array[Vector2i] = []
+	fallback.assign(world.layout.cells.keys())
+	fallback.sort_custom(func(a: Vector2i, b: Vector2i): return world.layout.center(a).distance_squared_to(world.pawn.position) < world.layout.center(b).distance_squared_to(world.pawn.position))
+	candidates.append_array(fallback)
+	for cell in candidates:
+		if not world.layout.asset_ground_free(cell) or world.layout.flora.has(cell) or world.layout.decorations.has(cell):
+			continue
+		var point: Vector2 = world.layout.center(cell)
+		var route: Array[Vector2] = world.land_route(world.pawn.position, cell, point)
+		if route.is_empty() or not route.back().is_equal_approx(point):
+			continue
+		source = cell
+		phase = Phase.RETURNING
+		world.harvesting.cancel()
+		world.log_pickup = NO_CELL
+		world.log_delivery = NO_CELL
+		world.waypoints = route
+		world.pawn.walk_to(world.waypoints.pop_front())
+		world.editing = false
+		world.selected = ""
+		world.history.clear()
+		world.preserve_history_on_reopen = false
+		world.refresh()
+		return true
+	return false
 
 func pickup(cell: Vector2i) -> bool:
 	if world.layout.house_bundle > 0:
@@ -36,10 +73,13 @@ func pickup(cell: Vector2i) -> bool:
 	phase = Phase.PICKUP
 	return true
 
+func is_placing() -> bool:
+	return phase == Phase.PLACING and world.layout.house_bundle > 0
+
 func open_placement() -> void:
 	phase = Phase.PLACING
 	world.selected = "house"
-	world.editing = true
+	world.editing = false
 	world.ui.collapsed = false
 	world.pawn.carrying_wood = true
 	world.pawn.sprite.play("wood_idle")
@@ -51,15 +91,15 @@ func handle_click(cell: Vector2i, point: Vector2 = Vector2.INF) -> bool:
 	if world.layout.house_bundle == 0:
 		phase = Phase.READY
 		return false
-	if not world.editing:
+	if not world.editing and not is_placing():
 		open_placement()
 		return true
-	if world.selected != "house":
+	if world.editing and world.selected != "house":
 		return false
 	if not world.layout.houses.has(cell):
 		build(cell, point - world.layout.center(cell) + Vector2(0, world.layout.height_at(cell)) if point != Vector2.INF else Vector2.INF)
 		return true
-	return false
+	return not world.editing
 
 func reconcile_inventory_edit() -> void:
 	if phase == Phase.HAMMERING:
@@ -70,7 +110,7 @@ func reconcile_inventory_edit() -> void:
 			world.pawn.walk_to(world.pawn.position)
 		else:
 			build_started_at = world.layout.house_build.started_at
-	elif phase == Phase.APPROACHING and world.layout.house_bundle == 0:
+	elif phase in [Phase.APPROACHING, Phase.RETURNING] and world.layout.house_bundle == 0:
 		phase = Phase.READY
 		world.waypoints.clear()
 		world.pawn.walk_to(world.pawn.position)
@@ -89,11 +129,28 @@ func placement_plan(cell: Vector2i, placement_offset: Vector2 = Vector2.ZERO) ->
 	planned.houses[cell] = 1
 	var route: Array[Vector2] = []
 	world.layout = planned
-	for point in work_points(planned, cell, placement_offset):
+	for point in work_points(planned, cell, placement_offset, false):
 		var candidate: Array[Vector2] = world.land_route(world.pawn.position, planned.cell_at(point), point)
 		if not candidate.is_empty() and candidate.back().is_equal_approx(point):
 			route = candidate
 			break
+	if route.is_empty():
+		var nearby := work_points(planned, cell, placement_offset)
+		if planned.bridges_enabled and not planned.bridges.is_empty():
+			# Bridge lanes are selected by land_route for each destination.
+			for point in nearby:
+				var candidate: Array[Vector2] = world.land_route(world.pawn.position, planned.cell_at(point), point)
+				if not candidate.is_empty() and candidate.back().is_equal_approx(point):
+					route = candidate
+					break
+		elif not nearby.is_empty():
+			# Share one navigation search across the fallback spots. Repeating
+			# a full failed search per spot would stall the moving preview.
+			var allowed_cells: Array[Vector2i] = []
+			var path: Array[Vector2] = world.tree_navigation_path(world.pawn.position, nearby[0], allowed_cells, false, nearby.slice(1))
+			if not path.is_empty():
+				var point: Vector2 = path.back()
+				route = world.land_route(world.pawn.position, planned.cell_at(point), point)
 	world.layout = original
 	if route.is_empty():
 		return {}
@@ -107,9 +164,21 @@ func on_house_floor(layout, cell: Vector2i, point: Vector2) -> bool:
 			return false
 	return true
 
-func work_points(layout, cell: Vector2i, placement_offset: Vector2) -> Array[Vector2]:
+func work_points(layout, cell: Vector2i, placement_offset: Vector2, include_nearby := true) -> Array[Vector2]:
 	var points: Array[Vector2] = []
-	for offset in [Vector2(-49, 68), Vector2(-24, 68), Vector2(-16, 68), Vector2(-8, 68)]:
+	var offsets: Array[Vector2] = [Vector2(-49, 68), Vector2(-24, 68), Vector2(-16, 68), Vector2(-8, 68)]
+	if include_nearby:
+		# Free placement can disconnect the row in front of the door while
+		# leaving its side reachable. Search around the door in both axes.
+		var nearby: Array[Vector2] = []
+		for y in range(28, 109, 8):
+			for x in range(-49, -7, 8):
+				var offset := Vector2(x, y)
+				if offset not in offsets:
+					nearby.append(offset)
+		nearby.sort_custom(func(a: Vector2, b: Vector2): return a.distance_squared_to(Vector2(-49, 68)) < b.distance_squared_to(Vector2(-49, 68)))
+		offsets.append_array(nearby)
+	for offset in offsets:
 		var point: Vector2 = layout.center(cell) + placement_offset + offset
 		if on_house_floor(layout, cell, point) and layout.walkable_point(point):
 			points.append(point)
@@ -125,14 +194,10 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 	var original = world.layout
 	var planned = plan.layout
 	var route: Array[Vector2] = plan.route
-	# Make the purchased foundation walkable while approaching; the actual house
+	# Make the foundation walkable while approaching; the actual house
 	# and six-log cost are committed only on arrival.
 	var before: Dictionary = original.snapshot()
-	for square in planned.house_cells(cell):
-		if not original.cells.has(square):
-			original.cells[square] = planned.cells[square]
-			original.elevations[square] = planned.elevations[square]
-			original.stock.meadow -= 1
+	original.add_house_foundation(cell, placement_offset)
 	world.history.append(before)
 	world.preserve_history_on_reopen = true
 	world.harvesting.cancel()
@@ -155,7 +220,24 @@ func _process(_delta: float) -> void:
 		return
 	if not busy() or not world.waypoints.is_empty() or world.pawn.position.distance_to(world.pawn.destination) >= 0.2:
 		return
-	if phase == Phase.PICKUP:
+	if phase == Phase.RETURNING:
+		# Inventory can reopen during movement. Recheck its destination after
+		# edits rather than overwrite a new pile or restore logs onto water.
+		if not world.pawn.position.is_equal_approx(world.layout.center(source)) or not world.layout.asset_ground_free(source) or world.layout.flora.has(source) or world.layout.decorations.has(source):
+			phase = Phase.PLACING
+			cancel_placement()
+			return
+		world.layout.log_piles[source] = world.layout.house_bundle
+		world.layout.house_bundle = 0
+		world.layout.house_bundle_source = NO_CELL
+		phase = Phase.READY
+		world.pawn.carrying_wood = world.layout.carried_wood > 0
+		world.pawn.sprite.play("wood_idle" if world.pawn.carrying_wood else "idle")
+		world.history.clear()
+		world.rebuild_decorations()
+		world.save_layout()
+		world.refresh()
+	elif phase == Phase.PICKUP:
 		if world.layout.pick_house_bundle(source):
 			# Remove the pile immediately, without a fade or dust effect.
 			world.history.clear()

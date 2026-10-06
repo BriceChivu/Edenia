@@ -45,7 +45,7 @@ func run() -> void:
 	level._process(0)
 	check(level.pointer.position - first_pointer == Vector2(11, 7), "Pointer follows small movements within one cell without snapping")
 	check(level.UI_CURSOR.get_size() == level.CURSOR.get_size() and level.INVALID_CURSOR.get_size() == level.CURSOR.get_size(), "Cursors one, two and three retain equal original dimensions")
-	check(not level.apply_edit(Vector2i.ZERO), "Home protected")
+	check(layout.can_edit(Vector2i.ZERO, "remove", Vector2i.ZERO), "Pawn does not protect home from pickup")
 	check(level.apply_edit(Vector2i(3, 2)), "Isolated island collected")
 	check(layout.stock.meadow == 3, "Collected grass credited")
 	level.selected = "meadow"

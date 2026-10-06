@@ -7,6 +7,7 @@ func run() -> void:
 	var level = load("res://previews/level_four.tscn").instantiate()
 	root.add_child(level)
 	await process_frame
+	level.editing = false
 	var cell := Vector2i(1, 0)
 	level.layout.cells[Vector2i(1, -1)] = "grass"
 	level.layout.cells[cell] = "grass"

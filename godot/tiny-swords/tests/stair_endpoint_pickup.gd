@@ -20,7 +20,7 @@ func _initialize() -> void:
 		layout.cells = {first - direction: "meadow", Vector2i.ZERO: "meadow"}
 		layout.flora.clear()
 		check(layout.edit(first, "stairs", Vector2i.ZERO), "Place first stair bundle")
-		for support in [second + Vector2i.DOWN, last + Vector2i.DOWN]:
+		for support in [landing + Vector2i.DOWN, second + Vector2i.DOWN, last + Vector2i.DOWN]:
 			layout.cells[support] = "high_gold"
 			layout.elevations[support] = 64
 		check(layout.edit(second, "stairs", Vector2i.ZERO), "Second staircase uses the first bundle's landing as its lower endpoint")

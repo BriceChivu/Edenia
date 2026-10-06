@@ -49,6 +49,7 @@ func run() -> void:
 		await process_frame
 	await check_real_construction()
 	await check_real_cutting()
+	await check_overlapping_chicken_undo()
 	await check_fall_respawn()
 	print("Inventory during actions: %s failures" % failures)
 	quit(1 if failures else 0)
@@ -85,6 +86,7 @@ func check_real_cutting() -> void:
 	var tree := Vector2i(0, 1)
 	game.layout.trees[tree] = true
 	game.layout.tree_types[tree] = "tree"
+	game.layout.stock.tree -= 1
 	game.rebuild_decorations()
 	check(game.harvesting.start(tree), "Real tree cutting starts")
 	game.harvesting.advance(1, Time.get_unix_time_from_system())
@@ -98,9 +100,39 @@ func check_real_cutting() -> void:
 	check(game.apply_edit(Vector2i(-1, 0)) and game.pawn.chopping, "Editing preserves real tree cutting")
 	game.undo()
 	check(game.pawn.chopping, "Unrelated undo preserves cutting")
+	check(game.apply_edit(Vector2i(-1, 0)) and not game.ui.undo_button.disabled, "Edit during cutting enables undo")
 	game.harvesting.advance(11, Time.get_unix_time_from_system() + 11)
 	game.harvesting._on_axe_swing_finished()
 	check(game.layout.tree_stumps.has(tree) and game.layout.carried_wood == 1, "Cutting finishes with inventory open")
+	check(game.editing and game.history.is_empty() and game.ui.undo_button.disabled, "Cutting clears undo and disables its button in the open inventory")
+	check(game.apply_edit(Vector2i(-2, 0)) and not game.ui.undo_button.disabled, "A new edit after cutting enables undo again")
+	game.harvesting.advance(0, game.layout.tree_stumps[tree] + 1)
+	check(not game.layout.tree_stumps.has(tree), "Tree regrows with inventory open")
+	check(game.editing and game.history.is_empty() and game.ui.undo_button.disabled, "Regrowth clears undo and disables its button in the open inventory")
+	check(game.apply_edit(Vector2i(-3, 0)) and not game.ui.undo_button.disabled, "A new edit after regrowth enables undo again")
+	game.ui.undo_button.pressed.emit()
+	check(not game.layout.cells.has(Vector2i(-3, 0)) and game.layout.carried_wood == 1, "Undo after regrowth restores the edit without revoking harvested wood")
+	game.queue_free()
+	await process_frame
+
+func check_overlapping_chicken_undo() -> void:
+	var game = load("res://previews/level_seven.tscn").instantiate()
+	game.camera_save_enabled = false
+	root.add_child(game)
+	await process_frame
+	var point: Vector2 = game.layout.center(Vector2i(1, 0))
+	game.layout.chickens.assign([point, point])
+	game.layout.stock.chicken = 0
+	var saved: Dictionary = game.layout.snapshot()
+	var restored = game.Layout.new()
+	check(restored.restore(saved) and restored.chickens == game.layout.chickens, "Saved overlapping chickens restore without losing either animal")
+	var forged: Dictionary = saved.duplicate(true)
+	forged.chickens.append([point.x, point.y])
+	check(not game.Layout.new().restore(forged), "Overlapping positions do not allow unearned chickens")
+	game.ui.buttons.ground.pressed.emit()
+	check(game.apply_edit(Vector2i(-1, 0)), "Ground edit with overlapping chickens succeeds")
+	game.ui.undo_button.pressed.emit()
+	check(not game.layout.cells.has(Vector2i(-1, 0)) and game.layout.chickens == restored.chickens, "Undo restores terrain while preserving overlapping chickens")
 	game.queue_free()
 	await process_frame
 

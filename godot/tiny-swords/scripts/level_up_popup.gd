@@ -14,7 +14,7 @@ func configure(level: int, bridges_enabled := false) -> void:
 		$PineReward.texture = preload("res://assets/chicken.png")
 		$PineReward.tooltip_text = "Chicken"
 		$PineReward.accessibility_name = "1 chicken"
-		$PineCount.text = "×1"
+		$PineCount.text = "+1"
 	if level == 8:
 		var sheep_icon := AtlasTexture.new()
 		sheep_icon.atlas = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Meat/Sheep/Sheep_Idle.png")
@@ -22,7 +22,7 @@ func configure(level: int, bridges_enabled := false) -> void:
 		$PineReward.texture = sheep_icon
 		$PineReward.tooltip_text = "Sheep"
 		$PineReward.accessibility_name = "1 sheep"
-		$PineCount.text = "×1"
+		$PineCount.text = "+1"
 	if level == 2:
 		# Three reward columns, matching the level-three popup spacing.
 		$GroundButton.position.x = 96
