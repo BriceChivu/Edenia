@@ -12,7 +12,7 @@ test('main walkthrough preserves exact step order, targets, copy keys, and hooks
   assert.deepEqual(WALKTHROUGH_STEPS, [
     {
       id: 'town',
-      target: '.city-image-wrap',
+      target: '#tinySwordsSurface',
       textKey: 'walkthrough.town',
       placement: 'bottom'
     },
@@ -98,7 +98,7 @@ test('level-up walkthrough preserves confirmation geometry and hook names', () =
     id: 'level-up-ready',
     target: '#levelUpButton',
     textKey: 'walkthrough.levelUpReady',
-    actionLabel: 'Ok!',
+    actionLabelKey: 'walkthrough.done',
     placement: 'bottom',
     spotlightPadding: 6,
     spotlightHeightTarget: '.goal-card',

@@ -1,5 +1,6 @@
 import { generateTinySwordsProgression } from './tiny-swords-progression.mjs'
 import { buildTinySwords } from './build-tiny-swords.mjs'
+import { buildProductionExperience } from './build-production-experience.mjs'
 import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
 import { execFileSync } from 'node:child_process'
 import {
@@ -74,7 +75,20 @@ html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
 html = versionAssetReference(html, 'config.local.js', assetVersion)
 
-await writeFile(resolve(outputDir, 'index.html'), html)
+const productionHtml = await buildProductionExperience(projectRoot, outputDir, assetVersion)
+const entry = await build({
+  entryPoints: [resolve(projectRoot, 'scripts/site-entry.js')],
+  bundle: true, format: 'iife', platform: 'browser', target: 'es2022',
+  minify: true, write: false,
+  define: {
+    __EDENIA_TESTER_HTML__: JSON.stringify(html),
+    __EDENIA_PRODUCTION_HTML__: JSON.stringify(productionHtml)
+  }
+})
+await writeFile(resolve(outputDir, 'site-entry.js'), entry.outputFiles[0].text)
+await writeFile(resolve(outputDir, 'index.html'), `<!doctype html>
+<script src="site-entry.js?v=${assetVersion}"></script>
+<noscript>Edenia needs JavaScript to open your learner profile.</noscript>\n`)
 
 let plusHtml = await readFile(resolve(projectRoot, 'plus', 'index.html'), 'utf8')
 plusHtml = versionAssetReference(plusHtml, 'style.css', assetVersion)

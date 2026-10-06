@@ -2,6 +2,8 @@ extends "res://scripts/level_two_preview.gd"
 
 const IslandPresentation = preload("res://scripts/island_presentation.gd")
 var island_presentation = IslandPresentation.new()
+var study_locale_callback: JavaScriptObject
+var study_motion_callback: JavaScriptObject
 var study_visibility_callback: JavaScriptObject
 var study_size_callback: JavaScriptObject
 var study_canvas_width := 1152.0
@@ -29,6 +31,13 @@ func _ready() -> void:
 	refresh()
 	study_bridge_ready = true
 	if OS.has_feature("web"):
+		page_focus_requested.connect(func(): JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-focus-exit',session:window.edeniaStudySession},location.origin)"))
+		study_motion_callback = JavaScriptBridge.create_callback(receive_reduced_motion)
+		JavaScriptBridge.get_interface("window").edeniaReceiveReducedMotion = study_motion_callback
+		GamePresentation.reduced_motion = bool(JavaScriptBridge.eval("window.edeniaReducedMotion === true"))
+		study_locale_callback = JavaScriptBridge.create_callback(receive_locale)
+		JavaScriptBridge.get_interface("window").edeniaReceiveLocale = study_locale_callback
+		GameCopy.set_locale(str(JavaScriptBridge.eval("window.edeniaLocale || 'en'")))
 		study_visibility_callback = JavaScriptBridge.create_callback(receive_host_visibility)
 		JavaScriptBridge.get_interface("window").edeniaReceiveHostVisibility = study_visibility_callback
 		study_size_callback = JavaScriptBridge.create_callback(receive_canvas_width)
@@ -41,6 +50,14 @@ func _ready() -> void:
 		study_save_callback = JavaScriptBridge.create_callback(receive_layout_saved)
 		JavaScriptBridge.get_interface("window").edeniaReceiveLayoutSaved = study_save_callback
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-progression',thresholds:%s},location.origin)" % JSON.stringify(Layout.XP_THRESHOLDS))
+
+func receive_reduced_motion(arguments: Array) -> void:
+	if arguments.size() == 1 and arguments[0] is bool:
+		GamePresentation.reduced_motion = arguments[0]
+
+func receive_locale(arguments: Array) -> void:
+	if arguments.size() == 1 and arguments[0] is String:
+		GameCopy.set_locale(arguments[0])
 
 func receive_host_visibility(arguments: Array) -> void:
 	if arguments.size() != 1 or not arguments[0] is bool:

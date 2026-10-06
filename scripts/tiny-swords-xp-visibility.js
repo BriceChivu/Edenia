@@ -12,6 +12,15 @@ function observeCanvasSize() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observeCanvasSize, { once: true })
 else observeCanvasSize()
 
+// Browser preference is a fact; the canonical game chooses which effects stop.
+const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+const publishMotionPreference = () => {
+  window.edeniaReducedMotion = motionPreference.matches
+  window.edeniaReceiveReducedMotion?.(motionPreference.matches)
+}
+motionPreference.addEventListener('change', publishMotionPreference)
+publishMotionPreference()
+
 window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== parent) return
   if (event.data?.type === 'edenia-camera' && window.edeniaReceiveCameraCommand) {

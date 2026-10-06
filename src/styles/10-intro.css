@@ -804,3 +804,20 @@ body[data-theme="dark"] .intro-demo-insight > p { color: var(--muted); }
 @keyframes introTimelineFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes introHeatmapCell { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
 @keyframes introInsightIn { from { opacity: 0; transform: translateY(14px) rotate(1deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(1deg) scale(1); } }
+
+/* Source-captured game media shares the trailer's existing scene timer. */
+.intro-island-demo { margin: 0; width: 100%; display: grid; gap: 8px; }
+.intro-island-frames { position: relative; aspect-ratio: 1152 / 496; overflow: hidden; border-radius: 16px; background: #47aba9; }
+.intro-island-frames img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; opacity: 0; image-rendering: pixelated; }
+.intro-island-frames img.is-selected { opacity: 1; }
+.intro-island-stages { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.intro-island-stages button { background: var(--planet-white); color: var(--planet-black); border: 1px solid currentColor; border-radius: 12px; padding: 6px 10px; font-size: 0.75rem; cursor: pointer; }
+.intro-island-stages button[aria-pressed="true"] { background: var(--planet-lime); }
+.intro-island-stages button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.intro-scene-city { gap: 20px; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); }
+@media (max-width: 640px) {
+  .intro-trailer .intro-scene-city { grid-template-columns: 1fr; gap: 16px; align-content: center; }
+  .intro-island-frames { aspect-ratio: 4 / 3; }
+  .intro-island-frames img { object-fit: cover; }
+  .intro-island-stages button { min-height: 40px; flex: 1; padding: 5px; }
+}

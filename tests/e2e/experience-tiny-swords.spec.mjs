@@ -6,7 +6,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   test.setTimeout(180000)
   // Initialize the disposable learner before starting the large game export.
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
-  await page.goto('./', { waitUntil: 'load' })
+  await page.goto('./?internal_test=2', { waitUntil: 'load' })
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await page.evaluate(() => {
     const state = defaultState(4, [], 'light', [], 'en')
@@ -14,7 +14,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
     state.onboarding = { ...state.onboarding, introSeenAt: at, setupCompleted: true, setupCompletedAt: at, walkthroughCompleted: true, walkthroughCompletedAt: at }
     state.config.ankiEnabled = false
     state.videos.lesson = { id: 'lesson', title: 'XP game test', duration: 7200, status: 'unwatched', watchProgress: [] }
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   })
   await page.unroute('**/tiny-swords-game/*/index.html')
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -23,11 +23,11 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect(frame.locator('#status')).toBeHidden({ timeout: 60000 })
   const gameFrame = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 30000 }).toBe(1)
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland?.island_started)).toBe(false)
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland?.island_started)).toBe(false)
   await frame.locator('#canvas').screenshot({ path: test.info().outputPath('before-start.png') })
   const startBounds = await frame.locator('#canvas').boundingBox()
   await frame.locator('#canvas').click({ position: { x: startBounds.width / 2, y: startBounds.height / 2 } })
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland?.island_started)).toBe(true)
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland?.island_started)).toBe(true)
   await page.waitForTimeout(2200) // Terrain delay followed by the full dust animation.
   const camera = () => gameFrame().evaluate(() => { const {x,y,zoom,width,height} = window.edeniaCamera || {}; return {x,y,zoom,width,height} })
   await expect.poll(async () => (await camera())?.zoom).toBeCloseTo(0.8)
@@ -58,11 +58,21 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await page.mouse.move(wrapBounds.x + wrapBounds.width / 2, wrapBounds.y + wrapBounds.height / 2)
   await page.screenshot({ path: test.info().outputPath('camera-controls.png') })
   async function dragCamera(dx = 45, dy = 20) {
+    const before = await camera()
     const bounds = await frame.locator('#canvas').boundingBox()
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
     await page.mouse.down()
     await page.mouse.move(bounds.x + bounds.width / 2 + dx, bounds.y + bounds.height / 2 + dy, { steps: 8 })
     await page.mouse.up()
+    // Godot publishes camera telemetry every 0.2 seconds. Placement must use
+    // the completed pan, including on a phone where we move the target clear
+    // of host controls, rather than the preceding telemetry sample.
+    const targetX = before.x - dx * before.width / bounds.width / before.zoom
+    const targetY = before.y - dy * before.height / bounds.height / before.zoom
+    // The first changed sample can still describe an intermediate drag step.
+    // Input coordinates round to logical pixels, so allow two world pixels.
+    await expect.poll(async () => Math.abs((await camera()).x - targetX)).toBeLessThan(2)
+    await expect.poll(async () => Math.abs((await camera()).y - targetY)).toBeLessThan(2)
   }
   const pawn = () => gameFrame().evaluate(() => [window.edeniaCamera.pawnX, window.edeniaCamera.pawnY])
   const initialPawn = await pawn()
@@ -114,7 +124,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   // Godot's known 0.7-second celebration entrance must finish before visual capture.
   await page.waitForTimeout(800)
   await page.screenshot({ path: test.info().outputPath('level-two-celebration.png') })
-  const reward2 = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
+  const reward2 = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
   expect(reward2.stock.stairs).toBe(1)
   expect(reward2.stock.meadow + reward2.stock.gold).toBe(3)
   // A reload closes the celebration and restores the same earned inventory.
@@ -131,7 +141,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaCamera.editing)).toBe(true)
   await expect(controls).toHaveClass(/tiny-swords-editing/)
   await dragCamera(15, 10)
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)).toEqual(reward2)
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)).toEqual(reward2)
   expect(await pawn()).toEqual(initialPawn)
   // Opening inventory clears selection; explicitly choose Ground.
   // Level two's chicken slot shifts Ground left in the canonical Godot strip.
@@ -143,18 +153,18 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
     x: ((672 - view.x) * view.zoom + view.width / 2) * bounds.width / view.width,
     y: ((208 - view.y) * view.zoom + view.height / 2) * bounds.height / view.height
   } })
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland.stock.meadow)).toBe(reward2.stock.meadow - 1)
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland.stock.meadow)).toBe(reward2.stock.meadow - 1)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(2)
   await watch(1800)
   await page.locator('#levelUpButton').press('Enter')
   await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel)).toBe(3)
-  const reward3 = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
+  const reward3 = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
   expect(reward3.stock.stairs).toBe(2)
   expect(reward3.stock.tree).toBe(1)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect.poll(() => gameFrame()?.evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(3)
-  const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
+  const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
   expect(restored).toEqual(reward3)
   // Load a raised spawn through the real persistence adapter, then click water.
   const raised = structuredClone(restored)
@@ -192,7 +202,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
 test('high-level claims survive delayed game startup, save failure, and reload', async ({page}) => {
   test.setTimeout(180000)
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Delayed game</title>'}))
-  await page.goto('./',{waitUntil:'load'})
+  await page.goto('./?internal_test=2',{waitUntil:'load'})
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   const {readFile} = await import('node:fs/promises')
   const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json','utf8'))
@@ -209,17 +219,17 @@ test('high-level claims survive delayed game startup, save failure, and reload',
     state.cityProgress={maxLevelIndex:6,pendingLevelIndex:7,experienceVersion:1}
     state.videos.lesson={id:'lesson',title:'High-level XP',duration:25200,status:'partial',watchProgress:[{watchedAt:at,seconds:25200,experienceSeconds:25200}]}
     state.tinySwordsIsland=island
-    localStorage.setItem('edenia_v1',JSON.stringify(state))
+    localStorage.setItem('edenia_v1_internal_test_2',JSON.stringify(state))
   },island)
   await page.reload({waitUntil:'load'})
   await expect(page.locator('#levelUpButton')).toBeEnabled()
-  const progress = () => page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).cityProgress)
+  const progress = () => page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).cityProgress)
   expect((await progress()).maxLevelIndex).toBe(6)
   expect((await progress()).pendingLevelIndex).toBe(7)
   // Reproduce a rejected durable host write through the actual save path.
   await page.evaluate(async () => {
     const original=Storage.prototype.setItem
-    Storage.prototype.setItem=function(key,value){if(key==='edenia_v1')throw new Error('Injected claim write failure');return original.call(this,key,value)}
+    Storage.prototype.setItem=function(key,value){if(key==='edenia_v1_internal_test_2')throw new Error('Injected claim write failure');return original.call(this,key,value)}
     try { if(await claimCityLevelUp()!==false)throw new Error('Failed claim was accepted') }
     finally {Storage.prototype.setItem=original}
   })
@@ -231,7 +241,7 @@ test('high-level claims survive delayed game startup, save failure, and reload',
   await page.unroute('**/tiny-swords-game/*/index.html')
   await page.reload({waitUntil:'domcontentloaded'})
   const game=()=>page.frames().find(frame=>frame.url().includes('/tiny-swords-game/'))
-  const durable=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
+  const durable=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
   await expect.poll(()=>game()?.evaluate(()=>window.edeniaGameLevel),{timeout:60000}).toBe(8)
   await expect.poll(async()=>(await durable()).level).toBe(8)
   const reward=await durable()
@@ -246,7 +256,7 @@ test('high-level claims survive delayed game startup, save failure, and reload',
 test('profile replacement recreates the island, resets it, and blocks a rejected snapshot', async ({ page }) => {
   test.setTimeout(180000)
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Initialize</title>'}))
-  await page.goto('./', {waitUntil:'load'})
+  await page.goto('./?internal_test=2', {waitUntil:'load'})
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   const { readFile } = await import('node:fs/promises')
   const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json','utf8'))
@@ -255,12 +265,12 @@ test('profile replacement recreates the island, resets it, and blocks a rejected
     state.tinySwordsIsland = island
     const at = new Date().toISOString()
     state.onboarding = {...state.onboarding,introSeenAt:at,setupCompleted:true,setupCompletedAt:at,walkthroughCompleted:true,walkthroughCompletedAt:at}
-    localStorage.setItem('edenia_v1',JSON.stringify(state))
+    localStorage.setItem('edenia_v1_internal_test_2',JSON.stringify(state))
   }, island)
   await page.unroute('**/tiny-swords-game/*/index.html')
   await page.reload({waitUntil:'domcontentloaded'})
   const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
-  const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
+  const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
   await expect.poll(() => game()?.evaluate(() => window.edeniaLastSavePersisted),{timeout:60000}).toBe(true)
   const populated = await durable()
   // The retained v23 fixture predates the level-six tree and level-two

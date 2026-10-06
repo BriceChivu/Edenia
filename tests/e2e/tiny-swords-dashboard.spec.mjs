@@ -5,7 +5,7 @@ test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Selected by the Tiny 
 const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8'))
 
 async function seed(page) {
-  await page.goto('./')
+  await page.goto('./?internal_test=2')
   await page.evaluate(island => {
     const state = defaultState(4, [], 'light', [], 'en')
     const at = new Date().toISOString()
@@ -14,12 +14,12 @@ async function seed(page) {
     state.cityProgress = { maxLevelIndex: 9, experienceVersion: 1 }
     state.tinySwordsIsland = island
     state.videos.lesson = { id: 'lesson', title: 'Retained study', duration: 3600, status: 'partial', watchProgress: [{ watchedAt: at, seconds: 900, experienceSeconds: 900 }] }
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, island)
   await page.reload()
 }
 const durable = page => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem('edenia_v1'))
+  const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test_2'))
   return { island: state.tinySwordsIsland, videos: state.videos }
 })
 

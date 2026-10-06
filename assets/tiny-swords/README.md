@@ -61,3 +61,8 @@ folder was added, preserving its hierarchy and all 77 PNGs (71 newly added).
 
 Verification: all UI copies match their source SHA-256 hashes, and PNG signatures
 and chunk checksums pass. The original 189-asset import was verified the same way.
+
+Chinese UI also includes renamed static Noto Sans CJK font subsets under the SIL
+OFL. Source links, regeneration and glyph coverage are documented in
+`godot/tiny-swords/fonts/README.md`; the OFL travels in the game release notices.
+Trailer images are captures of the composed Godot game, not standalone asset sheets.

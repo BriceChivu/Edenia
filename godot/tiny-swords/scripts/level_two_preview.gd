@@ -125,7 +125,7 @@ func _ready() -> void:
 		selected = tool
 		house_log_source = Vector2i(999, 999)
 		ui.collapsed = false
-		ui.panel.accessibility_description = "Pick up tree first, then ground." if tool == "remove" else "Choose a square for " + BuilderUI.NAMES[tool] + "."
+		ui.describe("pickupHelp" if tool == "remove" else "placementHelp", {} if tool == "remove" else {"item": tool})
 		refresh()
 		update_inventory_preview(get_global_mouse_position(), false))
 	ui.undo_requested.connect(undo)
@@ -445,6 +445,8 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 	if tool == "tree":
 		update_tree_preview(point)
 
+signal page_focus_requested
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and ui.celebration == null:
 		if construction.cancel_placement():
@@ -454,6 +456,9 @@ func _input(event: InputEvent) -> void:
 			toggle_editing()
 			get_viewport().set_input_as_handled()
 			return
+		page_focus_requested.emit()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion:
 		# Web canvases can be hovered without keyboard focus (including Edenia's
 		# iframe). Native inactive windows still belong to the system pointer.
@@ -802,7 +807,7 @@ func apply_edit(cell: Vector2i, ground_height: float = -1, tree_placement_offset
 	if selected == "remove":
 		picked_cells = layout.pickup_cells(cell)
 	if not layout.edit(cell, selected, layout.cell_at(pawn.position), ground_height, tree_placement_offset, house_log_source, pawn.position, terrain.placement_offset() if selected == "house" and not layout.houses.has(cell) else Vector2.ZERO):
-		ui.panel.accessibility_description = "That pickup is unavailable. Pick up stairs before their landing." if selected == "remove" else "That spot is unavailable. Try another square."
+		ui.describe("pickupUnavailable" if selected == "remove" else "spotUnavailable")
 		return false
 	reconcile_inventory_work()
 	if selected == "remove":

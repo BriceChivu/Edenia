@@ -1,18 +1,40 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANS_LOCALIZED = {
+  "intro.city.title": "学习。积累经验。打造你的小岛。",
+  "intro.city.level": "小岛等级",
+  "walkthrough.town": "学习可获得 XP，再按小岛下方的「升级」领取奖励。第 2 级起，「地形」可开启建造；选择物品放置，再按关闭按钮返回行走。拖动可移动镜头；视角按钮可缩放或重置。",
+  "walkthrough.firstStudyFeed": "观看视频，每分钟获得 1 XP。学习时，历史记录与小岛进度会更新。",
+  "settings.scoring.anki": "每次新的 Anki 复习可获得 1 XP。每天第一次更新只建立基准。",
+  "city.maxLevel": "已达第 10 级",
+  "island.frameTitle": "学习小岛：积累 XP 解锁建造",
+  "island.profileRequired": "请打开学习者档案以保存小岛。",
+  "island.saveFailed": "无法保存小岛变更。",
+  "intro.island.study": "学习 → XP",
+  "intro.island.unlock": "升级 → 解锁",
+  "intro.island.build": "地形 → 建造",
+  "city.level.1": "你的第一座小岛",
+  "city.level.2": "3 块草地、阶梯和 1 只鸡",
+  "city.level.3": "3 块草地、阶梯和 1 棵树",
+  "city.level.4": "3 块草地、1 棵树和伐木功能",
+  "city.level.5": "3 块草地、1 只绵羊和盖房功能",
+  "city.level.6": "3 块草地和 1 棵树",
+  "city.level.7": "3 块草地和 1 只鸡",
+  "city.level.8": "3 块草地和 1 只绵羊",
+  "city.level.9": "3 块草地",
+  "city.level.10": "3 块草地，已达第 10 级",
+
   "island.loading": "正在加载你的岛屿……你可以继续学习。",
   "island.slow": "岛屿加载较慢。你可以继续学习；已保存的岛屿仍保留。",
   "island.failed": "岛屿无法启动。你可以继续学习；已保存的岛屿仍保留。",
   "island.restoreFailed": "无法还原已保存的岛屿。已阻止新的保存；原有岛屿仍保留。",
   "island.unavailable": "岛屿目前无法使用。你可以继续学习；已保存的岛屿仍保留。",
   "island.intro": "获得 XP 可解锁地形、动物、伐木与房屋。通过十个等级建造你的岛屿。",
-  "city.maxLevel": "已达第 10 级",
-  "city.zoom.controls": "岛屿视角控制",
+  "city.zoom.controls": "小岛视角控制",
   "island.title": "学习岛屿",
   "island.retry": "重试加载岛屿",
   "island.introTitle": "学习、获得经验、建造你的岛屿。",
-  "walkthrough.town": "这是你的岛屿。学习可获得 XP，领取等级可解锁地形、动物与建造功能。下方的 XP 进度条显示你的进度。拖动可移动视角，使用视角控制可缩放或重置。",
+
 
   "townEconomy.coins": "{count} 枚金币",
   "townEconomy.flower": "第一片花圃",
@@ -39,8 +61,7 @@ export const ZH_HANS_LOCALIZED = {
     'intro.purpose.watched': '已观看',
     'intro.purpose.reviews': '次复习',
     'intro.city.kicker': '让进步成为一个地方',
-    'intro.city.title': '学习、获得经验，\n看着你的城镇进化。',
-    'intro.city.level': '城镇等级',
+
     'intro.features.history': '学习历史',
     'intro.features.week': '本周',
     'intro.features.studied': '学习时间',
@@ -383,10 +404,10 @@ export const ZH_HANS_LOCALIZED = {
     'settings.scoring.title': '如何获得经验',
     'settings.scoring.intro': '新观看的视频时间和 Anki 复习可获得经验。',
   'settings.scoring.video': '观看视频 1 分钟可获得 1 XP。',
-  'settings.scoring.anki': '3 次新的 Anki 复习可获得 2 XP。每天第一次更新只建立基准。',
+
   'settings.scoring.examples': '例子：',
   'settings.scoring.exampleVideo': '新观看 15 分钟视频可获得 15 XP。',
-  'settings.scoring.exampleAnki': '3 次新的 Anki 复习可获得 2 XP。',
+  'settings.scoring.exampleAnki': '每次新的 Anki 复习可获得 1 XP。',
     'settings.activity.title': '活动记录',
     'settings.activity.all': '全部',
     'settings.activity.user': '用户',
@@ -581,20 +602,9 @@ export const ZH_HANS_LOCALIZED = {
     'city.readyNext': '可以升到下一级',
     'city.ptsToNext': '还差 {count} XP 到下一级',
     'city.effortToNext': '约 {minutes} 分钟视频或复习 {reviews} 张 Anki 卡',
-    'city.maxLevel': '已达到第 3 级',
+
     'city.levelNumber': '第 {count} 级',
-    'city.level.1': '🏠 孤单的小屋',
-    'city.level.2': '⛵ 你的小屋焕然一新！还多了一艘船！',
-    'city.level.3': '🏝️ 看！一座小小岛！好可爱。',
-    'city.level.4': '孩子们现在会玩得很开心！',
-    'city.level.5': '来加一个泳池放松一下',
-    'city.level.6': '哦！有朋友要来打招呼了...',
-    'city.level.7': '你的小岛扩大了！',
-    'city.level.8': '漂亮的躺椅和可爱的花！🌸',
-    'city.level.9': '你在后院盖了一间可爱的小屋',
-    'city.level.10': '哇！你有邻居了！🏠',
-    'city.level.11': '紫色小屋有了一座可爱的花园！',
-    'city.level.12': '天啊！出现了一座火山！希望它不要爆发...',
+
     'goal.title': '每周目标',
     'nextStudy.title': '继续观看',
     'nextStudy.studyNext': '接下来学习',
@@ -893,7 +903,7 @@ export const ZH_HANS_LOCALIZED = {
     'walkthrough.done': '完成',
     'walkthrough.close': '关闭导览',
     'walkthrough.progress': '{current} / {total}',
-    'walkthrough.town': '这是你的漂浮小镇。你学习时，小镇会一点一点成长，让你不用读很多数字也能快速看到进度。',
+
     'walkthrough.weeklyGoal': '这是你的每周目标。你看过的学习视频时间会填满进度条，帮助你知道这周是否跟上目标。',
     'walkthrough.studyHistory': '学习记录会显示你一段时间内做了什么。它会把看过的视频和 Anki 复习放在一起，让你看懂真正的学习节奏。',
     'walkthrough.studyHistoryNoAnki': '学习记录会显示你一段时间内做了什么。',
@@ -901,7 +911,7 @@ export const ZH_HANS_LOCALIZED = {
     'walkthrough.videos': '这里是视频区。你添加的频道会在这里显示新视频。',
     'walkthrough.firstStudyChannels': '在这里添加 YouTube 频道。',
     'walkthrough.otherAddNow': '立即添加 YouTube 频道或视频！',
-    'walkthrough.firstStudyFeed': '这是你的学习列表。你的目标、记录和小镇都会随着你的学习更新。',
+
     'walkthrough.startWatching': '开始观看视频吧！',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
     'walkthrough.manualWatchedUrl': '使用“添加”粘贴 YouTube 视频或频道网址，Edenia 会自动识别内容。',
@@ -960,7 +970,6 @@ export const ZH_HANS_LOCALIZED = {
   'header.search.dialog': '搜索已保存的视频',
   'header.settings': '设置',
   'city.imageAlt': '学习城镇里程碑：孤单的小屋',
-  'city.zoom.controls': '城镇缩放控制',
   'city.zoom.out': '缩小',
   'city.zoom.reset': '重置视图',
   'city.zoom.in': '放大',
@@ -1088,7 +1097,7 @@ export const ZH_HANS_LOCALIZED = {
   'toast.videoGone': '找不到这个视频',
   'toast.watchedHidden': '已观看视频会显示在学习历史中',
   'toast.couldNotShowVideo': '无法显示这个视频',
-  'toast.levelUp': '城镇升级：{label}',
+  "toast.levelUp": "小岛升级：{label}",
   'toast.skippedShorts': '，已跳过 {count} 个短视频',
   'toast.skippedShortsSettingsHint': '；已获取 {count} 个短视频，但已将其过滤。如要显示，请在设置中启用“显示短视频”',
   'toast.shortsRefetching': '正在刷新所有频道以加载短视频…',
@@ -1164,7 +1173,7 @@ export const ZH_HANS_LOCALIZED = {
   'log.ankiRefreshFailed.title': 'Anki 刷新失败',
   'log.ankiStats.title': 'Anki 统计已刷新',
   'log.ankiStats.detail': '今天追踪到 {reviewed} 次复习，并找到 {created} 张新卡片。',
-  'log.levelUp.title': '已领取城镇升级'
+  "log.levelUp.title": "已领取小岛升级"
 }
 
 const ZH_HANS_DICTIONARY = {

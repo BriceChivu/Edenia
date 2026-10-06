@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing city.">
+  <title>Edenia</title>
+  <script>
+    (() => {
+      const match = window.location.hash.match(
+        /^#edenia-legacy-progress=(transfer\.[A-Za-z0-9_-]{43}|none|deferred)$/
+      );
+      if (!match) return;
+      window.EDENIA_LEGACY_PROGRESS_FRAGMENT = match[1];
+      window.history.replaceState(
+        window.history.state,
+        '',
+        window.location.pathname + window.location.search
+      );
+    })();
+  </script>
+  <script>
+    const sandboxRequested = new URLSearchParams(window.location.search).has('sandbox');
+    const localSandboxOrigin = window.location.origin === 'http://localhost:8001';
+    if (sandboxRequested && !localSandboxOrigin) {
+      window.location.replace(new URL('./sandbox-unavailable', window.location.href));
+    }
+  </script>
+  <link rel="icon" type="image/png" href="Edenia_favicon_round.png">
+  <link rel="preload" as="image" href="images/city/level%201.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin.woff2" type="font/woff2" crossorigin>
+  <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
+  <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
+  <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css?v=20260727-144">
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    const edeniaUrlParams = new URLSearchParams(window.location.search);
+    window.EDENIA_INTERNAL_TEST = edeniaUrlParams.get('internal_test') === '1';
+    window.EDENIA_ANALYTICS_ENABLED = window.location.origin === 'https://www.edenia.study'
+      && window.location.pathname === '/'
+      && !edeniaUrlParams.has('sandbox')
+      && !Object.prototype.hasOwnProperty.call(
+        window,
+        'EDENIA_LEGACY_PROGRESS_FRAGMENT'
+      );
+
+    const authSensitiveUrlParameterPattern = /(?:^|[_-])(?:access_token|refresh_token|id_token|token_hash|token|code|otp|credential|password|secret|session|nonce|captcha|api_key|key|capability|state|email|error)(?:$|[_-])/i;
+
+    function isAuthSensitiveParameterKey(key) {
+      const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
+      return authSensitiveUrlParameterPattern.test(normalizedKey);
+    }
+
+    function redactAuthSensitiveParameters(parameters) {
+      for (const key of [...parameters.keys()]) {
+        if (isAuthSensitiveParameterKey(key)) parameters.set(key, '[REDACTED]');
+      }
+    }
+
+    function hasAuthSensitiveParameters(parameters) {
+      for (const key of parameters.keys()) {
+        if (isAuthSensitiveParameterKey(key)) return true;
+      }
+      return false;
+    }
+
+    function analyticsUrlContainsAuthSensitiveData(value) {
+      if (typeof value !== 'string' || !value) return false;
+      let url;
+      try {
+        url = new URL(value, window.location.origin);
+      } catch {
+        return false;
+      }
+      if (hasAuthSensitiveParameters(url.searchParams)) return true;
+      const rawFragment = url.hash.slice(1);
+      if (!rawFragment.includes('=')) return false;
+      const queryStart = rawFragment.indexOf('?');
+      return hasAuthSensitiveParameters(new URLSearchParams(
+        queryStart >= 0 ? rawFragment.slice(queryStart + 1) : rawFragment
+      ));
+    }
+
+    function redactAnalyticsUrl(value) {
+      if (typeof value !== 'string' || !value) return value;
+      let url;
+      try {
+        url = new URL(value, window.location.origin);
+      } catch {
+        return value;
+      }
+      redactAuthSensitiveParameters(url.searchParams);
+      url.hash = '';
+      return url.href;
+    }
+
+    function sanitizeAnalyticsProperties(properties) {
+      if (!properties || typeof properties !== 'object') return properties;
+      const sanitized = { ...properties };
+      for (const [key, value] of Object.entries(sanitized)) {
+        if (
+          typeof value === 'string'
+          && (
+            /(?:url|href|referrer)$/i.test(key)
+            || /^https?:\/\//i.test(value)
+          )
+        ) {
+          sanitized[key] = redactAnalyticsUrl(value);
+        }
+      }
+      return sanitized;
+    }
+
+    let sessionRecordingBlockedForAuthUrl = false;
+    window.resumeEdeniaSessionRecording = function() {
+      if (!window.EDENIA_ANALYTICS_ENABLED) return false;
+      if (!sessionRecordingBlockedForAuthUrl) return true;
+      if (analyticsUrlContainsAuthSensitiveData(window.location.href)) return false;
+      if (typeof posthog.startSessionRecording !== 'function') return false;
+      posthog.startSessionRecording();
+      sessionRecordingBlockedForAuthUrl = false;
+      return true;
+    };
+
+    if (window.EDENIA_ANALYTICS_ENABLED) {
+      sessionRecordingBlockedForAuthUrl = analyticsUrlContainsAuthSensitiveData(
+        window.location.href
+      );
+      posthog.init('phc_soeip95Z57vX8tK5rCMEjh7nDsmyR7gmJtSFRk59FyWg', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-05-30',
+        autocapture: false,
+        disable_capture_url_hashes: true,
+        disable_session_recording: sessionRecordingBlockedForAuthUrl,
+        get_current_url: () => redactAnalyticsUrl(window.location.href),
+        loaded: () => {
+          window.dispatchEvent(new Event('edenia:analytics-ready'));
+        },
+        sanitize_properties: sanitizeAnalyticsProperties,
+        session_recording: {
+          maskAllInputs: true
+        },
+        person_profiles: 'always'
+      });
+
+      if (window.EDENIA_INTERNAL_TEST) {
+        posthog.register({
+          edenia_internal_test: true,
+          edenia_analytics_environment: 'internal_test'
+        });
+        posthog.setPersonProperties({
+          $internal_or_test_user: true,
+          edenia_internal_test: true
+        });
+      }
+    }
+  </script>
+  <script src="config.local.js" defer></script>
+  <script src="analytics.js?v=20260727-6" defer></script>
+  <script src="app.js?v=20260727-159" defer></script>
+</head>
+<body>
+
+  <canvas class="background-physics" id="backgroundPhysics" aria-hidden="true"></canvas>
+
+  <section class="legacy-progress-migration hidden" id="learnerProfileAccessGate" role="dialog" aria-modal="true" aria-labelledby="learnerProfileAccessTitle" aria-describedby="learnerProfileAccessBody learnerProfileAccessStatus" tabindex="-1">
+    <div class="legacy-progress-migration-card learner-profile-access-card">
+      <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
+      <h1 id="learnerProfileAccessTitle"></h1>
+      <p id="learnerProfileAccessBody"></p>
+      <p class="legacy-progress-migration-status" id="learnerProfileAccessStatus" role="status" aria-live="polite"></p>
+      <section class="learner-profile-access-authentication hidden" id="learnerProfileAccessAuthentication" aria-labelledby="learnerProfileAccessAuthenticationTitle" aria-describedby="learnerProfileAccessAuthenticationBody learnerProfileAccessAuthenticationStatus">
+        <div class="learner-profile-access-authentication-heading">
+          <h1 id="learnerProfileAccessAuthenticationTitle" data-i18n="profileAccess.authentication.title">Sign in to unlock your profile</h1>
+          <p id="learnerProfileAccessAuthenticationBody" data-i18n="profileAccess.authentication.body">Use the account that owns this learner profile.</p>
+        </div>
+        <div class="learner-profile-access-authentication-content" id="learnerProfileAccessAuthenticationContent"></div>
+        <button class="btn-ghost learner-profile-access-authentication-back" type="button" data-profile-access-action="close-sign-in" data-i18n="profileAccess.authentication.back">Back to locked message</button>
+        <p class="legacy-progress-migration-status learner-profile-access-authentication-status" id="learnerProfileAccessAuthenticationStatus" data-i18n="profileAccess.authentication.status">Your learner profile stays hidden until ownership checks succeed.</p>
+      </section>
+      <section class="learner-profile-recovery hidden" id="learnerProfileRecovery" aria-labelledby="learnerProfileRecoveryTitle">
+        <h2 id="learnerProfileRecoveryTitle" data-i18n="profileAccess.recovery.title">Available recovery copies</h2>
+        <ul class="learner-profile-recovery-list" id="learnerProfileRecoveryList" data-profile-recovery-list></ul>
+        <p id="learnerProfileRecoveryEmpty" data-i18n="profileAccess.recovery.none" hidden>No trusted recovery copy is available yet.</p>
+        <p id="learnerProfileRecoveryFeedback" role="status" aria-live="polite"></p>
+      </section>
+      <div class="learner-profile-conflict hidden" id="learnerProfileConflict" aria-labelledby="learnerProfileConflictTitle">
+        <h2 id="learnerProfileConflictTitle" data-i18n="profileConflict.comparisonTitle">Compare your profiles</h2>
+        <p data-i18n="profileConflict.neutralNote">Choose the version you recognize. Edenia does not recommend one based on which was updated most recently.</p>
+        <div class="learner-profile-conflict-table-wrap">
+          <table class="learner-profile-conflict-table">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="profileConflict.difference">Difference</th>
+                <th scope="col" data-i18n="profileConflict.thisDevice">This device</th>
+                <th scope="col" data-i18n="profileConflict.cloud">Cloud</th>
+              </tr>
+            </thead>
+            <tbody id="learnerProfileConflictRows"></tbody>
+          </table>
+        </div>
+        <p class="learner-profile-conflict-empty hidden" id="learnerProfileConflictEmpty" data-i18n="profileConflict.noMeaningfulDifferences">These versions have no meaningful differences in the compared study details.</p>
+        <div class="learner-profile-conflict-export-actions">
+          <button class="btn-ghost" type="button" data-profile-conflict-action="export-device" data-i18n="profileConflict.exportDevice">Export This device</button>
+          <button class="btn-ghost" type="button" data-profile-conflict-action="export-cloud" data-i18n="profileConflict.exportCloud">Export Cloud</button>
+          <button class="btn-secondary" type="button" data-profile-conflict-action="export-both" data-i18n="profileConflict.exportBoth">Export both</button>
+        </div>
+        <div class="learner-profile-conflict-choice-actions">
+          <button class="btn-primary" type="button" data-profile-conflict-action="choose-device" data-i18n="profileConflict.chooseDevice">Use This device</button>
+          <button class="btn-primary" type="button" data-profile-conflict-action="choose-cloud" data-i18n="profileConflict.chooseCloud">Use Cloud</button>
+        </div>
+        <div class="learner-profile-conflict-confirmation hidden" id="learnerProfileConflictConfirmation" role="group" aria-labelledby="learnerProfileConflictConfirmationText">
+          <p id="learnerProfileConflictConfirmationText"></p>
+          <div class="learner-profile-conflict-confirmation-actions">
+            <button class="btn-primary" id="learnerProfileConflictConfirm" type="button" data-profile-conflict-action="confirm-choice" data-i18n="profileConflict.confirm">Confirm this choice</button>
+            <button class="btn-ghost" type="button" data-profile-conflict-action="cancel-choice" data-i18n="profileConflict.cancel">Cancel</button>
+          </div>
+        </div>
+        <p class="learner-profile-conflict-feedback" id="learnerProfileConflictFeedback" role="status" aria-live="polite"></p>
+      </div>
+      <div class="legacy-progress-migration-actions">
+        <button class="btn-primary" id="learnerProfileAccessOpenSignIn" type="button" data-profile-access-action="open-sign-in" data-i18n="accountlessProfileMigration.action.openSignIn" hidden>Open sign-in</button>
+        <button class="btn-primary" id="learnerProfileAccessContinue" type="button" data-profile-access-action="continue-replacement" data-i18n="profileAccess.accountChange.continue" hidden>Continue with this account</button>
+        <button class="btn-secondary" id="learnerProfileAccessExport" type="button" data-profile-access-action="export-replacement" data-i18n="profileAccess.accountChange.export" hidden>Export progress and continue</button>
+        <button class="btn-ghost btn-danger" id="learnerProfileAccessDiscard" type="button" data-profile-access-action="discard-replacement" data-i18n="profileAccess.accountChange.discard" hidden>Discard progress and continue</button>
+        <button class="btn-secondary" id="learnerProfileAccessRetry" type="button" data-profile-access-action="retry" data-i18n="migration.action.retry" hidden>Try again</button>
+        <button class="btn-ghost" id="learnerProfileAccessSignOut" type="button" data-profile-access-action="sign-out" data-i18n="settings.account.signOut" hidden>Sign out</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="learner-profile-opening-notice hidden sr-only" id="learnerProfileOpeningNotice" aria-atomic="true">
+    <p class="learner-profile-opening-protection" id="learnerProfileOpeningProtection" data-i18n="profileAccess.opening.protected">Private learner content stays hidden until the active profile is ready.</p>
+    <p class="learner-profile-opening-status" id="learnerProfileOpeningStatus" role="status" aria-live="polite" data-i18n="profileAccess.opening.status">Getting your progress ready…</p>
+  </div>
+
+  <section class="accountless-profile-migration hidden" id="accountlessProfileMigrationNotice" aria-labelledby="accountlessProfileMigrationTitle" aria-describedby="accountlessProfileMigrationBody accountlessProfileMigrationStatus">
+    <div class="accountless-profile-migration-card">
+      <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
+      <h1 id="accountlessProfileMigrationTitle"></h1>
+      <p id="accountlessProfileMigrationBody"></p>
+      <p class="legacy-progress-migration-status" id="accountlessProfileMigrationStatus" role="status" aria-live="polite"></p>
+      <div class="legacy-progress-migration-actions">
+        <button class="btn-primary" id="accountlessProfileMigrationBackup" type="button" data-accountless-profile-migration-action="begin" data-i18n="accountlessProfileMigration.action.backup" hidden>Back up my progress now</button>
+        <button class="btn-primary" id="accountlessProfileMigrationConfirm" type="button" data-accountless-profile-migration-action="confirm" data-i18n="accountlessProfileMigration.action.confirm" hidden>Continue as this email</button>
+        <button class="btn-primary" id="accountlessProfileMigrationSignIn" type="button" data-accountless-profile-migration-action="open-sign-in" data-i18n="accountlessProfileMigration.action.openSignIn" hidden>Open sign-in</button>
+        <button class="btn-primary" id="accountlessProfileMigrationRetry" type="button" data-accountless-profile-migration-action="retry" data-i18n="accountlessProfileMigration.action.retry" hidden>Try backup again</button>
+        <button class="btn-ghost" id="accountlessProfileMigrationLater" type="button" data-accountless-profile-migration-action="later" data-i18n="accountlessProfileMigration.action.later" hidden>Later</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="legacy-progress-migration hidden" id="legacyProgressMigrationGate" role="dialog" aria-modal="true" aria-labelledby="legacyProgressMigrationTitle" aria-describedby="legacyProgressMigrationBody legacyProgressMigrationStatus">
+    <div class="legacy-progress-migration-card">
+      <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
+      <h1 id="legacyProgressMigrationTitle"></h1>
+      <p id="legacyProgressMigrationBody"></p>
+      <p class="legacy-progress-migration-status" id="legacyProgressMigrationStatus" role="status" aria-live="polite"></p>
+      <div class="legacy-progress-migration-actions">
+        <button class="btn-secondary" type="button" data-legacy-progress-action="retry" data-i18n="migration.action.retry" hidden>Try again</button>
+        <button class="btn-secondary" type="button" data-legacy-progress-action="manual" data-i18n="migration.action.manual" hidden>Import sync file</button>
+        <button class="btn-ghost" type="button" data-legacy-progress-action="continue" data-i18n="migration.action.continue" hidden>Continue without checking old progress</button>
+        <button class="btn-ghost" type="button" data-legacy-progress-action="cancel" data-i18n="migration.action.cancel" hidden>Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FIRST-RUN INTRO TRAILER                               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <section class="intro-trailer hidden" id="introTrailer" data-scene="0" role="dialog" aria-modal="true" aria-labelledby="introTrailerTitle">
+    <div class="intro-top-bar">
+      <aside class="intro-creator" aria-label="Created by BriceLearnStuff">
+        <img class="intro-creator-logo" src="images/planet.png" alt="">
+        <p class="intro-creator-name">
+          <span>Created by</span>
+          <strong>Brice<span>Learn</span>Stuff</strong>
+        </p>
+        <nav class="intro-creator-links" aria-label="BriceLearnStuff links">
+          <a class="intro-social-link intro-social-youtube" href="https://www.youtube.com/@BriceLearnStuff" target="_blank" rel="noopener noreferrer">YouTube</a>
+          <a class="intro-social-link intro-social-twitch" href="https://www.twitch.tv/bricelearnstuff" target="_blank" rel="noopener noreferrer">Twitch</a>
+          <a class="intro-social-link intro-social-support" href="https://ko-fi.com/bricelearnstuff" target="_blank" rel="noopener noreferrer" data-analytics-action="support.kofi">
+            <svg class="intro-social-support-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z"></path>
+            </svg>
+            <span class="sr-only" data-i18n="support.button">Buy me a coffee</span>
+          </a>
+        </nav>
+      </aside>
+
+      <div class="intro-top-controls">
+        <div class="intro-top-actions">
+          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle data-analytics-action="introSoundBtn" type="button" aria-pressed="false">
+            <span class="intro-sound-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
+                <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
+                <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
+              </svg>
+            </span>
+          </button>
+          <button class="intro-skip" type="button" data-intro-finish-action="finish" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
+        </div>
+        <div class="intro-language-picker" id="introLocalePicker">
+          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" data-intro-locale-menu-action="toggle-intro" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
+            <span class="settings-locale-label" id="introLocaleLabel">English</span>
+            <span class="settings-locale-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-locale-menu intro-locale-menu hidden" id="introLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="intro-stage" aria-live="polite">
+      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" data-intro-navigation-direction="-1" data-analytics-action="onboarding.back" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
+        <span aria-hidden="true">←</span>
+      </button>
+      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" data-intro-navigation-direction="1" data-analytics-action="onboarding.continue" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
+        <span aria-hidden="true">→</span>
+      </button>
+
+      <article class="intro-scene intro-scene-opening" data-intro-scene="0">
+        <div class="intro-orbit intro-orbit-one" aria-hidden="true"></div>
+        <div class="intro-orbit intro-orbit-two" aria-hidden="true"></div>
+        <img class="intro-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
+        <p class="intro-kicker" data-i18n="intro.opening.kicker">Your language-learning world</p>
+        <h1 class="intro-logo" id="introTrailerTitle">EDENIA</h1>
+        <p class="intro-lede" data-i18n="intro.opening.title">Watch your progress grow.</p>
+      </article>
+
+      <article class="intro-scene intro-scene-purpose" data-intro-scene="1">
+        <div class="intro-copy">
+          <p class="intro-kicker" data-i18n="intro.purpose.kicker">Study your way</p>
+          <h2 data-i18n="intro.purpose.title">Turn YouTube and Anki into visible progress.</h2>
+          <p data-i18n="intro.purpose.body">Watch the channels you love, review your cards, and let Edenia connect the pieces.</p>
+        </div>
+        <div class="intro-source-flow" aria-hidden="true">
+          <span class="intro-source-aura"></span>
+          <svg class="intro-source-paths" viewBox="0 0 420 360" preserveAspectRatio="none">
+            <path d="M104 112 C122 196 174 202 210 278"></path>
+            <path d="M316 112 C298 196 246 202 210 278"></path>
+            <circle cx="104" cy="112" r="5"></circle>
+            <circle cx="316" cy="112" r="5"></circle>
+          </svg>
+          <div class="intro-source-card intro-source-youtube">
+            <span class="intro-source-card-top">
+              <span class="intro-brand-logo intro-brand-logo-youtube"><img src="images/brands/youtube.svg" alt=""></span>
+              <strong>YouTube</strong>
+              <span class="intro-source-check">✓</span>
+            </span>
+            <span class="intro-source-metric"><b>42 min</b><small data-i18n="intro.purpose.watched">watched</small></span>
+            <span class="intro-source-activity"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="intro-source-card intro-source-anki">
+            <span class="intro-source-card-top">
+              <span class="intro-brand-logo intro-brand-logo-anki"><img src="images/brands/anki.svg" alt=""></span>
+              <strong>Anki</strong>
+              <span class="intro-source-check">✓</span>
+            </span>
+            <span class="intro-source-metric"><b>60</b><small data-i18n="intro.purpose.reviews">reviews</small></span>
+            <span class="intro-source-activity intro-source-activity-anki"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="intro-progress-spark">
+            <span class="intro-progress-orbit"></span>
+            <img class="intro-progress-mark" src="Edenia_favicon_round.png" alt="">
+            <span class="intro-spark-ring">+3</span>
+            <strong data-i18n="intro.purpose.progress">Study points</strong>
+          </div>
+          <span class="intro-source-particle intro-source-particle-one"></span>
+          <span class="intro-source-particle intro-source-particle-two"></span>
+          <span class="intro-source-particle intro-source-particle-three"></span>
+        </div>
+      </article>
+
+      <article class="intro-scene intro-scene-city" data-intro-scene="2">
+        <div class="intro-city-copy">
+          <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
+          <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
+          <div class="intro-city-growth">
+            <button type="button" data-intro-city-level="1" data-analytics-action="selectIntroCityLevel">1</button><i></i>
+            <button type="button" data-intro-city-level="4" data-analytics-action="selectIntroCityLevel">4</button><i></i>
+            <button type="button" data-intro-city-level="8" data-analytics-action="selectIntroCityLevel">8</button><i></i>
+            <button type="button" data-intro-city-level="12" data-analytics-action="selectIntroCityLevel">12</button>
+          </div>
+        </div>
+        <div class="intro-city-viewport" aria-hidden="true">
+          <img class="intro-city-frame intro-city-frame-one" data-intro-city-frame="1" src="images/city/level%201.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-two" data-intro-city-frame="4" src="images/city/level%204.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-three" data-intro-city-frame="8" src="images/city/level%208.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-four" data-intro-city-frame="12" src="images/city/level%2012.webp" alt="">
+          <span class="intro-level-chip"><span data-i18n="intro.city.level">Town level</span> <b id="introCityLevel">1</b></span>
+        </div>
+      </article>
+
+      <article class="intro-scene intro-scene-features" data-intro-scene="3">
+        <div class="intro-feature-demo" aria-hidden="true">
+          <div class="intro-demo-head">
+            <span data-i18n="intro.features.history">Study history</span>
+            <span class="intro-demo-pill" data-i18n="intro.features.week">This week</span>
+          </div>
+          <div class="intro-demo-stats">
+            <div><b>6h 24m</b><span data-i18n="intro.features.studied">studied</span></div>
+            <div><b>7</b><span data-i18n="intro.features.streak">day streak</span></div>
+          </div>
+          <div class="intro-demo-heatmap">
+            <i></i><i class="level-1"></i><i></i><i class="level-2"></i><i class="level-3"></i><i></i><i class="level-1"></i>
+            <i class="level-1"></i><i class="level-2"></i><i class="level-2"></i><i></i><i class="level-4"></i><i class="level-3"></i><i></i>
+            <i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-1"></i><i class="level-3"></i>
+            <i class="level-2"></i><i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-4"></i>
+          </div>
+          <div class="intro-demo-insight">
+            <div class="intro-demo-insight-head">
+              <span class="intro-demo-insight-brand">
+                <img src="Edenia_favicon_round.png" alt="">
+                <span data-i18n="insights.eyebrow">Study insight</span>
+              </span>
+              <span class="intro-demo-insight-trend">↗ +18%</span>
+            </div>
+            <strong data-i18n="insights.title.momentum-up">Your momentum is building</strong>
+            <p data-i18n="intro.features.insightBody">Your recent rhythm is stronger. Repeat the routine that made it work.</p>
+          </div>
+          <div class="intro-demo-goal"><span></span><b>80%</b><small data-i18n="intro.features.goal">Goal</small></div>
+        </div>
+        <div class="intro-copy intro-feature-copy">
+          <p class="intro-kicker" data-i18n="intro.features.kicker">See the journey</p>
+          <h2 data-i18n="intro.features.title">Your rhythm, history,
+and momentum—at a glance</h2>
+          <p data-i18n="intro.features.body">Heatmaps, goals, streaks, and Study Insights turn your history into a clearer next step.</p>
+        </div>
+      </article>
+
+      <article class="intro-scene intro-scene-finale" data-intro-scene="4">
+        <img class="intro-finale-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
+        <p class="intro-kicker" data-i18n="intro.finale.kicker">A little progress. A whole world.</p>
+        <h2 data-i18n="intro.finale.title">What will you build?</h2>
+        <p data-i18n="intro.finale.body">Create your study feed and begin your Edenia.</p>
+        <button class="btn-primary intro-start" id="introStartBtn" type="button" data-intro-finish-action="finish" data-i18n="intro.finale.cta" data-analytics-action="intro.finale.cta">Start my journey</button>
+      </article>
+    </div>
+
+    <div class="intro-timeline" id="introTimeline" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FIRST-RUN ONBOARDING                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <button class="intro-sound onboarding-sound" id="onboardingSoundBtn" data-intro-sound-toggle data-analytics-action="onboardingSoundBtn" type="button" aria-pressed="false">
+      <span class="intro-sound-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
+          <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
+          <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
+        </svg>
+      </span>
+    </button>
+    <div class="onboarding-card">
+      <div class="onboarding-language-picker hidden" id="onboardingLocalePicker">
+        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" data-intro-locale-menu-action="toggle-onboarding" data-analytics-action="onboardingLocaleBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="settings-locale-label" id="onboardingLocaleLabel">English</span>
+          <span class="settings-locale-caret" aria-hidden="true"></span>
+        </button>
+        <div class="settings-locale-menu intro-locale-menu hidden" id="onboardingLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
+      </div>
+      <div class="onboarding-brand" aria-hidden="true">EDENIA</div>
+      <p class="onboarding-promise" data-i18n="onboarding.promise">Turn YouTube and Anki into visible language-learning progress.</p>
+      <div class="onboarding-progress" aria-hidden="true">
+        <span class="onboarding-progress-label" id="onboardingProgressLabel"></span>
+        <span class="onboarding-progress-track"><span class="onboarding-progress-fill" id="onboardingProgressFill"></span></span>
+      </div>
+      <div class="onboarding-content" id="onboardingContent"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- SETTINGS PANEL                                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="settingsPanel" class="settings-panel hidden">
+    <div class="settings-overlay" data-settings-shell-action="close"></div>
+    <div class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="settings-header">
+        <span class="settings-title" id="settingsTitle" data-i18n="settings.title">Settings</span>
+        <button class="btn-icon" id="settingsCloseBtn" data-settings-shell-action="close" data-analytics-action="settings.close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
+      </div>
+
+      <div class="settings-group settings-locale-group">
+        <label for="settingsLocaleBtn" data-i18n="settings.language.label">Language</label>
+        <div class="settings-locale-picker" id="settingsLocalePicker">
+          <button type="button" class="btn-secondary settings-locale-btn" id="settingsLocaleBtn" data-settings-locale-action="toggle" data-analytics-action="settingsLocaleBtn" aria-haspopup="true" aria-expanded="false">
+            <span class="settings-locale-label" id="settingsLocaleLabel"></span>
+            <span class="settings-locale-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-locale-menu hidden" id="settingsLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
+        </div>
+      </div>
+
+      <div class="settings-navigation-group">
+      <section class="settings-group settings-accordion settings-account hidden open" id="accountSettings" aria-labelledby="accountSettingsTitle">
+        <button type="button" class="settings-accordion-toggle settings-account-toggle" data-analytics-action="settings.account.title" aria-expanded="true" aria-controls="accountSettingsContent">
+          <span id="accountSettingsTitle" data-i18n="settings.account.title">Account</span>
+          <span class="settings-accordion-caret" aria-hidden="true"></span>
+        </button>
+        <div class="settings-accordion-content settings-account-content" id="accountSettingsContent">
+          <p class="settings-account-loading" id="accountLoading" role="status" aria-live="polite" data-i18n="settings.account.status.loading">Checking your account…</p>
+
+          <div class="settings-account-signed-out hidden ph-no-capture" id="accountSignedOut">
+            <div class="settings-account-intro">
+              <h3 data-i18n="settings.account.signedOutTitle">Sign in or create your account</h3>
+              <p data-i18n="settings.account.signedOutBody">Use Google, or request a six-digit code by email.</p>
+            </div>
+            <div class="account-google-identity-button hidden" id="accountGoogleIdentityButton" data-google-identity-button data-google-identity-surface="settings"></div>
+            <div class="settings-account-divider" id="accountEmailDivider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
+            <form class="settings-account-email-form" data-account-action="email-form" novalidate>
+              <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
+              <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
+              <div class="account-turnstile hidden" id="accountTurnstile" data-turnstile-widget></div>
+              <p class="account-turnstile-status hidden" id="accountTurnstileStatus" data-turnstile-status role="status" aria-live="polite"></p>
+              <button class="btn-secondary" id="accountEmailBtn" type="submit" data-analytics-action="accountEmailBtn" data-i18n="settings.account.requestCode">Email me a code</button>
+            </form>
+            <form class="settings-account-code-form hidden" id="accountEmailCodeForm" data-account-action="code-form" novalidate>
+              <label for="accountEmailCode" data-i18n="settings.account.codeLabel">Six-digit code</label>
+              <input class="account-auth-email-input account-auth-code-input" id="accountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-i18n-placeholder="settings.account.codePlaceholder" placeholder="123456">
+              <button class="btn-primary" id="accountEmailCodeBtn" type="submit" data-analytics-action="accountEmailCodeBtn" data-i18n="settings.account.verifyCode">Verify code</button>
+            </form>
+          </div>
+
+          <div class="settings-account-signed-in hidden" id="accountSignedIn">
+            <div class="settings-account-identity ph-no-capture">
+              <span data-i18n="settings.account.signedInAs">Signed in as</span>
+              <strong id="accountUserEmail"></strong>
+            </div>
+
+            <section class="settings-account-sync" aria-labelledby="learnerProfileSyncTitle">
+              <h3 id="learnerProfileSyncTitle" data-i18n="progressSync.title">Progress sync</h3>
+              <p class="learner-profile-sync-settings-status hidden" id="learnerProfileSyncSettingsStatus" role="status" aria-live="polite"></p>
+              <p class="settings-note hidden" id="learnerProfileSyncGuidance" data-i18n="progressSync.backupGuidance"></p>
+              <div class="sync-actions hidden" id="learnerProfileSyncActions">
+                <button class="btn-secondary" type="button" data-profile-sync-action="retry" data-i18n="progressSync.retry">Try backup again</button>
+                <button class="btn-secondary" type="button" data-profile-sync-action="export-recovery" data-i18n="progressSync.exportRecovery">Export recovery copy</button>
+              </div>
+            </section>
+
+            <section class="settings-account-reminders" aria-labelledby="accountEmailsTitle">
+              <h3 id="accountEmailsTitle" data-i18n="settings.account.emailsTitle">Emails</h3>
+              <div class="settings-reminder-form" data-reminder-action="form">
+                <fieldset id="reminderPreferenceFields" aria-labelledby="accountEmailsTitle" disabled>
+                  <label class="settings-check" for="streakRemindersEnabled">
+                    <input id="streakRemindersEnabled" type="checkbox">
+                    <span data-i18n="settings.account.streakReminders">Daily streak reminder</span>
+                  </label>
+                  <label class="settings-check" for="discoveryEmailsEnabled">
+                    <input id="discoveryEmailsEnabled" type="checkbox">
+                    <span data-i18n="settings.account.discoveryEmails">Discover new channels</span>
+                  </label>
+                </fieldset>
+                <p class="settings-reminder-feedback hidden" id="reminderFeedback" role="status" aria-live="polite"></p>
+                <button class="btn-secondary hidden" id="reminderRetryBtn" type="button" data-reminder-action="retry" data-i18n="settings.account.remindersRetry">Try loading again</button>
+              </div>
+            </section>
+
+            <button class="btn-secondary settings-account-sign-out" id="accountSignOutBtn" type="button" data-account-action="sign-out" data-i18n="settings.account.signOut">Sign out</button>
+            <button class="btn-ghost settings-account-sign-out" id="accountSignOutEverywhereBtn" type="button" data-account-action="sign-out-everywhere" data-i18n="settings.account.signOutEverywhere">Sign out everywhere</button>
+          </div>
+
+          <p class="settings-account-feedback hidden" id="accountFeedback" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <div class="settings-group settings-shorts-group">
+        <label class="settings-check">
+          <input type="checkbox" id="settingsIncludeShorts" data-settings-preference-action="save">
+          <span data-i18n="settings.shorts.label">Show short videos</span>
+        </label>
+        <p class="step-hint" data-i18n="settings.shorts.hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
+      </div>
+
+      <div class="settings-group settings-accordion settings-howto-group">
+        <button type="button" class="settings-accordion-toggle settings-howto-toggle" data-analytics-action="settings.howto.title" aria-expanded="false" aria-controls="settingsHowToContent">
+          <span data-i18n="settings.howto.title">How to</span>
+          <span class="settings-accordion-caret settings-howto-caret" aria-hidden="true"></span>
+        </button>
+        <div class="settings-accordion-content settings-howto-content" id="settingsHowToContent" hidden>
+          <section class="settings-howto-section">
+            <h3 data-i18n="settings.videoActions.title">Organize your videos</h3>
+            <ul class="settings-video-actions-list">
+              <li data-i18n="settings.videoActions.favorite">Favorite is for videos you want to rewatch repeatedly. Favorites stay available after you watch them.</li>
+              <li data-i18n="settings.videoActions.watchLater">Watch later keeps a video in your active list for another time.</li>
+              <li data-i18n="settings.videoActions.more">More actions lets you remove a video from Continue Watching or from your feed without erasing recorded study activity. Removed videos can be returned to the feed below Watched.</li>
+            </ul>
+          </section>
+          <section class="settings-howto-section settings-anki-section" id="settingsAnkiHowToTarget">
+            <div class="settings-anki-howto-target">
+              <div class="settings-anki-what-block">
+              <h3 data-i18n="settings.anki.whatTitle">What is Anki?</h3>
+              <p class="step-hint" data-i18n="settings.anki.whatIntro">Anki is a flashcard app that schedules reviews to help you remember words and ideas over time. Using Anki with Edenia is optional.</p>
+              <div class="settings-group settings-anki-group">
+                <label class="settings-check">
+                  <input type="checkbox" id="settingsAnkiEnabled" data-settings-preference-action="save">
+                  <span data-i18n="settings.anki.enabled">Enable Anki</span>
+                </label>
+              </div>
+              </div>
+              <h3 class="settings-anki-connect-heading" data-i18n="settings.anki.title">Connect to Anki</h3>
+            </div>
+        <p class="step-hint" data-i18n="settings.anki.intro">Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.</p>
+        <ol class="settings-anki-steps">
+          <li data-i18n="settings.anki.step1">Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.</li>
+          <li>
+            <span data-i18n="settings.anki.step2">In Add-ons, click AnkiConnect, then Config. Copy:</span>
+            <div class="settings-code-block" aria-label="AnkiConnect origin to copy" data-i18n-aria-label="settings.anki.step2InsertCodeLabel" data-anki-config-insert>
+              <code>,"https://www.edenia.study"</code>
+            </div>
+            <span data-i18n="settings.anki.step2Paste">and paste it inside the webCorsOriginList bracket list. For example, you can paste it after:</span>
+            <div class="settings-code-block" aria-label="AnkiConnect localhost origin" data-i18n-aria-label="settings.anki.step2ExistingCodeLabel" data-anki-config-existing-origin>
+              <code>"http://localhost"</code>
+            </div>
+            <span data-i18n="settings.anki.step2Result">In the end, it should look similar to:</span>
+            <div class="settings-code-block" aria-label="AnkiConnect configuration example" data-i18n-aria-label="settings.anki.step2ExampleCodeLabel" data-anki-config-example>
+              <code>{</code>
+              <code>    "apiKey": null,</code>
+              <code>    "apiLogPath": null,</code>
+              <code>    "ignoreOriginList": [],</code>
+              <code>    "webBindAddress": "127.0.0.1",</code>
+              <code>    "webBindPort": 8765,</code>
+              <code>    "webCorsOriginList": [</code>
+              <code>        "http://localhost",</code>
+              <code>        "https://www.edenia.study"</code>
+              <code>    ]</code>
+              <code>}</code>
+            </div>
+          </li>
+          <li data-i18n="settings.anki.step3">Restart Anki and keep Anki open while you use Edenia.</li>
+        </ol>
+
+          </section>
+          <section class="settings-howto-section settings-scoring-section">
+            <h3 data-i18n="settings.scoring.title">How points work</h3>
+        <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews.</p>
+        <ul class="settings-scoring-list">
+          <li data-i18n="settings.scoring.video">Watching 1 hour of video gives 30 pts.</li>
+          <li data-i18n="settings.scoring.anki">60 Anki reviews gives 20 pts.</li>
+        </ul>
+          </section>
+        </div>
+      </div>
+
+        <div class="settings-accordion activity-log-panel">
+          <button type="button" class="settings-accordion-toggle activity-log-toggle" data-analytics-action="settings.activity.title" aria-expanded="false" aria-controls="activityLogContent">
+            <span data-i18n="settings.activity.title">Activity log</span>
+            <span class="settings-accordion-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-accordion-content activity-log-content" id="activityLogContent" hidden>
+            <div class="activity-log-filters" role="tablist" aria-label="Activity log filters" data-i18n-aria-label="settings.activity.filtersLabel">
+              <button class="activity-log-filter active" type="button" data-activity-log-filter="all" data-analytics-action="settings.activity.all" data-i18n="settings.activity.all">All</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="user" data-analytics-action="settings.activity.user" data-i18n="settings.activity.user">User</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="auto" data-analytics-action="settings.activity.auto" data-i18n="settings.activity.auto">Auto</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="issues" data-analytics-action="settings.activity.issues" data-i18n="settings.activity.issues">Issues</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="points" data-analytics-action="settings.activity.points" data-i18n="settings.activity.points">Points</button>
+            </div>
+            <div id="activityLogList" class="activity-log-list"></div>
+          </div>
+        </div>
+        <div class="settings-accordion backup-panel">
+          <button type="button" class="settings-accordion-toggle backup-toggle" data-analytics-action="settings.backups.title" aria-expanded="false" aria-controls="backupContent">
+            <span data-i18n="settings.backups.title">Recent local backups</span>
+            <span class="settings-accordion-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-accordion-content backup-content" id="backupContent" hidden>
+            <div id="backupList" class="backup-list"></div>
+            <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-replay-group">
+        <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="walkthrough" data-analytics-action="settings.walkthroughAgain" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="trailer" data-analytics-action="settings.trailerAgain" data-i18n="settings.trailerAgain">Show trailer again</button>
+      </div>
+
+      <div class="settings-data-group" id="settingsDataGroup">
+        <section class="learner-profile-conflict-recovery hidden" id="learnerProfileConflictRecovery" aria-labelledby="learnerProfileConflictRecoveryTitle" tabindex="-1">
+          <h2 id="learnerProfileConflictRecoveryTitle" data-i18n="profileConflict.protectedTitle">Your protected profile versions</h2>
+          <ul class="learner-profile-conflict-recovery-list" id="learnerProfileConflictRecoveryList" data-profile-conflict-export-list></ul>
+        </section>
+        <div class="sync-actions">
+        <button class="btn-secondary" type="button" data-settings-sync-action="export" data-analytics-action="settings.sync.export" data-i18n="settings.sync.export">Export sync file</button>
+        <button class="btn-secondary" type="button" data-settings-sync-action="choose-file" data-analytics-action="settings.sync.import" data-i18n="settings.sync.import">Import sync file</button>
+          <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" data-settings-sync-action="import-file">
+        </div>
+        <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
+        <div class="sync-import-confirm hidden" id="syncImportConfirm" role="alertdialog" aria-labelledby="syncImportConfirmTitle" aria-describedby="syncImportConfirmBody syncImportConfirmFile">
+          <h3 id="syncImportConfirmTitle" data-i18n="settings.sync.importWarningTitle">Replace this profile?</h3>
+          <p id="syncImportConfirmBody" data-i18n="settings.sync.importWarning">Import replaces this profile. Edenia does not merge progress automatically. It protects the current version first so a failed import can roll back.</p>
+          <p class="sync-import-confirm-file" id="syncImportConfirmFile" aria-live="polite"></p>
+          <div class="sync-import-confirm-actions">
+            <button class="btn-ghost" type="button" data-settings-sync-action="cancel-import" data-i18n="settings.sync.importCancel">Cancel</button>
+            <button class="btn-ghost btn-danger" type="button" data-settings-sync-action="confirm-import" data-i18n="settings.sync.importConfirm">Protect current progress and replace</button>
+          </div>
+        </div>
+        <div class="legacy-progress-recovery-settings hidden" id="legacyProgressRecoverySettings">
+          <button class="btn-secondary" type="button" data-settings-legacy-progress-recovery-action="recover" data-i18n="settings.legacyProgress.recover">Recover progress from the old Edenia address</button>
+          <p class="settings-note" data-i18n="settings.legacyProgress.note">Use this if you studied on Edenia before it moved to edenia.study.</p>
+        </div>
+        <div id="startOverUndo" class="start-over-undo hidden" aria-live="polite">
+          <strong data-i18n="settings.startOver.undoTitle">Started over</strong>
+          <p id="startOverUndoDeadline"></p>
+          <button class="btn-ghost" data-settings-reset-confirm-action="undo" data-analytics-action="settings.startOver.undo" data-i18n="settings.startOver.undo">Undo Start over</button>
+        </div>
+        <button class="btn-ghost btn-danger settings-reset-btn" data-settings-reset-confirm-action="show" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
+        <div id="resetConfirm" class="reset-confirm hidden">
+          <p id="startOverWarning" data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
+          <div class="reset-confirm-actions">
+            <button class="btn-ghost" data-settings-reset-confirm-action="hide" data-analytics-action="settings.reset.cancel" data-i18n="settings.reset.cancel">Cancel</button>
+            <button class="btn-ghost btn-danger" data-settings-reset-confirm-action="confirm" data-analytics-action="settings.reset.delete" data-i18n="settings.reset.delete">Delete data</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="intro-creator settings-creator" aria-label="Created by BriceLearnStuff">
+        <img class="intro-creator-logo" src="images/planet.png" alt="">
+        <p class="intro-creator-name">
+          <span>Created by</span>
+          <strong>Brice<span>Learn</span>Stuff</strong>
+        </p>
+        <nav class="intro-creator-links" aria-label="BriceLearnStuff links">
+          <a class="intro-social-link intro-social-youtube" href="https://www.youtube.com/@BriceLearnStuff" target="_blank" rel="noopener noreferrer">YouTube</a>
+          <a class="intro-social-link intro-social-twitch" href="https://www.twitch.tv/bricelearnstuff" target="_blank" rel="noopener noreferrer">Twitch</a>
+          <a class="intro-social-link intro-social-support" href="https://ko-fi.com/bricelearnstuff" target="_blank" rel="noopener noreferrer" data-analytics-action="support.kofi">
+            <svg class="intro-social-support-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z"></path>
+            </svg>
+            <span class="sr-only" data-i18n="support.button">Buy me a coffee</span>
+          </a>
+        </nav>
+      </aside>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- MAIN APP                                              -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <main id="mainApp" class="hidden" tabindex="-1">
+
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="title-row">
+          <h1 class="app-title">EDENIA</h1>
+          <span class="sandbox-version-label hidden" id="sandboxVersionLabel" data-i18n="header.sandbox">Sandbox version</span>
+          <button class="learner-profile-sync-status hidden" id="learnerProfileSyncStatus" type="button" data-settings-shell-action="sync-status" aria-live="polite"></button>
+        </div>
+        <span class="week-label" id="weekLabel"></span>
+      </div>
+      <div class="header-right">
+        <div class="streak-pill" id="streakDisplay">
+          <span class="streak-icon">🔥</span>
+          <span class="streak-num" id="streakCount">0</span>
+          <span class="streak-text" data-i18n="streak.day">day streak</span>
+        </div>
+        <div class="sandbox-tools hidden" id="sandboxTools">
+          <button class="sandbox-btn" type="button" data-sandbox-action="add-day" data-analytics-action="sandbox.addDay" data-i18n="sandbox.addDay">Add day</button>
+          <button class="sandbox-btn" type="button" data-sandbox-action="reset" data-analytics-action="sandbox.reset" data-i18n="sandbox.reset">Reset</button>
+        </div>
+        <div class="video-search" id="videoSearch">
+          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" data-video-search-action="toggle" data-analytics-action="header.search.title" title="Search videos" aria-label="Search videos" data-i18n-title="header.search.title" data-i18n-aria-label="header.search.title" aria-haspopup="true" aria-expanded="false">
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6"></circle>
+              <path d="M16 16l4 4"></path>
+            </svg>
+          </button>
+          <div class="video-search-popover hidden" id="videoSearchPopover" role="dialog" aria-label="Search saved videos" data-i18n-aria-label="header.search.dialog">
+            <div class="mobile-popover-header">
+              <strong data-i18n="header.search.title">Search videos</strong>
+              <button class="mobile-popover-close" type="button" data-video-search-action="close" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
+            </div>
+            <input type="search" class="video-search-input" id="videoSearchInput" data-video-search-action="query" placeholder="Search videos..." data-i18n-placeholder="header.search.placeholder" autocomplete="off">
+            <div class="video-search-results" id="videoSearchResults"></div>
+          </div>
+        </div>
+        <button class="btn-icon theme-btn" id="themeToggle" data-theme-action="toggle" data-analytics-action="themeToggle" title="Switch to dark mode" aria-label="Switch to dark mode">
+          <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 13A8.5 8.5 0 1 1 11 3.1A7 7 0 0 0 21 13Z"/>
+          </svg>
+          <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>
+          </svg>
+        </button>
+        <button class="btn-icon gear-btn" data-settings-shell-action="open" data-analytics-action="header.settings" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">
+          <svg class="gear-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- CITY BUILDER ──────────────────────────────────────── -->
+    <section class="city-section">
+      <div class="city-image-wrap">
+        <div class="city-image-canvas">
+          <img id="cityMilestoneImage" class="city-milestone-image" src="images/city/level%200.webp" alt="Study city milestone: Lonely house" data-i18n-alt="city.imageAlt" draggable="false" fetchpriority="high" decoding="async">
+        </div>
+        <div class="city-zoom-controls" aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
+          <button class="city-image-btn" type="button" data-city-zoom-action="out" data-analytics-action="city.zoom.out" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">
+            <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14"></path>
+            </svg>
+          </button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="reset" data-analytics-action="city.zoom.reset" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">
+            <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"></path>
+            </svg>
+          </button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="in" data-analytics-action="city.zoom.in" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">
+            <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M12 5v14"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" data-city-waveform-action="mouse-preview">
+          <div class="city-wave-bars" id="cityWaveBars">
+            <div class="city-wave-track" id="cityWaveTrack"></div>
+          </div>
+          <div class="city-wave-tooltip" id="cityWaveTooltip" data-i18n="city.timeline.today">Today</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ANALYTICS ────────────────────────────────────────── -->
+    <section class="analytics-section">
+      <div class="goal-card">
+        <div class="city-level-progress" id="cityLevelProgress" role="progressbar" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0">
+          <div class="city-level-progress-labels">
+            <span class="city-level-label city-level-label-current" id="cityCurrentLevel">Level 1</span>
+            <span class="city-level-label city-level-label-next" id="cityFollowingLevel">Level 2</span>
+          </div>
+          <div class="city-level-progress-track">
+            <div class="progress-track city-level-progress-rail">
+              <div class="progress-fill city-level-progress-fill" id="cityLevelProgressFill"></div>
+            </div>
+            <span class="city-level-remaining-hover" aria-hidden="true"></span>
+            <span class="city-pts" id="cityScoreMarker"><span id="cityScore">0</span> <span id="cityScoreContext" data-i18n="city.totalPts">total pts</span></span>
+            <span class="city-level-progress-actions">
+              <span class="city-next">
+                <span id="cityNextLevel"></span>
+                <small class="city-next-effort" id="cityNextEffort"></small>
+              </span>
+              <button class="level-up-button" id="levelUpButton" type="button" data-city-level-action="claim" aria-hidden="true" disabled data-i18n="city.levelUp" data-analytics-action="city.levelUp">Level up</button>
+            </span>
+            <span class="city-level-milestone-points">
+              <span id="cityCurrentMilestonePoints">0 pts</span>
+              <span id="cityNextMilestonePoints">60 pts</span>
+            </span>
+          </div>
+          <span class="city-stage" id="cityLabel">🏠 Lonely house</span>
+        </div>
+      </div>
+      <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-label="Study insight" data-i18n-aria-label="insights.eyebrow">
+        <div class="study-insight-copy">
+          <div class="study-insight-heading">
+            <span class="study-insight-label">
+              <span class="study-insight-eyebrow" data-i18n="insights.eyebrow">Study insight</span>
+              <img class="study-insight-icon" id="studyInsightIcon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
+            </span>
+            <div class="study-insight-tabs" role="tablist" aria-label="Study insight views" data-i18n-aria-label="insights.tabs.aria">
+              <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" data-analytics-action="insights.tab.current" data-i18n="insights.tab.current">Current</button>
+              <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" data-analytics-action="insights.tab.previous">
+                <span data-i18n="insights.tab.previous">Previous</span>
+                <span class="study-insight-tab-count" id="studyInsightHistoryCount">0</span>
+              </button>
+            </div>
+          </div>
+          <div class="study-insight-current-panel" id="studyInsightCurrentPanel" role="tabpanel" aria-labelledby="studyInsightCurrentTab">
+            <strong class="study-insight-title" id="studyInsightTitle"></strong>
+            <span class="study-insight-body" id="studyInsightBody"></span>
+            <span class="study-insight-evidence" id="studyInsightEvidence"></span>
+            <button type="button" class="study-guidance-action hidden" id="studyGuidanceNextAction" data-study-guidance-action="next-video" data-analytics-action="insights.guidance.next-video" data-i18n="guidance.nextVideo">Choose a video</button>
+            <div class="study-insight-current-lock hidden" id="studyInsightCurrentLock"></div>
+          </div>
+          <div class="study-insight-history-panel hidden" id="studyInsightHistoryPanel" role="tabpanel" aria-labelledby="studyInsightPreviousTab"></div>
+        </div>
+        <button class="study-insight-collapse" type="button" data-analytics-action="insights.collapse" title="Collapse study insights" aria-label="Collapse study insights" data-i18n-title="insights.collapse" data-i18n-aria-label="insights.collapse">×</button>
+      </aside>
+      <button class="study-insight-reopen hidden" id="studyInsightReopen" type="button" data-analytics-action="insights.reopen" aria-controls="studyInsightCard" aria-expanded="false" aria-label="Show study insights" data-i18n-aria-label="insights.reopen.aria">
+        <span aria-hidden="true">✦</span>
+        <span data-i18n="insights.reopen">Insights</span>
+      </button>
+    </section>
+
+    <!-- STUDY HISTORY ───────────────────────────────────── -->
+    <section class="study-history-section">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="history.title">Study History</h2>
+      </div>
+      <div class="history-view-tabs" role="tablist" aria-label="Study history view" data-i18n-aria-label="history.viewLabel">
+        <button type="button" class="history-view-btn active" data-history-view="summary" data-analytics-action="history.summary" role="tab" aria-selected="true" data-i18n="history.summary">Summary</button>
+        <button type="button" class="history-view-btn" data-history-view="heatmap" data-analytics-action="history.heatmap" role="tab" aria-selected="false" data-i18n="history.heatmap">Heatmap</button>
+      </div>
+      <div id="historySummaryView">
+        <div class="history-period-panel" id="historyRangeToolbar">
+          <div class="history-toolbar" role="group" aria-label="Study history range" data-i18n-aria-label="history.rangeLabel">
+            <span class="history-period-cell" data-history-period-range="week">
+            <button type="button" class="history-range-btn active" data-history-period-action="toggle" data-history-range="week" aria-expanded="false" aria-label="Select week" data-i18n-aria-label="history.selectWeek">
+              <span data-i18n="history.week">Week</span>
+              <span class="history-range-caret" aria-hidden="true"></span>
+            </button>
+            <span class="history-period-popover" id="historyWeekPeriodPopover" role="dialog" aria-label="Available weeks" data-i18n-aria-label="history.availableWeeks"></span>
+            </span>
+            <span class="history-period-cell" data-history-period-range="month">
+            <button type="button" class="history-range-btn" data-history-period-action="toggle" data-history-range="month" aria-expanded="false" aria-label="Select month" data-i18n-aria-label="history.selectMonth">
+              <span data-i18n="history.month">Month</span>
+              <span class="history-range-caret" aria-hidden="true"></span>
+            </button>
+            <span class="history-period-popover" id="historyMonthPeriodPopover" role="dialog" aria-label="Available months" data-i18n-aria-label="history.availableMonths"></span>
+            </span>
+          </div>
+        </div>
+        <div class="study-history-grid">
+          <div class="history-stat">
+            <span class="history-stat-val" id="historyStudyTime">0 min</span>
+            <span class="history-stat-lbl" data-i18n="history.videoTime">video time</span>
+          </div>
+          <div class="history-stat">
+            <span class="history-stat-val" id="historyVideosWatched">0</span>
+            <span class="history-stat-lbl" data-i18n="history.videosWatched">videos watched</span>
+          </div>
+          <div class="history-stat">
+            <span class="history-stat-val" id="historyAnkiReviewed">0</span>
+            <span class="history-stat-lbl" id="historyThirdStatLabel" data-i18n="history.ankiReviewed">Anki cards reviewed</span>
+          </div>
+          <div class="history-stat">
+            <span class="history-stat-val" id="historyAnkiCreated">0</span>
+            <span class="history-stat-lbl" id="historyFourthStatLabel" data-i18n="history.ankiCreated">new Anki cards</span>
+          </div>
+        </div>
+        <div class="history-table" id="historyTable"></div>
+      </div>
+      <div class="history-heatmap hidden" id="historyHeatmapView"></div>
+    </section>
+
+    <!-- VIDEO FEED ──────────────────────────────────────── -->
+    <section class="feed-section">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="videos.title">Videos to watch</h2>
+      </div>
+      <div class="feed-controls feed-toolbar">
+        <div class="feed-filter-controls">
+          <div class="status-tabs" id="statusTabs" role="tablist" aria-label="Video status" data-i18n-aria-label="videos.status.label">
+            <button type="button" class="status-tab active" data-status-filter-action="select-tab" data-status-tab="all" data-analytics-action="videos.status.all" role="tab" aria-selected="true"><span data-i18n="videos.status.all">All</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="unwatched" data-analytics-action="videos.status.unwatched" role="tab" aria-selected="false"><span data-i18n="videos.status.unwatched">Unwatched</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="partial" data-analytics-action="videos.status.partial" role="tab" aria-selected="false"><span data-i18n="videos.status.partial">In progress</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="watch-later" data-analytics-action="videos.status.watchLater" role="tab" aria-selected="false"><span data-i18n="videos.status.watchLater">Watch later</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="favorite" data-analytics-action="videos.status.favorite" role="tab" aria-selected="false"><span data-i18n="videos.status.favorite">Favorite</span><span class="status-tab-count">0</span></button>
+          </div>
+          <div class="status-filter" id="statusFilter">
+            <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" data-status-filter-action="toggle" data-analytics-action="statusFilterBtn" aria-haspopup="true" aria-expanded="false">All videos</button>
+            <div class="channel-filter-menu status-filter-menu hidden" id="statusFilterMenu"></div>
+          </div>
+        </div>
+        <div class="feed-action-controls">
+          <div class="manual-video" id="manualVideo">
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" data-manual-video-action="toggle" data-analytics-action="videos.manual.button" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add</button>
+            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video or channel" data-i18n-aria-label="videos.manual.dialog">
+              <div class="mobile-popover-header">
+                <strong data-i18n="videos.manual.button">Add</strong>
+                <button class="mobile-popover-close" type="button" data-manual-video-action="close" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
+              </div>
+              <form class="manual-video-form" data-manual-video-action="submit" data-analytics-action="addYoutubeInput">
+                <p class="manual-video-hint" data-i18n="videos.manual.hint">Search Edenia's channel catalog, or paste a YouTube video or channel URL.</p>
+                <p class="manual-video-hint hidden" id="manualVideoChannelAccess" role="status" aria-live="polite"></p>
+                <div class="manual-video-input-wrap">
+                  <input type="text"
+                    id="manualVideoUrlInput"
+                    data-manual-video-action="query"
+                    placeholder="Search channels or paste a YouTube URL"
+                    data-i18n-placeholder="videos.manual.searchPlaceholder"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="manualChannelSuggestions"
+                    aria-expanded="false">
+                  <div class="manual-channel-suggestions hidden"
+                    id="manualChannelSuggestions"
+                    role="listbox"
+                    aria-label="Channel suggestions"
+                    data-i18n-aria-label="videos.manual.suggestions"></div>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="undo-wrap">
+            <span class="undo-action-wrap">
+              <button type="button" class="btn-secondary undo-btn" id="undoBtn" data-undo-redo-action="toggle" data-undo-redo-direction="undo" data-analytics-action="undoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" data-i18n="videos.undo" disabled>Undo</button>
+              <div class="undo-tooltip hidden" id="undoTooltip" role="dialog" aria-label="Undo queue" data-i18n-aria-label="videos.undo.queue" data-i18n="videos.undo.empty">Nothing to undo</div>
+            </span>
+            <span class="undo-action-wrap">
+              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" data-undo-redo-action="toggle" data-undo-redo-direction="redo" data-analytics-action="redoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" data-i18n="videos.redo" disabled>Redo</button>
+              <div class="undo-tooltip hidden" id="redoTooltip" role="dialog" aria-label="Redo queue" data-i18n-aria-label="videos.redo.queue" data-i18n="videos.redo.empty">Nothing to redo</div>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="next-study-card continue-watching-card hidden" id="nextStudyCard"></div>
+      <div class="video-grid" id="videoGrid">
+        <div class="empty-state" data-i18n="videos.empty.default">Your study feed is ready to grow. Add a YouTube channel or paste one video to begin.</div>
+      </div>
+      <div class="watched-section" id="watchedSection">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="videos.watchedSection">Watched</h2>
+          <button type="button" class="watched-section-toggle" id="watchedSectionToggle" data-watched-section-action="toggle" data-analytics-action="videos.watched.hide" aria-expanded="true" aria-controls="watchedGrid" aria-label="Hide watched videos" data-i18n-aria-label="videos.watched.hide">
+            <span class="watched-count" id="watchedCount">0</span>
+            <span class="watched-section-caret" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="video-grid watched-grid" id="watchedGrid"></div>
+      </div>
+      <div class="watched-section removed-section hidden collapsed" id="removedSection">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="videos.removedSection">Removed</h2>
+          <button type="button" class="watched-section-toggle" id="removedSectionToggle" data-video-organization-action="toggle-removed" data-analytics-action="videos.removed.show" aria-expanded="false" aria-controls="removedGrid" aria-label="Show removed videos" data-i18n-aria-label="videos.removed.show">
+            <span class="watched-count" id="removedCount">0</span>
+            <span class="watched-section-caret" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="video-grid watched-grid removed-grid" id="removedGrid"></div>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <a class="support-link" href="https://ko-fi.com/bricelearnstuff" target="_blank" rel="noopener noreferrer" data-analytics-action="support.kofi">
+        <svg class="support-link-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z"></path>
+        </svg>
+        <span data-i18n="support.button">Buy me a coffee</span>
+      </a>
+      <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" data-feedback-modal-action="open" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
+        <svg class="feedback-launch-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 5.5h14v10H9l-4 3v-13Z"></path>
+        </svg>
+        <span data-i18n="feedback.button">Feedback</span>
+      </button>
+    </footer>
+
+  </main><!-- /mainApp -->
+
+  <div class="plus-modal hidden" id="plusUpgradeModal" data-plus-upgrade-root>
+    <button class="plus-modal-backdrop" type="button" data-plus-action="close" aria-label="Close Edenia Plus" data-i18n-aria-label="plus.action.close"></button>
+    <section class="plus-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="plusModalTitle">
+      <div class="plus-modal-header">
+        <p class="plus-kicker" data-i18n="plus.kicker">EDENIA PLUS</p>
+        <button class="btn-icon plus-modal-close" type="button" data-plus-action="close" aria-label="Close Edenia Plus" data-i18n-aria-label="plus.action.close">×</button>
+      </div>
+      <div class="plus-modal-scroll">
+        <h2 id="plusModalTitle" data-plus-context-title>Keep the whole learning journey in view.</h2>
+        <p class="plus-lede" data-plus-context-body>Unlock the complete history, every Study Insight, and as many tracked channels as you need.</p>
+        <ul class="plus-benefits plus-benefits-compact" data-plus-benefits></ul>
+        <div class="plus-plans" data-plus-plans></div>
+        <p class="plus-account-summary" data-plus-account-summary role="status" aria-live="polite"></p>
+        <form class="plus-auth-form" data-plus-action="upgrade-sign-in" novalidate>
+          <h3 data-i18n="plus.auth.title">Sign in to continue</h3>
+          <p data-i18n="plus.auth.body">We’ll email you a secure sign-in link. Your progress in this browser stays unchanged.</p>
+          <label>
+            <span data-i18n="settings.plusAccount.emailLabel">Email address</span>
+            <input data-plus-email type="email" autocomplete="email" inputmode="email" maxlength="254" required placeholder="you@example.com" data-i18n-placeholder="settings.plusAccount.emailPlaceholder">
+          </label>
+          <button class="btn-primary btn-full" type="submit" data-plus-sign-in-submit data-i18n="plus.auth.continue">Email me a sign-in link</button>
+          <button class="btn-ghost btn-full" type="button" data-plus-action="restore" data-i18n="plus.auth.restore">Already subscribed? Restore Plus</button>
+        </form>
+        <div class="plus-signed-in hidden" data-plus-signed-in>
+          <p data-plus-signed-in-label></p>
+          <div class="plus-account-actions">
+            <button class="btn-secondary" type="button" data-plus-action="refresh" data-i18n="plus.account.refresh">Refresh status</button>
+            <button class="btn-secondary hidden" type="button" data-plus-action="billing-portal" data-plus-manage-billing data-i18n="plus.account.manage">Manage billing</button>
+            <button class="btn-ghost" type="button" data-plus-action="sign-out" data-i18n="settings.plusAccount.signOut">Sign out</button>
+          </div>
+        </div>
+        <p class="plus-feedback hidden" data-plus-feedback role="status" aria-live="polite"></p>
+        <button class="btn-primary btn-full" type="button" data-plus-action="checkout" data-plus-checkout data-i18n="plus.action.checkout">Continue to secure checkout</button>
+        <a class="plus-full-page-link" href="plus/" data-i18n="plus.action.openPage">View the full Plus page</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="feedback-modal hidden" id="feedbackModal">
+    <button class="feedback-backdrop" type="button" data-feedback-modal-action="close" data-analytics-action="feedback.close" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>
+    <section class="feedback-sheet" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+      <div class="feedback-sheet-handle" aria-hidden="true"></div>
+      <div class="feedback-header">
+        <div>
+          <span class="feedback-kicker">EDENIA</span>
+          <h2 id="feedbackTitle" data-i18n="feedback.title">Share feedback</h2>
+        </div>
+        <button class="feedback-close-btn" type="button" data-feedback-modal-action="close" data-analytics-action="feedback_close" aria-label="Close feedback" data-i18n-aria-label="feedback.close">×</button>
+      </div>
+
+      <form class="feedback-form" id="feedbackForm" data-feedback-submission-action="submit">
+        <fieldset class="feedback-category-fieldset">
+          <legend class="sr-only" data-i18n="feedback.categoryLabel">Feedback category</legend>
+          <div class="feedback-category-grid">
+            <label class="feedback-category-option">
+              <input type="radio" name="feedbackCategory" value="bug" checked>
+              <span class="feedback-category-content">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6M8 8 6 6M16 8l2-2M7 12H4M20 12h-3M8 16l-2 2M16 16l2 2M9 8h6v9a3 3 0 0 1-6 0V8Z"></path></svg>
+                <span data-i18n="feedback.category.bug">Bug</span>
+              </span>
+            </label>
+            <label class="feedback-category-option">
+              <input type="radio" name="feedbackCategory" value="idea">
+              <span class="feedback-category-content">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M9.5 21h5M8.2 14.5a6 6 0 1 1 7.6 0c-.8.6-1.3 1.5-1.3 2.5h-5c0-1-.5-1.9-1.3-2.5Z"></path></svg>
+                <span data-i18n="feedback.category.idea">Idea</span>
+              </span>
+            </label>
+            <label class="feedback-category-option">
+              <input type="radio" name="feedbackCategory" value="other">
+              <span class="feedback-category-content">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 3V5Z"></path></svg>
+                <span data-i18n="feedback.category.other">Other</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <label class="feedback-field feedback-message-field" for="feedbackMessage">
+          <span class="sr-only" data-i18n="feedback.messageLabel">Your feedback</span>
+          <textarea id="feedbackMessage" name="feedbackMessage" rows="7" maxlength="2000" required placeholder="What happened, or what would help?" data-i18n-placeholder="feedback.messagePlaceholder"></textarea>
+        </label>
+
+        <div class="feedback-contact-grid">
+          <label class="feedback-field" for="feedbackName">
+            <span data-i18n="feedback.nameLabel">Name</span>
+            <input id="feedbackName" name="feedbackName" type="text" maxlength="80" autocomplete="name" placeholder="Optional" data-i18n-placeholder="feedback.optional">
+          </label>
+          <label class="feedback-field" for="feedbackEmail">
+            <span data-i18n="feedback.emailLabel">Email</span>
+            <input id="feedbackEmail" name="feedbackEmail" type="email" maxlength="254" autocomplete="email" placeholder="Optional" data-i18n-placeholder="feedback.optional">
+          </label>
+        </div>
+
+        <p class="feedback-status hidden" id="feedbackStatus" role="status" aria-live="polite"></p>
+
+        <button class="feedback-submit-btn" id="feedbackSubmitBtn" type="submit" data-analytics-action="feedback_submit">
+          <span data-i18n="feedback.send">Send feedback</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+    </section>
+  </div>
+
+  <div class="video-actions-popover hidden" id="videoActionsPopover" role="dialog" aria-modal="false" aria-labelledby="videoActionsTitle" aria-hidden="true">
+    <div class="video-actions-header">
+      <strong id="videoActionsTitle" data-i18n="videos.actions.title">Video actions</strong>
+      <button type="button" class="video-actions-close" data-video-organization-action="close" data-analytics-action="closeVideoActions" aria-label="Close video actions" data-i18n-aria-label="videos.actions.close">×</button>
+    </div>
+    <div class="video-actions-list" id="videoActionsList" role="menu"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div class="toast feedback-confirmation hidden" id="feedbackConfirmation" role="dialog" aria-labelledby="feedbackConfirmationMessage">
+    <p id="feedbackConfirmationMessage">
+      <span data-i18n="feedback.success">Thank you! Your feedback is on its way.</span>
+      <span>
+        <span data-i18n="feedback.discordPrompt">Check my discord to follow the discussion:</span>
+        <a href="https://discord.gg/tmJ79XUgE" target="_blank" rel="noopener noreferrer" data-i18n="feedback.discordLink">discord</a>
+      </span>
+    </p>
+    <button class="btn-primary feedback-confirmation-ok" type="button" data-feedback-confirmation-action="close" data-analytics-action="feedback.ok" data-i18n="feedback.ok">Ok</button>
+  </div>
+  <div class="heatmap-tooltip" id="heatmapTooltip" aria-hidden="true"></div>
+
+</body>
+</html>

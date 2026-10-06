@@ -1,7 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 test('legacy study remains visible and live watching reaches the first three XP levels across reloads', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?internal_test=2')
   await page.evaluate(() => {
     const state = defaultState(4, [], 'light', [], 'en')
     const at = new Date().toISOString()
@@ -9,7 +9,7 @@ test('legacy study remains visible and live watching reaches the first three XP 
     state.config.ankiEnabled = false
     state.cityProgress.maxLevelIndex = 11
     state.videos.lesson = { id: 'lesson', title: 'XP test lesson', duration: 7200, status: 'watched', watchedAt: at, watchProgress: [{ watchedAt: at, seconds: 600 }] }
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   })
   await page.reload()
   await expect(page.locator('#cityScore')).toHaveText('0')

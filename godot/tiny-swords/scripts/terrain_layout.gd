@@ -139,6 +139,16 @@ func tree_house_space_free(position: Vector2, kind: String) -> bool:
 			return false
 	return true
 
+func tree_swap_variant(cell: Vector2i) -> String:
+	var current := TREE_VARIANTS.find(tree_types.get(cell, "tree"))
+	# Different root footprints can fit beside a house. Skip blocked shapes
+	# instead of letting one unavailable variant stop the whole cycle.
+	for step in range(1, TREE_VARIANTS.size()):
+		var kind: String = TREE_VARIANTS[(current + step) % TREE_VARIANTS.size()]
+		if tree_house_space_free(tree_position(cell), kind):
+			return kind
+	return ""
+
 func tree_blocks_point(position: Vector2, point: Vector2, kind := "tree") -> bool:
 	return Geometry2D.is_point_in_polygon(point, tree_footprint(position, kind))
 
@@ -322,10 +332,11 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell, false, true) and cell != occupied
 	if tool != "tree" and not (tool == "remove" and trees.has(cell)) and house_owner(cell) != Vector2i(999, 999):
 		return tool == "remove" and house_refund_cell(house_owner(cell), occupied) != Vector2i(999, 999)
-	if (chicken_at(cell) >= 0):
-		return tool == "remove"
-	if sheep_at(cell) >= 0:
-		return tool == "remove"
+	# Animals can share a tree's grass tile. Changing an existing tree's
+	# appearance keeps its anchor; let the tree rules below validate the swap.
+	if not (tool == "tree" and trees.has(cell)):
+		if chicken_at(cell) >= 0 or sheep_at(cell) >= 0:
+			return tool == "remove"
 	if tool == "bridge":
 		var start := BridgeRules.candidate(self, cell)
 		return bridges_enabled and level >= 3 and stock.bridge > 0 and BridgeRules.valid(self, start) and occupied not in [start, start + Vector2i.RIGHT]
@@ -373,8 +384,7 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 		return true
 	if tool == "tree":
 		if trees.has(cell):
-			var current := TREE_VARIANTS.find(tree_types.get(cell, "tree"))
-			return tree_house_space_free(tree_position(cell), TREE_VARIANTS[(current + 1) % TREE_VARIANTS.size()])
+			return not tree_swap_variant(cell).is_empty()
 		return valid_tree_offset(tree_placement_offset) and stock[tool] > 0 and cells.has(cell) and cells[cell] != "stairs" and cell != HOME and cell != occupied and tree_house_space_free(center(cell) + tree_placement_offset, next_tree_variant)
 	if tool == "ground":
 		if ground_height >= 0:
@@ -847,10 +857,9 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			elevations.erase(cell)
 	elif tool == "tree":
 		if trees.has(cell):
-			var current := TREE_VARIANTS.find(tree_types.get(cell, "tree"))
-			tree_types[cell] = TREE_VARIANTS[(current + 1) % TREE_VARIANTS.size()]
+			tree_types[cell] = tree_swap_variant(cell)
 		else:
-			clear_generated_scenery(cell)
+			# Trees coexist with the grass tile's bushes, rocks and foliage.
 			trees[cell] = tree_placement_offset
 			tree_types[cell] = next_tree_variant
 			var placed_variant := TREE_VARIANTS.find(next_tree_variant)

@@ -39,6 +39,8 @@ test('runtime environment preserves exact origins, hosts, and first query values
   assert.deepEqual(environment('http://localhost:8001/?sandbox=1'), {
     isSandbox: true,
     isInternalTest: false,
+    internalTestMode: null,
+    isTinySwordsTester: false,
     isLocalhost: true,
     isLocalFeedbackTest: false,
     isLegacyMigrationTest: false

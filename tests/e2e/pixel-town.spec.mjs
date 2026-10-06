@@ -18,7 +18,7 @@ async function seed(page) {
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
 }
-test('retired pixel town is never mounted, including after an internal visit', async ({
+test('mode 2 never mounts the pixel town and ordinary visits retain production', async ({
   page
 }) => {
   if (enabled) {
@@ -30,6 +30,9 @@ test('retired pixel town is never mounted, including after an internal visit', a
     if (r.url().includes('/pixel-town/')) requests.push(r.url())
   })
   await page.goto('/')
+  await seed(page)
+  await expect(page.locator('#cityMilestoneImage, #cityTimeWaveform')).toHaveCount(2)
+  await page.goto('/?internal_test=2')
   await seed(page)
   await expect(page.locator('#cityMilestoneImage, #cityTimeWaveform')).toHaveCount(0)
   expect(requests).toEqual([])

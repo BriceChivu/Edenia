@@ -15,6 +15,7 @@
 .tiny-swords-save-status:empty { display: none; }
 .tiny-swords-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; z-index: 5; }
 .tiny-swords-frame[inert] { pointer-events: none; }
+.tiny-swords-frame:focus { outline: 3px solid #142028; outline-offset: -3px; }
 .tiny-swords-surface .tiny-swords-camera-controls { z-index: 6; display: flex; pointer-events: none; opacity: 1; }
 .tiny-swords-surface .tiny-swords-camera-controls[hidden] { display: none; }
 .tiny-swords-surface .tiny-swords-camera-controls button { pointer-events: auto; cursor: var(--tiny-swords-camera-cursor, default); }
@@ -27,4 +28,7 @@
   .tiny-swords-surface .tiny-swords-camera-controls.tiny-swords-editing { bottom: auto; top: 8px; }
   .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn,
   .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn:hover { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn { transition: none; }
 }

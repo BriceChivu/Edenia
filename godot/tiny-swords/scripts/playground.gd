@@ -11,7 +11,9 @@ var checkpoint: Dictionary = {}
 var checkpoint_pawn := Vector2.ZERO
 var preview_level := 0 # Zero follows the island's highest unlocked level.
 var checkpoint_preview_level := 0
-var message := "Game changes save locally; study XP stays unchanged."
+var message_key := "testDefault"
+var message_params := {}
+var title: Label
 
 func _ready() -> void:
 	load_checkpoint(world.saved_playground_checkpoint)
@@ -29,7 +31,7 @@ func _ready() -> void:
 	toggle.pressed.connect(func(): panel.visible = not panel.visible)
 	var column := VBoxContainer.new()
 	panel.add_child(column)
-	var title := Label.new()
+	title = Label.new()
 	title.text = "Local game testing"
 	column.add_child(title)
 	for actions in [["level", "supplies"], ["terrain", "house"], ["checkpoint", "restore"], ["fresh", "previous"]]:
@@ -48,6 +50,8 @@ func _ready() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_font_size_override("font_size", 13)
 	column.add_child(status)
+	GameCopy.changed.connect(localize)
+	localize()
 	get_viewport().size_changed.connect(arrange)
 	arrange()
 
@@ -76,7 +80,7 @@ func _process(_delta: float) -> void:
 	buttons.supplies.disabled = not ready or world.layout.level < 2
 	buttons.house.disabled = not ready or world.layout.level < 5 or world.layout.house_bundle > 0
 	buttons.restore.disabled = not ready or checkpoint.is_empty()
-	status.text = "Level %s / %s • %s tiles\n%s" % [current_level(), world.Layout.XP_THRESHOLDS.size(), world.layout.cells.size(), message]
+	status.text = GameCopy.text("testStatus", {"level": current_level(), "max": world.Layout.XP_THRESHOLDS.size(), "count": world.layout.cells.size(), "message": GameCopy.text(message_key, message_params)})
 	arrange()
 
 func checkpoint_snapshot() -> Dictionary:
@@ -116,7 +120,7 @@ func run_action(action: String, seed_value: int = -1) -> bool:
 	match action:
 		"previous":
 			preview_level = current_level() - 1
-			message = "Previous level selected. Level +1 replays its popup; unlocks stay."
+			message_key = "testPrevious"
 		"level":
 			world.ui.max_preview_level = world.Layout.XP_THRESHOLDS.size()
 			var target := current_level() + 1
@@ -132,7 +136,7 @@ func run_action(action: String, seed_value: int = -1) -> bool:
 				preview_level = 0
 				world.unlock_level(target)
 			panel.hide()
-			message = "Game level increased; study XP stays unchanged."
+			message_key = "testIncreased"
 		"supplies":
 			world.layout.stock.meadow += 30
 			world.layout.stock.stairs += 8
@@ -146,7 +150,7 @@ func run_action(action: String, seed_value: int = -1) -> bool:
 			world.history.clear()
 			world.refresh()
 			world.save_layout()
-			message = "Added grass, stairs and unlocked trees/animals."
+			message_key = "testSupplies"
 		"house":
 			world.layout.resources.wood += 6
 			world.layout.house_bundle = 6
@@ -154,29 +158,30 @@ func run_action(action: String, seed_value: int = -1) -> bool:
 			world.construction.open_placement()
 			world.save_layout()
 			panel.hide()
-			message = "Six logs reserved. Choose a house site."
+			message_key = "testHouse"
 		"terrain":
 			var next_seed := seed_value if seed_value >= 0 else int(Time.get_ticks_usec())
 			var generated: Dictionary = Terrain.generate(world.layout, next_seed).snapshot()
 			if world.playground_manual_progression:
 				generated["playground_manual_progression"] = true
 			if not replace_island(generated): return false
-			message = "Terrain seed: %s. Restore checkpoint to go back." % next_seed
+			message_key = "testTerrain"
+			message_params = {"seed": next_seed}
 		"fresh":
 			if not replace_island(Terrain.fresh(1).snapshot()): return false
 			preview_level = 0
 			world.playground_manual_progression = true
 			world.save_layout()
-			message = "Fresh start at level 1. Checkpoint retained."
+			message_key = "testFresh"
 		"checkpoint":
 			save_checkpoint()
-			message = "Checkpoint saved locally."
+			message_key = "testSaved"
 		"restore":
 			if not replace_island(checkpoint): return false
 			preview_level = checkpoint_preview_level
 			world.pawn.position = checkpoint_pawn
 			world.pawn.walk_to(checkpoint_pawn)
-			message = "Checkpoint restored."
+			message_key = "testRestored"
 	return true
 
 func replace_island(snapshot: Dictionary) -> bool:
@@ -196,3 +201,15 @@ func replace_island(snapshot: Dictionary) -> bool:
 	world.camera_command("reset")
 	world.save_layout()
 	return true
+
+func localize() -> void:
+	toggle.text = GameCopy.text("playground")
+	title.text = GameCopy.text("testing")
+	GameCopy.font(toggle)
+	GameCopy.font(title)
+	GameCopy.font(status)
+	var labels := {"level": "levelPlus", "previous": "levelMinus", "supplies": "supplies", "terrain": "randomTerrain", "house": "houseLogs", "checkpoint": "checkpoint", "restore": "restore", "fresh": "fresh"}
+	for action in buttons:
+		buttons[action].text = GameCopy.text(labels[action])
+		buttons[action].accessibility_name = buttons[action].text
+		GameCopy.font(buttons[action])

@@ -1,4 +1,27 @@
 export const EN_CORE = {
+  "intro.city.title": "Study. Earn experience. Build your island.",
+  "intro.city.level": "Island level",
+  "walkthrough.town": "Study to earn XP, then use Level up below the island to claim rewards. From level 2, Terrain opens building; select an item to place it, then use the close button to return to walking. Drag to move the camera; the view controls zoom or reset.",
+  "walkthrough.firstStudyFeed": "Watch a video to earn 1 XP per minute. Your history and island progress update as you study.",
+  "settings.scoring.anki": "Each new Anki review earns 1 XP. The first refresh each day establishes a baseline.",
+  "city.maxLevel": "Level 10 reached",
+  "island.frameTitle": "Study island: earn XP to unlock building",
+  "island.profileRequired": "Open a learner profile to save the island.",
+  "island.saveFailed": "Island changes could not be saved.",
+  "intro.island.study": "Study → XP",
+  "intro.island.unlock": "Level up → unlock",
+  "intro.island.build": "Terrain → build",
+  "city.level.1": "Your first island",
+  "city.level.2": "3 ground tiles, stairs and a chicken",
+  "city.level.3": "3 ground tiles, stairs and a tree",
+  "city.level.4": "3 ground tiles, a tree and tree cutting",
+  "city.level.5": "3 ground tiles, a sheep and house building",
+  "city.level.6": "3 ground tiles and a tree",
+  "city.level.7": "3 ground tiles and a chicken",
+  "city.level.8": "3 ground tiles and a sheep",
+  "city.level.9": "3 ground tiles",
+  "city.level.10": "3 ground tiles — level 10 reached",
+
   "island.title": "Study island",
   "island.loading": "Loading your island… You can keep studying.",
   "island.slow": "Your island is taking longer to load. You can keep studying; your saved island is retained.",
@@ -35,8 +58,7 @@ export const EN_CORE = {
   'intro.purpose.watched': 'watched',
   'intro.purpose.reviews': 'reviews',
   'intro.city.kicker': 'Progress becomes a place',
-  'intro.city.title': 'Study.\nEarn experience.\nWatch your town evolve.',
-  'intro.city.level': 'Town level',
+
   'intro.features.history': 'Study history',
   'intro.features.week': 'This week',
   'intro.features.studied': 'studied',
@@ -378,7 +400,7 @@ export const EN_CORE = {
   'settings.scoring.title': 'How experience works',
   'settings.scoring.intro': 'Experience rewards new video watching and Anki reviews.',
   'settings.scoring.video': 'Watching 1 minute of video earns 1 XP.',
-  'settings.scoring.anki': 'Each new Anki review earns 1 XP. The first refresh each day establishes a baseline.',
+
   'settings.activity.title': 'Activity log',
   'settings.activity.filtersLabel': 'Activity log filters',
   'settings.activity.all': 'All',
@@ -591,20 +613,9 @@ export const EN_CORE = {
   'city.readyNext': 'Ready for next level',
   'city.ptsToNext': '{count} XP to next level',
   'city.effortToNext': '≈ {minutes} min video or {reviews} Anki reviews',
-  "city.maxLevel": "Level 10 reached",
+
   'city.levelNumber': 'Level {count}',
-  'city.level.1': '🏠 Lonely house',
-  'city.level.2': '⛵ Your house got a fresh new look! Plus a boat!',
-  'city.level.3': '🏝️ Oh look! A tiny island! Cute.',
-  'city.level.4': 'Kids are gonna have fun now!',
-  'city.level.5': "Let's add a pool to chill",
-  'city.level.6': 'Oh! Some friends are coming to say hi...',
-  'city.level.7': 'You expanded your small island!',
-  'city.level.8': "That's a nice deckchair and some pretty flowers! 🌸",
-  'city.level.9': 'You built a cute house in the backyard',
-  'city.level.10': 'Oh wow! You got a neighbor! 🏠',
-  'city.level.11': 'The little purple house has a cute garden!',
-  'city.level.12': "Damn! A volcano appeared! I hope it won't erupt...",
+
   'goal.title': 'Weekly goal',
   'nextStudy.title': 'Continue watching',
   'nextStudy.studyNext': 'Study next',
@@ -993,7 +1004,7 @@ export const EN_CORE = {
   'toast.videoRemovedFromContinue': 'Removed from in progress',
   'toast.videoRemovedFromFeed': 'Removed from your feed',
   'toast.videoRestoredToFeed': 'Returned to your feed',
-  'toast.levelUp': 'Level up! {label}',
+  "toast.levelUp": "Island level up! {label}",
   'toast.localeChanged': 'Language changed to {language}',
   'toast.skippedShorts': ', skipped {count} short video{plural}',
   'toast.skippedShortsSettingsHint': '; fetched {count} short video{plural}, then filtered them out. To include them, enable “Show short videos” in Settings',
@@ -1047,7 +1058,7 @@ export const EN_CORE = {
   'walkthrough.done': 'Done',
   'walkthrough.close': 'Close walkthrough',
   'walkthrough.progress': '{current} / {total}',
-  "walkthrough.town": "This is your island. Study to earn XP, then claim levels to unlock terrain, animals and building. The XP bar below shows your progress. Drag to move the camera and use the view controls to zoom or reset.",
+
   'walkthrough.weeklyGoal': 'This is your weekly goal. Watched study time fills the bar, so you can quickly see if you are on track for the week.',
   'walkthrough.studyHistory': 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
   'walkthrough.studyHistoryNoAnki': 'Study History shows what happened over time.',
@@ -1055,7 +1066,7 @@ export const EN_CORE = {
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here.',
   'walkthrough.firstStudyChannels': 'Add YouTube channels here.',
   'walkthrough.otherAddNow': 'Add a Youtube channel or video now!',
-  'walkthrough.firstStudyFeed': 'This is your study feed. Your goal, history, and town update from what you study.',
+
   'walkthrough.startWatching': 'Start watching a video!',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
   'walkthrough.manualWatchedUrl': 'Use Add to paste a YouTube video or channel URL. Edenia will recognize which one you entered.',
@@ -1138,7 +1149,7 @@ export const EN_CORE = {
   'log.ankiRefreshFailed.title': 'Anki refresh failed',
   'log.ankiStats.title': 'Anki stats refreshed',
   'log.ankiStats.detail': '{reviewed} tracked reviews today, {created} new cards found.',
-  'log.levelUp.title': 'Level-up claimed'
+  "log.levelUp.title": "Island level claimed"
 }
 
 export const EN_FEEDBACK = {

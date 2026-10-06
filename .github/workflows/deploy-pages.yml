@@ -43,9 +43,9 @@ jobs:
 
       - name: Build static site
         env:
-          # Deferred release: no public mounting in this change.
-          EDENIA_TINY_SWORDS_ENABLED: 'false'
-          # Retained pre-transition renderer; the prepared island surface takes precedence.
+          # Optional tester release only; ordinary visits always retain production.
+          EDENIA_TINY_SWORDS_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_ENABLED || 'false' }}
+          # Retained mode 1 renderer, independent of the Tiny Swords tester mode.
           EDENIA_PIXEL_TOWN_ENABLED: ${{ vars.EDENIA_PIXEL_TOWN_ENABLED }}
           EDENIA_FREE_PLUS_ENABLED: ${{ vars.EDENIA_FREE_PLUS_ENABLED }}
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}

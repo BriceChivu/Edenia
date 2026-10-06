@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
-function harness({ legacy = null, island = 'absent', denied = false, delayed = false } = {}) {
+function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true } = {}) {
   const handlers = {}; const sent = []; const frames = []; const storage = new Map()
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
@@ -20,11 +20,11 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
       return true
     }
   })
-  const node = { dataset:{}, querySelector(){return node}, blur(){}, setAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){} }
+  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){} }
   const context = {
     location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},
     URL,
-    window:{EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn}},
+    window:{edeniaTinySwordsEnabled:true,edeniaTinySwordsLegacyPreview:developer,EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn}},
     document:{body:node,querySelectorAll(){return []},currentScript:{src:'http://localhost:8037/tiny-swords-game/test/parent.js'},documentElement:node,visibilityState:'visible',addEventListener(type,fn){handlers[type]=fn},createElement(type){
       if(type!=='iframe') return {...node}
       const frame = {...node,contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
@@ -50,9 +50,22 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
 }
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
 
+test('keyboard exit returns to the host only for the ready current game session', async () => {
+  const h = harness({island})
+  const controls = h.document.getElementById('tinySwordsSurface')
+  await h.emit({type:'edenia-game-focus-exit',session:1})
+  assert.equal(controls.focusCount,undefined,'a loading frame cannot steal host focus')
+  await h.ready()
+  await h.emit({type:'edenia-game-focus-exit',session:99})
+  assert.equal(controls.focusCount,undefined,'stale messages cannot move host focus')
+  await h.emit({type:'edenia-game-focus-exit',session:1})
+  assert.equal(controls.focusCount,1)
+  assert.equal(h.writes,0,'keyboard exit cannot write learner data')
+})
+
 test('integrated developer save transfers only after accepted restore and successful profile persistence', async () => {
   const h = harness({legacy:JSON.stringify(island),island:undefined,denied:true})
-  await h.emit({type:'edenia-tiny-ready'}); assert.equal(h.sent.length,0)
+  await h.emit({type:'edenia-tiny-ready'}); assert.equal(h.sent.filter(message => message.type === 'edenia-study-level').length,0)
   await h.ready()
   const restored = h.sent.findLast(x=>x.type==='edenia-study-level')
   assert.equal(restored.level,3,'only claimed study progress sets the upgrade floor')
@@ -131,7 +144,7 @@ test('host visibility preserves the frame, resumes partial intersection, and ign
 
 test('visibility receiver accepts only current parent/session facts', () => {
   const handlers={};const calls=[];const parent={}
-  const context={parent,location:{origin:'http://localhost:8037'},window:{edeniaStudySession:2,edeniaReceiveHostVisibility:value=>calls.push(value),addEventListener(type,fn){handlers[type]=fn}}}
+  const context={parent,location:{origin:'http://localhost:8037'},window:{matchMedia:()=>({matches:false,addEventListener(){}}),edeniaStudySession:2,edeniaReceiveHostVisibility:value=>calls.push(value),addEventListener(type,fn){handlers[type]=fn}}}
   context.document={readyState:'loading',addEventListener(){}}
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-visibility.js','utf8'),context)
   const message={origin:context.location.origin,source:parent,data:{type:'edenia-host-visibility',session:2,visible:false}}
@@ -198,4 +211,13 @@ test('IndexedDB claim publication uses the durable head without composing the pr
     getCheckpointRepository:()=>({readIslandState:()=>head}),save(){assert.fail('Read-only publication')}
   })
   assert.equal(adapter.readClaimedLevel(),10)
+})
+
+test('tester profiles never inherit or retire a developer island', async () => {
+  const raw = JSON.stringify(island)
+  const h = harness({ legacy: raw, developer: false })
+  await h.ready()
+  assert.equal(h.sent.findLast(message => message.type === 'edenia-study-level').layout, null)
+  await h.emit({ type: 'edenia-tiny-layout', session: 1, id: 1, layout: island })
+  assert.equal(h.storage.get('edenia_tiny_swords_xp_layout_v1'), raw)
 })

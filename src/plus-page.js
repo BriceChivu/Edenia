@@ -48,6 +48,10 @@ const policy = createPlusAccessPolicy({
   entitlementState: PLUS_ENTITLEMENT_STATES.LOADING
 })
 const params = new URLSearchParams(window.location.search)
+const appReturnUrl = new URL('../', window.location.href)
+if (runtimeEnvironment.internalTestMode && !runtimeEnvironment.isSandbox) {
+  appReturnUrl.searchParams.set('internal_test', runtimeEnvironment.internalTestMode)
+}
 let featureId = normalizePlusFeatureId(params.get('feature'))
 let transientFeedback = params.get('checkout_cancelled') === '1'
   ? 'checkout-cancelled'
@@ -177,12 +181,12 @@ function initializeControllers() {
 }
 
 if (!accountFeaturesEnabled) {
-  window.location.replace('../')
+  window.location.replace(appReturnUrl.href)
 } else {
   root.hidden = false
   setCurrentLocale(normalizeLocale(params.get('locale') || storedLocale()))
   bindPlusUpgradeActions(root, {
-    close() { window.location.assign('../') },
+    close() { window.location.assign(appReturnUrl.href) },
     selectPlan(plan) {
       transientFeedback = null
       if (billingController) {

@@ -3,8 +3,10 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
 
+import { readBuiltExperience } from '../support/built-experience.mjs'
+
 test('the built game is one content-versioned release and does not host raw pack directories', async () => {
-  const html = await readFile('_site/index.html', 'utf8')
+  const html = await readBuiltExperience()
   const parent = html.match(/src="(tiny-swords-game\/([a-f0-9]{64})\/parent.js)" defer/)
   assert.ok(parent, 'normal builds must retain the integration')
   assert.deepEqual(await readdir('_site/tiny-swords-game'), [parent[2]])

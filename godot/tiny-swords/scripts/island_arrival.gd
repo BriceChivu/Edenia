@@ -23,6 +23,8 @@ func _ready() -> void:
 	button = preload("res://scenes/island_start.tscn").instantiate()
 	root.add_child(button)
 	button.pressed.connect(start)
+	GameCopy.changed.connect(localize)
+	localize()
 	get_viewport().size_changed.connect(arrange)
 	restore()
 
@@ -85,11 +87,19 @@ func _process(delta: float) -> void:
 			effect.z_index = world.pawn.z_index + 1
 			effect.setup_dust(world.ground_height(world.pawn.position))
 			world.get_node("World").add_child(effect)
+			effect.visible = not GamePresentation.reduced_motion
 	elif phase == Phase.DUST:
 		elapsed += delta
+		if is_instance_valid(effect):
+			effect.visible = not GamePresentation.reduced_motion
 		world.pawn.visible = elapsed >= REVEAL_DELAY
-		world.pawn.modulate.a = clampf((elapsed - REVEAL_DELAY) / REVEAL_SECONDS, 0.0, 1.0)
+		world.pawn.modulate.a = 1.0 if GamePresentation.reduced_motion else clampf((elapsed - REVEAL_DELAY) / REVEAL_SECONDS, 0.0, 1.0)
 		if not is_instance_valid(effect):
 			phase = Phase.READY
 			apply_visibility()
 			world.refresh()
+
+func localize() -> void:
+	button.text = GameCopy.text("start")
+	button.accessibility_name = button.text
+	GameCopy.font(button)

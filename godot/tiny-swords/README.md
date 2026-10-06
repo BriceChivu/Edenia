@@ -59,7 +59,8 @@ chooses a variant in advance, so the hover preview matches the placed tree.
 After placement, the next preview randomly chooses one of the other three types.
 The pending variant stays fixed until a successful placement and is saved with
 the layout, including undo. Clicking a placed tree while the inventory is open cycles through
-all four variants for free. The tool stays available even with zero tree stock.
+all four variants for free, skipping variants whose roots would overlap a house.
+Hover and click choose the same next fitting variant. The tool stays available even with zero tree stock.
 Saves and undo retain the chosen variant. Picking it up returns one
 shared tree item. Save version 15 also migrates the earlier separate tree inventory.
 
@@ -257,7 +258,7 @@ according to neighbors, including the dedicated narrow and isolated pieces;
 shore foam, automatic shadows, and land-facing versus water-facing cliffs follow
 the editable layout. Foam frames are staggered between cells. Paper and button nine-slice
 patches and ribbon segments are assembled from the pack's separated source pieces.
-Medieval Sharp is inherited by all game UI text. Original PNGs are not edited. Five terrain colors remain available in source art;
+Medieval Sharp is inherited by Latin game UI text; Chinese uses bundled Noto subsets. Original PNGs are not edited. Five terrain colors remain available in source art;
 the automatic level-two palette uses green and gold.
 
 Layout and reward state save only to the preview browser's local storage (or
@@ -451,14 +452,43 @@ works automatically at `/Applications/Godot.app/Contents/MacOS/Godot`, or set
 CI imports a fresh copy without `.godot`; no Downloads/Desktop paths are needed.
 Only the official Linux editor and the two matching Web templates are installed.
 
-`npm run build` includes the game with **mounting off**. The dashboard uses the
-island surface even with the release control unset; the town snapshot timeline
-and image runtime are retired. `EDENIA_TINY_SWORDS_ENABLED=true` mounts the game;
-`false` or unset keeps the unavailable-island feedback. This is one release control, written as `tinySwordsEnabled`
-through the existing runtime-config machinery. `npm run build:production` runs
-that same exporter before the existing required-key config writer. The Pages
-workflow pins this control to false until a separately reviewed release.
-No deployment or public mounting is part of this implementation.
+`npm run build` packages both experiences with **game mounting off**. Ordinary
+visits, `internal_test=1`, unsupported values and sandbox retain the existing
+production town, timeline, onboarding and scoring. The checked-in source overlay
+in `compat/production/` preserves that implementation; builds require no Git
+history. Page selection runs before either experience's markup is parsed, so
+ordinary visits request no game adapter, iframe, engine, WASM or asset pack.
+
+### Mode 2 tester release
+
+The tester link is `https://www.edenia.study/?internal_test=2`. This is an
+unadvertised mode: anyone who knows the URL can use it. It introduces no login
+flow, and internal Auth stays paused. Mode 2 does not activate mode 1 account
+experiments, even if the account rollout control is set to internal or public.
+
+Set `EDENIA_TINY_SWORDS_ENABLED=true` for a tester-capable build (or
+`tinySwordsEnabled: true` in local runtime config). The same switch is read by
+`npm run build:production`. For a future Pages release, set the repository
+variable `EDENIA_TINY_SWORDS_ENABLED` to `true`; unset or `false` disables game
+mounting. The workflow defaults to off. This implementation does not deploy or
+change that repository variable. The control applies only to mode 2 and the
+existing dedicated localhost:8037 developer preview, never ordinary visitors.
+Playground remains restricted to its existing developer origin.
+
+Onboarding, URL cleanup and refresh retain `internal_test=2`. Mode 2 stores its
+learner profile and island under `edenia_v1_internal_test_2`, its config cookie
+under `edenia_config_internal_test_2`, and its caches/drafts/backups under the
+same mode-specific namespace. IndexedDB profile and backup databases are
+separate too. Availability does not affect these keys. No other mode's profile,
+legacy developer island or legacy-origin progress migrates automatically.
+Use Settings → Export sync file in the source mode, then Settings → Import sync
+file in mode 2 to seed the tester's portable profile deliberately.
+
+Remove `internal_test=2` from the URL or open `https://www.edenia.study/` to return
+to normal Edenia. Each mode resumes its own progress. Disabling the switch keeps
+the tester's study UI usable and displays unavailable-island feedback; saved
+islands remain intact. Re-enable and refresh to restore the same island. A
+public Tiny Swords rollout requires a separate release decision.
 
 The generated directory is `_site/tiny-swords-game/<sha256>/`. Parent adapter,
 iframe HTML/transport, engine JS/WASM, game PCK, cursor and notices share a hash
@@ -475,7 +505,7 @@ profiles (the fixtures include a populated island):
 ```sh
 EDENIA_TINY_SWORDS_ENABLED=true npm run build
 EDENIA_TEST_TINY_SWORDS=true EDENIA_TEST_NORMAL_PORT=4174 EDENIA_TEST_BASE_PATH=/Edenia/ \
-  npx playwright test experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-page-scroll.spec.mjs \
+  npx playwright test experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-tester-mode.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-copy.spec.mjs tiny-swords-page-scroll.spec.mjs tiny-swords-acceptance.spec.mjs \
   --project=desktop-standard --project=phone-standard
 ```
 
@@ -495,7 +525,7 @@ presentation only; it does not clear profiles, claims, island data or backups.
 The automated smoke tests this exact sequence locally without any hosted writes.
 
 The raw `assets/tiny-swords` directory is excluded from hosting. The game's
-`notices/` directory carries engine/third-party licenses, the MedievalSharp OFL,
+`notices/` directory carries engine/third-party licenses, the MedievalSharp and Noto OFLs,
 and [asset provenance](../../assets/tiny-swords/README.md). Tests, editor preview
 entries and obsolete raw chicken reference frames are excluded from the PCK.
 
@@ -734,15 +764,15 @@ entry points twice and checks real transitions plus save isolation.
 ## Edit the level-up popup visually
 
 Open `res://scenes/level_up_popup.tscn` and select **2D**. Move and resize
-**Paper**, **Ribbon**, **Title**, **Message**, and **BuildButton** directly;
-edit text and Theme Overrides in the Inspector. Keep these node names so the
+**Paper**, **Ribbon**, **Title**, and **BuildButton** directly;
+edit artwork and Theme Overrides in the Inspector. Keep these node names so the
 upgrade code can find them. The root's size defines the popup's layout bounds
 and responsive fit. Artwork and button/paper styles are saved scene resources,
 so their appearance is visible while editing, without running the game.
 
-Title, Message, and BuildButton text are the level-two copy. Select the root
-**LevelUpPopup** to edit the exported **Level three text** fields. Both upgrades
-use this same visual layout. To test the animated popup and button behavior,
+Runtime Title and BuildButton text come from `i18n/` through `GameCopy`. Reward
+icons share this visual layout across levels. Phone fitting scales the paper and
+keeps title/confirmation text readable. To test the animated popup and button behavior,
 run `previews/level_one_to_two.tscn` or `previews/level_two_to_three.tscn` with
 **F6**, then click **Playground → Level +1** or **Playground → Level +1**. Running the popup alone
 shows the static design; its button is connected by the gameplay scene.
@@ -1003,3 +1033,49 @@ buttons inert. Edenia relays the hidden presentation state through the existing
 visibility bridge; Godot owns suspension and resume. Closing an overlay resumes
 the same frame. The focused dashboard smoke verifies pointer, keyboard and camera
 blocking alongside engine failure/retry and durable data preservation.
+
+## Browser input and motion preferences
+
+Tab navigates the Godot buttons. Escape cancels house placement or closes Terrain;
+when no such action is pending, Escape returns keyboard focus to Edenia's Reset
+view button. Host and Godot controls show visible focus borders. Study level and XP remain readable in Edenia's DOM outside the canvas. Browser
+accessibility snapshots do not expose the canvas's Godot button labels; this is
+not evidence of screen-reader-accessible building.
+
+The integration relays `prefers-reduced-motion` at startup and on live changes.
+Godot freezes decorative cloud drift, hides the foreground cloud, omits reward
+sparks/fades and hides arrival dust while retaining the existing arrival and
+gameplay clocks. The preference never enters an island snapshot. Normal effects
+remain the default in the native preview. Covered and offscreen suspension keeps
+using the existing visibility policy.
+
+Issue #380 evidence and the pending physical-device checklist are recorded in
+`docs/experiments/tiny-swords/acceptance-2026-10-06/report.md` at the repository root.
+
+## Trailer, walkthrough and locale
+
+The current Edenia loop is study → XP → claim Level up → Godot unlock → building.
+A new minute watched earns 1 XP; each new Anki review after the daily baseline earns
+1 XP. Legacy study facts and Study History calculations retain their existing policy.
+Ten levels use the Godot progression table above. From level two, Terrain opens the
+inventory; select an item and place it, then close the panel to return to walking.
+The old town snapshot timeline is retired; Study History remains available.
+
+The five-scene trailer uses three static captures of this game's fresh preview:
+level one, the level-two reward popup, and placement of its ground rewards. It loads
+responsive PNG media rather than another engine. Reward captures match the host locale. The captures advance within the existing scene
+timer; selecting a stage pauses that scene until navigation or Skip. Settings replay
+and the short host walkthrough preserve completed general onboarding. Walkthroughs
+point at the island surface and keep the game/camera controls inert beneath the overlay.
+
+Regenerate the media with the desktop renderer:
+`Godot --path godot/tiny-swords --script res://tools/capture_trailer.gd`.
+Captures write to `images/tiny-swords-trailer/` and never open learner saves.
+
+Edenia sends its current locale at game readiness and on language changes. The bridge
+only transports that presentation preference. Godot's `GameCopy` owns English,
+Traditional/Simplified Chinese, Spanish and French strings, live UI refresh and fonts.
+Locale changes never replace the iframe or modify an island save. Chinese UI uses
+bundled subset fonts; update their glyph subsets when changing the Godot catalogs.
+See `fonts/README.md` for provenance and regeneration. Validate with the integrated
+export contract and `tiny-swords-copy.spec.mjs`, then rebuild the integrated preview.

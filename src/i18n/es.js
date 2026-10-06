@@ -1,18 +1,40 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "intro.city.title": "Estudia. Gana experiencia. Construye tu isla.",
+  "intro.city.level": "Nivel de la isla",
+  "walkthrough.town": "Estudia para ganar XP y pulsa Subir de nivel debajo de la isla para recibir recompensas. Desde el nivel 2, Terreno abre la construcción: selecciona un objeto para colocarlo y usa el botón de cierre para volver a caminar. Arrastra la cámara; los controles amplían o restablecen la vista.",
+  "walkthrough.firstStudyFeed": "Mira un vídeo para ganar 1 XP por minuto. Tu historial y el progreso de la isla se actualizan al estudiar.",
+  "settings.scoring.anki": "Cada nueva revisión Anki da 1 XP. La primera actualización del día establece una referencia.",
+  "city.maxLevel": "Nivel 10 alcanzado",
+  "island.frameTitle": "Isla de estudio: gana XP para desbloquear la construcción",
+  "island.profileRequired": "Abre un perfil de aprendizaje para guardar la isla.",
+  "island.saveFailed": "No se pudieron guardar los cambios de la isla.",
+  "intro.island.study": "Estudio → XP",
+  "intro.island.unlock": "Subir de nivel → desbloquear",
+  "intro.island.build": "Terreno → construir",
+  "city.level.1": "Tu primera isla",
+  "city.level.2": "3 parcelas, escaleras y una gallina",
+  "city.level.3": "3 parcelas, escaleras y un árbol",
+  "city.level.4": "3 parcelas, un árbol y tala de árboles",
+  "city.level.5": "3 parcelas, una oveja y construcción de casas",
+  "city.level.6": "3 parcelas y un árbol",
+  "city.level.7": "3 parcelas y una gallina",
+  "city.level.8": "3 parcelas y una oveja",
+  "city.level.9": "3 parcelas",
+  "city.level.10": "3 parcelas: nivel 10 alcanzado",
+
   "island.loading": "Cargando tu isla… Puedes seguir estudiando.",
   "island.slow": "Tu isla está tardando en cargar. Puedes seguir estudiando; tu isla guardada se conserva.",
   "island.failed": "No se pudo iniciar tu isla. Puedes seguir estudiando; tu isla guardada se conserva.",
   "island.restoreFailed": "No se pudo restaurar tu isla. No se guardarán cambios; tu isla guardada se conserva.",
   "island.unavailable": "La isla no está disponible. Puedes seguir estudiando; tu isla guardada se conserva.",
   "island.intro": "Gana XP para desbloquear terreno, animales, tala de árboles y casas. Construye tu isla a lo largo de diez niveles.",
-  "city.maxLevel": "Nivel 10 alcanzado",
   "city.zoom.controls": "Controles de cámara de la isla",
   "island.title": "Isla de estudio",
   "island.retry": "Reintentar isla",
   "island.introTitle": "Estudia. Gana experiencia. Construye tu isla.",
-  "walkthrough.town": "Esta es tu isla. Estudia para ganar XP y subir de nivel. Desbloquea terreno, animales y construcción. La barra de XP muestra tu progreso. Arrastra para mover la cámara; usa los controles para acercar o restablecer la vista.",
+
 
   "townEconomy.coins": "{count} monedas",
   "townEconomy.flower": "Primer macizo de flores",
@@ -39,8 +61,7 @@ export const ES_LOCALIZED = {
     'intro.purpose.watched': 'vistos',
     'intro.purpose.reviews': 'repasos',
     'intro.city.kicker': 'El progreso se convierte en un lugar',
-    'intro.city.title': 'Estudia.\nGana experiencia.\nMira cómo evoluciona tu pueblo.',
-    'intro.city.level': 'Nivel de ciudad',
+
     'intro.features.history': 'Historial de estudio',
     'intro.features.week': 'Esta semana',
     'intro.features.studied': 'estudiado',
@@ -383,7 +404,7 @@ export const ES_LOCALIZED = {
     'settings.scoring.title': 'Cómo ganar experiencia',
     'settings.scoring.intro': 'La experiencia recompensa los nuevos minutos de vídeo y las revisiones Anki.',
   'settings.scoring.video': 'Ver 1 minuto de vídeo da 1 XP.',
-  'settings.scoring.anki': 'Cada nueva revisión Anki da 1 XP. La primera actualización del día establece una referencia.',
+
   'settings.scoring.examples': 'Ejemplos:',
   'settings.scoring.exampleVideo': '15 nuevos minutos de vídeo dan 15 XP.',
   'settings.scoring.exampleAnki': 'Cada nueva revisión Anki da 1 XP.',
@@ -581,20 +602,9 @@ export const ES_LOCALIZED = {
     'city.readyNext': 'Listo para el siguiente nivel',
     'city.ptsToNext': '{count} XP para el siguiente nivel',
     'city.effortToNext': '≈ {minutes} min de vídeo o {reviews} repasos de Anki',
-    'city.maxLevel': 'Nivel 3 alcanzado',
+
     'city.levelNumber': 'Nivel {count}',
-    'city.level.1': '🏠 Casa solitaria',
-    'city.level.2': '⛵ ¡Tu casa recibió una mejora! ¡Y un barco!',
-    'city.level.3': '🏝️ ¡Mira! ¡Una isla pequeña! Qué linda.',
-    'city.level.4': '¡Ahora los niños se van a divertir!',
-    'city.level.5': 'Añadamos una piscina para relajarnos',
-    'city.level.6': '¡Oh! Vienen algunos amigos a saludar...',
-    'city.level.7': '¡Expandiste tu pequeña isla!',
-    'city.level.8': '¡Una linda reposera y flores bonitas! 🌸',
-    'city.level.9': 'Construiste una casita linda en el patio',
-    'city.level.10': '¡Vaya! ¡Tienes un vecino! 🏠',
-    'city.level.11': '¡La casita morada tiene un jardín precioso!',
-    'city.level.12': '¡Caramba! ¡Apareció un volcán! Espero que no haga erupción...',
+
     'goal.title': 'Objetivo semanal',
     'nextStudy.title': 'Seguir viendo',
     'nextStudy.studyNext': 'Estudiar a continuación',
@@ -895,7 +905,7 @@ export const ES_LOCALIZED = {
     'walkthrough.done': 'Listo',
     'walkthrough.close': 'Cerrar guía',
     'walkthrough.progress': '{current} / {total}',
-    'walkthrough.town': 'Este es tu pueblo flotante. Cuando estudias, crece poco a poco. Te da una imagen rápida de tu progreso sin tener que leer todos los números.',
+
     'walkthrough.weeklyGoal': 'Este es tu objetivo semanal. El tiempo de videos estudiados llena la barra, para que veas rápido si vas bien esta semana.',
     'walkthrough.studyHistory': 'El historial de estudio muestra lo que pasó con el tiempo. Junta videos vistos y repasos de Anki para que entiendas tu ritmo real.',
     'walkthrough.studyHistoryNoAnki': 'El historial de estudio muestra lo que pasó con el tiempo.',
@@ -903,7 +913,7 @@ export const ES_LOCALIZED = {
     'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales.',
     'walkthrough.firstStudyChannels': 'Añade canales de YouTube aquí.',
     'walkthrough.otherAddNow': '¡Añade ahora un canal o video de YouTube!',
-    'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio. Tu objetivo, historial y pueblo se actualizan con lo que estudias.',
+
     'walkthrough.startWatching': '¡Empieza a ver un video!',
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
     'walkthrough.manualWatchedUrl': 'Usa Añadir para pegar la URL de un video o canal de YouTube. Edenia reconocerá cuál has introducido.',
@@ -962,7 +972,6 @@ export const ES_LOCALIZED = {
   'header.search.dialog': 'Buscar videos guardados',
   'header.settings': 'Ajustes',
   'city.imageAlt': 'Hito de la ciudad de estudio: casa solitaria',
-  'city.zoom.controls': 'Controles de zoom de la ciudad',
   'city.zoom.out': 'Alejar',
   'city.zoom.reset': 'Restablecer vista',
   'city.zoom.in': 'Acercar',
@@ -1088,7 +1097,7 @@ export const ES_LOCALIZED = {
   'toast.videoGone': 'Este video ya no está disponible',
   'toast.watchedHidden': 'Los videos vistos aparecen en el historial de estudio',
   'toast.couldNotShowVideo': 'No se pudo mostrar este video',
-  'toast.levelUp': 'La ciudad subió de nivel: {label}',
+  "toast.levelUp": "La isla subió de nivel: {label}",
   'toast.skippedShorts': '; se omitieron {count} videos cortos',
   'toast.skippedShortsSettingsHint': '; se obtuvieron {count} videos cortos, pero se filtraron. Para incluirlos, activa «Mostrar videos cortos» en Ajustes',
   'toast.shortsRefetching': 'Actualizando todos los canales para cargar videos cortos…',
@@ -1164,7 +1173,7 @@ export const ES_LOCALIZED = {
   'log.ankiRefreshFailed.title': 'Falló la actualización de Anki',
   'log.ankiStats.title': 'Estadísticas de Anki actualizadas',
   'log.ankiStats.detail': '{reviewed} repasos registrados hoy; {created} tarjetas nuevas encontradas.',
-  'log.levelUp.title': 'Subida de nivel reclamada'
+  "log.levelUp.title": "Nivel de la isla reclamado"
 }
 
 const ES_DICTIONARY = {

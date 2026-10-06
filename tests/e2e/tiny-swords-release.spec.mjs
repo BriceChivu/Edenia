@@ -20,7 +20,7 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
     }
   })
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
-  await page.goto('./')
+  await page.goto('./?internal_test=2')
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8'))
   await page.evaluate(island => {
@@ -30,7 +30,7 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
     state.config.ankiEnabled = false
     state.tinySwordsIsland = island
     state.videos.lesson = { id: 'lesson', title: 'Retained study', duration: 3600, status: 'partial', watchProgress: [{ watchedAt: at, seconds: 900, experienceSeconds: 900 }] }
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, island)
   await page.unroute('**/tiny-swords-game/*/index.html')
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -53,7 +53,7 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
   expect(gameRequests.every(url => new URL(url).pathname.startsWith(`/Edenia/tiny-swords-game/${metadata.version}/`))).toBe(true)
   expect(failures).toEqual([])
   const retained = await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test_2'))
     return { island: state.tinySwordsIsland, videos: state.videos, progress: state.cityProgress }
   })
   enabled = false
@@ -63,14 +63,14 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
   await expect(page.locator('#cityTimeWaveform')).toHaveCount(0)
   await expect(page.locator('#cityScore')).toHaveText('15')
   expect(await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test_2'))
     return { island: state.tinySwordsIsland, videos: state.videos, progress: state.cityProgress }
   })).toEqual(retained)
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await expect.poll(() => game()?.evaluate(() => window.edeniaLastSavePersisted), { timeout: 60000 }).toBe(true)
-  const reenabled = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')))
+  const reenabled = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')))
   expect(reenabled.tinySwordsIsland.stock).toEqual(retained.island.stock)
   expect(reenabled.tinySwordsIsland.tiles).toEqual(retained.island.tiles)
   expect(reenabled.tinySwordsIsland.resources).toEqual(retained.island.resources)

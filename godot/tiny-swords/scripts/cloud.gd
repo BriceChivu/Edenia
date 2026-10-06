@@ -12,6 +12,8 @@ func _ready() -> void:
 	drift_speed = randf_range(2.0, 5.0) * direction
 
 func _process(delta: float) -> void:
+	if GamePresentation.reduced_motion:
+		return
 	position.x += drift_speed * delta
 	var bounds := crossing_bounds()
 	if (direction > 0 and global_position.x > bounds.y) or (direction < 0 and global_position.x < bounds.x):

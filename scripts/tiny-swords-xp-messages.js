@@ -30,6 +30,7 @@ document.addEventListener('wheel', event => {
 }, { passive: false, capture: true })
 window.edeniaStudySession = null
 window.edeniaStudyLevel = 1
+window.edeniaLocale = 'en'
 window.edeniaSaveId = 0
 window.edeniaSaveInFlight = null
 window.edeniaPendingLayout = null
@@ -45,6 +46,10 @@ window.edeniaQueueLayout = layout => {
 window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== parent) return
   const data = event.data
+  if (data?.type === 'edenia-locale' && (window.edeniaStudySession === null || data.session === window.edeniaStudySession)) {
+    window.edeniaLocale = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'].includes(data.locale) ? data.locale : 'en'
+    window.edeniaReceiveLocale?.(window.edeniaLocale)
+  }
   if (data?.type === 'edenia-camera') window.edeniaCameraCommands.push(data.command)
   if (data?.type === 'edenia-study-level') {
     window.edeniaStudySession = data.session

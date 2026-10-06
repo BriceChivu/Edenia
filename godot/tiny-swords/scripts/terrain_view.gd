@@ -470,8 +470,8 @@ func placement_offset() -> Vector2:
 
 func tree_preview_variant() -> String:
 	if layout.trees.has(hover):
-		var current: int = layout.TREE_VARIANTS.find(layout.tree_types.get(hover, "tree"))
-		return layout.TREE_VARIANTS[(current + 1) % layout.TREE_VARIANTS.size()]
+		var replacement: String = layout.tree_swap_variant(hover)
+		return replacement if not replacement.is_empty() else layout.tree_types.get(hover, "tree")
 	return layout.next_tree_variant
 
 func tree_preview_position() -> Vector2:

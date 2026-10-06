@@ -189,7 +189,7 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 		placement_offset = world.terrain.placement_offset() if world.terrain.hover == cell else Vector2.ZERO
 	var plan := placement_plan(cell, placement_offset)
 	if plan.is_empty():
-		world.ui.panel.accessibility_description = "Choose a house site the pawn can reach."
+		world.ui.describe("houseUnavailable")
 		return false
 	var original = world.layout
 	var planned = plan.layout

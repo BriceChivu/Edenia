@@ -19,7 +19,11 @@ var celebration: Control
 var layout
 var editing := false
 var collapsed := false
+var selected_tool := ""
+var description_key := ""
+var description_params := {}
 var scale_ui := 1.0
+var celebration_tweens: Array[Tween] = []
 
 func _ready() -> void:
 	layer = 20
@@ -42,7 +46,8 @@ func _ready() -> void:
 	var chicken: Button = buttons.sheep.duplicate(14)
 	chicken.name = "ChickenButton"
 	chicken.icon = preload("res://assets/chicken.png")
-	chicken.tooltip_text = "Chicken"
+	chicken.tooltip_text = GameCopy.text("chicken")
+	chicken.accessibility_name = GameCopy.text("chicken")
 	panel.get_node("Tools").add_child(chicken)
 	chicken.pressed.connect(func(): tool_selected.emit("chicken"))
 	buttons.chicken = chicken
@@ -53,6 +58,8 @@ func _ready() -> void:
 	action_buttons.assign([pickup, undo_button])
 	panel.hide()
 	get_viewport().size_changed.connect(arrange)
+	GameCopy.changed.connect(func(): refresh(editing, selected_tool, not undo_button.disabled))
+	GamePresentation.changed.connect(settle_celebration)
 	arrange()
 
 func arrange() -> void:
@@ -74,16 +81,24 @@ func arrange() -> void:
 	buttons.house.position.x = 286 if layout.bridges_enabled else 218
 	undo_button.position.x = (285 if layout.bridges_enabled else 217) + extra
 	if celebration != null:
-		# Keep the paper corners and tiled middle at native pixel size.
-		celebration.scale = Vector2.ONE
+		# Keep native paper pixels on desktop; fit the complete popup on phones.
+		var fit := minf(1.0, minf((area.x - 20) / celebration.size.x, (area.y - 20) / celebration.size.y))
+		fit = maxf(0.1, fit)
+		celebration.scale = Vector2.ONE * fit
+		celebration.fit_text(fit)
+		celebration.pivot_offset = celebration.size / 2
 		celebration.position = (area - celebration.size) / 2
 
 func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	if not is_editing:
 		collapsed = false
+	GameCopy.theme(root)
+	for button in buttons.values() + action_buttons + [launch, done_button]:
+		GameCopy.font(button)
+	selected_tool = selected
 	editing = is_editing
 	arrange()
-	launch.accessibility_name = "Inventory" if editing and collapsed else "Terrain"
+	launch.accessibility_name = GameCopy.text("inventory" if editing and collapsed else "terrain")
 	launch.tooltip_text = launch.accessibility_name
 	launch.visible = (not editing or collapsed) and celebration == null and layout.unlocked
 	panel.visible = editing and not collapsed and celebration == null
@@ -99,8 +114,10 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 		buttons[kind].visible = kind != "house" and (unlocked or (kind == "tree" and layout.level >= 2)) and (kind != "bridge" or layout.bridges_enabled)
 		var count: int = layout.ground_count() if kind == "ground" else (int(layout.stock.house) + int(layout.resources.wood) / layout.HOUSE_LOG_COST if kind == "house" else int(layout.stock[kind]))
 		if kind == "house":
-			buttons[kind].tooltip_text = "House: %s logs (%s available). Click a placed house to rotate." % [layout.HOUSE_LOG_COST, layout.resources.wood]
-		buttons[kind].accessibility_name = "%s, %s available" % [NAMES[kind], count]
+			buttons[kind].tooltip_text = GameCopy.text("houseHelp", {"cost": layout.HOUSE_LOG_COST, "count": layout.resources.wood})
+		buttons[kind].accessibility_name = GameCopy.text("available", {"item": GameCopy.text(kind), "count": count})
+		if kind != "house":
+			buttons[kind].tooltip_text = GameCopy.text(kind)
 		buttons[kind].get_node("Remaining").text = "×%s" % count
 		# Ground and trees stay selectable for free transformations.
 		for state in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
@@ -111,9 +128,22 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 		buttons[kind].queue_redraw()
 	action_buttons[0].set_meta("selected", selected == "remove")
 	action_buttons[0].queue_redraw()
+	for pair in [[action_buttons[0], "pickup"], [undo_button, "undo"], [done_button, "done"]]:
+		pair[0].accessibility_name = GameCopy.text(pair[1])
+		pair[0].tooltip_text = GameCopy.text(pair[1])
 	undo_button.disabled = not can_undo
 	undo_button.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if undo_button.disabled else Control.CURSOR_POINTING_HAND
+	if not description_key.is_empty():
+		describe(description_key, description_params)
 	arrange()
+
+func describe(key: String, params := {}) -> void:
+	description_key = key
+	description_params = params
+	var translated := params.duplicate()
+	if translated.has("item"):
+		translated.item = GameCopy.text(translated.item)
+	panel.accessibility_description = GameCopy.text(key, translated)
 
 func celebrate(target_level: int = 0) -> void:
 	var popup_level := target_level if target_level > 0 else int(layout.level)
@@ -130,8 +160,12 @@ func celebrate(target_level: int = 0) -> void:
 		edit_toggled.emit())
 	arrange()
 	celebration.pivot_offset = celebration.size / 2
+	celebration_tweens.clear()
+	if GamePresentation.reduced_motion:
+		return
 	celebration.modulate.a = 0
 	var tween := create_tween().set_parallel(true)
+	celebration_tweens.append(tween)
 	tween.tween_property(celebration, "modulate:a", 1.0, 0.35)
 	for i in range(18):
 		var spark := ColorRect.new()
@@ -140,6 +174,20 @@ func celebrate(target_level: int = 0) -> void:
 		spark.size = Vector2(6, 6)
 		spark.position = Vector2(235, 60)
 		celebration.add_child(spark)
+		spark.set_meta("celebration_spark", true)
 		var burst := create_tween().set_parallel(true)
+		celebration_tweens.append(burst)
 		burst.tween_property(spark, "position", Vector2(235 + randf_range(-230, 230), randf_range(-40, 250)), 1.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		burst.tween_property(spark, "modulate:a", 0.0, 1.2)
+
+func settle_celebration() -> void:
+	if not GamePresentation.reduced_motion or celebration == null:
+		return
+	for tween in celebration_tweens:
+		if tween.is_valid():
+			tween.kill()
+	celebration_tweens.clear()
+	celebration.modulate.a = 1.0
+	for child in celebration.get_children():
+		if child.has_meta("celebration_spark"):
+			child.queue_free()

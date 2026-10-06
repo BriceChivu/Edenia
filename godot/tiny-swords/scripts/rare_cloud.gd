@@ -6,11 +6,15 @@ var crossing: bool = false
 var inventory_hidden := false:
 	set(value):
 		inventory_hidden = value
-		visible = crossing and not inventory_hidden
+		visible = crossing and not inventory_hidden and not GamePresentation.reduced_motion
 var speed: float = 20.0
 var direction: float = 1.0
 
 func _process(delta: float) -> void:
+	if GamePresentation.reduced_motion:
+		hide()
+		return
+	visible = crossing and not inventory_hidden
 	if not crossing:
 		wait_remaining -= delta
 		if wait_remaining > 0.0:

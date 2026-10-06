@@ -13,6 +13,29 @@ func _initialize() -> void:
 func run() -> void:
  var game = load(ProjectSettings.get_setting("application/run/main_scene")).instantiate()
  root.add_child(game)
+ # Motion is presentation only: freeze drifting scenery and omit reward sparks
+ # without changing the reward, inventory or animation/action clocks.
+ var presentation = root.get_node("GamePresentation")
+ var motion_snapshot = game.layout.snapshot()
+ game.receive_reduced_motion([true])
+ check(presentation.reduced_motion, "Browser motion preference reaches Godot")
+ var cloud = game.get_node("Clouds").get_child(0)
+ var cloud_position = cloud.position
+ cloud._process(1.0)
+ check(cloud.position == cloud_position, "Reduced motion freezes decorative cloud drift")
+ game.ui.celebrate(2)
+ check(game.ui.celebration.modulate.a == 1.0 and game.ui.celebration_tweens.is_empty(), "Reduced motion presents rewards without fade or sparks")
+ check(game.layout.snapshot() == motion_snapshot, "Motion preference cannot modify game progress")
+ game.ui.celebration.free()
+ game.ui.celebration = null
+ game.receive_reduced_motion([false])
+ game.ui.celebrate(2)
+ check(not game.ui.celebration_tweens.is_empty(), "Normal presentation retains reward effects")
+ game.receive_reduced_motion([true])
+ check(game.ui.celebration_tweens.is_empty() and game.ui.celebration.modulate.a == 1.0, "Live preference change settles an active celebration")
+ game.ui.celebration.free()
+ game.ui.celebration = null
+ game.receive_reduced_motion([false])
  check(game.get_script().resource_path == "res://scripts/xp_bridge.gd", "Integrated export must run the XP bridge")
  var before = game.layout.snapshot()
  check(not game.restore_study_layout({"version": 999}), "Bridge must reject unsupported snapshots")
@@ -58,5 +81,50 @@ func run() -> void:
  reserved.house_bundle = 6
  check(game.restore_study_layout(reserved.snapshot()), "Integrated restore accepts reserved construction logs")
  check(game.construction.phase == game.construction.Phase.PLACING and game.selected == "house", "Integrated restore resumes Godot-owned house placement")
+ # Inventory reachability uses the same authored controls at desktop and the
+ # narrow phone width; hidden House/Bridge controls retain their owned policy.
+ var original_size = root.size
+ game.ui.refresh(true, "", false)
+ for width in [1440, 360]:
+  root.size = Vector2i(width, 800)
+  game.ui.arrange()
+  var viewport_size = game.get_viewport().get_visible_rect().size
+  for button in game.ui.buttons.values() + game.ui.action_buttons + [game.ui.done_button]:
+   if button.is_visible_in_tree():
+    var bounds = button.get_global_rect()
+    check(bounds.position.x >= 0 and bounds.position.y >= 0 and bounds.end.x <= viewport_size.x and bounds.end.y <= viewport_size.y, "High-level inventory controls remain within the viewport")
+    check(button.get_theme_stylebox("focus") is StyleBoxFlat, "Inventory buttons have a visible focus border")
+ root.size = original_size
+ game.ui.refresh(false, "", false)
+ # Locale delivery updates live Godot UI without changing island data.
+ var copy = root.get_node("GameCopy")
+ var retained = game.layout.snapshot()
+ for locale in copy.LOCALES:
+  game.receive_locale([locale])
+  check(copy.locale == locale, "Bridge delivers locale to Godot")
+  game.ui.refresh(false, "", false)
+  check(game.ui.launch.accessibility_name == copy.text("terrain"), "Live inventory label follows locale")
+  game.ui.refresh(true, "", false)
+  if locale.begins_with("zh"):
+   for value in copy.catalogs[locale].values():
+    for character in value:
+     if character.unicode_at(0) > 127:
+      check(copy.fonts[locale].has_char(character.unicode_at(0)), "Bundled Chinese font covers the game catalog")
+  check(game.ui.buttons.chicken.accessibility_name.begins_with(copy.text("chicken")), "Duplicated chicken has its own accessible name")
+  for level in range(2, 11):
+   game.ui.celebrate(level)
+   check(game.ui.celebration.get_node("Title").text == copy.text("level", {"level": level}), "All ten-level reward titles follow locale")
+   game.ui.celebration.fit_text(0.5)
+   check(game.ui.celebration.get_node("BuildButton").get_theme_font_size("font_size") >= 28, "Phone confirmation remains readable after popup fitting")
+   var title = game.ui.celebration.get_node("Title")
+   if locale.begins_with("zh"):
+    var font = title.get_theme_font("font")
+    for character in copy.text("level", {"level": level}):
+     check(font.has_char(character.unicode_at(0)), "Bundled Chinese title font covers every character")
+   game.ui.celebration.free()
+   game.ui.celebration = null
+ check(game.layout.snapshot() == retained, "Changing locale cannot mutate gameplay or saves")
+ game.receive_locale(["unsupported"])
+ check(copy.locale == "en", "Unsupported locale falls back to English")
  print("Integrated export contract: %s failures" % failures)
  quit(1 if failures else 0)

@@ -694,6 +694,12 @@ test('Settings replay listeners preserve walkthrough and trailer handoffs', asyn
   test.skip(testInfo.project.name !== 'desktop-standard')
 
   await seedCompletedState(page)
+  if (process.env.EDENIA_TEST_TINY_SWORDS === 'true') {
+    // Capture the baseline after the initial island checkpoint, so an engine
+    // startup write is not mistaken for an onboarding/replay mutation.
+    await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
+    await expect.poll(() => page.evaluate(() => loadState().tinySwordsIsland)).not.toBeNull()
+  }
   const panel = page.locator('#settingsPanel')
   const opener = page.locator('.gear-btn[data-settings-shell-action="open"]')
   const walkthroughControl = page.locator(

@@ -1,6 +1,6 @@
 // Resolve every game asset beside this exact version of the parent adapter.
 const tinySwordsReleaseUrl = new URL('.', document.currentScript.src)
-if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
+if (window.edeniaTinySwordsEnabled === true) {
   document.documentElement.classList.add('tiny-swords-integrated')
   window.addEventListener('DOMContentLoaded', () => {
     const surface = document.getElementById('tinySwordsSurface')
@@ -13,7 +13,7 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
     let failed = false
     let blocked = false
     let statusKey = 'island.loading'
-    const translate = key => window.edeniaTranslate?.(key) || loadMessage.textContent
+    const translate = key => window.edeniaTranslate?.(key) || key
     function setLoadState(state, key) {
       surface.dataset.gameState = state
       surface.setAttribute('aria-busy', String(state === 'loading' || state === 'slow'))
@@ -52,6 +52,9 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
     })
     window.addEventListener('edenia-locale-changed', () => {
       loadMessage.textContent = translate(statusKey)
+      if (frame) frame.title = translate('island.frameTitle')
+      status.textContent = status.dataset.messageKey ? translate(status.dataset.messageKey) : ''
+      sendLocale()
     })
     retry.addEventListener('click', () => checkReplacement(true))
     let session = 0
@@ -73,7 +76,13 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
     const status = document.createElement('span')
     status.setAttribute('role', 'status')
     status.className = 'tiny-swords-save-status'
-    function reportFailure(text) { status.textContent = text }
+    function reportFailure(key) {
+      status.dataset.messageKey = key
+      status.textContent = key ? translate(key) : ''
+    }
+    function sendLocale() {
+      frame?.contentWindow?.postMessage({ type: 'edenia-locale', session, locale: document.documentElement.lang }, location.origin)
+    }
     function sendVisibility() {
       if (!frame || gameLevelCount === null) return
       const visible = intersects && !blocked && !failed && document.visibilityState !== 'hidden'
@@ -99,7 +108,7 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
       }
       frame = document.createElement('iframe')
       frame.src = new URL('index.html', tinySwordsReleaseUrl).href
-      frame.title = 'Tiny Swords island: earn XP by studying to unlock building'
+      frame.title = translate('island.frameTitle')
       frame.className = 'tiny-swords-frame'
       session += 1
       restored = false
@@ -109,7 +118,7 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
       intersects = true
       reportedVisibility = null
       expected = identity(readIsland())
-      status.textContent = ''
+      reportFailure('')
       controls.hidden = true
       controls.classList.remove('tiny-swords-editing')
       cameraObserver.observe(frame)
@@ -125,18 +134,19 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
       }, 20000)
     }
     function sendStudyLevel() {
+      sendLocale()
       if (failed || gameLevelCount === null || !persistence()) return
       const state = readIsland()
       if (!state) {
         restored = false
-        reportFailure('Open a learner profile to save the island.')
+        reportFailure('island.profileRequired')
         return
       }
       const claimedLevel = persistence().readClaimedLevel()
       if (claimedLevel === null) return
       const level = Math.min(gameLevelCount, claimedLevel)
       let saved = state.tinySwordsIsland
-      if (saved === undefined) {
+      if (saved === undefined && window.edeniaTinySwordsLegacyPreview === true) {
         // Only the old integrated developer save can migrate. Native saves are separate.
         try {
           const raw = localStorage.getItem(layoutKey)
@@ -185,6 +195,9 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
       }
       if (data?.type === 'edenia-tiny-ready') sendStudyLevel()
       if (data?.session !== session) return
+      if (data.type === 'edenia-game-focus-exit' && !blocked && restored && !failed) {
+        controls.querySelector('[data-city-zoom-action="reset"]')?.focus()
+      }
       if (data.type === 'edenia-tiny-restored') {
         restored = data.accepted === true
         failed = !restored
@@ -209,7 +222,7 @@ if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
         }
         target.contentWindow?.postMessage({ type: 'edenia-tiny-saved', session: targetSession, id: data.id, persisted }, location.origin)
         if (target !== frame) return
-        status.textContent = persisted ? '' : 'Island changes could not be saved.'
+        reportFailure(persisted ? '' : 'island.saveFailed')
         if (replacementPending) {
           replacementPending = false
           checkReplacement(true)

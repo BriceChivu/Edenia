@@ -47,7 +47,7 @@
 | INTRO-004 | Trailer input handling | Left/Right keyboard navigation, Escape behavior, horizontal touch swipe threshold, vertical-scroll preservation, click controls, and focus styling. | High | Keep |
 | INTRO-005 | Trailer sound | Procedural intro audio starts when permitted, handles autoplay unlocking, toggles on/off, updates accessible labels, loops, and fades when leaving. | Medium | Keep |
 | INTRO-006 | Trailer language picker | Language can change before setup; copy, document language, title, scene layout, city labels, and sound labels update immediately. | High | Keep |
-| INTRO-007 | Island introduction | Describes the ten-level island builder; retired town images and their staged/manual playback are removed. No historical game mode. | Medium | Replaced |
+| INTRO-007 | Island introduction | Three source-captured Godot images show study/XP, level-two unlock and building. Existing scene timing, manual selection, Skip and replay remain. No second engine or historical game mode. | Medium | Replaced |
 | INTRO-008 | Responsive trailer composition | Non-phone reference-stage scaling, short-height compression, phone full-viewport scenes, safe areas, scrollable scene content, localized size overrides, and reordered feature demonstration. | High | Keep |
 | ONB-001 | First-run routing | Fresh users see trailer then personalized onboarding; returning incomplete users resume at the correct step; completed users skip setup. | High | Keep |
 | ONB-002 | Language selection | Mandarin, Japanese, Korean, Spanish, French, German, English, and Other remain in the current order with localized labels and single selection. | High | Keep |

@@ -75,7 +75,8 @@ import {
 import {
   deriveLearnerProfileAccessVisualTest,
   deriveRuntimeEnvironment,
-  deriveStudyGuidanceEnabled
+  deriveStudyGuidanceEnabled,
+  deriveTinySwordsEnabled
 } from './core/runtime-environment.js'
 import {
   deriveAccountFeaturesEnabled
@@ -583,10 +584,15 @@ const RUNTIME_ENVIRONMENT = deriveRuntimeEnvironment(window.location)
 const {
   isSandbox: IS_SANDBOX,
   isInternalTest: IS_INTERNAL_TEST,
+  internalTestMode: INTERNAL_TEST_MODE,
+  isTinySwordsTester: IS_TINY_SWORDS_TESTER,
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
 } = RUNTIME_ENVIRONMENT
+window.edeniaTinySwordsEnabled = deriveTinySwordsEnabled(window.location, window.EDENIA_CONFIG)
+window.edeniaTinySwordsLegacyPreview = IS_LOCALHOST && location.port === '8037'
+  && !IS_TINY_SWORDS_TESTER
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
@@ -618,7 +624,7 @@ const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled() || INDEXED_DB_PR
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
   INDEXED_DB_PROFILE_ENABLED || (INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled())
 const LEGACY_PROGRESS_MIGRATION_ENABLED =
-  getLegacyProgressMigrationEnabled()
+  !IS_TINY_SWORDS_TESTER && getLegacyProgressMigrationEnabled()
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
   getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
 const LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE =
@@ -667,10 +673,7 @@ const {
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
   configCookieKey: CONFIG_COOKIE_KEY
-} = deriveStorageKeys({
-  isSandbox: IS_SANDBOX,
-  isInternalTest: IS_INTERNAL_TEST
-})
+} = deriveStorageKeys(RUNTIME_ENVIRONMENT)
 const LEGACY_PROGRESS_RELAY_RUNTIME = deriveLegacyProgressRelayRuntime({
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST,
   locationLike: window.location,
@@ -705,7 +708,9 @@ const readImportedState = createImportedStateReader({
   createDefaultState: defaultState,
   removeLegacyVideoWatchReminderState
 })
-const STATE_BACKUP_DATABASE = IS_INTERNAL_TEST
+const STATE_BACKUP_DATABASE = IS_TINY_SWORDS_TESTER && !IS_SANDBOX
+  ? `${STATE_BACKUP_DATABASE_NAME}_internal_test_2`
+  : IS_INTERNAL_TEST
   ? `${STATE_BACKUP_DATABASE_NAME}_internal_test`
   : STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
@@ -1654,6 +1659,7 @@ function applyLocale(locale = getCurrentLocale()) {
   const nextLocale = setCurrentLocale(locale)
   document.documentElement.lang = nextLocale
   applyTranslations()
+  syncIntroIslandMedia()
   window.dispatchEvent(new Event('edenia-locale-changed'))
 }
 
@@ -3557,6 +3563,8 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
   introTrailerState.sceneIndex = Math.max(0, Math.min(sceneIndex, INTRO_TRAILER_SCENE_DURATIONS.length - 1))
   const duration = INTRO_TRAILER_SCENE_DURATIONS[introTrailerState.sceneIndex]
 
+  window.clearTimeout(introTrailerState.islandTimer)
+  if (introTrailerState.sceneIndex === 2) setIntroIslandStage(0)
   trailer.dataset.scene = String(introTrailerState.sceneIndex)
   trailer.style.setProperty('--intro-duration', `${duration}ms`)
   if (previousButton) previousButton.disabled = introTrailerState.sceneIndex === 0
@@ -3573,6 +3581,38 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
     if (nextScene < INTRO_TRAILER_SCENE_DURATIONS.length) setIntroTrailerScene(nextScene)
   }, duration)
 }
+
+function syncIntroIslandMedia() {
+  const image = document.querySelector('[data-intro-island-image="1"]')
+  const locale = getCurrentLocale()
+  const suffix = locale === 'en' ? '' : `-${locale}`
+  if (image) image.src = `images/tiny-swords-trailer/unlock${suffix}.png`
+  const source = document.querySelector('[data-intro-island-source="1"]')
+  if (source) source.srcset = `images/tiny-swords-trailer/unlock${suffix}-phone.png`
+}
+
+function setIntroIslandStage(index, { manual = false } = {}) {
+  window.clearTimeout(introTrailerState.islandTimer)
+  const selected = Math.max(0, Math.min(Number(index) || 0, 2))
+  document.querySelectorAll('[data-intro-island-image]').forEach(image => {
+    image.classList.toggle('is-selected', Number(image.dataset.introIslandImage) === selected)
+  })
+  document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.introIslandStage) === selected))
+  })
+  if (manual) {
+    // Manual selection keeps this scene visible until navigation or Skip.
+    window.clearTimeout(introTrailerState.sceneTimer)
+  } else if (selected < 2) {
+    introTrailerState.islandTimer = window.setTimeout(() => {
+      if (introTrailerState.active && introTrailerState.sceneIndex === 2) setIntroIslandStage(selected + 1)
+    }, INTRO_TRAILER_SCENE_DURATIONS[2] / 3)
+  }
+}
+
+document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
+  button.addEventListener('click', () => setIntroIslandStage(button.dataset.introIslandStage, { manual: true }))
+})
 
 function navigateIntroTrailer(direction) {
   if (!introTrailerState.active) return
@@ -3845,6 +3885,7 @@ function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {
   introTrailerState.replayMode = false
 
   const trailer = document.getElementById('introTrailer')
+  window.clearTimeout(introTrailerState.islandTimer)
   trailer?.classList.add('hidden')
   document.body.classList.remove('intro-active')
   if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')
@@ -4959,7 +5000,7 @@ async function finishPersonalizedOnboarding() {
 function getPostOnboardingAppUrl() {
   const url = new URL(window.location.href)
   url.search = ''
-  if (IS_INTERNAL_TEST && !IS_SANDBOX) url.searchParams.set('internal_test', '1')
+  if (INTERNAL_TEST_MODE && !IS_SANDBOX) url.searchParams.set('internal_test', INTERNAL_TEST_MODE)
   return url.toString()
 }
 
@@ -7917,7 +7958,7 @@ async function addChannel(options = {}) {
       ? s.learnerProfile.languages.map(String)
       : [],
     learner_level: s.learnerProfile?.level || null,
-    internal_or_test_user: Boolean(IS_SANDBOX || IS_INTERNAL_TEST || IS_LOCALHOST),
+    internal_or_test_user: Boolean(IS_SANDBOX || INTERNAL_TEST_MODE || IS_LOCALHOST),
     total_channel_count: s.config.channels.length
   })
   renderFeed(s)
@@ -8195,10 +8236,11 @@ async function resetApp() {
     )?.focus()
     return
   }
+  let rollbackBackup = null
   if (LOCAL_BACKUPS_ENABLED) {
-    const rollbackBackup = await createVerifiedStateBackup(
+    rollbackBackup = await createVerifiedStateBackup(
       'before reset',
-      { force: true }
+      { force: true, returnExisting: true }
     )
     if (!rollbackBackup) {
       releaseStartOverControl(control)
@@ -8215,7 +8257,12 @@ async function resetApp() {
     title: t('log.reset.title'),
     detail: t('log.reset.detail')
   })
-  if (!await saveState(nextState, { backup: false, replaceIsland: true })) {
+  // Reset creates a new profile snapshot. The replacement path also gives
+  // IndexedDB the explicit revision authority required for a fresh object.
+  const resetResult = await saveImportedState(nextState, {
+    preserveBackupId: rollbackBackup?.id || null
+  })
+  if (!resetResult.persisted) {
     releaseStartOverControl(control)
     showToast(t('toast.progressSaveFailed'), 'error')
     return
@@ -18465,7 +18512,7 @@ if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsO
 window.edeniaTranslate = t
 
 // The release control only gates game mounting; study and island data stay intact.
-if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
+if (window.edeniaTinySwordsEnabled === true) {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
     readDurable: () => loadPersistedState({ persistCleanup: false }),
