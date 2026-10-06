@@ -165,3 +165,125 @@ generated Godot project, exports and `normal-profile` when finished. Do not copy
 instrumented exports into `_site` or a deployment. The report and recorded
 measurements for 2026-10-05 live under
 `docs/experiments/tiny-swords/performance-2026-10-05/`.
+
+## Inventory opening investigation — 2026-10-06
+
+Before implementation, the reproducible stall occurred on the first inventory
+opening after loading the game. `inventory_outline.gd::texture_for` reads sprite images, scans their pixels,
+and uploads newly generated silhouette borders inside terrain drawing. The cache
+grew from zero to 25 entries during that opening. Warm openings and pointer
+movement did not consistently reproduce sustained page lag.
+
+Matched eight-second runs in fresh installed Chrome contexts measured both the
+parent page's animation frames and a 16-ms timer. The tested local island had 26
+tiles, three trees, a house, a chicken and a sheep. Only its game snapshot was
+used in isolated synthetic profiles; learner history was excluded. The existing
+user game was suspended during automated comparisons.
+
+| Cold opening condition | Parent RAF p99 | Longest parent timer interval | Maximum terrain draw | Renderer CPU, one core |
+| --- | ---: | ---: | ---: | ---: |
+| Runtime outlines | 116.3 ms | 309.4 ms | 155.5 ms | 35.4% |
+| Precomputed outlines | 18.7 ms | 43.9 ms | 1.0 ms | 27.3% |
+| Runtime outlines, repeat | 100.1 ms | 274.6 ms | 130.1 ms | 34.5% |
+| Clouds hidden and paused | 100.0 ms | 279.9 ms | 131.9 ms | 28.9% |
+| Precomputed outlines, repeat | 18.7 ms | 49.7 ms | 1.3 ms | 27.6% |
+
+Hiding clouds did not remove the stall. Earlier warm comparisons did not show a
+repeatable CPU improvement from hiding them either. The canonical cloud-removal
+change was reverted and the normal integrated preview rebuilt. Clouds remain
+visible during inventory editing.
+
+The successful prototype generates 35 unique border PNGs before browser playback
+using the original outline function (32 tree poses and three house textures).
+Decoded PNG pixels are checked byte-for-byte against the original borders.
+The diagnostic export preloads these textures and uses the same existing drawing
+positions, colors and mirroring. Runtime and prototype conditions use the same
+export with one flag changed, so added resources and profiler overhead are matched.
+This table records the diagnostic prototype phase. The implementation below
+now replaces runtime generation in the ordinary game.
+
+**Recommended fix:** make outline generation part of Godot asset preparation and
+bundle the borders or an atlas. Keep regeneration tied to source artwork, outline
+width and alpha rules; verify every tree pose, house facing and inventory preview.
+This keeps the current visuals while removing first-use pixel scans and readback
+from gameplay. Spreading generation over several frames is a fallback, but retains
+the work and needs an explicit visual policy while borders are unavailable.
+
+Do not hide clouds to address this particular stall. Treat backing resolution,
+mask cadence and scene rebuilds as separate measured hypotheses if sustained lag
+remains after outline generation is removed. Old WebGL warnings and the machine's
+heavy memory pressure were observed, but their causes were not established here.
+
+Aggregate evidence and exact diagnostic source/export hashes are saved in
+`docs/experiments/tiny-swords/performance-2026-10-06/inventory-measurements.json`.
+These are instrumented Mac measurements, not physical-device or production
+acceptance. The Mac had 8 GiB RAM and about 10.8 GiB swap in use; the investigation
+does not establish what caused that memory pressure. GPU-process CPU is not GPU
+utilization. Initial exploratory samples with an overly broad timing window were
+discarded; the table uses bounded in-page captures with reliable CPU windows.
+
+### Reproduce the cold-opening gate
+
+The original prototype has been replaced by canonical Godot assets and an offline
+baker. Prepare a disposable copy with the old generation algorithm available as
+an explicit counterfactual (normal exports exclude the offline tools):
+
+```sh
+python3 scripts/diagnostics/tiny-swords-performance/prepare.py --runtime-outlines
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --editor --import
+mkdir -p .cache/tiny-swords-perf/export3
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --export-release Web "$PWD/.cache/tiny-swords-perf/export3/index.html"
+node scripts/diagnostics/tiny-swords-performance/patch-export.mjs
+
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=inventory-lag --cold-only --chrome --profile --assert-budgets --cold-probe=runtime_outlines --tag=runtime-control
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=inventory-lag --cold-only --chrome --profile --assert-budgets --tag=fixed
+```
+
+Both runs use the same export; the control flag restores the exact original
+scanning algorithm. Generate the synthetic terraced fixture using the earlier
+fixture command if it is not already present.
+
+Default input is the generated synthetic terraced fixture (`--side=99`). Optional
+`--island=PATH` accepts a game-only island JSON, never a full learner export. Keep
+personal fixtures ignored and local. Optional `--site=PATH` serves a stable copy
+of `_site` when another task is rebuilding the ordinary preview. The recorded
+comparison used `--side=97 --island=.cache/tiny-swords-perf/user-island.json
+--site=.cache/tiny-swords-perf/inventory-site` in each command.
+
+The gate fails on parent RAF p99 above 50 ms, parent timer maximum above 100 ms,
+or parent timer p95 above 50 ms. Both baseline runs and the cloud-removal control
+returned exit 1 (`INVENTORY_LAG REPRODUCED`); both prototype runs returned exit 0
+(`INVENTORY_LAG NOT_REPRODUCED`). These are diagnostic thresholds for this symptom,
+not guarantees for every device. Without `--cold-only`, the suite also compares
+warm pointer movement, clouds, previews, outlines, masks and pixel ratio.
+
+### Canonical implementation
+
+`godot/tiny-swords/scripts/inventory_outline.gd` now performs an imported-texture
+lookup. `tools/inventory_outline_baker.gd` preserves the original scanning rules,
+and `tools/generate_inventory_outlines.gd` writes the 35 PNGs, import settings and
+lookup with source fingerprints. Import alpha-border correction is disabled to
+preserve even transparent RGB pixels. Offline tools are excluded from ordinary
+Web exports.
+
+`tests/inventory_outline_assets.gd` exercised the runtime call before and after
+the change: 35 failures with runtime generation, then zero failures with imported
+assets. It checks every pose/unique facing against the original pixel data and
+rejects changed source fingerprints. The integration builder runs this check
+before exporting. Existing inventory-change checks and rendered mirrored-house
+checks also pass. The integrated preview was rebuilt from canonical source.
+
+Implementation browser measurements are stored separately in
+`docs/experiments/tiny-swords/performance-2026-10-06/implementation-measurements.json`.
+The original prototype results remain historical evidence in
+`inventory-measurements.json`.
+
+| Implemented comparison (two runs each) | Parent RAF p99 | Longest parent timer interval | Maximum terrain draw |
+| --- | ---: | ---: | ---: |
+| Original runtime generation control | 116.4–116.7 ms | 332.1–386.1 ms | 169.4–198.7 ms |
+| Canonical imported-border lookup | 17.7 ms | 41.3–48.7 ms | 1.1–1.3 ms |
+
+Both controls failed the cold-opening gate; both fixed runs passed. Each observed
+inventory open, had zero console errors and a reliable CPU window. The rebuilt
+ordinary export was loaded in the existing Chrome tab and inventory opened:
+imported borders and clouds were visible, with the saved island retained.

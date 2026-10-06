@@ -6,12 +6,10 @@ func _initialize() -> void:
   push_error("Pass an absolute diagnostic output directory after --")
   quit(1)
   return
- var generated = load("res://scripts/playground_terrain.gd").generate(10,20261005)
+ var generator = load("res://scripts/playground_terrain.gd")
+ var source = generator.fresh(10)
+ var generated = generator.generate(source,20261005)
  var snapshot: Dictionary = generated.snapshot()
- snapshot.sheep = [[544,272]]
- snapshot.chickens = [[608,208]]
- snapshot.stock.sheep = 0
- snapshot.stock.chicken = 0
  var verification = load("res://scripts/terrain_layout.gd").new()
  if not verification.restore(snapshot):
   push_error("Generated diagnostic fixture failed Godot validation")

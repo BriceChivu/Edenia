@@ -1,4 +1,4 @@
-import pathlib,shutil,re
+import pathlib,shutil,re,sys
 root=pathlib.Path.cwd(); target=root/'.cache/tiny-swords-perf/project'
 shutil.copytree(root/'godot/tiny-swords',target,ignore=shutil.ignore_patterns('.godot'),dirs_exist_ok=True)
 shutil.copy(root/'scripts/tiny-swords-xp-bridge.gd',target/'scripts/xp_bridge.gd')
@@ -83,6 +83,19 @@ func _perf_update_depth_mask() -> void:
 ''')
 s=s.replace('\n _perf_update_depth_mask()\n', '\n if Perf.flags.get("mask_uncached",false): depth_inputs.clear()\n _perf_update_depth_mask()\n')
 p.write_text(s)
+
+# Inventory lag probes remain confined to the disposable diagnostic project.
+p=target/'scripts/perf.gd';s=p.read_text()
+s=s.replace(' var data = {', ''' for cloud in world.get_node("Clouds").get_children() + [world.get_node("PassingCloud")]:
+  cloud.set_inventory_hidden(world.editing and flags.get("clouds_hidden",false))
+ var data = {''')
+s=s.replace('  if command.type == "edit": world.toggle_editing()', '''  if command.type == "inventory":
+   world.editing = command.open
+   world.selected = command.get("tool", "")
+   world.refresh()
+   JavaScriptBridge.eval("window.__inventoryCommandDone=%s" % command.id)
+  if command.type == "edit": world.toggle_editing()''')
+p.write_text(s)
 # Include masks in telemetry as a count and total pixel area.
 p=Path('.cache/tiny-swords-perf/project/scripts/perf.gd');s=p.read_text().replace(' var data = {',' var masks = []\n for c in get_tree().get_nodes_in_group("perf_clouds"):\n  masks.append({"width":c.depth_viewport.size.x,"height":c.depth_viewport.size.y,"occluders":c.depth_occluders.size(),"mode":c.depth_viewport.render_target_update_mode})\n var data = {"masks":masks,');p.write_text(s)
 p=Path('.cache/tiny-swords-perf/project/scripts/cloud_visual.gd');s=p.read_text().replace('func _ready() -> void:\n','func _ready() -> void:\n\tadd_to_group("perf_clouds")\n');p.write_text(s)
@@ -121,3 +134,27 @@ s=s.replace('\t\tshadow_textures.append(texture)\n', '\t\tshadow_textures.append
 for fn in ['shadow_receivers','add_shadow_receiver']:
  m=re.search(r'func '+fn+r'\(([^\n]*)\)( -> [^:\n]+)?:\n',s);args=[a.split(':')[0].strip() for a in m.group(1).split(', ')];returns=m.group(2)!=' -> void';ret=m.group(2) or '';call='_perf_'+fn+'('+', '.join(args)+')';wrapper=f'func {fn}({m.group(1)}){ret}:\n\tvar perf_start := Time.get_ticks_usec()\n\t'+('var perf_result = ' if returns else '')+call+f'\n\tPerf.record("terrain_view.gd:{fn}",Time.get_ticks_usec()-perf_start)\n'+('\treturn perf_result\n' if returns else '')+'\nfunc _perf_'+fn+'('+m.group(1)+')'+ret+':\n';s=s[:m.start()]+wrapper+s[m.end():]
 p.write_text(s)
+
+# Optional inventory presentation probes; never enter a canonical export.
+p=target/'scripts/cloud_visual.gd';s=p.read_text()
+if 'func set_inventory_hidden(' not in s:
+ s=s.replace('var share_frame_visuals := false','var share_frame_visuals := false\nvar inventory_hidden := false\nvar visible_before_inventory := true\nvar processing_before_inventory := true')
+ s=s.replace('func update_depth_mask_frame() -> void:\n','func update_depth_mask_frame() -> void:\n\tif inventory_hidden: return\n')
+ s=s.replace('func update_depth_mask() -> void:\n','func update_depth_mask() -> void:\n\tif inventory_hidden: return\n')
+ s+='\n'+"func set_inventory_hidden(hidden: bool) -> void:\n\tif hidden == inventory_hidden:\n\t\treturn\n\tinventory_hidden = hidden\n\tif hidden:\n\t\t# Preserve the rare visitor's waiting/crossing state, too.\n\t\tvisible_before_inventory = visible\n\t\tprocessing_before_inventory = is_processing()\n\t\thide()\n\t\tset_process(false)\n\t\tRenderingServer.frame_pre_draw.disconnect(update_depth_mask_frame)\n\t\tdepth_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED\n\t\tdepth_draw_pending = false\n\telse:\n\t\tvisible = visible_before_inventory\n\t\tset_process(processing_before_inventory)\n\t\t# Editing may have changed occluders or the camera while masks slept.\n\t\tdepth_inputs.clear()\n\t\tRenderingServer.frame_pre_draw.connect(update_depth_mask_frame)\n\n"
+p.write_text(s)
+p=target/'scripts/terrain_view.gd';s=p.read_text().replace('func draw_change_outlines() -> void:\n','func draw_change_outlines() -> void:\n\tif Perf.flags.get("outlines_stop",false): return\n');p.write_text(s)
+p=target/'scripts/perf.gd';s=p.read_text().replace('var elapsed := 0.0','var elapsed := 0.0\nvar previous_ratio := 2.0')
+s=s.replace(' var world = get_tree().current_scene',' var ratio := float(flags.get("pixel_ratio",2.0))\n if ratio != previous_ratio:\n  previous_ratio = ratio\n  ProjectSettings.set_setting("edenia/web/max_pixel_ratio",ratio)\n  preload("res://scripts/web_rendering_policy.gd").configure()\n var world = get_tree().current_scene');p.write_text(s)
+
+# Same-export counterfactual for the shipped offline-border lookup. The old
+# scanning algorithm is included only in this disposable diagnostic export.
+if '--runtime-outlines' in sys.argv:
+ p=target/'scripts/inventory_outline.gd';s=p.read_text()
+ s=s.replace('extends RefCounted', 'extends RefCounted\nconst RuntimeOutline = preload("res://tools/inventory_outline_baker.gd")')
+ s=s.replace('static func texture_for(texture: Texture2D, region: Rect2i) -> Texture2D:\n', '''static func texture_for(texture: Texture2D, region: Rect2i) -> Texture2D:
+	if Perf.flags.get("runtime_outlines",false):
+		return RuntimeOutline.texture_for(texture, region)
+''')
+ p.write_text(s)
+ p=target/'export_presets.cfg';p.write_text(p.read_text().replace('tools/*,',''))
