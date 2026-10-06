@@ -1,7 +1,33 @@
 # Tiny Swords selected assets
 
-Source assets for Tiny Swords. Selected art is used by the separate local Godot
-preview in `godot/tiny-swords`; the UI collection is stored for future use.
+Source assets for Tiny Swords. Runtime art lives inside the canonical Godot
+project in `godot/tiny-swords`; this raw collection is never copied to `_site`.
+
+## Distribution and notices (checked 5 October 2026)
+
+This import is **Tiny Swords (Free Pack)**, not `TS_old version_CC0 Licensed`.
+The publisher distinguishes those downloads on the
+[Tiny Swords page](https://pixelfrog-assets.itch.io/tiny-swords).
+The current Free Pack terms permit personal/commercial game use and modification,
+make credit optional, and prohibit standalone redistribution, resale or repackaging,
+including modified assets. Edenia delivers art as resources in its Godot game pack;
+it excludes this raw asset directory, editor previews, test resources and obsolete
+chicken reference frames from hosting. Do not offer the art as a downloadable pack.
+
+Pixel Frog created the pack artwork. Edenia's separated cloud/shadow layers, UI
+slices and axe icon derive from it. The chicken is a separate supplied CHICKEN4.0
+image, with idle/eating/run adaptations generated using imagegen and the pack's
+sheep motion as references; imported on 4 October 2026. Its source provenance is
+`/Users/brice/Downloads/chicken-4.0-sprites/README.md`; it is not advertised as
+Pixel Frog's original art or part of the Free Pack license grant.
+
+The versioned game directory contains `notices/ASSET-PROVENANCE.md`, the Godot
+4.7.2 MIT license and complete third-party copyright/license collection, and
+MedievalSharp's SIL Open Font License with its copyright/reserved-name statement.
+The font is Wojciech Kalinowski's MedievalSharp from
+[Google Fonts](https://github.com/google/fonts/tree/main/ofl/medievalsharp).
+See [Godot licensing](https://godotengine.org/license/) and
+[license compliance](https://docs.godotengine.org/en/stable/about/complying_with_licenses.html).
 
 Source: `/Users/brice/Downloads/Tiny Swords (Free Pack)`.
 Imported on 2026-09-28. This pack matches the requested category names and UI

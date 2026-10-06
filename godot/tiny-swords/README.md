@@ -27,6 +27,14 @@ below; use **F6** to test whichever named scene you opened.
 
 ## Persistent local preview
 
+Fresh islands show only ocean and clouds with a centered **Start** button using
+the level-up confirmation artwork. Start reveals the level-one terrain immediately;
+one second later the shared tree-cut dust animation reveals the pawn. Walking,
+building and study-level celebrations wait until the dust finishes. The versioned
+island snapshot also carries `island_started`: pending islands retain Start across
+reloads, while started islands and older saved islands resume directly. Fresh F6
+level previews remain ready for gameplay. Focused check: `res://tests/island_arrival.gd`.
+
 Open `project.godot` in Godot 4.7, then **F5 / Play Project**.
 The default scene is now `scenes/level_two_preview.tscn`, which inherits the preserved
 level-one environment. **Playground → Level +1**, then **Playground → Level +1** (outside build mode),
@@ -161,10 +169,34 @@ and pine. Opening the inventory clears tool selection. A small underline marks a
 after it is chosen; faded artwork is unavailable. While the inventory is open with no tool selected,
 objects with a valid next change have a soft white two-pixel outline: tree types,
 house facings, staircase directions, and grass elevations. Hovering previews that
-next change at the existing anchor; clicking applies it without selecting an
+next change at the existing anchor, hiding the hovered tree or house's outline;
+clicking applies it without selecting an
 inventory button. Selecting any tool hides these outlines and uses its normal
 preview. Pickup retains its own preview. Protected objects do not offer
 a change, and closing the inventory removes the outlines and previews.
+
+Tree and house silhouette borders are imported assets, including all eight tree
+poses and the three unique house textures. Inventory drawing loads them without
+reading sprite pixels or generating textures on first use. Native and Web previews
+use the same borders and preserve the existing positions, tint and mirroring.
+After changing source artwork or border rules, regenerate and import them:
+
+```sh
+godot --headless --path godot/tiny-swords --script res://tools/generate_inventory_outlines.gd
+godot --headless --path godot/tiny-swords --editor --import
+godot --headless --path godot/tiny-swords --script res://tests/inventory_outline_assets.gd
+```
+
+Run these commands from the repository root with Godot 4.7.2 (or use the full
+path to that executable). Commit the generated PNGs, import settings and
+`scripts/inventory_outline_assets.gd`. The integration build checks source
+fingerprints and compares every imported border against the original algorithm;
+stale or changed borders fail the build. Offline tools are excluded from Web
+exports. Clouds and their shadows are hidden while the inventory is open,
+including the rare passing cloud, and return when the inventory closes. The pawn
+also hides while the inventory is open and returns when it closes; its current
+movement and work continue.
+
 The four-corner Cursor 04 icon picks up, and the orange back arrow undoes. A small
 cross at the top-right (24×24 hit target) or Escape exits building and returns to walking. All controls retain accessible names; item counts remain in their accessible
 names and inventory state. Selecting a tool keeps the strip open.
@@ -196,7 +228,11 @@ stairs, and positions overlapping the pawn remain unavailable.
 The moving preview and placed tree share the same artwork anchor; navigation
 and Y sorting follow the placed trunk. The movement obstacle follows the visible
 roots, so the pawn can walk onto the grass immediately below them, including
-near a square's front edge. Trees coexist with existing foliage and
+near a square's front edge. Trees can share house foundation tiles when their root contact polygon clears
+the house’s current ground contact polygon; canopy and roof overlap is allowed.
+Tree variant changes and house rotations must also keep those contacts clear.
+Collect trees from a house’s free foundation grass before picking up that house.
+Trees coexist with existing foliage and
 land decorations; planting or picking up a tree preserves bushes and rocks.
 Save version 13 preserves tree offsets and moves overflowing trunks from
 versions 9–12 just inside the horizontal boundaries. Unsafe upward placements
@@ -302,7 +338,7 @@ node scripts/preview-tiny-swords.mjs
 ```
 
 Open **http://localhost:4183/**. This rebuilds Edenia, exports Godot for Web, and
-patches only disposable `_site/index.html` to embed the game in the town image
+patches only disposable `_site/index.html` to embed the game in the island
 container. The normal build/deployment does not invoke the preview script. The
 header, study controls, and video section use the unchanged Edenia app. There
 is no progress/data bridge. A fresh localhost browser profile has an empty feed;
@@ -393,8 +429,75 @@ keeping the scene and elapsed-time action clocks alive for resume. Partial visib
 the same iframe. The single-threaded web runtime pause/resume and keepalive hooks
 must be verified with the offscreen diagnostic gate after engine upgrades.
 
-This remains a local developer preview. The ordinary site build does not include
-the game export or enable Tiny Swords; Auth remains paused.
+The ordinary site build now includes the integrated export, with game mounting
+disabled by default. Auth remains paused; deployment and public enablement are
+deferred. See the reproducible build instructions below.
+
+## Reproducible export and production build preparation
+
+From the repository root, use Node from `.nvmrc` and official **Godot 4.7.2**
+with its matching single-threaded Web export templates. Linux x64 CI and Pages
+builds run the shared checksum-verified installer:
+
+```sh
+npm ci
+npm run setup:godot
+npm run build
+```
+
+On macOS, an existing official Godot 4.7.2 installation with matching templates
+works automatically at `/Applications/Godot.app/Contents/MacOS/Godot`, or set
+`GODOT_BIN` to the executable. The builder rejects a different engine version.
+CI imports a fresh copy without `.godot`; no Downloads/Desktop paths are needed.
+Only the official Linux editor and the two matching Web templates are installed.
+
+`npm run build` includes the game with **mounting off**. The dashboard uses the
+island surface even with the release control unset; the town snapshot timeline
+and image runtime are retired. `EDENIA_TINY_SWORDS_ENABLED=true` mounts the game;
+`false` or unset keeps the unavailable-island feedback. This is one release control, written as `tinySwordsEnabled`
+through the existing runtime-config machinery. `npm run build:production` runs
+that same exporter before the existing required-key config writer. The Pages
+workflow pins this control to false until a separately reviewed release.
+No deployment or public mounting is part of this implementation.
+
+The generated directory is `_site/tiny-swords-game/<sha256>/`. Parent adapter,
+iframe HTML/transport, engine JS/WASM, game PCK, cursor and notices share a hash
+of their actual delivery bytes. The parent resolves assets relative to its own
+script URL; engine assets resolve beside the iframe. Old cached releases cannot
+load new assets under their old URLs. A removed old release can fail to load,
+so the unavailable-island surface stays visible without reviving the town
+snapshot timeline. The existing root `release.json` still identifies Edenia's
+app/config release; game `release.json` records its own version and engine pin.
+
+Locally validate the intended project-site base path with disposable browser
+profiles (the fixtures include a populated island):
+
+```sh
+EDENIA_TINY_SWORDS_ENABLED=true npm run build
+EDENIA_TEST_TINY_SWORDS=true EDENIA_TEST_NORMAL_PORT=4174 EDENIA_TEST_BASE_PATH=/Edenia/ \
+  npx playwright test experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-page-scroll.spec.mjs \
+  --project=desktop-standard --project=phone-standard
+```
+
+The required CI job uses these commands against the real export. An absent game
+frame fails; only the unrelated ordinary browser suite excludes these flows.
+The release smoke verifies JS/WASM/PCK and notice paths, matching version URLs,
+and disable/re-enable without losing the existing island or study facts.
+Persistence/progression flows reuse #375/#376 coverage, including delayed startup,
+failed claim writes, reloads, profile replacement and rejected snapshots.
+
+For the local fallback, set `EDENIA_TINY_SWORDS_ENABLED=false` and rebuild, or
+set `tinySwordsEnabled: false` in your ignored local config when using `npm run dev`.
+Refresh the same browser origin: study features remain usable, the saved island
+is retained, and the game area displays “Island is currently unavailable.”
+Re-enable the same control and refresh to restore that island. The control changes
+presentation only; it does not clear profiles, claims, island data or backups.
+The automated smoke tests this exact sequence locally without any hosted writes.
+
+The raw `assets/tiny-swords` directory is excluded from hosting. The game's
+`notices/` directory carries engine/third-party licenses, the MedievalSharp OFL,
+and [asset provenance](../../assets/tiny-swords/README.md). Tests, editor preview
+entries and obsolete raw chicken reference frames are excluded from the PCK.
 
 ## Rebuild the integrated XP preview
 
@@ -449,14 +552,15 @@ the browser adapter so it scrolls Edenia. Rebuild it from the repository root:
 node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
 ```
 
-The builder recreates its disposable `.cache/tiny-swords-xp/project` from this
-source, adds the study adapter, and checks the configured main scene and shared
-gameplay suite before exporting. It never patches gameplay or grid dimensions.
+The command rebuilds the complete site. Its shared exporter recreates disposable
+`.cache/tiny-swords-xp/project` from this source, adds the study adapter, and checks
+the configured main scene, shared gameplay suite and progression before exporting. It never patches gameplay or grid dimensions.
 It also prepares Brotli/gzip WASM, asset-pack and engine-script variants. The
 static server negotiates current compressed variants while retaining the
-original MIME type; a hosted export needs equivalent Content-Encoding handling.
-Directly exporting the base Godot project into `_site/tiny-swords-xp-game`
-replaces the study adapter and browser message/scroll hooks.
+original MIME type. GitHub Pages may serve the originals; no compressed-only
+URLs or special response headers are required by this single-threaded export.
+Directly exporting the base Godot project bypasses the study adapter and browser
+message/scroll hooks; keep it separate from the versioned integrated directory.
 Use the integration builder for every update to that preview, then refresh.
 The direct export command above applies to the separate base preview on port 4183.
 
@@ -677,10 +781,12 @@ visible only through water-facing edges. `tests/cliff_terrace_roots.gd` checks
 both stair orientations against the original atlas pixels.
 
 An elevated staircase cannot be placed above an exposed cliff. The ground
-directly in front of both its base and its bundled landing must reach the ramp’s
-lower-end height, leaving at most one cliff beneath the landing. Flat stairs
-still allow water underneath. Preview and placement
-share this rule; `tests/stair_cliff_stack.gd` checks both directions and heights.
+directly in front of its lower entrance, ramp and bundled landing must reach the
+ramp’s lower-end height, leaving at most one cliff beneath the landing. Reversal
+checks its new lower entrance too. Supporting grass cannot be picked up or lowered
+while the staircase needs it. Flat stairs still allow water underneath. Preview
+and placement share this rule; `tests/stair_cliff_stack.gd` checks both directions,
+heights, reversal and support edits.
 
 ## Editing the Terrain UI in Godot
 
@@ -740,6 +846,7 @@ state; `res://tests/bridges.gd` opts into the experiment for its feature checks.
 ## Level five: sheep and houses
 
 Level five grants **3 grass tiles**, **1 placeable sheep**, and the **House** capability.
+Sheep may be placed on grass at either end of stairs; the ramp itself stays unavailable for placement.
 It uses the continuing XP curve: **150 total XP** (60 after level four).
 Open `previews/level_four_to_five.tscn` for the reward transition or
 `previews/level_five.tscn` for a fresh build session.
@@ -773,7 +880,15 @@ building. Pick up the sheep to return its one inventory item.
 
 Each new house costs **6 harvested logs**. Clicking a full six-log pyramid
 sends the pawn to it. Only on arrival does the pyramid disappear instantly;
-one carried log represents the reserved six-log bundle. The pawn keeps the
+one carried log represents the reserved six-log bundle. House placement keeps
+the inventory closed and the pawn visible, using the same free pointer preview
+and foundation checks. Opening inventory manually pauses this preview; closing
+it resumes choosing the site. Press **Escape** while
+choosing a house site or carrying the bundle toward it to cancel: the pawn walks
+back and restores the six-log pyramid at its original location. Save version 29
+retains that location across reloads. Older saves without an origin, or an origin
+removed or blocked by terrain edits, use nearby reachable clear grass.
+Focused check: `res://tests/house_cancel.gd`. The pawn keeps the
 log while the user chooses a house preview position and while approaching it.
 On arrival at a reachable site, the side-view house appears at **50% opacity**.
 The pawn uses the original three-frame `Pawn_Interact Hammer.png` at **10 fps**,
@@ -791,8 +906,13 @@ not certified pixel-identical. Reserved logs and the construction clock survive
 reloads. Undo returns the reserved bundle without duplicating a ground pile.
 Houses stay outside the inventory. Click a placed house while the inventory is open
 to cycle front, side, back, and opposite-side views for free. Pick up a house
-to return its six logs as a pyramid on the nearest clear grass tile, including
-the freed foundation. Pick up that pyramid to rebuild the house. Hovering a full pyramid shows `Icon_01.png`.
+to return its six logs as a pyramid on the nearest clear surviving grass tile
+outside that house’s free foundation. Pickup is unavailable if no such tile exists. The pawn never blocks pickup:
+if it occupies a collected item, its foundation, or the refunded logs tile, it
+respawns on nearby surviving walkable ground. Ground and stair pickup also move
+the pawn when needed, clear its previous walking route, and keep at least one
+grass tile on the island. Focused check: `res://tests/pickup_pawn_relocation.gd`.
+Pick up that pyramid to rebuild the house. Hovering a full pyramid shows `Icon_01.png`.
 New houses follow the pointer freely, without snapping or clamping. The foundation
 covers the grass tiles beneath every facing’s ground contacts at the chosen position,
 all at one floor level. Moving across a tile edge can require additional foundation
@@ -802,9 +922,19 @@ offsets keep their legacy foundation correction.
 Houses retain the exact preview position;
 construction, rotation, contacts, saves and undo retain that offset.
 Houses occupy
-a foundation on grass or water, usually 2×2 tiles and enlarged as needed for free placement. Each missing foundation square costs one meadow grass tile from inventory;
-pickup leaves that paid foundation in place without refunding grass. Existing
-grass requires no additional tiles;
+a foundation on grass or water, usually 2×2 tiles and enlarged as needed for free placement. Up to four missing foundation squares become grass automatically for free per house;
+any additional squares consume meadow grass from inventory. All added foundation
+tiles use the house’s floor elevation and the corresponding raised grass artwork;
+reload repairs the base artwork used by earlier elevated house foundations. Placement is
+valid only when the pawn can reach a work spot beside the house on its floor.
+If the preferred positions in front of the door are blocked, Godot searches
+nearby positions beside it, keeping both soles on that same floor and outside
+object contacts. Preview and construction use the same plan.
+Focused check: `res://tests/house_work_spots.gd`.
+Pickup removes the free tiles created by that house; existing grass and any
+foundation tiles paid from inventory stay in place. Save version 30 records each
+house’s free tiles, including during the approach. Older saves retain their terrain
+because they did not record which house created each free tile. Existing grass stays in place;
 bushes and rocks disappear only when their ground anchors lie under the house contact polygon.
 Sheep and chickens run to reachable free grass, or return to inventory when trapped.
 Stairs require clear foundations. Trees, other houses, logs, and the
@@ -826,9 +956,12 @@ Level two grants three grass tiles, one stair bundle and one chicken. Select Chi
 to place it on free grass; Pick up returns it to inventory. The CHICKEN4.0 animation
 sheets in `assets/chicken/` use 128×128 cells at 10 fps: six idle frames, twelve eating
 frames, and four run frames. The chicken alternates 2.4 seconds of idle with a complete
-1.2-second pecking sequence. It replays the pawn’s actual movement trail after a
-three-second delay, stopping on the preceding tile instead of entering the pawn’s
-current tile. Random wandering after 10–15 grazing cycles remains active while the
+1.2-second pecking sequence. Two seconds after the pawn starts moving, it follows the shortest reachable
+route to a grass tile beside the pawn, updating its route as the pawn changes tiles.
+It stops one tile before the pawn and its routes avoid the pawn’s current tile.
+Stopping the pawn retains the follow delay and lets the chicken finish approaching the adjacent tile. The chicken never blocks pawn movement; entering its tile triggers escape, like the sheep. Escape takes priority: pawn
+movement during escape is ignored, and only new movement after the chicken settles
+can start another two-second follow delay. Random wandering after 10–15 grazing cycles remains active while the
 pawn is stationary. Pawn contact interrupts following and triggers escape over 3–5 safe tile steps,
 including shorter and sideways fallbacks. It follows the same paths through bushes,
 rocks and connected stairs, avoiding tree, log and house contact footprints.
@@ -841,12 +974,32 @@ and the level-two reward. Save version 22 retains the chicken's exact ground-pla
 position; versions 20–21 migrate their stored grass cells to positions. Earlier
 Save version 25 adds the level-two chicken to existing level-two-or-higher islands once.
 Level seven grants another chicken, for two chickens in total.
+Chickens keep 32 pixels of ground-contact spacing on the same floor while following,
+wandering and escaping, and choose separate resting spots. Older overlapping positions
+separate when movement resumes. `tests/chicken_spacing.gd` covers these interactions.
 Level eight grants another sheep, for two sheep in total. Save version 26 adds this
 reward once to existing level-eight-or-higher islands.
 Focused checks: `res://tests/chicken.gd`, `res://tests/chicken_animation.gd`,
 and `res://tests/chicken_following.gd`.
 
 Generated scenery (rocks, bushes, flowers and water decorations) never blocks
-placement or free terrain transformations. Conflicting scenery is cleared by
+placement or free terrain transformations. Sheep and chickens share grass with
+existing scenery, preserving it during placement and pickup. Conflicting scenery is cleared by
 committed edits; previews use the same rules. Player-built objects retain their
 normal protection. Focused check: `res://tests/scenery_placement.gd`.
+
+
+## Edenia dashboard and focus
+
+Edenia's island surface reports loading, slow startup and startup/restore failures.
+Study History and the feed remain usable. Retry recreates the iframe without
+replacing saved work; accepted Godot restoration still gates every island write.
+The XP bar below the game shows the claimed study level, next unlock and the
+final tenth level from the generated Godot progression table. Study corrections
+can lower current XP while claimed levels remain intact.
+
+Visible Edenia modal dialogs and walkthroughs make the iframe and its host camera
+buttons inert. Edenia relays the hidden presentation state through the existing
+visibility bridge; Godot owns suspension and resume. Closing an overlay resumes
+the same frame. The focused dashboard smoke verifies pointer, keyboard and camera
+blocking alongside engine failure/retry and durable data preservation.

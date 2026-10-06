@@ -182,6 +182,10 @@ writes a normalized `_site/config.local.js` without printing the key, and
 serves the result on the loopback interface. Re-run the command after changing
 source files; it intentionally performs one build instead of running a watcher.
 
+The site build also exports Tiny Swords using pinned Godot 4.7.2 and matching Web
+templates (`npm run setup:godot` on Linux x64). Game mounting stays disabled by
+default. See [reproducible game builds and the local fallback](godot/tiny-swords/README.md#reproducible-export-and-production-build-preparation).
+
 The non-production build writes an empty runtime API key so automated checks do
 not use YouTube quota. `npm run build:production` requires `YOUTUBE_API_KEY` and
 is reserved for the GitHub Pages workflow.
