@@ -25,9 +25,17 @@ func run() -> void:
 	for version in [20, 21]:
 		var legacy := saved.duplicate(true)
 		legacy.version = version
+		# Versions 20–21 had only the level-seven chicken and two tree rewards.
+		legacy.stock.chicken -= 1
+		legacy.stock.tree -= 1
 		legacy.chickens = [[cell.x, cell.y]]
 		var migrated = Layout.new()
-		check(migrated.restore(legacy) and migrated.chickens[0] == layout.center(cell), "Migrate cell coordinates from version " + str(version))
+		var accepted: bool = migrated.restore(legacy)
+		check(accepted and migrated.chickens[0] == layout.center(cell), "Migrate cell coordinates from version " + str(version))
+		if accepted:
+			check(migrated.stock.chicken == layout.stock.chicken and migrated.stock.tree == layout.stock.tree, "Legacy migration grants missing rewards once")
+			var current: Dictionary = migrated.snapshot()
+			check(migrated.restore(current) and migrated.snapshot() == current, "Migrated position and rewards survive reload without duplication")
 	layout.chickens[0] += Vector2(3.25, -4.5)
 	var restored = Layout.new()
 	check(restored.restore(layout.snapshot()) and restored.chickens == layout.chickens, "Exact position persists")

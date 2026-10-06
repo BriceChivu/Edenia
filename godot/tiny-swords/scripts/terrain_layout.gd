@@ -1226,7 +1226,9 @@ func restore(data: Dictionary) -> bool:
 			if int(data.version) < 22:
 				point = center(Vector2i(int(record[0]), int(record[1])))
 			var cell := cell_at(point)
-			if next_level < (7 if int(data.version) < 25 else 2) or not next_cells.has(cell) or next_chickens.has(point):
+			# Two earned chickens can share a saved position. Movement separates
+			# them on resume; inventory conservation below still rejects extras.
+			if next_level < (7 if int(data.version) < 25 else 2) or not next_cells.has(cell):
 				return false
 			for owner in next_houses:
 				if Geometry2D.is_point_in_polygon(point, house_footprint(owner, int(next_houses[owner]), next_house_offsets[owner])):

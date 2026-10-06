@@ -14,10 +14,68 @@ func _ready() -> void:
 	art_offset = Art.CHICKEN_OFFSET
 	faces_left = true
 	super._ready()
-	add_to_group("pawn_tile_avoiders")
 
 func animal_positions() -> Array[Vector2]:
 	return world.layout.chickens
+
+const CHICKEN_SPACING := 32.0
+
+func clear_of_chickens(start: Vector2, target: Vector2) -> bool:
+	for index in world.layout.chickens.size():
+		if index == chicken_index:
+			continue
+		var other: Vector2 = world.layout.chickens[index]
+		# Chickens on different floors can share ground-plane coordinates.
+		if absf(world.ground_height(other) - world.ground_height(start)) > 1.0:
+			continue
+		var closest := Geometry2D.get_closest_point_to_segment(other, start, target)
+		var distance := start.distance_to(other)
+		if distance < CHICKEN_SPACING - 0.01:
+			# Older layouts may already overlap. Allow movement out of contact,
+			# but never a segment that first takes the chicken deeper into it.
+			if closest.distance_to(other) < distance - 0.01 or target.distance_to(other) <= distance:
+				return false
+		elif closest.distance_to(other) < CHICKEN_SPACING - 0.01:
+			return false
+	return true
+
+func tile_target(cell: Vector2i) -> Vector2:
+	var center: Vector2 = world.layout.center(cell)
+	for offset in [Vector2.ZERO, Vector2(0, 24), Vector2(0, -24), Vector2(-24, 0), Vector2(24, 0), Vector2(-24, 24), Vector2(24, 24), Vector2(-24, -24), Vector2(24, -24)]:
+		var target: Vector2 = center + offset
+		if not world.layout.walkable_point(target, true):
+			continue
+		var available := true
+		for index in world.layout.chickens.size():
+			if index != chicken_index:
+				var other: Vector2 = world.layout.chickens[index]
+				if absf(world.ground_height(other) - world.ground_height(target)) <= 1.0 and target.distance_to(other) < CHICKEN_SPACING:
+					available = false
+		if available:
+			return target
+	return Vector2.INF
+
+func separate_chickens() -> void:
+	# Resolve pre-existing overlap one chicken at a time, leaving the first
+	# chicken settled so the pair does not continually chase each other away.
+	for index in range(chicken_index):
+		var other: Vector2 = world.layout.chickens[index]
+		if absf(world.ground_height(other) - world.ground_height(position)) > 1.0 or position.distance_to(other) >= CHICKEN_SPACING:
+			continue
+		for step in world.layout.STEPS:
+			var cell: Vector2i = world.layout.cell_at(position) + step
+			if cell == world.layout.cell_at(world.pawn.position):
+				continue
+			var route := route_to_tile(position, cell)
+			if route.is_empty():
+				continue
+			escape_route.assign(route)
+			tile_destinations.assign([route.back()])
+			destination = route[0]
+			fleeing = true
+			reset_grazing()
+			face_destination()
+			return
 
 func avoid_sheep() -> void:
 	var layout = world.layout
@@ -59,17 +117,16 @@ func avoid_sheep() -> void:
 		reset_grazing()
 		face_destination()
 
-const FOLLOW_DELAY := 3.0
-var pawn_trail: Array[Dictionary] = []
-var trail_time := 0.0
-var trail_position := Vector2.INF
+const FOLLOW_DELAY := 2.0
+var follow_wait := -1.0
+var follow_target_cell := Vector2i(999, 999)
 var following := false
 var pawn_moving := false
 var wandering := false
 
 func try_wandering() -> void:
 	# Keep the existing wandering cycle while the pawn is stationary.
-	if not pawn_moving and not following:
+	if not pawn_moving and not following and follow_wait < 0.0:
 		super.try_wandering()
 		wandering = fleeing
 
@@ -83,6 +140,7 @@ func clear_following() -> void:
 		tile_destinations.clear()
 		destination = position
 	following = false
+	follow_target_cell = Vector2i(999, 999)
 
 func segment_enters_cell(start: Vector2, target: Vector2, cell: Vector2i) -> bool:
 	var layout = world.layout
@@ -96,9 +154,11 @@ func segment_enters_cell(start: Vector2, target: Vector2, cell: Vector2i) -> boo
 	return false
 
 func safe_follow_segment(start: Vector2, target: Vector2) -> bool:
-	return not segment_enters_cell(start, target, world.layout.cell_at(world.pawn.position)) and world.clear_segment(start, target, true)
+	return clear_of_chickens(start, target) and not segment_enters_cell(start, target, world.layout.cell_at(world.pawn.position)) and world.clear_segment(start, target, true)
 
 func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
+	if not clear_of_chickens(start, target):
+		return false
 	if house_fleeing:
 		return true
 	# Legacy saves or an externally restored pawn can begin on this tile.
@@ -115,68 +175,134 @@ func route_to_tile(start: Vector2, cell: Vector2i) -> Array[Vector2]:
 		start = point
 	return route
 
-func allow_pawn_step(start: Vector2, target: Vector2) -> bool:
-	if not segment_enters_cell(start, target, world.layout.cell_at(position)):
-		return true
-	# Reserve the occupied tile until the chicken has actually left it. This
-	# also starts escape before contact, rather than waiting for an overlap.
-	if following:
-		clear_following()
-	wandering = false
-	pawn_trail.clear()
-	trail_position = Vector2.INF
-	approach_direction = (target - start).normalized()
-	if not fleeing:
-		destination = escape_target()
-		fleeing = destination != position
-		if fleeing:
-			reset_grazing()
-			face_destination()
-	return false
+func shortest_follow_route() -> Array[Vector2]:
+	var layout = world.layout
+	var pawn_cell: Vector2i = layout.cell_at(world.pawn.position)
+	var targets: Array[Vector2] = []
+	for step in layout.STEPS:
+		var cell: Vector2i = pawn_cell + step
+		if cell == layout.cell_at(position):
+			return []
+		if layout.cells.get(cell) == "stairs":
+			continue
+		var target := tile_target(cell)
+		if target.is_finite():
+			targets.append(target)
+	if targets.is_empty():
+		return []
+	var nearest := targets[0]
+	for target in targets:
+		if position.distance_squared_to(target) < position.distance_squared_to(nearest):
+			nearest = target
+	if safe_follow_segment(position, nearest):
+		return [nearest]
+	# A* uses actual segment lengths, including diagonal steps. The pawn's
+	# entire tile is excluded during the search, rather than rejecting a
+	# completed route that could have gone around it.
+	var source := Vector2i(((position - layout.ORIGIN) / 8.0).floor())
+	var frontier: Array[Vector2i] = [source]
+	var previous: Dictionary = {source: source}
+	var costs: Dictionary = {source: 0.0}
+	var scores: Dictionary = {source: follow_distance(position, targets)}
+	var best_cost := INF
+	var best_node := source
+	var best_target := Vector2.INF
+	while not frontier.is_empty():
+		var selected := 0
+		for index in range(1, frontier.size()):
+			if float(scores[frontier[index]]) < float(scores[frontier[selected]]):
+				selected = index
+		var current: Vector2i = frontier[selected]
+		frontier.remove_at(selected)
+		if float(scores[current]) >= best_cost:
+			break
+		var point: Vector2 = position if current == source else layout.ORIGIN + Vector2(current) * 8.0
+		for target in targets:
+			var cost: float = float(costs[current]) + point.distance_to(target)
+			if cost < best_cost and safe_follow_segment(point, target):
+				best_cost = cost
+				best_node = current
+				best_target = target
+		for step in layout.NAV_STEPS:
+			var next: Vector2i = current + step
+			var next_point: Vector2 = layout.ORIGIN + Vector2(next) * 8.0
+			var cost: float = float(costs[current]) + point.distance_to(next_point)
+			if cost >= float(costs.get(next, INF)) or not safe_follow_segment(point, next_point):
+				continue
+			costs[next] = cost
+			scores[next] = cost + follow_distance(next_point, targets)
+			previous[next] = current
+			if not frontier.has(next):
+				frontier.append(next)
+	var route: Array[Vector2] = []
+	if not best_target.is_finite():
+		return route
+	while best_node != source:
+		route.push_front(layout.ORIGIN + Vector2(best_node) * 8.0)
+		best_node = previous[best_node]
+	route.append(best_target)
+	# Remove unnecessary navigation samples so open ground takes a direct route.
+	var start := position
+	var smoothed: Array[Vector2] = []
+	while not route.is_empty():
+		var furthest := 0
+		for index in route.size():
+			if safe_follow_segment(start, route[index]):
+				furthest = index
+		start = route[furthest]
+		smoothed.append(start)
+		route = route.slice(furthest + 1)
+	return smoothed
+
+func follow_distance(point: Vector2, targets: Array[Vector2]) -> float:
+	var distance := INF
+	for target in targets:
+		distance = minf(distance, point.distance_to(target))
+	return distance
 
 func follow_pawn() -> void:
-	while not pawn_trail.is_empty():
-		var sample: Dictionary = pawn_trail[0]
-		if trail_time - float(sample.time) < FOLLOW_DELAY:
-			return
-		var target: Vector2 = sample.point
-		var start: Vector2 = escape_route.back() if following and not escape_route.is_empty() else position
-		# Retain the final tile's samples until the pawn leaves it. The chicken
-		# never follows into the pawn's tile, even after the delay has expired.
-		if world.layout.cell_at(target) == world.layout.cell_at(world.pawn.position):
-			return
-		if start.is_equal_approx(target):
-			pawn_trail.pop_front()
-			continue
-		var route: Array[Vector2] = []
-		if safe_follow_segment(start, target):
-			route.append(target)
-		else:
-			route = world.tree_navigation_path(start, target, [], true)
-			for point in route:
-				if not safe_follow_segment(start, point):
-					return
-				start = point
-		if route.is_empty():
-			return
-		pawn_trail.pop_front()
-		escape_route.append_array(route)
-		tile_destinations.append(target)
-		if not following:
-			destination = escape_route[0]
-			following = true
-			fleeing = true
-			reset_grazing()
-			face_destination()
+	var pawn_cell: Vector2i = world.layout.cell_at(world.pawn.position)
+	if following and fleeing and pawn_cell == follow_target_cell:
+		return
+	var route := shortest_follow_route()
+	clear_following()
+	follow_target_cell = pawn_cell
+	if route.is_empty():
+		if not pawn_moving:
+			follow_wait = -1.0
+		return
+	escape_route.assign(route)
+	tile_destinations.assign([route.back()])
+	destination = route[0]
+	following = true
+	fleeing = true
+	reset_grazing()
+	face_destination()
 
 func advance(delta: float, now: float) -> void:
-	if house_fleeing:
-		super.advance(delta, now)
-		return
 	if chicken_index >= animal_positions().size():
 		return
 	pawn_moving = not world.pawn.position.is_equal_approx(previous_pawn_position)
-	trail_time += maxf(delta, maxf(0.0, now - updated_at))
+	# Render frames can occur between physics steps. Keep a real walking
+	# action active across those frames rather than repeatedly restarting delay.
+	if world.pawn.is_physics_processing() and not world.pawn.chopping and not world.pawn.hammering:
+		pawn_moving = pawn_moving or world.pawn.position.distance_to(world.pawn.destination) > 0.1
+	var elapsed := maxf(delta, maxf(0.0, now - updated_at))
+	# Ignore pawn movement throughout escape. Once settled, only a new pawn
+	# movement starts the follow delay; no movement request or path is retained.
+	var escaping := fleeing and not following and not wandering
+	if escaping:
+		follow_wait = -1.0
+	elif not pawn_moving and follow_wait < 0.0:
+		clear_following()
+	elif pawn_moving and follow_wait < 0.0:
+		follow_wait = 0.0
+	var previous_wait := follow_wait
+	if follow_wait >= 0.0:
+		follow_wait += elapsed
+	if house_fleeing:
+		super.advance(delta, now)
+		return
 	if wandering and (pawn_moving or not fleeing):
 		if fleeing:
 			following = true
@@ -185,16 +311,13 @@ func advance(delta: float, now: float) -> void:
 	var can_move: bool = not world.editing and world.water_phase == world.WaterPhase.READY
 	if not can_move:
 		clear_following()
-		pawn_trail.clear()
-		trail_position = Vector2.INF
+		follow_wait = -1.0
 	else:
 		if following and not fleeing:
 			following = false
 		if world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position):
-			# Pawn contact takes precedence, including during a following run.
 			clear_following()
-			pawn_trail.clear()
-			trail_position = Vector2.INF
+			follow_wait = -1.0
 		elif following:
 			var start := position
 			for point in escape_route:
@@ -204,13 +327,13 @@ func advance(delta: float, now: float) -> void:
 				start = point
 		if not fleeing and world.layout.cell_at(world.pawn.position) != world.layout.cell_at(position):
 			avoid_sheep()
-		if not fleeing or following:
-			if world.layout.walkable_point(world.pawn.position, true) and not trail_position.is_equal_approx(world.pawn.position):
-				trail_position = world.pawn.position
-				pawn_trail.append({"time": trail_time, "point": trail_position})
+			if not fleeing:
+				separate_chickens()
+		if (not fleeing or following) and follow_wait >= FOLLOW_DELAY:
 			follow_pawn()
-		else:
-			# Restart the trail after an escape, without replaying a stale route.
-			pawn_trail.clear()
-			trail_position = Vector2.INF
+			if previous_wait < FOLLOW_DELAY and following:
+				# Catch-up only spends the time after the initial delay walking.
+				elapsed = follow_wait - FOLLOW_DELAY
+				updated_at = now - elapsed
+				delta = elapsed
 	super.advance(delta, now)

@@ -12,6 +12,7 @@ func _initialize() -> void:
 	run.call_deferred()
 
 func run() -> void:
+	seed(0)
 	var scene = preload("res://previews/level_seven.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
@@ -48,14 +49,76 @@ func run() -> void:
 		var target: Vector2 = corner if tick < 55 else finish
 		scene.pawn.position = scene.pawn.position.move_toward(target, scene.pawn.speed * 0.05)
 		chicken.advance(0.05, 100.0 + (tick + 1) * 0.05)
-		if tick < 60:
-			check(chicken.position.is_equal_approx(start), "Wait three seconds before following")
+		if tick < 40:
+			check(chicken.position.is_equal_approx(start), "Wait two seconds before following")
 		check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Following never enters pawn tile")
-		check(absf(chicken.position.y - start.y) < 0.01 or absf(chicken.position.x - corner.x) < 0.01, "Replay corner instead of cutting diagonally")
+		if tick == 50:
+			check(not chicken.position.is_equal_approx(start), "Following starts after two seconds")
+		if tick == 100:
+			check(chicken.position.x < corner.x and chicken.position.y > start.y, "Shortest route cuts across the pawn turn")
 		saw_run = saw_run or chicken.texture == chicken.Art.CHICKEN_RUN
 	check(saw_run, "Follow uses running animation")
-	check(scene.layout.cell_at(chicken.position) == Vector2i(3, 2), "Stop on grass tile immediately before stationary pawn")
+	var separation: Vector2i = scene.layout.cell_at(chicken.position) - scene.layout.cell_at(scene.pawn.position)
+	check(absi(separation.x) + absi(separation.y) >= 1 and not chicken.following, "Completed follow stops outside pawn tile")
 	check(scene.layout.chickens[0] == chicken.position, "Follow updates persisted ground position")
+	# A new pawn movement starts a fresh delay after the chicken has caught up.
+	chicken.clear_following()
+	scene.pawn.position += Vector2(4, 0)
+	var caught_up: Vector2 = chicken.position
+	chicken.advance(0.05, 112.05)
+	check(chicken.follow_wait < Chicken.FOLLOW_DELAY and chicken.position == caught_up, "New movement restarts two-second delay")
+	# The route detours around missing ground and never crosses the reserved pawn tile.
+	chicken.clear_following()
+	chicken.position = scene.layout.center(Vector2i(-2, 0))
+	scene.pawn.position = scene.layout.center(Vector2i(2, 0))
+	scene.layout.cells.erase(Vector2i.ZERO)
+	var detour: Array[Vector2] = chicken.shortest_follow_route()
+	check(not detour.is_empty(), "Find a follow route around missing ground")
+	var route_start: Vector2 = chicken.position
+	for point in detour:
+		check(chicken.safe_follow_segment(route_start, point), "Every detour segment stays on terrain outside pawn tile")
+		route_start = point
+	if not detour.is_empty():
+		var gap: Vector2i = scene.layout.cell_at(detour.back()) - scene.layout.cell_at(scene.pawn.position)
+		check(absi(gap.x) + absi(gap.y) == 1, "Detour ends one tile before pawn")
+	scene.layout.cells[Vector2i.ZERO] = "meadow"
+	# Movement during escape is ignored, even if the pawn stops before settlement.
+	chicken.clear_following()
+	chicken.follow_wait = -1.0
+	chicken.wandering = false
+	chicken.position = scene.layout.center(Vector2i(-2, 0))
+	scene.layout.chickens[0] = chicken.position
+	scene.pawn.position = scene.layout.center(Vector2i(3, 0))
+	chicken.previous_pawn_position = scene.pawn.position
+	var escape_end: Vector2 = scene.layout.center(Vector2i(-2, 6))
+	chicken.escape_route.assign([escape_end])
+	chicken.tile_destinations.assign(chicken.escape_route)
+	chicken.destination = escape_end
+	chicken.fleeing = true
+	chicken.updated_at = 112.05
+	scene.pawn.position += Vector2(4, 0)
+	for tick in 160:
+		chicken.advance(0.05, 112.05 + (tick + 1) * 0.05)
+		check(not chicken.following and chicken.follow_wait < 0.0, "Ignore pawn movement during escape and wait for new movement afterward")
+		if tick == 45:
+			check(chicken.fleeing and chicken.destination == escape_end, "Escape keeps priority")
+	check(chicken.position == escape_end and not chicken.fleeing, "Chicken settles without chasing earlier pawn movement")
+	# Only new movement after settlement starts the two-second delay.
+	scene.pawn.position += Vector2(4, 0)
+	for tick in 240:
+		scene.pawn.position += Vector2(0.01, 0)
+		chicken.advance(0.05, 120.05 + (tick + 1) * 0.05)
+		if tick < 40:
+			check(chicken.position == escape_end, "New movement after escape waits two seconds")
+		check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Post-escape follow avoids pawn tile")
+	var after_escape: Vector2i = scene.layout.cell_at(chicken.position) - scene.layout.cell_at(scene.pawn.position)
+	check(absi(after_escape.x) + absi(after_escape.y) == 1, "Follow new pawn movement after escape settles")
+	chicken.advance(1.0, 133.05)
+	chicken.advance(0.0, 133.05)
+	check(not chicken.following and chicken.follow_wait < 0.0, "Chicken finishes its last approach after pawn stops")
+	var stopped_position: Vector2 = chicken.position
+	chicken.advance(1.0, 134.05)
+	check(chicken.position == stopped_position and not chicken.following, "Settled chicken stays beside immobile pawn")
 	# An existing wander/escape route must react when the pawn blocks its next tile.
 	chicken.clear_following()
 	chicken.wandering = false
@@ -69,7 +132,7 @@ func run() -> void:
 	chicken.fleeing = true
 	chicken.advance(0.1, 112.0)
 	check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Escape route never enters a newly occupied pawn tile")
-	# The pawn must give a chicken time to leave before entering its tile.
+	# Like sheep, chickens do not reserve an entire tile against pawn movement.
 	chicken.clear_following()
 	chicken.position = scene.layout.center(Vector2i.RIGHT)
 	scene.layout.chickens[0] = chicken.position
@@ -79,15 +142,13 @@ func run() -> void:
 	scene.pawn.position = scene.layout.center(Vector2i.ZERO) + Vector2(30, 0)
 	scene.pawn.walk_to(chicken.position)
 	scene.pawn._physics_process(0.1)
-	check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Pawn waits before entering the chicken tile")
-	check(chicken.fleeing, "Pawn approach starts escape before contact")
+	check(scene.pawn.position.x > scene.layout.center(Vector2i.ZERO).x + 30, "Pawn continues into chicken tile without being blocked")
 	var pawn_target: Vector2 = scene.pawn.destination
-	for tick in 120:
+	for tick in 240:
 		scene.pawn._physics_process(0.05)
-		check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "No overlap after pawn physics step")
 		chicken.advance(0.05, 112.0 + (tick + 1) * 0.05)
-		check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "No overlap after chicken movement step")
-	check(scene.pawn.position.is_equal_approx(pawn_target), "Pawn resumes and reaches its destination after chicken clears tile")
+	check(scene.pawn.position.is_equal_approx(pawn_target), "Pawn reaches clicked destination without waiting for chicken")
+	check(not chicken.following, "Pawn movement during escape does not request later following")
 	# Catch-up frames must check every route leg, including a blocked later leg.
 	chicken.clear_following()
 	chicken.wandering = false
@@ -110,7 +171,7 @@ func run() -> void:
 	chicken.advance(0.01, 122.01)
 	check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Build-mode settling stays outside pawn tile")
 	scene.editing = false
-	# A boxed-in chicken keeps its tile reserved rather than allowing overlap.
+	# A boxed-in chicken must not trap the pawn; contact matches sheep behavior.
 	var saved_cells: Dictionary = scene.layout.cells.duplicate()
 	scene.layout.cells.clear()
 	scene.layout.cells[Vector2i.ZERO] = "meadow"
@@ -123,12 +184,35 @@ func run() -> void:
 	for tick in 20:
 		scene.pawn._physics_process(0.5)
 		chicken.advance(0.5, 123.0 + tick * 0.5)
-		check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "No overlap when chicken cannot escape")
+	check(scene.pawn.position.is_equal_approx(scene.pawn.destination), "Pawn reaches destination even when chicken cannot escape")
 	scene.layout.cells.assign(saved_cells)
+	# A short walk retains the delay and finishes following after the pawn stops.
+	chicken.clear_following()
+	chicken.follow_wait = -1.0
+	chicken.wandering = false
+	chicken.fleeing = false
+	chicken.position = scene.layout.center(Vector2i(-2, 0))
+	scene.layout.chickens[0] = chicken.position
+	scene.pawn.position = scene.layout.center(Vector2i(2, 0))
+	chicken.previous_pawn_position = scene.pawn.position
+	chicken.updated_at = 133.95
+	var short_walk_start: Vector2 = chicken.position
+	scene.pawn.position += Vector2(4, 0)
+	scene.pawn.destination = scene.pawn.position
+	scene.pawn.set_physics_process(true)
+	for tick in 160:
+		chicken.advance(0.05, 134.0 + tick * 0.05)
+		if tick > 0:
+			check(not chicken.pawn_moving, "Retained follow completes while pawn is actually stopped")
+		if tick < 39:
+			check(chicken.position == short_walk_start, "Short walk still waits two seconds before follow")
+	scene.pawn.set_physics_process(false)
+	var short_walk_gap: Vector2i = scene.layout.cell_at(chicken.position) - scene.layout.cell_at(scene.pawn.position)
+	check(absi(short_walk_gap.x) + absi(short_walk_gap.y) == 1, "Short walk follows to pawn after it stops")
 	# A pawn reversing onto the chicken still triggers the original escape.
 	scene.pawn.position = chicken.position
 	chicken.advance(0.01, 133.01)
-	check(chicken.fleeing and not chicken.following and not chicken.escape_route.is_empty(), "Pawn contact overrides trail and runs away")
+	check(chicken.fleeing and not chicken.following and not chicken.escape_route.is_empty(), "Pawn contact overrides following and runs away")
 	scene.queue_free()
 	await process_frame
 	print("Chicken following checks: ", "PASS" if failures.is_empty() else "FAIL")

@@ -32,12 +32,17 @@ func _initialize() -> void:
 		assert(previous.stock.chicken == expected, "Levels two and seven each grant one chicken")
 		var legacy := previous.snapshot()
 		legacy.version = 23
+		# Version 23 predates the level-two chicken and level-six tree rewards.
 		legacy.stock.chicken -= 1
+		if target >= 6:
+			legacy.stock.tree -= 1
 		if target >= 8:
 			legacy.stock.sheep -= 1
 		var migrated = Layout.new()
 		assert(migrated.restore(legacy) and migrated.stock.chicken == expected)
+		assert(migrated.stock.tree == previous.stock.tree, "Legacy migration grants the level-six tree once")
 		assert(migrated.restore(migrated.snapshot()) and migrated.stock.chicken == expected)
+		assert(migrated.stock.tree == previous.stock.tree, "Reload retains migrated tree inventory")
 	var forged := layout.snapshot()
 	forged.stock.chicken += 1
 	assert(not Layout.new().restore(forged), "New saves reject duplicate chickens")
