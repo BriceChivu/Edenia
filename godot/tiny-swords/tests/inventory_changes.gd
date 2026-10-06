@@ -1,6 +1,6 @@
 extends SceneTree
 
-const Outline = preload("res://scripts/inventory_outline.gd")
+const OutlineBaker = preload("res://tools/inventory_outline_baker.gd")
 var failures := 0
 var scene
 const TREE := Vector2i(-2, 1)
@@ -195,7 +195,7 @@ func run() -> void:
 	var source := Image.create(12, 12, false, Image.FORMAT_RGBA8)
 	source.set_pixel(4, 4, Color.WHITE)
 	source.set_pixel(10, 10, Color(0, 0, 0, 0.2))
-	var border := Outline.texture_for(ImageTexture.create_from_image(source), Rect2i(0, 0, 12, 12)).get_image()
+	var border := OutlineBaker.texture_for(ImageTexture.create_from_image(source), Rect2i(0, 0, 12, 12)).get_image()
 	check(border.get_pixel(4, 6).a == 1 and border.get_pixel(6, 6).a == 0, "White outline sits outside opaque artwork")
 	check(border.get_pixel(12, 11).a == 0, "Baked shadows do not get white outlines")
 	scene.queue_free()
