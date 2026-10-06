@@ -137,6 +137,7 @@ for (const indexedDb of [false, true]) {
     await page.locator('[data-settings-reset-confirm-action="show"]').click()
     await page.locator('[data-settings-reset-confirm-action="confirm"]').click()
     await expect(page.locator('#introTrailer')).toBeVisible()
+    await waitForApp(page)
     expect(await page.evaluate(() => loadState()?.tinySwordsIsland ?? null)).toBe(null)
     expect(await retained(page)).toEqual(original)
     expect(new URL(page.url()).searchParams.get('internal_test')).toBe('2')
