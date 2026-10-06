@@ -3,27 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing city.">
+  <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing island.">
   <title>Edenia</title>
-  <script>
-    // Keep the dedicated game preview free of legacy artwork even when a normal
-    // site build has removed its generated integration, or scripts cannot load.
-    if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === '8037') {
-      document.documentElement.classList.add('tiny-swords-preview');
-    }
-  </script>
-  <style>
-    .tiny-swords-preview .city-image-wrap { background: #47aba9; }
-    .tiny-swords-preview .city-image-wrap > :not(.tiny-swords-frame):not(.tiny-swords-camera-controls):not(.tiny-swords-save-status),
-    .tiny-swords-preview [data-intro-city-frame] { visibility: hidden !important; pointer-events: none !important; }
-    .tiny-swords-preview .city-image-wrap:not(:has(.tiny-swords-frame))::after {
-      content: 'Tiny Swords preview needs rebuilding.';
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-    }
-  </style>
   <script>
     (() => {
       const match = window.location.hash.match(
@@ -46,7 +27,6 @@
     }
   </script>
   <link rel="icon" type="image/png" href="Edenia_favicon_round.png">
-  <link rel="preload" as="image" href="images/city/level%201.webp" type="image/webp" fetchpriority="high">
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
@@ -178,6 +158,7 @@
   <script src="config.local.js" defer></script>
   <script src="analytics.js?v=20260727-6" defer></script>
   <script src="app.js?v=20260727-159" defer></script>
+  <!-- TINY_SWORDS_RELEASE -->
 </head>
 <body>
 
@@ -395,21 +376,10 @@
       <article class="intro-scene intro-scene-city" data-intro-scene="2">
         <div class="intro-city-copy">
           <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
-          <h2 data-i18n="intro.city.title">Study. Earn experience. Watch your town evolve.</h2>
-          <div class="intro-city-growth">
-            <button type="button" data-intro-city-level="1" data-analytics-action="selectIntroCityLevel">1</button><i></i>
-            <button type="button" data-intro-city-level="4" data-analytics-action="selectIntroCityLevel">4</button><i></i>
-            <button type="button" data-intro-city-level="8" data-analytics-action="selectIntroCityLevel">8</button><i></i>
-            <button type="button" data-intro-city-level="12" data-analytics-action="selectIntroCityLevel">12</button>
-          </div>
+          <h2 data-i18n="island.introTitle">Study. Earn experience. Build your island.</h2>
+          <p data-i18n="island.intro">Earn XP to unlock terrain, animals, tree cutting and houses. Build your own island through ten levels.</p>
         </div>
-        <div class="intro-city-viewport" aria-hidden="true">
-          <img class="intro-city-frame intro-city-frame-one" data-intro-city-frame="1" src="images/city/level%201.webp" alt="">
-          <img class="intro-city-frame intro-city-frame-two" data-intro-city-frame="4" src="images/city/level%204.webp" alt="">
-          <img class="intro-city-frame intro-city-frame-three" data-intro-city-frame="8" src="images/city/level%208.webp" alt="">
-          <img class="intro-city-frame intro-city-frame-four" data-intro-city-frame="12" src="images/city/level%2012.webp" alt="">
-          <span class="intro-level-chip"><span data-i18n="intro.city.level">Town level</span> <b id="introCityLevel">1</b></span>
-        </div>
+
       </article>
 
       <article class="intro-scene intro-scene-features" data-intro-scene="3">
@@ -818,11 +788,12 @@ and momentum—at a glance</h2>
 
     <!-- CITY BUILDER ──────────────────────────────────────── -->
     <section class="city-section">
-      <div class="city-image-wrap">
-        <div class="city-image-canvas">
-          <img id="cityMilestoneImage" class="city-milestone-image" src="images/city/level%200.webp" alt="Study city milestone: Lonely house" data-i18n-alt="city.imageAlt" draggable="false" fetchpriority="high" decoding="async">
+      <div class="city-image-wrap tiny-swords-surface" id="tinySwordsSurface" aria-label="Study island" data-i18n-aria-label="island.title" data-game-state="unavailable">
+        <div class="tiny-swords-load-status" id="tinySwordsLoadStatus" role="status">
+          <p id="tinySwordsLoadMessage" data-i18n="island.unavailable">Island is currently unavailable. You can keep studying; your saved island is retained.</p>
+          <button type="button" id="tinySwordsRetry" class="btn-ghost" hidden data-i18n="island.retry">Retry island</button>
         </div>
-        <div class="city-zoom-controls" aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
+        <div class="city-zoom-controls tiny-swords-camera-controls" hidden aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
           <button class="city-image-btn" type="button" data-city-zoom-action="out" data-analytics-action="city.zoom.out" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">
             <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14"></path>
@@ -839,12 +810,6 @@ and momentum—at a glance</h2>
             </svg>
           </button>
         </div>
-        <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" data-city-waveform-action="mouse-preview">
-          <div class="city-wave-bars" id="cityWaveBars">
-            <div class="city-wave-track" id="cityWaveTrack"></div>
-          </div>
-          <div class="city-wave-tooltip" id="cityWaveTooltip" data-i18n="city.timeline.today">Today</div>
-        </div>
       </div>
 
     </section>
@@ -852,7 +817,7 @@ and momentum—at a glance</h2>
     <!-- ANALYTICS ────────────────────────────────────────── -->
     <section class="analytics-section">
       <div class="goal-card">
-        <div class="city-level-progress" id="cityLevelProgress" role="progressbar" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0">
+        <div class="city-level-progress" id="cityLevelProgress" role="progressbar" aria-valuemin="0" aria-valuemax="15" aria-valuenow="0">
           <div class="city-level-progress-labels">
             <span class="city-level-label city-level-label-current" id="cityCurrentLevel">Level 1</span>
             <span class="city-level-label city-level-label-next" id="cityFollowingLevel">Level 2</span>
@@ -872,10 +837,10 @@ and momentum—at a glance</h2>
             </span>
             <span class="city-level-milestone-points">
               <span id="cityCurrentMilestonePoints">0 XP</span>
-              <span id="cityNextMilestonePoints">60 XP</span>
+              <span id="cityNextMilestonePoints">15 XP</span>
             </span>
           </div>
-          <span class="city-stage" id="cityLabel">🏠 Lonely house</span>
+          <span class="city-stage" id="cityLabel">Level 1</span>
         </div>
       </div>
       <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-label="Study insight" data-i18n-aria-label="insights.eyebrow">

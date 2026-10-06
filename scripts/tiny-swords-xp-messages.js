@@ -1,4 +1,25 @@
+// Script/engine download failures may happen before Godot can announce readiness.
+window.addEventListener('error', event => {
+  if (event.target?.tagName === 'SCRIPT') {
+    parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin)
+  }
+}, true)
+// Engine fetch failures can reject before the export shell's handled failure hook.
+window.addEventListener('unhandledrejection', () => {
+  if (window.edeniaSaveId === 0) {
+    parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin)
+  }
+})
 // The disposable export's transport only; Godot decides when an unlock succeeds.
+// Godot probes PWA registration even in non-PWA builds. A detached iframe can
+// reject that optional lookup during profile replacement or game disable.
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  const getRegistration = navigator.serviceWorker.getRegistration.bind(navigator.serviceWorker)
+  navigator.serviceWorker.getRegistration = (...args) => getRegistration(...args).catch(error => {
+    if (error.name === 'InvalidStateError') return undefined
+    throw error
+  })
+}
 window.edeniaCameraCommands = []
 document.addEventListener('wheel', event => {
   event.preventDefault()

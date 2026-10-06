@@ -39,6 +39,10 @@ assertLegacyProgressRuntimeConfig({
 })
 
 const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
+  tinySwordsEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_TINY_SWORDS_ENABLED,
+    'EDENIA_TINY_SWORDS_ENABLED'
+  ),
   youtubeApiKey,
   freePlusEnabled: parseRuntimeConfigFlag(
     process.env.EDENIA_FREE_PLUS_ENABLED,

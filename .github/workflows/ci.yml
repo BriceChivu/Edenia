@@ -79,6 +79,10 @@ jobs:
                   run_supabase=true
                   run_supabase_db=true
                   ;;
+                .github/actions/setup-godot/*|.github/workflows/deploy-pages.yml)
+                  run_browser=true
+                  run_contracts=true
+                  ;;
                 *.md|docs/*|.github/*)
                   ;;
                 data/channel-catalog.discovered.json)
@@ -178,6 +182,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           COMMUNITY_CATALOG_MAX_PROMOTIONS: ${{ vars.COMMUNITY_CATALOG_MAX_PROMOTIONS }}
         run: npm run test:catalogs:community -- --base-ref "$BASE_SHA"
+
+      - name: Set up Godot for site build
+        if: needs.scope.outputs.contracts == 'true'
+        uses: ./.github/actions/setup-godot
 
       - name: Build and run contract tests
         if: needs.scope.outputs.contracts == 'true'
@@ -290,6 +298,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+
       - name: Build browser test site
         run: npm run build
 
@@ -323,7 +334,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  pixel-town:
+  tiny-swords:
     needs: scope
     if: needs.scope.outputs.browser == 'true'
     runs-on: ubuntu-latest
@@ -334,25 +345,29 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - uses: ./.github/actions/setup-godot
       - run: npx playwright install --with-deps chromium
-      - run: npm run build
+      - name: Build real integrated game
+        run: npm run build
         env:
-          EDENIA_PIXEL_TOWN_ENABLED: 'true'
-      - run: node tools/pixel-town/verify-art.mjs
-      - run: npx playwright test tests/e2e/pixel-town.spec.mjs tests/e2e/town-economy.spec.mjs --project=desktop-standard --project=phone-standard
+          EDENIA_TINY_SWORDS_ENABLED: 'true'
+      - name: Require hosted game, persistence and progression flows
+        run: npx playwright test experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-page-scroll.spec.mjs --project=desktop-standard --project=phone-standard
         env:
-          EDENIA_PIXEL_TOWN_ENABLED: 'true'
+          EDENIA_TEST_TINY_SWORDS: 'true'
+          EDENIA_TEST_NORMAL_PORT: '4174'
+          EDENIA_TEST_BASE_PATH: '/Edenia/'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pixel-town-evidence
+          name: tiny-swords-evidence
           path: |
-            docs/experiments/pixel-town/evidence/
             test-results/
+            playwright-report/
 
   # Keep the branch-protection check stable and reject failed/cancelled jobs.
   verify:
-    needs: [scope, checks, browser, pixel-town]
+    needs: [scope, checks, browser, tiny-swords]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -362,7 +377,7 @@ jobs:
           CHECKS_RESULT: ${{ needs.checks.result }}
           BROWSER_REQUIRED: ${{ needs.scope.outputs.browser }}
           BROWSER_RESULT: ${{ needs.browser.result }}
-          PIXEL_TOWN_RESULT: ${{ needs.pixel-town.result }}
+          TINY_SWORDS_RESULT: ${{ needs.tiny-swords.result }}
         shell: bash
         run: |
           set -euo pipefail
@@ -370,7 +385,7 @@ jobs:
             exit 1
           fi
           case "$BROWSER_REQUIRED" in
-            true) [[ "$BROWSER_RESULT" == "success" && "$PIXEL_TOWN_RESULT" == "success" ]] ;;
-            false) [[ "$BROWSER_RESULT" == "skipped" && "$PIXEL_TOWN_RESULT" == "skipped" ]] ;;
+            true) [[ "$BROWSER_RESULT" == "success" && "$TINY_SWORDS_RESULT" == "success" ]] ;;
+            false) [[ "$BROWSER_RESULT" == "skipped" && "$TINY_SWORDS_RESULT" == "skipped" ]] ;;
             *) exit 1 ;;
           esac

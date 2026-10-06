@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "node scripts/build-site.mjs",
+    "setup:godot": "node scripts/setup-godot.mjs",
     "build:migration-helper": "node scripts/build-legacy-migration-helper.mjs",
     "build:migration-helper:production": "npm run build:migration-helper && node scripts/write-legacy-migration-helper-config.mjs --require-supabase",
     "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",

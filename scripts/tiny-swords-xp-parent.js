@@ -1,8 +1,59 @@
-// Loaded only by the explicitly requested local test build.
-if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === '8037') {
-  document.documentElement.classList.add('tiny-swords-preview')
+// Resolve every game asset beside this exact version of the parent adapter.
+const tinySwordsReleaseUrl = new URL('.', document.currentScript.src)
+if (window.EDENIA_CONFIG?.tinySwordsEnabled === true) {
+  document.documentElement.classList.add('tiny-swords-integrated')
   window.addEventListener('DOMContentLoaded', () => {
+    const surface = document.getElementById('tinySwordsSurface')
+    const loadStatus = document.getElementById('tinySwordsLoadStatus')
+    const loadMessage = document.getElementById('tinySwordsLoadMessage')
+    const retry = document.getElementById('tinySwordsRetry')
+    const controls = surface.querySelector('.tiny-swords-camera-controls')
     let frame
+    let startupTimer
+    let failed = false
+    let blocked = false
+    let statusKey = 'island.loading'
+    const translate = key => window.edeniaTranslate?.(key) || loadMessage.textContent
+    function setLoadState(state, key) {
+      surface.dataset.gameState = state
+      surface.setAttribute('aria-busy', String(state === 'loading' || state === 'slow'))
+      statusKey = key
+      loadMessage.dataset.i18n = key
+      loadMessage.textContent = translate(key)
+      loadStatus.hidden = state === 'ready'
+      retry.hidden = !['slow', 'failed'].includes(state)
+    }
+    function failStartup(key = 'island.failed') {
+      failed = true
+      restored = false
+      clearTimeout(startupTimer)
+      controls.hidden = true
+      setLoadState('failed', key)
+      syncInput()
+    }
+    // Edenia owns page overlays. Inert removes the iframe from pointer and
+    // keyboard navigation; host visibility lets Godot suspend its own effects.
+    function syncInput() {
+      const modal = [...document.querySelectorAll('[aria-modal="true"]')]
+        .find(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden')
+      blocked = Boolean(modal) || document.body.classList.contains('walkthrough-active')
+      const inactive = blocked || !restored || failed
+      if (frame && frame.inert !== inactive) frame.inert = inactive
+      if (controls.inert !== inactive) controls.inert = inactive
+      if (inactive && document.activeElement === frame) {
+        frame.blur()
+        modal?.querySelector('button, input, [tabindex="0"]')?.focus()
+      }
+      sendVisibility()
+    }
+    new MutationObserver(syncInput).observe(document.body, {
+      subtree: true, childList: true, attributes: true,
+      attributeFilter: ['class', 'hidden', 'aria-modal']
+    })
+    window.addEventListener('edenia-locale-changed', () => {
+      loadMessage.textContent = translate(statusKey)
+    })
+    retry.addEventListener('click', () => checkReplacement(true))
     let session = 0
     let gameLevelCount = null
     let expected = 'absent'
@@ -25,7 +76,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     function reportFailure(text) { status.textContent = text }
     function sendVisibility() {
       if (!frame || gameLevelCount === null) return
-      const visible = intersects && document.visibilityState !== 'hidden'
+      const visible = intersects && !blocked && !failed && document.visibilityState !== 'hidden'
       if (visible === reportedVisibility) return
       reportedVisibility = visible
       frame.contentWindow?.postMessage({ type: 'edenia-host-visibility', session, visible }, location.origin)
@@ -40,32 +91,41 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
       }) : null
     document.addEventListener?.('visibilitychange', sendVisibility)
     function mountFrame() {
+      clearTimeout(startupTimer)
       const previous = frame
       if (previous) {
         cameraObserver.unobserve(previous)
         visibilityObserver?.unobserve(previous)
       }
       frame = document.createElement('iframe')
-      frame.src = 'tiny-swords-xp-game/index.html'
+      frame.src = new URL('index.html', tinySwordsReleaseUrl).href
       frame.title = 'Tiny Swords island: earn XP by studying to unlock building'
       frame.className = 'tiny-swords-frame'
       session += 1
       restored = false
+      failed = false
       legacy = false
       gameLevelCount = null
       intersects = true
       reportedVisibility = null
       expected = identity(readIsland())
       status.textContent = ''
-      controls.hidden = false
+      controls.hidden = true
+      controls.classList.remove('tiny-swords-editing')
       cameraObserver.observe(frame)
       frame.addEventListener('load', sendStudyLevel)
+      frame.addEventListener('error', () => failStartup())
       if (previous) previous.replaceWith(frame)
-      else document.querySelector('.city-image-wrap').append(frame)
+      else surface.append(frame)
       visibilityObserver?.observe(frame)
+      setLoadState('loading', 'island.loading')
+      syncInput()
+      startupTimer = setTimeout(() => {
+        if (!restored && !failed) setLoadState('slow', 'island.slow')
+      }, 20000)
     }
     function sendStudyLevel() {
-      if (gameLevelCount === null || !persistence()) return
+      if (failed || gameLevelCount === null || !persistence()) return
       const state = readIsland()
       if (!state) {
         restored = false
@@ -86,12 +146,12 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
             legacy = true
           }
         } catch {
-          reportFailure('The previous island could not be read. Island saving is blocked.')
+          failStartup('island.restoreFailed')
           return
         }
       }
       if (new TextEncoder().encode(JSON.stringify(saved) || '').length > 512 * 1024) {
-        reportFailure('This island exceeds the save limit. Island saving is blocked; the saved data is retained.')
+        failStartup('island.restoreFailed')
         return
       }
       // Godot restores the saved game level itself. Only claimed study progress
@@ -110,19 +170,28 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     window.addEventListener('message', async event => {
       if (event.origin !== location.origin || event.source !== frame.contentWindow) return
       const data = event.data
+      if (data?.type === 'edenia-game-startup-failed') { failStartup(); return }
+      if (failed && data?.type !== 'edenia-tiny-layout') return
       if (data?.type === 'edenia-game-progression' && Array.isArray(data.thresholds)) {
         gameLevelCount = data.thresholds.length
         sendStudyLevel()
       }
-      if (data?.type === 'edenia-page-scroll' && Number.isFinite(data.x) && Number.isFinite(data.y)) {
+      if (data?.type === 'edenia-page-scroll' && !blocked && Number.isFinite(data.x) && Number.isFinite(data.y)) {
         window.scrollBy({ left: data.x, top: data.y, behavior: 'instant' })
       }
-      if (data?.type === 'edenia-game-ui') controls.hidden = data.celebrating === true
+      if (data?.type === 'edenia-game-ui') {
+        controls.hidden = !restored || data.celebrating === true
+        controls.classList.toggle('tiny-swords-editing', data.editing === true)
+      }
       if (data?.type === 'edenia-tiny-ready') sendStudyLevel()
       if (data?.session !== session) return
       if (data.type === 'edenia-tiny-restored') {
         restored = data.accepted === true
-        status.textContent = restored ? '' : 'The saved island could not be restored. Island saving is blocked; the saved data is retained.'
+        failed = !restored
+        clearTimeout(startupTimer)
+        setLoadState(restored ? 'ready' : 'failed', restored ? 'island.loading' : 'island.restoreFailed')
+        controls.hidden = !restored
+        syncInput()
       }
       if (data.type === 'edenia-tiny-layout') {
         const target = frame
@@ -147,16 +216,10 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
         } else checkReplacement()
       }
     })
-    // Clone the owning Edenia markup: exact SVG icons, labels, classes and CSS.
-    // Cloning removes the old image's listeners before binding the game camera.
-    const originalControls = document.querySelector('.city-zoom-controls')
-    const controls = originalControls.cloneNode(true)
-    controls.classList.add('tiny-swords-camera-controls')
-    originalControls.replaceWith(controls)
     // Godot draws its 64px cursor in viewport units; match that rendered size
     // when the pointer crosses from the game into the parent camera controls.
     const cursorImage = new Image()
-    cursorImage.src = 'tiny-swords-xp-game/Cursor_02.png'
+    cursorImage.src = new URL('Cursor_02.png', tinySwordsReleaseUrl).href
     let cursorSize = 0
     function matchCameraCursor() {
       const viewport = frame.contentWindow?.edeniaCamera
@@ -177,11 +240,11 @@ if (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === 
     const cameraObserver = new ResizeObserver(matchCameraCursor)
     for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
       button.addEventListener('click', event => {
-        event.stopImmediatePropagation()
+        if (blocked || !restored || failed) return
         frame.contentWindow?.postMessage({ type: 'edenia-camera', command: button.dataset.cityZoomAction }, location.origin)
       })
     }
-    document.querySelector('.city-image-wrap').append(status)
+    surface.append(status)
     mountFrame()
   }, { once: true })
 }

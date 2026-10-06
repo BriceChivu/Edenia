@@ -15,12 +15,14 @@ var study_layout_restored := false
 var study_restore_attempted := false
 var study_poll_elapsed := 0.0
 var study_celebrating := false
+var study_editing := false
 
 func _ready() -> void:
 	# This integration has its own browser layout; standalone editor saves stay intact.
 	preview_save_enabled = false
 	study_claims_authoritative = true
-	playground_enabled = true # This adapter is mounted only by the explicit local build.
+	# Developer controls are a Godot decision; hosted releases never expose them.
+	playground_enabled = OS.has_feature("web") and bool(JavaScriptBridge.eval("['localhost','127.0.0.1'].includes(location.hostname) && location.port === '8037'"))
 	playground_ready = false
 	super._ready()
 	ui.max_preview_level = 1
@@ -92,9 +94,10 @@ func _process(delta: float) -> void:
 			if command is String:
 				camera_command(command)
 	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": game_camera.position.x, "y": game_camera.position.y, "zoom": game_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y, "pawnX": pawn.position.x, "pawnY": pawn.position.y, "editing": editing, "waterPhase": water_phase}))
-	if study_celebrating != (ui.celebration != null):
+	if study_celebrating != (ui.celebration != null) or study_editing != editing:
 		study_celebrating = ui.celebration != null
-		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s}, location.origin)" % str(study_celebrating))
+		study_editing = editing
+		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s,editing:%s}, location.origin)" % [str(study_celebrating), str(study_editing)])
 	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, Layout.XP_THRESHOLDS.size())
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
 		var saved = JavaScriptBridge.eval("JSON.stringify(window.edeniaStudyLayout)")

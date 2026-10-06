@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  CITY_IMAGE_PATHS,
-  CITY_IMAGE_SOURCES,
-  CITY_IMAGE_WEBP_PATHS,
   CITY_LEVELS,
   getCityLevel,
   getCityLevelIndex,
@@ -11,33 +8,9 @@ import {
   normalizeCityProgress
 } from '../../src/features/city/model.js'
 
-test('city levels preserve exact thresholds, translation keys, labels, and order', () => {
-  assert.deepEqual(CITY_LEVELS.slice(0, 3), [
-    { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
-    { threshold: 15, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
-    { threshold: 45, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
-
-  ])
-})
-
-test('city image sources preserve exact WebP-first and PNG-fallback mapping', () => {
-  assert.equal(CITY_IMAGE_PATHS.length, 12)
-  assert.equal(CITY_IMAGE_WEBP_PATHS.length, 12)
-  assert.deepEqual(
-    CITY_IMAGE_PATHS,
-    Array.from({ length: 12 }, (_, index) => `images/photoshop/level%20${index + 1}.png`)
-  )
-  assert.deepEqual(
-    CITY_IMAGE_WEBP_PATHS,
-    Array.from({ length: 12 }, (_, index) => `images/city/level%20${index + 1}.webp`)
-  )
-  assert.deepEqual(
-    CITY_IMAGE_SOURCES,
-    CITY_IMAGE_PATHS.map((fallback, index) => ({
-      primary: CITY_IMAGE_WEBP_PATHS[index],
-      fallback
-    }))
-  )
+test('study levels use all ten Godot thresholds without town artwork metadata', () => {
+  assert.deepEqual(CITY_LEVELS.map(level => level.threshold), [0,15,45,90,150,225,315,420,540,675])
+  assert.deepEqual(CITY_LEVELS.map(level => level.level), [1,2,3,4,5,6,7,8,9,10])
 })
 
 test('city level lookups preserve thresholds, coercion, and shared object identity', () => {

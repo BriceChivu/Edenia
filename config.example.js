@@ -1,4 +1,6 @@
 window.EDENIA_CONFIG = {
+  // Local game mounting only; the hosted release stays disabled.
+  "tinySwordsEnabled": false,
   youtubeApiKey: 'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE',
   freePlusEnabled: false,
   plusCheckoutEnabled: false,

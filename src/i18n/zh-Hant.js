@@ -1,6 +1,19 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANT_LOCALIZED = {
+  "island.loading": "正在載入你的島嶼⋯⋯你可以繼續學習。",
+  "island.slow": "島嶼載入較慢。你可以繼續學習；已儲存的島嶼仍保留。",
+  "island.failed": "島嶼無法啟動。你可以繼續學習；已儲存的島嶼仍保留。",
+  "island.restoreFailed": "無法還原已儲存的島嶼。已阻擋新的儲存；原有島嶼仍保留。",
+  "island.unavailable": "島嶼目前無法使用。你可以繼續學習；已儲存的島嶼仍保留。",
+  "island.intro": "獲得 XP 可解鎖地形、動物、伐木與房屋。透過十個等級建造你的島嶼。",
+  "city.maxLevel": "已達第 10 級",
+  "city.zoom.controls": "島嶼視角控制",
+  "island.title": "學習島嶼",
+  "island.retry": "重試載入島嶼",
+  "island.introTitle": "學習、獲得經驗、建造你的島嶼。",
+  "walkthrough.town": "這是你的島嶼。學習可獲得 XP，領取等級可解鎖地形、動物與建造功能。下方的 XP 進度條顯示你的進度。拖曳可移動視角，使用視角控制可縮放或重設。",
+
   "townEconomy.coins": "{count} 枚金幣",
   "townEconomy.flower": "第一片花圃",
   "townEconomy.build": "建造 · {count} 枚金幣",

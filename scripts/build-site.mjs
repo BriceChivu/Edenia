@@ -1,5 +1,6 @@
-import { preparePixelTownHtml } from './pixel-town-html.mjs'
 import { generateTinySwordsProgression } from './tiny-swords-progression.mjs'
+import { buildTinySwords } from './build-tiny-swords.mjs'
+import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
 import { execFileSync } from 'node:child_process'
 import {
   cp,
@@ -46,7 +47,8 @@ async function copyPath(relativePath) {
     resolve(projectRoot, relativePath),
     resolve(outputDir, relativePath),
     {
-      filter: source => basename(source) !== '.DS_Store',
+      filter: source => basename(source) !== '.DS_Store'
+        && source !== resolve(projectRoot, 'assets/tiny-swords'),
       recursive: true
     }
   )
@@ -63,15 +65,15 @@ const releaseCommit = getReleaseCommit({
   )
 })
 const assetVersion = getReleaseAssetVersion({ releaseCommit })
+const tinySwordsEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_ENABLED, 'EDENIA_TINY_SWORDS_ENABLED')
+const gameParent = await buildTinySwords(outputDir)
 let html = await readFile(resolve(projectRoot, 'index.html'), 'utf8')
+html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}" defer></script>`)
 html = versionAssetReference(html, 'style.css', assetVersion)
 html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
 html = versionAssetReference(html, 'config.local.js', assetVersion)
-if (process.env.EDENIA_PIXEL_TOWN_ENABLED === 'true') {
-  const { buildPixelTown } = await import('./build-pixel-town.mjs')
-  html = preparePixelTownHtml(html, await buildPixelTown(outputDir), true)
-}
+
 await writeFile(resolve(outputDir, 'index.html'), html)
 
 let plusHtml = await readFile(resolve(projectRoot, 'plus', 'index.html'), 'utf8')
@@ -231,6 +233,7 @@ await copyPath('data/channel-catalog.discovered.json')
 
 // Keep compatibility markers true until cached pre-retirement assets expire.
 const runtimeConfigSource = 'window.EDENIA_CONFIG = {\n'
+    + `  "tinySwordsEnabled": ${JSON.stringify(tinySwordsEnabled)},\n`
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'

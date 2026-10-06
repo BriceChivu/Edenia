@@ -27,6 +27,8 @@ function argumentValue(name, fallback = '') {
 const host = argumentValue('--host', 'localhost')
 const port = Number(argumentValue('--port', '8000'))
 const root = resolve(argumentValue('--root', '_site'))
+const basePath = argumentValue('--base-path', '/')
+if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(basePath)) throw new Error('Base path must be an absolute directory path ending in /')
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error(`Invalid port: ${port}`)
@@ -48,6 +50,12 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (!pathname.startsWith(basePath)) {
+    response.writeHead(404)
+    response.end('Not found')
+    return
+  }
+  pathname = '/' + pathname.slice(basePath.length)
   const requestedPath = pathname.endsWith('/') ? `${pathname}index.html` : pathname
   const filePath = resolve(root, `.${requestedPath}`)
   const relativePath = relative(root, filePath)

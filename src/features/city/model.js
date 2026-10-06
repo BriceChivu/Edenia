@@ -1,51 +1,9 @@
 import { clampNumber } from '../../core/numbers.js'
 import { TINY_SWORDS_XP_THRESHOLDS } from './tiny-swords-progression.js'
 
-const LEGACY_LEVEL_LABELS = [
-  { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
-  { threshold: 15, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
-  { threshold: 45, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
-
-]
-
 export const CITY_LEVELS = Object.freeze(TINY_SWORDS_XP_THRESHOLDS.map((threshold, index) =>
-  Object.freeze({ ...(LEGACY_LEVEL_LABELS[index] || { label: `Level ${index + 1}` }), threshold })
+  Object.freeze({ threshold, label: `Level ${index + 1}`, level: index + 1 })
 ))
-
-export const CITY_IMAGE_PATHS = [
-  'images/photoshop/level%201.png',
-  'images/photoshop/level%202.png',
-  'images/photoshop/level%203.png',
-  'images/photoshop/level%204.png',
-  'images/photoshop/level%205.png',
-  'images/photoshop/level%206.png',
-  'images/photoshop/level%207.png',
-  'images/photoshop/level%208.png',
-  'images/photoshop/level%209.png',
-  'images/photoshop/level%2010.png',
-  'images/photoshop/level%2011.png',
-  'images/photoshop/level%2012.png'
-]
-
-export const CITY_IMAGE_WEBP_PATHS = [
-  'images/city/level%201.webp',
-  'images/city/level%202.webp',
-  'images/city/level%203.webp',
-  'images/city/level%204.webp',
-  'images/city/level%205.webp',
-  'images/city/level%206.webp',
-  'images/city/level%207.webp',
-  'images/city/level%208.webp',
-  'images/city/level%209.webp',
-  'images/city/level%2010.webp',
-  'images/city/level%2011.webp',
-  'images/city/level%2012.webp'
-]
-
-export const CITY_IMAGE_SOURCES = CITY_IMAGE_PATHS.map((fallback, index) => ({
-  primary: CITY_IMAGE_WEBP_PATHS[index],
-  fallback
-}))
 
 export function getCityLevel(score) {
   return CITY_LEVELS[getCityLevelIndex(score)]

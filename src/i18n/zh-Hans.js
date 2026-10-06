@@ -1,6 +1,19 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANS_LOCALIZED = {
+  "island.loading": "正在加载你的岛屿……你可以继续学习。",
+  "island.slow": "岛屿加载较慢。你可以继续学习；已保存的岛屿仍保留。",
+  "island.failed": "岛屿无法启动。你可以继续学习；已保存的岛屿仍保留。",
+  "island.restoreFailed": "无法还原已保存的岛屿。已阻止新的保存；原有岛屿仍保留。",
+  "island.unavailable": "岛屿目前无法使用。你可以继续学习；已保存的岛屿仍保留。",
+  "island.intro": "获得 XP 可解锁地形、动物、伐木与房屋。通过十个等级建造你的岛屿。",
+  "city.maxLevel": "已达第 10 级",
+  "city.zoom.controls": "岛屿视角控制",
+  "island.title": "学习岛屿",
+  "island.retry": "重试加载岛屿",
+  "island.introTitle": "学习、获得经验、建造你的岛屿。",
+  "walkthrough.town": "这是你的岛屿。学习可获得 XP，领取等级可解锁地形、动物与建造功能。下方的 XP 进度条显示你的进度。拖动可移动视角，使用视角控制可缩放或重置。",
+
   "townEconomy.coins": "{count} 枚金币",
   "townEconomy.flower": "第一片花圃",
   "townEconomy.build": "建造 · {count} 枚金币",

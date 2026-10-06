@@ -595,35 +595,6 @@
     aspect-ratio: 1672 / 1080;
     touch-action: pan-y;
   }
-  .city-image-wrap.is-zoomed { touch-action: none; }
-  .city-time-waveform {
-    bottom: 5px;
-    height: 44px;
-    max-width: calc(100% - 12px);
-    right: 6px;
-    width: clamp(71px, 22vw, 105px);
-  }
-  .city-wave-bars {
-    cursor: grab;
-    height: 38px;
-    overscroll-behavior-x: contain;
-    padding: 0 8px;
-    touch-action: pan-y;
-    user-select: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .city-wave-bars.is-touch-dragging { cursor: grabbing; }
-  .city-wave-track { gap: 2px; }
-  .city-wave-bar {
-    flex-basis: 4px;
-    height: 34px;
-    pointer-events: none;
-  }
-  .city-wave-bar::before {
-    height: var(--bar-height);
-    width: 3px;
-  }
-  .city-wave-bar.selected::before { height: 31px; }
   .city-next {
     font-size: 0.68rem;
     padding: 8px 9px;
@@ -818,15 +789,6 @@
     bottom: -8px;
     height: 62px;
     right: -8px;
-  }
-  .intro-city-growth {
-    grid-template-columns: 44px minmax(8px, 1fr) 44px minmax(8px, 1fr) 44px minmax(8px, 1fr) 44px;
-    max-width: 320px;
-  }
-  .intro-city-growth button,
-  .intro-city-growth button:last-child {
-    height: 44px;
-    width: 44px;
   }
   .intro-start { min-height: 44px; }
   .intro-timeline span {

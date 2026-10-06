@@ -44,7 +44,7 @@ test('legacy study remains visible and live watching reaches the first three XP 
   await expect(page.locator('#cityScore')).toHaveText('45')
   await page.locator('#levelUpButton').press('Enter')
   await expect(page.locator('#cityCurrentLevel')).toHaveText('Level 3')
-  await expect(page.locator('#cityFollowingLevel')).toHaveText('Level 3 reached')
+  await expect(page.locator('#cityFollowingLevel')).toHaveText('Level 4')
   const facts = await page.evaluate(() => ({ seconds: getTotalVideoWatchProgressSeconds(loadState().videos.lesson), xp: getCurrentCityScore(loadState()) }))
   expect(facts).toEqual({ seconds: 3300, xp: 45 })
 })

@@ -1,11 +1,13 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
+test.skip(process.env.EDENIA_TEST_NORMAL_PORT !== '8037', 'Playground is available only on the dedicated developer origin')
+
 test('playground upgrades, generates terrain, reloads supplies and restores a checkpoint without study XP', async ({ page, context }) => {
   test.setTimeout(180000)
   await page.addInitScript(() => { if (navigator.serviceWorker) Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => undefined }) })
-  await page.route('**/tiny-swords-xp-game/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
-  await page.goto('/', { waitUntil: 'load' })
-  test.skip(await page.locator('.tiny-swords-frame').count() === 0, 'Requires the local integration build on port 8037')
+  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
+  await page.goto('./', { waitUntil: 'load' })
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await page.evaluate(() => {
     const state = defaultState(4, [], 'light', [], 'en')
     const at = new Date().toISOString()
@@ -13,13 +15,17 @@ test('playground upgrades, generates terrain, reloads supplies and restores a ch
     state.config.ankiEnabled = false
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords-xp-game/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html')
   await page.reload({ waitUntil: 'domcontentloaded' })
-  const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-xp-game/index.html'))
+  const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
   let canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')
   await expect.poll(() => game()?.evaluate(() => window.edeniaGameLevel), { timeout: 60000 }).toBe(1)
   await expect.poll(() => game()?.evaluate(() => window.edeniaLastSavePersisted)).toBe(true)
+  const startBounds = await canvas.boundingBox()
+  await canvas.click({ position: { x: startBounds.width / 2, y: startBounds.height / 2 } })
+  await expect.poll(async () => (await durable())?.island_started).toBe(true)
+  await page.waitForTimeout(2200) // Wait for the first pawn's dust arrival.
   const initial = await durable()
   async function clickAt(right, top) {
     const bounds = await canvas.boundingBox()
@@ -36,7 +42,8 @@ test('playground upgrades, generates terrain, reloads supplies and restores a ch
   await clickAt(72, 146) // Restore the automatic level-one checkpoint.
   await expect.poll(async () => (await durable())?.level).toBe(1)
   await page.waitForTimeout(800) // More than the bridge polling interval; detect unwanted re-upgrade.
-  expect((await durable()).playground_checkpoint.island).toEqual(initial)
+  const { island_started: _started, ...initialLayout } = initial
+  expect((await durable()).playground_checkpoint.island).toEqual(initialLayout)
   await clickAt(228, 82)
   await expect.poll(() => game()?.evaluate(() => window.edeniaGameLevel)).toBe(2)
   await canvas.click({ position: { x: bounds.width / 2, y: bounds.height / 2 + 114 } })

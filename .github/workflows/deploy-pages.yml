@@ -38,9 +38,14 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+
       - name: Build static site
         env:
-          # Internal-only artwork; unset/false restores the existing town on both routes.
+          # Deferred release: no public mounting in this change.
+          EDENIA_TINY_SWORDS_ENABLED: 'false'
+          # Retained pre-transition renderer; the prepared island surface takes precedence.
           EDENIA_PIXEL_TOWN_ENABLED: ${{ vars.EDENIA_PIXEL_TOWN_ENABLED }}
           EDENIA_FREE_PLUS_ENABLED: ${{ vars.EDENIA_FREE_PLUS_ENABLED }}
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}

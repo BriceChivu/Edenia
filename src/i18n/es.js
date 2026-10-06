@@ -1,6 +1,19 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "island.loading": "Cargando tu isla… Puedes seguir estudiando.",
+  "island.slow": "Tu isla está tardando en cargar. Puedes seguir estudiando; tu isla guardada se conserva.",
+  "island.failed": "No se pudo iniciar tu isla. Puedes seguir estudiando; tu isla guardada se conserva.",
+  "island.restoreFailed": "No se pudo restaurar tu isla. No se guardarán cambios; tu isla guardada se conserva.",
+  "island.unavailable": "La isla no está disponible. Puedes seguir estudiando; tu isla guardada se conserva.",
+  "island.intro": "Gana XP para desbloquear terreno, animales, tala de árboles y casas. Construye tu isla a lo largo de diez niveles.",
+  "city.maxLevel": "Nivel 10 alcanzado",
+  "city.zoom.controls": "Controles de cámara de la isla",
+  "island.title": "Isla de estudio",
+  "island.retry": "Reintentar isla",
+  "island.introTitle": "Estudia. Gana experiencia. Construye tu isla.",
+  "walkthrough.town": "Esta es tu isla. Estudia para ganar XP y subir de nivel. Desbloquea terreno, animales y construcción. La barra de XP muestra tu progreso. Arrastra para mover la cámara; usa los controles para acercar o restablecer la vista.",
+
   "townEconomy.coins": "{count} monedas",
   "townEconomy.flower": "Primer macizo de flores",
   "townEconomy.build": "Construir · {count} monedas",

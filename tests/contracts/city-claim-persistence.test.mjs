@@ -6,7 +6,7 @@ import { CITY_LEVELS, getCityLevelIndex, normalizeCityProgress } from '../../src
 import { clampNumber } from '../../src/core/numbers.js'
 
 const app = fs.readFileSync('src/app.js','utf8')
-const claimSource = app.slice(app.indexOf('let cityClaimInFlight = false'), app.indexOf('\nfunction clampCityDayOffset'))
+const claimSource = app.slice(app.indexOf('let cityClaimInFlight = false'), app.indexOf('\nfunction getFirstStudyActionDateKey'))
 const updateSource = app.slice(app.indexOf('async function updatePersistentCityLevel'),app.indexOf('\nfunction renderLevelUpButton'))
 
 test('the real claim action waits for persistence and suppresses duplicate host celebrations', async () => {

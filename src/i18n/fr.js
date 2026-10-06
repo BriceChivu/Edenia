@@ -1,6 +1,19 @@
 import { EN_CORE } from './en.js'
 
 export const FR_LOCALIZED = {
+  "island.loading": "Chargement de votre île… Vous pouvez continuer à étudier.",
+  "island.slow": "Votre île met du temps à se charger. Vous pouvez continuer à étudier ; votre île sauvegardée est conservée.",
+  "island.failed": "Votre île n’a pas pu démarrer. Vous pouvez continuer à étudier ; votre île sauvegardée est conservée.",
+  "island.restoreFailed": "Votre île n’a pas pu être restaurée. Les nouvelles sauvegardes sont bloquées ; votre île sauvegardée est conservée.",
+  "island.unavailable": "L’île est indisponible. Vous pouvez continuer à étudier ; votre île sauvegardée est conservée.",
+  "island.intro": "Gagnez des XP pour débloquer du terrain, des animaux, la coupe d’arbres et des maisons. Construisez votre île au fil de dix niveaux.",
+  "city.maxLevel": "Niveau 10 atteint",
+  "city.zoom.controls": "Commandes de caméra de l’île",
+  "island.title": "Île d’étude",
+  "island.retry": "Réessayer",
+  "island.introTitle": "Étudiez. Gagnez de l’expérience. Construisez votre île.",
+  "walkthrough.town": "Voici votre île. Étudiez pour gagner des XP et passer de niveau afin de débloquer du terrain, des animaux et la construction. La barre de XP indique votre progression. Faites glisser pour déplacer la caméra ; utilisez les commandes pour zoomer ou réinitialiser la vue.",
+
   "townEconomy.coins": "{count} pièces",
   "townEconomy.flower": "Premier massif de fleurs",
   "townEconomy.build": "Construire · {count} pièces",
