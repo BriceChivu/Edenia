@@ -6,16 +6,12 @@ import { preparePixelTownHtml } from './pixel-town-html.mjs'
 
 // Retain the released town's presentation and scoring while the new dashboard
 // is tested. Unchanged modules remain shared; the manifest pins each override.
-export async function buildProductionExperience(projectRoot, outputDir, assetVersion) {
+export async function createProductionSourceResolver(projectRoot) {
   const compatibilityRoot = resolve(projectRoot, 'compat/production')
   const manifest = JSON.parse(await readFile(resolve(compatibilityRoot, 'manifest.json'), 'utf8'))
   const overrides = new Set(manifest.files)
   const sourcePath = path => resolve(overrides.has(path) ? compatibilityRoot : projectRoot, path)
-  const bundle = await build({
-    entryPoints: [sourcePath('src/app.js')],
-    bundle: true, format: 'esm', platform: 'browser', target: 'es2022',
-    charset: 'utf8', legalComments: 'none', treeShaking: false, write: false,
-    plugins: [{ name: 'production-compatibility', setup(builder) {
+  const plugin = { name: 'production-compatibility', setup(builder) {
       builder.onResolve({ filter: /^\./ }, args => {
         if (!args.importer.startsWith(compatibilityRoot + '/')
           && !args.importer.startsWith(resolve(projectRoot, 'src') + '/')) return
@@ -24,7 +20,17 @@ export async function buildProductionExperience(projectRoot, outputDir, assetVer
           : args.importer
         return { path: sourcePath(relative(projectRoot, resolve(dirname(importer), args.path))) }
       })
-    } }]
+    } }
+  return { sourcePath, plugin }
+}
+
+export async function buildProductionExperience(projectRoot, outputDir, assetVersion) {
+  const { sourcePath, plugin } = await createProductionSourceResolver(projectRoot)
+  const bundle = await build({
+    entryPoints: [sourcePath('src/app.js')],
+    bundle: true, format: 'esm', platform: 'browser', target: 'es2022',
+    charset: 'utf8', legalComments: 'none', treeShaking: false, write: false,
+    plugins: [plugin]
   })
   const app = await minify(bundle.outputFiles[0].text)
   if (!app.code) throw new Error('Production compatibility bundle failed')
