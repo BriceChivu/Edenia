@@ -99,27 +99,6 @@
   .city-image-btn {
     width: 44px;
   }
-  .city-time-waveform {
-    height: 54px;
-    width: clamp(132px, 34%, 220px);
-  }
-  .city-wave-bars {
-    height: 44px;
-    padding: 0 12px;
-  }
-  .city-wave-track {
-    gap: 4px;
-  }
-  .city-wave-bar {
-    flex-basis: 8px;
-    height: 44px;
-  }
-  .city-wave-bar::before {
-    width: 8px;
-  }
-  .city-wave-bar.selected::before {
-    height: 40px;
-  }
   .level-up-button {
     min-height: 44px;
     padding: 8px 12px;
@@ -166,26 +145,5 @@
   .city-image-btn:hover::before,
   .city-image-btn:focus-visible::before {
     background: rgba(255, 255, 255, 0.9);
-  }
-  .city-time-waveform {
-    height: 34px;
-    width: clamp(82px, 22%, 132px);
-  }
-  .city-wave-bars {
-    height: 30px;
-    padding: 0 8px;
-  }
-  .city-wave-track {
-    gap: 3px;
-  }
-  .city-wave-bar {
-    flex-basis: 6px;
-    height: 30px;
-  }
-  .city-wave-bar::before {
-    width: 6px;
-  }
-  .city-wave-bar.selected::before {
-    height: 28px;
   }
 }

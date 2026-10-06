@@ -59,6 +59,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
     assert.equal(
       await readFile(outputPath, 'utf8'),
       'window.EDENIA_CONFIG = {\n'
+        + '  "tinySwordsEnabled": false,\n'
         + '  "youtubeApiKey": "fake-development-key",\n'
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
@@ -116,6 +117,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
     await writeLocalRuntimeConfig(outputPath, runtimeConfig)
 
     assert.deepEqual(runtimeConfig, {
+      tinySwordsEnabled: false,
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: true,
       plusCheckoutEnabled: true,
@@ -156,6 +158,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
     )
 
     assert.deepEqual(await readLocalRuntimeConfig(configPath), {
+      tinySwordsEnabled: false,
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,

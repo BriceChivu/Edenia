@@ -7,16 +7,9 @@ import {
   createPortableLearnerProfileEnvelope
 } from '../../src/state/portable-learner-profile.js'
 
-// Finish forwarded localhost fetches before Playwright disposes their request context.
-test.afterEach(async ({ page }) => {
-  await page.unrouteAll({ behavior: 'wait' })
-})
-
 const SUPABASE_ORIGIN = 'https://first-profile-test.supabase.co'
+// playwright.config.mjs serves the same built site at the fixed Auth return port.
 const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
-const SERVED_APPLICATION_ORIGIN = `http://localhost:${Number(
-  process.env.EDENIA_TEST_NORMAL_PORT || 8000
-)}`
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const DRAFT_STORAGE_KEY =
   'edenia_v1_internal_test_onboarding_draft_v1'
@@ -94,26 +87,11 @@ function runtimeConfig(overrides = {}) {
 }
 
 async function installRuntimeConfig(page, overrides = {}) {
-  await useAccountReturnOrigin(page)
   await page.route('**/config.local.js*', route => route.fulfill({
     body: runtimeConfig(overrides),
     contentType: 'text/javascript',
     status: 200
   }))
-}
-
-async function useAccountReturnOrigin(page) {
-  if (SERVED_APPLICATION_ORIGIN === ACCOUNT_RETURN_ORIGIN) return
-
-  await page.route(`${ACCOUNT_RETURN_ORIGIN}/**`, async route => {
-    const requestedUrl = new URL(route.request().url())
-    const servedUrl = new URL(
-      `${requestedUrl.pathname}${requestedUrl.search}`,
-      `${SERVED_APPLICATION_ORIGIN}/`
-    )
-    const response = await route.fetch({ url: servedUrl.href })
-    await route.fulfill({ response })
-  })
 }
 
 async function installEmptySupabase(page) {

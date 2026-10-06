@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
 
+import { readBuiltExperience } from '../support/built-experience.mjs'
+
 const siteRoot = new URL('../../_site/', import.meta.url)
 const projectRoot = new URL('../../', import.meta.url)
 
@@ -87,7 +89,7 @@ test('build emits a versioned dedicated Plus page', async () => {
 
 test('built index preserves the classic deferred script order and one cache version', async () => {
   const [html, manifestSource, configSource] = await Promise.all([
-    readFile(new URL('index.html', siteRoot), 'utf8'),
+    readBuiltExperience(),
     readFile(new URL('release.json', siteRoot), 'utf8'),
     readFile(new URL('config.local.js', siteRoot), 'utf8')
   ])

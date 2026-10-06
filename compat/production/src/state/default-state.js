@@ -1,0 +1,109 @@
+import { normalizeLocale } from '../i18n/runtime.js'
+import {
+  normalizeTheme,
+  normalizeWeeklyGoalHours
+} from './config-normalization.js'
+import {
+  createDefaultTrackedChannelPolicy
+} from './tracked-channel-policy-state.js'
+
+export function getDefaultHistoryView(isSandbox) {
+  return isSandbox ? 'heatmap' : 'summary'
+}
+
+export function normalizeHistoryView(view, isSandbox) {
+  return view === 'heatmap' || view === 'summary'
+    ? view
+    : getDefaultHistoryView(isSandbox)
+}
+
+export function createDefaultStateFactory({
+  defaultChannels,
+  defaultChannelsVersion,
+  onboardingVersion,
+  isSandbox,
+  isDefaultChannelId,
+  getBrowserDefaultLocale
+}) {
+  return function defaultState(
+    goalHours,
+    channels,
+    theme,
+    removedDefaultChannelIds = null,
+    locale = null
+  ) {
+    const restoredRemovedDefaultIds = Array.isArray(removedDefaultChannelIds)
+      ? removedDefaultChannelIds.filter(isDefaultChannelId)
+      : null
+    const initialChannels = Array.isArray(channels)
+      ? channels.map(channel => ({ ...channel }))
+      : defaultChannels.map(channel => ({ ...channel }))
+    return {
+      config: {
+        weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
+        theme: normalizeTheme(theme),
+        locale: normalizeLocale(locale || getBrowserDefaultLocale()),
+        includeShorts: true,
+        shortsEnableRefetchAvailableAt: null,
+        ankiEnabled: true,
+        ankiDisabledAt: null,
+        ankiResumeBaselines: {},
+        ankiPendingResumeBaseline: null,
+        historyView: getDefaultHistoryView(isSandbox),
+        studyInsights: { enabled: true, collapsed: false, history: [] },
+        channels: initialChannels,
+        trackedChannelPolicy: createDefaultTrackedChannelPolicy(initialChannels),
+        channelShelfOrder: [],
+        removedDefaultChannelIds: restoredRemovedDefaultIds || [],
+        removedChannelIds: []
+      },
+      videos: {},
+      streak: { current: 0, longest: 0, lastActivityDate: null },
+      anki: {},
+      cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
+      undoStack: [],
+      redoStack: [],
+      activityLog: [],
+      lastVideoMarkedWatchedAt: null,
+      lastVideoOpenedAt: null,
+      totalRewatchCount: 0,
+      channelRefreshes: {},
+      onboarding: {
+        version: onboardingVersion,
+        introSeenAt: null,
+        accountStepReachedAt: null,
+        setupCompleted: false,
+        setupCompletedAt: null,
+        walkthroughCompleted: false,
+        walkthroughCompletedAt: null,
+        levelUpGuidanceShownAt: null,
+        recommendationsAppliedAt: null,
+        starterFeed: {
+          status: 'idle',
+          catalogIds: [],
+          processedCatalogIds: [],
+          failedCatalogIds: [],
+          addedChannelCount: 0,
+          mergedVideoCount: 0,
+          skippedShortCount: 0,
+          queuedAt: null,
+          startedAt: null,
+          completedAt: null
+        }
+      },
+      noAnkiFrequentUserPrompt: {
+        watchedVideoDateKeys: [],
+        response: null,
+        respondedAt: null
+      },
+      learnerProfile: {
+        languages: [],
+        level: null,
+        selectedChannelCatalogIds: [],
+        createdAt: null,
+        updatedAt: null
+      },
+      defaultChannelsVersion
+    }
+  }
+}

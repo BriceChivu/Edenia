@@ -60,6 +60,7 @@ export function createDefaultStateFactory({
       videos: {},
       streak: { current: 0, longest: 0, lastActivityDate: null },
       anki: {},
+      tinySwordsIsland: null,
       cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
       undoStack: [],
       redoStack: [],

@@ -1,0 +1,84 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="FontFile" uid="uid://ddy1bqocuucpx" path="res://fonts/MedievalSharp.ttf" id="1_ecdye"]
+[ext_resource type="Texture2D" uid="uid://ospojhb4i60c" path="res://assets/ui/level_up_button_normal.png" id="4_142je"]
+[ext_resource type="Texture2D" uid="uid://bi4slbwmh0wsf" path="res://assets/ui/level_up_button_pressed.png" id="5_jc0g1"]
+[ext_resource type="Texture2D" uid="uid://gmx6a3k5vaci" path="res://assets/ui/level_up_button_hover.png" id="6_am0wv"]
+[ext_resource type="Texture2D" uid="uid://dnu1llnfy3fd2" path="res://assets/ui/level_up_button_disabled.png" id="7_p7lwv"]
+
+[sub_resource type="FontVariation" id="FontVariation_kitj7"]
+base_font = ExtResource("1_ecdye")
+variation_embolden = 0.5
+
+[sub_resource type="Theme" id="Theme_nht5g"]
+default_font = SubResource("FontVariation_kitj7")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_aa412"]
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 11.0
+texture = ExtResource("4_142je")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ubx6b"]
+content_margin_left = 8.0
+content_margin_top = 9.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+texture = ExtResource("5_jc0g1")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_04tcd"]
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 11.0
+texture = ExtResource("6_am0wv")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_lkagc"]
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 11.0
+texture = ExtResource("7_p7lwv")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+
+[node name="IslandStart" type="Button"]
+texture_filter = 1
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 0
+offset_right = 180.0
+offset_bottom = 44.0
+theme = SubResource("Theme_nht5g")
+accessibility_name = "Start"
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.65882355, 0.7254902, 0.70980394, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxTexture_aa412")
+theme_override_styles/pressed = SubResource("StyleBoxTexture_ubx6b")
+theme_override_styles/hover = SubResource("StyleBoxTexture_04tcd")
+theme_override_styles/disabled = SubResource("StyleBoxTexture_lkagc")
+text = "Start"

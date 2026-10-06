@@ -1,0 +1,34 @@
+/* The island surface remains useful when the engine is disabled or unavailable. */
+.tiny-swords-surface { background: #47aba9; isolation: isolate; }
+.tiny-swords-load-status {
+  position: absolute; inset: 0; z-index: 7; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 20px; text-align: center; gap: 12px;
+  color: #142028; background: #47aba9;
+}
+.tiny-swords-load-status p { max-width: 44ch; margin: 0; }
+.tiny-swords-load-status[hidden], .tiny-swords-camera-controls[hidden] { display: none; }
+.tiny-swords-save-status {
+  position: absolute; left: 8px; top: 8px; right: 8px; width: fit-content;
+  z-index: 7; padding: 6px 10px; border-radius: 8px; background: #fff; color: #333;
+}
+.tiny-swords-save-status:empty { display: none; }
+.tiny-swords-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; z-index: 5; }
+.tiny-swords-frame[inert] { pointer-events: none; }
+.tiny-swords-frame:focus { outline: 3px solid #142028; outline-offset: -3px; }
+.tiny-swords-surface .tiny-swords-camera-controls { z-index: 6; display: flex; pointer-events: none; opacity: 1; }
+.tiny-swords-surface .tiny-swords-camera-controls[hidden] { display: none; }
+.tiny-swords-surface .tiny-swords-camera-controls button { pointer-events: auto; cursor: var(--tiny-swords-camera-cursor, default); }
+.tiny-swords-surface .tiny-swords-camera-controls[inert] button { pointer-events: none; }
+.tiny-swords-surface .tiny-swords-camera-controls .city-image-btn { opacity: 0.38; background: rgba(255,255,255,0.64); transition: opacity .15s ease; }
+.tiny-swords-surface .tiny-swords-camera-controls .city-image-btn:hover,
+.tiny-swords-surface .tiny-swords-camera-controls .city-image-btn:focus-visible { opacity: 1; }
+.tiny-swords-surface .tiny-swords-camera-controls .city-image-btn::before { background: rgba(255,255,255,0.64); }
+@media (max-width: 480px) {
+  .tiny-swords-surface .tiny-swords-camera-controls.tiny-swords-editing { bottom: auto; top: 8px; }
+  .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn,
+  .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn:hover { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn { transition: none; }
+}

@@ -25,27 +25,27 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  "en": "ec56a11b8d53d81482de10e2e41bd2f2cabad700cedf6a6c6f3fcb19812015f7",
-  "zh-Hant": "b1fad3ec84c0f9a694f2d57d2c1d25647a1e44a1cc806bf8cde0f81cbc3ffbb6",
-  "zh-Hans": "434f6cad520c2dd8967787a4950c2827d75201eff92fa33ad362dc1e8acb6320",
-  "es": "7bde6869cf96645694a9ff9aab7c87242c77c42d3dc5230178bb9a8435c1157e",
-  "fr": "a9323b8d01cea2461c64838768c8555c44936277c1fe1ff7a3359479f08fa3ce"
+  "en": "f59d58a9cc40ba1af05932f87d753bb1bd612752613be4111b82a273d7e92d57",
+  "zh-Hant": "19a3696cc9cac5381959540a983eebd701c014d29f25cc952848a0f46f3dd1a9",
+  "zh-Hans": "5a8fddbffacc40fbda141ae0d916ad92b5c044bd2fd5143d17f864a70f1f42b2",
+  "es": "08b9229d420ccf5814f8b987bd4f3ecef247ed7d5dcce168915c8f62e242d7a8",
+  "fr": "f0c57b919897e7c2018352b45c0f22cbf1071d854b658201bf22dfdb571932c7"
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
-  "en": "cbcdcad9d9e8ac9b7865b2d42ed352bbdec22065332d934871e556c668be4801",
-  "zh-Hant": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557",
-  "zh-Hans": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557",
-  "es": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557",
-  "fr": "a4d6dfbdd7178c71118013aa6cf29146f48a5ef6f4ae176322a4b9f788adb557"
+  "en": "c571d5af5cd0e681f5444ca4c1c95bfe274b687b970df2ad00ec4e8f7c84edd4",
+  "zh-Hant": "0d7ffa96607c00e72c4922d995373d4dfedfc25a2169ac7127694e257128c737",
+  "zh-Hans": "0d7ffa96607c00e72c4922d995373d4dfedfc25a2169ac7127694e257128c737",
+  "es": "0d7ffa96607c00e72c4922d995373d4dfedfc25a2169ac7127694e257128c737",
+  "fr": "0d7ffa96607c00e72c4922d995373d4dfedfc25a2169ac7127694e257128c737"
 }
 
 const EXPECTED_COUNTS = {
-  "en": 1148,
-  "zh-Hant": 1152,
-  "zh-Hans": 1152,
-  "es": 1152,
-  "fr": 1152
+  "en": 1161,
+  "zh-Hant": 1165,
+  "zh-Hans": 1165,
+  "es": 1165,
+  "fr": 1165
 }
 
 const LEGACY_NON_ENGLISH_EXTRA_KEYS = [
@@ -318,10 +318,10 @@ const heatmapLabelSource = heatmapAppSource.slice(
   heatmapAppSource.indexOf('function formatHeatmapAriaLabel('),
   heatmapAppSource.indexOf('\nfunction getWeekMonday(')
 )
-const formatHeatmapLabel = new Function('t', 'formatHeatmapTitle', 'getHistoryDayPoints', 'formatHistoryTime', `
+const formatHeatmapLabel = new Function('t', 'formatHeatmapTitle', 'getHistoryDayPoints', 'formatHistoryTime', 'formatHistoryPointNumber', `
   ${heatmapLabelSource}
   return formatHeatmapAriaLabel
-`)(t, () => 'DATE', () => 12, () => 'TIME')
+`)(t, () => 'DATE', () => 12, () => 'TIME', String)
 
 for (const [locale, streakTerm] of Object.entries({
   en: 'day streak', 'zh-Hant': '天連續', 'zh-Hans': '天连续',
@@ -330,7 +330,7 @@ for (const [locale, streakTerm] of Object.entries({
   test(`heatmap accessible name preserves complete localized details and optional streak in ${locale}`, () => {
     setCurrentLocale(locale)
     try {
-      const row = { secondsWatched: 60, videosWatched: 3, ankiReviewed: 6, ankiCreated: 1 }
+      const row = { hasExperience: true, secondsWatched: 60, videosWatched: 3, ankiReviewed: 6, ankiCreated: 1 }
       for (const ankiEnabled of [true, false]) {
         const base = t(ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki', {
           date: 'DATE', points: 12, time: 'TIME', videos: 3, reviewed: 6, created: 1

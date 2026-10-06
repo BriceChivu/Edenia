@@ -583,12 +583,6 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   box-shadow: none;
 }
 @media (min-width: 641px) and (any-pointer: coarse) {
-  .city-wave-bars {
-    overscroll-behavior-x: contain;
-    touch-action: pan-y;
-    user-select: none;
-    -webkit-overflow-scrolling: touch;
-  }
   .channel-shelf-avatar {
     touch-action: none;
   }
@@ -607,8 +601,7 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   }
 }
 @media (min-width: 641px) and (hover: none) {
-  .city-zoom-controls,
-  .city-time-waveform {
+  .city-zoom-controls{
     opacity: 1;
   }
   .channel-shelf-remove {

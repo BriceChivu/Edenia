@@ -37,7 +37,9 @@ function run(command, args, options = {}) {
 async function main() {
   const runtimeConfig = await readLocalRuntimeConfig(localConfigPath)
 
-  await run(process.execPath, [buildScriptPath])
+  await run(process.execPath, [buildScriptPath], {
+    env: { ...process.env, EDENIA_TINY_SWORDS_ENABLED: String(runtimeConfig.tinySwordsEnabled) }
+  })
   await writeLocalRuntimeConfig(outputConfigPath, runtimeConfig)
 
   console.log('Prepared local YouTube configuration (key hidden).')

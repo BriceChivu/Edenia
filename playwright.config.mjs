@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test'
 
 const normalPort = Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)
+const basePath = process.env.EDENIA_TEST_BASE_PATH || '/'
 const fixedMigrationDestinationPort = 8000
 const sandboxPort = 8001
 const legacyMigrationPort = 8002
@@ -65,7 +66,7 @@ export default defineConfig({
     }
   },
   use: {
-    baseURL: `http://localhost:${normalPort}`,
+    baseURL: `http://localhost:${normalPort}${basePath}`,
     colorScheme: 'light',
     locale: 'en-US',
     serviceWorkers: 'block',
@@ -93,10 +94,10 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `node scripts/serve-static.mjs --host localhost --port ${normalPort} --root _site`,
+      command: `node scripts/serve-static.mjs --host localhost --port ${normalPort} --root _site --base-path ${basePath}`,
       reuseExistingServer: false,
       timeout: 15_000,
-      url: `http://localhost:${normalPort}/`
+      url: `http://localhost:${normalPort}${basePath}`
     },
     ...(normalPort === fixedMigrationDestinationPort ? [] : [{
       command: `node scripts/serve-static.mjs --host localhost --port ${fixedMigrationDestinationPort} --root _site`,

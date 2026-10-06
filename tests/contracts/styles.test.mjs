@@ -10,6 +10,7 @@ const EXPECTED_STYLE_FILES = [
   '20-settings-onboarding.css',
   '30-header.css',
   '40-city.css',
+  '41-tiny-swords.css',
   '50-analytics.css',
   '60-study-history.css',
   '70-video-feed.css',

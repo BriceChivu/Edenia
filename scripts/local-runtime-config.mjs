@@ -47,6 +47,7 @@ function normalizeOptionalCutoverAt(value) {
 
 export function normalizeLocalRuntimeConfig(value) {
   return {
+    tinySwordsEnabled: value?.tinySwordsEnabled === true,
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
     freePlusEnabled: value?.freePlusEnabled === true,
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,

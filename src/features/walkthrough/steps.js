@@ -1,7 +1,7 @@
 export const WALKTHROUGH_STEPS = [
   {
     id: 'town',
-    target: '.city-image-wrap',
+    target: '#tinySwordsSurface',
     textKey: 'walkthrough.town',
     placement: 'bottom'
   },
@@ -83,7 +83,7 @@ export const LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP = {
   id: 'level-up-ready',
   target: '#levelUpButton',
   textKey: 'walkthrough.levelUpReady',
-  actionLabel: 'Ok!',
+  actionLabelKey: 'walkthrough.done',
   placement: 'bottom',
   spotlightPadding: 6,
   spotlightHeightTarget: '.goal-card',

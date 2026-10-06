@@ -1,4 +1,5 @@
-import { recoverProductionCityProgress } from './domain/city-progression-recovery.js'
+import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
+import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
 import { mapPersistenceResult } from './state/persistence-result.js'
 import { budgetObjectCache } from './state/storage-budget.js'
@@ -74,7 +75,8 @@ import {
 import {
   deriveLearnerProfileAccessVisualTest,
   deriveRuntimeEnvironment,
-  deriveStudyGuidanceEnabled
+  deriveStudyGuidanceEnabled,
+  deriveTinySwordsEnabled
 } from './core/runtime-environment.js'
 import {
   deriveAccountFeaturesEnabled
@@ -368,9 +370,6 @@ import {
   createPlusEntitlementCache
 } from './state/plus-entitlement-cache.js'
 import {
-  bindIntroCityLevelActions
-} from './features/onboarding/intro-city-level-actions.js'
-import {
   bindIntroFinishActions
 } from './features/onboarding/intro-finish-actions.js'
 import {
@@ -433,24 +432,11 @@ import {
   setChannelVideoFormatPreference
 } from './features/channels/video-format-actions.js'
 import {
-  CITY_IMAGE_SOURCES,
   CITY_LEVELS,
-  getCityLevel,
   getCityLevelIndex,
-  getCityScoreForLevelIndex,
   normalizeCityProgress
 } from './features/city/model.js'
-import {
-  getCityImageCoverGeometry
-} from './features/city/viewport-geometry.js'
 import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
-import {
-  bindCityWaveformBarActions
-} from './features/city/waveform-bar-actions.js'
-import {
-  bindCityWaveformMouseActions
-} from './features/city/waveform-mouse-actions.js'
-import { bindCityZoomActions } from './features/city/zoom-actions.js'
 import {
   FIRST_STUDY_WALKTHROUGH_STEPS,
   LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP,
@@ -598,10 +584,15 @@ const RUNTIME_ENVIRONMENT = deriveRuntimeEnvironment(window.location)
 const {
   isSandbox: IS_SANDBOX,
   isInternalTest: IS_INTERNAL_TEST,
+  internalTestMode: INTERNAL_TEST_MODE,
+  isTinySwordsTester: IS_TINY_SWORDS_TESTER,
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
 } = RUNTIME_ENVIRONMENT
+window.edeniaTinySwordsEnabled = deriveTinySwordsEnabled(window.location, window.EDENIA_CONFIG)
+window.edeniaTinySwordsLegacyPreview = IS_LOCALHOST && location.port === '8037'
+  && !IS_TINY_SWORDS_TESTER
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
@@ -633,7 +624,7 @@ const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled() || INDEXED_DB_PR
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
   INDEXED_DB_PROFILE_ENABLED || (INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled())
 const LEGACY_PROGRESS_MIGRATION_ENABLED =
-  getLegacyProgressMigrationEnabled()
+  !IS_TINY_SWORDS_TESTER && getLegacyProgressMigrationEnabled()
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
   getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
 const LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE =
@@ -682,10 +673,7 @@ const {
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
   configCookieKey: CONFIG_COOKIE_KEY
-} = deriveStorageKeys({
-  isSandbox: IS_SANDBOX,
-  isInternalTest: IS_INTERNAL_TEST
-})
+} = deriveStorageKeys(RUNTIME_ENVIRONMENT)
 const LEGACY_PROGRESS_RELAY_RUNTIME = deriveLegacyProgressRelayRuntime({
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST,
   locationLike: window.location,
@@ -720,7 +708,9 @@ const readImportedState = createImportedStateReader({
   createDefaultState: defaultState,
   removeLegacyVideoWatchReminderState
 })
-const STATE_BACKUP_DATABASE = IS_INTERNAL_TEST
+const STATE_BACKUP_DATABASE = IS_TINY_SWORDS_TESTER && !IS_SANDBOX
+  ? `${STATE_BACKUP_DATABASE_NAME}_internal_test_2`
+  : IS_INTERNAL_TEST
   ? `${STATE_BACKUP_DATABASE_NAME}_internal_test`
   : STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
@@ -900,6 +890,9 @@ async function createVerifiedStateBackupFromState(
   return entry
 }
 const stateStore = createStateStore({
+  onPersisted: (state, detail) => window.dispatchEvent(new CustomEvent(
+    'edenia-profile-persisted', { detail }
+  )),
   storage: localStorage,
   getRepository: () => primaryProfileRepository,
   storageKey: STORAGE_KEY,
@@ -1408,10 +1401,6 @@ const ANKI_REVIEW_CHUNK_POINTS = 20
 const SCORING_RULES_VERSION = 7
 const STUDY_INSIGHT_MIN_ACTIVE_DAYS = 8
 const STUDY_INSIGHT_MIN_VIDEO_SECONDS = 2 * 60 * 60
-const cityImagePreloadCache = new Map()
-const cityImagePreloadQueue = []
-let cityImagePreloadQueueRunning = false
-let activeCityImagePreloadCenter = null
 let ankiStatsCache = null
 let ankiRefreshDeferredForPrompt = false
 let selectedStatusFilter = 'all'
@@ -1502,49 +1491,6 @@ let youtubeIframeApiPromise = null
 let activeVideoShelfPlayer = null
 let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
-let selectedCityDayOffset = 0
-const CITY_IMAGE_MIN_ZOOM = 1
-const CITY_IMAGE_MAX_ZOOM = 2
-const CITY_IMAGE_PHONE_MAX_ZOOM = 4
-const CITY_IMAGE_MOBILE_DEFAULT_ZOOM = 1.75
-const CITY_IMAGE_MOBILE_DEFAULT_Y = -40
-const CITY_IMAGE_ZOOM_STEP = 0.25
-const CITY_IMAGE_WHEEL_ZOOM_STEP = 0.06
-const CITY_IMAGE_PAN_EPSILON = 0.5
-const cityImageView = {
-  scale: 1,
-  x: 0,
-  y: 0,
-  dragging: false,
-  pointerId: null,
-  startX: 0,
-  startY: 0,
-  originX: 0,
-  originY: 0,
-  touchPointers: new Map(),
-  pinching: false,
-  pinchStartDistance: 0,
-  pinchStartScale: 1,
-  pinchStartX: 0,
-  pinchStartY: 0,
-  pinchStartCenterX: 0,
-  pinchStartCenterY: 0
-}
-const cityWaveformScroll = {
-  frame: null,
-  speed: 0,
-  pointerX: 0,
-  pointerY: 0,
-  touchPointerId: null,
-  touchStartX: 0,
-  touchStartY: 0,
-  touchStartScrollLeft: 0,
-  touchAxis: null,
-  touchDragging: false,
-  touchPreviewOffset: null,
-  touchPreviewFrame: null,
-  suppressClickUntil: 0
-}
 const historyActionScroll = {
   frame: null,
   scroller: null,
@@ -1577,7 +1523,6 @@ const introTrailerState = {
   state: null,
   sceneIndex: 0,
   sceneTimer: null,
-  cityLevelTimers: [],
   soundEnabled: false,
   audio: null,
   touchIdentifier: null,
@@ -1714,6 +1659,8 @@ function applyLocale(locale = getCurrentLocale()) {
   const nextLocale = setCurrentLocale(locale)
   document.documentElement.lang = nextLocale
   applyTranslations()
+  syncIntroIslandMedia()
+  window.dispatchEvent(new Event('edenia-locale-changed'))
 }
 
 function getEffectiveIncludeShorts() {
@@ -1961,7 +1908,7 @@ function getRecommendedChannelCatalog(profile, limit = 6) {
 }
 
 function normalizeLoadedState(state) {
-  let shouldSave = false
+  let shouldSave = initializeExperience(state, SCORING_RULES_VERSION)
   if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
   if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
   if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
@@ -2008,8 +1955,6 @@ function normalizeLoadedState(state) {
   if (normalizeChannelRefreshState(state)) shouldSave = true
   if (!IS_SANDBOX && expireYoutubeMetadata(state)) shouldSave = true
   normalizeSandboxState(state)
-  if (state.cityProgress?.experienceVersion === 1
-    && recoverProductionCityProgress(state, getCurrentCityScore(state), SCORING_RULES_VERSION)) shouldSave = true
   normalizeCityProgress(state)
   delete state.nightVisuals
   if (window.EDENIA_PIXEL_TOWN?.enabled && initializeTownEconomy(state)) shouldSave = true
@@ -2017,6 +1962,7 @@ function normalizeLoadedState(state) {
 }
 
 function normalizeStateBeforeSave(state) {
+  initializeExperience(state, SCORING_RULES_VERSION)
   budgetUndoState(state)
   budgetYoutubeMetadata(state)
   normalizeActivityLogState(state)
@@ -2219,7 +2165,9 @@ function getEdeniaAnalyticsSnapshot(state) {
       earnedLevelIndex,
       pendingLevelIndex,
       hasPendingLevel: pendingLevelIndex !== null && pendingLevelIndex > visibleLevelIndex,
-      totalStudyScore: roundAnalyticsNumber(currentScore)
+      totalStudyScore: roundAnalyticsNumber(currentScore),
+      experience: 'tiny_swords',
+      levelCount: CITY_LEVELS.length
     },
     settings: {
       locale: normalizeLocale(state?.config?.locale),
@@ -2935,7 +2883,6 @@ async function startApplicationWithState(initialState, {
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
   if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
   selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
-  setDefaultCityDayOffset(state)
   syncStreak(state)
   if (!await saveState(state)) {
     // Opening an existing durable profile must still work when maintenance
@@ -2961,8 +2908,6 @@ async function startApplicationWithState(initialState, {
   syncHeaderCompactState()
   startChannelRefreshLabelTicker()
   hydrateStoredManualVideoChannelImages()
-  initCityImagePanZoom()
-  initCityWaveformTouchNavigation()
   initIntroTrailerTouchNavigation()
   const onboardingExperienceStarted = skipUnfinishedOnboarding
     ? false
@@ -3013,7 +2958,6 @@ function renderActivatedLearnerProfile(state, {
     state.config.historyView,
     IS_SANDBOX
   )
-  setDefaultCityDayOffset(state)
   syncStreak(state)
   applyTheme(state.config.theme)
   if (showMainApplication) show('mainApp')
@@ -3129,6 +3073,7 @@ function trackLearnerProfileOpening(accessState) {
 }
 
 async function handleLearnerProfileAccessStateChange(accessState) {
+  if (window.edeniaTinySwordsPersistence) window.dispatchEvent(new Event('edenia-profile-access'))
   const renderEpoch = ++learnerProfileAccessRenderEpoch
   trackLearnerProfileOpening(accessState)
   if (learnerProfileAccessVisualTestActive) {
@@ -3615,11 +3560,11 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
   if (!trailer) return
 
   window.clearTimeout(introTrailerState.sceneTimer)
-  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
-  introTrailerState.cityLevelTimers = []
   introTrailerState.sceneIndex = Math.max(0, Math.min(sceneIndex, INTRO_TRAILER_SCENE_DURATIONS.length - 1))
   const duration = INTRO_TRAILER_SCENE_DURATIONS[introTrailerState.sceneIndex]
 
+  window.clearTimeout(introTrailerState.islandTimer)
+  if (introTrailerState.sceneIndex === 2) setIntroIslandStage(0)
   trailer.dataset.scene = String(introTrailerState.sceneIndex)
   trailer.style.setProperty('--intro-duration', `${duration}ms`)
   if (previousButton) previousButton.disabled = introTrailerState.sceneIndex === 0
@@ -3629,7 +3574,6 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
     segment.classList.toggle('is-active', index === introTrailerState.sceneIndex)
   })
 
-  if (introTrailerState.sceneIndex === 2) animateIntroCityLevel()
   const isFinalScene = introTrailerState.sceneIndex === INTRO_TRAILER_SCENE_DURATIONS.length - 1
   if (!autoAdvance || isFinalScene) return
   introTrailerState.sceneTimer = window.setTimeout(() => {
@@ -3637,6 +3581,38 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
     if (nextScene < INTRO_TRAILER_SCENE_DURATIONS.length) setIntroTrailerScene(nextScene)
   }, duration)
 }
+
+function syncIntroIslandMedia() {
+  const image = document.querySelector('[data-intro-island-image="1"]')
+  const locale = getCurrentLocale()
+  const suffix = locale === 'en' ? '' : `-${locale}`
+  if (image) image.src = `images/tiny-swords-trailer/unlock${suffix}.png`
+  const source = document.querySelector('[data-intro-island-source="1"]')
+  if (source) source.srcset = `images/tiny-swords-trailer/unlock${suffix}-phone.png`
+}
+
+function setIntroIslandStage(index, { manual = false } = {}) {
+  window.clearTimeout(introTrailerState.islandTimer)
+  const selected = Math.max(0, Math.min(Number(index) || 0, 2))
+  document.querySelectorAll('[data-intro-island-image]').forEach(image => {
+    image.classList.toggle('is-selected', Number(image.dataset.introIslandImage) === selected)
+  })
+  document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.introIslandStage) === selected))
+  })
+  if (manual) {
+    // Manual selection keeps this scene visible until navigation or Skip.
+    window.clearTimeout(introTrailerState.sceneTimer)
+  } else if (selected < 2) {
+    introTrailerState.islandTimer = window.setTimeout(() => {
+      if (introTrailerState.active && introTrailerState.sceneIndex === 2) setIntroIslandStage(selected + 1)
+    }, INTRO_TRAILER_SCENE_DURATIONS[2] / 3)
+  }
+}
+
+document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
+  button.addEventListener('click', () => setIntroIslandStage(button.dataset.introIslandStage, { manual: true }))
+})
 
 function navigateIntroTrailer(direction) {
   if (!introTrailerState.active) return
@@ -3704,7 +3680,6 @@ async function changeIntroLocale(locale) {
   if (!await saveOnboardingWorkingState(state, { backup: false })) return false
   applyLocale(nextLocale)
   updateIntroSoundButton()
-  updateIntroCityLevelControls(document.getElementById('introCityLevel')?.textContent || '1')
   updateDocumentTitle(state)
 
   if (introTrailerState.active && introTrailerState.sceneIndex === 0) {
@@ -3788,67 +3763,6 @@ async function changeOnboardingLocale(locale) {
   applyLocale(nextLocale)
   updateDocumentTitle(state)
   renderPersonalizedOnboarding()
-}
-
-function animateIntroCityLevel() {
-  const trailer = document.getElementById('introTrailer')
-  trailer?.classList.remove('is-manual-city-level')
-  trailer?.querySelectorAll('[data-intro-city-frame]').forEach(frame => frame.classList.remove('is-selected'))
-  trailer?.querySelectorAll('.intro-city-growth button, .intro-city-growth i').forEach(marker => marker.classList.remove('is-selected', 'is-reached'))
-  updateIntroCityLevelControls(1)
-  ;[[2500, '4'], [5100, '8'], [7700, '12']].forEach(([delay, value]) => {
-    introTrailerState.cityLevelTimers.push(window.setTimeout(() => {
-      updateIntroCityLevelControls(value)
-    }, delay))
-  })
-}
-
-function updateIntroCityLevelControls(level) {
-  const normalizedLevel = String(level)
-  const levelLabel = document.getElementById('introCityLevel')
-  if (levelLabel) levelLabel.textContent = normalizedLevel
-  document.querySelectorAll('[data-intro-city-level]').forEach(button => {
-    const isSelected = button.dataset.introCityLevel === normalizedLevel
-    button.setAttribute('aria-pressed', String(isSelected))
-    button.setAttribute('aria-label', `${t('intro.city.level')} ${button.dataset.introCityLevel}`)
-  })
-}
-
-function selectIntroCityLevel(level) {
-  if (!introTrailerState.active || introTrailerState.sceneIndex !== 2) return
-  const normalizedLevel = String(level)
-  if (!['1', '4', '8', '12'].includes(normalizedLevel)) return
-  const trailer = document.getElementById('introTrailer')
-  if (!trailer) return
-
-  window.clearTimeout(introTrailerState.sceneTimer)
-  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
-  introTrailerState.cityLevelTimers = []
-  trailer.classList.add('is-manual-city-level')
-  const levels = ['1', '4', '8', '12']
-  const selectedIndex = levels.indexOf(normalizedLevel)
-  const showLevel = nextLevel => {
-    const nextIndex = levels.indexOf(nextLevel)
-    trailer.querySelectorAll('[data-intro-city-frame]').forEach(frame => {
-      frame.classList.toggle('is-selected', frame.dataset.introCityFrame === nextLevel)
-    })
-    trailer.querySelectorAll('[data-intro-city-level]').forEach((button, index) => {
-      button.classList.toggle('is-selected', index === nextIndex)
-      button.classList.toggle('is-reached', index <= nextIndex)
-    })
-    trailer.querySelectorAll('.intro-city-growth i').forEach((rail, index) => {
-      rail.classList.toggle('is-reached', index < nextIndex)
-    })
-    updateIntroCityLevelControls(nextLevel)
-  }
-
-  showLevel(normalizedLevel)
-  const levelPause = 2800
-  levels.slice(selectedIndex + 1).forEach((nextLevel, index) => {
-    introTrailerState.cityLevelTimers.push(window.setTimeout(() => showLevel(nextLevel), levelPause * (index + 1)))
-  })
-  const remainingLevelCount = levels.length - selectedIndex - 1
-  introTrailerState.sceneTimer = window.setTimeout(() => setIntroTrailerScene(3), levelPause * (remainingLevelCount + 1))
 }
 
 function updateIntroSoundButton() {
@@ -3967,12 +3881,11 @@ async function toggleIntroSound() {
 function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {}) {
   if (!keepMusicPlaying) stopIntroMusic({ fadeDuration: 7.5 })
   window.clearTimeout(introTrailerState.sceneTimer)
-  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
-  introTrailerState.cityLevelTimers = []
   introTrailerState.active = false
   introTrailerState.replayMode = false
 
   const trailer = document.getElementById('introTrailer')
+  window.clearTimeout(introTrailerState.islandTimer)
   trailer?.classList.add('hidden')
   document.body.classList.remove('intro-active')
   if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')
@@ -5087,7 +5000,7 @@ async function finishPersonalizedOnboarding() {
 function getPostOnboardingAppUrl() {
   const url = new URL(window.location.href)
   url.search = ''
-  if (IS_INTERNAL_TEST && !IS_SANDBOX) url.searchParams.set('internal_test', '1')
+  if (INTERNAL_TEST_MODE && !IS_SANDBOX) url.searchParams.set('internal_test', INTERNAL_TEST_MODE)
   return url.toString()
 }
 
@@ -5680,8 +5593,7 @@ async function resetSandboxState() {
     title: t('log.sandboxReset.title'),
     detail: t('log.sandboxReset.detail')
   })
-  if (!await saveState(state, { backup: false })) return false
-  setDefaultCityDayOffset(state)
+  if (!await saveState(state, { backup: false, replaceIsland: true })) return false
   selectedHistoryView = 'heatmap'
   selectedHistoryRange = 'month'
   ankiStatsCache = null
@@ -5698,9 +5610,8 @@ async function addSandboxDay() {
   addSandboxStudyDay(state, nextDate, scoreTarget)
   syncStreak(state)
   if (!await saveState(state)) return false
-  setDefaultCityDayOffset(state)
   renderAll(state)
-  showToast(t('toast.sandboxDayAdded', { date: formatCitySnapshotDate(nextDate) }), 'success')
+  showToast(t('toast.sandboxDayAdded', { date: formatStudyDayDate(nextDate) }), 'success')
 }
 
 function getLastSandboxActivityDate(state) {
@@ -7440,7 +7351,6 @@ function importSyncFileFromInput(input) {
       applyLocale(importedState.config.locale)
       updateDocumentTitle(importedState)
       applyTheme(importedState.config.theme)
-      setDefaultCityDayOffset(importedState)
       renderAll(importedState)
       renderChannelList(importedState.config.channels)
       renderBackupList()
@@ -7611,7 +7521,7 @@ function setActivityLogFilter(filter) {
 }
 
 function getFilteredActivityLogEntries(state) {
-  const entries = Array.isArray(state?.activityLog) ? state.activityLog : []
+  const entries = (Array.isArray(state?.activityLog) ? state.activityLog : []).filter(entry => entry.type !== 'point-delta' || entry.meta?.experienceVersion === 1)
   if (selectedActivityLogFilter === 'user') return entries.filter(entry => entry.actor === 'user')
   if (selectedActivityLogFilter === 'auto') return entries.filter(entry => entry.actor === 'auto')
   if (selectedActivityLogFilter === 'issues') return entries.filter(entry => ['warn', 'error'].includes(entry.status))
@@ -7625,7 +7535,7 @@ function getPointActivityLogEntries(state) {
   const history = getStudyHistoryBetween(state || { videos: {}, anki: {} }, new Date(0), end)
 
   history.rows.forEach(row => {
-    const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+    const ankiPoints = (row.experienceReviews || 0)
     if (ankiPoints > 0) {
       entries.push({
         createdAt: `${row.dateKey}T23:59:59`,
@@ -7637,7 +7547,7 @@ function getPointActivityLogEntries(state) {
     }
 
     ;(row.watchedVideos || []).forEach(video => {
-      const videoPoints = getVideoPointsFromSeconds(video.duration || 0)
+      const videoPoints = (video.experienceSeconds || 0) / 60
       if (videoPoints <= 0) return
       entries.push({
         createdAt: video.watchedAt || `${row.dateKey}T23:59:59`,
@@ -7653,7 +7563,7 @@ function getPointActivityLogEntries(state) {
   })
 
   const pointDeltas = (Array.isArray(state?.activityLog) ? state.activityLog : [])
-    .filter(entry => entry?.type === 'point-delta' && Number(entry.meta?.pointsDelta || 0) !== 0)
+    .filter(entry => entry?.type === 'point-delta' && entry.meta?.experienceVersion === 1 && Number(entry.meta?.pointsDelta || 0) !== 0)
     .map(entry => ({
       createdAt: entry.createdAt,
       status: entry.status || (Number(entry.meta?.pointsDelta || 0) < 0 ? 'warn' : 'success'),
@@ -7832,7 +7742,6 @@ async function restoreStateBackup(id) {
   applyLocale(state.config.locale)
   updateDocumentTitle(state)
   applyTheme(state.config.theme)
-  setDefaultCityDayOffset(state)
   renderAll(state)
   renderChannelList(state.config.channels)
   renderBackupList()
@@ -8049,7 +7958,7 @@ async function addChannel(options = {}) {
       ? s.learnerProfile.languages.map(String)
       : [],
     learner_level: s.learnerProfile?.level || null,
-    internal_or_test_user: Boolean(IS_SANDBOX || IS_INTERNAL_TEST || IS_LOCALHOST),
+    internal_or_test_user: Boolean(IS_SANDBOX || INTERNAL_TEST_MODE || IS_LOCALHOST),
     total_channel_count: s.config.channels.length
   })
   renderFeed(s)
@@ -8309,8 +8218,10 @@ async function resetApp() {
     control.setAttribute('aria-disabled', 'true')
   }
   if (learnerProfileLifecycleAuthority) {
+    const resetState = defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale())
+    initializeExperience(resetState, SCORING_RULES_VERSION)
     const startedOver = await learnerProfileLifecycleAuthority.startOverProfile(
-      defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale()),
+      resetState,
       { confirmed: true }
     )
     if (!startedOver) {
@@ -8325,10 +8236,11 @@ async function resetApp() {
     )?.focus()
     return
   }
+  let rollbackBackup = null
   if (LOCAL_BACKUPS_ENABLED) {
-    const rollbackBackup = await createVerifiedStateBackup(
+    rollbackBackup = await createVerifiedStateBackup(
       'before reset',
-      { force: true }
+      { force: true, returnExisting: true }
     )
     if (!rollbackBackup) {
       releaseStartOverControl(control)
@@ -8345,7 +8257,12 @@ async function resetApp() {
     title: t('log.reset.title'),
     detail: t('log.reset.detail')
   })
-  if (!await saveState(nextState, { backup: false })) {
+  // Reset creates a new profile snapshot. The replacement path also gives
+  // IndexedDB the explicit revision authority required for a fresh object.
+  const resetResult = await saveImportedState(nextState, {
+    preserveBackupId: rollbackBackup?.id || null
+  })
+  if (!resetResult.persisted) {
     releaseStartOverControl(control)
     showToast(t('toast.progressSaveFailed'), 'error')
     return
@@ -11721,9 +11638,7 @@ function syncStreak(s) {
     cursor = getPreviousDateKey(cursor)
   }
 
-  s.streak.current = current
-  s.streak.longest = longest
-  s.streak.lastActivityDate = qualifyingDays[qualifyingDays.length - 1] || null
+  s.streak = { current, longest, lastActivityDate: qualifyingDays[qualifyingDays.length - 1] || null }
 }
 
 function isStreakAlive(s) {
@@ -11934,7 +11849,9 @@ function applyAnkiStatsToState(s, stats) {
     ? normalizeAnkiCount(baseline.trackedCreated) + Math.max(0, rawCreated - normalizeAnkiCount(baseline.rawCreated))
     : rawCreated
 
+  const experience = observeAnkiExperience(s.anki[ankiDateKey], rawReviewed, { eligible: ankiDateKey === getCurrentAnkiDateKey() && !pending })
   s.anki[ankiDateKey] = {
+    ...experience,
     reviewed,
     created,
     loggedAt: stats.fetchedAt,
@@ -11985,6 +11902,9 @@ function createHistoryBucket(dateKey) {
     ankiReviewed: 0,
     ankiCreated: 0,
     points: 0,
+    experienceSeconds: 0,
+    experienceReviews: 0,
+    hasExperience: false,
     watchedVideos: []
   }
 }
@@ -12123,6 +12043,7 @@ function getStudyHistoryBetween(s, start, end) {
           title: video.title || t('videos.search.untitled'),
           thumbnail: video.thumbnail || '',
           duration: 0,
+          experienceSeconds: 0,
           watchedAt: entry.watchedAt
         }
         bucket.watchedVideoMap.set(videoId, watchedVideo)
@@ -12130,8 +12051,11 @@ function getStudyHistoryBetween(s, start, end) {
         bucket.videosWatched += 1
       }
       watchedVideo.duration += entry.seconds || 0
+      watchedVideo.experienceSeconds += entry.experienceSeconds || 0
       if (new Date(entry.watchedAt) > new Date(watchedVideo.watchedAt)) watchedVideo.watchedAt = entry.watchedAt
       bucket.secondsWatched += entry.seconds || 0
+      bucket.experienceSeconds += entry.experienceSeconds || 0
+      if (entry.experienceSeconds !== undefined) bucket.hasExperience = true
     })
   }
 
@@ -12142,6 +12066,8 @@ function getStudyHistoryBetween(s, start, end) {
     const date = new Date(`${dateKey}T00:00:00`)
     if (date < start || date > end) continue
     const bucket = ensureBucket(dateKey)
+    bucket.experienceReviews += day.experienceReviews || 0
+    if (day.experienceReviews !== undefined) bucket.hasExperience = true
     bucket.ankiReviewed += reviewed
     bucket.ankiCreated += created
   }
@@ -12201,7 +12127,7 @@ function renderHistoryWatchedCell(row) {
 function formatHistoryPointNumber(points) {
   const value = Number(points || 0)
   return new Intl.NumberFormat(getCurrentLocale(), {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 1
+    maximumFractionDigits: 0
   }).format(value)
 }
 
@@ -12227,20 +12153,12 @@ function formatSignedHistoryPointLabel(points) {
 function formatSignedActivityLogPointLabel(points) {
   const value = Number(points || 0)
   const sign = value > 0 ? '+' : ''
-  const count = new Intl.NumberFormat(getCurrentLocale(), {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
-  }).format(value)
+  const count = formatHistoryPointNumber(value)
   return t('points.many', { count: `${sign}${count}` })
 }
 
 function getVideoSnapshotPoints(video) {
-  const secondsByDate = new Map()
-  getVideoWatchProgressEntries(video).forEach(entry => {
-    const dateKey = toDateKey(new Date(entry.watchedAt))
-    secondsByDate.set(dateKey, (secondsByDate.get(dateKey) || 0) + (entry.seconds || 0))
-  })
-  return Array.from(secondsByDate.values())
-    .reduce((sum, seconds) => sum + Math.floor((seconds / 3600) * VIDEO_HOUR_POINTS), 0)
+  return getVideoWatchProgressEntries(video).reduce((sum, entry) => sum + (entry.experienceSeconds || 0), 0) / 60
 }
 
 function getVideoActionPointDelta(action, direction = 'redo') {
@@ -12269,6 +12187,7 @@ function appendPointDeltaActivityLog(state, { action, direction = 'redo', reason
     detail: formatSignedHistoryPointLabel(delta),
     createdAt: isValidTimestamp(createdAt) ? createdAt : new Date().toISOString(),
     meta: {
+      experienceVersion: 1,
       pointsDelta: delta,
       videoId: action?.videoId || sourceVideo?.id || null
     }
@@ -12277,27 +12196,27 @@ function appendPointDeltaActivityLog(state, { action, direction = 'redo', reason
 
 function getHistoryPointBreakdown(row) {
   const videoItems = (row.watchedVideos || [])
-    .filter(video => (video.duration || 0) > 0)
+    .filter(video => (video.experienceSeconds || 0) > 0)
     .map(video => ({
       type: 'video',
       title: video.title || t('videos.search.untitled'),
-      detail: formatHistoryTime(video.duration || 0),
-      points: getVideoPointsFromSeconds(video.duration || 0)
+      detail: formatHistoryTime(video.experienceSeconds || 0),
+      points: (video.experienceSeconds || 0) / 60
     }))
 
-  const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+  const ankiPoints = (row.experienceReviews || 0)
   const items = []
-  if ((row.ankiReviewed || 0) > 0) {
+  if ((row.experienceReviews || 0) > 0) {
     items.push({
       type: 'anki',
       title: t('history.pointsAnkiReviews'),
-      detail: t('history.pointsReviewsCount', { count: row.ankiReviewed }),
+      detail: t('history.pointsReviewsCount', { count: row.experienceReviews }),
       points: ankiPoints
     })
   }
   items.push(...videoItems)
 
-  const total = Math.floor(items.reduce((sum, item) => sum + item.points, 0))
+  const total = historyExperience(row)
   return {
     items,
     total
@@ -12305,12 +12224,13 @@ function getHistoryPointBreakdown(row) {
 }
 
 function renderHistoryPointsCell(row) {
+  if (!row.hasExperience) return '—'
   const breakdown = getHistoryPointBreakdown(row)
   const points = getHistoryDayPoints(row)
   return `
     <span class="history-points-cell" data-history-points-popover-action="toggle">
       <button type="button" class="history-points-trigger" aria-expanded="false" aria-label="${escHtml(t('history.showPoints', { date: formatHeatmapTitle(row) }))}">
-        ${points}
+        ${escHtml(formatHistoryPointNumber(points))}
       </button>
       <span class="history-points-popover" role="dialog" aria-label="${escHtml(t('history.pointsDialog'))}">
         <span class="history-points-popover-total">
@@ -13053,7 +12973,7 @@ function getHistoryDayRawPoints(row) {
 }
 
 function getHistoryDayPoints(row) {
-  return Math.floor(getHistoryDayRawPoints(row))
+  return historyExperience(row)
 }
 
 function hasHistoryActivity(row) {
@@ -13069,7 +12989,7 @@ function formatHeatmapAriaLabel(row, ankiEnabled = true, streakDayCount = 0) {
   const key = ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
   const details = t(key, {
     date: formatHeatmapTitle(row),
-    points: getHistoryDayPoints(row),
+    points: row.hasExperience ? formatHistoryPointNumber(getHistoryDayPoints(row)) : '—',
     time: formatHistoryTime(row.secondsWatched),
     videos: row.videosWatched,
     reviewed: row.ankiReviewed,
@@ -13163,7 +13083,7 @@ function renderHistoryHeatmap(s, container) {
             const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
             const streakOutlineClass = streakDayCount ? ' streak-run' : ''
             return `
-            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}"></button>
+            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${row.hasExperience ? formatHistoryPointNumber(getHistoryDayPoints(row)) : ''}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}"></button>
           `}).join('')}
         </div>
       </div>
@@ -13228,7 +13148,7 @@ function showHeatmapTooltip(event) {
       <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
       <div class="heatmap-tooltip-badges">
         ${streakBadge}
-        <div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>
+        ${target.dataset.points ? `<div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>` : ''}
       </div>
     </div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>${escHtml(t('history.tooltip.videoTime'))}</span><b>${escHtml(target.dataset.time)}</b></div>
@@ -13876,13 +13796,9 @@ function getCurrentCityScore(s) {
   return getCityScoreThroughDate(s, getCurrentAppDate(s))
 }
 
-function getCityStage(score) {
-  return getCityLevelLabel(getCityLevel(score))
-}
-
 function getCityLevelLabel(level) {
   if (!level) return ''
-  return level.labelKey ? t(level.labelKey) : level.label
+  return t('city.levelNumber', { count: level.level })
 }
 
 // ════════════════════════════════════════════════════════════
@@ -14558,28 +14474,6 @@ async function setHistoryView(view) {
   renderStudyHistoryPanel(state)
 }
 
-function setDefaultCityDayOffset(state) {
-  selectedCityDayOffset = IS_SANDBOX ? getLastCityDayOffset(state) : 0
-}
-
-function setCityDayOffset(offset) {
-  const state = loadState()
-  if (!state) return
-  selectedCityDayOffset = clampCityDayOffset(state, offset)
-  // Timeline selection only changes the view; it does not award a level.
-  renderCitySnapshot(getCitySnapshot(getCurrentCityScore(state), state), state, true)
-}
-
-function previewCityDayOffset(offset) {
-  const state = loadState()
-  if (!state) return
-  const previousOffset = selectedCityDayOffset
-  selectedCityDayOffset = clampCityDayOffset(state, offset)
-  const snapshot = getCitySnapshot(getCurrentCityScore(state), state)
-  selectedCityDayOffset = previousOffset
-  renderCitySnapshot(snapshot, state, false)
-}
-
 async function renderCity(score, s) {
   refreshTownEconomy(s)
   if (await updatePersistentCityLevel(s, score) === false) {
@@ -14588,18 +14482,15 @@ async function renderCity(score, s) {
     score = getCurrentCityScore(s)
   }
   if (!isCurrentLearnerProfileOperation(s)) return
-  const snapshot = getCitySnapshot(score, s)
-  renderCitySnapshot(snapshot, s, true)
+  renderCityProgress(getCurrentCityProgress(score, s), s)
 }
 
-function renderCitySnapshot(snapshot, s, includeTimeline = true) {
-  document.getElementById('cityScore').textContent = snapshot.score
-  document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
+function renderCityProgress(snapshot, s) {
+  document.getElementById('cityScore').textContent = formatHistoryPointNumber(snapshot.score)
+  document.getElementById('cityLabel').textContent = getCityLevelLabel(CITY_LEVELS[snapshot.visualLevelIndex])
   const scoreContext = document.getElementById('cityScoreContext')
   if (scoreContext) {
-    scoreContext.textContent = snapshot.isToday
-      ? t(usesPhoneComposition() ? 'points.short' : 'city.totalPts')
-      : t('city.ptsByThen')
+    scoreContext.textContent = t(usesPhoneComposition() ? 'points.short' : 'city.totalPts')
   }
   const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
   const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
@@ -14620,7 +14511,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   if (progress) {
     progress.setAttribute('aria-valuemin', String(progressStart))
     progress.setAttribute('aria-valuemax', String(progressEnd))
-    progress.setAttribute('aria-valuenow', String(Math.min(snapshot.score, progressEnd)))
+    progress.setAttribute('aria-valuenow', String(clampNumber(snapshot.score, progressStart, progressEnd)))
   }
   document.getElementById('cityCurrentLevel').textContent = t('city.levelNumber', {
     count: snapshot.visualLevelIndex + 1
@@ -14637,60 +14528,29 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
       ? t('city.readyNext')
-      : t('city.ptsToNext', { count: pointsToNextLevel })
+      : t('city.ptsToNext', { count: formatHistoryPointNumber(pointsToNextLevel) })
     : t('city.maxLevel')
   document.getElementById('cityNextEffort').textContent = nextLevel && pointsToNextLevel > 0
     ? t('city.effortToNext', {
-        minutes: Math.ceil((pointsToNextLevel * 60) / VIDEO_HOUR_POINTS),
-        reviews: Math.ceil((pointsToNextLevel * ANKI_REVIEW_CHUNK_SIZE) / ANKI_REVIEW_CHUNK_POINTS)
+        minutes: Math.ceil(pointsToNextLevel),
+        reviews: Math.ceil(pointsToNextLevel)
       })
     : ''
-  if (includeTimeline) renderLevelUpButton(snapshot)
-  if (includeTimeline && snapshot.isToday) maybeStartLevelUpGuidance(s)
-
-  if (includeTimeline) renderCityTimeControls(snapshot)
-  updateCityMilestoneImage(snapshot.visualScore, { preloadCenterIndex: getCurrentCityImageIndex(s) })
+  progress?.setAttribute('aria-valuetext', `${t('city.levelNumber', { count: snapshot.visualLevelIndex + 1 })}: ${formatHistoryPointNumber(snapshot.score)} ${t('city.totalPts')}. ${document.getElementById('cityNextLevel').textContent}`)
+  renderLevelUpButton(snapshot)
+  maybeStartLevelUpGuidance(s)
 }
 
-function getCitySnapshot(currentScore, s) {
-  selectedCityDayOffset = clampCityDayOffset(s, selectedCityDayOffset)
-  const date = addDays(new Date(), selectedCityDayOffset)
-  const isToday = toDateKey(date) === getCurrentAppDateKey(s)
-  const minOffset = getFirstCityDayOffset(s)
-  const maxOffset = getLastCityDayOffset(s)
-  if (isToday) {
-    normalizeCityProgress(s)
-    const visualLevelIndex = s.cityProgress.maxLevelIndex
-    return {
-      date,
-      isToday,
-      minOffset,
-      maxOffset,
-      score: currentScore,
-      visualLevelIndex,
-      visualScore: getCityScoreForLevelIndex(visualLevelIndex),
-      earnedLevelIndex: getCityLevelIndex(currentScore),
-      pendingLevelIndex: s.cityProgress?.pendingLevelIndex ?? null,
-      hasPendingLevel: Number.isInteger(s.cityProgress?.pendingLevelIndex) && s.cityProgress.pendingLevelIndex > visualLevelIndex
-    }
-  }
-
-  const score = getCityScoreThroughDate(s, date)
-  const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
-    ? s.cityProgress.maxLevelIndex
-    : 0
-  const visualLevelIndex = Math.min(getHistoricMaxCityLevelIndex(s, date), revealedLevelIndex)
+function getCurrentCityProgress(score, s) {
+  normalizeCityProgress(s)
+  const visualLevelIndex = s.cityProgress.maxLevelIndex
   return {
-    date,
-    isToday,
-    minOffset,
-    maxOffset,
     score,
     visualLevelIndex,
-    visualScore: getCityScoreForLevelIndex(visualLevelIndex),
     earnedLevelIndex: getCityLevelIndex(score),
-    pendingLevelIndex: s.cityProgress?.pendingLevelIndex ?? null,
-    hasPendingLevel: Number.isInteger(s.cityProgress?.pendingLevelIndex) && s.cityProgress.pendingLevelIndex > revealedLevelIndex
+    pendingLevelIndex: s.cityProgress.pendingLevelIndex,
+    hasPendingLevel: Number.isInteger(s.cityProgress.pendingLevelIndex)
+      && s.cityProgress.pendingLevelIndex > visualLevelIndex
   }
 }
 
@@ -14698,10 +14558,9 @@ async function updatePersistentCityLevel(s, score) {
   const previous = JSON.stringify(s.cityProgress || {})
   normalizeCityProgress(s)
   const earnedLevelIndex = getCityLevelIndex(score)
-  if (earnedLevelIndex < s.cityProgress.maxLevelIndex) {
-    s.cityProgress.maxLevelIndex = earnedLevelIndex
-    s.cityProgress.pendingLevelIndex = null
-  } else if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
+  // XP reflects current study facts; claimed rewards survive later reductions.
+  // Reset/import/restore explicitly replace both claims and the island.
+  if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
     const nextLevelIndex = s.cityProgress.maxLevelIndex + 1
     s.cityProgress.pendingLevelIndex = Math.min(
       Math.max(s.cityProgress.pendingLevelIndex || nextLevelIndex, nextLevelIndex),
@@ -14760,47 +14619,9 @@ function maybeStartLevelUpGuidance(s) {
   }, 450)
 }
 
-function launchCityLevelUpConfetti() {
-  const cityImageWrap = document.querySelector('.city-image-wrap')
-  if (!cityImageWrap) return
-
-  cityImageWrap.querySelector('.city-level-up-confetti')?.remove()
-  const burst = document.createElement('div')
-  burst.className = 'city-level-up-confetti'
-  burst.setAttribute('aria-hidden', 'true')
-  const colors = ['#dfff45', '#12bcea', '#ff5f87', '#ffd84a', '#ffffff', '#9f7aea']
-  const { width, height } = cityImageWrap.getBoundingClientRect()
-
-  ;['left', 'right'].forEach(corner => {
-    const emitter = document.createElement('div')
-    emitter.className = `city-confetti-emitter city-confetti-emitter-${corner}`
-    const direction = corner === 'left' ? 1 : -1
-
-    for (let index = 0; index < 44; index += 1) {
-      const particle = document.createElement('i')
-      const particleKind = index % 5 === 0 ? 'ribbon' : index % 4 === 0 ? 'streamer' : 'paper'
-      particle.className = `city-confetti-${particleKind}`
-      const horizontalDistance = direction * width * (0.08 + Math.random() * 0.42)
-      const verticalDistance = -height * (0.52 + Math.random() * 0.48)
-      particle.style.setProperty('--confetti-x', `${horizontalDistance.toFixed(1)}px`)
-      particle.style.setProperty('--confetti-y', `${verticalDistance.toFixed(1)}px`)
-      particle.style.setProperty('--confetti-rotation', `${Math.round((Math.random() - 0.5) * 1080)}deg`)
-      particle.style.setProperty('--confetti-delay', `${(Math.random() * 90).toFixed(0)}ms`)
-      particle.style.setProperty('--confetti-duration', `${(780 + Math.random() * 520).toFixed(0)}ms`)
-      particle.style.setProperty('--confetti-color', colors[index % colors.length])
-      particle.style.setProperty('--confetti-width', `${(4 + Math.random() * 5).toFixed(1)}px`)
-      particle.style.setProperty('--confetti-height', `${(7 + Math.random() * 7).toFixed(1)}px`)
-      emitter.appendChild(particle)
-    }
-
-    burst.appendChild(emitter)
-  })
-
-  cityImageWrap.appendChild(burst)
-  window.setTimeout(() => burst.remove(), 1700)
-}
-
+let cityClaimInFlight = false
 async function claimCityLevelUp() {
+  if (cityClaimInFlight) return false
   const s = loadState()
   if (!s) return
   normalizeCityProgress(s)
@@ -14821,29 +14642,15 @@ async function claimCityLevelUp() {
     detail: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]),
     meta: { levelIndex: s.cityProgress.maxLevelIndex }
   })
-  if (!await saveState(s)) return false
-  renderAll(s)
-  launchCityLevelUpConfetti()
-  showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
-}
-
-function clampCityDayOffset(s, offset) {
-  const firstOffset = getFirstCityDayOffset(s)
-  const lastOffset = getLastCityDayOffset(s)
-  return Math.max(firstOffset, Math.min(lastOffset, offset))
-}
-
-function getFirstCityDayOffset(s) {
-  const firstDateKey = getFirstStudyActionDateKey(s)
-  if (!firstDateKey) return 0
-  return Math.min(0, daysBetweenDateKeys(toDateKey(), firstDateKey))
-}
-
-function getLastCityDayOffset(s) {
-  if (!IS_SANDBOX) return 0
-  const lastDateKey = getLastStudyActionDateKey(s)
-  if (!lastDateKey) return 0
-  return Math.max(0, daysBetweenDateKeys(toDateKey(), lastDateKey))
+  cityClaimInFlight = true
+  try {
+    if (!await saveState(s)) return false
+    if (!isCurrentLearnerProfileOperation(s)) return false
+    renderAll(s)
+    return true
+  } finally {
+    cityClaimInFlight = false
+  }
 }
 
 function getFirstStudyActionDateKey(s) {
@@ -14884,944 +14691,16 @@ function getCityScoreThroughDate(s, date) {
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
   const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
-  return history.rows.reduce((total, row) => total + getHistoryDayPoints(row), 0)
-}
-
-function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
-  return getCityLevelIndex(getCityScoreThroughDate(s, endDate))
-}
-
-function renderCityTimeControls(snapshot) {
-  const waveform = document.getElementById('cityTimeWaveform')
-  const bars = document.getElementById('cityWaveBars')
-  const track = document.getElementById('cityWaveTrack')
-  const tooltip = document.getElementById('cityWaveTooltip')
-  if (!waveform || !bars || !track || !tooltip) return
-
-  const state = loadState()
-  const rowsByDate = getCityHistoryRowsByDate(state)
-  const days = getCityWaveformDays(snapshot.minOffset, snapshot.maxOffset)
-  const levelChangeDates = getCityWaveformLevelChangeDates(state, days)
-  const selectedIndex = days.findIndex(day => day.offset === selectedCityDayOffset)
-
-  track.innerHTML = days.map((day, index) => {
-    const row = rowsByDate.get(day.dateKey)
-    const points = row ? getHistoryDayPoints(row) : 0
-    const height = 8 + Math.min(20, points * 2)
-    const label = formatCitySnapshotDate(day.date)
-    const hasLevelChange = levelChangeDates.has(day.dateKey)
-    const ariaLabel = t('city.timelineAria', {
-      date: label,
-      points,
-      changed: hasLevelChange ? t('city.timelineChanged') : ''
-    })
-    return `
-      <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${hasLevelChange ? 'has-level-change' : ''} ${index === selectedIndex ? 'selected' : ''}"
-        type="button"
-        data-city-wave-action="select"
-        data-analytics-action="selectCityWaveBar"
-        data-index="${index}"
-        data-offset="${day.offset}"
-        data-label="${escHtml(label)}"
-        style="--bar-height:${height}px; --hover-boost:0px"
-        aria-label="${escHtml(ariaLabel)}"></button>
-    `
-  }).join('')
-
-  bindCityWaveformBarActions(track, {
-    select: selectCityWaveBar,
-    preview: previewCityWaveBar
-  })
-  updateCityWaveformScrollState()
-  const selectedBar = track.querySelector('.city-wave-bar.selected')
-  if (selectedBar) {
-    centerCityWaveBar(selectedBar)
-    positionCityWaveTooltip(selectedBar)
-  }
-}
-
-function getCityWaveformLevelChangeDates(s, days) {
-  const changeDates = new Set()
-  if (!s || !days.length) return changeDates
-
-  const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
-    ? s.cityProgress.maxLevelIndex
-    : 0
-  let previousLevelIndex = null
-
-  days.forEach(day => {
-    const historicLevelIndex = getHistoricMaxCityLevelIndex(s, day.date)
-    const visualLevelIndex = Math.min(historicLevelIndex, revealedLevelIndex)
-    if (previousLevelIndex !== null && visualLevelIndex > previousLevelIndex) {
-      changeDates.add(day.dateKey)
-    }
-    previousLevelIndex = visualLevelIndex
-  })
-
-  return changeDates
-}
-
-function updateCityWaveformScrollState() {
-  const bars = document.getElementById('cityWaveBars')
-  const track = document.getElementById('cityWaveTrack')
-  if (!bars || !track) return
-
-  track.style.setProperty('--city-wave-edge-space', '0px')
-  bars.classList.remove('is-scrollable')
-  bars.classList.remove('has-centered-touch-ends')
-  const isScrollable = bars.scrollWidth > bars.clientWidth + 1
-  bars.classList.toggle('is-scrollable', isScrollable)
-  if (!isScrollable || !usesPhoneComposition()) return
-
-  const firstBar = track.querySelector('.city-wave-bar')
-  if (!firstBar) return
-  const styles = getComputedStyle(bars)
-  const trackStyles = getComputedStyle(track)
-  const horizontalPadding =
-    Number.parseFloat(styles.paddingLeft)
-    + Number.parseFloat(styles.paddingRight)
-  const itemGap = Number.parseFloat(trackStyles.columnGap) || 0
-  const edgeSpace = Math.max(
-    0,
-    ((bars.clientWidth - horizontalPadding - firstBar.getBoundingClientRect().width) / 2)
-    - itemGap
-  )
-  track.style.setProperty('--city-wave-edge-space', `${edgeSpace}px`)
-  bars.classList.add('has-centered-touch-ends')
-}
-
-function refreshCityWaveformScrollGeometry() {
-  updateCityWaveformScrollState()
-  const selectedBar = document.querySelector('#cityWaveTrack .city-wave-bar.selected')
-  if (selectedBar) centerCityWaveBar(selectedBar)
-}
-
-function initCityWaveformTouchNavigation() {
-  const bars = document.getElementById('cityWaveBars')
-  if (!bars || bars.dataset.touchNavigationReady === 'true') return
-  bars.dataset.touchNavigationReady = 'true'
-
-  bars.addEventListener('pointerdown', event => {
-    if (event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
-    cityWaveformScroll.touchPointerId = event.pointerId
-    cityWaveformScroll.touchStartX = event.clientX
-    cityWaveformScroll.touchStartY = event.clientY
-    cityWaveformScroll.touchStartScrollLeft = bars.scrollLeft
-    cityWaveformScroll.touchAxis = null
-    cityWaveformScroll.touchDragging = false
-    cityWaveformScroll.touchPreviewOffset = null
-  })
-
-  bars.addEventListener('pointermove', event => {
-    if (event.pointerId !== cityWaveformScroll.touchPointerId) return
-    const deltaX = event.clientX - cityWaveformScroll.touchStartX
-    const deltaY = event.clientY - cityWaveformScroll.touchStartY
-
-    if (!cityWaveformScroll.touchAxis) {
-      if (Math.abs(deltaX) < 6 && Math.abs(deltaY) < 6) return
-      cityWaveformScroll.touchAxis = Math.abs(deltaY) >= Math.abs(deltaX)
-        ? 'vertical'
-        : 'horizontal'
-    }
-    if (cityWaveformScroll.touchAxis === 'vertical') return
-
-    if (!cityWaveformScroll.touchDragging) {
-      cityWaveformScroll.touchDragging = true
-      bars.classList.add('is-touch-dragging')
-      try { bars.setPointerCapture(event.pointerId) } catch {}
-    }
-
-    event.preventDefault()
-    const maxScroll = Math.max(0, bars.scrollWidth - bars.clientWidth)
-    bars.scrollLeft = clampNumber(cityWaveformScroll.touchStartScrollLeft - deltaX, 0, maxScroll)
-    scheduleCityWaveformTouchPreview(bars, { pointerX: event.clientX })
-  }, { passive: false })
-
-  const finishTouchNavigation = event => {
-    if (event.pointerId !== cityWaveformScroll.touchPointerId) return
-    const didDrag = cityWaveformScroll.touchDragging
-    if (didDrag) {
-      scheduleCityWaveformTouchPreview(bars, { commit: true, pointerX: event.clientX })
-      cityWaveformScroll.suppressClickUntil = Date.now() + 450
-    }
-    bars.classList.remove('is-touch-dragging')
-    cityWaveformScroll.touchPointerId = null
-    cityWaveformScroll.touchAxis = null
-    cityWaveformScroll.touchDragging = false
-    try { bars.releasePointerCapture(event.pointerId) } catch {}
-  }
-
-  bars.addEventListener('pointerup', finishTouchNavigation)
-  bars.addEventListener('pointercancel', finishTouchNavigation)
-  bars.addEventListener('click', event => {
-    if (Date.now() > cityWaveformScroll.suppressClickUntil) return
-    event.preventDefault()
-    event.stopPropagation()
-  }, true)
-}
-
-function scheduleCityWaveformTouchPreview(bars, { commit = false, pointerX = null } = {}) {
-  if (!bars) return
-  if (cityWaveformScroll.touchPreviewFrame) cancelAnimationFrame(cityWaveformScroll.touchPreviewFrame)
-  cityWaveformScroll.touchPreviewFrame = requestAnimationFrame(() => {
-    cityWaveformScroll.touchPreviewFrame = null
-    const rect = bars.getBoundingClientRect()
-    cityWaveformScroll.pointerX = bars.scrollWidth > bars.clientWidth + 1
-      ? rect.left + rect.width / 2
-      : clampNumber(pointerX ?? rect.left + rect.width / 2, rect.left, rect.right)
-    cityWaveformScroll.pointerY = rect.top + rect.height / 2
-    const bar = getClosestCityWaveBarAtPointer(bars)
-    const offset = Number.parseInt(bar?.dataset?.offset, 10)
-    if (!bar || !Number.isFinite(offset)) return
-
-    if (commit) {
-      selectCityWaveBar(bar, { preserveScrollLeft: bars.scrollLeft })
-      return
-    }
-    if (offset === cityWaveformScroll.touchPreviewOffset) return
-    cityWaveformScroll.touchPreviewOffset = offset
-    previewCityWaveBar(bar, { persist: true })
-    document.getElementById('cityTimeWaveform')?.classList.add('has-touch-preview')
+  return historyExperience({
+    experienceSeconds: history.rows.reduce((sum, row) => sum + row.experienceSeconds, 0),
+    experienceReviews: history.rows.reduce((sum, row) => sum + row.experienceReviews, 0)
   })
 }
 
-function getCityWaveformDays(minOffset, maxOffset = 0) {
-  const days = []
-  for (let offset = minOffset; offset <= maxOffset; offset += 1) {
-    const date = addDays(new Date(), offset)
-    days.push({ offset, date, dateKey: toDateKey(date) })
-  }
-  return days
-}
-
-function getCityHistoryRowsByDate(s) {
-  const rows = new Map()
-  const firstDateKey = getFirstStudyActionDateKey(s)
-  if (!firstDateKey) return rows
-
-  const start = dateKeyToLocalDate(firstDateKey)
-  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
-  end.setHours(23, 59, 59, 999)
-  getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end).rows
-    .forEach(row => rows.set(row.dateKey, row))
-  return rows
-}
-
-function previewCityWaveBar(bar, options = {}) {
-  const waveform = document.getElementById('cityTimeWaveform')
-  if (!bar || !waveform) return
-
-  const index = parseInt(bar.dataset.index, 10)
-  const bars = Array.from(waveform.querySelectorAll('.city-wave-bar'))
-  bars.forEach((item, itemIndex) => {
-    const distance = Math.abs(itemIndex - index)
-    const boost = Math.max(0, 16 - distance * 5)
-    item.style.setProperty('--hover-boost', `${boost}px`)
-  })
-
-  previewCityDayOffset(parseInt(bar.dataset.offset, 10))
-  positionCityWaveTooltip(bar)
-
-  if (!options.persist) {
-    clearTimeout(previewCityWaveBar._timer)
-  }
-}
-
-function selectCityWaveBar(bar, { preserveScrollLeft = null } = {}) {
-  const offset = parseInt(bar?.dataset?.offset, 10)
-  if (!Number.isFinite(offset)) return
-  setCityDayOffset(offset)
-
-  const waveform = document.getElementById('cityTimeWaveform')
-  const scrollViewport = document.getElementById('cityWaveBars')
-  if (scrollViewport && Number.isFinite(preserveScrollLeft)) {
-    const maxScroll = Math.max(0, scrollViewport.scrollWidth - scrollViewport.clientWidth)
-    scrollViewport.scrollLeft = clampNumber(preserveScrollLeft, 0, maxScroll)
-  }
-  const selected = waveform?.querySelector(`.city-wave-bar[data-offset="${offset}"]`)
-  if (!waveform || !selected) return
-
-  previewCityWaveBar(selected, { persist: true })
-  waveform.classList.add('has-touch-preview')
-  clearTimeout(selectCityWaveBar._timer)
-  selectCityWaveBar._timer = setTimeout(() => {
-    waveform.classList.remove('has-touch-preview')
-  }, 2600)
-}
-
-function handleCityWaveformMouseMove(event) {
-  if (usesPhoneComposition()) return
-  const waveform = document.getElementById('cityTimeWaveform')
-  const bars = document.getElementById('cityWaveBars')
-  cityWaveformScroll.pointerX = event.clientX
-  cityWaveformScroll.pointerY = event.clientY
-  if (!waveform || !bars || bars.scrollWidth <= bars.clientWidth) {
-    stopCityWaveformAutoScroll()
-    return
-  }
-
-  const rect = waveform.getBoundingClientRect()
-  const edgeSize = Math.min(28, rect.width * 0.24)
-  const leftDistance = event.clientX - rect.left
-  const rightDistance = rect.right - event.clientX
-
-  let speed = 0
-  if (leftDistance >= 0 && leftDistance < edgeSize) {
-    speed = -getCityWaveformEdgeSpeed(leftDistance, edgeSize)
-  } else if (rightDistance >= 0 && rightDistance < edgeSize) {
-    speed = getCityWaveformEdgeSpeed(rightDistance, edgeSize)
-  }
-
-  cityWaveformScroll.speed = speed
-  if (cityWaveformScroll.speed === 0) {
-    stopCityWaveformAutoScroll()
-  } else {
-    startCityWaveformAutoScroll()
-  }
-}
-
-function getCityWaveformEdgeSpeed(distance, edgeSize) {
-  const intensity = 1 - clampNumber(distance / edgeSize, 0, 1)
-  if (intensity <= 0) return 0
-  return 1.5 + (intensity * intensity * 7)
-}
-
-function startCityWaveformAutoScroll() {
-  if (cityWaveformScroll.frame) return
-
-  const step = () => {
-    const bars = document.getElementById('cityWaveBars')
-    if (!bars || cityWaveformScroll.speed === 0) {
-      stopCityWaveformAutoScroll()
-      return
-    }
-    const maxScroll = bars.scrollWidth - bars.clientWidth
-    const nextLeft = clampNumber(bars.scrollLeft + cityWaveformScroll.speed, 0, maxScroll)
-    if (nextLeft === bars.scrollLeft) {
-      previewCityWaveformBarAtPointer()
-      stopCityWaveformAutoScroll()
-      return
-    }
-    bars.scrollLeft = nextLeft
-    previewCityWaveformBarAtPointer()
-    cityWaveformScroll.frame = requestAnimationFrame(step)
-  }
-
-  cityWaveformScroll.frame = requestAnimationFrame(step)
-}
-
-function stopCityWaveformAutoScroll() {
-  cityWaveformScroll.speed = 0
-  if (!cityWaveformScroll.frame) return
-  cancelAnimationFrame(cityWaveformScroll.frame)
-  cityWaveformScroll.frame = null
-}
-
-function centerCityWaveBar(bar) {
-  const bars = document.getElementById('cityWaveBars')
-  if (!bar || !bars || bars.scrollWidth <= bars.clientWidth) return
-
-  const barRect = bar.getBoundingClientRect()
-  const barsRect = bars.getBoundingClientRect()
-  const barLeftInScroll = barRect.left - barsRect.left + bars.scrollLeft
-  const targetLeft = barLeftInScroll - (bars.clientWidth / 2) + (barRect.width / 2)
-  const maxScroll = bars.scrollWidth - bars.clientWidth
-  bars.scrollLeft = clampNumber(targetLeft, 0, maxScroll)
-}
-
-function previewCityWaveformBarAtPointer() {
-  const bars = document.getElementById('cityWaveBars')
-  const target = document.elementFromPoint(cityWaveformScroll.pointerX, cityWaveformScroll.pointerY)
-  const directBar = target?.closest?.('.city-wave-bar')
-  const bar = directBar && bars?.contains(directBar)
-    ? directBar
-    : getClosestCityWaveBarAtPointer(bars)
-  if (!bar || !bars?.contains(bar)) return
-  previewCityWaveBar(bar, { persist: true })
-}
-
-function getClosestCityWaveBarAtPointer(bars) {
-  if (!bars) return null
-  const pointerX = cityWaveformScroll.pointerX
-  const pointerY = cityWaveformScroll.pointerY
-  const barsRect = bars.getBoundingClientRect()
-  if (pointerX < barsRect.left || pointerX > barsRect.right || pointerY < barsRect.top || pointerY > barsRect.bottom) return null
-
-  return Array.from(bars.querySelectorAll('.city-wave-bar'))
-    .filter(bar => {
-      const rect = bar.getBoundingClientRect()
-      return rect.right >= barsRect.left && rect.left <= barsRect.right
-    })
-    .reduce((closest, bar) => {
-      const rect = bar.getBoundingClientRect()
-      const center = rect.left + rect.width / 2
-      const distance = Math.abs(pointerX - center)
-      return !closest || distance < closest.distance ? { bar, distance } : closest
-    }, null)?.bar || null
-}
-
-function positionCityWaveTooltip(bar) {
-  const waveform = document.getElementById('cityTimeWaveform')
-  const tooltip = document.getElementById('cityWaveTooltip')
-  if (!bar || !waveform || !tooltip) return
-
-  tooltip.textContent = bar.dataset.label || ''
-  const barRect = bar.getBoundingClientRect()
-  const waveRect = waveform.getBoundingClientRect()
-  const left = barRect.left + barRect.width / 2 - waveRect.left
-  tooltip.style.setProperty('--tooltip-left', `${left}px`)
-}
-
-function clearCityWaveformPreview() {
-  clearTimeout(previewCityWaveBar._timer)
-  stopCityWaveformAutoScroll()
-  document.getElementById('cityTimeWaveform')?.classList.remove('has-touch-preview')
-  document.querySelectorAll('.city-wave-bar').forEach(bar => {
-    bar.style.setProperty('--hover-boost', '0px')
-  })
-  const selected = document.querySelector('.city-wave-bar.selected')
-  if (selected) positionCityWaveTooltip(selected)
-  const state = loadState()
-  if (state) renderCity(getCurrentCityScore(state), state)
-}
-
-function clearCityWaveformPreviewOnOutsideClick(event) {
-  if (event.target?.closest?.('.city-time-waveform')) return
-  const waveform = document.getElementById('cityTimeWaveform')
-  if (!waveform?.classList.contains('has-touch-preview')) return
-  clearCityWaveformPreview()
-}
-
-function formatCitySnapshotDate(date) {
+function formatStudyDayDate(date) {
   const dateKey = toDateKey(date)
   if (dateKey === toDateKey(new Date(Date.now() - 86_400_000))) return t('history.yesterday')
   return formatLocaleDate(date, { month: 'short', day: 'numeric' })
-}
-
-function initCityImagePanZoom() {
-  const wrap = document.querySelector('.city-image-wrap')
-  const image = document.getElementById('cityMilestoneImage')
-  if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
-
-  wrap.dataset.panZoomReady = 'true'
-  cityImageView.scale = getDefaultCityImageZoom()
-  cityImageView.y = getDefaultCityImageY()
-  image.draggable = false
-  image.addEventListener('dragstart', event => event.preventDefault())
-  image.addEventListener('load', () => {
-    const geometry = clampCityImagePan()
-    applyCityImageTransform(geometry)
-  })
-  applyCityImageTransform()
-
-  wrap.addEventListener('wheel', event => {
-    if (event.target.closest('.city-time-waveform, .town-build-panel, .town-flower-outline')) return
-    const zoomDelta = getCityImageWheelZoomDelta(event)
-    if (!canZoomCityImageBy(zoomDelta)) return
-    event.preventDefault()
-    zoomCityImageBy(zoomDelta, event)
-  }, { passive: false })
-
-  wrap.addEventListener('pointerdown', event => {
-    if (event.target.closest('button, .city-time-waveform, .town-build-panel')) return
-    if (event.pointerType === 'touch') {
-      cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-      if (cityImageView.touchPointers.size >= 2) {
-        event.preventDefault()
-        beginCityImagePinch(wrap)
-      } else if (canPanCityImage()) {
-        event.preventDefault()
-        beginCityImageTouchDrag(wrap, event.pointerId, event.clientX, event.clientY)
-      }
-      return
-    }
-    if (!canPanCityImage()) return
-    event.preventDefault()
-    cityImageView.dragging = true
-    cityImageView.pointerId = event.pointerId
-    cityImageView.startX = event.clientX
-    cityImageView.startY = event.clientY
-    cityImageView.originX = cityImageView.x
-    cityImageView.originY = cityImageView.y
-    wrap.classList.add('is-dragging')
-    wrap.setPointerCapture(event.pointerId)
-  })
-
-  wrap.addEventListener('pointermove', event => {
-    if (event.pointerType === 'touch' && cityImageView.touchPointers.has(event.pointerId)) {
-      cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-      if (cityImageView.pinching && cityImageView.touchPointers.size >= 2) {
-        event.preventDefault()
-        updateCityImagePinch(wrap)
-        return
-      }
-    }
-    if (!cityImageView.dragging || cityImageView.pointerId !== event.pointerId) return
-    if (event.pointerType === 'touch') event.preventDefault()
-    cityImageView.x = cityImageView.originX + event.clientX - cityImageView.startX
-    cityImageView.y = cityImageView.originY + event.clientY - cityImageView.startY
-    const geometry = clampCityImagePan()
-    applyCityImageTransform(geometry)
-  })
-
-  const endDrag = event => {
-    if (event.pointerType === 'touch') {
-      const trackedTouch = cityImageView.touchPointers.has(event.pointerId)
-      cityImageView.touchPointers.delete(event.pointerId)
-      if (trackedTouch && cityImageView.pinching) {
-        cityImageView.pinching = false
-        if (cityImageView.touchPointers.size >= 2) {
-          beginCityImagePinch(wrap)
-          return
-        }
-        const remaining = cityImageView.touchPointers.entries().next().value
-        if (remaining && canPanCityImage()) {
-          const [pointerId, point] = remaining
-          beginCityImageTouchDrag(wrap, pointerId, point.x, point.y)
-        } else {
-          cityImageView.dragging = false
-          cityImageView.pointerId = null
-          wrap.classList.remove('is-dragging')
-        }
-        return
-      }
-    }
-    if (cityImageView.pointerId !== event.pointerId) return
-    cityImageView.dragging = false
-    cityImageView.pointerId = null
-    wrap.classList.remove('is-dragging')
-  }
-  wrap.addEventListener('pointerup', endDrag)
-  wrap.addEventListener('pointercancel', endDrag)
-  window.addEventListener('resize', () => {
-    cityImageView.scale = clampNumber(
-      cityImageView.scale,
-      CITY_IMAGE_MIN_ZOOM,
-      getCityImageMaxZoom()
-    )
-    const geometry = clampCityImagePan()
-    applyCityImageTransform(geometry)
-  })
-}
-
-function beginCityImageTouchDrag(wrap, pointerId, clientX, clientY) {
-  cityImageView.pinching = false
-  cityImageView.dragging = true
-  cityImageView.pointerId = pointerId
-  cityImageView.startX = clientX
-  cityImageView.startY = clientY
-  cityImageView.originX = cityImageView.x
-  cityImageView.originY = cityImageView.y
-  wrap.classList.add('is-dragging')
-  try { wrap.setPointerCapture(pointerId) } catch {}
-}
-
-function beginCityImagePinch(wrap) {
-  const points = Array.from(cityImageView.touchPointers.values()).slice(0, 2)
-  if (points.length < 2) return
-  const rect = wrap.getBoundingClientRect()
-  const center = getCityImageTouchCenter(points, rect)
-  cityImageView.pinching = true
-  cityImageView.dragging = false
-  cityImageView.pointerId = null
-  cityImageView.pinchStartDistance = Math.max(1, getCityImageTouchDistance(points))
-  cityImageView.pinchStartScale = cityImageView.scale
-  cityImageView.pinchStartX = cityImageView.x
-  cityImageView.pinchStartY = cityImageView.y
-  cityImageView.pinchStartCenterX = center.x
-  cityImageView.pinchStartCenterY = center.y
-  wrap.classList.add('is-dragging')
-  cityImageView.touchPointers.forEach((_point, pointerId) => {
-    try { wrap.setPointerCapture(pointerId) } catch {}
-  })
-}
-
-function updateCityImagePinch(wrap) {
-  const points = Array.from(cityImageView.touchPointers.values()).slice(0, 2)
-  if (points.length < 2 || !cityImageView.pinchStartDistance) return
-  const rect = wrap.getBoundingClientRect()
-  const center = getCityImageTouchCenter(points, rect)
-  const nextScale = clampNumber(
-    cityImageView.pinchStartScale * getCityImageTouchDistance(points) / cityImageView.pinchStartDistance,
-    CITY_IMAGE_MIN_ZOOM,
-    getCityImageMaxZoom()
-  )
-  const scaleRatio = nextScale / cityImageView.pinchStartScale
-  cityImageView.scale = nextScale
-  cityImageView.x = center.x - (cityImageView.pinchStartCenterX - cityImageView.pinchStartX) * scaleRatio
-  cityImageView.y = center.y - (cityImageView.pinchStartCenterY - cityImageView.pinchStartY) * scaleRatio
-  const geometry = clampCityImagePan()
-  applyCityImageTransform(geometry)
-}
-
-function getCityImageTouchDistance(points) {
-  return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y)
-}
-
-function getCityImageTouchCenter(points, rect) {
-  return {
-    x: (points[0].x + points[1].x) / 2 - rect.left - rect.width / 2,
-    y: (points[0].y + points[1].y) / 2 - rect.top - rect.height / 2
-  }
-}
-
-function zoomCityImage(direction, event = null) {
-  zoomCityImageBy(direction * CITY_IMAGE_ZOOM_STEP, event)
-}
-
-function getWheelZoomAmount(event) {
-  return Math.min(0.12, Math.max(0.025, Math.abs(event.deltaY) / 120 * CITY_IMAGE_WHEEL_ZOOM_STEP))
-}
-
-function getCityImageWheelZoomDelta(event) {
-  if (!event.deltaY) return 0
-  return event.deltaY > 0 ? -getWheelZoomAmount(event) : getWheelZoomAmount(event)
-}
-
-function canZoomCityImageBy(delta) {
-  if (!delta) return false
-  const nextScale = clampNumber(
-    cityImageView.scale + delta,
-    CITY_IMAGE_MIN_ZOOM,
-    getCityImageMaxZoom()
-  )
-  return nextScale !== cityImageView.scale
-}
-
-function zoomCityImageBy(delta, event = null) {
-  const previousScale = cityImageView.scale
-  const nextScale = clampNumber(
-    previousScale + delta,
-    CITY_IMAGE_MIN_ZOOM,
-    getCityImageMaxZoom()
-  )
-  if (nextScale === previousScale) return
-
-  if (event) {
-    const wrap = document.querySelector('.city-image-wrap')
-    const rect = wrap?.getBoundingClientRect()
-    if (rect) {
-      const focusX = event.clientX - rect.left - rect.width / 2
-      const focusY = event.clientY - rect.top - rect.height / 2
-      const ratio = nextScale / previousScale
-      cityImageView.x = focusX - (focusX - cityImageView.x) * ratio
-      cityImageView.y = focusY - (focusY - cityImageView.y) * ratio
-    }
-  }
-
-  cityImageView.scale = nextScale
-  const geometry = clampCityImagePan()
-  applyCityImageTransform(geometry)
-}
-
-function resetCityImageView() {
-  cityImageView.touchPointers.clear()
-  cityImageView.pinching = false
-  cityImageView.dragging = false
-  cityImageView.pointerId = null
-  cityImageView.scale = getDefaultCityImageZoom()
-  cityImageView.x = 0
-  cityImageView.y = getDefaultCityImageY()
-  applyCityImageTransform()
-}
-
-function getCityImageMaxZoom() {
-  return usesPhoneComposition()
-    ? CITY_IMAGE_PHONE_MAX_ZOOM
-    : CITY_IMAGE_MAX_ZOOM
-}
-
-function getDefaultCityImageZoom() {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return CITY_IMAGE_MIN_ZOOM
-  return usesPhoneComposition()
-    ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
-    : CITY_IMAGE_MIN_ZOOM
-}
-
-function getDefaultCityImageY() {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return 0
-  return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
-}
-
-function getCityImagePanGeometry(scale = cityImageView.scale) {
-  const wrap = document.querySelector('.city-image-wrap')
-  const image = document.getElementById('cityMilestoneImage')
-  if (!wrap || !image) return null
-
-  const rect = wrap.getBoundingClientRect()
-  return getCityImageCoverGeometry({
-    viewportWidth: rect.width,
-    viewportHeight: rect.height,
-    // The pixel scene fills its viewport; all three layers share these bounds.
-    imageWidth: window.EDENIA_PIXEL_TOWN?.enabled ? rect.width : image.naturalWidth,
-    imageHeight: window.EDENIA_PIXEL_TOWN?.enabled ? rect.height : image.naturalHeight,
-    scale
-  })
-}
-
-function canPanCityImage() {
-  const geometry = getCityImagePanGeometry()
-  return isCityImagePanGeometryPannable(geometry)
-}
-
-function isCityImagePanGeometryPannable(geometry) {
-  return Boolean(
-    geometry
-    && (
-      geometry.maxX > CITY_IMAGE_PAN_EPSILON
-      || geometry.maxY > CITY_IMAGE_PAN_EPSILON
-    )
-  )
-}
-
-function clampCityImagePan() {
-  const geometry = getCityImagePanGeometry()
-  if (!geometry) {
-    cityImageView.x = 0
-    cityImageView.y = 0
-    return null
-  }
-
-  cityImageView.x = clampNumber(cityImageView.x, -geometry.maxX, geometry.maxX)
-  cityImageView.y = clampNumber(cityImageView.y, -geometry.maxY, geometry.maxY)
-  return geometry
-}
-
-function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
-  const image = document.getElementById('cityMilestoneImage')
-  if (!image) return
-  const wrap = document.querySelector('.city-image-wrap')
-  if (window.EDENIA_PIXEL_TOWN?.enabled) {
-    // Reuse production gestures and bounds for the still, animation and flower target.
-    wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
-    wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
-    wrap?.style.setProperty('--town-view', cityImageView.scale === 1
-      ? 'none'
-      : `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`)
-    return
-  }
-  if (geometry) {
-    image.style.width = `${geometry.baseWidth}px`
-    image.style.height = `${geometry.baseHeight}px`
-  }
-  wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
-  wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
-  image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
-}
-
-function getCityImageSource(index) {
-  if (CITY_IMAGE_SOURCES.length === 0) return null
-  return CITY_IMAGE_SOURCES[clampNumber(index, 0, CITY_IMAGE_SOURCES.length - 1)]
-}
-
-function getCurrentCityImageIndex(state) {
-  if (!state) return 0
-  normalizeCityProgress(state)
-  return clampNumber(state.cityProgress.maxLevelIndex, 0, CITY_IMAGE_SOURCES.length - 1)
-}
-
-function normalizeCityImageSource(source) {
-  if (!source) return null
-  if (typeof source === 'string') return { primary: source, fallback: source }
-  const primary = source.primary || source.fallback
-  const fallback = source.fallback || source.primary
-  if (!primary && !fallback) return null
-  return { primary, fallback }
-}
-
-function getCityImageCacheKey(source) {
-  const normalized = normalizeCityImageSource(source)
-  return normalized?.primary || normalized?.fallback || ''
-}
-
-function isCityImageLoaded(source) {
-  return Boolean(cityImagePreloadCache.get(getCityImageCacheKey(source))?.loaded)
-}
-
-function decodeCityPreloadImage(img) {
-  if (!img?.decode) return Promise.resolve()
-  return img.decode().catch(() => {})
-}
-
-function preloadCityImages(centerIndex = 0) {
-  queueCityImagePreloadsAround(centerIndex)
-}
-
-function preloadCityImage(source, options = {}) {
-  const normalized = normalizeCityImageSource(source)
-  if (!normalized) return null
-
-  const cacheKey = getCityImageCacheKey(normalized)
-  const cached = cityImagePreloadCache.get(cacheKey)
-  if (cached) return cached
-
-  const img = new Image()
-  img.decoding = 'async'
-  if ('fetchPriority' in img) img.fetchPriority = options.fetchPriority || 'low'
-
-  const entry = {
-    img,
-    loaded: false,
-    loadedSrc: null,
-    promise: null,
-    source: normalized
-  }
-  const promise = new Promise(resolve => {
-    let triedFallback = false
-    const finish = (loaded, src = null) => {
-      entry.loaded = loaded
-      entry.loadedSrc = src
-      resolve({ loaded, src })
-    }
-
-    img.onload = () => {
-      const loadedSrc = img.currentSrc || img.src
-      decodeCityPreloadImage(img).then(() => finish(true, loadedSrc))
-    }
-    img.onerror = () => {
-      if (!triedFallback && normalized.fallback && normalized.fallback !== normalized.primary) {
-        triedFallback = true
-        img.src = normalized.fallback
-        return
-      }
-      finish(false)
-    }
-  })
-
-  entry.promise = promise
-  cityImagePreloadCache.set(cacheKey, entry)
-  img.src = normalized.primary || normalized.fallback
-  return entry
-}
-
-function getCityImagePreloadOrder(centerIndex) {
-  const order = []
-  for (let i = centerIndex - 1; i >= 0; i -= 1) order.push(i)
-  if (centerIndex + 1 < CITY_IMAGE_SOURCES.length) order.push(centerIndex + 1)
-  for (let i = centerIndex + 2; i < CITY_IMAGE_SOURCES.length; i += 1) order.push(i)
-  return order
-}
-
-function queueCityImagePreloadsAround(centerIndex) {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return
-  if (!Number.isInteger(centerIndex) || CITY_IMAGE_SOURCES.length === 0) return
-  if (activeCityImagePreloadCenter === centerIndex) return
-
-  activeCityImagePreloadCenter = centerIndex
-  cityImagePreloadQueue.length = 0
-  getCityImagePreloadOrder(centerIndex).forEach(index => {
-    const source = getCityImageSource(index)
-    if (source && !isCityImageLoaded(source)) cityImagePreloadQueue.push(source)
-  })
-  runCityImagePreloadQueue()
-}
-
-function scheduleCityImagePreloadStep(callback) {
-  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    window.requestIdleCallback(callback, { timeout: 1500 })
-  } else {
-    setTimeout(callback, 120)
-  }
-}
-
-function runCityImagePreloadQueue() {
-  if (cityImagePreloadQueueRunning) return
-  cityImagePreloadQueueRunning = true
-
-  const loadNext = () => {
-    const source = cityImagePreloadQueue.shift()
-    if (!source) {
-      cityImagePreloadQueueRunning = false
-      return
-    }
-
-    const preload = preloadCityImage(source, { fetchPriority: 'low' })
-    if (!preload) {
-      scheduleCityImagePreloadStep(loadNext)
-      return
-    }
-    preload.promise.then(() => scheduleCityImagePreloadStep(loadNext))
-  }
-
-  scheduleCityImagePreloadStep(loadNext)
-}
-
-function updateCityMilestoneImage(score, options = {}) {
-  const image = document.getElementById('cityMilestoneImage')
-  if (!image || CITY_IMAGE_SOURCES.length === 0) return
-
-  const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
-  const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
-  if (window.EDENIA_PIXEL_TOWN?.enabled) {
-    const town = window.EDENIA_PIXEL_TOWN
-    const economy = loadState()?.townEconomy
-    const stage = economy?.mode === 'starter'
-      ? (Object.hasOwn(economy.purchases, FIRST_FLOWER_ID) ? 14 : 13)
-      : imageIndex + 1
-    image.alt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
-    if (image.dataset.pixelStage !== String(stage)) {
-      image.dataset.pixelStage = String(stage)
-      image.src = `${town.base}${stage}-${town.light()}.png`
-      image.classList.remove('loading')
-    }
-    return
-  }
-  const preloadCenterIndex = Number.isInteger(options.preloadCenterIndex)
-    ? clampNumber(options.preloadCenterIndex, 0, CITY_IMAGE_SOURCES.length - 1)
-    : imageIndex
-  const nextSource = getCityImageSource(imageIndex)
-  const nextKey = getCityImageCacheKey(nextSource)
-  const nextAlt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
-
-  image.alt = nextAlt
-  if (image.dataset.citySourceKey === nextKey) {
-    queueCityImagePreloadsAround(preloadCenterIndex)
-    return
-  }
-  if (image.getAttribute('src') === nextSource.primary) {
-    image.dataset.citySourceKey = nextKey
-    image.dataset.citySrc = nextSource.primary
-    image.classList.remove('loading')
-    queueCityImagePreloadsAround(preloadCenterIndex)
-    return
-  }
-
-  const shouldAnimateTransition = image.dataset.initialCityTransitionStarted !== 'true'
-  image.dataset.initialCityTransitionStarted = 'true'
-  image.dataset.cityTargetKey = nextKey
-  image.classList.toggle('loading', shouldAnimateTransition)
-  if ('fetchPriority' in image) image.fetchPriority = 'high'
-  const applyImage = result => {
-    if (image.dataset.cityTargetKey !== nextKey) return
-    const loadedSrc = result?.src || result?.loadedSrc || nextSource.fallback || nextSource.primary
-    image.dataset.citySourceKey = nextKey
-    image.dataset.citySrc = loadedSrc
-    image.src = loadedSrc
-    if (!shouldAnimateTransition) {
-      image.classList.remove('loading')
-      return
-    }
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (image.dataset.citySourceKey === nextKey && image.dataset.cityTargetKey === nextKey) {
-          image.classList.remove('loading')
-        }
-      })
-    })
-  }
-
-  const preload = preloadCityImage(nextSource, { fetchPriority: 'high' })
-  if (preload?.loaded && preload.loadedSrc) {
-    applyImage(preload)
-    queueCityImagePreloadsAround(preloadCenterIndex)
-  } else {
-    preload?.promise.then(result => {
-      if (result.loaded) {
-        applyImage(result)
-        if (image.dataset.cityTargetKey === nextKey) queueCityImagePreloadsAround(preloadCenterIndex)
-      }
-    })
-  }
 }
 
 const channelHistoryRequests = new Set()
@@ -17242,6 +16121,7 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
     sessionEntry = { watchedAt, seconds: 0 }
     entries.push(sessionEntry)
   }
+  sessionEntry.experienceSeconds = (sessionEntry.experienceSeconds || 0) + secondsToAdd
   sessionEntry.seconds += secondsToAdd
   session.progressSeconds = Math.max(0, Number(session.progressSeconds) || 0) + secondsToAdd
   video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
@@ -19306,14 +18186,6 @@ bindActivityLogPaginationActions(document, {
 bindStudyHistoryViewActions(document, {
   setView: setHistoryView
 })
-bindCityZoomActions(document, {
-  zoom: zoomCityImage,
-  reset: resetCityImageView
-})
-bindCityWaveformMouseActions(document, {
-  move: handleCityWaveformMouseMove,
-  clear: clearCityWaveformPreview
-})
 bindSandboxActions(document, {
   addDay: addSandboxDay,
   reset: resetSandboxState
@@ -19489,9 +18361,6 @@ bindVideoSearchShellActions(document, {
   handleInputKey: handleVideoSearchInputKey
 })
 bindManualVideoActions(document)
-bindIntroCityLevelActions(document, {
-  selectLevel: selectIntroCityLevel
-})
 bindIntroFinishActions(document, {
   finish: finishIntroTrailer
 })
@@ -19540,13 +18409,19 @@ async function initializeBrowserStorage() {
       storage: localStorage, storageKey: STORAGE_KEY,
       accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window,
-      onChange() {
+      onChange({ islandOnly, replacement } = {}) {
+        if (islandOnly && !learnerProfileLifecycleAuthority) {
+          if (!applicationStarted) return
+          window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { islandOnly: true, replacement } }))
+          return
+        }
         channelHistoryProfileEpoch += 1
         if (!applicationStarted) return
         if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
         else {
           const state = loadState({ persistCleanup: false })
           if (state) renderAll(state)
+          window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { replacement } }))
         }
       }
     })
@@ -19573,7 +18448,6 @@ window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { pas
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
 window.addEventListener('resize', scheduleOnboardingChoiceLayoutSyncForViewportResize, { passive: true })
-window.addEventListener('resize', refreshCityWaveformScrollGeometry, { passive: true })
 window.visualViewport?.addEventListener(
   'resize',
   scheduleOnboardingChoiceLayoutSyncForViewportResize,
@@ -19606,7 +18480,6 @@ document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('keydown', hideHeatmapTooltipOnEscape)
-document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
@@ -19635,3 +18508,20 @@ window.addEventListener('pagehide', event => {
   trackVideoPlaybackSessionEnded(session, 'page_hidden')
 })
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
+
+window.edeniaTranslate = t
+
+// The release control only gates game mounting; study and island data stay intact.
+if (window.edeniaTinySwordsEnabled === true) {
+  window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
+    read: loadState,
+    readDurable: () => loadPersistedState({ persistCleanup: false }),
+    save: saveState,
+    // Keep signed-in lifecycle/cloud persistence on its existing fenced path.
+    getCheckpointRepository: () => !INTERNAL_PROFILE_PAUSED && !primaryProfileStorageUnavailable
+      && !learnerProfileLifecycleAuthority ? primaryProfileRepository : null,
+    onCheckpoint: () => window.dispatchEvent(new CustomEvent('edenia-profile-persisted', {
+      detail: { islandOnly: true }
+    }))
+  })
+}

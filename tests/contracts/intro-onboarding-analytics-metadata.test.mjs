@@ -281,33 +281,6 @@ test('static intro and onboarding controls retain exact metadata and ownership h
   }
 })
 
-test('all four city-level controls retain numeric calls and one analytics identity', () => {
-  const buttons = getOpeningTags(indexSource, 'button')
-    .filter(tag => getAttribute(tag, 'data-intro-city-level') !== null)
-
-  assert.equal(buttons.length, 4)
-  assert.deepEqual(
-    buttons.map(tag => getAttribute(tag, 'data-intro-city-level')),
-    ['1', '4', '8', '12']
-  )
-
-  for (const tag of buttons) {
-    const level = getAttribute(tag, 'data-intro-city-level')
-    assert.equal(getAttribute(tag, 'type'), 'button')
-    assert.equal(getAttribute(tag, 'onclick'), null)
-    assert.equal(
-      getAttribute(tag, 'data-analytics-action'),
-      'selectIntroCityLevel'
-    )
-    assert.equal(
-      `${normalizeClickEventName(getAttribute(tag, 'data-analytics-action'))}_clicked`,
-      'select_intro_city_level_clicked'
-    )
-    assert.equal(getAttribute(tag, 'aria-pressed'), null)
-    assert.equal(getAttribute(tag, 'aria-label'), null)
-  }
-})
-
 test('Start and return states keep their translated analytics identities in sync', () => {
   const source = getFunctionSource('startIntroTrailer')
 
@@ -328,7 +301,7 @@ test('Start and return states keep their translated analytics identities in sync
   )
 })
 
-test('sound and city controls retain their live accessibility metadata updates', () => {
+test('sound controls retain their live accessibility metadata updates', () => {
   const soundSource = getFunctionSource('updateIntroSoundButton')
   assert.match(
     soundSource,
@@ -345,19 +318,7 @@ test('sound and city controls retain their live accessibility metadata updates',
     assert.equal(hasAttribute(findButtonById(id), 'data-intro-sound-toggle'), true)
   }
 
-  const citySource = getFunctionSource('updateIntroCityLevelControls')
-  assert.match(
-    citySource,
-    /document\.querySelectorAll\('\[data-intro-city-level\]'\)\.forEach\(button => \{/
-  )
-  assert.match(
-    citySource,
-    /button\.setAttribute\('aria-pressed', String\(isSelected\)\)/
-  )
-  assert.match(
-    citySource,
-    /button\.setAttribute\('aria-label', `\$\{t\('intro\.city\.level'\)\} \$\{button\.dataset\.introCityLevel\}`\)/
-  )
+
 })
 
 test('locale menus retain trigger, radiogroup, and generated radio semantics', () => {

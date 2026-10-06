@@ -3829,6 +3829,7 @@ test('a stale commit exposes both server-preserved conflict versions without cho
     selectedSide: 'device'
   })
   assert.equal(choice.status, 'chosen')
+  assert.equal(adapter.requiresCloudHeadResolution(), false)
   assert.equal(choice.selectedSide, 'device')
   assert.deepEqual(choice.profile, { marker: 'this-device' })
   assert.equal(choice.conflict.status, 'resolved')

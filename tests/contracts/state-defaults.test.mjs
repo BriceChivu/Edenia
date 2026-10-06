@@ -75,6 +75,7 @@ test('default state preserves the complete normal-mode schema and defaults', () 
     videos: {},
     streak: { current: 0, longest: 0, lastActivityDate: null },
     anki: {},
+    tinySwordsIsland: null,
     cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
     undoStack: [],
     redoStack: [],

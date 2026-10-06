@@ -1,0 +1,249 @@
+{
+  "contracts": {
+    "passed": 48,
+    "failed": 0,
+    "node": "24.18.0"
+  },
+  "godot": {
+    "engine": "4.7.2.stable.official.ed1daf0bf",
+    "integratedExportContractFailures": 0,
+    "inventoryOutlineFailures": 0,
+    "nativeGameplayFailures": 0,
+    "progression": "PASS",
+    "islandArrivalFailures": 0
+  },
+  "runs": [
+    {
+      "name": "isolated-suite.json",
+      "stats": {
+        "startTime": "2026-10-06T10:14:50.229Z",
+        "duration": 138807.849,
+        "expected": 17,
+        "skipped": 0,
+        "unexpected": 3,
+        "flaky": 0
+      }
+    },
+    {
+      "name": "rechecks.json",
+      "stats": {
+        "startTime": "2026-10-06T10:17:57.093Z",
+        "duration": 51941.48,
+        "expected": 3,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      }
+    },
+    {
+      "name": "placement-recheck.json",
+      "stats": {
+        "startTime": "2026-10-06T10:22:56.414Z",
+        "duration": 29042.038,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "name": "narrow.json",
+      "stats": {
+        "startTime": "2026-10-06T10:24:03.574Z",
+        "duration": 8399.471000000001,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "name": "desktop-placement-recheck.json",
+      "stats": {
+        "startTime": "2026-10-06T10:24:33.656Z",
+        "duration": 29255.252,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    }
+  ],
+  "latestBrowserCases": [
+    {
+      "project": "desktop-standard",
+      "file": "experience-tiny-swords.spec.mjs",
+      "title": "local Tiny Swords receives claimed study levels and grants each inventory reward once",
+      "status": "passed",
+      "durationMs": 25783,
+      "run": "desktop-placement-recheck.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "experience-tiny-swords.spec.mjs",
+      "title": "high-level claims survive delayed game startup, save failure, and reload",
+      "status": "passed",
+      "durationMs": 4480,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "experience-tiny-swords.spec.mjs",
+      "title": "profile replacement recreates the island, resets it, and blocks a rejected snapshot",
+      "status": "passed",
+      "durationMs": 9233,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "experience-tiny-swords.spec.mjs",
+      "title": "local Tiny Swords receives claimed study levels and grants each inventory reward once",
+      "status": "passed",
+      "durationMs": 24761,
+      "run": "placement-recheck.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "experience-tiny-swords.spec.mjs",
+      "title": "high-level claims survive delayed game startup, save failure, and reload",
+      "status": "passed",
+      "durationMs": 3863,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "experience-tiny-swords.spec.mjs",
+      "title": "profile replacement recreates the island, resets it, and blocks a rejected snapshot",
+      "status": "passed",
+      "durationMs": 8751,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-acceptance.spec.mjs",
+      "title": "developed island loads compressed, remains usable, and releases keyboard focus",
+      "status": "passed",
+      "durationMs": 3417,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-acceptance.spec.mjs",
+      "title": "developed island loads compressed, remains usable, and releases keyboard focus",
+      "status": "passed",
+      "durationMs": 3874,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-copy.spec.mjs",
+      "title": "captured trailer stages follow scene timing, manual selection, navigation and Skip",
+      "status": "passed",
+      "durationMs": 1761,
+      "run": "rechecks.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-copy.spec.mjs",
+      "title": "live locale and trailer/walkthrough replay preserve completed onboarding and the game frame",
+      "status": "passed",
+      "durationMs": 10195,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-copy.spec.mjs",
+      "title": "captured trailer stages follow scene timing, manual selection, navigation and Skip",
+      "status": "passed",
+      "durationMs": 2158,
+      "run": "rechecks.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-copy.spec.mjs",
+      "title": "live locale and trailer/walkthrough replay preserve completed onboarding and the game frame",
+      "status": "passed",
+      "durationMs": 10029,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-dashboard.spec.mjs",
+      "title": "slow startup retains study and saved work; dialogs and walkthroughs block game input",
+      "status": "passed",
+      "durationMs": 1011,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-dashboard.spec.mjs",
+      "title": "engine download failure retains island and history; retry can restore the game",
+      "status": "passed",
+      "durationMs": 5695,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-dashboard.spec.mjs",
+      "title": "slow startup retains study and saved work; dialogs and walkthroughs block game input",
+      "status": "passed",
+      "durationMs": 740,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-dashboard.spec.mjs",
+      "title": "engine download failure retains island and history; retry can restore the game",
+      "status": "passed",
+      "durationMs": 5654,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-page-scroll.spec.mjs",
+      "title": "wheel over Tiny Swords scrolls Edenia without moving the camera",
+      "status": "passed",
+      "durationMs": 2566,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-page-scroll.spec.mjs",
+      "title": "wheel over Tiny Swords scrolls Edenia without moving the camera",
+      "status": "passed",
+      "durationMs": 2416,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "desktop-standard",
+      "file": "tiny-swords-release.spec.mjs",
+      "title": "versioned export loads under the hosted base path and disable/re-enable preserves an island",
+      "status": "passed",
+      "durationMs": 3941,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-standard",
+      "file": "tiny-swords-release.spec.mjs",
+      "title": "versioned export loads under the hosted base path and disable/re-enable preserves an island",
+      "status": "passed",
+      "durationMs": 4023,
+      "run": "isolated-suite.json"
+    },
+    {
+      "project": "phone-small",
+      "file": "tiny-swords-acceptance.spec.mjs",
+      "title": "developed island loads compressed, remains usable, and releases keyboard focus",
+      "status": "passed",
+      "durationMs": 4668,
+      "run": "narrow.json"
+    }
+  ],
+  "summary": {
+    "passed": 21,
+    "failed": 0,
+    "physicalIPhone": "pending, unavailable",
+    "physicalAndroid": "pending, unavailable",
+    "remoteCI": "pending for uncommitted snapshot"
+  }
+}

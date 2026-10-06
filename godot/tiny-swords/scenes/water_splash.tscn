@@ -1,0 +1,48 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/Particle FX/Water Splash.png" id="Splash"]
+
+[sub_resource type="AtlasTexture" id="Frame0"]
+atlas = ExtResource("Splash")
+region = Rect2(0, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame1"]
+atlas = ExtResource("Splash")
+region = Rect2(192, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame2"]
+atlas = ExtResource("Splash")
+region = Rect2(384, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame3"]
+atlas = ExtResource("Splash")
+region = Rect2(576, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame4"]
+atlas = ExtResource("Splash")
+region = Rect2(768, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame5"]
+atlas = ExtResource("Splash")
+region = Rect2(960, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame6"]
+atlas = ExtResource("Splash")
+region = Rect2(1152, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame7"]
+atlas = ExtResource("Splash")
+region = Rect2(1344, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="Frame8"]
+atlas = ExtResource("Splash")
+region = Rect2(1536, 0, 192, 192)
+
+[sub_resource type="SpriteFrames" id="Frames"]
+animations = [{"name": &"splash", "loop": false, "speed": 10.0, "frames": [{"duration": 1.0, "texture": SubResource("Frame0")}, {"duration": 1.0, "texture": SubResource("Frame1")}, {"duration": 1.0, "texture": SubResource("Frame2")}, {"duration": 1.0, "texture": SubResource("Frame3")}, {"duration": 1.0, "texture": SubResource("Frame4")}, {"duration": 1.0, "texture": SubResource("Frame5")}, {"duration": 1.0, "texture": SubResource("Frame6")}, {"duration": 1.0, "texture": SubResource("Frame7")}, {"duration": 1.0, "texture": SubResource("Frame8")}]}]
+
+[node name="WaterSplash" type="AnimatedSprite2D"]
+visible = false
+texture_filter = 1
+sprite_frames = SubResource("Frames")
+animation = &"splash"

@@ -33,7 +33,7 @@ test('all thirteen visual scenes render deterministically; preview additions do 
     }
   })
   assert.equal(JSON.stringify(CITY_LEVELS), before)
-  assert.equal(CITY_LEVELS.length, 12)
+  assert.equal(CITY_LEVELS.length, 10)
 })
 test('shared tree edit changes dependent stages, leaves empty stage and placements untouched', () => {
   const scenes = JSON.stringify(SCENES),

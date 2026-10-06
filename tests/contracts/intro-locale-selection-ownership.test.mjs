@@ -319,7 +319,7 @@ test('local locale-change callbacks retain their synchronous state behavior', ()
 
   const onboardingSource = getFunctionSlice(
     'changeOnboardingLocale',
-    'animateIntroCityLevel'
+    'updateIntroSoundButton'
   )
   assert.match(
     onboardingSource,

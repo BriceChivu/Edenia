@@ -1935,6 +1935,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     )
     if (!protectedResult) return { status: 'recovering' }
     activeBinding = null
+    cloudHeadKnown = true
     publish('up-to-date', { conflict: protectedConflict })
     return {
       conflict: protectedConflict,

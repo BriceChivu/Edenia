@@ -1,0 +1,17 @@
+{
+  "head": "6b54e0b57f59e428c9b3d5bec30ee9541fe1d3c2",
+  "workingTree": "uncommitted changes, isolated source snapshot",
+  "node": "24.18.0",
+  "godot": "4.7.2.stable.official.ed1daf0bf",
+  "os": "macOS 26.7 (25G229), Apple M3 arm64",
+  "hostAssets": {
+    "index.html": "e7d9c1f6f2d505071f3c7c70e1fc51d302b66ac9e3a8d9be09093c866d877d03",
+    "app.js": "2192471b2c260e3d40cf5bc14325c3ca00bf4d49107dbafd695b31430e0bf229",
+    "style.css": "dcb079a453b560e2043cede76e5bab517f7b016ecb2e051dfc35f6b974851808",
+    "config.local.js": "a75b51d2e5f07f9357ee010464f1258ad49440d89667bf1673aa8ce134fab5f0"
+  },
+  "release": {
+    "godotVersion": "4.7.2",
+    "version": "f0fbf825656fd8824d6e87165e7bd8e797422d21704cad8cb65fd6c7685f69bd"
+  }
+}

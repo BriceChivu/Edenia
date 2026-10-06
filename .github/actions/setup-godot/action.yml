@@ -1,0 +1,11 @@
+name: Set up pinned Godot Web exporter
+description: Install checksum-verified Godot 4.7.2 and matching Web templates
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v4
+      with:
+        path: .cache/godot
+        key: godot-4.7.2-linux-x64-web-v1
+    - shell: bash
+      run: node scripts/setup-godot.mjs

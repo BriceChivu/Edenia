@@ -1,0 +1,91 @@
+{
+  "measuredAtUtc": "2026-10-06T04:08:48.564745+00:00",
+  "method": "Four matched fresh Chrome contexts, same instrumented export, only runtime_outlines flag changed. Eight-second cold inventory opening. Same local game-only fixture as initial investigation; original game suspended.",
+  "sourceSha256": {
+    "scripts/inventory_outline.gd": "e6cbb78fa267f329265be007fb6b36ad22c5b609bb197fddaeb177639bc11afb",
+    "scripts/inventory_outline_assets.gd": "ea2b21f7bda32ce07225f5261726419a2f990543f2ff4c10b811365c8180a374",
+    "tools/inventory_outline_baker.gd": "0c06e5a520ca054647995568d02345fa3ae3d16a8c024119b7fde9e763585a9c",
+    "tools/generate_inventory_outlines.gd": "85d1ac157dfefd1a0aaaa0429cf2df6c3ceddb6258c10a76b804d1446d169027",
+    "tests/inventory_outline_assets.gd": "c7c9ccf75a6e5cb240e91da245e057d5ff52cc092ed00686eeafb181604b6b89"
+  },
+  "diagnosticExportSha256": {
+    "index.pck": "ae113d65f2281bf264efb2b01ef5198a98bfd1ba2912649494047e4fd1f5b517",
+    "index.wasm": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0"
+  },
+  "ordinaryPreviewRelease": "4e73cc65f28011f8f95e89df68c34f469cdbe720442cf853271146021420e576",
+  "measurements": [
+    {
+      "condition": "implemented-runtime-control",
+      "seconds": 8.0005,
+      "parentRafP99Ms": 116.69999999999891,
+      "parentTimerMaxMs": 386.09999999403954,
+      "terrainDrawMaxMs": 198.7,
+      "rendererCpuPercentOfOneCore": 35.2453707165109,
+      "cpuTimingReliable": true,
+      "consoleErrors": 0,
+      "inventoryOpenObserved": true,
+      "canvas": [
+        2108,
+        908
+      ]
+    },
+    {
+      "condition": "implemented-fixed",
+      "seconds": 8.01040000000596,
+      "parentRafP99Ms": 17.700000000000728,
+      "parentTimerMaxMs": 48.69999998807907,
+      "terrainDrawMaxMs": 1.1,
+      "rendererCpuPercentOfOneCore": 25.53796146674953,
+      "cpuTimingReliable": true,
+      "consoleErrors": 0,
+      "inventoryOpenObserved": true,
+      "canvas": [
+        2108,
+        908
+      ]
+    },
+    {
+      "condition": "implemented-runtime-repeat",
+      "seconds": 8.00659999999404,
+      "parentRafP99Ms": 116.39999999999964,
+      "parentTimerMaxMs": 332.09999999403954,
+      "terrainDrawMaxMs": 169.4,
+      "rendererCpuPercentOfOneCore": 34.578267363704256,
+      "cpuTimingReliable": true,
+      "consoleErrors": 0,
+      "inventoryOpenObserved": true,
+      "canvas": [
+        2108,
+        908
+      ]
+    },
+    {
+      "condition": "implemented-fixed-repeat",
+      "seconds": 8.0025,
+      "parentRafP99Ms": 17.69999999999709,
+      "parentTimerMaxMs": 41.29999998211861,
+      "terrainDrawMaxMs": 1.3,
+      "rendererCpuPercentOfOneCore": 25.042168224299072,
+      "cpuTimingReliable": true,
+      "consoleErrors": 0,
+      "inventoryOpenObserved": true,
+      "canvas": [
+        2108,
+        908
+      ]
+    }
+  ],
+  "nativeChecks": {
+    "oldRuntimeImportedAssetTest": "35 borders, 35 failures, exit 1",
+    "precomputedImportedAssetTest": "35 borders, 0 failures, exit 0; imported pixel data exact",
+    "inventoryChanges": "PASS",
+    "mirroredHouseRender": "PASS",
+    "integratedBuild": "PASS"
+  },
+  "swapSnapshot": "vm.swapusage: total = 10240.00M  used = 8673.25M  free = 1566.75M  (encrypted)",
+  "limitations": [
+    "Instrumented Mac comparison, not physical-device or hosted validation.",
+    "Diagnoses first inventory opening; broader sustained lag has not been consistently reproduced.",
+    "Renderer CPU is percent of one logical core."
+  ]
+}

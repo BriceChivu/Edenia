@@ -2,7 +2,7 @@ import { expect, test } from '../support/network-fixture.mjs'
 
 for (const affected of [false, true]) {
   test(`${affected ? 'affected' : 'untouched'} profile retains historical points and town progress after reload`, async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     await page.evaluate(affected => {
       const state = defaultState(4, [], 'light', [], 'en')
       const at = new Date().toISOString()
@@ -26,7 +26,7 @@ for (const affected of [false, true]) {
 }
 
 test('untouched profiles still claim newly earned town levels one at a time', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await page.evaluate(() => {
     const state = defaultState(4, [], 'light', [], 'en')
     const at = new Date().toISOString()

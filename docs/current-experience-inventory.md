@@ -42,12 +42,12 @@
 | APP-002 | Animated background | Full-page physics canvas remains decorative and theme-aware without entering the accessibility tree. | Medium | Keep |
 | APP-003 | Mode isolation | Normal, internal-test, and sandbox state, backups, configuration, cache, and analytics contexts remain separate. | High | Keep |
 | INTRO-001 | Trailer shell | Five-scene localized trailer with creator identity, social links, scene stage, progress timeline, safe-area positioning, and light/dark presentation. | High | Keep |
-| INTRO-002 | Trailer content | Opening, YouTube/Anki progress demonstration, interactive town growth, history/insight demonstration, and final call to action retain their content and order. | High | Keep |
+| INTRO-002 | Trailer content | Opening, YouTube/Anki progress demonstration, island introduction, history/insight demonstration, and final call to action retain their order. | High | Keep |
 | INTRO-003 | Trailer timing and navigation | Per-scene auto-advance, disabled boundary controls, Previous/Next buttons, final Next removal on phone, Skip, final Start/Return action, and replay behavior. | High | Keep |
 | INTRO-004 | Trailer input handling | Left/Right keyboard navigation, Escape behavior, horizontal touch swipe threshold, vertical-scroll preservation, click controls, and focus styling. | High | Keep |
 | INTRO-005 | Trailer sound | Procedural intro audio starts when permitted, handles autoplay unlocking, toggles on/off, updates accessible labels, loops, and fades when leaving. | Medium | Keep |
 | INTRO-006 | Trailer language picker | Language can change before setup; copy, document language, title, scene layout, city labels, and sound labels update immediately. | High | Keep |
-| INTRO-007 | Town scene interaction | Automatic progression through levels 1/4/8/12 and manual selection followed by continued staged progression. | Medium | Keep |
+| INTRO-007 | Island introduction | Three source-captured Godot images show study/XP, level-two unlock and building. Existing scene timing, manual selection, Skip and replay remain. No second engine or historical game mode. | Medium | Replaced |
 | INTRO-008 | Responsive trailer composition | Non-phone reference-stage scaling, short-height compression, phone full-viewport scenes, safe areas, scrollable scene content, localized size overrides, and reordered feature demonstration. | High | Keep |
 | ONB-001 | First-run routing | Fresh users see trailer then personalized onboarding; returning incomplete users resume at the correct step; completed users skip setup. | High | Keep |
 | ONB-002 | Language selection | Mandarin, Japanese, Korean, Spanish, French, German, English, and Other remain in the current order with localized labels and single selection. | High | Keep |
@@ -80,7 +80,7 @@
 | SET-014 | Replay actions | Show walkthrough again and Show trailer again retain their current settings placement and return behavior. | Medium | Keep |
 | SET-015 | Creator footer | Creator branding and external YouTube, Twitch, and Ko-fi support links remain at the bottom of Settings. | Low | Keep |
 
-## Header, town, progress, and insights
+## Header, island, progress, and insights
 
 | ID | Protected surface or behavior | States and variants to preserve | Risk | Disposition |
 |---|---|---|---|---|
@@ -89,12 +89,12 @@
 | HDR-003 | Phone compact header | Header compacts only after its current scroll thresholds, expands near the top, stays expanded during walkthrough, preserves the compact week label, and hides the current compact-only elements. | High | Keep |
 | HDR-004 | Saved-video search | Anchored desktop popover versus fixed phone dialog; initial guidance, live title/channel search, maximum eight ranked results, status metadata, no-results state, keyboard Enter/Escape, outside close, and result jump/flash. | High | Keep |
 | HDR-005 | Theme toggle | Moon/sun icon swap, localized title/ARIA label, saved selection, activity entry, and full dark/light surface parity. | High | Keep |
-| CITY-001 | Town image | Current stage image, 12-level progression, WebP-first loading, PNG fallback, preload order, placeholder background, loading fade, and localized alt text. | High | Keep |
-| CITY-002 | Town pan and zoom | Mouse drag, wheel-centered zoom, buttons, reset, touch pinch, touch pan only while zoomed, 1×–2× limits, and clamped pan. Phone keeps gestures while hiding zoom buttons. | High | Keep |
-| CITY-003 | Town timeline | Activity-day waveform, level-change styling, selected day, Today/historical preview, localized tooltip, hover preview, click selection, touch drag, edge auto-scroll, and outside clearing. | High | Keep |
-| CITY-004 | Town progress bar | Current/next level labels, milestone points, filled and remaining regions, total-point tooltip, effort-to-next copy, max-level state, and accessible progress attributes. | High | Keep |
-| CITY-005 | Level-up claim | Ready state, animated Level up control, one-time guidance, explicit claim, persistent unlocked level, image update, activity entry, and dual-corner confetti. | High | Keep |
-| CITY-006 | Responsive town composition | Wide image aspect ratio versus phone aspect ratio, phone waveform dimensions/gestures, touch action changes, safe placement, and theme-specific tooltip surfaces. | High | Keep |
+| CITY-001 | Tiny Swords island | Godot iframe in an intentional game surface. Loading, slow-start, unavailable and failure feedback allow continued study. Retry recreates the engine; accepted restore is required before any durable island write. | High | Replaced |
+| CITY-002 | Island camera | Godot owns drag/pan and zoom behavior; Edenia forwards zoom-out, reset and zoom-in buttons, with the game cursor and inventory-safe positioning. Page wheel scrolling remains available. | High | Replaced |
+| CITY-003 | Town snapshot timeline | Retired: no waveform, day selection, historical town renderer, image preloads or image handlers. Study History and its facts, period selection, heatmap and Undo/Redo remain. | High | Removed |
+| CITY-004 | Island XP bar | Remains below the island. Uses all ten Godot XP thresholds; displays claimed study level, next level/unlock, milestone XP, total XP and level-10 completion outside the canvas. Accessible progress values stay within the current range even after study Undo lowers XP. | High | Keep |
+| CITY-005 | Level-up claim | Explicit durable study claim, ready state, one-time guidance and activity entry remain. Godot grants rewards and celebrates only after its island save acknowledgment. No host confetti or duplicate celebration. | High | Replaced |
+| CITY-006 | Responsive island composition | Wide versus phone aspect ratios remain. Camera controls avoid the expanding Godot inventory. Visible modal dialogs and walkthroughs make the iframe and camera controls inert and relay hidden presentation to Godot; closing resumes the existing frame. | High | Replaced |
 | INS-001 | Insight eligibility | Insights remain hidden until the current data thresholds are met and stay hidden when disabled. Calculation uses the existing observation window and local history. | High | Keep |
 | INS-002 | Insight content | Weekly summary, preferred window, weekday/weekend patterns, momentum, routine reset/return, Anki fallback, and steady-process variants remain unchanged. | High | Keep |
 | INS-003 | Current/Previous insight views | Current tab, Previous count, disabled Previous when empty, retained history, localized date, empty-history copy, and current-tab fallback. | High | Keep |
@@ -155,13 +155,13 @@
 | FEED-030 | Grid removal | Removing a video hides it from the grid without deleting study history and remains recoverable through Undo. | High | Keep |
 | FEED-031 | YouTube refresh lifecycle | Five-hour staleness, per-channel active target, one-page fetch, metadata/status preservation, deduplication, 30-minute error backoff, automatic wake/visibility behavior, and partial-success toasts/logs. | High | Keep |
 | FEED-032 | Short-video behavior | Three-minute cutoff, hidden active results when disabled, preserved existing state, refresh-time skipping, recheck, and localized skip counts/hints. | High | Keep |
-| FEED-033 | Image fallbacks | Channel/avatar initials remain when images are absent or fail; thumbnails and city imagery keep their current fallback and lazy/preload behavior. | Medium | Keep |
+| FEED-033 | Image fallbacks | Channel/avatar initials remain when images are absent or fail; video thumbnails retain lazy loading and fallback behavior. Town images are retired. | Medium | Keep |
 
 ## Walkthroughs, prompts, feedback, and notifications
 
 | ID | Protected surface or behavior | States and variants to preserve | Risk | Disposition |
 |---|---|---|---|---|
-| HELP-001 | Main walkthrough | Town, Study History, and Videos steps; current targets; responsive target/text substitution; spotlight geometry; placement; and transient-UI cleanup. | High | Keep |
+| HELP-001 | Main walkthrough | Island, Study History, and Videos steps; current targets; responsive target/text substitution; spotlight geometry; placement; and transient-UI cleanup. | High | Keep |
 | HELP-002 | First-study walkthrough | Add, feed, first-card, and Other-language Add-now steps remain sequenced after onboarding according to available content. | High | Keep |
 | HELP-003 | Contextual walkthroughs | Level-up confirmation and frequent-user Anki choice remain targeted, modal-like, and integrated with Settings/integration deferral. | High | Keep |
 | HELP-004 | Walkthrough controls | Progress, Back, Next/Done, Skip/Close, disabled boundaries, keyboard Escape, target-click hooks, focus, scrims, arrow, scroll, and replay. | High | Keep |
@@ -187,7 +187,7 @@
 | STATE-007 | Integrations | Anki unavailable, hosted-origin CORS block, generic Anki failure, YouTube missing key, channel not found, unsupported custom URL, refresh failure, iframe API enhancement failure with usable fallback. | Keep |
 | STATE-008 | Feedback | Blank-message validation, live capture unavailable, busy submission, success confirmation. | Keep |
 | STATE-009 | Disabled controls | Trailer boundary arrows, onboarding Continue/Start during invalid/loading states, level-up until ready, Undo/Redo empty, shelf arrows at endpoints, Previous insight without history, and unavailable action buttons. | Keep |
-| STATE-010 | Media loading/failure | City loading fade/fallback, channel avatar initials with failed image hidden, lazy video thumbnails, and cached aspect-ratio fallback. | Keep |
+| STATE-010 | Media loading/failure | Island loading/failure retains durable work and keeps study usable; channel avatar initials with failed image hidden, lazy video thumbnails and cached aspect-ratio fallback remain. | Keep |
 
 ## Accessibility and interaction contracts
 
@@ -248,3 +248,10 @@
 ## Catch-all preservation rule
 
 Any currently working or intentionally hidden behavior discovered later that is not listed above is automatically added to this catalog as `Keep` before related code is changed. The implementer must document that discovery and its protection contract in the pull request; they must not silently “clean it up.”
+
+Tiny Swords replacement (#378) is implemented for local/CI validation. The release
+control gates only engine mounting; disabling it keeps the quiet unavailable island
+surface, study facts and saved island. Existing town analytics names are retained
+with `town_experience: tiny_swords` and `town_level_count: 10` so their level indexes
+are not interpreted as the old twelve-image progression. Deployment, public
+activation and live-learner rollout remain outside this change.

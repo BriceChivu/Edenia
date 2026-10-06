@@ -1,0 +1,19637 @@
+import { recoverProductionCityProgress } from './domain/city-progression-recovery.js'
+import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
+import { mapPersistenceResult } from './state/persistence-result.js'
+import { budgetObjectCache } from './state/storage-budget.js'
+import { budgetUndoState } from './state/action-history.js'
+import { budgetYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
+import {
+  initializeTownEconomy,
+  recordTownRewards,
+  getTownBalance,
+  purchaseFirstFlower,
+  FIRST_FLOWER_ID
+} from './state/town-economy.js'
+import { createYoutubeMetadataBudget } from './integrations/youtube-metadata-budget.js'
+import { resolveWindowAnchor } from './features/videos/window-anchor.js'
+import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
+import { bindUploadHistoryActions } from './features/channels/upload-history-actions.js'
+import { createYoutubeRequestGate, isYoutubeQuotaError } from './integrations/youtube-quota.js'
+import { createCollectionWindow } from './features/videos/collection-window.js'
+import { createShelfWindow } from './features/videos/shelf-window.js'
+import { isYoutubeMetadataFresh, expireYoutubeMetadata, refreshSavedYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
+import { checkNewUploads } from './integrations/youtube-upload-check.js'
+/* ═══════════════════════════════════════════════════════════
+   EDENIA — app.js
+   All logic: state, YouTube API, streak, Anki, city, rendering
+═══════════════════════════════════════════════════════════ */
+
+import {
+  addDays,
+  dateKeyToLocalDate,
+  daysBetweenDateKeys,
+  getAnkiDateKey,
+  getCurrentAnkiDateKey,
+  getDaysBetweenDateKeys,
+  getPreviousDateKey,
+  getWeekStart,
+  isValidTimestamp,
+  setLocalTime,
+  toDateKey
+} from './core/date-keys.js'
+import { escHtml, escapeSvgText } from './core/escaping.js'
+import { clampNumber } from './core/numbers.js'
+import {
+  createPlusAccessPolicy,
+  derivePlusAccessSimulation,
+  PLUS_FEATURE_IDS,
+  PLUS_ENTITLEMENT_STATES
+} from './domain/plus-access-policy.js'
+import {
+  getStudyHistoryAccessDecision,
+  STUDY_HISTORY_ACCESS_STATES
+} from './domain/study-history-access.js'
+import {
+  getStudyInsightAccessDecision,
+  getStudyInsightArchiveAccess,
+  STUDY_INSIGHT_ACCESS_STATES
+} from './domain/study-insight-access.js'
+import {
+  normalizePlusFeatureId,
+  normalizePlusPlanId
+} from './domain/plus-offer.js'
+import {
+  hasCoarsePrimaryPointer,
+  prefersReducedMotion,
+  supportsAnkiIntegrationInput,
+  supportsChannelShelfMouseDrag,
+  supportsVideoShelfPreviewInput,
+  usesCompactPortraitComposition,
+  usesDocumentHeatmapPositioning,
+  usesPhoneComposition,
+  usesTabletCoarseInput,
+  usesTapVideoShelfPreviewInput
+} from './core/responsive-capabilities.js'
+import {
+  deriveLearnerProfileAccessVisualTest,
+  deriveRuntimeEnvironment,
+  deriveStudyGuidanceEnabled
+} from './core/runtime-environment.js'
+import {
+  deriveAccountFeaturesEnabled
+} from './core/account-feature-rollout.js'
+import { deriveStorageKeys } from './core/storage-keys.js'
+import {
+  addVideoWatchCoverageRange,
+  getVideoWatchCoverageSeconds,
+  normalizeVideoWatchCoverage
+} from './domain/video-watch-coverage.js'
+import { normalizeVideoWatchProgress } from './domain/video-watch-progress.js'
+import {
+  buildStudyGuidance,
+  STUDY_GUIDANCE_LOOKBACK_DAYS
+} from './domain/study-guidance.js'
+import {
+  getVideoStatus,
+  hasVideoResumePriority,
+  hasWatchedConfirmationUnlock,
+  isFavoriteVideo,
+  isVideoRemovedFromFeed,
+  isVideoSetAside,
+  isVideoWatchLater,
+  normalizeResumeAtSeconds,
+  normalizeVideoStatus
+} from './domain/video-state.js'
+import {
+  bindImageFallbackActions
+} from './features/images/fallback-actions.js'
+import {
+  selectOnboardingChoiceLayout,
+  shouldSyncOnboardingChoiceLayoutForViewportResize
+} from './features/onboarding/choice-layout.js'
+import {
+  bindOnboardingStartOverActions
+} from './features/onboarding/start-over-actions.js'
+import {
+  ACTIVE_VIDEOS_PER_CHANNEL,
+  compareActiveVideos,
+  comparePausedVideos,
+  getRemovedFromFeedVideos,
+  getVisibleActiveVideos,
+  groupActiveVideosByChannel,
+  isHiddenFromVideoGrid,
+  isHiddenShortVideo,
+  isSavedActiveVideo,
+  matchesActiveChannelFilter,
+  matchesWatchedChannelFilter,
+  normalizeChannelShelfOrder
+} from './features/videos/feed-selectors.js'
+import {
+  getBestYoutubeThumbnail as getBestThumbnail,
+  getVideoAspectRatioFromItem,
+  getVideoDetailFromItem,
+  getYoutubeUploadsPlaylistId as uploadsId,
+  isShortDuration,
+  isYoutubeVideoId,
+  normalizeVideoAspectRatio,
+  parseYoutubeChannelInput,
+  parseYoutubeDuration as parseDuration,
+  parseYoutubeVideoId,
+  YOUTUBE_CHANNEL_ID_RE
+} from './integrations/youtube-parsing.js'
+import {
+  getAccountFeaturesRollout,
+  getAccountlessProfileFinalCutoverAt,
+  getEmergencyAccountlessRollbackEnabled,
+  getFreePlusEnabled,
+  getGoogleIdentityClientId,
+  getIndexedDbBackupCleanupEnabled,
+  getIndexedDbBackupsEnabled,
+  getIndexedDbProfileEnabled,
+  getLegacyProgressMigrationEnabled,
+  getLearnerProfileLifecycleEnabled,
+  getPlusCheckoutEnabled,
+  getStudyGuidanceEnabled,
+  getSupabasePublishableKey,
+  getSupabaseUrl,
+  getTurnstileSiteKey,
+  getYoutubeApiKey,
+  hasGoogleIdentityServicesRuntimeConfig,
+  hasSupabaseRuntimeConfig,
+  hasTurnstileRuntimeConfig,
+  hasYoutubeApiKey
+} from './integrations/runtime-config.js'
+import {
+  createLegacyProgressRelayClient,
+  deriveLegacyProgressCapabilityDigest,
+  deriveLegacyProgressRelayRuntime
+} from './integrations/legacy-progress-relay-client.js'
+import {
+  decryptProgressTransfer
+} from './state/legacy-progress-crypto.js'
+import {
+  createLegacyProgressMigrationController
+} from './state/legacy-progress-migration.js'
+import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
+import {
+  ACCOUNT_AUTH_ERRORS,
+  ACCOUNT_AUTH_NOTICES,
+  ACCOUNT_SESSION_STATES,
+  createAccountAuthController
+} from './integrations/account-auth-controller.js'
+import {
+  ACCOUNT_EXPORT_FEEDBACK,
+  createAccountExportController
+} from './integrations/account-export-controller.js'
+import {
+  createPlusAuthController,
+  PLUS_ACCOUNT_FEEDBACK,
+  PLUS_ACCOUNT_SESSION_STATES
+} from './integrations/plus-auth-controller.js'
+import {
+  createPlusBillingController,
+  PLUS_BILLING_OFFER_STATES
+} from './integrations/plus-billing-controller.js'
+import {
+  createDefaultReminderPreference,
+  createReminderPreferencesController,
+  REMINDER_PREFERENCE_FEEDBACK,
+  REMINDER_PREFERENCE_STATES
+} from './integrations/reminder-preferences-controller.js'
+import {
+  consumeReminderDestination
+} from './integrations/reminder-destination.js'
+import {
+  createAccountStudySnapshotController
+} from './integrations/account-study-snapshot-controller.js'
+import {
+  createReminderEligibilitySnapshot
+} from './domain/reminder-eligibility-snapshot.js'
+import {
+  getEdeniaSessionReplayUrl,
+  getPersistedAnalyticsUserId,
+  hasEdeniaAnalyticsStateSync,
+  identifyEdeniaAuthenticatedUser,
+  isEdeniaAnalyticsEnabled,
+  resumeEdeniaSessionRecording,
+  resetEdeniaAuthenticatedUser,
+  setEdeniaPersonProperties,
+  syncEdeniaAnalyticsState,
+  trackEdeniaEvent
+} from './integrations/analytics-bridge.js'
+import {
+  createAccountAnalyticsIdentity
+} from './integrations/account-analytics-identity.js'
+import {
+  createGoogleIdentityServicesController
+} from './integrations/google-identity-services-controller.js'
+import {
+  createTurnstileController
+} from './integrations/turnstile-controller.js'
+import {
+  formatLocaleDate,
+  formatLocaleDateTime,
+  getBrowserDefaultLocale,
+  getCurrentLocale,
+  getLocaleLabel,
+  getMissingI18nKeys,
+  normalizeLocale,
+  setCurrentLocale,
+  SUPPORTED_LOCALES,
+  t
+} from './i18n/runtime.js'
+import {
+  DEFAULT_THEME,
+  normalizeAnkiCount,
+  normalizeIncludeShorts,
+  normalizeTheme,
+  normalizeWeeklyGoalHours
+} from './state/config-normalization.js'
+import {
+  isValidStateShape,
+  sanitizeConfigForStorage
+} from './state/persistence-contract.js'
+import {
+  createPortableLearnerProfileEnvelope,
+  finalizePortableLearnerProfileEnvelope,
+  LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES,
+  PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
+  PORTABLE_LEARNER_PROFILE_SCHEMA,
+  preparePortableLearnerProfileEnvelope,
+  verifyPortableLearnerProfileEnvelope
+} from './state/portable-learner-profile.js'
+import {
+  createInitialSignedInProfileEnvelope
+} from './state/first-signed-in-profile.js'
+import { createImportedStateReader } from './state/imported-state.js'
+import {
+  normalizeUndoState,
+  UNDO_ACTION_TYPES,
+  UNDO_STACK_LIMIT
+} from './state/action-history.js'
+import {
+  getChannelRemovalVideoFields,
+  restoreChannelRemovalVideoFields
+} from './state/channel-removal-history.js'
+import {
+  createPendingStarterFeed,
+  normalizeOnboardingState,
+  ONBOARDING_VERSION,
+  STARTER_FEED_CHANNEL_LIMIT
+} from './state/onboarding-state.js'
+import {
+  normalizeChannelRefreshState
+} from './state/channel-refresh-state.js'
+import {
+  getFreeTrackedChannelAllowance,
+  getManualVideoOnlyChannels,
+  getTrackedChannelAddDecision,
+  getTrackedChannelIds,
+  normalizeTrackedChannelPolicyState,
+  shouldPreserveVideoAfterTrackedChannelRemoval,
+  shouldTrackManualVideoChannel,
+  TRACKED_CHANNEL_ADD_DECISIONS,
+  transitionTrackedChannelPolicyState
+} from './state/tracked-channel-policy-state.js'
+import {
+  getTrackedAnkiCounts,
+  isAnkiEnabled,
+  normalizeAnkiDateKeys,
+  normalizeAnkiTrackingConfig,
+  setAnkiResumeBaselineFromStats,
+  setPendingAnkiResumeBaseline
+} from './state/anki-state.js'
+import {
+  isStudyInsightsEnabled,
+  normalizeStudyInsightConfig,
+  STUDY_INSIGHT_LOOKBACK_DAYS,
+  STUDY_INSIGHT_TIME_WINDOWS,
+  STUDY_INSIGHT_VARIANT_COUNT
+} from './state/study-insights-state.js'
+import {
+  appendActivityLog,
+  normalizeActivityLogState
+} from './state/activity-log.js'
+import {
+  getEdeniaProfileCreatedAt,
+  hasRecordedAnkiDataSinceProfileCreation,
+  normalizeNoAnkiFrequentUserPromptState,
+  recordNoAnkiFrequentUserWatchedDate
+} from './state/anki-prompt-state.js'
+import {
+  createLearnerProfileNormalizer
+} from './state/learner-profile-state.js'
+import {
+  createAccountlessProfileMigrationController
+} from './state/accountless-profile-migration.js'
+import {
+  ACCOUNTLESS_PROFILE_MIGRATION_STATES
+} from './domain/accountless-profile-migration.js'
+import {
+  createLearnerProfileLifecycleAuthority,
+  LEARNER_PROFILE_ACCESS_STATES
+} from './state/learner-profile-lifecycle.js'
+import {
+  createOnboardingProfileDraftStore
+} from './state/onboarding-profile-draft.js'
+import {
+  createLearnerProfileLocalPersistenceAdapter
+} from './state/learner-profile-local-adapter.js'
+import {
+  createLearnerProfileOwnerVerificationStore
+} from './state/learner-profile-owner-verification.js'
+import {
+  createLearnerProfileAuthenticationAdapter
+} from './integrations/learner-profile-authentication-adapter.js'
+import {
+  createLearnerProfileReverificationController
+} from './integrations/learner-profile-reverification.js'
+import {
+  createLearnerProfileCloudPersistenceAdapter
+} from './integrations/learner-profile-cloud-persistence.js'
+import {
+  createDefaultStateFactory,
+  normalizeHistoryView
+} from './state/default-state.js'
+import {
+  createStateStore,
+  isStorageQuotaError
+} from './state/store.js'
+import {
+  createStateBackupStore,
+  isValidStateBackupEntry
+} from './state/backups.js'
+import {
+  createIndexedDbBackupStorage,
+  STATE_BACKUP_DATABASE_NAME
+} from './state/indexed-db-backups.js'
+import {
+  createPlusEntitlementCache
+} from './state/plus-entitlement-cache.js'
+import {
+  bindIntroCityLevelActions
+} from './features/onboarding/intro-city-level-actions.js'
+import {
+  bindIntroFinishActions
+} from './features/onboarding/intro-finish-actions.js'
+import {
+  bindIntroLocaleMenuActions
+} from './features/onboarding/intro-locale-menu-actions.js'
+import {
+  bindIntroLocaleSelectionActions
+} from './features/onboarding/intro-locale-selection-actions.js'
+import {
+  bindIntroNavigationActions
+} from './features/onboarding/intro-navigation-actions.js'
+import {
+  bindIntroSoundActions
+} from './features/onboarding/intro-sound-actions.js'
+import {
+  bindOnboardingRecoveryActions
+} from './features/onboarding/onboarding-recovery-actions.js'
+import {
+  bindOnboardingAccountActions
+} from './features/onboarding/account-actions.js'
+import {
+  bindPersonalizedOnboardingActions
+} from './features/onboarding/personalized-onboarding-actions.js'
+import {
+  LEARNER_LANGUAGE_OPTIONS,
+  LEARNER_LEVEL_OPTIONS,
+  ONBOARDING_CHANNEL_STYLE_KEYS
+} from './features/onboarding/options.js'
+import {
+  CURATED_CHANNEL_CATALOG,
+  CURATED_CHANNEL_SEARCH_IGNORED_WORDS,
+  CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES,
+  CURATED_NOT_SURE_CHANNEL_IDS
+} from './features/channels/curated-catalog.js'
+import {
+  bindChannelFilterActions
+} from './features/channels/filter-actions.js'
+import {
+  bindChannelRemoveActions
+} from './features/channels/remove-actions.js'
+import {
+  bindChannelOrderActions
+} from './features/channels/order-actions.js'
+import {
+  bindChannelShelfScrollActions
+} from './features/channels/shelf-scroll-actions.js'
+import {
+  isSupportedChannelSearchQuery,
+  normalizeChannelSearchText,
+  tokenMatchesChannelSearch
+} from './features/channels/search-model.js'
+import {
+  bindChannelVideoFormatActions,
+  CHANNEL_VIDEO_FORMATS,
+  getAvailableChannelVideoFormat,
+  getChannelVideoFormat,
+  getChannelVideoFormatPreference,
+  normalizeChannelVideoFormatPreferences,
+  normalizeChannelVideoFormat,
+  setChannelVideoFormatPreference
+} from './features/channels/video-format-actions.js'
+import {
+  CITY_IMAGE_SOURCES,
+  CITY_LEVELS,
+  getCityLevel,
+  getCityLevelIndex,
+  getCityScoreForLevelIndex,
+  normalizeCityProgress
+} from './features/city/model.js'
+import {
+  getCityImageCoverGeometry
+} from './features/city/viewport-geometry.js'
+import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
+import {
+  bindCityWaveformBarActions
+} from './features/city/waveform-bar-actions.js'
+import {
+  bindCityWaveformMouseActions
+} from './features/city/waveform-mouse-actions.js'
+import { bindCityZoomActions } from './features/city/zoom-actions.js'
+import {
+  FIRST_STUDY_WALKTHROUGH_STEPS,
+  LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP,
+  OTHER_FIRST_STUDY_WALKTHROUGH_STEP,
+  resolveWalkthroughTextKey,
+  WALKTHROUGH_STEPS
+} from './features/walkthrough/steps.js'
+import {
+  getVideoSearchMatches,
+  normalizeVideoSearchText
+} from './features/videos/search-model.js'
+import {
+  bindVideoSearchResultActions
+} from './features/videos/search-result-actions.js'
+import {
+  bindVideoSearchShellActions
+} from './features/videos/search-shell-actions.js'
+import {
+  bindManualVideoShellActions
+} from './features/videos/manual-video-shell-actions.js'
+import {
+  bindNextStudyActions
+} from './features/videos/next-study-actions.js'
+import { bindVideoOrganizationActions } from './features/videos/organization-actions.js'
+import {
+  bindVideoShelfPreviewActions
+} from './features/videos/shelf-preview-actions.js'
+import {
+  bindVideoStateActions
+} from './features/videos/video-state-actions.js'
+import {
+  bindVideoWatchPromptActions
+} from './features/videos/watch-prompt-actions.js'
+import {
+  bindStatusFilterActions
+} from './features/videos/status-filter-actions.js'
+import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
+import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
+import { bindStudyInsightActions } from './features/study-insights/actions.js'
+import {
+  bindStudyInsightLockedAccessActions
+} from './features/study-insights/locked-access-actions.js'
+import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
+import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
+import {
+  bindSettingsAccountActions
+} from './features/settings/account-actions.js'
+import {
+  bindReminderPreferenceActions
+} from './features/settings/reminder-preference-actions.js'
+import {
+  bindSettingsBackupRestoreActions
+} from './features/settings/backup-restore-actions.js'
+import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
+import {
+  bindSettingsChannelRemoveActions
+} from './features/settings/channel-remove-actions.js'
+import { bindSettingsLocaleActions } from './features/settings/locale-actions.js'
+import {
+  bindSettingsPreferenceActions
+} from './features/settings/preference-actions.js'
+import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
+import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
+import { bindSettingsShellActions } from './features/settings/shell-actions.js'
+import { bindSettingsSyncActions } from './features/settings/sync-actions.js'
+import {
+  bindLegacyProgressRecoveryActions
+} from './features/settings/legacy-progress-recovery-actions.js'
+import {
+  createLegacyProgressMigrationView
+} from './features/migration/legacy-progress-view.js'
+import {
+  bindAccountlessProfileMigrationActions
+} from './features/migration/accountless-profile-migration-actions.js'
+import {
+  createAccountlessProfileMigrationView
+} from './features/migration/accountless-profile-migration-view.js'
+import {
+  bindLearnerProfileAccessActions
+} from './features/profile-access/actions.js'
+import {
+  bindLearnerProfileSyncActions
+} from './features/profile-access/sync-actions.js'
+import {
+  bindLearnerProfileConflictActions
+} from './features/profile-access/conflict-actions.js'
+import {
+  createLearnerProfileConflictView
+} from './features/profile-access/conflict-view.js'
+import {
+  createLearnerProfileAccessView,
+  isLearnerProfileAuthenticationState
+} from './features/profile-access/view.js'
+import {
+  createLearnerProfileSyncView
+} from './features/profile-access/sync-view.js'
+import {
+  bindStudyHistoryPeriodOptionActions
+} from './features/study-history/period-option-actions.js'
+import {
+  bindStudyHistoryPeriodToggleActions
+} from './features/study-history/period-toggle-actions.js'
+import {
+  bindStudyHistoryPointsPopoverActions
+} from './features/study-history/points-popover-actions.js'
+import {
+  bindStudyHistoryHeatmapTooltipActions
+} from './features/study-history/heatmap-tooltip-actions.js'
+import {
+  bindStudyHistoryLockedAccessActions
+} from './features/study-history/locked-access-actions.js'
+import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
+import {
+  bindStudyHistoryWatchedPopoverActions
+} from './features/study-history/watched-popover-actions.js'
+import {
+  bindStudyHistoryWatchedVideoActions
+} from './features/study-history/watched-video-actions.js'
+import { bindSandboxActions } from './features/sandbox/actions.js'
+import { bindThemeActions } from './features/theme/actions.js'
+import { bindFeedbackConfirmationActions } from './features/feedback/confirmation-actions.js'
+import { bindFeedbackModalActions } from './features/feedback/modal-actions.js'
+import {
+  bindFeedbackSubmissionActions
+} from './features/feedback/submission-actions.js'
+import { bindPlusUpgradeActions } from './features/plus/upgrade-actions.js'
+import {
+  renderPlusUpgradeExperience
+} from './features/plus/upgrade-presenter.js'
+
+import {
+  shouldHoldPausedInternalProfile,
+  showPausedInternalProfile
+} from './features/profile-access/experiment-pause.js'
+
+// Fresh public-beta users start with no pre-filled YouTube channels.
+const DEFAULT_CHANNELS = []
+const DEFAULT_CHANNELS_VERSION = 2
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+
+const RUNTIME_ENVIRONMENT = deriveRuntimeEnvironment(window.location)
+const {
+  isSandbox: IS_SANDBOX,
+  isInternalTest: IS_INTERNAL_TEST,
+  isLocalhost: IS_LOCALHOST,
+  isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
+  isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
+} = RUNTIME_ENVIRONMENT
+const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
+  RUNTIME_ENVIRONMENT,
+  getStudyGuidanceEnabled()
+)
+const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
+  RUNTIME_ENVIRONMENT,
+  getAccountFeaturesRollout()
+)
+// Experiment: pixel-art-town. Gate: IS_INTERNAL_TEST with Auth rollout off.
+const INTERNAL_PROFILE_PAUSED = shouldHoldPausedInternalProfile({
+  location: window.location,
+  accountFeaturesEnabled: ACCOUNT_FEATURES_ENABLED,
+  readStorage: key => localStorage.getItem(key)
+})
+const EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED =
+  getEmergencyAccountlessRollbackEnabled()
+const ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT =
+  getAccountlessProfileFinalCutoverAt()
+const ACCOUNT_ENTRY_REQUIRED = ACCOUNT_FEATURES_ENABLED
+  && !EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED
+const GOOGLE_IDENTITY_CLIENT_ID = getGoogleIdentityClientId()
+const GOOGLE_IDENTITY_SERVICES_READY =
+  hasGoogleIdentityServicesRuntimeConfig()
+const TURNSTILE_SITE_KEY = getTurnstileSiteKey()
+const TURNSTILE_READY = hasTurnstileRuntimeConfig()
+const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX
+const INDEXED_DB_PROFILE_ENABLED = getIndexedDbProfileEnabled()
+const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled() || INDEXED_DB_PROFILE_ENABLED
+const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
+  INDEXED_DB_PROFILE_ENABLED || (INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled())
+const LEGACY_PROGRESS_MIGRATION_ENABLED =
+  getLegacyProgressMigrationEnabled()
+const LEARNER_PROFILE_LIFECYCLE_ENABLED =
+  getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
+const LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE =
+  deriveLearnerProfileAccessVisualTest(window.location)
+let learnerProfileAccessVisualTestActive =
+  LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE !== null
+const LEARNER_PROFILE_ACCESS_BUSY_PRESENTATION_DELAY_MS = 250
+const LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS = 2_000
+const PLUS_ACCESS_CONFIG = Object.freeze({
+  freePlusEnabled: getFreePlusEnabled(),
+  plusCheckoutEnabled: getPlusCheckoutEnabled(),
+  simulatedTier: derivePlusAccessSimulation(
+    window.location,
+    RUNTIME_ENVIRONMENT
+  )
+})
+let plusAccessPolicy = createPlusAccessPolicy(PLUS_ACCESS_CONFIG)
+const SANDBOX_CHANNELS_VERSION = 2
+const SANDBOX_CHANNEL_DEFINITIONS = [
+  { id: 'sandbox-focus', nameKey: 'sandbox.channel.focus', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg/250px-Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg' },
+  { id: 'sandbox-memory', nameKey: 'sandbox.channel.memory', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Apink_on_19_April_2022.jpg/250px-Apink_on_19_April_2022.jpg' },
+  { id: 'sandbox-projects', nameKey: 'sandbox.channel.projects', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Ulughbegsaurus.webp/250px-Ulughbegsaurus.webp.png' },
+  { id: 'sandbox-language', nameKey: 'sandbox.channel.language', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Brown_Rot_on_Apple.jpg/250px-Brown_Rot_on_Apple.jpg' },
+  { id: 'sandbox-science', nameKey: 'sandbox.channel.science', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Waltraud_Strotzer_%28cropped%29.jpg/250px-Waltraud_Strotzer_%28cropped%29.jpg' },
+  { id: 'sandbox-history', nameKey: 'sandbox.channel.history', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Hemicycla_mascaensis_01.JPG/250px-Hemicycla_mascaensis_01.JPG' },
+  { id: 'sandbox-design', nameKey: 'sandbox.channel.design', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Movie_Madness_storefront_Oct_20_2017_%28cropped%29.jpg/250px-Movie_Madness_storefront_Oct_20_2017_%28cropped%29.jpg' },
+  { id: 'sandbox-music', nameKey: 'sandbox.channel.music', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Savitha_Shri_B_2019_Karlsruhe.jpg/250px-Savitha_Shri_B_2019_Karlsruhe.jpg' },
+  { id: 'sandbox-travel', nameKey: 'sandbox.channel.travel', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Ideogram_human_chromosome_3.svg/250px-Ideogram_human_chromosome_3.svg.png' },
+  { id: 'sandbox-culture', nameKey: 'sandbox.channel.culture', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/SNYDER_MILL%2C_EXETER_TWP.%2C_BERKS_COUNTY.jpg/250px-SNYDER_MILL%2C_EXETER_TWP.%2C_BERKS_COUNTY.jpg' }
+]
+const {
+  storageKey: STORAGE_KEY,
+  accountStudySyncOwnerKey: ACCOUNT_STUDY_SYNC_OWNER_KEY,
+  youtubeChannelSearchCacheKey: YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
+  youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
+  stateBackupKey: STATE_BACKUP_KEY,
+  legacyProgressMigrationKey: LEGACY_PROGRESS_MIGRATION_KEY,
+  learnerProfileAccessKey: LEARNER_PROFILE_ACCESS_KEY,
+  learnerProfileOwnerVerificationKey:
+    LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
+  learnerProfileSyncKey: LEARNER_PROFILE_SYNC_KEY,
+  accountlessProfileMigrationKey:
+    ACCOUNTLESS_PROFILE_MIGRATION_KEY,
+  onboardingProfileDraftKey: ONBOARDING_PROFILE_DRAFT_KEY,
+  accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
+  plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
+  sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
+  configCookieKey: CONFIG_COOKIE_KEY
+} = deriveStorageKeys({
+  isSandbox: IS_SANDBOX,
+  isInternalTest: IS_INTERNAL_TEST
+})
+const LEGACY_PROGRESS_RELAY_RUNTIME = deriveLegacyProgressRelayRuntime({
+  isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST,
+  locationLike: window.location,
+  supabasePublishableKey: getSupabasePublishableKey(),
+  supabaseUrl: getSupabaseUrl()
+})
+const LEGACY_PROGRESS_HELPER_URL = IS_LEGACY_MIGRATION_TEST
+  ? 'http://localhost:8002/_legacy_migration_site/?legacy_migration_test=1'
+  : 'https://bricechivu.github.io/edenia-migrate/'
+const createBaseDefaultState = createDefaultStateFactory({
+  defaultChannels: DEFAULT_CHANNELS,
+  defaultChannelsVersion: DEFAULT_CHANNELS_VERSION,
+  onboardingVersion: ONBOARDING_VERSION,
+  isSandbox: IS_SANDBOX,
+  isDefaultChannelId,
+  getBrowserDefaultLocale
+})
+function defaultState(...args) {
+  const state = createBaseDefaultState(...args)
+  if (window.EDENIA_PIXEL_TOWN?.enabled) initializeTownEconomy(state, { newProfile: true })
+  return state
+}
+const onboardingProfileDraftStore = createOnboardingProfileDraftStore({
+  createDefaultState(locale) {
+    return defaultState(4, DEFAULT_CHANNELS, undefined, null, locale)
+  },
+  fallbackLocale: getBrowserDefaultLocale(),
+  storage: localStorage,
+  storageKey: ONBOARDING_PROFILE_DRAFT_KEY
+})
+const readImportedState = createImportedStateReader({
+  createDefaultState: defaultState,
+  removeLegacyVideoWatchReminderState
+})
+const STATE_BACKUP_DATABASE = IS_INTERNAL_TEST
+  ? `${STATE_BACKUP_DATABASE_NAME}_internal_test`
+  : STATE_BACKUP_DATABASE_NAME
+const INDEXED_DB_BACKUP_MARKER_KEY =
+  `${STATE_BACKUP_KEY}_indexed_db_v1`
+let primaryProfileRepository = null
+let primaryProfileStorageUnavailable = false
+const primaryStorage = {
+  getItem(key) {
+    return key === STORAGE_KEY && primaryProfileRepository
+      ? primaryProfileRepository.readRaw() : localStorage.getItem(key)
+  },
+  setItem: (key, value) => localStorage.setItem(key, value),
+  removeItem: key => localStorage.removeItem(key)
+}
+const stateBackupStoreOptions = {
+  readPrimary: () => primaryStorage.getItem(STORAGE_KEY),
+  storageKey: STORAGE_KEY,
+  stateBackupKey: STATE_BACKUP_KEY,
+  isSandbox: IS_SANDBOX,
+  isValidStateShape,
+  prepareStateForBackup
+}
+
+function createDisabledStateBackupStore() {
+  return {
+    createStateBackup: () => null,
+    createStateBackupFromState: () => null,
+    getLatestBackupState: () => null,
+    getStateBackupEntries: () => [],
+    pruneOldestStateBackup: () => false,
+    writeStateBackupEntries: () => []
+  }
+}
+
+let stateBackupStore = createStateBackupStore({
+  ...stateBackupStoreOptions,
+  storage: localStorage
+})
+let flushStateBackupWrites = async () => ({
+  entries: stateBackupStore.getStateBackupEntries(),
+  error: null,
+  persisted: true
+})
+let backupRecoveryUnavailable = false
+let backupStorageSharesPrimaryQuota = true
+let indexedDbBackupStorageActive = false
+let stateBackupStorageReady = false
+let stateBackupStorageInitialization = null
+
+function createStateBackup(...args) {
+  return stateBackupStore.createStateBackup(...args)
+}
+
+function createStateBackupFromState(...args) {
+  return stateBackupStore.createStateBackupFromState(...args)
+}
+
+function getLatestBackupState(...args) {
+  return stateBackupStore.getLatestBackupState(...args)
+}
+
+function getStateBackupEntries(...args) {
+  return stateBackupStore.getStateBackupEntries(...args)
+}
+
+function pruneOldestStateBackup(...args) {
+  return stateBackupStore.pruneOldestStateBackup(...args)
+}
+
+function pruneBackupForPrimaryQuota(...args) {
+  if (!backupStorageSharesPrimaryQuota) return false
+  return pruneOldestStateBackup(...args)
+}
+
+async function initializeStateBackupStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
+  if (!LOCAL_BACKUPS_ENABLED) {
+    try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
+    stateBackupStore = createDisabledStateBackupStore()
+    flushStateBackupWrites = async () => ({
+      entries: [],
+      error: null,
+      persisted: true
+    })
+    return
+  }
+
+  let hasIndexedDbBackups = false
+  try {
+    hasIndexedDbBackups = localStorage.getItem(
+      INDEXED_DB_BACKUP_MARKER_KEY
+    ) === '1'
+  } catch {}
+  if (!INDEXED_DB_BACKUPS_ENABLED && !hasIndexedDbBackups) return
+
+  try {
+    const repository = await createIndexedDbBackupStorage({
+      backupKey: STATE_BACKUP_KEY,
+      beforeLegacyCleanup() {
+        try {
+          localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
+          return localStorage.getItem(INDEXED_DB_BACKUP_MARKER_KEY) === '1'
+        } catch {
+          return false
+        }
+      },
+      cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED || hasIndexedDbBackups,
+      databaseName: STATE_BACKUP_DATABASE,
+      indexedDb: window.indexedDB,
+      isValidEntry: entry => isValidStateBackupEntry(
+        entry,
+        isValidStateShape
+      ),
+      legacyStorage: localStorage
+    })
+    stateBackupStore = createStateBackupStore({
+      ...stateBackupStoreOptions,
+      storage: repository.storage
+    })
+    flushStateBackupWrites = repository.flush
+    backupStorageSharesPrimaryQuota = repository.mirrorsLegacy
+    indexedDbBackupStorageActive = true
+    if (repository.migration.entryCount > 0) {
+      try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+    }
+  } catch (error) {
+    console.warn('Edenia IndexedDB backup initialization failed.', error)
+    backupRecoveryUnavailable = hasIndexedDbBackups
+    if (hasIndexedDbBackups) {
+      // The durable bank can hold newer protected copies. Keep ordinary
+      // primary operations available, but never recreate a legacy bank or
+      // claim a verified rollback backup while its repository is unavailable.
+      stateBackupStore = createDisabledStateBackupStore()
+      backupStorageSharesPrimaryQuota = false
+      flushStateBackupWrites = async () => ({ entries: [], error, persisted: false })
+    }
+  }
+}
+
+async function createVerifiedStateBackup(reason, options = {}) {
+  const entry = createStateBackup(reason, options)
+  if (!entry) return null
+  const result = await flushStateBackupWrites()
+  const verified = result.persisted && result.entries.some(candidate => (
+    candidate.id === entry.id
+    && JSON.stringify(candidate) === JSON.stringify(entry)
+  ))
+  if (!verified) {
+    console.error('Edenia could not verify a rollback backup.', result.error)
+    return null
+  }
+  if (indexedDbBackupStorageActive) {
+    try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+  }
+  return entry
+}
+
+async function createVerifiedStateBackupFromState(
+  reason,
+  state,
+  options = {}
+) {
+  const entry = createStateBackupFromState(reason, state, options)
+  if (!entry) return null
+  const result = await flushStateBackupWrites()
+  const verified = result.persisted && result.entries.some(candidate => (
+    candidate.id === entry.id
+    && JSON.stringify(candidate) === JSON.stringify(entry)
+  ))
+  if (!verified) {
+    console.error('Edenia could not verify an imported recovery backup.')
+    return null
+  }
+  if (indexedDbBackupStorageActive) {
+    try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+  }
+  return entry
+}
+const stateStore = createStateStore({
+  storage: localStorage,
+  getRepository: () => primaryProfileRepository,
+  storageKey: STORAGE_KEY,
+  // Search results are refetchable. Daily usage, recovery copies, profile
+  // drafts and unrecognized storage keys must survive quota recovery.
+  discardableCacheKeys: [YOUTUBE_CHANNEL_SEARCH_CACHE_KEY],
+  normalizeLoadedState,
+  normalizeStateBeforeSave,
+  createStateBackup,
+  pruneOldestStateBackup: pruneBackupForPrimaryQuota,
+  saveConfigCookie,
+  syncPersistedStateToAnalytics,
+  getLatestBackupState,
+  loadConfigCookie,
+  createDefaultStateFromConfig
+})
+const {
+  canPersistLocalState,
+  loadState: loadPersistedState,
+  saveImportedState: saveImportedPersistedState,
+  saveState: savePersistedState
+} = stateStore
+const learnerProfileAuthenticationAdapter =
+  createLearnerProfileAuthenticationAdapter({
+    initialStatus: ACCOUNT_FEATURES_ENABLED ? 'loading' : 'signed-out'
+  })
+
+function createLearnerProfileConnectivityAdapter(target) {
+  const listeners = new Set()
+  const getObservation = () => Object.freeze({
+    status: target.navigator.onLine === false ? 'offline' : 'online'
+  })
+  const publish = () => {
+    const observation = getObservation()
+    for (const listener of listeners) listener(observation)
+  }
+  return Object.freeze({
+    getObservation,
+    subscribe(listener) {
+      listeners.add(listener)
+      target.addEventListener('online', publish)
+      target.addEventListener('offline', publish)
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size) return
+        target.removeEventListener('online', publish)
+        target.removeEventListener('offline', publish)
+      }
+    }
+  })
+}
+
+function createLearnerProfileActivationId() {
+  if (typeof window.crypto?.randomUUID === 'function') {
+    return window.crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  window.crypto.getRandomValues(bytes)
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function importSignedInProfileEnvelope(envelope) {
+  const state = getImportedSyncState(envelope?.profile)
+  if (!state) return null
+  normalizeLoadedState(state)
+  return state
+}
+
+async function clearLearnerDerivedDataForOwnerReplacement() {
+  stateBackupStore.writeStateBackupEntries([])
+  const backupResult = await flushStateBackupWrites()
+  if (!backupResult.persisted || backupResult.entries.length !== 0) return false
+
+  const keys = [
+    ACCOUNT_STUDY_SYNC_OWNER_KEY,
+    PLUS_ENTITLEMENT_CACHE_KEY,
+    YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
+    YOUTUBE_CHANNEL_SEARCH_USAGE_KEY
+  ]
+  try {
+    for (const key of keys) localStorage.removeItem(key)
+    document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
+    return keys.every(key => localStorage.getItem(key) === null)
+      && getCookie(CONFIG_COOKIE_KEY) === null
+  } catch {
+    return false
+  }
+}
+
+const learnerProfileAccessView = createLearnerProfileAccessView({
+  busyPresentationDelayMs: LEARNER_PROFILE_ACCESS_BUSY_PRESENTATION_DELAY_MS,
+  clearTimer: timer => window.clearTimeout(timer),
+  formatDateTime: value => formatLocaleDateTime(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }),
+  openingStatusPresentationDelayMs:
+    LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS,
+  root: document,
+  setTimer: (callback, delay) => window.setTimeout(callback, delay),
+  translate: t
+})
+const learnerProfileConflictView = createLearnerProfileConflictView({
+  isTownEconomyEnabled: () => Boolean(window.EDENIA_PIXEL_TOWN?.enabled),
+  clearTimer: timer => window.clearTimeout(timer),
+  formatDateTime: value => formatLocaleDateTime(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }),
+  formatNumber: value => new Intl.NumberFormat(getCurrentLocale()).format(value),
+  now: () => Date.now(),
+  root: document,
+  setTimer: (callback, delay) => window.setTimeout(callback, delay),
+  translate: t
+})
+const learnerProfileSyncView = createLearnerProfileSyncView({
+  root: document,
+  translate: t
+})
+const accountlessProfileMigrationView =
+  createAccountlessProfileMigrationView({
+    root: document,
+    translate: t
+  })
+let learnerProfileSyncViewState = Object.freeze({ status: 'idle' })
+learnerProfileSyncView.render(learnerProfileSyncViewState)
+let learnerProfileLifecycleAuthority = null
+let learnerProfileLocalPersistence = null
+let learnerProfileReverificationController = null
+let accountlessProfileMigrationController = null
+let learnerProfileProtectedReset = null
+let learnerProfileOpeningStartedAt = null
+let learnerProfileOpeningCompletionToastPending = false
+let learnerProfileOpeningFocusHandoffPending = false
+
+if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
+  const ownerVerification = createLearnerProfileOwnerVerificationStore({
+    eventTarget: window,
+    storage: localStorage,
+    storageKey: LEARNER_PROFILE_OWNER_VERIFICATION_KEY
+  })
+  learnerProfileLocalPersistence = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
+    accountlessProfileId: `accountless:${STORAGE_KEY}`,
+    clearLearnerDerivedData: clearLearnerDerivedDataForOwnerReplacement,
+    eventTarget: window,
+    hasProfile: hasPersistedLearnerProfile,
+    loadProfile: () => loadPersistedState({ persistCleanup: false }),
+    inheritProfileRevision: (state, source) => primaryProfileRepository?.inheritRevision(state, source),
+    replaceProfile: saveImportedPersistedState,
+    saveProfile: savePersistedState,
+    storage: localStorage
+  })
+  accountlessProfileMigrationController =
+    createAccountlessProfileMigrationController({
+      clock: { now: () => Date.now() },
+      createOperationId: createLearnerProfileActivationId,
+      emergencyRollbackEnabled: EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED,
+      finalCutoverAt: ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT,
+      onStateChange(state) {
+        accountlessProfileMigrationView.render(state)
+        if (
+          state.status === ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+        ) {
+          learnerProfileLifecycleAuthority?.refresh()
+        }
+      },
+      storage: localStorage,
+      storageKey: ACCOUNTLESS_PROFILE_MIGRATION_KEY
+    })
+  const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
+    clearOnboardingDraft: onboardingProfileDraftStore.clear,
+    createOnboardingEnvelope: onboardingState => (
+      createInitialSignedInProfileEnvelope(onboardingState, {
+        createEnvelope: (state, options) => (
+          createPortableLearnerProfileEnvelope(state, {
+            ...options,
+            maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+          })
+        ),
+        normalizeLearnerProfile: normalizeLearnerProfileState
+      })
+    ),
+    createOperationId: createLearnerProfileActivationId,
+    eventTarget: window,
+    finalizeEnvelope: prepared => finalizePortableLearnerProfileEnvelope(
+      prepared,
+      { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+    ),
+    getClient: getSupabaseClient,
+    hasOnboardingProfileDraft: () => (
+      onboardingProfileDraftStore.hasDraft()
+      && personalizedOnboardingState.active
+    ),
+    importEnvelope: importSignedInProfileEnvelope,
+    isOnline: () => window.navigator.onLine !== false,
+    now: () => Date.now(),
+    prepareEnvelope: profile => preparePortableLearnerProfileEnvelope(
+      profile,
+      { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+    ),
+    readOnboardingState: loadOnboardingWorkingState,
+    setTimer: (callback, delay) => window.setTimeout(callback, delay),
+    storage: localStorage,
+    syncStorageKey: LEARNER_PROFILE_SYNC_KEY,
+    verifyEnvelope: envelope => verifyPortableLearnerProfileEnvelope(
+      envelope,
+      { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+    )
+  })
+  cloudPersistence.subscribe(state => {
+    learnerProfileSyncViewState = state
+    learnerProfileSyncView.render(state)
+    if (
+      state?.status === 'up-to-date'
+      && learnerProfileOpeningCompletionToastPending
+      && document.getElementById('mainApp')?.classList.contains('hidden') === false
+    ) {
+      learnerProfileOpeningCompletionToastPending = false
+      showToast(t('progressSync.upToDate'))
+    }
+  })
+  learnerProfileLifecycleAuthority = createLearnerProfileLifecycleAuthority({
+    adapters: {
+      analytics: {
+        accessChanged() {},
+        profileActivated() {},
+        profileStartedOver: () => trackEdeniaEvent('profile_started_over'),
+        profileSaved: syncPersistedStateToAnalytics
+      },
+      authentication: learnerProfileAuthenticationAdapter,
+      clock: {
+        clearTimer: timer => window.clearTimeout(timer),
+        now: () => Date.now(),
+        setTimer: (callback, delay) => window.setTimeout(callback, delay)
+      },
+      cloudPersistence,
+      connectivity: createLearnerProfileConnectivityAdapter(window),
+      exportDownload: {
+        download: downloadLearnerProfileSyncFile
+      },
+      accountlessProfileMigration: accountlessProfileMigrationController,
+      localPersistence: learnerProfileLocalPersistence,
+      ownerVerification
+    },
+    createActivationId: createLearnerProfileActivationId,
+    onStateChange: handleLearnerProfileAccessStateChange
+  })
+}
+
+function loadState(options = {}) {
+  if (INTERNAL_PROFILE_PAUSED) return null
+  return learnerProfileLifecycleAuthority
+    ? learnerProfileLifecycleAuthority.readActiveProfile()
+    : loadPersistedState(options)
+}
+
+const persistedPortableProfileSnapshots = new WeakMap()
+
+let townEconomyProfile = null
+function refreshTownEconomy(s) {
+  if (!window.EDENIA_PIXEL_TOWN?.enabled || !s) return
+  const town = window.EDENIA_PIXEL_TOWN
+  town.translate = t
+  town.economy = {
+    balance: getTownBalance(s.townEconomy),
+    owned: Boolean(s.townEconomy && Object.hasOwn(s.townEconomy.purchases, FIRST_FLOWER_ID)),
+    available: Boolean(s.townEconomy)
+  }
+  if (townEconomyProfile !== s) {
+    townEconomyProfile = s
+    town.buildFlower = async () => {
+      if (townEconomyProfile !== s || !isCurrentLearnerProfileOperation(s)) return 'unavailable'
+      const active = loadState()
+      const result = await purchaseFirstFlower(active, async value => await saveState(value))
+      if (active) renderCity(getCurrentCityScore(active), active)
+      return result
+    }
+  }
+  window.dispatchEvent(new Event('pixel-town-economy'))
+}
+
+function getPortableProfileSnapshot(state) {
+  if (!state || typeof state !== 'object') return null
+  try {
+    return JSON.stringify(
+      preparePortableLearnerProfileEnvelope(state).profile
+    )
+  } catch {
+    return null
+  }
+}
+
+function rememberPersistedPortableProfile(state) {
+  const snapshot = getPortableProfileSnapshot(state)
+  if (snapshot !== null) persistedPortableProfileSnapshots.set(state, snapshot)
+}
+
+function saveImportedState(state, options = {}) {
+  if (INTERNAL_PROFILE_PAUSED) return { persisted: false, error: null }
+  const result = learnerProfileLifecycleAuthority
+    ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
+    : saveImportedPersistedState(state, options)
+  return mapPersistenceResult(result, saved => {
+    if (saved?.persisted) channelHistoryProfileEpoch += 1
+    return saved
+  })
+}
+
+function saveState(state, options = {}) {
+  if (INTERNAL_PROFILE_PAUSED || primaryProfileStorageUnavailable) return false
+  const complete = persisted => {
+    if (persisted) {
+      rememberPersistedPortableProfile(state)
+      refreshTownEconomy(state)
+      return true
+    }
+    const saved = loadPersistedState({ persistCleanup: false })
+    if (saved && state && isCurrentLearnerProfileOperation(state)) {
+      for (const key of Object.keys(state)) delete state[key]
+      Object.defineProperties(state, Object.getOwnPropertyDescriptors(saved))
+      primaryProfileRepository?.adoptSnapshot(state)
+      if (applicationStarted) {
+        applyLocale(state.config.locale)
+        applyTheme(state.config.theme)
+        const ankiControl = document.getElementById('settingsAnkiEnabled')
+        if (ankiControl) ankiControl.checked = isAnkiEnabled(state)
+        if (primaryProfileRepository) {
+          renderFeed(state)
+          renderUndoButton(state)
+        }
+      }
+    }
+    if (applicationStarted) showToast(t('toast.progressSaveFailed'), 'error')
+    return false
+  }
+  try {
+    if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
+    const portableSnapshot = getPortableProfileSnapshot(state)
+    const persistenceOptions = options.syncCloud === undefined
+        && portableSnapshot !== null
+        && persistedPortableProfileSnapshots.get(state) === portableSnapshot
+      ? { ...options, syncCloud: false } : options
+    const result = learnerProfileLifecycleAuthority
+      ? learnerProfileLifecycleAuthority.saveActiveProfile(state, persistenceOptions)
+      : savePersistedState(state, options)
+    return mapPersistenceResult(result, complete)
+  } catch {
+    return complete(false)
+  }
+}
+
+function isCurrentLearnerProfileOperation(state) {
+  return !learnerProfileLifecycleAuthority
+    || learnerProfileLifecycleAuthority.readActiveProfile() === state
+}
+
+function hasPersistedLearnerProfile() {
+  try {
+    return primaryStorage.getItem(STORAGE_KEY) !== null
+  } catch {
+    return false
+  }
+}
+
+function shouldUseOnboardingProfileDraft() {
+  if (!learnerProfileLifecycleAuthority) return false
+  if (!hasPersistedLearnerProfile()) return true
+  const accessStatus = learnerProfileLifecycleAuthority?.getState()?.status
+  return accessStatus === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
+    || (
+      onboardingProfileDraftStore.hasDraft()
+      && [
+        LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE,
+        LEARNER_PROFILE_ACCESS_STATES.REPLACING
+      ].includes(accessStatus)
+    )
+    || (
+      onboardingProfileDraftStore.hasDraft()
+      && personalizedOnboardingState.active
+    )
+}
+
+function loadOnboardingWorkingState() {
+  if (shouldUseOnboardingProfileDraft()) {
+    return onboardingProfileDraftStore.readWorkingState()
+  }
+  return loadState()
+}
+
+async function saveOnboardingWorkingState(state, options = {}) {
+  if (shouldUseOnboardingProfileDraft()) {
+    return onboardingProfileDraftStore.saveWorkingState(state)
+  }
+  return await saveState(state, options)
+}
+const legacyProgressMigrationView = createLegacyProgressMigrationView({
+  root: document,
+  translate: t
+})
+const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
+  ? createLegacyProgressRelayClient({
+      runtime: LEGACY_PROGRESS_RELAY_RUNTIME
+    })
+  : Object.freeze({
+      async claim() {
+        throw new Error('Legacy progress relay is unavailable')
+      },
+      async complete() {
+        throw new Error('Legacy progress relay is unavailable')
+      }
+    })
+let legacyProgressManualImportDone = null
+let pendingLearnerProfileImport = null
+let settingsSyncImportInteraction = null
+let settingsSyncRefreshDeferred = false
+let applicationStarted = false
+let renderedLearnerProfileOwnerId
+let migrationStartupRunning = false
+
+function normalizeLegacyProgressState(value) {
+  const importedState = getImportedSyncState(value)
+  if (!importedState) return null
+  normalizeLoadedState(importedState)
+  return importedState
+}
+
+function decorateLegacyProgressState(state, context) {
+  normalizeActivityLogState(state)
+  const entryId = `legacy-migration-${context.stateSha256.slice(0, 16)}`
+  if (!state.activityLog.some(entry => entry.id === entryId)) {
+    state.activityLog.unshift({
+      id: entryId,
+      createdAt: context.createdAt,
+      actor: 'auto',
+      type: 'import',
+      status: 'success',
+      title: t('log.legacyProgress.title'),
+      detail: t('log.legacyProgress.detail')
+    })
+  }
+  normalizeActivityLogState(state)
+  syncStreak(state)
+  normalizeStateBeforeSave(state)
+}
+
+function takeLegacyProgressFragment() {
+  const value = window.EDENIA_LEGACY_PROGRESS_FRAGMENT
+  try { delete window.EDENIA_LEGACY_PROGRESS_FRAGMENT } catch {
+    window.EDENIA_LEGACY_PROGRESS_FRAGMENT = undefined
+  }
+  return typeof value === 'string' ? value : null
+}
+
+const legacyProgressMigrationController =
+  createLegacyProgressMigrationController({
+    automaticEnabled: LEGACY_PROGRESS_MIGRATION_ENABLED,
+    createVerifiedBackupFromState: createVerifiedStateBackupFromState,
+    decorateMigratedState: decorateLegacyProgressState,
+    decryptTransfer: value => decryptProgressTransfer(value, window.crypto),
+    destinationEligible: LEGACY_PROGRESS_RELAY_RUNTIME.destinationEligible,
+    deriveCapabilityDigest: value => (
+      deriveLegacyProgressCapabilityDigest(value, window.crypto)
+    ),
+    getBackupEntries: getStateBackupEntries,
+    helperUrl: LEGACY_PROGRESS_HELPER_URL,
+    markerKey: LEGACY_PROGRESS_MIGRATION_KEY,
+    navigate: url => window.location.replace(url),
+    normalizeImportedState: normalizeLegacyProgressState,
+    onManualImport(done) {
+      legacyProgressManualImportDone = done
+      const input = document.getElementById('syncFileInput')
+      beginSettingsSyncImportInteraction(input)
+      input?.click()
+    },
+    onResume: resumeApplicationAfterMigration,
+    prepareStateForHash: prepareStateForBackup,
+    primaryKey: STORAGE_KEY,
+    relayClient: legacyProgressRelayClient,
+    runtimeValid: LEGACY_PROGRESS_RELAY_RUNTIME.valid,
+    saveImportedState,
+    storage: primaryStorage,
+    takeFragment: takeLegacyProgressFragment,
+    view: legacyProgressMigrationView
+  })
+const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
+const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
+const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
+const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
+const YOUTUBE_REQUEST_TIMEOUT_MS = 20_000
+const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
+const YOUTUBE_REFRESH_INTERVAL_MS = 1 * 60 * 60_000
+const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
+const SANDBOX_VIDEOS_PER_CHANNEL = 5
+const FETCH_PAGE_SIZE = 50
+const BACKGROUND_PHYSICS_RADIUS = 130
+const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
+const ANKI_AUTO_REFRESH_MS = 5 * 60_000
+const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
+const MIN_DAILY_STREAK_POINTS = 5
+const HEATMAP_STREAK_RUN_MIN_DAYS = 5
+const VIDEO_HOUR_POINTS = 30
+const SHORT_VIDEO_DETECTION_VERSION = 1
+const ANKI_REVIEW_CHUNK_SIZE = 60
+const ANKI_REVIEW_CHUNK_POINTS = 20
+const SCORING_RULES_VERSION = 7
+const STUDY_INSIGHT_MIN_ACTIVE_DAYS = 8
+const STUDY_INSIGHT_MIN_VIDEO_SECONDS = 2 * 60 * 60
+const cityImagePreloadCache = new Map()
+const cityImagePreloadQueue = []
+let cityImagePreloadQueueRunning = false
+let activeCityImagePreloadCenter = null
+let ankiStatsCache = null
+let ankiRefreshDeferredForPrompt = false
+let selectedStatusFilter = 'all'
+let selectedChannelFilters = null
+let knownChannelFilterIds = new Set()
+let isWatchedSectionCollapsed = null
+let isRemovedSectionCollapsed = true
+let activeVideoOrganizationTrigger = null
+let selectedHistoryRange = 'week'
+let selectedHistoryView = 'summary'
+let selectedStudyInsightView = 'current'
+let activeStudyGuidance = null
+let lastTrackedStudyGuidanceKey = ''
+let selectedActivityLogFilter = 'all'
+let mobileActivityLogVisibleCount = 20
+let supabaseClient = null
+let accountAuthController = null
+let googleIdentityServicesController = null
+let turnstileController = null
+const turnstileWidgetStatuses = new WeakMap()
+let onboardingFlowEvaluated = false
+let accountExportController = null
+let accountStudySnapshotController = null
+let accountSettingsWasSignedIn = false
+const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
+  getPersistedAnalyticsUserId,
+  identify: identifyEdeniaAuthenticatedUser,
+  reset: resetEdeniaAuthenticatedUser
+})
+let accountAuthViewState = Object.freeze({
+  sessionState: ACCOUNT_SESSION_STATES.LOADING,
+  userId: null,
+  email: '',
+  authMethod: null,
+  busyAction: null,
+  error: null,
+  notice: null
+})
+
+function applyAccountAuthenticationState(state, {
+  observeLearnerProfile = true
+} = {}) {
+  accountAuthViewState = state
+  accountlessProfileMigrationController?.observeAuthentication(state)
+  if (observeLearnerProfile) {
+    learnerProfileAuthenticationAdapter.observeAccountState(state)
+  }
+  return state
+}
+let accountExportViewState = Object.freeze({
+  userId: null,
+  busyAction: null,
+  feedback: null
+})
+let reminderPreferencesController = null
+let reminderPreferenceViewState = Object.freeze({
+  status: REMINDER_PREFERENCE_STATES.SIGNED_OUT,
+  userId: null,
+  preference: createDefaultReminderPreference(),
+  busyAction: null,
+  feedback: null
+})
+let plusAccountController = null
+let plusAccountViewState = null
+let plusBillingController = null
+let plusBillingViewState = null
+window.addEventListener('edenia:analytics-ready', () => {
+  accountAnalyticsIdentity.synchronize(accountAuthViewState)
+})
+let plusModalFeatureId = null
+let forcedSearchVideoId = null
+let pendingAddedChannelReveal = null
+let starterFeedPreparationPromise = null
+let firstStudyWalkthroughTimer = null
+const addedVideoSpotlightState = {
+  element: null,
+  frame: null,
+  timer: null
+}
+let pendingSettledVideoCardHighlight = null
+let nextStudyFocusZoomTimer = null
+let activeNextStudyFocusVideoId = null
+const VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS = 5000
+const VIDEO_SHELF_PLAYER_SEEK_TOLERANCE_SECONDS = 1.5
+const VIDEO_SHELF_PLAYER_MODE_STUDY = 'study'
+const VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW = 'removed-preview'
+let youtubeIframeApiPromise = null
+let activeVideoShelfPlayer = null
+let backgroundPhysics = null
+const selectedHistoryPeriod = { week: null, month: null }
+let selectedCityDayOffset = 0
+const CITY_IMAGE_MIN_ZOOM = 1
+const CITY_IMAGE_MAX_ZOOM = 2
+const CITY_IMAGE_PHONE_MAX_ZOOM = 4
+const CITY_IMAGE_MOBILE_DEFAULT_ZOOM = 1.75
+const CITY_IMAGE_MOBILE_DEFAULT_Y = -40
+const CITY_IMAGE_ZOOM_STEP = 0.25
+const CITY_IMAGE_WHEEL_ZOOM_STEP = 0.06
+const CITY_IMAGE_PAN_EPSILON = 0.5
+const cityImageView = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  dragging: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0,
+  touchPointers: new Map(),
+  pinching: false,
+  pinchStartDistance: 0,
+  pinchStartScale: 1,
+  pinchStartX: 0,
+  pinchStartY: 0,
+  pinchStartCenterX: 0,
+  pinchStartCenterY: 0
+}
+const cityWaveformScroll = {
+  frame: null,
+  speed: 0,
+  pointerX: 0,
+  pointerY: 0,
+  touchPointerId: null,
+  touchStartX: 0,
+  touchStartY: 0,
+  touchStartScrollLeft: 0,
+  touchAxis: null,
+  touchDragging: false,
+  touchPreviewOffset: null,
+  touchPreviewFrame: null,
+  suppressClickUntil: 0
+}
+const historyActionScroll = {
+  frame: null,
+  scroller: null,
+  speed: 0
+}
+const walkthroughState = {
+  active: false,
+  index: 0,
+  steps: [],
+  elements: null,
+  frame: null,
+  isTransitioning: false,
+  highlightOnly: false,
+  trackCompletion: true,
+  startedAtMs: null,
+  source: 'automatic',
+  lastTrackedStepKey: null
+}
+let levelUpGuidanceTimer = null
+const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
+const INTRO_TRAILER_REFERENCE = {
+  viewportWidth: 1710,
+  viewportHeight: 986,
+  stageWidth: 1180,
+  sceneWidth: 1174
+}
+const introTrailerState = {
+  active: false,
+  replayMode: false,
+  state: null,
+  sceneIndex: 0,
+  sceneTimer: null,
+  cityLevelTimers: [],
+  soundEnabled: false,
+  audio: null,
+  touchIdentifier: null,
+  touchStartX: 0,
+  touchStartY: 0,
+  touchAxis: null
+}
+const ONBOARDING_CHANNEL_SELECTION_LIMIT = STARTER_FEED_CHANNEL_LIMIT
+const ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX = 1
+const ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES = Object.freeze([
+  'double-inline'
+])
+const personalizedOnboardingState = {
+  active: false,
+  step: 'language',
+  languageId: null,
+  levelId: null,
+  selectedChannelCatalogIds: [],
+  channelSelectionsInitialized: false,
+  isApplyingChannels: false,
+  accountEmail: '',
+  lastTrackedStep: null
+}
+let onboardingChoiceLayoutFrame = 0
+let onboardingChoiceLayoutViewportSize = null
+const onboardingRecoveryState = {
+  active: false,
+  reason: 'setup',
+  resume: 'personalized',
+  state: null
+}
+const searchAnalyticsState = {
+  lastSavedVideoOutcomeKey: null,
+  lastChannelCatalogOutcomeKey: null
+}
+const curatedChannelResolutionCache = new Map()
+const STATUS_FILTERS = [
+  ['all', 'videos.status.all'],
+  ['watch-later', 'videos.status.watchLater'],
+  ['unwatched', 'videos.status.unwatched'],
+  ['partial', 'videos.status.partial'],
+  ['favorite', 'videos.status.favorite']
+]
+const HISTORY_RANGES = ['week', 'month']
+const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
+let COMMUNITY_CHANNEL_CATALOG = []
+const normalizeLearnerProfileState = createLearnerProfileNormalizer({
+  languageOptions: LEARNER_LANGUAGE_OPTIONS,
+  levelOptions: LEARNER_LEVEL_OPTIONS,
+  channelCatalog: CURATED_CHANNEL_CATALOG
+})
+const NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP = {
+  id: 'no-anki-frequent-user',
+  target: '#settingsAnkiHowToTarget',
+  scrollTarget: '#settingsAnkiHowToTarget',
+  scrollBehavior: 'auto',
+  textKey: 'noAnkiPrompt.message',
+  skipLabelKey: 'noAnkiPrompt.notInterested',
+  actionLabelKey: 'noAnkiPrompt.yes',
+  placement: 'left',
+  choice: true,
+  onSkip: declineNoAnkiFrequentUserPrompt,
+  onNext: acceptNoAnkiFrequentUserPrompt
+}
+
+function getFirstStudyWalkthroughSteps(state) {
+  if (state?.learnerProfile?.languages?.[0] !== 'other') return FIRST_STUDY_WALKTHROUGH_STEPS
+  return [...FIRST_STUDY_WALKTHROUGH_STEPS, OTHER_FIRST_STUDY_WALKTHROUGH_STEP]
+}
+
+const WALKTHROUGH_HOOKS = {
+  closeTransientUi() {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    closeStatusFilterMenu()
+    closeChannelFilterMenu()
+    closeManualVideoPopover()
+    closeHistoryVideoPopovers()
+    closeHistoryPointsPopovers()
+    closeHistoryPeriodPopovers()
+    closeHistoryActionPopovers()
+    hideHeatmapTooltip()
+  },
+  keepSettingsClosed() {
+    closeSettings()
+  },
+  keepSettingsOpen() {
+    const panel = document.getElementById('settingsPanel')
+    if (!panel || panel.classList.contains('hidden')) openSettings()
+  },
+  openSettingsActivityLog() {
+    setSettingsActivityLogOpen(true)
+  },
+  openSettingsBackups() {
+    setSettingsBackupsOpen(true)
+  },
+  settleWalkthroughTarget({ target }) {
+    target?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest'
+    })
+    scheduleWalkthroughPosition()
+    window.setTimeout(scheduleWalkthroughPosition, 180)
+  },
+  closeSettingsWhenCompleted({ completed }) {
+    if (completed) closeSettings()
+  },
+  refreshSpotlight() {
+    scheduleWalkthroughPosition()
+  },
+  focusWalkthroughTarget({ target }) {
+    target?.focus({ preventScroll: true })
+  },
+  advanceAfterTargetClick() {
+    window.setTimeout(() => moveWalkthrough(1), 140)
+  }
+}
+
+function getCookie(key) {
+  return document.cookie.split('; ').reduce((value, part) => {
+    const [name, val] = part.split('=')
+    return name === key ? decodeURIComponent(val) : value
+  }, null)
+}
+
+function loadConfigCookie() {
+  try {
+    const raw = getCookie(CONFIG_COOKIE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function applyLocale(locale = getCurrentLocale()) {
+  const nextLocale = setCurrentLocale(locale)
+  document.documentElement.lang = nextLocale
+  applyTranslations()
+}
+
+function getEffectiveIncludeShorts() {
+  return true
+}
+
+function applyPermanentChannelVideoFormatUi() {
+  // Keep the legacy class for one cache window so new app.js remains
+  // compatible with a cached pre-retirement stylesheet.
+  document.body.classList.add('channel-video-format-toggle-enabled')
+  document.querySelector('.settings-shorts-group')?.classList.add('hidden')
+}
+
+function applyTranslations(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n)
+  })
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder))
+  })
+  root.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.setAttribute('title', t(el.dataset.i18nTitle))
+  })
+  root.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel))
+  })
+  root.querySelectorAll('[data-i18n-alt]').forEach(el => {
+    el.setAttribute('alt', t(el.dataset.i18nAlt))
+  })
+  renderLocaleSelect()
+  renderAccountSettings()
+  learnerProfileConflictView.refreshTranslations()
+  learnerProfileSyncView.render(learnerProfileSyncViewState)
+  renderPlusAccountSettings()
+  renderPlusUpgradeModal()
+  renderStartOverUndo(learnerProfileProtectedReset)
+}
+
+function renderLocaleSelect() {
+  const currentLocale = getCurrentLocale()
+  const introButton = document.getElementById('introLocaleBtn')
+  const introLabel = document.getElementById('introLocaleLabel')
+  const introMenu = document.getElementById('introLocaleMenu')
+  if (introButton && introLabel && introMenu) {
+    introLabel.textContent = getLocaleLabel(currentLocale)
+    introMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
+      <label class="settings-locale-option">
+        <input type="radio" name="introLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-intro-locale-action="change-intro" data-analytics-action="changeIntroLocale">
+        <span>${escHtml(getLocaleLabel(locale))}</span>
+      </label>
+    `).join('')
+    bindIntroLocaleSelectionActions(introMenu, {
+      changeIntro: changeIntroLocale,
+      changeOnboarding: changeOnboardingLocale
+    })
+  }
+  const onboardingButton = document.getElementById('onboardingLocaleBtn')
+  const onboardingLabel = document.getElementById('onboardingLocaleLabel')
+  const onboardingMenu = document.getElementById('onboardingLocaleMenu')
+  if (onboardingButton && onboardingLabel && onboardingMenu) {
+    onboardingLabel.textContent = getLocaleLabel(currentLocale)
+    onboardingMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
+      <label class="settings-locale-option">
+        <input type="radio" name="onboardingLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-intro-locale-action="change-onboarding" data-analytics-action="changeOnboardingLocale">
+        <span>${escHtml(getLocaleLabel(locale))}</span>
+      </label>
+    `).join('')
+    bindIntroLocaleSelectionActions(onboardingMenu, {
+      changeIntro: changeIntroLocale,
+      changeOnboarding: changeOnboardingLocale
+    })
+  }
+  const btn = document.getElementById('settingsLocaleBtn')
+  const label = document.getElementById('settingsLocaleLabel')
+  const menu = document.getElementById('settingsLocaleMenu')
+  if (!btn || !label || !menu) return
+  label.textContent = getLocaleLabel(currentLocale)
+  menu.innerHTML = SUPPORTED_LOCALES.map(locale => `
+    <label class="settings-locale-option">
+      <input type="radio" name="settingsLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-settings-locale-action="select">
+      <span>${escHtml(getLocaleLabel(locale))}</span>
+    </label>
+  `).join('')
+}
+
+function reportMissingI18nKeys() {
+  const missing = getMissingI18nKeys()
+  if (missing.length) console.warn('Missing Edenia translations:', missing)
+  return missing
+}
+
+function saveConfigCookie(config) {
+  try {
+    const value = encodeURIComponent(JSON.stringify(sanitizeConfigForStorage(config)))
+    document.cookie = `${CONFIG_COOKIE_KEY}=${value}; max-age=31536000; path=/`
+  } catch {}
+}
+
+function isAnkiAvailableOnDevice() {
+  return supportsAnkiIntegrationInput()
+}
+
+function isAnkiTrackingActive(state) {
+  return isAnkiAvailableOnDevice() && isAnkiEnabled(state)
+}
+
+function applyTheme(theme) {
+  const normalizedTheme = normalizeTheme(theme)
+  document.documentElement.dataset.theme = normalizedTheme
+  document.body.dataset.theme = normalizedTheme
+  backgroundPhysics?.setTheme()
+  const toggle = document.getElementById('themeToggle')
+  if (toggle) {
+    const isDark = normalizedTheme === 'dark'
+    toggle.dataset.theme = normalizedTheme
+    toggle.title = isDark ? t('header.theme.light') : t('header.theme.dark')
+    toggle.setAttribute('aria-label', toggle.title)
+  }
+}
+
+function getLearnerLanguageOption(languageId) {
+  return LEARNER_LANGUAGE_OPTIONS.find(option => option.id === languageId) || null
+}
+
+function getLearnerLevelOption(levelId) {
+  return LEARNER_LEVEL_OPTIONS.find(option => option.id === levelId) || null
+}
+
+function getLearnerLevelOptionsForLanguage(languageId) {
+  return languageId === 'english'
+    ? LEARNER_LEVEL_OPTIONS.filter(option => option.id !== 'starting')
+    : LEARNER_LEVEL_OPTIONS
+}
+
+function getCuratedChannelEntry(catalogId) {
+  return CURATED_CHANNEL_CATALOG.find(channel => channel.id === catalogId) || null
+}
+
+function getSearchableChannelCatalog() {
+  const seen = new Set()
+  return [...CURATED_CHANNEL_CATALOG, ...COMMUNITY_CHANNEL_CATALOG].filter(channel => {
+    const keys = [
+      channel.channelId ? `id:${channel.channelId}` : '',
+      channel.input ? `input:${normalizeCuratedChannelSearchText(channel.input)}` : '',
+      channel.name ? `name:${normalizeCuratedChannelSearchText(channel.name)}` : ''
+    ].filter(Boolean)
+    if (!keys.length || keys.some(key => seen.has(key))) return false
+    keys.forEach(key => seen.add(key))
+    return true
+  })
+}
+
+function getSearchableChannelEntry(catalogId) {
+  return getSearchableChannelCatalog().find(channel => channel.id === catalogId) || null
+}
+
+function getCuratedChannelAvatarPath(catalogId) {
+  return `images/channel-avatars/${encodeURIComponent(catalogId)}.jpg`
+}
+
+async function loadDynamicChannelCatalogs() {
+  try {
+    const catalogs = await Promise.all([
+      ['data/channel-catalog.json', 'curated'],
+      ['data/channel-catalog.community.json', 'community'],
+      ['data/channel-catalog.discovered.json', 'discovery']
+    ].map(async ([url, catalogSource]) => {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) return []
+        const data = await response.json()
+        return (Array.isArray(data?.channels) ? data.channels : []).map(channel => ({
+          ...channel,
+          catalogSource
+        }))
+      } catch {
+        return []
+      }
+    }))
+
+    COMMUNITY_CHANNEL_CATALOG = catalogs
+      .flat()
+      .filter(channel => channel?.available !== false && YOUTUBE_CHANNEL_ID_RE.test(String(channel?.channelId || '')))
+      .map(channel => ({
+        id: String(channel.catalogId || `${channel.catalogSource}-${channel.channelId}`),
+        channelId: String(channel.channelId),
+        input: String(channel.handle || channel.channelId),
+        name: String(channel.name || channel.channelId),
+        thumbnailUrl: String(channel.thumbnailUrl || ''),
+        language: String(channel.languages?.[0] || ''),
+        languages: Array.isArray(channel.languages) ? channel.languages.map(String) : [],
+        levels: Array.isArray(channel.levels) ? channel.levels.map(String) : [],
+        style: String(channel.style || ''),
+        description: String(channel.description || ''),
+        aliases: Array.isArray(channel.aliases) ? channel.aliases.map(String) : [],
+        searchText: String(channel.searchText || ''),
+        catalogSource: channel.catalogSource
+      }))
+
+    const input = document.getElementById('manualVideoUrlInput')
+    const popover = document.getElementById('manualVideoPopover')
+    if (
+      isSupportedChannelSearchQuery(input?.value)
+      && !popover?.classList.contains('hidden')
+    ) {
+      renderManualChannelSuggestions()
+    }
+  } catch {
+    // The bundled curated catalog remains available if dynamic catalogs cannot load.
+  }
+}
+
+function getRecommendedChannelCatalog(profile, limit = 6) {
+  const normalizedLimit = Math.max(1, Math.floor(Number(limit) || 6))
+  const languages = Array.isArray(profile?.languages) ? profile.languages : []
+  const selectedLevel = getLearnerLevelOption(profile?.level)?.id || 'not-sure'
+  const byLanguage = languages.map(languageId => {
+    const level = languageId === 'english' && selectedLevel === 'starting' ? 'beginner' : selectedLevel
+    const notSureChannelIds = CURATED_NOT_SURE_CHANNEL_IDS[languageId]
+    if (level === 'not-sure' && notSureChannelIds) {
+      return notSureChannelIds
+        .map(catalogId => getCuratedChannelEntry(catalogId))
+        .filter(Boolean)
+        .slice(0, normalizedLimit)
+    }
+    const matches = CURATED_CHANNEL_CATALOG.filter(channel => {
+      if (channel.language !== languageId) return false
+      return level === 'not-sure' || channel.levels.includes(level)
+    })
+    const fallbacks = CURATED_CHANNEL_CATALOG.filter(channel => channel.language === languageId)
+    return (matches.length ? matches : fallbacks).slice(0, normalizedLimit)
+  })
+  const recommendations = []
+  for (let index = 0; recommendations.length < normalizedLimit; index += 1) {
+    let addedAtThisIndex = false
+    byLanguage.forEach(channels => {
+      const channel = channels[index]
+      if (!channel || recommendations.length >= normalizedLimit) return
+      recommendations.push(channel)
+      addedAtThisIndex = true
+    })
+    if (!addedAtThisIndex) break
+  }
+  return recommendations
+}
+
+function normalizeLoadedState(state) {
+  let shouldSave = false
+  if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
+  if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
+  if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
+  if (state?.config) {
+    const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+    if (state.config.includeShorts !== includeShorts) shouldSave = true
+    state.config.includeShorts = includeShorts
+  }
+  if (normalizeAnkiTrackingConfig(state)) shouldSave = true
+  if (normalizeStudyInsightConfig(state)) shouldSave = true
+  if (state?.config) {
+    const historyView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
+    if (state.config.historyView !== historyView) shouldSave = true
+    state.config.historyView = historyView
+  }
+  if (state?.config && Object.hasOwn(state.config, 'channelVideoFormats')) {
+    const channelVideoFormats = normalizeChannelVideoFormatPreferences(
+      state.config.channelVideoFormats
+    )
+    if (JSON.stringify(state.config.channelVideoFormats) !== JSON.stringify(channelVideoFormats)) {
+      shouldSave = true
+    }
+    state.config.channelVideoFormats = channelVideoFormats
+  }
+  if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
+  if (normalizeTrackedChannelPolicyState(state)) shouldSave = true
+  if (state?.config) delete state.config.apiKey
+  normalizeRemovedDefaultChannels(state)
+  normalizeRemovedChannels(state)
+  if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
+    state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
+    shouldSave = true
+  }
+  if (normalizeAnkiDateKeys(state)) shouldSave = true
+  if (normalizeVideoWatchProgressState(state)) shouldSave = true
+  if (normalizeVideoOrganizationState(state)) shouldSave = true
+  if (normalizeWatchedConfirmationState(state)) shouldSave = true
+  if (removeLegacyVideoWatchReminderState(state)) shouldSave = true
+  normalizeUndoState(state)
+  if (normalizeActivityLogState(state)) shouldSave = true
+  if (normalizeLearnerProfileState(state)) shouldSave = true
+  if (normalizeOnboardingState(state)) shouldSave = true
+  if (normalizeNoAnkiFrequentUserPromptState(state)) shouldSave = true
+  if (normalizeChannelRefreshState(state)) shouldSave = true
+  if (!IS_SANDBOX && expireYoutubeMetadata(state)) shouldSave = true
+  normalizeSandboxState(state)
+  if (state.cityProgress?.experienceVersion === 1
+    && recoverProductionCityProgress(state, getCurrentCityScore(state), SCORING_RULES_VERSION)) shouldSave = true
+  normalizeCityProgress(state)
+  delete state.nightVisuals
+  if (window.EDENIA_PIXEL_TOWN?.enabled && initializeTownEconomy(state)) shouldSave = true
+  return shouldSave
+}
+
+function normalizeStateBeforeSave(state) {
+  budgetUndoState(state)
+  budgetYoutubeMetadata(state)
+  normalizeActivityLogState(state)
+  normalizeNoAnkiFrequentUserPromptState(state)
+  normalizeVideoWatchProgressState(state)
+  normalizeVideoOrganizationState(state)
+  normalizeWatchedConfirmationState(state)
+  removeLegacyVideoWatchReminderState(state)
+  normalizeStudyInsightConfig(state)
+  normalizeTrackedChannelPolicyState(state)
+  if (state?.config && Object.hasOwn(state.config, 'channelVideoFormats')) {
+    state.config.channelVideoFormats = normalizeChannelVideoFormatPreferences(
+      state.config.channelVideoFormats
+    )
+  }
+}
+
+function createDefaultStateFromConfig(fallback) {
+  const state = defaultState(
+    fallback.weeklyGoalHours || 4,
+    fallback.channels,
+    fallback.theme,
+    fallback.removedDefaultChannelIds,
+    fallback.locale
+  )
+  if (fallback.trackedChannelPolicy) {
+    state.config.trackedChannelPolicy = fallback.trackedChannelPolicy
+    normalizeTrackedChannelPolicyState(state)
+  }
+  return state
+}
+
+function roundAnalyticsNumber(value, decimals = 3) {
+  const multiplier = 10 ** decimals
+  return Math.round((Number(value) || 0) * multiplier) / multiplier
+}
+
+function getAnalyticsChannelAddedAt(state, channel) {
+  const channelLog = (Array.isArray(state?.activityLog) ? state.activityLog : []).find(entry => (
+    entry?.type === 'channel-add'
+    && (
+      entry.meta?.channelId === channel.id
+      || entry.detail === channel.name
+      || entry.detail === channel.id
+    )
+  ))
+  if (channelLog?.createdAt) {
+    return { addedAt: channelLog.createdAt, addedAtSource: 'activity_log' }
+  }
+
+  if (state?.onboarding?.setupCompletedAt) {
+    return {
+      addedAt: state.onboarding.setupCompletedAt,
+      addedAtSource: 'onboarding_completed'
+    }
+  }
+
+  return { addedAt: null, addedAtSource: 'first_sync' }
+}
+
+function getEdeniaAnalyticsSnapshot(state) {
+  const historyEnd = getCurrentAppDate(state)
+  historyEnd.setHours(23, 59, 59, 999)
+  const studyDays = getStudyHistoryBetween(state, new Date(0), historyEnd).rows
+    .map(row => {
+      const rawPoints = getHistoryDayRawPoints(row)
+      return {
+        date: row.dateKey,
+        videoSeconds: Math.max(0, Math.round(Number(row.secondsWatched) || 0)),
+        videosWatched: Math.max(0, Math.round(Number(row.videosWatched) || 0)),
+        ankiReviewed: Math.max(0, Math.round(Number(row.ankiReviewed) || 0)),
+        ankiCreated: Math.max(0, Math.round(Number(row.ankiCreated) || 0)),
+        rawPoints: roundAnalyticsNumber(rawPoints),
+        points: Math.floor(rawPoints),
+        qualifiesForStreak: rawPoints >= MIN_DAILY_STREAK_POINTS
+      }
+    })
+    .sort((left, right) => left.date.localeCompare(right.date))
+
+  const currentScore = getCurrentCityScore(state)
+  const visibleLevelIndex = clampNumber(
+    Number(state?.cityProgress?.maxLevelIndex) || 0,
+    0,
+    CITY_LEVELS.length - 1
+  )
+  const earnedLevelIndex = getCityLevelIndex(currentScore)
+  const pendingLevelIndex = Number.isInteger(state?.cityProgress?.pendingLevelIndex)
+    ? clampNumber(state.cityProgress.pendingLevelIndex, 0, CITY_LEVELS.length - 1)
+    : null
+  const channels = (Array.isArray(state?.config?.channels) ? state.config.channels : [])
+    .filter(channel => channel?.id)
+    .map(channel => ({
+      id: String(channel.id),
+      name: String(channel.name || channel.id),
+      ...getAnalyticsChannelAddedAt(state, channel)
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id))
+  const manualVideoOnlyChannels = getManualVideoOnlyChannels(state)
+  const watchedVideos = Object.entries(state?.videos || {})
+    .filter(([, video]) => getVideoStatus(video) === 'watched')
+    .map(([videoId, video]) => ({
+      id: String(video.id || videoId),
+      title: String(video.title || ''),
+      channelId: video.channelId ? String(video.channelId) : null,
+      watchedAt: isValidTimestamp(video.watchedAt) ? video.watchedAt : null,
+      durationSeconds: Math.max(0, Math.round(Number(video.duration) || 0)),
+      source: video.manuallyAdded ? 'manual' : 'channel',
+      isShort: Boolean(video.isShort)
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id))
+  const favoriteVideos = Object.entries(state?.videos || {})
+    .filter(([, video]) => isFavoriteVideo(video))
+    .map(([videoId, video]) => ({
+      id: String(video.id || videoId)
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id))
+  const videoEntries = Object.values(state?.videos || {})
+  const activityRewatchCount = (Array.isArray(state?.activityLog) ? state.activityLog : [])
+    .filter(entry => entry?.type === 'video-rewatch' && entry?.status === 'success')
+    .length
+  const successfulRefreshTimestamps = Object.values(state?.channelRefreshes || {})
+    .map(entry => entry?.lastFetchedAt)
+    .filter(isValidTimestamp)
+    .sort()
+  const lastSuccessfulRefreshAt = successfulRefreshTimestamps.length
+    ? successfulRefreshTimestamps[successfulRefreshTimestamps.length - 1]
+    : null
+  const studyInsights = (Array.isArray(state?.config?.studyInsights?.history)
+    ? state.config.studyInsights.history
+    : []
+  ).map(entry => {
+    const message = getStudyInsightViewModel(entry, state)
+    return {
+      key: entry.key,
+      insightId: entry.insightId,
+      type: entry.type,
+      variant: entry.variant || 0,
+      title: message?.title || '',
+      body: message?.body || '',
+      evidence: message?.evidence || '',
+      locale: normalizeLocale(state?.config?.locale),
+      windowId: entry.windowId || null,
+      weekdayIndex: Number.isInteger(entry.weekdayIndex) ? entry.weekdayIndex : null,
+      percent: entry.percent || 0,
+      comparisonPercent: entry.comparisonPercent || 0,
+      recentMinutes: entry.recentMinutes || 0,
+      previousMinutes: entry.previousMinutes || 0,
+      suggestedMinutes: entry.suggestedMinutes || 0,
+      gapDays: entry.gapDays || 0,
+      activeDays: entry.activeDays || 0,
+      ankiDays: entry.ankiDays || 0,
+      reviewedCards: entry.reviewedCards || 0,
+      ankiCreated: entry.ankiCreated || 0,
+      totalSeconds: entry.totalSeconds || 0,
+      videoCount: entry.videoCount || 0,
+      topVideoTitle: entry.topVideoTitle || '',
+      topVideoSeconds: entry.topVideoSeconds || 0,
+      channelBreakdown: entry.channelBreakdown || [],
+      observationDays: entry.observationDays || 0,
+      recordedAt: entry.recordedAt
+    }
+  })
+
+  return {
+    schemaVersion: 3,
+    capturedAt: new Date().toISOString(),
+    channels,
+    channelPolicy: {
+      trackedChannelCount: channels.length,
+      manualVideoOnlyChannelCount: manualVideoOnlyChannels.length,
+      freeTrackedChannelAllowance: getFreeTrackedChannelAllowance(state),
+      grandfathered: Boolean(state?.config?.trackedChannelPolicy?.grandfatheredAt),
+      lastConfirmedTier: state?.config?.trackedChannelPolicy?.lastConfirmedTier || null,
+      downgradePending: state?.config?.trackedChannelPolicy?.downgradePending === true
+    },
+    watchedVideos,
+    favoriteVideos,
+    videoState: {
+      watchLaterCount: videoEntries.filter(isVideoWatchLater).length,
+      partialCount: videoEntries.filter(video => getVideoStatus(video) === 'partial').length,
+      resumableCount: videoEntries.filter(hasVideoResumePriority).length,
+      removedFromFeedCount: videoEntries.filter(isVideoRemovedFromFeed).length,
+      totalRewatchCount: Math.max(
+        0,
+        Number(state?.totalRewatchCount) || 0,
+        activityRewatchCount
+      ),
+      lastVideoOpenedAt: isValidTimestamp(state?.lastVideoOpenedAt) ? state.lastVideoOpenedAt : null,
+      lastSuccessfulRefreshAt
+    },
+    studyInsights,
+    studyDays,
+    streak: {
+      currentDays: Math.max(0, Number(state?.streak?.current) || 0),
+      longestDays: Math.max(0, Number(state?.streak?.longest) || 0),
+      lastActivityDate: state?.streak?.lastActivityDate || null
+    },
+    town: {
+      visibleLevelIndex,
+      earnedLevelIndex,
+      pendingLevelIndex,
+      hasPendingLevel: pendingLevelIndex !== null && pendingLevelIndex > visibleLevelIndex,
+      totalStudyScore: roundAnalyticsNumber(currentScore)
+    },
+    settings: {
+      locale: normalizeLocale(state?.config?.locale),
+      theme: normalizeTheme(state?.config?.theme),
+      weeklyGoalHours: normalizeWeeklyGoalHours(state?.config?.weeklyGoalHours),
+      includeShortVideos: getEffectiveIncludeShorts(state),
+      ankiEnabled: isAnkiTrackingActive(state),
+      studyInsightsEnabled: isStudyInsightsEnabled(state),
+      historyView: normalizeHistoryView(state?.config?.historyView, IS_SANDBOX),
+      channelShelfOrder: normalizeChannelShelfOrder(state?.config?.channelShelfOrder),
+      learningLanguages: Array.isArray(state?.learnerProfile?.languages)
+        ? state.learnerProfile.languages.map(String)
+        : [],
+      learnerLevel: state?.learnerProfile?.level || null,
+      onboardingCompleted: Boolean(state?.onboarding?.setupCompleted),
+      walkthroughCompleted: Boolean(state?.onboarding?.walkthroughCompleted)
+    }
+  }
+}
+
+function syncPersistedStateToAnalytics(state) {
+  if (ACCOUNT_FEATURES_ENABLED && !IS_SANDBOX && state) {
+    accountStudySnapshotController?.synchronizeState(state)
+  }
+  if (
+    IS_SANDBOX
+    || !isEdeniaAnalyticsEnabled()
+    || !hasEdeniaAnalyticsStateSync()
+    || !state
+  ) return
+
+  try {
+    syncEdeniaAnalyticsState(getEdeniaAnalyticsSnapshot(state))
+  } catch {}
+}
+
+function getAccountStudySnapshot(state) {
+  const studyDate = getCurrentAppDateKey(state)
+  const dayStart = dateKeyToLocalDate(studyDate)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setHours(23, 59, 59, 999)
+  const today = getStudyHistoryBetween(state, dayStart, dayEnd).rows
+    .find(row => row.dateKey === studyDate)
+  let timezone = 'UTC'
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {}
+
+  return createReminderEligibilitySnapshot({
+    state,
+    timezone,
+    locale: normalizeLocale(state?.config?.locale),
+    studyDate,
+    pointsToday: today ? getHistoryDayPoints(today) : 0,
+    lastQualifiedStudyDate: state?.streak?.lastActivityDate || null,
+    currentStreakDays: state?.streak?.current || 0,
+    includeShorts: getEffectiveIncludeShorts(state)
+  })
+}
+
+function prepareStateForBackup(state) {
+  const backupState = getImportedSyncState({
+    app: 'edenia',
+    state
+  })
+  if (!backupState) return null
+  if (backupState.config) delete backupState.config.apiKey
+  return backupState
+}
+
+function getSandboxChannels() {
+  return SANDBOX_CHANNEL_DEFINITIONS.map(channel => ({
+    id: channel.id,
+    name: t(channel.nameKey),
+    imageUrl: channel.imageUrl
+  }))
+}
+
+function createEmptySandboxState() {
+  const state = defaultState(4, getSandboxChannels(), DEFAULT_THEME)
+  state.sandboxChannelsVersion = SANDBOX_CHANNELS_VERSION
+  const startDate = new Date()
+  const startKey = toDateKey(startDate)
+  state.sandboxStartDate = startKey
+  state.sandboxLastDate = startKey
+  state.anki[startKey] = {
+    reviewed: 0,
+    created: 0,
+    loggedAt: setLocalTime(startDate, 0, 0).toISOString(),
+    source: 'sandbox-baseline'
+  }
+  return state
+}
+
+function makeSandboxThumbnail(label, index) {
+  const colors = [
+    ['#12bcea', '#c9ef68'],
+    ['#f5c842', '#ef805a'],
+    ['#82d2ef', '#254f6f'],
+    ['#ffafcc', '#bde0fe']
+  ][index % 4]
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270">
+      <rect width="480" height="270" fill="${colors[0]}"/>
+      <circle cx="395" cy="58" r="38" fill="${colors[1]}" opacity="0.92"/>
+      <rect x="0" y="184" width="480" height="86" fill="#173947"/>
+      <rect x="72" y="118" width="80" height="66" rx="8" fill="#fff6cc" stroke="#050505" stroke-width="8"/>
+      <path d="M58 122 L112 76 L166 122 Z" fill="#ef805a" stroke="#050505" stroke-width="8"/>
+      <rect x="238" y="96" width="98" height="88" rx="9" fill="#ffffff" stroke="#050505" stroke-width="8"/>
+      <path d="M224 100 L287 48 L350 100 Z" fill="#c9ef68" stroke="#050505" stroke-width="8"/>
+      <text x="32" y="238" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">${escapeSvgText(label)}</text>
+    </svg>
+  `
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+function normalizeVideoWatchProgressState(state) {
+  if (!state?.videos || typeof state.videos !== 'object') return false
+  let changed = false
+  Object.values(state.videos).forEach(video => {
+    const normalized = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+    const previous = Array.isArray(video.watchProgress) ? video.watchProgress : []
+    if (JSON.stringify(previous) !== JSON.stringify(normalized)) {
+      video.watchProgress = normalized
+      changed = true
+    }
+
+    const hasWatchCycleCoverage = Object.prototype.hasOwnProperty.call(video, 'watchCycleCoverage')
+    const hasLegacyRewatchCoverage = Object.prototype.hasOwnProperty.call(video, 'rewatchCoverage')
+    const hasStoredCoverage = hasWatchCycleCoverage || hasLegacyRewatchCoverage
+    const legacyResumeSeconds = (
+      !hasStoredCoverage
+      && hasVideoResumePriority(video)
+    )
+      ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+      : null
+    const normalizedCoverage = normalizeVideoWatchCoverage(
+      hasStoredCoverage
+        ? hasWatchCycleCoverage
+          ? video.watchCycleCoverage
+          : video.rewatchCoverage
+        : legacyResumeSeconds > 0
+        ? [{ start: 0, end: legacyResumeSeconds }]
+        : [],
+      video.duration
+    )
+    if (
+      hasWatchCycleCoverage
+      ? JSON.stringify(video.watchCycleCoverage) !== JSON.stringify(normalizedCoverage)
+      : hasLegacyRewatchCoverage
+      ? true
+      : normalizedCoverage.length > 0
+    ) {
+      video.watchCycleCoverage = normalizedCoverage
+      changed = true
+    }
+    if (hasLegacyRewatchCoverage) {
+      delete video.rewatchCoverage
+      changed = true
+    }
+    if (
+      (Object.prototype.hasOwnProperty.call(video, 'watchCycleCoverage') || normalizedCoverage.length > 0)
+      && video.watchProgressTracked !== true
+    ) {
+      video.watchProgressTracked = true
+      changed = true
+    } else if (
+      Object.prototype.hasOwnProperty.call(video, 'watchProgressTracked')
+      && video.watchProgressTracked !== true
+    ) {
+      delete video.watchProgressTracked
+      changed = true
+    }
+  })
+  return changed
+}
+
+function normalizeVideoOrganizationState(state) {
+  if (!state?.videos || typeof state.videos !== 'object') return false
+  let changed = false
+  const removedChannelIds = new Set(state.config?.removedChannelIds || [])
+  const normalizeVideo = (video, { migrateIndividualHidden = false } = {}) => {
+    if (!video || typeof video !== 'object') return
+    const wasSetAside = isVideoSetAside(video)
+    const wasIndividuallyHidden = migrateIndividualHidden
+      && video.hiddenFromGrid === true
+      && !removedChannelIds.has(video.channelId)
+      && !removedChannelIds.has(video.channelTitle)
+    if (wasSetAside || wasIndividuallyHidden) {
+      const removedAt = isVideoRemovedFromFeed(video)
+        ? video.removedFromFeedAt
+        : isValidTimestamp(video.setAsideAt)
+        ? video.setAsideAt
+        : isValidTimestamp(video.hiddenFromGridAt)
+        ? video.hiddenFromGridAt
+        : isValidTimestamp(video.watchedAt)
+        ? video.watchedAt
+        : new Date().toISOString()
+      if (video.removedFromFeedAt !== removedAt) {
+        video.removedFromFeedAt = removedAt
+        changed = true
+      }
+      if (wasSetAside) {
+        const resumeAtSeconds = normalizeResumeAtSeconds(
+          video.setAsideResumeAtSeconds,
+          video.duration
+        )
+        const nextStatus = resumeAtSeconds === null ? 'unwatched' : 'partial'
+        if (video.status !== nextStatus) {
+          video.status = nextStatus
+          changed = true
+        }
+        if (video.watchedAt !== null) {
+          video.watchedAt = null
+          changed = true
+        }
+        if (video.resumeAtSeconds !== resumeAtSeconds) {
+          video.resumeAtSeconds = resumeAtSeconds
+          changed = true
+        }
+        const pausedAt = resumeAtSeconds === null ? null : removedAt
+        if (video.pausedAt !== pausedAt) {
+          video.pausedAt = pausedAt
+          changed = true
+        }
+        if (video.watchProgressTracked !== true) {
+          video.watchProgressTracked = true
+          changed = true
+        }
+      }
+      if (wasIndividuallyHidden) {
+        video.hiddenFromGrid = false
+        video.hiddenFromGridAt = null
+        changed = true
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(video, 'removedFromFeedAt')
+      && !isVideoRemovedFromFeed(video)
+    ) {
+      delete video.removedFromFeedAt
+      changed = true
+    }
+    for (const key of ['setAside', 'setAsideAt', 'setAsideResumeAtSeconds']) {
+      if (!Object.prototype.hasOwnProperty.call(video, key)) continue
+      delete video[key]
+      changed = true
+    }
+  }
+  Object.values(state.videos).forEach(video => normalizeVideo(video, {
+    migrateIndividualHidden: true
+  }))
+  for (const stack of [state.undoStack, state.redoStack]) {
+    if (!Array.isArray(stack)) continue
+    stack.forEach(action => {
+      normalizeVideo(action?.before?.video)
+      normalizeVideo(action?.after?.video)
+    })
+  }
+  if (state.config && Object.prototype.hasOwnProperty.call(state.config, 'setAsidePromptSeen')) {
+    delete state.config.setAsidePromptSeen
+    changed = true
+  }
+  return changed
+}
+
+function normalizeWatchedConfirmationState(state) {
+  if (!state?.videos || typeof state.videos !== 'object') return false
+  let changed = false
+  Object.values(state.videos).forEach(video => {
+    if (!video || !Object.prototype.hasOwnProperty.call(video, 'watchedConfirmationUnlockedAt')) return
+    if (isValidTimestamp(video.watchedConfirmationUnlockedAt)) return
+    delete video.watchedConfirmationUnlockedAt
+    changed = true
+  })
+  return changed
+}
+
+function removeLegacyVideoWatchReminderState(state) {
+  if (!state || !Object.prototype.hasOwnProperty.call(state, 'videoWatchReminders')) return false
+  delete state.videoWatchReminders
+  return true
+}
+
+function shouldPromptFrequentUserAboutAnki(state) {
+  if (IS_SANDBOX || !state?.onboarding?.setupCompleted || !state?.onboarding?.walkthroughCompleted) return false
+  if (!getEdeniaProfileCreatedAt(state)) return false
+  if (!isAnkiTrackingActive(state)) return false
+  normalizeNoAnkiFrequentUserPromptState(state)
+  if (state.noAnkiFrequentUserPrompt.response) return false
+  if (state.noAnkiFrequentUserPrompt.watchedVideoDateKeys.length < NO_ANKI_FREQUENT_USER_DAY_THRESHOLD) return false
+  return !hasRecordedAnkiDataSinceProfileCreation(state)
+}
+
+async function completeWalkthrough(state = loadState()) {
+  if (!state) return null
+  normalizeOnboardingState(state)
+  if (!state.onboarding.walkthroughCompleted) {
+    state.onboarding.version = ONBOARDING_VERSION
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = new Date().toISOString()
+    if (!await saveState(state)) return false
+  }
+  synchronizeGoogleIdentityServices()
+  return state
+}
+
+function normalizeSandboxState(state) {
+  if (!IS_SANDBOX || !state) return
+  if (state.sandboxChannelsVersion !== SANDBOX_CHANNELS_VERSION) {
+    const existingChannels = new Map((state.config?.channels || []).map(channel => [channel.id, channel]))
+    state.config.channels = getSandboxChannels().map(channel => ({
+      ...channel,
+      ...(existingChannels.get(channel.id) || {}),
+      imageUrl: channel.imageUrl
+    }))
+    state.sandboxChannelsVersion = SANDBOX_CHANNELS_VERSION
+  }
+  const firstKey = getFirstStudyActionDateKey(state) || toDateKey()
+  if (!state.sandboxStartDate) state.sandboxStartDate = firstKey
+  if (!state.sandboxLastDate) state.sandboxLastDate = getLatestSandboxDateKey(state) || state.sandboxStartDate
+  if (!state.anki[state.sandboxStartDate]) {
+    state.anki[state.sandboxStartDate] = {
+      reviewed: 0,
+      created: 0,
+      loggedAt: setLocalTime(dateKeyToLocalDate(state.sandboxStartDate), 0, 0).toISOString(),
+      source: 'sandbox-baseline'
+    }
+  }
+}
+
+function getMissingDefaultChannelIds(channels) {
+  const channelIds = new Set((channels || []).map(channel => channel.id))
+  return DEFAULT_CHANNELS
+    .filter(channel => !channelIds.has(channel.id))
+    .map(channel => channel.id)
+}
+
+function isDefaultChannelId(id) {
+  return DEFAULT_CHANNELS.some(channel => channel.id === id)
+}
+
+function normalizeRemovedDefaultChannels(state) {
+  if (!state?.config) return
+  const hadRemovedList = Array.isArray(state.config.removedDefaultChannelIds)
+  const removedIds = new Set(hadRemovedList ? state.config.removedDefaultChannelIds : [])
+
+  if (!hadRemovedList && (state.defaultChannelsVersion || 1) >= DEFAULT_CHANNELS_VERSION) {
+    getMissingDefaultChannelIds(state.config.channels).forEach(id => removedIds.add(id))
+  }
+
+  state.config.removedDefaultChannelIds = [...removedIds].filter(isDefaultChannelId)
+}
+
+function normalizeRemovedChannels(state) {
+  if (!state?.config) return
+  const configuredIds = new Set((state.config.channels || []).map(channel => channel.id).filter(Boolean))
+  const removedIds = Array.isArray(state.config.removedChannelIds)
+    ? state.config.removedChannelIds.filter(Boolean)
+    : []
+  state.config.removedChannelIds = [...new Set(removedIds)]
+    .filter(id => !configuredIds.has(id))
+}
+
+// ════════════════════════════════════════════════════════════
+// DATE & TIME HELPERS
+// ════════════════════════════════════════════════════════════
+
+function getCurrentAppDate(state = null) {
+  if (!IS_SANDBOX) return new Date()
+  const sandboxState = state || loadState()
+  const latestKey = sandboxState?.sandboxLastDate || getLatestSandboxDateKey(sandboxState)
+  return latestKey ? dateKeyToLocalDate(latestKey) : new Date()
+}
+
+function getCurrentAppDateKey(state = null) {
+  return toDateKey(getCurrentAppDate(state))
+}
+
+function getCurrentAppTimestamp(state = null) {
+  if (!IS_SANDBOX) return new Date().toISOString()
+  const now = new Date()
+  const date = getCurrentAppDate(state)
+  date.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds())
+  return date.toISOString()
+}
+
+function timeAgo(iso, { compact = false } = {}) {
+  if (typeof iso !== 'string' || !iso.trim() || !Number.isFinite(Date.parse(iso))) return ''
+  const days = Math.floor((Date.now() - new Date(iso)) / 86_400_000)
+  if (days < -1) return t('time.inDays', { count: Math.abs(days) })
+  if (days === -1) return t('time.tomorrow')
+  if (days === 0) return t('time.today')
+  if (days === 1) return t('time.yesterday')
+  if (days < 7)  return t('time.daysAgo', { count: days })
+  if (days < 14) return t(compact ? 'time.weekAgoCompact' : 'time.weekAgo')
+  if (days < 30) return t(compact ? 'time.weeksAgoCompact' : 'time.weeksAgo', {
+    count: Math.floor(days / 7)
+  })
+  return t(compact ? 'time.monthsAgoCompact' : 'time.monthsAgo', {
+    count: Math.floor(days / 30)
+  })
+}
+
+function formatWatchedAt(iso) {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const watchedDateKey = toDateKey(date)
+  const today = getCurrentAppDate()
+  const todayKey = toDateKey(today)
+  const yesterdayKey = toDateKey(addDays(today, -1))
+  if (watchedDateKey === todayKey) return t('time.watchedToday')
+  if (watchedDateKey === yesterdayKey) return t('time.watchedYesterday')
+  const days = daysBetweenDateKeys(watchedDateKey, todayKey)
+  if (days > 1 && days < 7) return t('time.watchedDaysAgo', { count: days })
+  if (days >= 7 && days < 14) return t('time.watchedWeekAgo')
+  if (days >= 14 && days < 30) return t('time.watchedWeeksAgo', { count: Math.floor(days / 7) })
+  return t('time.watchedDate', { date: formatLocaleDate(date, { month: 'short', day: 'numeric' }) })
+}
+
+function formatDuration(secs) {
+  if (!secs) return '—'
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  const z = n => String(n).padStart(2, '0')
+  return h ? `${h}:${z(m)}:${z(s)}` : `${m}:${z(s)}`
+}
+
+function parseResumeTimestamp(value, duration = null) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+
+  if (/^\d+$/.test(raw)) {
+    return normalizeResumeAtSeconds(Number(raw) * 60, duration)
+  }
+
+  const parts = raw.split(':')
+  if (parts.length < 2 || parts.length > 3 || !parts.every(part => /^\d+$/.test(part))) return NaN
+
+  const nums = parts.map(part => Number(part))
+  const seconds = nums.length === 3
+    ? (nums[0] * 3600) + (nums[1] * 60) + nums[2]
+    : (nums[0] * 3600) + (nums[1] * 60)
+  return normalizeResumeAtSeconds(seconds, duration)
+}
+
+function formatResumeTimestamp(seconds) {
+  const normalized = normalizeResumeAtSeconds(seconds)
+  if (normalized === null) return ''
+  const h = Math.floor(normalized / 3600)
+  const m = Math.floor((normalized % 3600) / 60)
+  const s = normalized % 60
+  const z = n => String(n).padStart(2, '0')
+  return `${z(h)}:${z(m)}:${z(s)}`
+}
+
+function getWeekLabel(state = null) {
+  const start = getWeekStart(getCurrentAppDate(state))
+  const end   = new Date(start)
+  end.setDate(end.getDate() + 6)
+  const jan4  = new Date(start.getFullYear(), 0, 4)
+  const wk    = Math.ceil(((start - jan4) / 86_400_000 + jan4.getDay() + 1) / 7)
+  const fmt   = d => formatLocaleDate(d, { month: 'short', day: 'numeric' })
+  return t('time.weekLabel', { week: wk, start: fmt(start), end: fmt(end) })
+}
+
+// ════════════════════════════════════════════════════════════
+// SETUP & SETTINGS
+// ════════════════════════════════════════════════════════════
+
+function initBackgroundPhysics() {
+  const canvas = document.getElementById('backgroundPhysics')
+  const context = canvas?.getContext('2d', { alpha: true })
+  if (!canvas || !context) return null
+
+  const staticCanvas = document.createElement('canvas')
+  const staticContext = staticCanvas.getContext('2d', { alpha: true })
+  if (!staticContext) return null
+
+  const particles = []
+  const activeParticles = new Set()
+  const pointer = {
+    x: -BACKGROUND_PHYSICS_RADIUS,
+    y: -BACKGROUND_PHYSICS_RADIUS,
+    vx: 0,
+    vy: 0,
+    lastX: 0,
+    lastY: 0,
+    lastEventAt: 0,
+    hasPosition: false,
+    activeUntil: 0
+  }
+  let width = 0
+  let height = 0
+  let pixelRatio = 1
+  let spacing = 20
+  let columns = 0
+  let rows = 0
+  let frame = null
+  let lastFrameAt = 0
+  let resizeTimer = null
+
+  const getDotColor = () => document.body.dataset.theme === 'dark'
+    ? 'rgba(130, 210, 239, 0.17)'
+    : 'rgba(5, 5, 5, 0.095)'
+
+  const drawParticlePath = (targetContext, items, xKey, yKey, radius) => {
+    targetContext.beginPath()
+    items.forEach(particle => {
+      targetContext.moveTo(particle[xKey] + radius, particle[yKey])
+      targetContext.arc(particle[xKey], particle[yKey], radius, 0, Math.PI * 2)
+    })
+    targetContext.fill()
+  }
+
+  const renderStaticLayer = () => {
+    staticContext.setTransform(1, 0, 0, 1, 0, 0)
+    staticContext.clearRect(0, 0, staticCanvas.width, staticCanvas.height)
+    staticContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    staticContext.fillStyle = getDotColor()
+    drawParticlePath(staticContext, particles, 'homeX', 'homeY', 1)
+  }
+
+  const draw = () => {
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(staticCanvas, 0, 0)
+    if (!activeParticles.size) return
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    context.globalCompositeOperation = 'destination-out'
+    context.fillStyle = '#000'
+    drawParticlePath(context, activeParticles, 'homeX', 'homeY', 2.2)
+    context.globalCompositeOperation = 'source-over'
+    context.fillStyle = getDotColor()
+    drawParticlePath(context, activeParticles, 'x', 'y', 1.15)
+  }
+
+  const resetParticles = () => {
+    width = Math.max(1, window.innerWidth)
+    height = Math.max(1, window.innerHeight)
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
+    const isLowPower = hasCoarsePrimaryPointer()
+      || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+    const particleLimit = isLowPower ? 1200 : BACKGROUND_PHYSICS_MAX_PARTICLES
+    spacing = Math.max(18, Math.min(34, Math.sqrt((width * height) / particleLimit)))
+    columns = Math.ceil(width / spacing) + 1
+    rows = Math.ceil(height / spacing) + 1
+
+    canvas.width = Math.ceil(width * pixelRatio)
+    canvas.height = Math.ceil(height * pixelRatio)
+    staticCanvas.width = canvas.width
+    staticCanvas.height = canvas.height
+    particles.length = 0
+    activeParticles.clear()
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const homeX = (column * spacing) + (spacing * 0.5)
+        const homeY = (row * spacing) + (spacing * 0.5)
+        particles.push({ homeX, homeY, x: homeX, y: homeY, vx: 0, vy: 0 })
+      }
+    }
+
+    renderStaticLayer()
+    draw()
+  }
+
+  const activateParticlesNearPointer = () => {
+    const radius = BACKGROUND_PHYSICS_RADIUS
+    const minColumn = Math.max(0, Math.floor((pointer.x - radius) / spacing))
+    const maxColumn = Math.min(columns - 1, Math.ceil((pointer.x + radius) / spacing))
+    const minRow = Math.max(0, Math.floor((pointer.y - radius) / spacing))
+    const maxRow = Math.min(rows - 1, Math.ceil((pointer.y + radius) / spacing))
+    const radiusSquared = radius * radius
+
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const particle = particles[(row * columns) + column]
+        if (!particle) continue
+        const dx = particle.homeX - pointer.x
+        const dy = particle.homeY - pointer.y
+        if ((dx * dx) + (dy * dy) <= radiusSquared) activeParticles.add(particle)
+      }
+    }
+  }
+
+  const tick = now => {
+    const timeStep = Math.min(2, Math.max(0.5, (now - lastFrameAt) / 16.67 || 1))
+    const pointerIsActive = now < pointer.activeUntil
+    const radiusSquared = BACKGROUND_PHYSICS_RADIUS * BACKGROUND_PHYSICS_RADIUS
+    const damping = Math.pow(0.82, timeStep)
+    lastFrameAt = now
+    pointer.vx *= Math.pow(0.72, timeStep)
+    pointer.vy *= Math.pow(0.72, timeStep)
+
+    activeParticles.forEach(particle => {
+      if (pointerIsActive) {
+        const dx = particle.x - pointer.x
+        const dy = particle.y - pointer.y
+        const distanceSquared = (dx * dx) + (dy * dy)
+        if (distanceSquared < radiusSquared) {
+          const distance = Math.max(1, Math.sqrt(distanceSquared))
+          const influence = 1 - (distance / BACKGROUND_PHYSICS_RADIUS)
+          const push = influence * influence * 1.8 * timeStep
+          particle.vx += ((dx / distance) * push) + (pointer.vx * influence * 0.16)
+          particle.vy += ((dy / distance) * push) + (pointer.vy * influence * 0.16)
+        }
+      }
+
+      particle.vx = (particle.vx + ((particle.homeX - particle.x) * 0.055 * timeStep)) * damping
+      particle.vy = (particle.vy + ((particle.homeY - particle.y) * 0.055 * timeStep)) * damping
+      particle.x += particle.vx * timeStep
+      particle.y += particle.vy * timeStep
+
+      const distanceHome = Math.abs(particle.homeX - particle.x) + Math.abs(particle.homeY - particle.y)
+      const speed = Math.abs(particle.vx) + Math.abs(particle.vy)
+      if (!pointerIsActive && distanceHome < 0.08 && speed < 0.04) {
+        particle.x = particle.homeX
+        particle.y = particle.homeY
+        particle.vx = 0
+        particle.vy = 0
+        activeParticles.delete(particle)
+      }
+    })
+
+    draw()
+    if (activeParticles.size) {
+      frame = window.requestAnimationFrame(tick)
+    } else {
+      frame = null
+    }
+  }
+
+  const requestTick = () => {
+    if (frame !== null) return
+    lastFrameAt = performance.now()
+    frame = window.requestAnimationFrame(tick)
+  }
+
+  const handlePointerMove = event => {
+    const now = performance.now()
+    if (pointer.hasPosition) {
+      const elapsedFrames = Math.max(0.5, (now - pointer.lastEventAt) / 16.67)
+      pointer.vx = Math.max(-18, Math.min(18, (event.clientX - pointer.lastX) / elapsedFrames))
+      pointer.vy = Math.max(-18, Math.min(18, (event.clientY - pointer.lastY) / elapsedFrames))
+    }
+    pointer.x = event.clientX
+    pointer.y = event.clientY
+    pointer.lastX = event.clientX
+    pointer.lastY = event.clientY
+    pointer.lastEventAt = now
+    pointer.hasPosition = true
+    pointer.activeUntil = now + 90
+    activateParticlesNearPointer()
+    requestTick()
+  }
+
+  const handleResize = () => {
+    window.clearTimeout(resizeTimer)
+    resizeTimer = window.setTimeout(resetParticles, 120)
+  }
+
+  window.addEventListener('pointermove', handlePointerMove, { passive: true })
+  window.addEventListener('resize', handleResize, { passive: true })
+  resetParticles()
+
+  return {
+    setTheme() {
+      renderStaticLayer()
+      draw()
+    }
+  }
+}
+
+async function startApplicationWithState(initialState, {
+  accountAuthInitialized = false,
+  deferStarterFeedUntilProfileActivation = false,
+  skipUnfinishedOnboarding = false,
+  startUnfinishedOnboardingImmediately = false
+} = {}) {
+  if (applicationStarted) return
+  applicationStarted = true
+  legacyProgressMigrationView.hide()
+  let state = initialState
+  if (!state) {
+    state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
+    if (!await saveState(state)) {
+      applicationStarted = false
+      showOnboardingRecovery('storage', { state, resume: 'intro' })
+      return false
+    }
+  }
+  const initialChannelTransition = reconcileTrackedChannelPolicyState(
+    state,
+    plusAccessPolicy
+  )
+
+  applyLocale(state.config.locale)
+  if (!accountAuthInitialized) initializeAccountAuth()
+  initializePlusAccount()
+  initializeRequestedAccountSettings()
+  initializeRequestedPlusModal()
+  updateDocumentTitle(state)
+  document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
+  document.querySelector('.backup-panel')?.classList.toggle(
+    'hidden',
+    !LOCAL_BACKUPS_ENABLED
+  )
+  const sandboxTools = document.getElementById('sandboxTools')
+  const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
+  if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
+  if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
+  selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
+  setDefaultCityDayOffset(state)
+  syncStreak(state)
+  if (!await saveState(state)) {
+    // Opening an existing durable profile must still work when maintenance
+    // writes fail. Render its saved snapshot, without the failed mutation.
+    state = loadState({ persistCleanup: false })
+    if (!state) {
+      applicationStarted = false
+      showOnboardingRecovery('storage')
+      return false
+    }
+  }
+  applyTheme(state.config.theme)
+  backgroundPhysics = initBackgroundPhysics()
+  const unfinishedOnboardingStartsImmediately =
+    !skipUnfinishedOnboarding
+    && startUnfinishedOnboardingImmediately
+    && !IS_SANDBOX
+    && !state?.onboarding?.setupCompleted
+  if (!unfinishedOnboardingStartsImmediately) show('mainApp')
+  renderAll(state)
+  void initializeRequestedReminderDestination()
+  loadDynamicChannelCatalogs()
+  syncHeaderCompactState()
+  startChannelRefreshLabelTicker()
+  hydrateStoredManualVideoChannelImages()
+  initCityImagePanZoom()
+  initCityWaveformTouchNavigation()
+  initIntroTrailerTouchNavigation()
+  const onboardingExperienceStarted = skipUnfinishedOnboarding
+    ? false
+    : maybeStartOnboarding(state, {
+        startImmediately: unfinishedOnboardingStartsImmediately
+      })
+  onboardingFlowEvaluated = true
+  synchronizeGoogleIdentityServices()
+  const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
+  const starterFeedRequest = startPendingStarterFeedPreparation(state, {
+    deferAnki: noAnkiPromptScheduled,
+    deferUntilProfileActivation: deferStarterFeedUntilProfileActivation
+  })
+  if (!IS_SANDBOX) {
+    if (state.onboarding.setupCompleted) {
+      startLiveIntegrations(state, {
+        deferAnki: noAnkiPromptScheduled || Boolean(starterFeedRequest),
+        deferYoutube: Boolean(starterFeedRequest)
+      })
+    }
+  } else {
+    if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
+  }
+  showTrackedChannelDowngradeNotice(initialChannelTransition)
+  updateDocumentTitle(state)
+  const migrationNotice = legacyProgressMigrationView.consumeNotice()
+  if (migrationNotice) {
+    const noticeKey = {
+      alreadyPresent: 'migration.notice.alreadyPresent',
+      conflict: 'migration.notice.conflict',
+      pending: 'migration.notice.pending',
+      recovered: 'migration.notice.recovered'
+    }[migrationNotice]
+    showToast(
+      t(noticeKey),
+      ['conflict', 'pending'].includes(migrationNotice) ? 'warn' : 'success',
+      { durationMs: 8_000 }
+    )
+  }
+}
+
+function renderActivatedLearnerProfile(state, {
+  showMainApplication = true
+} = {}) {
+  applyLocale(state.config.locale)
+  updateDocumentTitle(state)
+  selectedHistoryView = normalizeHistoryView(
+    state.config.historyView,
+    IS_SANDBOX
+  )
+  setDefaultCityDayOffset(state)
+  syncStreak(state)
+  applyTheme(state.config.theme)
+  if (showMainApplication) show('mainApp')
+  else hide('mainApp')
+  renderAll(state)
+  renderChannelList(state.config.channels)
+  renderBackupList()
+  renderActivityLog(state)
+}
+
+function restoreUnfinishedOnboardingSurface() {
+  const mainApp = document.getElementById('mainApp')
+  mainApp?.setAttribute('inert', '')
+  if (introTrailerState.active) {
+    document.getElementById('introTrailer')?.classList.remove('hidden')
+    document.body.classList.add('intro-active')
+    return true
+  }
+  if (
+    !personalizedOnboardingState.active
+    && !onboardingRecoveryState.active
+  ) return false
+  document.getElementById('onboardingPanel')?.classList.remove('hidden')
+  document.body.classList.add('onboarding-active')
+  if (personalizedOnboardingState.active) renderPersonalizedOnboarding()
+  return true
+}
+
+const LEARNER_PROFILE_DOM_SELECTORS = Object.freeze([
+  '#introTrailer',
+  '#onboardingPanel',
+  '.settings-locale-group',
+  '.settings-shorts-group',
+  '.settings-howto-group',
+  '.activity-log-panel',
+  '.backup-panel',
+  '.settings-replay-group',
+  '.settings-data-group',
+  '.settings-creator',
+  '#mainApp'
+])
+const PUBLIC_ONBOARDING_DOM_SELECTORS = Object.freeze([
+  '#introTrailer',
+  '#onboardingPanel'
+])
+let parkedLearnerProfileDom = []
+const protectedConflictAnnouncementIds = new Set()
+let learnerProfileAccessRenderEpoch = 0
+
+function parkLearnerProfileDom() {
+  const parkedSelectors = new Set(
+    parkedLearnerProfileDom.map(({ selector }) => selector)
+  )
+  const newlyParkedLearnerProfileDom = LEARNER_PROFILE_DOM_SELECTORS
+    .filter(selector => !parkedSelectors.has(selector))
+    .map(selector => {
+      const element = document.querySelector(selector)
+      if (!element) return null
+      const placeholder = document.createComment('edenia-learner-profile-dom')
+      element.replaceWith(placeholder)
+      return { element, placeholder, selector }
+    })
+    .filter(Boolean)
+  parkedLearnerProfileDom.push(...newlyParkedLearnerProfileDom)
+
+  document.getElementById('videoActionsList')?.replaceChildren()
+  document.getElementById('videoActionsPopover')?.classList.add('hidden')
+  document.getElementById('toast')?.replaceChildren()
+  document.getElementById('heatmapTooltip')?.replaceChildren()
+}
+
+function restoreLearnerProfileDom(
+  selectors = LEARNER_PROFILE_DOM_SELECTORS
+) {
+  const restoredSelectors = new Set(selectors)
+  parkedLearnerProfileDom = parkedLearnerProfileDom.filter(({
+    element,
+    placeholder,
+    selector
+  }) => {
+    if (!restoredSelectors.has(selector)) return true
+    if (placeholder.isConnected) placeholder.replaceWith(element)
+    return false
+  })
+}
+
+function trackLearnerProfileOpening(accessState) {
+  const status = accessState?.status
+  if (
+    status === LEARNER_PROFILE_ACCESS_STATES.RESOLVING
+    || status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+  ) {
+    if (
+      document.getElementById('learnerProfileAccessGate')
+        ?.contains(document.activeElement)
+    ) learnerProfileOpeningFocusHandoffPending = true
+    learnerProfileOpeningStartedAt ??= Date.now()
+    return
+  }
+  if (status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    const startedAt = learnerProfileOpeningStartedAt
+    learnerProfileOpeningStartedAt = null
+    learnerProfileOpeningCompletionToastPending = (
+      startedAt !== null
+      && Date.now() - startedAt
+        >= LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS
+    )
+    return
+  }
+  learnerProfileOpeningStartedAt = null
+  learnerProfileOpeningCompletionToastPending = false
+  learnerProfileOpeningFocusHandoffPending = false
+}
+
+async function handleLearnerProfileAccessStateChange(accessState) {
+  const renderEpoch = ++learnerProfileAccessRenderEpoch
+  trackLearnerProfileOpening(accessState)
+  if (learnerProfileAccessVisualTestActive) {
+    accessState = { status: LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE }
+  }
+  if (
+    accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+    && accessState.conflict?.id
+  ) protectedConflictAnnouncementIds.add(accessState.conflict.id)
+  if ([
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED,
+    LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED,
+    LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+  ].includes(accessState.status)) protectedConflictAnnouncementIds.clear()
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    restoreLearnerProfileDom()
+  }
+  const profileAccessGate = document.getElementById('learnerProfileAccessGate')
+  const transfersProfileAccessFocusToApplication =
+    profileAccessGate?.contains(document.activeElement) === true
+  const closesProfileAccessAuthentication = (
+    profileAccessGate?.classList.contains('authentication-open')
+    && !isLearnerProfileAuthenticationState(accessState.status)
+  )
+  if (
+    closesProfileAccessAuthentication
+    && [
+      LEARNER_PROFILE_ACCESS_STATES.RESOLVING,
+      LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+    ].includes(accessState.status)
+  ) learnerProfileOpeningFocusHandoffPending = true
+  if (closesProfileAccessAuthentication) {
+    closeLearnerProfileAccessSignIn({ returnFocus: false })
+  }
+  learnerProfileAccessView.render(accessState)
+  if (
+    accessState.status === LEARNER_PROFILE_ACCESS_STATES.LOCKED
+    && accountlessProfileMigrationController?.isEntryRequired?.() === true
+  ) {
+    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+  }
+  if (
+    closesProfileAccessAuthentication
+    && !profileAccessGate?.classList.contains('hidden')
+  ) profileAccessGate.focus()
+  const syncImportControl = document.querySelector(
+    '[data-settings-sync-action="choose-file"]'
+  )
+  if (syncImportControl && learnerProfileLifecycleAuthority) {
+    syncImportControl.disabled = accessState.status
+      !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  }
+  if (
+    pendingLearnerProfileImport
+    && accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  ) clearPendingLearnerProfileImport()
+  if (accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    finishSettingsSyncImportInteraction()
+  }
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING) {
+    learnerProfileConflictView.renderConflict(accessState.conflict)
+  } else {
+    learnerProfileConflictView.hideConflict()
+  }
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    const state = learnerProfileLifecycleAuthority?.readActiveProfile()
+    if (!state) return
+    rememberPersistedPortableProfile(state)
+    const hasResetIntent = accessState.resetIntent === true
+      || accessState.protectedReset?.status === 'available'
+    const preserveUnfinishedOnboarding =
+      applicationStarted
+      && !IS_SANDBOX
+      && !state?.onboarding?.setupCompleted
+      && !hasResetIntent
+    if (
+      applicationStarted
+      && renderedLearnerProfileOwnerId !== undefined
+      && renderedLearnerProfileOwnerId !== accessState.ownerId
+    ) {
+      window.location.reload()
+      return
+    }
+    renderedLearnerProfileOwnerId = accessState.ownerId
+    synchronizeAccountStudySnapshotForProfile(accessState, state)
+    if (!preserveUnfinishedOnboarding) {
+      closeIntroTrailer()
+      personalizedOnboardingState.active = false
+      document.getElementById('onboardingPanel')?.classList.add('hidden')
+      document.body.classList.remove('onboarding-active')
+    }
+    const mainApp = document.getElementById('mainApp')
+    mainApp?.removeAttribute('inert')
+    if (!applicationStarted) {
+      await startApplicationWithState(state, {
+        accountAuthInitialized: true,
+        deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId),
+        skipUnfinishedOnboarding: hasResetIntent,
+        startUnfinishedOnboardingImmediately: Boolean(accessState.ownerId)
+      })
+      if (renderEpoch !== learnerProfileAccessRenderEpoch) return
+    } else {
+      renderActivatedLearnerProfile(state, {
+        showMainApplication: !preserveUnfinishedOnboarding
+      })
+      if (
+        preserveUnfinishedOnboarding
+        && !restoreUnfinishedOnboardingSurface()
+      ) {
+        maybeStartOnboarding(state, { startImmediately: true })
+      }
+    }
+    if (
+      learnerProfileOpeningCompletionToastPending
+      && learnerProfileSyncViewState?.status === 'up-to-date'
+      && !mainApp?.classList.contains('hidden')
+    ) {
+      learnerProfileOpeningCompletionToastPending = false
+      showToast(t('progressSync.upToDate'))
+    }
+    if (accessState.protectedConflicts?.length) {
+      learnerProfileConflictView.showProtected(
+        accessState.protectedConflicts
+      )
+    } else {
+      learnerProfileConflictView.hideProtected()
+    }
+    const newlyProtectedConflict = accessState.protectedConflicts?.find(
+      conflict => protectedConflictAnnouncementIds.has(conflict.id)
+    )
+    protectedConflictAnnouncementIds.clear()
+    if (newlyProtectedConflict) {
+      showToast(t('profileConflict.protectedAvailableToast', {
+        date: formatLocaleDateTime(newlyProtectedConflict.protectedUntil, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        })
+      }), 'success', {
+        actionLabel: t('profileConflict.viewInSettings'),
+        durationMs: 8_000,
+        onAction: openProtectedProfileVersionsSettings
+      })
+    }
+    renderStartOverUndo(accessState.protectedReset)
+    if (
+      (
+        transfersProfileAccessFocusToApplication
+        || learnerProfileOpeningFocusHandoffPending
+      )
+      && !mainApp?.classList.contains('hidden')
+      && !mainApp?.hasAttribute('inert')
+    ) mainApp.focus()
+    learnerProfileOpeningFocusHandoffPending = false
+    return
+  }
+  renderStartOverUndo(null)
+  learnerProfileConflictView.hideProtected()
+  const publicOnboardingState = (
+    !hasPersistedLearnerProfile()
+    || accessState.status
+      === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
+  )
+    ? loadOnboardingWorkingState()
+    : null
+  const onboardingAlreadyVisible = introTrailerState.active
+    || personalizedOnboardingState.active
+  if (
+    ACCOUNT_FEATURES_ENABLED
+    && publicOnboardingState
+    && (
+      accessState.status
+        === LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      || accessState.status
+        === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
+      || (
+        accessState.status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+        && onboardingAlreadyVisible
+      )
+    )
+  ) {
+    restoreLearnerProfileDom(PUBLIC_ONBOARDING_DOM_SELECTORS)
+    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+    learnerProfileAccessView.hideOpeningNotice()
+    applyLocale(publicOnboardingState.config.locale)
+    // A locked outcome parks and hides onboarding without discarding its draft
+    // or active step. Restore that presentation when public onboarding resumes.
+    if (introTrailerState.active) {
+      document.getElementById('introTrailer')?.classList.remove('hidden')
+    } else if (personalizedOnboardingState.active) {
+      document.getElementById('onboardingPanel')?.classList.remove('hidden')
+    }
+    if (
+      [
+        LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED,
+        LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      ].includes(accessState.status)
+      && !introTrailerState.active
+      && !personalizedOnboardingState.active
+    ) {
+      if (publicOnboardingState.onboarding.introSeenAt) {
+        startPersonalizedOnboarding(publicOnboardingState)
+      } else {
+        startIntroTrailer({ state: publicOnboardingState })
+      }
+    }
+    return
+  }
+  synchronizeAccountStudySnapshotForProfile(accessState, null)
+  document.getElementById('mainApp')?.classList.add('hidden')
+  document.getElementById('introTrailer')?.classList.add('hidden')
+  document.getElementById('onboardingPanel')?.classList.add('hidden')
+  document.getElementById('settingsPanel')?.classList.add('hidden')
+  document.getElementById('toast')?.classList.remove('show')
+  document.title = 'Edenia'
+  parkLearnerProfileDom()
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.RELOADING) {
+    window.location.reload()
+  }
+}
+
+function synchronizeAccountStudySnapshotForProfile(accessState, profile) {
+  if (!accountStudySnapshotController) return
+  if (!learnerProfileLifecycleAuthority) {
+    accountStudySnapshotController.synchronizeAccount(
+      accountAuthViewState,
+      profile
+    )
+    return
+  }
+  const accountMatchesProfile = accessState?.status
+      === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+    && accountAuthViewState.userId === accessState.ownerId
+    && profile
+  accountStudySnapshotController.synchronizeAccount(
+    accountMatchesProfile
+      ? accountAuthViewState
+      : { sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT },
+    accountMatchesProfile ? profile : null
+  )
+}
+
+function startApplicationFromLocalState() {
+  if (!learnerProfileLifecycleAuthority) {
+    startApplicationWithState(loadState())
+    return
+  }
+  legacyProgressMigrationView.hide()
+  applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+  learnerProfileAccessView.render(
+    learnerProfileLifecycleAuthority.getState()
+  )
+  const localProfile = learnerProfileLocalPersistence?.read()
+  accountlessProfileMigrationController?.start({
+    hasAccountlessProfile: localProfile?.status === 'ready'
+      && localProfile.ownerId === null,
+    hasLegacyProfile: localProfile?.status === 'ready'
+      && localProfile.legacy === true
+  })
+  applyAccountAuthenticationState(accountAuthViewState, {
+    observeLearnerProfile: false
+  })
+  learnerProfileLifecycleAuthority.start()
+  initializeAccountAuth()
+}
+
+function resumeApplicationAfterMigration() {
+  legacyProgressManualImportDone = null
+  migrationStartupRunning = false
+  startApplicationFromLocalState()
+}
+
+async function init() {
+  if (INTERNAL_PROFILE_PAUSED) {
+    showPausedInternalProfile(document)
+    return
+  }
+  reportMissingI18nKeys()
+  applyPermanentChannelVideoFormatUi()
+  if (!stateBackupStorageReady) {
+    void stateBackupStorageInitialization.then(init)
+    return
+  }
+  if (primaryProfileStorageUnavailable) {
+    applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+    showOnboardingRecovery('storage')
+    return
+  }
+  if (backupRecoveryUnavailable) {
+    let primaryStateIsReadable = false
+    try {
+      const raw = primaryStorage.getItem(STORAGE_KEY)
+      primaryStateIsReadable = Boolean(
+        raw && isValidStateShape(JSON.parse(raw))
+      )
+    } catch {}
+    if (!primaryStateIsReadable) {
+      applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+      showOnboardingRecovery('storage')
+      return
+    }
+  }
+  if (migrationStartupRunning || applicationStarted) return
+  migrationStartupRunning = true
+  applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+  const result = await legacyProgressMigrationController
+    .runBeforeApplicationStart()
+  migrationStartupRunning = false
+  if (result.disposition === 'continue') startApplicationFromLocalState()
+}
+
+function startLiveIntegrations(
+  state = loadState(),
+  { deferAnki = false, deferYoutube = false } = {}
+) {
+  if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
+  if (!deferAnki) applyAnkiRefreshPreference(state)
+  if (!deferYoutube) startYoutubeAutoRefresh()
+}
+
+function syncHeaderCompactState() {
+  const header = document.querySelector('.app-header')
+  if (!header) return
+  if (!usesPhoneComposition()) {
+    header.classList.remove('is-compact')
+    return
+  }
+  if (document.body.classList.contains('walkthrough-active')) {
+    header.classList.remove('is-compact')
+    return
+  }
+
+  const isCompact = header.classList.contains('is-compact')
+  const collapseAt = header.offsetHeight + 24
+  const expandAt = 16
+  const shouldCompact = isCompact
+    ? window.scrollY > expandAt
+    : window.scrollY > collapseAt
+  if (shouldCompact !== isCompact) header.classList.toggle('is-compact', shouldCompact)
+}
+
+function maybeStartOnboarding(state, { startImmediately = false } = {}) {
+  const scheduleStart = callback => {
+    if (startImmediately) callback()
+    else window.setTimeout(callback, 220)
+  }
+  if (consumeSandboxWalkthroughAfterReset()) {
+    window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true, reason: 'sandbox-reset' }), 350)
+    return true
+  }
+  if (IS_SANDBOX) return false
+  if (!canPersistLocalState()) {
+    const resume = state?.onboarding?.introSeenAt ? 'personalized' : 'intro'
+    scheduleStart(() => showOnboardingRecovery('storage', { state, resume }))
+    return true
+  }
+  if (!state?.onboarding?.setupCompleted) {
+    if (!state?.onboarding?.introSeenAt) {
+      scheduleStart(() => {
+        if (!startIntroTrailer({ state })) showOnboardingRecovery('setup', { state, resume: 'intro' })
+      })
+    } else {
+      scheduleStart(() => {
+        if (!startPersonalizedOnboarding(state)) showOnboardingRecovery('setup', { state, resume: 'personalized' })
+      })
+    }
+    return true
+  }
+  if (!state?.onboarding?.walkthroughCompleted) {
+    scheduleFirstStudyWalkthrough(state)
+    return true
+  }
+  return false
+}
+
+function scheduleFirstStudyWalkthrough(state = loadState()) {
+  if (
+    IS_SANDBOX
+    || firstStudyWalkthroughTimer
+    || walkthroughState.active
+    || !state?.onboarding?.setupCompleted
+    || state.onboarding.walkthroughCompleted
+  ) return false
+
+  const steps = getFirstStudyWalkthroughSteps(state)
+  const firstVideoStep = steps.find(step => step.id === 'first-study-video')
+  if (getActiveStarterFeed(state) && firstVideoStep && !getWalkthroughTarget(firstVideoStep)) {
+    return false
+  }
+
+  firstStudyWalkthroughTimer = window.setTimeout(() => {
+    firstStudyWalkthroughTimer = null
+    const latestState = loadState()
+    if (
+      walkthroughState.active
+      || !latestState?.onboarding?.setupCompleted
+      || latestState.onboarding.walkthroughCompleted
+    ) return
+
+    const latestSteps = getFirstStudyWalkthroughSteps(latestState)
+    const latestVideoStep = latestSteps.find(step => step.id === 'first-study-video')
+    if (
+      getActiveStarterFeed(latestState)
+      && latestVideoStep
+      && !getWalkthroughTarget(latestVideoStep)
+    ) return
+    startWalkthrough(latestSteps)
+  }, 350)
+  return true
+}
+
+function maybeStartNoAnkiFrequentUserPrompt(state) {
+  if (!shouldPromptFrequentUserAboutAnki(state)) return false
+  ankiRefreshDeferredForPrompt = true
+  window.setTimeout(() => {
+    const currentState = loadState()
+    if (!shouldPromptFrequentUserAboutAnki(currentState)) {
+      ankiRefreshDeferredForPrompt = false
+      applyAnkiRefreshPreference(currentState)
+      return
+    }
+    openSettings()
+    window.setTimeout(() => {
+      setSettingsHowToOpen(true)
+      startWalkthrough([NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP], {
+        reason: 'no-anki-frequent-user',
+        trackCompletion: false
+      })
+      if (!walkthroughState.active) {
+        ankiRefreshDeferredForPrompt = false
+        applyAnkiRefreshPreference(currentState)
+      }
+    }, 0)
+  }, 350)
+  return true
+}
+
+function syncIntroTrailerStageScale() {
+  const stage = document.querySelector('.intro-stage')
+  if (!stage) return
+  const stageWidth = stage.clientWidth
+  if (!stageWidth) return
+
+  const scale = stageWidth / INTRO_TRAILER_REFERENCE.sceneWidth
+  stage.style.setProperty('--intro-stage-scale', scale.toFixed(6))
+  stage.style.setProperty('--intro-stage-enter-scale', (scale * 1.025).toFixed(6))
+}
+
+function startIntroTrailer({ replay = false, state = null } = {}) {
+  if ((IS_SANDBOX && !replay) || introTrailerState.active) return false
+  const trailer = document.getElementById('introTrailer')
+  if (!trailer) {
+    if (!replay) return startPersonalizedOnboarding(state || loadState())
+    return false
+  }
+
+  introTrailerState.active = true
+  introTrailerState.replayMode = replay
+  introTrailerState.state = replay ? null : (state || loadState())
+  stopIntroMusic()
+  document.body.classList.add('intro-active')
+  document.getElementById('mainApp')?.setAttribute('inert', '')
+  trailer.classList.remove('hidden')
+  syncIntroTrailerStageScale()
+  const startButton = document.getElementById('introStartBtn')
+  if (startButton) {
+    const labelKey = replay ? 'intro.finale.return' : 'intro.finale.cta'
+    startButton.dataset.i18n = labelKey
+    startButton.dataset.analyticsAction = labelKey
+    startButton.textContent = t(labelKey)
+  }
+
+  setIntroTrailerScene(0)
+  startIntroMusic().catch(() => {})
+  return true
+}
+
+function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
+  if (!introTrailerState.active) return
+  const trailer = document.getElementById('introTrailer')
+  const timeline = document.getElementById('introTimeline')
+  const previousButton = document.getElementById('introPreviousBtn')
+  const nextButton = document.getElementById('introNextBtn')
+  if (!trailer) return
+
+  window.clearTimeout(introTrailerState.sceneTimer)
+  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
+  introTrailerState.cityLevelTimers = []
+  introTrailerState.sceneIndex = Math.max(0, Math.min(sceneIndex, INTRO_TRAILER_SCENE_DURATIONS.length - 1))
+  const duration = INTRO_TRAILER_SCENE_DURATIONS[introTrailerState.sceneIndex]
+
+  trailer.dataset.scene = String(introTrailerState.sceneIndex)
+  trailer.style.setProperty('--intro-duration', `${duration}ms`)
+  if (previousButton) previousButton.disabled = introTrailerState.sceneIndex === 0
+  if (nextButton) nextButton.disabled = introTrailerState.sceneIndex === INTRO_TRAILER_SCENE_DURATIONS.length - 1
+  timeline?.querySelectorAll('span').forEach((segment, index) => {
+    segment.classList.toggle('is-complete', index < introTrailerState.sceneIndex)
+    segment.classList.toggle('is-active', index === introTrailerState.sceneIndex)
+  })
+
+  if (introTrailerState.sceneIndex === 2) animateIntroCityLevel()
+  const isFinalScene = introTrailerState.sceneIndex === INTRO_TRAILER_SCENE_DURATIONS.length - 1
+  if (!autoAdvance || isFinalScene) return
+  introTrailerState.sceneTimer = window.setTimeout(() => {
+    const nextScene = introTrailerState.sceneIndex + 1
+    if (nextScene < INTRO_TRAILER_SCENE_DURATIONS.length) setIntroTrailerScene(nextScene)
+  }, duration)
+}
+
+function navigateIntroTrailer(direction) {
+  if (!introTrailerState.active) return
+  const nextScene = introTrailerState.sceneIndex + Math.sign(Number(direction) || 0)
+  if (nextScene < 0 || nextScene >= INTRO_TRAILER_SCENE_DURATIONS.length) return
+  setIntroTrailerScene(nextScene)
+}
+
+function resetIntroTrailerTouchNavigation() {
+  introTrailerState.touchIdentifier = null
+  introTrailerState.touchStartX = 0
+  introTrailerState.touchStartY = 0
+  introTrailerState.touchAxis = null
+}
+
+function initIntroTrailerTouchNavigation() {
+  const trailer = document.getElementById('introTrailer')
+  if (!trailer) return
+
+  trailer.addEventListener('touchstart', event => {
+    resetIntroTrailerTouchNavigation()
+    if (!introTrailerState.active || event.touches.length !== 1) return
+    if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea, label, [role="button"]')) return
+
+    const touch = event.touches[0]
+    introTrailerState.touchIdentifier = touch.identifier
+    introTrailerState.touchStartX = touch.clientX
+    introTrailerState.touchStartY = touch.clientY
+  }, { passive: true })
+
+  trailer.addEventListener('touchmove', event => {
+    const touch = Array.from(event.touches).find(item => item.identifier === introTrailerState.touchIdentifier)
+    if (!touch) return
+
+    const deltaX = touch.clientX - introTrailerState.touchStartX
+    const deltaY = touch.clientY - introTrailerState.touchStartY
+    if (!introTrailerState.touchAxis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 10) {
+      introTrailerState.touchAxis = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? 'horizontal' : 'vertical'
+    }
+    if (introTrailerState.touchAxis === 'horizontal' && event.cancelable) event.preventDefault()
+  }, { passive: false })
+
+  trailer.addEventListener('touchend', event => {
+    const touch = Array.from(event.changedTouches).find(item => item.identifier === introTrailerState.touchIdentifier)
+    if (!touch) return
+
+    const deltaX = touch.clientX - introTrailerState.touchStartX
+    const deltaY = touch.clientY - introTrailerState.touchStartY
+    const isHorizontalSwipe = introTrailerState.touchAxis !== 'vertical'
+      && Math.abs(deltaX) >= 56
+      && Math.abs(deltaX) > Math.abs(deltaY) * 1.25
+    resetIntroTrailerTouchNavigation()
+    if (isHorizontalSwipe) navigateIntroTrailer(deltaX < 0 ? 1 : -1)
+  }, { passive: true })
+
+  trailer.addEventListener('touchcancel', resetIntroTrailerTouchNavigation, { passive: true })
+}
+
+async function changeIntroLocale(locale) {
+  closeIntroLocaleMenu()
+  const state = loadOnboardingWorkingState() || introTrailerState.state
+  if (!state?.config) return
+  const nextLocale = normalizeLocale(locale)
+  state.config.locale = nextLocale
+  if (!await saveOnboardingWorkingState(state, { backup: false })) return false
+  applyLocale(nextLocale)
+  updateIntroSoundButton()
+  updateIntroCityLevelControls(document.getElementById('introCityLevel')?.textContent || '1')
+  updateDocumentTitle(state)
+
+  if (introTrailerState.active && introTrailerState.sceneIndex === 0) {
+    setIntroTrailerScene(0)
+  }
+}
+
+function handleIntroTrailerKeydown(event) {
+  if (!introTrailerState.active || event.defaultPrevented) return
+  if (event.target instanceof Element && event.target.closest('select, input, textarea')) return
+  if (event.altKey || event.ctrlKey || event.metaKey) return
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    navigateIntroTrailer(-1)
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    navigateIntroTrailer(1)
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    const localeMenu = document.getElementById('introLocaleMenu')
+    if (localeMenu && !localeMenu.classList.contains('hidden')) {
+      closeIntroLocaleMenu()
+      return
+    }
+    finishIntroTrailer()
+  }
+}
+
+function toggleIntroLocaleMenu(event) {
+  event.stopPropagation()
+  const button = document.getElementById('introLocaleBtn')
+  const menu = document.getElementById('introLocaleMenu')
+  if (!button || !menu) return
+  const isOpen = menu.classList.toggle('hidden') === false
+  button.setAttribute('aria-expanded', String(isOpen))
+}
+
+function closeIntroLocaleMenu() {
+  const button = document.getElementById('introLocaleBtn')
+  const menu = document.getElementById('introLocaleMenu')
+  if (!button || !menu) return
+  menu.classList.add('hidden')
+  button.setAttribute('aria-expanded', 'false')
+}
+
+function closeIntroLocaleMenuOnOutsideClick(event) {
+  if (event.target.closest('.intro-language-picker')) return
+  closeIntroLocaleMenu()
+}
+
+function toggleOnboardingLocaleMenu(event) {
+  event.stopPropagation()
+  const button = document.getElementById('onboardingLocaleBtn')
+  const menu = document.getElementById('onboardingLocaleMenu')
+  if (!button || !menu) return
+  const isOpen = menu.classList.toggle('hidden') === false
+  button.setAttribute('aria-expanded', String(isOpen))
+}
+
+function closeOnboardingLocaleMenu() {
+  const button = document.getElementById('onboardingLocaleBtn')
+  const menu = document.getElementById('onboardingLocaleMenu')
+  if (!button || !menu) return
+  menu.classList.add('hidden')
+  button.setAttribute('aria-expanded', 'false')
+}
+
+function closeOnboardingLocaleMenuOnOutsideClick(event) {
+  if (event.target.closest('.onboarding-language-picker')) return
+  closeOnboardingLocaleMenu()
+}
+
+async function changeOnboardingLocale(locale) {
+  closeOnboardingLocaleMenu()
+  const state = loadOnboardingWorkingState()
+  if (!state?.config) return
+  const nextLocale = normalizeLocale(locale)
+  state.config.locale = nextLocale
+  if (!await saveOnboardingWorkingState(state, { backup: false })) return false
+  applyLocale(nextLocale)
+  updateDocumentTitle(state)
+  renderPersonalizedOnboarding()
+}
+
+function animateIntroCityLevel() {
+  const trailer = document.getElementById('introTrailer')
+  trailer?.classList.remove('is-manual-city-level')
+  trailer?.querySelectorAll('[data-intro-city-frame]').forEach(frame => frame.classList.remove('is-selected'))
+  trailer?.querySelectorAll('.intro-city-growth button, .intro-city-growth i').forEach(marker => marker.classList.remove('is-selected', 'is-reached'))
+  updateIntroCityLevelControls(1)
+  ;[[2500, '4'], [5100, '8'], [7700, '12']].forEach(([delay, value]) => {
+    introTrailerState.cityLevelTimers.push(window.setTimeout(() => {
+      updateIntroCityLevelControls(value)
+    }, delay))
+  })
+}
+
+function updateIntroCityLevelControls(level) {
+  const normalizedLevel = String(level)
+  const levelLabel = document.getElementById('introCityLevel')
+  if (levelLabel) levelLabel.textContent = normalizedLevel
+  document.querySelectorAll('[data-intro-city-level]').forEach(button => {
+    const isSelected = button.dataset.introCityLevel === normalizedLevel
+    button.setAttribute('aria-pressed', String(isSelected))
+    button.setAttribute('aria-label', `${t('intro.city.level')} ${button.dataset.introCityLevel}`)
+  })
+}
+
+function selectIntroCityLevel(level) {
+  if (!introTrailerState.active || introTrailerState.sceneIndex !== 2) return
+  const normalizedLevel = String(level)
+  if (!['1', '4', '8', '12'].includes(normalizedLevel)) return
+  const trailer = document.getElementById('introTrailer')
+  if (!trailer) return
+
+  window.clearTimeout(introTrailerState.sceneTimer)
+  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
+  introTrailerState.cityLevelTimers = []
+  trailer.classList.add('is-manual-city-level')
+  const levels = ['1', '4', '8', '12']
+  const selectedIndex = levels.indexOf(normalizedLevel)
+  const showLevel = nextLevel => {
+    const nextIndex = levels.indexOf(nextLevel)
+    trailer.querySelectorAll('[data-intro-city-frame]').forEach(frame => {
+      frame.classList.toggle('is-selected', frame.dataset.introCityFrame === nextLevel)
+    })
+    trailer.querySelectorAll('[data-intro-city-level]').forEach((button, index) => {
+      button.classList.toggle('is-selected', index === nextIndex)
+      button.classList.toggle('is-reached', index <= nextIndex)
+    })
+    trailer.querySelectorAll('.intro-city-growth i').forEach((rail, index) => {
+      rail.classList.toggle('is-reached', index < nextIndex)
+    })
+    updateIntroCityLevelControls(nextLevel)
+  }
+
+  showLevel(normalizedLevel)
+  const levelPause = 2800
+  levels.slice(selectedIndex + 1).forEach((nextLevel, index) => {
+    introTrailerState.cityLevelTimers.push(window.setTimeout(() => showLevel(nextLevel), levelPause * (index + 1)))
+  })
+  const remainingLevelCount = levels.length - selectedIndex - 1
+  introTrailerState.sceneTimer = window.setTimeout(() => setIntroTrailerScene(3), levelPause * (remainingLevelCount + 1))
+}
+
+function updateIntroSoundButton() {
+  const labelKey = introTrailerState.soundEnabled ? 'intro.sound.on' : 'intro.sound.off'
+  const labelText = t(labelKey)
+  document.querySelectorAll('[data-intro-sound-toggle]').forEach(button => {
+    button.setAttribute('aria-pressed', String(introTrailerState.soundEnabled))
+    button.setAttribute('aria-label', labelText)
+    button.title = labelText
+  })
+}
+
+function removeIntroMusicUnlockListeners() {
+  window.removeEventListener('pointerdown', unlockIntroMusic, true)
+  window.removeEventListener('keydown', unlockIntroMusic, true)
+}
+
+function unlockIntroMusic() {
+  const audio = introTrailerState.audio
+  if (!introTrailerState.active || !introTrailerState.soundEnabled || !audio) {
+    removeIntroMusicUnlockListeners()
+    return
+  }
+  audio.play().then(removeIntroMusicUnlockListeners).catch(() => {})
+}
+
+async function startIntroMusic() {
+  if (!introTrailerState.active || introTrailerState.audio) return
+  const audio = new Audio('assets/audio/intro-trailer-rainy-10pm.mp4')
+  audio.loop = true
+  audio.preload = 'auto'
+  audio.volume = 0.42
+  introTrailerState.audio = audio
+  introTrailerState.soundEnabled = true
+  updateIntroSoundButton()
+  try {
+    await audio.play()
+  } catch (error) {
+    window.addEventListener('pointerdown', unlockIntroMusic, { capture: true })
+    window.addEventListener('keydown', unlockIntroMusic, { capture: true })
+  }
+}
+
+function stopIntroMusic({ fadeDuration = 0.28 } = {}) {
+  removeIntroMusicUnlockListeners()
+  const audio = introTrailerState.audio
+  const shouldFade = Boolean(
+    audio &&
+    introTrailerState.soundEnabled &&
+    !audio.paused &&
+    audio.volume > 0
+  )
+  introTrailerState.audio = null
+  introTrailerState.soundEnabled = false
+  updateIntroSoundButton()
+  if (!audio) return Promise.resolve()
+  if (!shouldFade) {
+    audio.pause()
+    audio.currentTime = 0
+    return Promise.resolve()
+  }
+
+  const duration = Math.max(fadeDuration * 1000, 10)
+  const startedAt = performance.now()
+  const startingVolume = audio.volume
+  return new Promise(resolve => {
+    let fadeTimer = null
+    let fadeDeadlineTimer = null
+    const finishFade = () => {
+      if (fadeTimer === null) return
+      window.clearInterval(fadeTimer)
+      window.clearTimeout(fadeDeadlineTimer)
+      fadeTimer = null
+      audio.volume = 0
+      audio.pause()
+      audio.currentTime = 0
+      resolve()
+    }
+    fadeTimer = window.setInterval(() => {
+      const progress = Math.min((performance.now() - startedAt) / duration, 1)
+      audio.volume = startingVolume * (0.5 + (0.5 * Math.cos(Math.PI * progress)))
+      if (progress >= 1) finishFade()
+    }, 50)
+    fadeDeadlineTimer = window.setTimeout(finishFade, duration + 250)
+  })
+}
+
+async function toggleIntroSound() {
+  if (introTrailerState.soundEnabled) {
+    const audio = introTrailerState.audio
+    if (!audio) {
+      stopIntroMusic()
+      return
+    }
+    removeIntroMusicUnlockListeners()
+    audio.pause()
+    introTrailerState.soundEnabled = false
+    updateIntroSoundButton()
+    return
+  }
+  try {
+    const audio = introTrailerState.audio
+    if (audio) {
+      introTrailerState.soundEnabled = true
+      updateIntroSoundButton()
+      await audio.play()
+    } else {
+      await startIntroMusic()
+    }
+  } catch (error) {
+    stopIntroMusic()
+    console.warn('Unable to start intro music.', error)
+  }
+}
+
+function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {}) {
+  if (!keepMusicPlaying) stopIntroMusic({ fadeDuration: 7.5 })
+  window.clearTimeout(introTrailerState.sceneTimer)
+  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
+  introTrailerState.cityLevelTimers = []
+  introTrailerState.active = false
+  introTrailerState.replayMode = false
+
+  const trailer = document.getElementById('introTrailer')
+  trailer?.classList.add('hidden')
+  document.body.classList.remove('intro-active')
+  if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')
+}
+
+async function finishIntroTrailer() {
+  if (!introTrailerState.active) return
+  const wasReplay = introTrailerState.replayMode
+
+  if (wasReplay) {
+    closeIntroTrailer({ restoreMain: true })
+    return
+  }
+
+  const state = loadOnboardingWorkingState() || introTrailerState.state
+  if (!state) {
+    closeIntroTrailer()
+    showOnboardingRecovery('setup', { resume: 'personalized' })
+    return
+  }
+
+  normalizeOnboardingState(state)
+  state.onboarding.introSeenAt = state.onboarding.introSeenAt || new Date().toISOString()
+  if (!await saveOnboardingWorkingState(state, { backup: false })) {
+    closeIntroTrailer()
+    showOnboardingRecovery('storage', { state, resume: 'personalized' })
+    return
+  }
+
+  if (!startPersonalizedOnboarding(state)) {
+    closeIntroTrailer()
+    showOnboardingRecovery('setup', { state, resume: 'personalized' })
+    return
+  }
+  closeIntroTrailer({ keepMusicPlaying: true })
+}
+
+function canResumeOnboardingAccountStep(state) {
+  if (
+    !ACCOUNT_ENTRY_REQUIRED
+    || !isValidTimestamp(state?.onboarding?.accountStepReachedAt)
+  ) return false
+
+  const languageId = state?.learnerProfile?.languages?.[0] || null
+  return Boolean(
+    languageId
+    && (languageId === 'other' || state?.learnerProfile?.level)
+  )
+}
+
+function getInitialPersonalizedOnboardingStep(state) {
+  if (canResumeOnboardingAccountStep(state)) return 'account'
+  const languageId = state.learnerProfile.languages[0]
+  if (!languageId) return 'language'
+  if (languageId === 'other') return 'other'
+  return state.learnerProfile.level ? 'channels' : 'level'
+}
+
+function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
+  if (!state || IS_SANDBOX) return false
+  const panel = document.getElementById('onboardingPanel')
+  const content = document.getElementById('onboardingContent')
+  const progress = document.querySelector('#onboardingPanel .onboarding-progress')
+  if (!panel || !content || !progress) return false
+
+  try {
+    normalizeLearnerProfileState(state)
+    onboardingRecoveryState.active = false
+    onboardingRecoveryState.state = null
+    personalizedOnboardingState.active = true
+    personalizedOnboardingState.step = getInitialPersonalizedOnboardingStep(state)
+    personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
+    personalizedOnboardingState.levelId = state.learnerProfile.level || null
+    personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(
+      0,
+      getOnboardingChannelSelectionLimit(state)
+    )
+    personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
+    personalizedOnboardingState.isApplyingChannels = false
+    personalizedOnboardingState.accountEmail = ''
+    personalizedOnboardingState.lastTrackedStep = null
+    panel.classList.remove('is-recovery', 'hidden')
+    progress.classList.remove('hidden')
+    document.body.classList.add('onboarding-active')
+    document.getElementById('mainApp')?.setAttribute('inert', '')
+    renderPersonalizedOnboarding()
+    return true
+  } catch (error) {
+    console.error('Unable to start personalized onboarding.', error)
+    personalizedOnboardingState.active = false
+    panel.classList.add('hidden')
+    document.body.classList.remove('onboarding-active')
+    document.getElementById('mainApp')?.removeAttribute('inert')
+    return false
+  }
+}
+
+function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'personalized' } = {}) {
+  const normalizedReason = reason === 'storage' ? 'storage' : 'setup'
+  const panel = document.getElementById('onboardingPanel')
+  const content = document.getElementById('onboardingContent')
+  const localePicker = document.getElementById('onboardingLocalePicker')
+  const progress = document.querySelector('#onboardingPanel .onboarding-progress')
+  if (!panel || !content) return false
+
+  personalizedOnboardingState.active = false
+  onboardingRecoveryState.active = true
+  onboardingRecoveryState.reason = normalizedReason
+  onboardingRecoveryState.resume = ['intro', 'complete'].includes(resume) ? resume : 'personalized'
+  onboardingRecoveryState.state = state
+  localePicker?.classList.add('hidden')
+  progress?.classList.add('hidden')
+  content.innerHTML = `
+    ${renderOnboardingHeading(`onboarding.recovery.${normalizedReason}.title`, `onboarding.recovery.${normalizedReason}.body`)}
+    <div class="onboarding-actions onboarding-recovery-actions">
+      <button type="button" class="btn-secondary" data-onboarding-recovery-action="copy-link" data-analytics-action="copyOnboardingRecoveryLink">${escHtml(t('onboarding.recovery.copyLink'))}</button>
+      <button type="button" class="btn-primary" data-onboarding-recovery-action="retry" data-analytics-action="retryOnboardingRecovery">${escHtml(t('onboarding.recovery.tryAgain'))}</button>
+    </div>
+    <p class="onboarding-recovery-status" id="onboardingRecoveryStatus" role="status" aria-live="polite"></p>
+  `
+  bindOnboardingRecoveryActions(content, {
+    copyLink: copyOnboardingRecoveryLink,
+    retry: retryOnboardingRecovery
+  })
+  panel.classList.add('is-recovery')
+  panel.classList.remove('hidden')
+  document.body.classList.add('onboarding-active')
+  document.getElementById('mainApp')?.setAttribute('inert', '')
+  trackEdeniaEvent('onboarding_recovery_shown', {
+    reason: normalizedReason,
+    resume_target: onboardingRecoveryState.resume,
+    navigator_language: navigator.language || null
+  })
+  return true
+}
+
+function closeOnboardingRecovery() {
+  const panel = document.getElementById('onboardingPanel')
+  const progress = document.querySelector('#onboardingPanel .onboarding-progress')
+  onboardingRecoveryState.active = false
+  panel?.classList.remove('is-recovery')
+  panel?.classList.add('hidden')
+  progress?.classList.remove('hidden')
+  document.body.classList.remove('onboarding-active')
+  document.getElementById('mainApp')?.removeAttribute('inert')
+}
+
+async function copyOnboardingRecoveryLink(button) {
+  const status = document.getElementById('onboardingRecoveryStatus')
+  let copied = false
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable')
+    await navigator.clipboard.writeText(window.location.href)
+    copied = true
+  } catch {
+    const input = document.createElement('textarea')
+    input.value = window.location.href
+    input.setAttribute('readonly', '')
+    input.style.position = 'fixed'
+    input.style.opacity = '0'
+    document.body.appendChild(input)
+    input.focus()
+    input.select()
+    input.setSelectionRange(0, input.value.length)
+    try { copied = document.execCommand('copy') } catch {}
+    input.remove()
+  }
+
+  if (status) status.textContent = t(copied ? 'onboarding.recovery.copied' : 'onboarding.recovery.copyFailed')
+  if (button && copied) {
+    const originalLabel = t('onboarding.recovery.copyLink')
+    button.textContent = t('onboarding.recovery.copied')
+    window.setTimeout(() => {
+      if (button.isConnected) button.textContent = originalLabel
+    }, 2200)
+  }
+  trackEdeniaEvent('onboarding_recovery_link_copy', { success: copied })
+}
+
+async function retryOnboardingRecovery(button) {
+  if (!onboardingRecoveryState.active) return
+  if (backupRecoveryUnavailable || primaryProfileStorageUnavailable) {
+    if (button) button.disabled = true
+    window.location.reload()
+    return
+  }
+  const status = document.getElementById('onboardingRecoveryStatus')
+  if (button) button.disabled = true
+
+  if (!canPersistLocalState()) {
+    if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
+    if (button) button.disabled = false
+    trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
+    return
+  }
+
+  const state = onboardingRecoveryState.state || loadState() || defaultState(4, DEFAULT_CHANNELS)
+  normalizeOnboardingState(state)
+  if (!await saveState(state, { backup: false })) {
+    if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
+    if (button) button.disabled = false
+    trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
+    return
+  }
+
+  const resume = onboardingRecoveryState.resume
+  const recoveryReason = onboardingRecoveryState.reason
+  closeOnboardingRecovery()
+  if (resume === 'complete') {
+    trackEdeniaEvent('onboarding_recovery_retry', { success: true, reason: recoveryReason })
+    window.location.assign(getPostOnboardingAppUrl())
+    return
+  }
+  const started = resume === 'intro'
+    ? startIntroTrailer({ state })
+    : startPersonalizedOnboarding(state)
+  if (!started) {
+    showOnboardingRecovery('setup', { state, resume })
+    const nextStatus = document.getElementById('onboardingRecoveryStatus')
+    if (nextStatus) nextStatus.textContent = t('onboarding.recovery.setupStillUnavailable')
+    trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'setup' })
+    return
+  }
+  trackEdeniaEvent('onboarding_recovery_retry', { success: true, reason: recoveryReason })
+}
+
+async function renderPersonalizedOnboarding() {
+  if (!personalizedOnboardingState.active) return
+  const content = document.getElementById('onboardingContent')
+  const panel = document.getElementById('onboardingPanel')
+  const localePicker = document.getElementById('onboardingLocalePicker')
+  const progressLabel = document.getElementById('onboardingProgressLabel')
+  const progressFill = document.getElementById('onboardingProgressFill')
+  if (!content || !progressLabel || !progressFill) return
+
+  const profileStepOrder = personalizedOnboardingState.languageId === 'other'
+    ? ['language', 'other']
+    : ['language', 'level', 'channels']
+  const stepOrder = ACCOUNT_ENTRY_REQUIRED
+    ? [...profileStepOrder, 'account']
+    : profileStepOrder
+  const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
+  progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
+  progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
+  panel?.classList.toggle('is-language-step', personalizedOnboardingState.step === 'language')
+  panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
+  panel?.classList.toggle('is-level-step', personalizedOnboardingState.step === 'level')
+  panel?.classList.toggle('is-account-step', personalizedOnboardingState.step === 'account')
+  localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
+  clearOnboardingChoiceLayout(panel)
+  if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
+    trackEdeniaEvent('onboarding_step_viewed', {
+      step_name: personalizedOnboardingState.step,
+      step_number: stepIndex + 1,
+      total_steps: stepOrder.length,
+      learning_language: personalizedOnboardingState.languageId || null,
+      learner_level: personalizedOnboardingState.levelId || null,
+      selected_channel_count: personalizedOnboardingState.selectedChannelCatalogIds.length
+    })
+    personalizedOnboardingState.lastTrackedStep = personalizedOnboardingState.step
+  }
+
+  if (personalizedOnboardingState.step === 'language') {
+    renderOnboardingLanguageStep(content)
+  } else if (personalizedOnboardingState.step === 'level') {
+    renderOnboardingLevelStep(content)
+  } else if (personalizedOnboardingState.step === 'channels') {
+    if (!await prepareOnboardingChannelSelections()) return
+    renderOnboardingChannelsStep(content)
+  } else if (personalizedOnboardingState.step === 'account') {
+    renderOnboardingAccountStep(content)
+  } else {
+    renderOnboardingOtherStep(content)
+  }
+  bindPersonalizedOnboardingActions(content, {
+    selectLanguage: selectOnboardingLanguage,
+    continueFromLanguage: continuePersonalizedOnboardingFromLanguage,
+    selectLevel: selectOnboardingLevel,
+    setStep: setPersonalizedOnboardingStep,
+    toggleChannel: toggleOnboardingChannel,
+    finish: finishPersonalizedOnboarding
+  })
+  bindOnboardingStartOverActions(content, startOverPersonalizedOnboarding)
+  bindOnboardingAccountActions(content, {
+    requestEmailCode: requestOnboardingAccountEmailCode,
+    verifyEmailCode: verifyAccountEmailCode
+  })
+  syncOnboardingChoiceLayout()
+}
+
+function isOnboardingChoiceLayoutContained(panel) {
+  const elements = [
+    panel.querySelector('.onboarding-card'),
+    panel.querySelector('.onboarding-content'),
+    panel.querySelector('.onboarding-language-grid, .onboarding-level-grid, .onboarding-channel-list'),
+    panel.querySelector('.onboarding-actions'),
+    ...panel.querySelectorAll(
+      '.onboarding-language-grid .onboarding-choice, .onboarding-level-choice, .onboarding-channel'
+    )
+  ].filter(Boolean)
+
+  return elements.every(element => (
+    element.scrollHeight
+      <= element.clientHeight + ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX
+    && element.scrollWidth
+      <= element.clientWidth + ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX
+  ))
+}
+
+function clearOnboardingChoiceLayout(panel) {
+  if (!panel) return
+  delete panel.dataset.onboardingChoiceLayout
+}
+
+function getOnboardingLayoutViewportSize() {
+  const root = document.documentElement
+  return {
+    width: root?.clientWidth ?? window.innerWidth,
+    height: root?.clientHeight ?? window.innerHeight
+  }
+}
+
+function syncOnboardingChoiceLayout() {
+  const panel = document.getElementById('onboardingPanel')
+  onboardingChoiceLayoutViewportSize = getOnboardingLayoutViewportSize()
+  const supportsFittedChoices = (
+    personalizedOnboardingState.active
+    && ['language', 'level', 'channels'].includes(personalizedOnboardingState.step)
+    && usesPhoneComposition()
+  )
+  if (!panel || !supportsFittedChoices) {
+    clearOnboardingChoiceLayout(panel)
+    return null
+  }
+
+  panel.classList.add('is-choice-layout-measuring')
+  const selectedLayout = selectOnboardingChoiceLayout({
+    applyLayout(layout) {
+      panel.dataset.onboardingChoiceLayout = layout
+    },
+    candidateLayouts: personalizedOnboardingState.step === 'language'
+      ? ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES
+      : undefined,
+    isContained() {
+      return isOnboardingChoiceLayoutContained(panel)
+    }
+  })
+  panel.classList.remove('is-choice-layout-measuring')
+  return selectedLayout
+}
+
+function scheduleOnboardingChoiceLayoutSync() {
+  if (onboardingChoiceLayoutFrame) return
+  onboardingChoiceLayoutFrame = window.requestAnimationFrame(() => {
+    onboardingChoiceLayoutFrame = 0
+    syncOnboardingChoiceLayout()
+  })
+}
+
+function scheduleOnboardingChoiceLayoutSyncForViewportResize() {
+  const nextSize = getOnboardingLayoutViewportSize()
+  const shouldSync = shouldSyncOnboardingChoiceLayoutForViewportResize({
+    previousSize: onboardingChoiceLayoutViewportSize,
+    nextSize,
+    visualScale: window.visualViewport?.scale ?? 1
+  })
+  if (!shouldSync) return
+
+  onboardingChoiceLayoutViewportSize = nextSize
+  scheduleOnboardingChoiceLayoutSync()
+}
+
+function renderOnboardingHeading(titleKey, subtitleKey = '') {
+  return `
+    <div class="onboarding-heading">
+      <span class="onboarding-eyebrow">${escHtml(t('onboarding.eyebrow'))}</span>
+      <h2 class="onboarding-title" id="onboardingTitle">${escHtml(t(titleKey))}</h2>
+      ${subtitleKey ? `<p class="onboarding-subtitle">${escHtml(t(subtitleKey))}</p>` : ''}
+    </div>
+  `
+}
+
+function renderOnboardingProfileFinalAction() {
+  if (ACCOUNT_ENTRY_REQUIRED) {
+    return `
+      <button type="button" class="btn-primary" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="account" data-analytics-action="continuePersonalizedOnboardingToAccount" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.continue'))}</button>
+    `
+  }
+  return `
+    <button type="button" class="btn-primary" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+  `
+}
+
+function renderOnboardingAccountStep(content) {
+  const state = accountAuthViewState
+  const sessionState = state?.sessionState || ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const signedIn = sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+  const loading = sessionState === ACCOUNT_SESSION_STATES.LOADING
+  const unavailable = sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const busy = Boolean(state?.busyAction) || personalizedOnboardingState.isApplyingChannels
+  const activeProfile = learnerProfileLifecycleAuthority?.readActiveProfile()
+  const canFinishActiveSignedInProfile =
+    signedIn
+    && learnerProfileLifecycleAuthority?.getState().status
+      === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && activeProfile
+    && !activeProfile.onboarding?.setupCompleted
+  const emailCodePending = accountAuthController?.hasPendingEmailCode() === true
+  const previousStep = personalizedOnboardingState.languageId === 'other'
+    ? 'other'
+    : 'channels'
+  const feedbackView = ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.error]
+    || ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.notice]
+    || null
+  const feedback = feedbackView
+    ? `<p class="onboarding-account-feedback" data-account-tone="${escHtml(feedbackView.tone)}" role="${feedbackView.tone === 'error' ? 'alert' : 'status'}" aria-live="${feedbackView.tone === 'error' ? 'assertive' : 'polite'}">${escHtml(t(feedbackView.key))}</p>`
+    : ''
+  const googleAvailable = GOOGLE_IDENTITY_SERVICES_READY
+  const googleContent = GOOGLE_IDENTITY_SERVICES_READY
+    ? '<div class="account-google-identity-button" data-google-identity-button data-google-identity-surface="onboarding"></div>'
+    : ''
+
+  let accountContent
+  if (loading) {
+    accountContent = `
+      <p class="onboarding-account-loading" role="status" aria-live="polite">${escHtml(t('settings.account.status.loading'))}</p>
+    `
+  } else if (signedIn) {
+    accountContent = `
+      <div class="onboarding-account-identity ph-no-capture">
+        <span>${escHtml(t('settings.account.signedInAs'))}</span>
+        <strong>${escHtml(state?.email || '')}</strong>
+      </div>
+      ${feedback}
+    `
+  } else {
+    accountContent = `
+      ${googleContent}
+      ${googleAvailable ? `<div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>` : ''}
+      <form class="onboarding-account-email-form ph-no-capture" data-onboarding-account-action="email-form" novalidate>
+        <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
+        <input class="account-auth-email-input" id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
+        ${TURNSTILE_READY ? '<div class="account-turnstile" data-turnstile-widget></div><p class="account-turnstile-status" data-turnstile-status role="status" aria-live="polite"></p>' : ''}
+        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable || TURNSTILE_READY ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-request' ? 'settings.account.requestingCode' : 'settings.account.requestCode'))}</button>
+      </form>
+      <form class="onboarding-account-code-form ph-no-capture ${emailCodePending ? '' : 'hidden'}" data-onboarding-account-action="code-form" novalidate>
+        <label for="onboardingAccountEmailCode">${escHtml(t('settings.account.codeLabel'))}</label>
+        <input class="account-auth-email-input account-auth-code-input" id="onboardingAccountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-onboarding-account-code placeholder="${escHtml(t('settings.account.codePlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
+        <button class="btn-primary" type="submit" data-analytics-action="onboardingAccountEmailCode" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-verification' ? 'settings.account.verifyingCode' : 'settings.account.verifyCode'))}</button>
+      </form>
+      ${feedback}
+    `
+  }
+
+  content.innerHTML = `
+    ${renderOnboardingHeading(
+      'onboarding.account.title',
+      signedIn ? 'onboarding.account.signedInSubtitle' : 'onboarding.account.subtitle'
+    )}
+    <div class="onboarding-account-auth" aria-busy="${loading || busy}">
+      ${accountContent}
+    </div>
+    <div class="onboarding-actions onboarding-account-actions">
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="${previousStep}" data-analytics-action="setPersonalizedOnboardingStep" ${busy ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      ${LEARNER_PROFILE_LIFECYCLE_ENABLED && !canFinishActiveSignedInProfile
+        ? `<button type="button" class="btn-ghost" data-personalized-onboarding-action="start-over" data-analytics-action="startOverPersonalizedOnboarding" ${busy || signedIn ? 'disabled' : ''}>${escHtml(t('onboarding.startOver'))}</button>`
+        : `<button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost onboarding-account-skip'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>`}
+    </div>
+  `
+  mountGoogleIdentityServicesButtons(content)
+  mountTurnstileWidgets(content)
+}
+
+function renderOnboardingLanguageStep(content) {
+  const selectedLanguageId = personalizedOnboardingState.languageId
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.language.title', 'onboarding.language.subtitle')}
+    <div class="onboarding-choice-grid onboarding-language-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.language.title'))}">
+      ${LEARNER_LANGUAGE_OPTIONS.map(option => `
+        <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" data-personalized-onboarding-action="select-language" data-analytics-action="selectOnboardingLanguage" aria-pressed="${option.id === selectedLanguageId}">
+          <span class="onboarding-choice-icon" aria-hidden="true">${escHtml(option.icon)}</span>
+          <span class="onboarding-choice-label">${escHtml(t(`onboarding.language.${option.id}`))}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="onboarding-actions onboarding-actions-end">
+      <button type="button" class="btn-primary" data-personalized-onboarding-action="continue-language" data-analytics-action="continuePersonalizedOnboardingFromLanguage" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+    </div>
+  `
+  renderLocaleSelect()
+}
+
+function renderOnboardingOtherStep(content) {
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.other.title', 'onboarding.other.subtitle')}
+    <div class="onboarding-empty">${escHtml(t('onboarding.other.note'))}</div>
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="language" data-analytics-action="setPersonalizedOnboardingStep" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      ${renderOnboardingProfileFinalAction()}
+    </div>
+  `
+}
+
+function renderOnboardingLevelStep(content) {
+  const selectedLevelId = personalizedOnboardingState.levelId
+  const levelOptions = getLearnerLevelOptionsForLanguage(personalizedOnboardingState.languageId)
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.level.title')}
+    <div class="onboarding-level-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.level.title'))}">
+      ${levelOptions.map(option => `
+        <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" data-personalized-onboarding-action="select-level" data-analytics-action="selectOnboardingLevel" aria-pressed="${option.id === selectedLevelId}">
+          <span class="onboarding-choice-label">${escHtml(t(`onboarding.level.${option.id}.label`))}</span>
+          <span class="onboarding-choice-detail">${escHtml(t(`onboarding.level.${option.id}.detail`))}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="language" data-analytics-action="setPersonalizedOnboardingStep">${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="channels" data-analytics-action="setPersonalizedOnboardingStep" ${selectedLevelId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+    </div>
+  `
+}
+
+function renderOnboardingChannelsStep(content) {
+  const recommendations = getRecommendedChannelCatalog({
+    languages: [personalizedOnboardingState.languageId],
+    level: personalizedOnboardingState.levelId
+  })
+  const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
+  const language = getLearnerLanguageOption(personalizedOnboardingState.languageId)
+  const channelMarkup = recommendations.length
+    ? recommendations.map(channel => {
+        const selected = selectedIds.has(channel.id)
+        const avatarUrl = getCuratedChannelAvatarPath(channel.id)
+        const avatarFallback = language?.icon || channel.name.slice(0, 2).toUpperCase()
+        const avatar = avatarUrl
+          ? `<img src="${escHtml(avatarUrl)}" alt="" loading="eager">`
+          : escHtml(avatarFallback)
+        return `
+          <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" data-personalized-onboarding-action="toggle-channel" data-analytics-action="toggleOnboardingChannel" aria-pressed="${selected}">
+            <span class="onboarding-channel-avatar" aria-hidden="true">${avatar}</span>
+            <span class="onboarding-channel-copy">
+              <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
+              <span class="onboarding-channel-meta">${escHtml(t(ONBOARDING_CHANNEL_STYLE_KEYS[channel.style] || channel.style))}</span>
+            </span>
+            <span class="onboarding-channel-check" aria-hidden="true">✓</span>
+          </button>
+        `
+      }).join('')
+    : `<div class="onboarding-empty">${escHtml(t('onboarding.channels.none'))}</div>`
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.channels.title', 'onboarding.channels.subtitle')}
+    <div class="onboarding-channel-list${recommendations.length >= 4 ? ' onboarding-channel-list-grid' : ''}">${channelMarkup}</div>
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="level" data-analytics-action="setPersonalizedOnboardingStep" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      ${renderOnboardingProfileFinalAction()}
+    </div>
+  `
+}
+
+async function selectOnboardingLanguage(languageId) {
+  if (!getLearnerLanguageOption(languageId)) return
+  personalizedOnboardingState.languageId = languageId
+  if (languageId === 'other' || (languageId === 'english' && personalizedOnboardingState.levelId === 'starting')) {
+    personalizedOnboardingState.levelId = null
+  }
+  personalizedOnboardingState.selectedChannelCatalogIds = []
+  personalizedOnboardingState.channelSelectionsInitialized = false
+  if (
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && !await persistPersonalizedOnboardingDraft()
+  ) return
+  renderPersonalizedOnboarding()
+}
+
+function continuePersonalizedOnboardingFromLanguage() {
+  setPersonalizedOnboardingStep(personalizedOnboardingState.languageId === 'other' ? 'other' : 'level')
+}
+
+async function selectOnboardingLevel(levelId) {
+  if (!getLearnerLevelOption(levelId)) return
+  personalizedOnboardingState.levelId = levelId
+  personalizedOnboardingState.selectedChannelCatalogIds = []
+  personalizedOnboardingState.channelSelectionsInitialized = false
+  if (
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && !await persistPersonalizedOnboardingDraft()
+  ) return
+  renderPersonalizedOnboarding()
+}
+
+function startOverPersonalizedOnboarding() {
+  if (!LEARNER_PROFILE_LIFECYCLE_ENABLED) return
+  if (!onboardingProfileDraftStore.clear()) {
+    showOnboardingRecovery('storage', { resume: 'intro' })
+    return
+  }
+  personalizedOnboardingState.active = false
+  document.getElementById('onboardingPanel')?.classList.add('hidden')
+  document.body.classList.remove('onboarding-active')
+  const state = loadOnboardingWorkingState()
+  if (!state || !startIntroTrailer({ state })) {
+    showOnboardingRecovery('setup', { state, resume: 'intro' })
+  }
+}
+
+async function persistPersonalizedOnboardingDraft({
+  markAccountStepReached = false
+} = {}) {
+  const now = new Date().toISOString()
+  const state = loadOnboardingWorkingState() || defaultState(4, DEFAULT_CHANNELS)
+  normalizeLearnerProfileState(state)
+  normalizeOnboardingState(state)
+  const selectedChannelCatalogIds = personalizedOnboardingState.selectedChannelCatalogIds
+    .slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
+  state.learnerProfile = {
+    languages: [personalizedOnboardingState.languageId].filter(Boolean),
+    level: personalizedOnboardingState.levelId,
+    selectedChannelCatalogIds,
+    createdAt: state.learnerProfile.createdAt || now,
+    updatedAt: now
+  }
+  if (markAccountStepReached) state.onboarding.accountStepReachedAt = now
+  if (await saveOnboardingWorkingState(state)) {
+    if (!markAccountStepReached) return true
+    learnerProfileLifecycleAuthority?.refresh()
+    return true
+  }
+  showOnboardingRecovery('storage', { state, resume: 'personalized' })
+  return false
+}
+
+async function persistOnboardingAccountDraft() {
+  return await persistPersonalizedOnboardingDraft({
+    markAccountStepReached: true
+  })
+}
+
+async function clearOnboardingAccountDraftMarker() {
+  const state = loadOnboardingWorkingState()
+  if (!state) return true
+  normalizeOnboardingState(state)
+  if (!state.onboarding.accountStepReachedAt) return true
+  state.onboarding.accountStepReachedAt = null
+  if (await saveState(state)) return true
+  if (
+    learnerProfileLifecycleAuthority
+    && await saveOnboardingWorkingState(state)
+  ) return true
+  showOnboardingRecovery('storage', { state, resume: 'personalized' })
+  return false
+}
+
+async function setPersonalizedOnboardingStep(step) {
+  const allowedSteps = ['language', 'level', 'channels', 'other']
+  if (ACCOUNT_ENTRY_REQUIRED) allowedSteps.push('account')
+  if (!allowedSteps.includes(step)) return
+  if (step !== 'language' && !personalizedOnboardingState.languageId) return
+  if (step === 'other' && personalizedOnboardingState.languageId !== 'other') return
+  if ((step === 'level' || step === 'channels') && personalizedOnboardingState.languageId === 'other') return
+  if (step === 'channels' && !personalizedOnboardingState.levelId) return
+  if (
+    step === 'account'
+    && personalizedOnboardingState.languageId !== 'other'
+    && !personalizedOnboardingState.levelId
+  ) return
+  const previousStep = personalizedOnboardingState.step
+  if (step === 'account' && !await persistOnboardingAccountDraft()) return
+  if (
+    previousStep === 'account'
+    && step !== 'account'
+    && !await clearOnboardingAccountDraftMarker()
+  ) return
+  const profileStepOrder = personalizedOnboardingState.languageId === 'other'
+    ? ['language', 'other']
+    : ['language', 'level', 'channels']
+  const stepOrder = ACCOUNT_ENTRY_REQUIRED
+    ? [...profileStepOrder, 'account']
+    : profileStepOrder
+  const previousIndex = stepOrder.indexOf(previousStep)
+  const nextIndex = stepOrder.indexOf(step)
+  personalizedOnboardingState.step = step
+  if (previousStep !== step) {
+    trackEdeniaEvent(
+      nextIndex >= previousIndex ? 'onboarding_step_advanced' : 'onboarding_step_backed',
+      {
+        previous_step: previousStep,
+        next_step: step,
+        learning_language: personalizedOnboardingState.languageId || null,
+        learner_level: personalizedOnboardingState.levelId || null,
+        selected_channel_count: personalizedOnboardingState.selectedChannelCatalogIds.length
+      }
+    )
+  }
+  renderPersonalizedOnboarding()
+}
+
+async function prepareOnboardingChannelSelections() {
+  if (personalizedOnboardingState.channelSelectionsInitialized) return true
+  personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
+    languages: [personalizedOnboardingState.languageId],
+    level: personalizedOnboardingState.levelId
+  }).slice(0, getOnboardingChannelSelectionLimit()).map(channel => channel.id)
+  personalizedOnboardingState.channelSelectionsInitialized = true
+  return !LEARNER_PROFILE_LIFECYCLE_ENABLED
+    || await persistPersonalizedOnboardingDraft()
+}
+
+function getOnboardingChannelSelectionLimit(state = loadState()) {
+  if (!state || plusAccessPolicy.enforcesFreeLimits !== true) {
+    return ONBOARDING_CHANNEL_SELECTION_LIMIT
+  }
+  const remainingAllowance = Math.max(
+    0,
+    getFreeTrackedChannelAllowance(state) - getTrackedChannelIds(state).length
+  )
+  return Math.min(ONBOARDING_CHANNEL_SELECTION_LIMIT, remainingAllowance)
+}
+
+async function toggleOnboardingChannel(catalogId) {
+  if (!getCuratedChannelEntry(catalogId) || personalizedOnboardingState.isApplyingChannels) return
+  const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
+  if (selectedIds.has(catalogId)) selectedIds.delete(catalogId)
+  else {
+    const state = loadState()
+    const selectionLimit = getOnboardingChannelSelectionLimit(state)
+    if (selectedIds.size >= selectionLimit) {
+      if (selectionLimit < ONBOARDING_CHANNEL_SELECTION_LIMIT) {
+        const decision = getTrackedChannelAddDecision(state, plusAccessPolicy)
+        showTrackedChannelAddRestriction(
+          decision === TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+            ? TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED
+            : decision
+        )
+      } else {
+        showToast(t('onboarding.channels.limit', { count: ONBOARDING_CHANNEL_SELECTION_LIMIT }), 'warn')
+      }
+      return
+    }
+    selectedIds.add(catalogId)
+  }
+  personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
+  if (
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && !await persistPersonalizedOnboardingDraft()
+  ) return
+  const control = [...document.querySelectorAll('.onboarding-channel')]
+    .find(channel => channel.dataset.catalogId === catalogId)
+  control?.setAttribute('aria-pressed', String(selectedIds.has(catalogId)))
+  syncOnboardingChoiceLayout()
+}
+
+function resolveCuratedChannelEntry(entry) {
+  const cached = curatedChannelResolutionCache.get(entry.id)
+  if (cached) return cached
+  const request = resolveYoutubeChannelInput(entry.input).catch(error => {
+    curatedChannelResolutionCache.delete(entry.id)
+    throw error
+  })
+  curatedChannelResolutionCache.set(entry.id, request)
+  return request
+}
+
+function getStarterChannelAddDecision(state, channels) {
+  const simulatedState = {
+    ...state,
+    config: {
+      ...state.config,
+      channels: (state.config.channels || []).map(channel => ({ ...channel })),
+      trackedChannelPolicy: state.config.trackedChannelPolicy
+        ? { ...state.config.trackedChannelPolicy }
+        : undefined
+    }
+  }
+
+  for (const channel of channels) {
+    const decision = getTrackedChannelAddDecision(
+      simulatedState,
+      plusAccessPolicy,
+      channel.id
+    )
+    if (decision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) return decision
+    if (!getTrackedChannelIds(simulatedState).includes(channel.id)) {
+      simulatedState.config.channels.push({ ...channel })
+    }
+  }
+  return TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+}
+
+function getActiveStarterFeed(state, queuedAt = null) {
+  const task = state?.onboarding?.starterFeed
+  if (!task || !['pending', 'running'].includes(task.status)) return null
+  if (queuedAt && task.queuedAt !== queuedAt) return null
+  return task
+}
+
+function showStarterFeedProgress(task) {
+  showToast(t('onboarding.starterFeed.progress', {
+    current: task.processedCatalogIds.length,
+    total: task.catalogIds.length
+  }), 'success', { durationMs: 0 })
+}
+
+function addResolvedStarterChannel(state, channel) {
+  const existingChannel = (state.config.channels || []).find(candidate => candidate.id === channel.id)
+  if (!existingChannel) state.config.channels.push(channel)
+  const channelShelfOrder = normalizeChannelShelfOrder(state.config.channelShelfOrder)
+  if (!channelShelfOrder.includes(channel.id)) channelShelfOrder.push(channel.id)
+  state.config.channelShelfOrder = channelShelfOrder
+  state.config.removedChannelIds = (state.config.removedChannelIds || [])
+    .filter(channelId => channelId !== channel.id)
+  return !existingChannel
+}
+
+async function prepareStarterFeedChannel(catalogId, queuedAt) {
+  const entry = getCuratedChannelEntry(catalogId)
+  if (!entry) throw new Error(t('toast.channelResolveNotFound'))
+  if (!hasYoutubeApiKey()) throw new Error(t('toast.channelResolveNeedsKey'))
+
+  const resolved = await resolveCuratedChannelEntry(entry)
+  const channel = {
+    id: resolved.id,
+    name: resolved.name || resolved.id,
+    imageUrl: getCuratedChannelAvatarPath(entry.id),
+    catalogId: entry.id
+  }
+  const snapshot = loadState()
+  if (!getActiveStarterFeed(snapshot, queuedAt)) return { cancelled: true }
+  const addDecision = getStarterChannelAddDecision(snapshot, [channel])
+  if (addDecision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) {
+    throw new Error(t('onboarding.starterFeed.channelLimit'))
+  }
+
+  const alreadyRefreshed = snapshot.config.channels.some(candidate => candidate.id === channel.id)
+    && !isChannelRefreshDue(snapshot, channel.id)
+  if (alreadyRefreshed) return { addedChannelCount: 0, mergedCount: 0, skippedShorts: 0 }
+
+  const includeShorts = getEffectiveIncludeShorts(snapshot)
+  let fetchResult = null
+  let videos = []
+  let detailsById = {}
+  let fetchError = null
+  try {
+    fetchResult = await fetchChannelVideos(channel, snapshot.videos, snapshot.channelRefreshes?.[channel.id])
+    videos = dedupeVideos(fetchResult.videos)
+    detailsById = await getFetchedVideoDetails(snapshot, videos, includeShorts)
+  } catch (error) {
+    fetchError = error
+  }
+
+  const latestState = loadState()
+  if (!getActiveStarterFeed(latestState, queuedAt)) return { cancelled: true }
+  const latestDecision = getStarterChannelAddDecision(latestState, [channel])
+  if (latestDecision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) {
+    throw new Error(t('onboarding.starterFeed.channelLimit'))
+  }
+  const addedChannelCount = addResolvedStarterChannel(latestState, channel) ? 1 : 0
+
+  if (fetchError) {
+    markChannelRefreshError(latestState, channel.id, fetchError)
+    appendActivityLog(latestState, {
+      actor: 'auto',
+      type: 'youtube-refresh',
+      status: 'error',
+      title: t('log.channelRefreshFailed.title'),
+      detail: `${channel.name}: ${fetchError.message || t('log.unknownError')}`,
+      meta: { channelId: channel.id }
+    })
+    if (!await saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
+    renderAll(latestState)
+    scheduleFirstStudyWalkthrough(latestState)
+    throw fetchError
+  }
+
+  const mergeResult = mergeFetchedVideos(latestState, videos, detailsById, includeShorts)
+  const skippedShorts = (fetchResult?.filteredShorts || 0) + mergeResult.skippedShorts
+  const first = videos[0]
+  const storedChannel = latestState.config.channels.find(candidate => candidate.id === channel.id)
+  if (first?.channelTitle && storedChannel && first.channelTitle !== storedChannel.name) {
+    storedChannel.name = first.channelTitle
+  }
+  markChannelRefreshSuccess(latestState, channel.id, undefined, fetchResult.coverage)
+  appendActivityLog(latestState, {
+    actor: 'auto',
+    type: 'youtube-refresh',
+    status: 'success',
+    title: t('log.channelRefreshed.title'),
+    detail: t('log.channelRefreshed.fetched', { name: storedChannel?.name || channel.name, count: videos.length }),
+    meta: { channelId: channel.id, fetchedCount: videos.length }
+  })
+  if (!await saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
+  renderAll(latestState)
+  scheduleFirstStudyWalkthrough(latestState)
+  return {
+    addedChannelCount,
+    mergedCount: mergeResult.mergedCount,
+    skippedShorts
+  }
+}
+
+async function runPendingStarterFeedPreparation(initialState) {
+  const initialTask = getActiveStarterFeed(initialState)
+  if (!initialTask) return null
+  const queuedAt = initialTask.queuedAt
+  const refreshStartedAtMs = Date.now()
+  const runningState = loadState()
+  const runningTask = getActiveStarterFeed(runningState, queuedAt)
+  if (!runningTask) return null
+  runningTask.status = 'running'
+  runningTask.startedAt ||= new Date().toISOString()
+  if (!await saveState(runningState, { backup: false })) {
+    showToast(t('onboarding.starterFeed.storageError'), 'error')
+    return null
+  }
+
+  trackEdeniaEvent('refresh_started', {
+    trigger: 'onboarding',
+    requested_channel_count: runningTask.catalogIds.length,
+    silent: true
+  })
+  showStarterFeedProgress(runningTask)
+
+  for (const catalogId of runningTask.catalogIds) {
+    const beforeChannelState = loadState()
+    const beforeChannelTask = getActiveStarterFeed(beforeChannelState, queuedAt)
+    if (!beforeChannelTask) return null
+    if (beforeChannelTask.processedCatalogIds.includes(catalogId)) continue
+
+    let result = null
+    let failed = false
+    try {
+      result = await prepareStarterFeedChannel(catalogId, queuedAt)
+      if (result?.cancelled) return null
+    } catch (error) {
+      failed = true
+      console.warn(`Starter feed ${catalogId}:`, error.message)
+    }
+
+    const progressState = loadState()
+    const progressTask = getActiveStarterFeed(progressState, queuedAt)
+    if (!progressTask) return null
+    if (!progressTask.processedCatalogIds.includes(catalogId)) {
+      progressTask.processedCatalogIds.push(catalogId)
+    }
+    if (failed && !progressTask.failedCatalogIds.includes(catalogId)) {
+      progressTask.failedCatalogIds.push(catalogId)
+    }
+    progressTask.addedChannelCount += result?.addedChannelCount || 0
+    progressTask.mergedVideoCount += result?.mergedCount || 0
+    progressTask.skippedShortCount += result?.skippedShorts || 0
+    if (!await saveState(progressState, { backup: false })) {
+      showToast(t('onboarding.starterFeed.storageError'), 'error')
+      return null
+    }
+    showStarterFeedProgress(progressTask)
+  }
+
+  const completedState = loadState()
+  const completedTask = getActiveStarterFeed(completedState, queuedAt)
+  if (!completedTask) return null
+  const failedCount = completedTask.failedCatalogIds.length
+  const successfulCount = completedTask.catalogIds.length - failedCount
+  completedTask.status = failedCount === 0 ? 'complete' : (successfulCount > 0 ? 'partial' : 'failed')
+  completedTask.completedAt = new Date().toISOString()
+  completedState.onboarding.recommendationsAppliedAt = completedTask.completedAt
+  if (!await saveState(completedState)) {
+    showToast(t('onboarding.starterFeed.storageError'), 'error')
+    return null
+  }
+  scheduleFirstStudyWalkthrough(completedState)
+
+  const result = failedCount === 0 ? 'success' : (successfulCount > 0 ? 'partial' : 'failure')
+  trackRefreshCompleted(refreshStartedAtMs, {
+    trigger: 'onboarding',
+    result,
+    failureReason: failedCount ? 'starter_channel_failure' : null,
+    requestedChannelCount: completedTask.catalogIds.length,
+    refreshedChannelCount: successfulCount,
+    failedChannelCount: failedCount,
+    newVideoCount: completedTask.mergedVideoCount,
+    skippedShortCount: completedTask.skippedShortCount
+  })
+  trackEdeniaEvent('onboarding_starter_feed_completed', {
+    result,
+    requested_channel_count: completedTask.catalogIds.length,
+    added_channel_count: completedTask.addedChannelCount,
+    refreshed_channel_count: successfulCount,
+    failed_channel_count: failedCount,
+    new_video_count: completedTask.mergedVideoCount
+  })
+
+  if (!failedCount) {
+    showToast(t('onboarding.starterFeed.ready'))
+  } else if (successfulCount > 0) {
+    showToast(t('onboarding.starterFeed.partial', {
+      count: failedCount,
+      plural: failedCount === 1 ? '' : 's'
+    }), 'warn')
+  } else {
+    showToast(t('onboarding.starterFeed.failed'), 'error')
+  }
+  return completedTask
+}
+
+function startPendingStarterFeedPreparation(
+  state = loadState(),
+  {
+    deferAnki = false,
+    deferUntilProfileActivation = false
+  } = {}
+) {
+  if (IS_SANDBOX || starterFeedPreparationPromise || !getActiveStarterFeed(state)) {
+    return starterFeedPreparationPromise
+  }
+  let resolveRun
+  let rejectRun
+  const runCompletion = new Promise((resolve, reject) => {
+    resolveRun = resolve
+    rejectRun = reject
+  })
+  const request = runCompletion
+    .catch(error => {
+      console.error('Starter feed preparation:', error)
+      showToast(t('onboarding.starterFeed.failed'), 'error')
+      return null
+    })
+    .finally(() => {
+      if (starterFeedPreparationPromise === request) starterFeedPreparationPromise = null
+      if (!deferAnki) applyAnkiRefreshPreference(loadState())
+      startYoutubeAutoRefresh()
+    })
+  starterFeedPreparationPromise = request
+  const run = () => {
+    void runPendingStarterFeedPreparation(state).then(resolveRun, rejectRun)
+  }
+  if (deferUntilProfileActivation) {
+    void Promise.resolve().then(run)
+  } else {
+    run()
+  }
+  return request
+}
+
+async function finishPersonalizedOnboarding() {
+  if (personalizedOnboardingState.isApplyingChannels) return
+  personalizedOnboardingState.isApplyingChannels = true
+  renderPersonalizedOnboarding()
+
+  const now = new Date().toISOString()
+  const state = loadState() || defaultState(4, DEFAULT_CHANNELS)
+  normalizeLearnerProfileState(state)
+  normalizeOnboardingState(state)
+  const selectedChannelCatalogIds = personalizedOnboardingState.selectedChannelCatalogIds
+    .slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
+  state.learnerProfile = {
+    languages: [personalizedOnboardingState.languageId].filter(Boolean),
+    level: personalizedOnboardingState.levelId,
+    selectedChannelCatalogIds,
+    createdAt: state.learnerProfile.createdAt || now,
+    updatedAt: now
+  }
+  state.onboarding.version = ONBOARDING_VERSION
+  state.onboarding.accountStepReachedAt = null
+  state.onboarding.setupCompleted = true
+  state.onboarding.setupCompletedAt = now
+  state.onboarding.recommendationsAppliedAt = null
+  state.onboarding.starterFeed = createPendingStarterFeed(selectedChannelCatalogIds, now)
+  const onboardingDetail = personalizedOnboardingState.levelId
+    ? t('log.onboarding.detail', {
+        language: t(`onboarding.language.${personalizedOnboardingState.languageId}`),
+        level: t(`onboarding.level.${personalizedOnboardingState.levelId}.label`),
+        count: selectedChannelCatalogIds.length
+      })
+    : t('log.onboarding.otherDetail', {
+        language: t(`onboarding.language.${personalizedOnboardingState.languageId}`)
+      })
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'onboarding',
+    status: 'success',
+    title: t('log.onboarding.title'),
+    detail: onboardingDetail
+  })
+  const persisted = EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED
+      && learnerProfileLifecycleAuthority
+      && !hasPersistedLearnerProfile()
+    ? await learnerProfileLocalPersistence?.installLegacyAccountlessProfile(state, {
+        createdAt: Date.now()
+      }) === true
+    : await saveState(state)
+  if (!persisted) {
+    personalizedOnboardingState.isApplyingChannels = false
+    showOnboardingRecovery('storage', { state, resume: 'complete' })
+    return
+  }
+  if (EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED) {
+    onboardingProfileDraftStore.clear()
+  }
+  trackEdeniaEvent('onboarding_completed', {
+    learning_languages: state.learnerProfile.languages,
+    learner_level: state.learnerProfile.level || null,
+    selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
+    added_channel_count: 0,
+    resolved_channel_count: 0,
+    failed_channel_count: 0,
+    refresh_result: selectedChannelCatalogIds.length ? 'queued' : 'not_requested'
+  })
+  stopIntroMusic({ fadeDuration: 7.5 })
+  window.location.assign(getPostOnboardingAppUrl())
+}
+
+function getPostOnboardingAppUrl() {
+  const url = new URL(window.location.href)
+  url.search = ''
+  if (IS_INTERNAL_TEST && !IS_SANDBOX) url.searchParams.set('internal_test', '1')
+  return url.toString()
+}
+
+function queueSandboxWalkthroughAfterReset() {
+  if (!IS_SANDBOX) return
+  try { sessionStorage.setItem(SANDBOX_WALKTHROUGH_AFTER_RESET_KEY, '1') } catch {}
+}
+
+function consumeSandboxWalkthroughAfterReset() {
+  if (!IS_SANDBOX) return false
+  try {
+    const shouldStart = sessionStorage.getItem(SANDBOX_WALKTHROUGH_AFTER_RESET_KEY) === '1'
+    sessionStorage.removeItem(SANDBOX_WALKTHROUGH_AFTER_RESET_KEY)
+    return shouldStart
+  } catch {
+    return false
+  }
+}
+
+function syncMobileAddButtonWidth() {
+  const addControl = document.getElementById('manualVideo')
+  const undoRedoControl = document.querySelector('.feed-action-controls .undo-wrap')
+  const mainApp = document.getElementById('mainApp')
+  const shouldShrinkAddControl = usesCompactPortraitComposition()
+  mainApp?.style.removeProperty('--mobile-channel-format-option-width')
+  if (!addControl) return
+
+  addControl.style.removeProperty('flex')
+  addControl.style.removeProperty('width')
+  if (!undoRedoControl || (!usesPhoneComposition() && !shouldShrinkAddControl)) return
+
+  const undoRedoWidth = undoRedoControl.getBoundingClientRect().width
+  if (undoRedoWidth <= 0) return
+  const addControlWidth = shouldShrinkAddControl ? undoRedoWidth / 2 : undoRedoWidth
+  addControl.style.flex = `0 0 ${addControlWidth}px`
+  addControl.style.width = `${addControlWidth}px`
+  if (usesPhoneComposition()) {
+    mainApp?.style.setProperty(
+      '--mobile-channel-format-option-width',
+      `${addControlWidth}px`
+    )
+  }
+}
+
+function getWalkthroughTargetSelector(step) {
+  if (!step) return ''
+  return usesPhoneComposition() && step.mobileTarget ? step.mobileTarget : step.target
+}
+
+function getWalkthroughTarget(step) {
+  if (step?.id === 'first-study-video') {
+    const entry = videoShelfWindows.values().next().value
+    const video = entry?.group.videos.find(video => getChannelVideoFormat(video) === entry.format)
+    if (video) entry.window.ensure(video.id)
+  }
+  const selector = getWalkthroughTargetSelector(step)
+  return selector ? document.querySelector(selector) : null
+}
+
+function showWalkthroughAgain() {
+  if (usesPhoneComposition()) openSettings.returnFocus = null
+  closeSettings()
+  window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true }), 120)
+}
+
+function showTrailerAgain() {
+  closeSettings()
+  window.setTimeout(() => startIntroTrailer({ replay: true }), 120)
+}
+
+function saveNoAnkiFrequentUserPromptResponse(response) {
+  const state = loadState()
+  if (!state) return null
+  normalizeNoAnkiFrequentUserPromptState(state)
+  state.noAnkiFrequentUserPrompt.response = response
+  state.noAnkiFrequentUserPrompt.respondedAt = new Date().toISOString()
+  return state
+}
+
+async function declineNoAnkiFrequentUserPrompt(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const state = saveNoAnkiFrequentUserPromptResponse('not-interested')
+  if (!state) {
+    endWalkthrough({ markCompleted: false })
+    return
+  }
+
+  const wasEnabled = isAnkiEnabled(state)
+  state.config.ankiEnabled = false
+  state.config.ankiDisabledAt = new Date().toISOString()
+  state.config.ankiPendingResumeBaseline = null
+  if (wasEnabled) {
+    appendActivityLog(state, {
+      actor: 'user',
+      type: 'anki-setting',
+      status: 'success',
+      title: t('log.ankiSetting.title'),
+      detail: t('log.ankiSetting.disabled')
+    })
+  }
+  syncStreak(state)
+  if (!await saveState(state)) return false
+  ankiRefreshDeferredForPrompt = false
+  applyAnkiRefreshPreference(state)
+  const checkbox = document.getElementById('settingsAnkiEnabled')
+  if (checkbox) checkbox.checked = false
+  renderAll(state)
+  renderActivityLog(state)
+  endWalkthrough({ markCompleted: false })
+}
+
+async function acceptNoAnkiFrequentUserPrompt(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const state = saveNoAnkiFrequentUserPromptResponse('yes')
+  if (!state) {
+    endWalkthrough({ markCompleted: false })
+    return
+  }
+  if (!await saveState(state)) return false
+  ankiRefreshDeferredForPrompt = false
+  walkthroughState.highlightOnly = true
+  walkthroughState.elements?.card.classList.add('hidden')
+  const firstAnkiHeading = document.querySelector('#settingsAnkiHowToTarget h3')
+  if (firstAnkiHeading) {
+    firstAnkiHeading.setAttribute('tabindex', '-1')
+    firstAnkiHeading.focus({ preventScroll: true })
+  }
+  applyAnkiRefreshPreference(state)
+}
+
+function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
+  const availableSteps = steps.filter(step => getWalkthroughTarget(step))
+  if (!availableSteps.length) return
+  if (walkthroughState.active) endWalkthrough({ markCompleted: false })
+
+  walkthroughState.active = true
+  synchronizeGoogleIdentityServices()
+  walkthroughState.steps = availableSteps
+  walkthroughState.index = clampNumber(options.startIndex || 0, 0, availableSteps.length - 1)
+  walkthroughState.highlightOnly = false
+  walkthroughState.trackCompletion = options.trackCompletion !== false
+  walkthroughState.startedAtMs = Date.now()
+  walkthroughState.source = options.reason || (options.manual ? 'manual' : 'automatic')
+  walkthroughState.lastTrackedStepKey = null
+  ensureWalkthroughElements()
+  document.body.classList.add('walkthrough-active')
+  if (usesPhoneComposition()) document.activeElement?.blur?.()
+  syncHeaderCompactState()
+  walkthroughState.elements.layer.classList.remove('hidden')
+  window.addEventListener('resize', scheduleWalkthroughPosition)
+  window.addEventListener('scroll', scheduleWalkthroughPosition, true)
+  document.addEventListener('click', handleWalkthroughTargetClick)
+  document.addEventListener('keydown', handleWalkthroughKey)
+  trackEdeniaEvent('walkthrough_started', {
+    source: walkthroughState.source,
+    first_step_id: availableSteps[walkthroughState.index]?.id || null,
+    total_steps: availableSteps.length,
+    track_completion: walkthroughState.trackCompletion
+  })
+  showWalkthroughStep(walkthroughState.index)
+}
+
+function ensureWalkthroughElements() {
+  if (walkthroughState.elements) return walkthroughState.elements
+
+  const layer = document.createElement('div')
+  layer.className = 'walkthrough-layer hidden'
+  layer.innerHTML = `
+    <div class="walkthrough-scrim walkthrough-scrim-top"></div>
+    <div class="walkthrough-scrim walkthrough-scrim-right"></div>
+    <div class="walkthrough-scrim walkthrough-scrim-bottom"></div>
+    <div class="walkthrough-scrim walkthrough-scrim-left"></div>
+    <div class="walkthrough-highlight" aria-hidden="true"></div>
+    <div class="walkthrough-card" role="dialog" aria-live="polite" aria-label="${escHtml(t('walkthrough.close'))}">
+      <div class="walkthrough-progress"></div>
+      <p class="walkthrough-text"></p>
+      <div class="walkthrough-actions">
+        <button class="btn-ghost walkthrough-skip" type="button">${escHtml(t('walkthrough.skip'))}</button>
+        <span class="walkthrough-step-controls">
+          <button class="btn-ghost walkthrough-back" type="button">${escHtml(t('walkthrough.back'))}</button>
+          <button class="btn-secondary walkthrough-next" type="button">${escHtml(t('walkthrough.next'))}</button>
+        </span>
+      </div>
+      <span class="walkthrough-arrow" aria-hidden="true"></span>
+    </div>
+  `
+  document.body.appendChild(layer)
+
+  const elements = {
+    layer,
+    scrims: {
+      top: layer.querySelector('.walkthrough-scrim-top'),
+      right: layer.querySelector('.walkthrough-scrim-right'),
+      bottom: layer.querySelector('.walkthrough-scrim-bottom'),
+      left: layer.querySelector('.walkthrough-scrim-left')
+    },
+    highlight: layer.querySelector('.walkthrough-highlight'),
+    card: layer.querySelector('.walkthrough-card'),
+    progress: layer.querySelector('.walkthrough-progress'),
+    text: layer.querySelector('.walkthrough-text'),
+    skip: layer.querySelector('.walkthrough-skip'),
+    back: layer.querySelector('.walkthrough-back'),
+    next: layer.querySelector('.walkthrough-next')
+  }
+  elements.skip.addEventListener('click', handleWalkthroughSkipButton)
+  elements.back.addEventListener('click', () => moveWalkthrough(-1))
+  elements.next.addEventListener('click', handleWalkthroughNextButton)
+  walkthroughState.elements = elements
+  return elements
+}
+
+function handleWalkthroughSkipButton(event) {
+  const step = walkthroughState.steps[walkthroughState.index]
+  if (typeof step?.onSkip === 'function') {
+    step.onSkip(event)
+    return
+  }
+  endWalkthrough({
+    markCompleted: walkthroughState.trackCompletion,
+    reason: 'skipped'
+  })
+}
+
+function handleWalkthroughNextButton(event) {
+  const step = walkthroughState.steps[walkthroughState.index]
+  if (typeof step?.onNext === 'function') {
+    step.onNext(event)
+    return
+  }
+  moveWalkthrough(1)
+}
+
+function renderWalkthroughStep() {
+  if (!walkthroughState.active) return
+  const step = walkthroughState.steps[walkthroughState.index]
+  runWalkthroughHooks(step, 'beforeEnter')
+  const target = getWalkthroughTarget(step)
+  if (!target || !isWalkthroughTargetVisible(target)) {
+    window.setTimeout(() => moveWalkthrough(1), 0)
+    return
+  }
+
+  const elements = ensureWalkthroughElements()
+  elements.card.classList.remove('hidden')
+  elements.progress.textContent = t('walkthrough.progress', { current: walkthroughState.index + 1, total: walkthroughState.steps.length })
+  const textKey = resolveWalkthroughTextKey(step, {
+    ankiActive: isAnkiTrackingActive(loadState()),
+    phoneComposition: usesPhoneComposition()
+  })
+  elements.text.textContent = textKey ? t(textKey) : step.text
+  elements.back.disabled = walkthroughState.index === 0
+  elements.next.disabled = step.advanceOn === 'target-click'
+  elements.back.textContent = t('walkthrough.back')
+  elements.skip.textContent = t(step.skipLabelKey || 'walkthrough.skip')
+  elements.next.textContent = step.actionLabel || (step.actionLabelKey
+    ? t(step.actionLabelKey)
+    : (walkthroughState.index === walkthroughState.steps.length - 1 ? t('walkthrough.done') : t('walkthrough.next'))
+  )
+  elements.card.classList.toggle('walkthrough-card-waiting', step.advanceOn === 'target-click')
+  elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
+  elements.card.classList.toggle('walkthrough-card-choice', step.choice === true)
+  elements.card.classList.toggle('walkthrough-card-confirmation', step.confirmationOnly === true)
+  const stepKey = `${walkthroughState.index}:${step.id || step.textKey || 'step'}`
+  if (walkthroughState.lastTrackedStepKey !== stepKey) {
+    trackEdeniaEvent('walkthrough_step_viewed', {
+      source: walkthroughState.source,
+      step_id: step.id || null,
+      step_number: walkthroughState.index + 1,
+      total_steps: walkthroughState.steps.length,
+      advance_on: step.advanceOn || 'next'
+    })
+    walkthroughState.lastTrackedStepKey = stepKey
+  }
+  if (step.choice === true) window.setTimeout(() => elements.skip.focus(), 0)
+
+  const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
+  scrollTarget.scrollIntoView({
+    behavior: step.scrollBehavior || 'smooth',
+    block: 'center',
+    inline: 'center'
+  })
+  scheduleWalkthroughPosition()
+  window.setTimeout(scheduleWalkthroughPosition, 220)
+  runWalkthroughHooks(step, 'afterEnter', { target })
+}
+
+function moveWalkthrough(delta) {
+  if (!walkthroughState.active) return
+  const nextIndex = walkthroughState.index + delta
+  if (nextIndex < 0) return
+  if (nextIndex >= walkthroughState.steps.length) {
+    endWalkthrough({
+      markCompleted: walkthroughState.trackCompletion,
+      reason: 'completed'
+    })
+    return
+  }
+  const previousStep = walkthroughState.steps[walkthroughState.index]
+  const nextStep = walkthroughState.steps[nextIndex]
+  showWalkthroughStep(nextIndex, { direction: delta })
+  trackEdeniaEvent(
+    delta >= 0 ? 'walkthrough_step_advanced' : 'walkthrough_step_backed',
+    {
+      source: walkthroughState.source,
+      previous_step_id: previousStep?.id || null,
+      next_step_id: nextStep?.id || null,
+      previous_step_number: walkthroughState.index - delta + 1,
+      next_step_number: walkthroughState.index + 1,
+      total_steps: walkthroughState.steps.length
+    }
+  )
+}
+
+function showWalkthroughStep(nextIndex, options = {}) {
+  if (!walkthroughState.active || walkthroughState.isTransitioning) return
+  const previousStep = walkthroughState.steps[walkthroughState.index]
+  const isSameStep = nextIndex === walkthroughState.index
+  walkthroughState.isTransitioning = true
+
+  if (!isSameStep) runWalkthroughHooks(previousStep, 'beforeExit', options)
+  walkthroughState.index = clampNumber(nextIndex, 0, walkthroughState.steps.length - 1)
+  renderWalkthroughStep()
+  if (!isSameStep) runWalkthroughHooks(previousStep, 'afterExit', options)
+
+  walkthroughState.isTransitioning = false
+}
+
+async function endWalkthrough(options = {}) {
+  if (!walkthroughState.active) return
+  const markCompleted = options.markCompleted ?? walkthroughState.trackCompletion
+  if (markCompleted) {
+    if (walkthroughState.isTransitioning) return
+    walkthroughState.isTransitioning = true
+    const completed = await completeWalkthrough()
+    walkthroughState.isTransitioning = false
+    if (!completed) return false
+  }
+  const endReason = options.reason || (markCompleted ? 'completed' : 'exited')
+  const analyticsProperties = {
+    source: walkthroughState.source,
+    reason: endReason,
+    last_step_id: walkthroughState.steps[walkthroughState.index]?.id || null,
+    last_step_number: walkthroughState.index + 1,
+    total_steps: walkthroughState.steps.length,
+    elapsed_ms: walkthroughState.startedAtMs
+      ? Math.max(0, Date.now() - walkthroughState.startedAtMs)
+      : null,
+    marked_completed: Boolean(markCompleted)
+  }
+
+  const currentStep = walkthroughState.steps[walkthroughState.index]
+  const endedNoAnkiPrompt = currentStep?.id === NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP.id
+  runWalkthroughHooks(currentStep, 'beforeExit', { completed: markCompleted })
+  walkthroughState.active = false
+  if (walkthroughState.frame) {
+    cancelAnimationFrame(walkthroughState.frame)
+    walkthroughState.frame = null
+  }
+  walkthroughState.elements?.layer.classList.add('hidden')
+  walkthroughState.elements?.card.classList.remove('hidden', 'walkthrough-card-choice')
+  document.body.classList.remove('walkthrough-active')
+  syncHeaderCompactState()
+  window.removeEventListener('resize', scheduleWalkthroughPosition)
+  window.removeEventListener('scroll', scheduleWalkthroughPosition, true)
+  document.removeEventListener('click', handleWalkthroughTargetClick)
+  document.removeEventListener('keydown', handleWalkthroughKey)
+  walkthroughState.highlightOnly = false
+  walkthroughState.trackCompletion = true
+  walkthroughState.startedAtMs = null
+  walkthroughState.lastTrackedStepKey = null
+  runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
+  if (endReason === 'skipped') {
+    trackEdeniaEvent('walkthrough_skipped', analyticsProperties)
+  }
+  if (endReason === 'completed') {
+    trackEdeniaEvent('walkthrough_completed', analyticsProperties)
+  }
+  trackEdeniaEvent('walkthrough_ended', analyticsProperties)
+  if (endedNoAnkiPrompt && !loadState()?.noAnkiFrequentUserPrompt?.response) {
+    ankiRefreshDeferredForPrompt = false
+    applyAnkiRefreshPreference()
+  }
+  synchronizeGoogleIdentityServices()
+}
+
+function handleWalkthroughTargetClick(event) {
+  if (!walkthroughState.active) return
+  if (walkthroughState.highlightOnly) {
+    endWalkthrough({ markCompleted: false })
+    return
+  }
+  const step = walkthroughState.steps[walkthroughState.index]
+  const selector = getWalkthroughTargetSelector(step)
+  const target = selector ? event.target.closest(selector) : null
+  if (!target) return
+  runWalkthroughHooks(step, 'targetClick', { event, target })
+}
+
+function handleWalkthroughKey(event) {
+  if (!walkthroughState.active) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    endWalkthrough({
+      markCompleted: walkthroughState.trackCompletion,
+      reason: 'dismissed'
+    })
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    const step = walkthroughState.steps[walkthroughState.index]
+    if (step?.advanceOn === 'target-click') return
+    moveWalkthrough(1)
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    moveWalkthrough(-1)
+  }
+}
+
+function scheduleWalkthroughPosition() {
+  if (!walkthroughState.active || walkthroughState.frame) return
+  walkthroughState.frame = requestAnimationFrame(() => {
+    walkthroughState.frame = null
+    positionWalkthrough()
+  })
+}
+
+function positionWalkthrough() {
+  if (!walkthroughState.active) return
+  const step = walkthroughState.steps[walkthroughState.index]
+  const target = getWalkthroughTarget(step)
+  if (!target || !isWalkthroughTargetVisible(target)) return
+
+  const elements = ensureWalkthroughElements()
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const targetRect = target.getBoundingClientRect()
+  const highlightRect = getWalkthroughHighlightRect(targetRect, viewportWidth, viewportHeight)
+
+  positionWalkthroughScrims(elements.scrims, highlightRect, viewportWidth, viewportHeight)
+  elements.highlight.style.borderRadius = getWalkthroughSpotlightRadius(step, highlightRect)
+  setFixedRect(elements.highlight, highlightRect)
+  if (!walkthroughState.highlightOnly) {
+    positionWalkthroughCard(elements.card, highlightRect, step.placement || 'bottom', viewportWidth, viewportHeight)
+  }
+}
+
+function getWalkthroughHighlightRect(rect, viewportWidth, viewportHeight) {
+  const step = walkthroughState.steps[walkthroughState.index]
+  const padding = Number.isFinite(step?.spotlightPadding) ? step.spotlightPadding : 8
+  const heightTarget = step?.spotlightHeightTarget ? document.querySelector(step.spotlightHeightTarget) : null
+  const verticalRect = heightTarget?.getBoundingClientRect() || rect
+  const verticalPadding = Number.isFinite(step?.spotlightVerticalPadding) ? step.spotlightVerticalPadding : padding
+  const left = clampNumber(rect.left - padding, 8, viewportWidth - 8)
+  const top = clampNumber(verticalRect.top - verticalPadding, 8, viewportHeight - 8)
+  const right = clampNumber(rect.right + padding, left + 1, viewportWidth - 8)
+  const bottom = clampNumber(verticalRect.bottom + verticalPadding, top + 1, viewportHeight - 8)
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+    right,
+    bottom
+  }
+}
+
+function getWalkthroughSpotlightRadius(step, rect) {
+  if (step?.spotlightShape === 'circle') return `${Math.max(rect.width, rect.height)}px`
+  if (Number.isFinite(step?.spotlightRadius)) return `${step.spotlightRadius}px`
+  return '16px'
+}
+
+function positionWalkthroughScrims(scrims, rect, viewportWidth, viewportHeight) {
+  setFixedRect(scrims.top, { left: 0, top: 0, width: viewportWidth, height: rect.top })
+  setFixedRect(scrims.right, { left: rect.right, top: rect.top, width: viewportWidth - rect.right, height: rect.height })
+  setFixedRect(scrims.bottom, { left: 0, top: rect.bottom, width: viewportWidth, height: viewportHeight - rect.bottom })
+  setFixedRect(scrims.left, { left: 0, top: rect.top, width: rect.left, height: rect.height })
+}
+
+function positionWalkthroughCard(card, rect, preferredPlacement, viewportWidth, viewportHeight) {
+  const margin = 14
+  const gap = 18
+  const cardRect = card.getBoundingClientRect()
+  const placements = uniqueWalkthroughPlacements([preferredPlacement, 'bottom', 'top', 'right', 'left'])
+  let chosen = null
+
+  for (const placement of placements) {
+    const candidate = getWalkthroughCardPosition(rect, cardRect, placement, gap)
+    if (
+      candidate.left >= margin &&
+      candidate.top >= margin &&
+      candidate.left + cardRect.width <= viewportWidth - margin &&
+      candidate.top + cardRect.height <= viewportHeight - margin
+    ) {
+      chosen = { ...candidate, placement }
+      break
+    }
+  }
+
+  if (!chosen) {
+    const fallback = getWalkthroughCardPosition(rect, cardRect, preferredPlacement, gap)
+    chosen = {
+      placement: preferredPlacement,
+      left: clampNumber(fallback.left, margin, viewportWidth - cardRect.width - margin),
+      top: clampNumber(fallback.top, margin, viewportHeight - cardRect.height - margin)
+    }
+  }
+
+  card.dataset.placement = chosen.placement
+  card.style.left = `${Math.round(chosen.left)}px`
+  card.style.top = `${Math.round(chosen.top)}px`
+  positionWalkthroughArrow(card, rect, chosen, cardRect)
+}
+
+function getWalkthroughCardPosition(rect, cardRect, placement, gap) {
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  if (placement === 'top') {
+    return { left: centerX - cardRect.width / 2, top: rect.top - cardRect.height - gap }
+  }
+  if (placement === 'left') {
+    return { left: rect.left - cardRect.width - gap, top: centerY - cardRect.height / 2 }
+  }
+  if (placement === 'right') {
+    return { left: rect.right + gap, top: centerY - cardRect.height / 2 }
+  }
+  return { left: centerX - cardRect.width / 2, top: rect.bottom + gap }
+}
+
+function positionWalkthroughArrow(card, rect, cardPosition, cardRect) {
+  const targetCenterX = rect.left + rect.width / 2
+  const targetCenterY = rect.top + rect.height / 2
+  const arrowInset = 28
+
+  if (cardPosition.placement === 'top' || cardPosition.placement === 'bottom') {
+    const arrowLeft = clampNumber(targetCenterX - cardPosition.left, arrowInset, cardRect.width - arrowInset)
+    card.style.setProperty('--walkthrough-arrow-left', `${Math.round(arrowLeft)}px`)
+    card.style.setProperty('--walkthrough-arrow-top', '')
+  } else {
+    const arrowTop = clampNumber(targetCenterY - cardPosition.top, arrowInset, cardRect.height - arrowInset)
+    card.style.setProperty('--walkthrough-arrow-left', '')
+    card.style.setProperty('--walkthrough-arrow-top', `${Math.round(arrowTop)}px`)
+  }
+}
+
+function uniqueWalkthroughPlacements(placements) {
+  const valid = new Set(['top', 'right', 'bottom', 'left'])
+  return placements.filter((placement, index, list) => valid.has(placement) && list.indexOf(placement) === index)
+}
+
+function runWalkthroughHooks(step, phase, context = {}) {
+  const hooks = getWalkthroughHookList(step?.hooks?.[phase])
+  hooks.forEach(hook => {
+    if (typeof hook === 'function') {
+      hook({ ...context, step, phase })
+      return
+    }
+    WALKTHROUGH_HOOKS[hook]?.({ ...context, step, phase })
+  })
+}
+
+function getWalkthroughHookList(hooks) {
+  if (!hooks) return []
+  return Array.isArray(hooks) ? hooks : [hooks]
+}
+
+function isWalkthroughTargetVisible(target) {
+  const rect = target.getBoundingClientRect()
+  const style = window.getComputedStyle(target)
+  return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+}
+
+function setFixedRect(element, rect) {
+  if (!element) return
+  element.style.left = `${Math.round(rect.left)}px`
+  element.style.top = `${Math.round(rect.top)}px`
+  element.style.width = `${Math.max(0, Math.round(rect.width))}px`
+  element.style.height = `${Math.max(0, Math.round(rect.height))}px`
+}
+
+async function resetSandboxState() {
+  if (!IS_SANDBOX) return
+  createStateBackup('before sandbox reset', { force: true })
+  const state = createEmptySandboxState()
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'reset',
+    status: 'warn',
+    title: t('log.sandboxReset.title'),
+    detail: t('log.sandboxReset.detail')
+  })
+  if (!await saveState(state, { backup: false })) return false
+  setDefaultCityDayOffset(state)
+  selectedHistoryView = 'heatmap'
+  selectedHistoryRange = 'month'
+  ankiStatsCache = null
+  renderAll(state)
+  showToast(t('toast.sandboxReset'), 'success')
+}
+
+async function addSandboxDay() {
+  if (!IS_SANDBOX) return
+  const state = loadState() || createEmptySandboxState()
+  const latestActivityDate = getLastSandboxActivityDate(state)
+  const nextDate = latestActivityDate ? addDays(latestActivityDate, 1) : new Date()
+  const scoreTarget = getSandboxAddedDayScoreTarget(state, nextDate)
+  addSandboxStudyDay(state, nextDate, scoreTarget)
+  syncStreak(state)
+  if (!await saveState(state)) return false
+  setDefaultCityDayOffset(state)
+  renderAll(state)
+  showToast(t('toast.sandboxDayAdded', { date: formatCitySnapshotDate(nextDate) }), 'success')
+}
+
+function getLastSandboxActivityDate(state) {
+  const latestKey = state?.sandboxLastDate || getLatestSandboxDateKey(state)
+  return latestKey ? dateKeyToLocalDate(latestKey) : null
+}
+
+function getLatestSandboxDateKey(state) {
+  const dateKeys = []
+
+  if (state?.sandboxStartDate) dateKeys.push(state.sandboxStartDate)
+
+  Object.values(state?.videos || {}).forEach(video => {
+    const watchedDateKeys = getVideoWatchActivityDateKeys(video)
+    watchedDateKeys.forEach(dateKey => dateKeys.push(dateKey))
+    if (!watchedDateKeys.length && video.publishedAt && video.id?.startsWith?.('sandbox-added-')) {
+      dateKeys.push(toDateKey(new Date(video.publishedAt)))
+    }
+  })
+
+  Object.keys(state?.anki || {}).forEach(dateKey => dateKeys.push(dateKey))
+
+  return dateKeys.sort().pop() || null
+}
+
+function getSandboxHeatmapEndDate(state) {
+  const latestActivityDate = getLastSandboxActivityDate(state)
+  return latestActivityDate || new Date()
+}
+
+function getSandboxAddedDayScoreTarget(state, date) {
+  return randomInt(0, 50)
+}
+
+function addSandboxStudyDay(state, date, scoreTarget = 60) {
+  const dateKey = toDateKey(date)
+  const daySeed = Math.abs(daysBetweenDateKeys('2024-01-01', dateKey))
+  const channels = state.config.channels.length ? state.config.channels : DEFAULT_CHANNELS
+  const activity = makeSandboxActivityForScore(scoreTarget)
+
+  state.anki[dateKey] = {
+    reviewed: activity.reviewed,
+    created: activity.created,
+    loggedAt: setLocalTime(date, 21, randomInt(0, 45)).toISOString(),
+    source: 'sandbox'
+  }
+
+  const videoCount = activity.videoDurations.length
+  for (let i = 0; i < videoCount; i += 1) {
+    const id = `sandbox-added-${dateKey}-${Date.now()}-${i}`
+    const channel = channels[(daySeed + i) % channels.length]
+    state.videos[id] = {
+      id,
+      title: t('sandbox.video.addedDay', { date: dateKey, index: i + 1 }),
+      channelId: channel.id,
+      channelTitle: channel.name,
+      thumbnail: makeSandboxThumbnail(channel.name, daySeed + i),
+      publishedAt: setLocalTime(addDays(date, -randomInt(4, 28)), 9, randomInt(0, 45)).toISOString(),
+      duration: activity.videoDurations[i],
+      status: 'watched',
+      watchedAt: setLocalTime(date, 17 + i, randomInt(0, 45)).toISOString()
+    }
+  }
+
+  const activeId = `sandbox-added-active-${dateKey}-${Date.now()}`
+  const activeChannel = channels[(daySeed + videoCount + 1) % channels.length]
+  state.videos[activeId] = {
+    id: activeId,
+    title: t('sandbox.video.upcoming', { date: dateKey }),
+    channelId: activeChannel.id,
+    channelTitle: activeChannel.name,
+    thumbnail: makeSandboxThumbnail(activeChannel.name, daySeed + videoCount + 1),
+    publishedAt: setLocalTime(date, 12, randomInt(0, 45)).toISOString(),
+    duration: randomInt(18, 46) * 60,
+    status: scoreTarget === 0 ? 'unwatched' : 'watch-later',
+    watchedAt: null
+  }
+
+  state.sandboxLastDate = dateKey
+  const refreshedAt = new Date().toISOString()
+  channels.forEach(channel => markChannelRefreshSuccess(state, channel.id, refreshedAt))
+}
+
+function createSandboxRecentVideos(state) {
+  const channels = state.config.channels.length ? state.config.channels : DEFAULT_CHANNELS
+  const now = new Date()
+  const videos = []
+
+  channels.forEach((channel, channelIndex) => {
+    for (let i = 0; i < SANDBOX_VIDEOS_PER_CHANNEL; i += 1) {
+      const publishedAt = new Date(now)
+      publishedAt.setHours(now.getHours() - (channelIndex * SANDBOX_VIDEOS_PER_CHANNEL + i) * 6)
+      videos.push({
+        id: `sandbox-refresh-${channel.id}-${i}`,
+        title: t('sandbox.video.recent', { channel: channelIndex + 1, index: i + 1 }),
+        channelId: channel.id,
+        channelTitle: channel.name || channel.id,
+        channelImageUrl: channel.imageUrl || '',
+        thumbnail: makeSandboxThumbnail(channel.name || channel.id, channelIndex + i),
+        publishedAt: publishedAt.toISOString(),
+        duration: (18 + ((channelIndex * 7 + i * 5) % 38)) * 60
+      })
+    }
+  })
+
+  return videos
+}
+
+async function refreshSandboxFeed() {
+  const s = loadState() || createEmptySandboxState()
+  if (!s.config.channels.length) {
+    showToast(t('toast.addChannelFirst'), 'warn')
+    return
+  }
+
+  const videos = createSandboxRecentVideos(s)
+  videos.forEach(v => {
+    const existing = s.videos[v.id]
+    s.videos[v.id] = {
+      ...v,
+      status: existing?.status ?? 'unwatched',
+      watchedAt: existing?.watchedAt ?? null,
+      watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
+        ? existing.watchedConfirmationUnlockedAt
+        : null,
+      favorite: Boolean(existing?.favorite),
+      setAside: existing?.setAside === true,
+      setAsideAt: isValidTimestamp(existing?.setAsideAt)
+        ? existing.setAsideAt
+        : null,
+      setAsideResumeAtSeconds: normalizeResumeAtSeconds(
+        existing?.setAsideResumeAtSeconds,
+        v.duration
+      ),
+      removedFromFeedAt: isVideoRemovedFromFeed(existing)
+        ? existing.removedFromFeedAt
+        : null
+    }
+  })
+
+  const refreshedAt = new Date().toISOString()
+  s.config.channels.forEach(channel => {
+    markChannelRefreshSuccess(s, channel.id, refreshedAt)
+    appendActivityLog(s, {
+      createdAt: refreshedAt,
+      actor: 'auto',
+      type: 'youtube-refresh',
+      status: 'success',
+      title: t('log.channelRefreshed.title'),
+      detail: t('log.channelRefreshed.loaded', {
+        name: channel.name || channel.id,
+        count: videos.filter(video => video.channelId === channel.id).length
+      }),
+      meta: { channelId: channel.id }
+    })
+  })
+  if (!await saveState(s)) return false
+  renderAll(s)
+  showToast(t('toast.dummyVideosLoaded', { count: videos.length }), 'success')
+}
+
+function makeSandboxActivityForScore(scoreTarget) {
+  let remaining = Math.max(0, Math.floor(scoreTarget))
+  const videoDurations = []
+
+  if (remaining > 0) {
+    videoDurations.push(randomInt(60, 180))
+    remaining -= 1
+  }
+
+  const created = randomInt(0, 8)
+
+  const reviewedChunks = remaining >= ANKI_REVIEW_CHUNK_POINTS ? randomInt(0, Math.floor(remaining / ANKI_REVIEW_CHUNK_POINTS)) : 0
+  const unscoredReviewRemainder = Math.max(0, Math.floor(ANKI_REVIEW_CHUNK_SIZE / ANKI_REVIEW_CHUNK_POINTS) - 1)
+  const reviewed = reviewedChunks * ANKI_REVIEW_CHUNK_SIZE + randomInt(0, unscoredReviewRemainder)
+  remaining -= reviewedChunks * ANKI_REVIEW_CHUNK_POINTS
+
+  if (remaining > 0) {
+    const extraVideoCount = randomInt(0, Math.min(2, remaining))
+    for (let i = 0; i < extraVideoCount; i += 1) {
+      videoDurations.push(randomInt(60, 180))
+    }
+    remaining -= extraVideoCount
+  }
+
+  const durationPoints = remaining
+  const scoredSecondsPerPoint = 3600 / VIDEO_HOUR_POINTS
+  for (let i = 0; i < videoDurations.length; i += 1) {
+    const scoredSeconds = i === 0 ? durationPoints * scoredSecondsPerPoint : 0
+    const unscoredSeconds = i === 0 ? randomInt(60, 300) : randomInt(60, 180)
+    videoDurations[i] += scoredSeconds + unscoredSeconds
+  }
+
+  return { reviewed, created, videoDurations }
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+async function updatePlusEntitlementState(entitlementState) {
+  plusAccessPolicy = createPlusAccessPolicy({
+    ...PLUS_ACCESS_CONFIG,
+    entitlementState
+  })
+  const state = loadState()
+  const channelTransition = reconcileTrackedChannelPolicyState(
+    state,
+    plusAccessPolicy
+  )
+  if (state && channelTransition.changed) {
+    if (!await saveState(state, {
+      backupReason: channelTransition.channelIdsToRemove.length
+        ? 'before Edenia Plus channel downgrade'
+        : 'before tracked-channel entitlement update',
+      forceBackup: channelTransition.channelIdsToRemove.length > 0
+    })) return false
+    renderAll(state)
+    scheduleYoutubeAutoRefresh(state)
+  } else if (state) {
+    renderStudyHistoryPanel(state)
+    renderStudyInsight(state)
+  }
+  renderTrackedChannelAccess(state)
+  showTrackedChannelDowngradeNotice(channelTransition)
+  renderPlusUpgradeModal()
+  return plusAccessPolicy
+}
+
+function reconcileTrackedChannelPolicyState(state, accessPolicy) {
+  if (!state?.config) {
+    return {
+      changed: false,
+      channelIdsToRemove: [],
+      removedChannels: [],
+      confirmedTier: null,
+      downgraded: false
+    }
+  }
+
+  const transition = transitionTrackedChannelPolicyState(state, accessPolicy)
+  const removedChannels = transition.channelIdsToRemove.map(channelId => {
+    const channel = (state.config.channels || []).find(entry => entry.id === channelId)
+    return {
+      id: channelId,
+      name: channel?.name || channelId
+    }
+  })
+  transition.channelIdsToRemove.forEach(channelId => {
+    applyChannelRemoval(state, channelId, { preserveManualVideos: true })
+  })
+  if (transition.channelIdsToRemove.length) {
+    normalizeChannelRefreshState(state)
+  }
+
+  const changed = transition.changed || transition.channelIdsToRemove.length > 0
+  if (changed) {
+    trackEdeniaEvent('tracked_channel_policy_transitioned', {
+      confirmed_tier: transition.confirmedTier,
+      downgraded: transition.downgraded,
+      removed_channel_count: transition.channelIdsToRemove.length,
+      tracked_channel_count: getTrackedChannelIds(state).length,
+      free_channel_allowance: getFreeTrackedChannelAllowance(state),
+      free_limits_enforced: accessPolicy?.enforcesFreeLimits === true
+    })
+  }
+
+  return { ...transition, changed, removedChannels }
+}
+
+function showTrackedChannelDowngradeNotice(transition) {
+  const names = (transition?.removedChannels || [])
+    .map(channel => String(channel?.name || channel?.id || '').trim())
+    .filter(Boolean)
+  if (!names.length) return
+  let channels = names.join(', ')
+  try {
+    channels = new Intl.ListFormat(getCurrentLocale(), {
+      style: 'long',
+      type: 'conjunction'
+    }).format(names)
+  } catch {}
+  showToast(t('plus.channels.downgradeNotice', { channels }), 'warn')
+}
+
+const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
+  [ACCOUNT_AUTH_ERRORS.CAPTCHA_REQUIRED]: {
+    key: 'settings.account.feedback.captchaRequired', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED]: {
+    key: 'settings.account.feedback.googleError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.INVALID_EMAIL]: {
+    key: 'settings.account.feedback.invalidEmail', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_COOLDOWN]: {
+    key: 'settings.account.feedback.codeCooldown', tone: 'neutral'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_EXPIRED]: {
+    key: 'settings.account.feedback.codeExpired', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_REQUEST_FAILED]: {
+    key: 'settings.account.feedback.codeRequestError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_VERIFICATION_FAILED]: {
+    key: 'settings.account.feedback.codeVerificationError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_RATE_LIMITED]: {
+    key: 'settings.account.feedback.rateLimited', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.INVALID_EMAIL_CODE]: {
+    key: 'settings.account.feedback.invalidCode', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.OFFLINE]: {
+    key: 'settings.account.feedback.offline', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.OAUTH_CANCELLED]: {
+    key: 'settings.account.feedback.cancelled', tone: 'neutral'
+  },
+  [ACCOUNT_AUTH_ERRORS.OAUTH_FAILED]: {
+    key: 'settings.account.feedback.oauthError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.RETURN_DESTINATION_NOT_ALLOWED]: {
+    key: 'settings.account.feedback.returnError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE]: {
+    key: 'settings.account.feedback.unavailable', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED]: {
+    key: 'settings.account.feedback.signOutError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_NOTICES.EMAIL_CODE_SENT]: {
+    key: 'settings.account.feedback.codeSent', tone: 'success'
+  }
+})
+
+function getGoogleIdentityLocale() {
+  return {
+    'zh-Hans': 'zh-CN',
+    'zh-Hant': 'zh-TW'
+  }[getCurrentLocale()] || getCurrentLocale()
+}
+
+function mountGoogleIdentityServicesButtons(root = document) {
+  if (
+    !googleIdentityServicesController
+    || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
+    || typeof root?.querySelectorAll !== 'function'
+  ) return false
+
+  for (const element of root.querySelectorAll('[data-google-identity-button]')) {
+    if (element.classList.contains('hidden')) continue
+    const measuredWidth = element.getBoundingClientRect?.().width
+      || element.parentElement?.getBoundingClientRect?.().width
+      || 320
+    void googleIdentityServicesController.mountButton(element, {
+      locale: getGoogleIdentityLocale(),
+      width: measuredWidth
+    })
+  }
+  return true
+}
+
+function synchronizeGoogleIdentityServices() {
+  if (!googleIdentityServicesController) return false
+  return mountGoogleIdentityServicesButtons()
+}
+
+function getTurnstileStatusView(status) {
+  if (status === 'ready') return null
+  if (['error', 'unavailable'].includes(status)) {
+    return {
+      key: 'settings.account.securityCheckUnavailable',
+      tone: 'error'
+    }
+  }
+  if (status === 'expired') {
+    return {
+      key: 'settings.account.securityCheckExpired',
+      tone: 'neutral'
+    }
+  }
+  return {
+    key: 'settings.account.securityCheckPending',
+    tone: 'neutral'
+  }
+}
+
+function synchronizeTurnstileControls(root = document) {
+  if (typeof root?.querySelectorAll !== 'function') return false
+  for (const statusElement of root.querySelectorAll('[data-turnstile-status]')) {
+    const form = statusElement.closest?.('form')
+    const element = form?.querySelector('[data-turnstile-widget]')
+    element?.classList.toggle('hidden', !TURNSTILE_READY)
+    const status = turnstileController && element
+      ? turnstileWidgetStatuses.get(element) || 'pending'
+      : 'unavailable'
+    const statusView = TURNSTILE_READY ? getTurnstileStatusView(status) : null
+    if (statusElement) {
+      statusElement.classList.toggle('hidden', !statusView)
+      statusElement.textContent = statusView ? t(statusView.key) : ''
+      statusElement.dataset.turnstileTone = statusView?.tone || 'neutral'
+    }
+    const submit = form?.querySelector('button[type="submit"]')
+    if (submit) {
+      submit.disabled = (TURNSTILE_READY && status !== 'ready')
+        || Boolean(accountAuthViewState.busyAction)
+        || accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
+    }
+  }
+  return true
+}
+
+function mountTurnstileWidgets(root = document) {
+  synchronizeTurnstileControls(root)
+  if (
+    !turnstileController
+    || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
+    || typeof root?.querySelectorAll !== 'function'
+  ) return false
+  for (const element of root.querySelectorAll('[data-turnstile-widget]')) {
+    if (element.classList.contains('hidden')) continue
+    void turnstileController.mount(element, {
+      language: getGoogleIdentityLocale(),
+      theme: 'auto'
+    })
+  }
+  synchronizeTurnstileControls(root)
+  return true
+}
+
+function unmountTurnstileWidgets(root) {
+  for (const element of root.querySelectorAll('[data-turnstile-widget]')) {
+    turnstileController?.unmount(element)
+  }
+}
+
+const ACCOUNT_EXPORT_FEEDBACK_VIEWS = Object.freeze({
+  [ACCOUNT_EXPORT_FEEDBACK.COMPLETE]: {
+    key: 'settings.account.exportFeedback.complete', tone: 'success'
+  },
+  [ACCOUNT_EXPORT_FEEDBACK.FAILED]: {
+    key: 'settings.account.exportFeedback.failed', tone: 'error'
+  },
+  [ACCOUNT_EXPORT_FEEDBACK.RATE_LIMITED]: {
+    key: 'settings.account.exportFeedback.rateLimited', tone: 'error'
+  },
+  [ACCOUNT_EXPORT_FEEDBACK.SIGN_IN_REQUIRED]: {
+    key: 'settings.account.exportFeedback.signInRequired', tone: 'error'
+  }
+})
+
+function renderAccountExport() {
+  const section = document.querySelector('.settings-account-export')
+  const button = document.getElementById('accountExportBtn')
+  const feedback = document.getElementById('accountExportFeedback')
+  const busy = accountExportViewState.busyAction === 'download'
+  section?.setAttribute('aria-busy', String(busy))
+  if (button) {
+    button.disabled = busy
+      || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_IN
+      || Boolean(accountAuthViewState.busyAction)
+    button.textContent = t(
+      busy
+        ? 'settings.account.exportDownloading'
+        : 'settings.account.exportDownload'
+    )
+  }
+  const view = ACCOUNT_EXPORT_FEEDBACK_VIEWS[accountExportViewState.feedback]
+    || null
+  if (feedback) {
+    feedback.classList.toggle('hidden', !view)
+    feedback.textContent = view ? t(view.key) : ''
+    feedback.dataset.accountTone = view?.tone || 'success'
+    feedback.setAttribute('role', view?.tone === 'error' ? 'alert' : 'status')
+    feedback.setAttribute(
+      'aria-live',
+      view?.tone === 'error' ? 'assertive' : 'polite'
+    )
+  }
+}
+
+const REMINDER_PREFERENCE_FEEDBACK_VIEWS = Object.freeze({
+  [REMINDER_PREFERENCE_FEEDBACK.INVALID_PREFERENCE]: {
+    key: 'settings.account.remindersFeedback.invalidPreference', tone: 'error'
+  },
+  [REMINDER_PREFERENCE_FEEDBACK.LOAD_ERROR]: {
+    key: 'settings.account.remindersFeedback.loadError', tone: 'error'
+  },
+  [REMINDER_PREFERENCE_FEEDBACK.SAVE_ERROR]: {
+    key: 'settings.account.remindersFeedback.saveError', tone: 'error'
+  },
+  [REMINDER_PREFERENCE_FEEDBACK.SIGN_IN_REQUIRED]: {
+    key: 'settings.account.remindersFeedback.signInRequired', tone: 'error'
+  }
+})
+
+function getReminderPreferenceDefaults() {
+  let timezone = 'UTC'
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {}
+  return { locale: getCurrentLocale(), timezone }
+}
+
+function renderReminderPreferences(state = reminderPreferenceViewState) {
+  const form = document.querySelector('[data-reminder-action="form"]')
+  const fields = document.getElementById('reminderPreferenceFields')
+  if (!form || !fields) return
+
+  const signedIn = accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+  const loading = state.status === REMINDER_PREFERENCE_STATES.LOADING
+  const ready = state.status === REMINDER_PREFERENCE_STATES.READY
+  const busy = Boolean(state.busyAction)
+  form.setAttribute('aria-busy', String(loading || busy))
+  fields.disabled = !signedIn || !ready || busy
+
+  const preference = state.preference || createDefaultReminderPreference(
+    getReminderPreferenceDefaults()
+  )
+  const streakReminders = document.getElementById('streakRemindersEnabled')
+  if (streakReminders) {
+    streakReminders.checked = preference.streakRemindersEnabled
+  }
+  const discoveryEmails = document.getElementById('discoveryEmailsEnabled')
+  if (discoveryEmails) {
+    discoveryEmails.checked = preference.discoveryEmailsEnabled
+  }
+
+  document.getElementById('reminderRetryBtn')?.classList.toggle(
+    'hidden',
+    !signedIn
+      || state.status !== REMINDER_PREFERENCE_STATES.UNAVAILABLE
+      || state.feedback !== REMINDER_PREFERENCE_FEEDBACK.LOAD_ERROR
+  )
+
+  const feedback = document.getElementById('reminderFeedback')
+  const feedbackView = loading && signedIn
+    ? { key: 'settings.account.remindersFeedback.loading', tone: 'neutral' }
+    : REMINDER_PREFERENCE_FEEDBACK_VIEWS[state.feedback] || null
+  if (feedback) {
+    feedback.classList.toggle('hidden', !feedbackView)
+    feedback.textContent = feedbackView ? t(feedbackView.key) : ''
+    feedback.dataset.reminderTone = feedbackView?.tone || 'success'
+    feedback.setAttribute('role', feedbackView?.tone === 'error' ? 'alert' : 'status')
+    feedback.setAttribute(
+      'aria-live',
+      feedbackView?.tone === 'error' ? 'assertive' : 'polite'
+    )
+  }
+}
+
+function renderAccountSettings(state = accountAuthViewState) {
+  document.getElementById('settingsPanel')?.classList.toggle(
+    'account-features-enabled',
+    ACCOUNT_FEATURES_ENABLED
+  )
+  const group = document.getElementById('accountSettings')
+  if (!group) return
+  group.classList.toggle('hidden', !ACCOUNT_FEATURES_ENABLED)
+  if (!ACCOUNT_FEATURES_ENABLED) return
+
+  const sessionState = state?.sessionState || ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const signedIn = sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+  const loading = sessionState === ACCOUNT_SESSION_STATES.LOADING
+  const unavailable = sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const authBusy = Boolean(state?.busyAction)
+  if (signedIn !== accountSettingsWasSignedIn) {
+    accountSettingsWasSignedIn = signedIn
+    setSettingsAccountOpen(!signedIn)
+  }
+  group.setAttribute('aria-busy', String(loading || authBusy))
+  document.getElementById('accountLoading')?.classList.toggle('hidden', !loading)
+  document.getElementById('accountSignedOut')?.classList.toggle(
+    'hidden',
+    loading || signedIn
+  )
+  document.getElementById('accountSignedIn')?.classList.toggle('hidden', !signedIn)
+  document.getElementById('accountSignOutBtn')?.classList.toggle('hidden', !signedIn)
+
+  const email = document.getElementById('accountUserEmail')
+  if (email) email.textContent = state?.email || ''
+  const googleIdentityButton = document.getElementById(
+    'accountGoogleIdentityButton'
+  )
+  const googleIdTokenAvailable = Boolean(googleIdentityServicesController)
+  googleIdentityButton?.classList.toggle('hidden', !googleIdTokenAvailable)
+  document.getElementById('accountEmailDivider')?.classList.toggle(
+    'hidden',
+    !googleIdTokenAvailable
+  )
+  const emailInput = document.getElementById('accountEmail')
+  if (emailInput) emailInput.disabled = authBusy || unavailable
+  const turnstileElement = document.getElementById('accountTurnstile')
+  turnstileElement?.classList.toggle('hidden', !TURNSTILE_READY)
+  const emailButton = document.getElementById('accountEmailBtn')
+  if (emailButton) {
+    emailButton.disabled = authBusy || unavailable
+    emailButton.textContent = t(
+      state?.busyAction === 'email-code-request'
+        ? 'settings.account.requestingCode'
+        : 'settings.account.requestCode'
+    )
+  }
+  const codeForm = document.getElementById('accountEmailCodeForm')
+  codeForm?.classList.toggle(
+    'hidden',
+    accountAuthController?.hasPendingEmailCode() !== true
+  )
+  const codeInput = document.getElementById('accountEmailCode')
+  if (codeInput) codeInput.disabled = authBusy || unavailable
+  const codeButton = document.getElementById('accountEmailCodeBtn')
+  if (codeButton) {
+    codeButton.disabled = authBusy || unavailable
+    codeButton.textContent = t(
+      state?.busyAction === 'email-code-verification'
+        ? 'settings.account.verifyingCode'
+        : 'settings.account.verifyCode'
+    )
+  }
+  const signOutButton = document.getElementById('accountSignOutBtn')
+  if (signOutButton) {
+    signOutButton.disabled = authBusy
+    signOutButton.textContent = t(
+      state?.busyAction === 'sign-out'
+        ? 'settings.account.signingOut'
+        : 'settings.account.signOut'
+    )
+  }
+  const signOutEverywhereButton = document.getElementById(
+    'accountSignOutEverywhereBtn'
+  )
+  if (signOutEverywhereButton) {
+    signOutEverywhereButton.disabled = authBusy
+    signOutEverywhereButton.textContent = t(
+      state?.busyAction === 'sign-out-everywhere'
+        ? 'settings.account.signingOutEverywhere'
+        : 'settings.account.signOutEverywhere'
+    )
+  }
+  renderAccountExport()
+
+  const feedback = document.getElementById('accountFeedback')
+  const feedbackView = ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.error]
+    || ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.notice]
+    || null
+  if (feedback) {
+    feedback.classList.toggle('hidden', !feedbackView)
+    feedback.textContent = feedbackView ? t(feedbackView.key) : ''
+    feedback.dataset.accountTone = feedbackView?.tone || 'success'
+    feedback.setAttribute('role', feedbackView?.tone === 'error' ? 'alert' : 'status')
+    feedback.setAttribute(
+      'aria-live',
+      feedbackView?.tone === 'error' ? 'assertive' : 'polite'
+    )
+  }
+
+  renderTrackedChannelAccess()
+  renderReminderPreferences()
+  mountGoogleIdentityServicesButtons(group)
+  mountTurnstileWidgets(group)
+  synchronizeTurnstileControls(group)
+}
+
+function renderPlusAccountSettings() {
+  const group = document.getElementById('plusAccountSettings')
+  group?.classList.add('hidden')
+  if (ACCOUNT_FEATURES_ENABLED) renderAccountSettings()
+}
+
+function renderPlusUpgradeModal() {
+  const modal = document.getElementById('plusUpgradeModal')
+  if (!modal) return
+  if (!ACCOUNT_FEATURES_ENABLED) {
+    modal.classList.add('hidden')
+    return
+  }
+  renderPlusUpgradeExperience(modal, {
+    accountState: plusAccountViewState,
+    billingState: plusBillingViewState,
+    checkoutEnabled: plusAccessPolicy.checkoutEnabled,
+    featureId: plusModalFeatureId,
+    locale: getCurrentLocale(),
+    t
+  })
+}
+
+function openPlusUpgradeModal(featureId = null) {
+  if (!ACCOUNT_FEATURES_ENABLED) return false
+  const modal = document.getElementById('plusUpgradeModal')
+  const dialog = modal?.querySelector('[role="dialog"]')
+  if (!modal || !dialog) return false
+  modal._previousFocus = document.activeElement
+  plusModalFeatureId = normalizePlusFeatureId(featureId)
+  renderPlusUpgradeModal()
+  if (
+    plusBillingController
+    && plusBillingViewState?.offerState === PLUS_BILLING_OFFER_STATES.IDLE
+  ) {
+    void plusBillingController.loadOffer()
+  }
+  modal.classList.remove('hidden')
+  document.body.classList.add('plus-modal-open')
+  window.requestAnimationFrame(() => {
+    dialog.querySelector('[data-plus-action="close"]')?.focus()
+  })
+  return true
+}
+
+function closePlusUpgradeModal() {
+  const modal = document.getElementById('plusUpgradeModal')
+  if (!modal || modal.classList.contains('hidden')) return false
+  modal.classList.add('hidden')
+  document.body.classList.remove('plus-modal-open')
+  modal._previousFocus?.focus?.()
+  modal._previousFocus = null
+  return true
+}
+
+function initializePlusAccount() {
+  if (!ACCOUNT_FEATURES_ENABLED || IS_SANDBOX || !hasSupabaseRuntimeConfig()) return
+
+  try {
+    const client = getSupabaseClient()
+    const entitlementCache = createPlusEntitlementCache({
+      storage: localStorage,
+      storageKey: PLUS_ENTITLEMENT_CACHE_KEY
+    })
+    plusBillingController = createPlusBillingController({
+      client,
+      checkoutEnabled: plusAccessPolicy.checkoutEnabled,
+      location: { assign: url => window.location.assign(url) },
+      onStateChange(state) {
+        plusBillingViewState = state
+        renderPlusAccountSettings()
+        renderPlusUpgradeModal()
+      }
+    })
+    plusBillingViewState = plusBillingController.getState()
+    plusAccountController = createPlusAuthController({
+      client,
+      entitlementCache,
+      location: window.location,
+      history: window.history,
+      onStateChange(state) {
+        plusAccountViewState = state
+        renderPlusAccountSettings(state)
+        renderPlusUpgradeModal()
+      },
+      onEntitlementChange: updatePlusEntitlementState
+    })
+    plusAccountViewState = plusAccountController.getState()
+    renderPlusAccountSettings()
+    renderPlusUpgradeModal()
+    if (plusAccessPolicy.checkoutEnabled) void plusBillingController.loadOffer()
+    void plusAccountController.initialize()
+  } catch {
+    plusAccountViewState = {
+      sessionState: PLUS_ACCOUNT_SESSION_STATES.UNAVAILABLE,
+      entitlementState: PLUS_ENTITLEMENT_STATES.UNAVAILABLE,
+      userId: null,
+      email: '',
+      usingCachedEntitlement: false,
+      busyAction: null,
+      feedback: PLUS_ACCOUNT_FEEDBACK.REFRESH_ERROR,
+      feedbackEmail: ''
+    }
+    updatePlusEntitlementState(PLUS_ENTITLEMENT_STATES.UNAVAILABLE)
+    renderPlusAccountSettings()
+    renderPlusUpgradeModal()
+  }
+}
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    supabaseClient = createEdeniaSupabaseClient({
+      url: getSupabaseUrl(),
+      publishableKey: getSupabasePublishableKey(),
+      storageKey: ACCOUNT_AUTH_STORAGE_KEY
+    })
+  }
+  return supabaseClient
+}
+
+function startLearnerProfileReverification() {
+  if (
+    learnerProfileReverificationController
+    || !learnerProfileLifecycleAuthority
+    || !accountAuthController
+  ) return
+  learnerProfileReverificationController =
+    createLearnerProfileReverificationController({
+      eventTarget: window,
+      isEligible() {
+        const access = learnerProfileLifecycleAuthority?.getState()
+        return window.navigator.onLine !== false
+          && access?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+          && Boolean(access.ownerId)
+      },
+      now: () => Date.now(),
+      async reverify() {
+        const access = learnerProfileLifecycleAuthority?.getState()
+        const auth = await accountAuthController?.reverify()
+        if (
+          auth?.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+          && auth.userId === access?.ownerId
+          && learnerProfileLifecycleAuthority?.getState().status
+            === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        ) {
+          if (shouldDeferSettingsSyncRefresh(
+            learnerProfileLifecycleAuthority.getState()
+          )) settingsSyncRefreshDeferred = true
+          else learnerProfileLifecycleAuthority.refresh()
+        }
+      }
+    })
+  learnerProfileReverificationController.start()
+}
+
+function initializeAccountAuth() {
+  if (!ACCOUNT_FEATURES_ENABLED) return
+  renderAccountSettings()
+  if (!hasSupabaseRuntimeConfig()) {
+    applyAccountAuthenticationState(Object.freeze({
+      sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
+      userId: null,
+      email: '',
+      authMethod: null,
+      busyAction: null,
+      error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
+      notice: null
+    }))
+    renderAccountSettings()
+    if (personalizedOnboardingState.step === 'account') {
+      renderPersonalizedOnboarding()
+    }
+    return
+  }
+
+  try {
+    const client = getSupabaseClient()
+    accountExportController = createAccountExportController({
+      client,
+      download: downloadAccountExport,
+      onStateChange(state) {
+        accountExportViewState = state
+        renderAccountExport()
+      }
+    })
+    reminderPreferencesController = createReminderPreferencesController({
+      client,
+      onStateChange(state) {
+        reminderPreferenceViewState = state
+        renderReminderPreferences(state)
+      }
+    })
+    accountStudySnapshotController = createAccountStudySnapshotController({
+      client,
+      storage: localStorage,
+      ownerStorageKey: ACCOUNT_STUDY_SYNC_OWNER_KEY,
+      createSnapshot: getAccountStudySnapshot
+    })
+    accountAuthController = createAccountAuthController({
+      client,
+      history: window.history,
+      location: window.location,
+      onStateChange(state) {
+        applyAccountAuthenticationState(state)
+        accountAnalyticsIdentity.synchronize(state)
+        accountExportController.synchronizeAccount(state)
+        void reminderPreferencesController.synchronizeAccount(
+          state,
+          getReminderPreferenceDefaults()
+        )
+        const accessState = learnerProfileLifecycleAuthority?.getState()
+        synchronizeAccountStudySnapshotForProfile(
+          accessState,
+          accessState?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+            ? learnerProfileLifecycleAuthority.readActiveProfile()
+            : learnerProfileLifecycleAuthority ? null : loadState()
+        )
+        renderAccountSettings(state)
+        if (personalizedOnboardingState.step === 'account') {
+          renderPersonalizedOnboarding()
+        }
+        synchronizeGoogleIdentityServices()
+      }
+    })
+    if (GOOGLE_IDENTITY_SERVICES_READY) {
+      googleIdentityServicesController =
+        createGoogleIdentityServicesController({
+          clientId: GOOGLE_IDENTITY_CLIENT_ID,
+          crypto: window.crypto,
+          exchangeCredential(credential) {
+            return accountAuthController.signInWithGoogleIdToken(credential)
+          },
+          googleTarget: window,
+          onStatusChange(status, details = {}) {
+            document.documentElement.dataset.googleIdentityStatus = status
+            const failureStage = ['script', 'nonce', 'initialize'].includes(
+              details?.stage
+            ) ? details.stage : ''
+            if (status === 'unavailable' && failureStage) {
+              document.documentElement.dataset.googleIdentityFailureStage =
+                failureStage
+            } else {
+              delete document.documentElement.dataset.googleIdentityFailureStage
+            }
+          }
+        })
+    }
+    if (TURNSTILE_READY) {
+      turnstileController = createTurnstileController({
+        siteKey: TURNSTILE_SITE_KEY,
+        turnstileTarget: window,
+        onStatusChange(status, element) {
+          turnstileWidgetStatuses.set(element, status)
+          element.classList.toggle(
+            'account-turnstile-interactive',
+            status === 'interactive'
+          )
+          synchronizeTurnstileControls(element.closest?.('form') || document)
+        }
+      })
+    }
+    applyAccountAuthenticationState(accountAuthController.getState())
+    accountExportController.synchronizeAccount(accountAuthViewState)
+    renderAccountSettings()
+    void accountAuthController.initialize().finally(() => {
+      resumeEdeniaSessionRecording()
+    })
+    startLearnerProfileReverification()
+  } catch (error) {
+    console.warn('Edenia account authentication is unavailable.', error)
+    applyAccountAuthenticationState(Object.freeze({
+      sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
+      userId: null,
+      email: '',
+      authMethod: null,
+      busyAction: null,
+      error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
+      notice: null
+    }))
+    renderAccountSettings()
+    if (personalizedOnboardingState.step === 'account') {
+      renderPersonalizedOnboarding()
+    }
+  }
+}
+
+async function requestAccountEmailCode(email, form = null) {
+  if (!accountAuthController) return false
+  const turnstileElement = form?.querySelector?.('[data-turnstile-widget]')
+    || null
+  const captchaToken = TURNSTILE_READY
+    ? turnstileController?.consumeToken(turnstileElement) || ''
+    : ''
+  try {
+    return await accountAuthController.requestEmailCode(email, {
+      captchaRequired: TURNSTILE_READY,
+      captchaToken,
+      locale: getCurrentLocale()
+    })
+  } finally {
+    if (turnstileController && turnstileElement) {
+      turnstileController.reset(turnstileElement)
+    }
+  }
+}
+
+function requestOnboardingAccountEmailCode(email, form = null) {
+  personalizedOnboardingState.accountEmail = String(email || '')
+  return requestAccountEmailCode(email, form)
+}
+
+function verifyAccountEmailCode(code) {
+  return accountAuthController?.verifyEmailCode(code)
+}
+
+function signOutAccount() {
+  return accountAuthController?.signOut()
+}
+
+function signOutAccountEverywhere() {
+  return accountAuthController?.signOutEverywhere()
+}
+
+function continueLearnerProfileOwnerReplacement() {
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    protection: 'synchronized'
+  })
+}
+
+function exportAndReplaceLearnerProfileOwner() {
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    protection: 'exported'
+  })
+}
+
+function discardAndReplaceLearnerProfileOwner() {
+  if (!window.confirm(t('profileAccess.accountChange.discardConfirm'))) {
+    return false
+  }
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    confirmed: true,
+    protection: 'discarded'
+  })
+}
+
+function downloadAccountExport(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json'
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function downloadAccountData() {
+  return accountExportController?.exportData()
+}
+
+function saveReminderPreference(input) {
+  return reminderPreferencesController?.save(input)
+}
+
+function retryReminderPreferenceLoad() {
+  return reminderPreferencesController?.retry()
+}
+
+function restorePlusAccount(email) {
+  return plusAccountController?.restore(email)
+}
+
+function refreshPlusAccount() {
+  return plusAccountController?.refresh()
+}
+
+function signOutPlusAccount() {
+  return plusAccountController?.signOut()
+}
+
+function startPlusUpgradeSignIn(email) {
+  return plusAccountController?.startUpgradeSignIn(
+    email,
+    plusBillingViewState?.selectedPlan
+  )
+}
+
+function selectPlusPlan(plan) {
+  const selectedPlan = normalizePlusPlanId(plan)
+  if (plusBillingController) return plusBillingController.selectPlan(selectedPlan)
+  plusBillingViewState = { ...plusBillingViewState, selectedPlan }
+  renderPlusUpgradeModal()
+  return plusBillingViewState
+}
+
+function startPlusCheckout() {
+  return plusBillingController?.startCheckout()
+}
+
+function managePlusBilling() {
+  return plusBillingController?.openBillingPortal()
+}
+
+function initializeRequestedPlusModal() {
+  if (!ACCOUNT_FEATURES_ENABLED) return
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('plus') !== '1') return
+  selectPlusPlan(params.get('plan'))
+  window.setTimeout(() => openPlusUpgradeModal(params.get('feature')), 0)
+}
+
+function initializeRequestedAccountSettings() {
+  if (!ACCOUNT_FEATURES_ENABLED) return
+  const url = new URL(window.location.href)
+  if (url.searchParams.get('account') !== '1') return
+  url.searchParams.delete('account')
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  )
+  if (canResumeOnboardingAccountStep(loadState())) return
+  window.setTimeout(() => openSettings(), 0)
+}
+
+async function initializeRequestedReminderDestination() {
+  const request = consumeReminderDestination({
+    enabled: ACCOUNT_FEATURES_ENABLED,
+    location: window.location,
+    history: window.history
+  })
+  if (!request?.videoId || !request.channelId) return
+
+  const openRequestedVideo = async existing => {
+    const opened = await openVideoPlayer(request.videoId)
+    trackEdeniaEvent('reminder_video_destination_opened', {
+      email_type: request.emailType,
+      video_url: `https://www.youtube.com/watch?v=${encodeURIComponent(request.videoId)}`,
+      channel_id: request.channelId,
+      video_already_local: existing,
+      result: opened ? 'opened' : 'unavailable'
+    })
+    if (!opened) showToast(t('toast.videoGone'), 'warn')
+  }
+
+  if (loadState()?.videos?.[request.videoId]) {
+    openRequestedVideo(true)
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(t('toast.apiKeyMissing'), 'warn')
+    return
+  }
+
+  try {
+    const metadata = await fetchVideoMetadata(request.videoId)
+    if (
+      metadata.id !== request.videoId
+      || metadata.channelId !== request.channelId
+    ) throw new Error(t('toast.videoNotFound'))
+
+    const state = loadState()
+    if (state.videos[request.videoId]) {
+      openRequestedVideo(true)
+      return
+    }
+    const duration = metadata.duration || 0
+    state.videos[request.videoId] = {
+      ...metadata,
+      id: request.videoId,
+      duration,
+      status: 'unwatched',
+      watchedAt: null,
+      watchedConfirmationUnlockedAt: null,
+      resumeAtSeconds: null,
+      pausedAt: null,
+      watchProgress: normalizeVideoWatchProgress(null, duration),
+      source: 'manual',
+      manuallyAdded: true,
+      hiddenFromGrid: false,
+      hiddenFromGridAt: null
+    }
+    pushUndoAction(state, {
+      type: 'manual-video-add',
+      videoId: request.videoId,
+      channelId: metadata.channelId,
+      channelName: metadata.channelTitle || metadata.channelId,
+      channelWasAdded: false,
+      channelTrackingMode: 'manual-video-only',
+      before: { exists: false, video: null, channel: null },
+      after: {
+        exists: true,
+        video: cloneVideoForHistoryAction(state.videos[request.videoId]),
+        channel: null
+      }
+    })
+    appendActivityLog(state, {
+      actor: 'user',
+      type: 'manual-video',
+      status: 'success',
+      title: t('log.videoAdded.title'),
+      detail: t('log.videoAdded.detail', {
+        title: formatToastTitle(state.videos[request.videoId].title)
+      }),
+      meta: { videoId: request.videoId }
+    })
+    if (!await saveState(state)) return false
+    renderAll(state)
+    openRequestedVideo(false)
+  } catch (error) {
+    console.warn('Could not open the requested reminder video:', error)
+    if (!await recordYoutubeQuotaError(error)) showToast(error?.message || t('toast.addVideoFailed'), 'error')
+  }
+}
+
+function openSettingsShell({ accountOnly = false, focusId }) {
+  const panel = document.getElementById('settingsPanel')
+  const main = document.getElementById('mainApp')
+  panel?.classList.toggle('account-only', accountOnly)
+  if (panel?.classList.contains('hidden')) openSettings.returnFocus = document.activeElement
+  show('settingsPanel')
+  const drawer = panel?.querySelector('.settings-drawer')
+  if (drawer && usesPhoneComposition()) drawer.scrollTop = 0
+  if (main) main.inert = true
+  window.setTimeout(() => document.getElementById(focusId)?.focus(), 0)
+}
+
+function openSettings() {
+  const s = loadState()
+  applyLocale(s.config.locale)
+  document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
+  document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
+  renderChannelList(s.config.channels)
+  renderBackupList()
+  mobileActivityLogVisibleCount = 20
+  renderActivityLog(s)
+  setSettingsHowToOpen(false)
+  setSettingsAccountOpen(
+    accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_IN
+  )
+  setSettingsActivityLogOpen(false)
+  setSettingsBackupsOpen(false)
+  closeLocaleMenu()
+  renderPlusAccountSettings()
+  openSettingsShell({ focusId: 'settingsCloseBtn' })
+}
+
+function openProtectedProfileVersionsSettings() {
+  openSettings()
+  const protectedVersions = document.getElementById(
+    'learnerProfileConflictRecovery'
+  )
+  window.setTimeout(() => {
+    protectedVersions?.scrollIntoView({ block: 'center' })
+    protectedVersions?.focus({ preventScroll: true })
+  }, 0)
+}
+
+function closeSettings() {
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')) return
+  panel.classList.remove('account-only')
+  hide('settingsPanel')
+  const main = document.getElementById('mainApp')
+  if (main) main.inert = false
+  const returnFocus = openSettings.returnFocus
+  openSettings.returnFocus = null
+  if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
+  finishSettingsSyncImportInteraction({ refresh: true })
+}
+
+function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOpen) {
+  const content = document.getElementById(contentId)
+  const toggle = document.querySelector(toggleSelector)
+  const group = document.querySelector(groupSelector)
+  if (!content || !toggle || !group) return
+  content.hidden = !isOpen
+  toggle.setAttribute('aria-expanded', String(isOpen))
+  group.classList.toggle('open', isOpen)
+}
+
+function setSettingsHowToOpen(isOpen) {
+  setSettingsAccordionOpen('settingsHowToContent', '.settings-howto-toggle', '.settings-howto-group', isOpen)
+}
+
+function setSettingsAccountOpen(isOpen) {
+  setSettingsAccordionOpen('accountSettingsContent', '.settings-account-toggle', '.settings-account', isOpen)
+}
+
+function openAccountSignIn({ fromProfileAccess = false } = {}) {
+  if (fromProfileAccess) {
+    openLearnerProfileAccessSignIn()
+    return
+  }
+  renderAccountSettings()
+  setSettingsAccountOpen(true)
+  openSettingsShell({ accountOnly: true, focusId: 'accountEmail' })
+}
+
+function openAccountlessProfileMigrationSignIn() {
+  openAccountSignIn()
+}
+
+function getLearnerProfileAuthenticationControls() {
+  const controls = {
+    feedback: document.getElementById('accountFeedback'),
+    loading: document.getElementById('accountLoading'),
+    signedIn: document.getElementById('accountSignedIn'),
+    signOut: document.getElementById('accountSignOutBtn'),
+    signedOut: document.getElementById('accountSignedOut')
+  }
+  return Object.values(controls).every(Boolean) ? controls : null
+}
+
+function moveLearnerProfileAuthenticationControls(destination) {
+  const controls = getLearnerProfileAuthenticationControls()
+  if (!destination || !controls) return false
+  // Reparenting reloads provider iframes; do not retain their mounted state.
+  unmountTurnstileWidgets(controls.signedOut)
+  destination.append(controls.loading, controls.signedOut, controls.signOut, controls.feedback)
+  return true
+}
+
+function restoreLearnerProfileAuthenticationControls() {
+  const accountContent = document.getElementById('accountSettingsContent')
+  const controls = getLearnerProfileAuthenticationControls()
+  if (!accountContent || !controls) return false
+  unmountTurnstileWidgets(controls.signedOut)
+  accountContent.prepend(controls.loading)
+  controls.signedIn.before(controls.signedOut)
+  controls.signedIn.insertBefore(controls.signOut, document.getElementById('accountSignOutEverywhereBtn'))
+  accountContent.append(controls.feedback)
+  return true
+}
+
+function closeLearnerProfileAccessSignIn({ returnFocus = true } = {}) {
+  const gate = document.getElementById('learnerProfileAccessGate')
+  const authentication = document.getElementById(
+    'learnerProfileAccessAuthentication'
+  )
+  if (!gate?.classList.contains('authentication-open')) return false
+  restoreLearnerProfileAuthenticationControls()
+  authentication?.classList.add('hidden')
+  gate.classList.remove('authentication-open')
+  gate.setAttribute('aria-labelledby', 'learnerProfileAccessTitle')
+  gate.setAttribute(
+    'aria-describedby',
+    'learnerProfileAccessBody learnerProfileAccessStatus'
+  )
+  learnerProfileAccessView.render(
+    learnerProfileLifecycleAuthority?.getState()
+  )
+  if (returnFocus) {
+    window.setTimeout(() => {
+      document.getElementById('learnerProfileAccessOpenSignIn')?.focus()
+    }, 0)
+  }
+  return true
+}
+
+function openLearnerProfileAccessSignIn() {
+  const gate = document.getElementById('learnerProfileAccessGate')
+  const authentication = document.getElementById(
+    'learnerProfileAccessAuthentication'
+  )
+  const content = document.getElementById(
+    'learnerProfileAccessAuthenticationContent'
+  )
+  if (!gate || !authentication || !content) return false
+  renderAccountSettings()
+  if (!moveLearnerProfileAuthenticationControls(content)) return false
+  gate.classList.add('authentication-open')
+  gate.setAttribute(
+    'aria-labelledby',
+    'learnerProfileAccessAuthenticationTitle'
+  )
+  gate.setAttribute(
+    'aria-describedby',
+    'learnerProfileAccessAuthenticationBody learnerProfileAccessAuthenticationStatus'
+  )
+  authentication.classList.remove('hidden')
+  mountGoogleIdentityServicesButtons(authentication)
+  mountTurnstileWidgets(authentication)
+  window.setTimeout(() => document.getElementById('accountEmail')?.focus(), 0)
+  return true
+}
+
+function toggleSettingsAccount() {
+  const content = document.getElementById('accountSettingsContent')
+  if (!content) return
+  setSettingsAccountOpen(content.hidden)
+}
+
+function toggleSettingsHowTo() {
+  const content = document.getElementById('settingsHowToContent')
+  if (!content) return
+  setSettingsHowToOpen(content.hidden)
+}
+
+function setSettingsActivityLogOpen(isOpen) {
+  setSettingsAccordionOpen('activityLogContent', '.activity-log-toggle', '.activity-log-panel', isOpen)
+}
+
+function toggleSettingsActivityLog() {
+  const content = document.getElementById('activityLogContent')
+  if (!content) return
+  setSettingsActivityLogOpen(content.hidden)
+}
+
+function setSettingsBackupsOpen(isOpen) {
+  setSettingsAccordionOpen('backupContent', '.backup-toggle', '.backup-panel', isOpen)
+}
+
+function toggleSettingsBackups() {
+  const content = document.getElementById('backupContent')
+  if (!content) return
+  setSettingsBackupsOpen(content.hidden)
+}
+
+function handleSettingsKeydown(event) {
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')) return
+  if (walkthroughState.active) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeSettings()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const focusable = Array.from(panel.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+  )).filter(el => !el.hidden && !el.closest('.hidden') && !el.closest('[hidden]') && el.getClientRects().length)
+  if (!focusable.length) {
+    event.preventDefault()
+    return
+  }
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const active = document.activeElement
+  if (event.shiftKey && (active === first || !panel.contains(active))) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+async function saveSettingsOnTheFly() {
+  const s      = loadState()
+  normalizeStudyInsightConfig(s)
+  const previousAnkiEnabled = isAnkiEnabled(s)
+  const nextAnkiEnabled = isAnkiAvailableOnDevice()
+    ? Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
+    : previousAnkiEnabled
+  const ankiPreferenceChanged = nextAnkiEnabled !== previousAnkiEnabled
+  const now = new Date().toISOString()
+
+  if (ankiPreferenceChanged && previousAnkiEnabled && !nextAnkiEnabled && !IS_SANDBOX) {
+    try {
+      const stats = await fetchAnkiStats()
+      applyAnkiStatsToState(s, stats)
+    } catch {
+      ankiStatsCache = null
+    }
+  }
+
+  if (ankiPreferenceChanged && !previousAnkiEnabled && nextAnkiEnabled && !IS_SANDBOX) {
+    try {
+      const stats = await fetchAnkiStats()
+      setAnkiResumeBaselineFromStats(s, stats, now)
+    } catch {
+      setPendingAnkiResumeBaseline(s, getCurrentAnkiDateKey(), now)
+    }
+  }
+
+  s.config.ankiEnabled = nextAnkiEnabled
+  s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
+  if (ankiPreferenceChanged) {
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'anki-setting',
+      status: 'success',
+      title: t('log.ankiSetting.title'),
+      detail: t(isAnkiEnabled(s) ? 'log.ankiSetting.enabled' : 'log.ankiSetting.disabled')
+    })
+    syncStreak(s)
+  }
+  if (!await saveState(s)) return false
+  if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
+  renderAll(s)
+  renderActivityLog(s)
+}
+
+async function saveLocaleFromSettings(locale = null) {
+  const s = loadState()
+  if (!s?.config) return
+  const previousLocale = normalizeLocale(s.config.locale)
+  const selectedInput = document.querySelector('input[name="settingsLocale"]:checked')
+  const nextLocale = normalizeLocale(locale || selectedInput?.value)
+  if (previousLocale === nextLocale) return
+
+  s.config.locale = nextLocale
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'locale',
+    status: 'success',
+    title: t('log.locale.title', {}, nextLocale),
+    detail: t('log.locale.detail', { language: getLocaleLabel(nextLocale) }, nextLocale)
+  })
+  if (!await saveState(s)) return false
+  applyLocale(nextLocale)
+  closeLocaleMenu()
+  updateDocumentTitle(s)
+  applyTheme(s.config.theme)
+  renderAll(s)
+  renderChannelList(s.config.channels)
+  renderBackupList()
+  renderActivityLog(s)
+  showToast(t('toast.localeChanged', { language: getLocaleLabel(nextLocale) }))
+}
+
+function downloadLearnerProfileSyncFile(state, {
+  exportedAt = Date.now(),
+  isCurrent = () => true,
+  side = null
+} = {}) {
+  return createPortableLearnerProfileEnvelope(state, {
+    maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
+    now: () => new Date(exportedAt)
+  }).then(({ serialized }) => {
+    if (!isCurrent()) return
+    const blob = new Blob([serialized], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const version = side === 'device'
+      ? 'this-device-'
+      : side === 'cloud'
+        ? 'cloud-'
+        : ''
+    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${version}${toDateKey()}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    if (side === null) showToast(t('toast.syncExported'))
+    return true
+  }).catch(() => {
+    if (isCurrent() && side === null) showToast(t('toast.invalidSync'), 'error')
+    return false
+  })
+}
+
+async function exportSyncFile() {
+  if (learnerProfileLifecycleAuthority) {
+    if (!await learnerProfileLifecycleAuthority.exportActiveProfile()) {
+      showToast(t('toast.nothingToSync'), 'warn')
+    }
+    return
+  }
+  const state = loadState()
+  if (!state) {
+    showToast(t('toast.nothingToSync'), 'warn')
+    return
+  }
+  downloadLearnerProfileSyncFile(state)
+}
+
+function beginSettingsSyncImportInteraction(input) {
+  const previousInput = settingsSyncImportInteraction?.input
+  if (previousInput) {
+    previousInput.value = ''
+    previousInput.disabled = false
+  }
+  clearPendingLearnerProfileImport()
+  const access = learnerProfileLifecycleAuthority?.getState()
+  settingsSyncImportInteraction = {
+    input,
+    legacyImport: legacyProgressManualImportDone,
+    ownerId: access?.ownerId || null,
+    profileId: access?.profileId || null,
+    generation: access?.activation?.generation
+  }
+}
+
+function isSettingsSyncImportCurrent(interaction) {
+  if (!interaction || settingsSyncImportInteraction !== interaction) return false
+  if (interaction.legacyImport) {
+    return interaction.legacyImport === legacyProgressManualImportDone
+  }
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')) return false
+  if (!learnerProfileLifecycleAuthority) return true
+  const access = learnerProfileLifecycleAuthority.getState()
+  return access.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && access.ownerId === interaction.ownerId
+    && access.profileId === interaction.profileId
+    && access.activation?.generation === interaction.generation
+}
+
+function shouldDeferSettingsSyncRefresh(access) {
+  return Boolean(
+    settingsSyncImportInteraction
+    && access?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && access.ownerId === settingsSyncImportInteraction.ownerId
+    && access.profileId === settingsSyncImportInteraction.profileId
+    && access.activation?.generation === settingsSyncImportInteraction.generation
+  )
+}
+
+function finishSettingsSyncImportInteraction({ refresh = false } = {}) {
+  const refreshDeferredProfile = settingsSyncRefreshDeferred
+    && shouldDeferSettingsSyncRefresh(learnerProfileLifecycleAuthority?.getState())
+  const input = settingsSyncImportInteraction?.input
+  settingsSyncImportInteraction = null
+  settingsSyncRefreshDeferred = false
+  clearPendingLearnerProfileImport()
+  if (input) {
+    input.value = ''
+    input.disabled = false
+  }
+  if (refresh && refreshDeferredProfile) learnerProfileLifecycleAuthority.refresh()
+}
+
+function importSyncFileFromInput(input) {
+  const file = input?.files?.[0]
+  if (!file) return
+  if (!settingsSyncImportInteraction && legacyProgressManualImportDone) {
+    beginSettingsSyncImportInteraction(input)
+  }
+  const interaction = settingsSyncImportInteraction
+  const isCurrent = () => isSettingsSyncImportCurrent(interaction)
+  if (!isCurrent()) return
+
+  input.disabled = true
+  let keepInputPending = false
+  const reader = new FileReader()
+  reader.onload = async () => {
+    if (!isCurrent()) {
+      if (settingsSyncImportInteraction === interaction) finishSettingsSyncImportInteraction()
+      return
+    }
+    const serialized = String(reader.result || '')
+    let payload
+    try {
+      payload = JSON.parse(serialized)
+    } catch {
+      showToast(t('toast.invalidSyncJson'), 'error')
+      input.value = ''
+      input.disabled = false
+      return
+    }
+
+    try {
+      const isPortableProfile =
+        payload?.schema === PORTABLE_LEARNER_PROFILE_SCHEMA
+      const portableEnvelope = isPortableProfile
+        ? await verifyPortableLearnerProfileEnvelope(serialized, {
+            maxBytes: learnerProfileLifecycleAuthority
+              ? LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+              : PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
+          })
+        : null
+      if (!isCurrent()) return
+      const importedState = isPortableProfile
+        ? getImportedSyncState(portableEnvelope?.profile)
+        : getImportedSyncState(payload)
+      if (!importedState) {
+        showToast(t('toast.invalidSync'), 'error')
+        return
+      }
+      if (payload?.app === 'edenia' && Boolean(payload.sandbox) !== IS_SANDBOX) {
+        showToast(IS_SANDBOX ? t('toast.useSandboxSync') : t('toast.useNormalSync'), 'warn')
+        return
+      }
+
+      if (learnerProfileLifecycleAuthority && !legacyProgressManualImportDone) {
+        const access = learnerProfileLifecycleAuthority.getState()
+        if (!isPortableProfile || !portableEnvelope) {
+          showToast(t('toast.invalidSync'), 'error')
+          return
+        }
+        if (
+          access.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+          || !access.ownerId
+        ) {
+          showToast(t('toast.importOwnerRequired'), 'warn')
+          return
+        }
+        normalizeLoadedState(importedState)
+        pendingLearnerProfileImport = {
+          fileName: file.name || '',
+          importedState,
+          input,
+          interaction
+        }
+        const confirmation = document.getElementById('syncImportConfirm')
+        const fileLabel = document.getElementById('syncImportConfirmFile')
+        if (fileLabel) {
+          fileLabel.textContent = t('settings.sync.importFile', {
+            fileName: file.name || ''
+          })
+        }
+        confirmation?.classList.remove('hidden')
+        document.querySelector(
+          '[data-settings-sync-action="confirm-import"]'
+        )?.focus()
+        keepInputPending = true
+        return
+      }
+
+      const hadStoredState = Boolean(primaryStorage.getItem(STORAGE_KEY))
+      const existingBackupIds = new Set(LOCAL_BACKUPS_ENABLED
+        ? getStateBackupEntries().map(backup => backup.id)
+        : [])
+      const rollbackBackup = LOCAL_BACKUPS_ENABLED
+        ? await createVerifiedStateBackup('before sync import', {
+            force: true,
+            returnExisting: true
+          })
+        : null
+      if (!isCurrent()) return
+      if (LOCAL_BACKUPS_ENABLED && hadStoredState && !rollbackBackup) {
+        showToast(t('toast.importStorageFull'), 'error')
+        return
+      }
+
+      normalizeLoadedState(importedState)
+      if (rollbackBackup && !existingBackupIds.has(rollbackBackup.id)) {
+        appendActivityLog(importedState, {
+          actor: 'auto',
+          type: 'backup',
+          status: 'info',
+          title: t('log.rollback.title'),
+          detail: t('log.rollback.beforeImport')
+        })
+      }
+      appendActivityLog(importedState, {
+        actor: 'user',
+        type: 'import',
+        status: 'success',
+        title: t('log.syncImported.title'),
+        detail: file.name || t('log.syncImported.detail')
+      })
+      syncStreak(importedState)
+      const saveResult = await saveImportedState(importedState, {
+        preserveBackupId: rollbackBackup?.id || null
+      })
+      if (!saveResult.persisted) {
+        if (isStorageQuotaError(saveResult.error)) {
+          showToast(t('toast.importStorageFull'), 'error')
+        } else {
+          console.error('Edenia sync import failed', saveResult.error)
+          showToast(t('toast.importFailed'), 'error')
+        }
+        return
+      }
+
+      if (legacyProgressManualImportDone) {
+        const finishMigrationImport = legacyProgressManualImportDone
+        legacyProgressManualImportDone = null
+        finishMigrationImport()
+        showToast(t('toast.syncImported'))
+        return
+      }
+
+      applyLocale(importedState.config.locale)
+      updateDocumentTitle(importedState)
+      applyTheme(importedState.config.theme)
+      setDefaultCityDayOffset(importedState)
+      renderAll(importedState)
+      renderChannelList(importedState.config.channels)
+      renderBackupList()
+      renderActivityLog(importedState)
+      renderLocaleSelect()
+      document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(importedState.config.includeShorts)
+      document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(importedState)
+      applyAnkiRefreshPreference(importedState)
+      showToast(t('toast.syncImported'))
+    } catch (error) {
+      if (!isCurrent()) return
+      console.error('Edenia sync import failed', error)
+      showToast(t('toast.importFailed'), 'error')
+    } finally {
+      if (!keepInputPending && settingsSyncImportInteraction === interaction) {
+        input.value = ''
+        input.disabled = false
+      }
+    }
+  }
+  reader.onerror = () => {
+    if (!isCurrent()) return
+    showToast(t('toast.readSyncFailed'), 'error')
+    input.value = ''
+    input.disabled = false
+  }
+  reader.readAsText(file)
+}
+
+function clearPendingLearnerProfileImport({ restoreFocus = false } = {}) {
+  const pending = pendingLearnerProfileImport
+  pendingLearnerProfileImport = null
+  document.getElementById('syncImportConfirm')?.classList.add('hidden')
+  const fileLabel = document.getElementById('syncImportConfirmFile')
+  if (fileLabel) fileLabel.textContent = ''
+  for (const action of ['cancel-import', 'confirm-import']) {
+    const control = document.querySelector(
+      `[data-settings-sync-action="${action}"]`
+    )
+    if (control) control.disabled = false
+  }
+  if (pending?.input) {
+    pending.input.value = ''
+    pending.input.disabled = false
+  }
+  if (restoreFocus) {
+    document.querySelector(
+      '[data-settings-sync-action="choose-file"]'
+    )?.focus()
+  }
+}
+
+function cancelPendingLearnerProfileImport() {
+  clearPendingLearnerProfileImport({ restoreFocus: true })
+  finishSettingsSyncImportInteraction({ refresh: true })
+}
+
+async function confirmPendingLearnerProfileImport() {
+  const pending = pendingLearnerProfileImport
+  if (!pending || !learnerProfileLifecycleAuthority) return
+  if (!isSettingsSyncImportCurrent(pending.interaction)) {
+    clearPendingLearnerProfileImport()
+    return
+  }
+  for (const action of ['cancel-import', 'confirm-import']) {
+    const control = document.querySelector(
+      `[data-settings-sync-action="${action}"]`
+    )
+    if (control) control.disabled = true
+  }
+
+  try {
+    const importedState = pending.importedState
+    const result = await learnerProfileLifecycleAuthority.importActiveProfile(
+      importedState,
+      { confirmed: true }
+    )
+    if (!isSettingsSyncImportCurrent(pending.interaction)) return
+    const toast = {
+      'owner-required': ['toast.importOwnerRequired', 'warn'],
+      fenced: ['toast.importOwnerRequired', 'warn'],
+      'protection-required': ['toast.importProtectionRequired', 'error'],
+      'backup-failed': ['toast.importProtectionRequired', 'error'],
+      unavailable: ['toast.importProtectionRequired', 'error'],
+      'stale-revision': ['toast.importStaleRevision', 'warn'],
+      'rolled-back': ['toast.importRolledBack', 'warn']
+    }[result?.status]
+    if (result?.status === 'imported') {
+      showToast(t('toast.syncImported'))
+    } else if (toast) {
+      showToast(t(toast[0]), toast[1])
+    } else {
+      showToast(t('toast.importFailed'), 'error')
+    }
+  } catch (error) {
+    if (!isSettingsSyncImportCurrent(pending.interaction)) return
+    console.error('Edenia sync import failed', error)
+    showToast(t('toast.importFailed'), 'error')
+  } finally {
+    if (pendingLearnerProfileImport === pending) clearPendingLearnerProfileImport()
+  }
+}
+
+function formatBackupTimestamp(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return t('backups.unknownTime')
+  return formatLocaleDateTime(date, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function formatBackupReason(reason) {
+  const key = {
+    'automatic backup': 'backups.automatic',
+    'before automatic cleanup': 'backups.reason.automaticCleanup',
+    'before sandbox reset': 'backups.reason.sandboxReset',
+    'before sync import': 'backups.reason.syncImport',
+    'legacy origin recovery': 'backups.reason.legacyRecovery',
+    'legacy origin conflict': 'backups.reason.legacyConflict',
+    'before backup restore': 'backups.reason.backupRestore',
+    'before reset': 'backups.reason.reset'
+  }[String(reason || 'automatic backup')]
+  return key ? t(key) : String(reason || t('backups.automatic'))
+}
+
+function renderBackupList() {
+  const el = document.getElementById('backupList')
+  if (!el) return
+
+  const entries = getStateBackupEntries()
+  if (!entries.length) {
+    el.innerHTML = `<p class="backup-empty">${escHtml(t('backups.empty'))}</p>`
+    return
+  }
+
+  el.innerHTML = entries.slice(0, 4).map(entry => `
+    <div class="backup-item">
+      <div class="backup-item-copy">
+        <span class="backup-time">${escHtml(formatBackupTimestamp(entry.createdAt))}</span>
+        <span class="backup-reason">${escHtml(formatBackupReason(entry.reason))}</span>
+      </div>
+      <button class="btn-ghost backup-restore-btn" type="button" data-settings-backup-action="restore" data-analytics-action="restoreStateBackup" data-backup-id="${escHtml(entry.id)}">${escHtml(t('backups.restore'))}</button>
+    </div>
+  `).join('')
+  bindSettingsBackupRestoreActions(el, {
+    restore: restoreStateBackup
+  })
+}
+
+function formatActivityLogTimestamp(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return t('backups.unknownTime')
+  return formatLocaleDateTime(date, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function setActivityLogFilter(filter) {
+  selectedActivityLogFilter = ACTIVITY_LOG_FILTERS.includes(filter) ? filter : 'all'
+  mobileActivityLogVisibleCount = 20
+  renderActivityLog()
+}
+
+function getFilteredActivityLogEntries(state) {
+  const entries = Array.isArray(state?.activityLog) ? state.activityLog : []
+  if (selectedActivityLogFilter === 'user') return entries.filter(entry => entry.actor === 'user')
+  if (selectedActivityLogFilter === 'auto') return entries.filter(entry => entry.actor === 'auto')
+  if (selectedActivityLogFilter === 'issues') return entries.filter(entry => ['warn', 'error'].includes(entry.status))
+  return entries
+}
+
+function getPointActivityLogEntries(state) {
+  const entries = []
+  const end = getCurrentAppDate(state)
+  end.setHours(23, 59, 59, 999)
+  const history = getStudyHistoryBetween(state || { videos: {}, anki: {} }, new Date(0), end)
+
+  history.rows.forEach(row => {
+    const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+    if (ankiPoints > 0) {
+      entries.push({
+        createdAt: `${row.dateKey}T23:59:59`,
+        status: 'success',
+        points: ankiPoints,
+        title: t('activity.points.ankiTitle', { count: row.ankiReviewed }),
+        detail: formatHeatmapTitle(row)
+      })
+    }
+
+    ;(row.watchedVideos || []).forEach(video => {
+      const videoPoints = getVideoPointsFromSeconds(video.duration || 0)
+      if (videoPoints <= 0) return
+      entries.push({
+        createdAt: video.watchedAt || `${row.dateKey}T23:59:59`,
+        status: 'success',
+        points: videoPoints,
+        title: t('activity.points.videoTitle', {
+          time: formatHistoryTime(video.duration || 0),
+          title: video.title || t('videos.search.untitled')
+        }),
+        detail: formatHeatmapTitle(row)
+      })
+    })
+  })
+
+  const pointDeltas = (Array.isArray(state?.activityLog) ? state.activityLog : [])
+    .filter(entry => entry?.type === 'point-delta' && Number(entry.meta?.pointsDelta || 0) !== 0)
+    .map(entry => ({
+      createdAt: entry.createdAt,
+      status: entry.status || (Number(entry.meta?.pointsDelta || 0) < 0 ? 'warn' : 'success'),
+      points: Number(entry.meta?.pointsDelta || 0),
+      title: entry.title || t('activity.pointsLabel'),
+      detail: entry.detail || ''
+    }))
+
+  return entries
+    .concat(pointDeltas)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
+function formatActivityLogLabel(entry) {
+  const actor = entry.actor === 'auto' ? t('activity.auto') : t('activity.user')
+  const status = entry.status === 'error' ? t('activity.error') : entry.status === 'warn' ? t('activity.warn') : entry.status === 'success' ? t('activity.done') : t('activity.info')
+  return `${actor} · ${status}`
+}
+
+function groupMobileActivityLogEntries(entries) {
+  if (!usesPhoneComposition()) return entries
+
+  return entries.reduce((grouped, entry) => {
+    const previous = grouped[grouped.length - 1]
+    const canGroup = entry?.actor === 'auto'
+      && entry?.type === 'anki-refresh'
+      && previous?.actor === 'auto'
+      && previous?.type === 'anki-refresh'
+      && previous?.status === entry.status
+      && previous?.title === entry.title
+      && previous?.detail === entry.detail
+
+    if (canGroup) {
+      previous.mobileRepeatCount = (previous.mobileRepeatCount || 1) + 1
+      return grouped
+    }
+
+    grouped.push({ ...entry, mobileRepeatCount: 1 })
+    return grouped
+  }, [])
+}
+
+function getMobileActivityLogPage(entries, { groupAnki = false } = {}) {
+  const prepared = groupAnki ? groupMobileActivityLogEntries(entries) : entries
+  if (!usesPhoneComposition()) return { entries: prepared, totalCount: prepared.length }
+  return {
+    entries: prepared.slice(0, mobileActivityLogVisibleCount),
+    totalCount: prepared.length
+  }
+}
+
+function appendMobileActivityLogMoreButton(list, totalCount) {
+  if (!usesPhoneComposition() || totalCount <= mobileActivityLogVisibleCount) return
+  list.insertAdjacentHTML('beforeend', `
+    <button class="btn-ghost activity-log-more" type="button" data-activity-log-action="show-older" data-analytics-action="showOlderActivityLogEntries">${escHtml(t('activity.showOlder'))}</button>
+  `)
+}
+
+function showOlderActivityLogEntries() {
+  mobileActivityLogVisibleCount += 20
+  renderActivityLog()
+}
+
+function renderPointActivityLog(state, list) {
+  const allEntries = getPointActivityLogEntries(state)
+  if (!allEntries.length) {
+    list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.points.empty'))}</p>`
+    return
+  }
+
+  const page = getMobileActivityLogPage(allEntries)
+
+  list.innerHTML = page.entries.map(entry => `
+    <div class="activity-log-item">
+      <div class="activity-log-row">
+        <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
+        <span class="activity-log-chip ${entry.points < 0 ? 'warn' : 'success'}">${escHtml(t('activity.pointsLabel'))} · ${escHtml(formatSignedActivityLogPointLabel(entry.points))}</span>
+      </div>
+      <div class="activity-log-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
+    </div>
+  `).join('')
+  appendMobileActivityLogMoreButton(list, page.totalCount)
+}
+
+function renderActivityLog(state = loadState()) {
+  const list = document.getElementById('activityLogList')
+  if (!list) return
+
+  document.querySelectorAll('[data-activity-log-filter]').forEach(button => {
+    const isActive = button.dataset.activityLogFilter === selectedActivityLogFilter
+    button.classList.toggle('active', isActive)
+    button.setAttribute('aria-selected', String(isActive))
+  })
+
+  normalizeActivityLogState(state)
+  if (selectedActivityLogFilter === 'points') {
+    renderPointActivityLog(state, list)
+    return
+  }
+
+  const allEntries = getFilteredActivityLogEntries(state)
+  if (!allEntries.length) {
+    list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.empty'))}</p>`
+    return
+  }
+
+  const page = getMobileActivityLogPage(allEntries, { groupAnki: true })
+
+  list.innerHTML = page.entries.map(entry => `
+    <div class="activity-log-item">
+      <div class="activity-log-row">
+        <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
+        <span class="activity-log-chip ${escHtml(entry.status)}">${escHtml(formatActivityLogLabel(entry))}</span>
+        ${entry.mobileRepeatCount > 1 ? `<span class="activity-log-repeat">×${entry.mobileRepeatCount}</span>` : ''}
+      </div>
+      <div class="activity-log-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
+    </div>
+  `).join('')
+  appendMobileActivityLogMoreButton(list, page.totalCount)
+}
+
+async function restoreStateBackup(id) {
+  const entry = getStateBackupEntries().find(candidate => candidate.id === id)
+  const state = entry ? prepareStateForBackup(entry.state) : null
+  if (!state) {
+    showToast(t('toast.backupUnavailable'), 'error')
+    renderBackupList()
+    return
+  }
+
+  const control = [...document.querySelectorAll(
+    '[data-settings-backup-action="restore"]'
+  )].find(candidate => candidate.dataset.backupId === id)
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
+  }
+  const rollbackBackup = await createVerifiedStateBackup(
+    'before backup restore',
+    { force: true }
+  )
+  if (!rollbackBackup) {
+    if (control?.isConnected) {
+      delete control.dataset.backupBusy
+      control.removeAttribute('aria-disabled')
+    }
+    showToast(t('toast.progressSaveFailed'), 'error')
+    return
+  }
+  syncStreak(state)
+  appendActivityLog(state, {
+    actor: 'auto',
+    type: 'backup',
+    status: 'info',
+    title: t('log.rollback.title'),
+    detail: t('log.rollback.beforeRestore')
+  })
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'backup-restore',
+    status: 'success',
+    title: t('log.backupRestored.title'),
+    detail: formatBackupTimestamp(entry.createdAt)
+  })
+  if (!await saveState(state, { backup: false })) {
+    if (control?.isConnected) {
+      delete control.dataset.backupBusy
+      control.removeAttribute('aria-disabled')
+    }
+    showToast(t('toast.backupCreateFailed'), 'error')
+    return
+  }
+  applyLocale(state.config.locale)
+  updateDocumentTitle(state)
+  applyTheme(state.config.theme)
+  setDefaultCityDayOffset(state)
+  renderAll(state)
+  renderChannelList(state.config.channels)
+  renderBackupList()
+  renderActivityLog(state)
+  renderLocaleSelect()
+  document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
+  document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(state)
+  applyAnkiRefreshPreference(state)
+  showToast(t('toast.backupRestored'), 'success')
+}
+
+function getImportedSyncState(payload) {
+  return readImportedState(payload)
+}
+
+async function toggleTheme() {
+  const s = loadState()
+  s.config.theme = normalizeTheme(s.config.theme) === 'dark' ? 'light' : 'dark'
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'theme',
+    status: 'success',
+    title: t('log.theme.title'),
+    detail: t(s.config.theme === 'dark' ? 'log.theme.dark' : 'log.theme.light')
+  })
+  if (!await saveState(s)) return false
+  applyTheme(s.config.theme)
+  renderActivityLog(s)
+}
+
+function addTrackedYoutubeChannelToState(state, channel) {
+  const id = String(channel?.id || '').trim()
+  if (!state?.config || !id) return false
+
+  if (!Array.isArray(state.config.channels)) state.config.channels = []
+  const existing = state.config.channels.find(entry => entry.id === id)
+  if (existing) {
+    if (!existing.name && channel.name) existing.name = channel.name
+    if (!existing.imageUrl && channel.imageUrl) existing.imageUrl = channel.imageUrl
+    if (channel.metadataFetchedAt) Object.assign(existing, channel)
+  } else {
+    state.config.channels.push({
+      id,
+      name: channel.name || id,
+      imageUrl: channel.imageUrl || '',
+      ...(channel.metadataFetchedAt ? { metadataFetchedAt: channel.metadataFetchedAt } : {})
+    })
+    state.config.channelShelfOrder = [
+      id,
+      ...normalizeChannelShelfOrder(state.config.channelShelfOrder).filter(channelId => channelId !== id)
+    ]
+  }
+
+  state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== id)
+  restoreChannelVideosToGrid(state, id)
+  if (isDefaultChannelId(id)) {
+    state.config.removedDefaultChannelIds = (state.config.removedDefaultChannelIds || []).filter(channelId => channelId !== id)
+  }
+  selectedChannelFilters?.add(id)
+  return !existing
+}
+
+function getTrackedChannelAccessView(state) {
+  const count = getTrackedChannelIds(state).length
+  const allowance = getFreeTrackedChannelAllowance(state)
+  const decision = getTrackedChannelAddDecision(
+    state,
+    plusAccessPolicy
+  )
+
+  if (
+    plusAccessPolicy.effectiveEntitlementState
+    === PLUS_ENTITLEMENT_STATES.LOADING
+  ) {
+    return { key: 'plus.channels.access.loading', params: { count, allowance } }
+  }
+  if (
+    plusAccessPolicy.effectiveEntitlementState
+    === PLUS_ENTITLEMENT_STATES.UNAVAILABLE
+  ) {
+    return { key: 'plus.channels.access.unavailable', params: { count, allowance } }
+  }
+  if (decision === TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED) {
+    return { key: 'plus.channels.access.limit', params: { count, allowance } }
+  }
+  if (plusAccessPolicy.enforcesFreeLimits) {
+    return { key: 'plus.channels.access.free', params: { count, allowance } }
+  }
+  return { key: 'plus.channels.access.plus', params: { count, allowance } }
+}
+
+function renderTrackedChannelAccess(state = loadState()) {
+  if (!state) return
+  const feedStatus = document.getElementById('manualVideoChannelAccess')
+  const settingsStatus = document.getElementById('plusAccountChannelAccess')
+  const accountStatus = document.getElementById('accountPlusChannelAccess')
+  const isVisible = plusAccessPolicy.freePlusEnabled === true
+    || Boolean(plusAccessPolicy.simulatedTier)
+  feedStatus?.classList.toggle('hidden', !isVisible)
+  settingsStatus?.classList.toggle('hidden', !isVisible)
+  accountStatus?.classList.toggle('hidden', !isVisible)
+  if (!isVisible) return
+  const view = getTrackedChannelAccessView(state)
+  const text = t(view.key, view.params)
+  if (feedStatus) feedStatus.textContent = text
+  if (settingsStatus) settingsStatus.textContent = text
+  if (accountStatus) accountStatus.textContent = text
+}
+
+function showTrackedChannelAddRestriction(decision) {
+  if (decision === TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED) {
+    openPlusUpgradeModal(PLUS_FEATURE_IDS.UNLIMITED_TRACKED_CHANNELS)
+    return
+  }
+  const key = decision === TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_LOADING
+    ? 'plus.channels.feedback.loading'
+    : 'plus.channels.feedback.unavailable'
+  showToast(t(key), 'warn')
+}
+
+function requestTrackedChannelAddition(state, channelId = null) {
+  const decision = getTrackedChannelAddDecision(
+    state,
+    plusAccessPolicy,
+    channelId
+  )
+  if (decision === TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) return true
+  showTrackedChannelAddRestriction(decision)
+  return false
+}
+
+async function addChannel(options = {}) {
+  const idEl = options.input
+    || document.getElementById('channelFilterAddInput')
+    || document.getElementById('newChannelId')
+  const btn = options.button || document.getElementById('channelFilterAddBtn')
+  const idleButtonText = options.idleButtonText || t('settings.channels.add')
+  const addedFromFilter = !options.input && Boolean(document.getElementById('channelFilterAddInput'))
+  const raw    = idEl?.value?.trim() || ''
+  const preliminaryChannelId = String(
+    options.resolvedChannel?.id
+    || parseYoutubeChannelInput(raw)?.channelId
+    || ''
+  ).trim()
+  if (
+    preliminaryChannelId
+    && !requestTrackedChannelAddition(loadState(), preliminaryChannelId)
+  ) return
+  let resolved
+
+  try {
+    const suppliedResolved = options.resolvedChannel
+    resolved = YOUTUBE_CHANNEL_ID_RE.test(String(suppliedResolved?.id || '').trim())
+      ? {
+          id: String(suppliedResolved.id).trim(),
+          name: String(suppliedResolved.name || suppliedResolved.id).trim(),
+          thumbnail: String(suppliedResolved.thumbnail || '').trim()
+        }
+      : await resolveYoutubeChannelInput(raw)
+  } catch (err) {
+    if (!await recordYoutubeQuotaError(err)) showToast(err.message || t('toast.channelInvalid'), 'warn')
+    idEl?.focus()
+    return
+  }
+
+  if (btn) {
+    btn.disabled = true
+    btn.textContent = t('videos.manual.adding')
+  }
+
+  const id   = resolved.id
+  const name = resolved.name || id
+  const s = loadState()
+  if (s.config.channels.find(c => c.id === id)) {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = idleButtonText
+    }
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+  if (!requestTrackedChannelAddition(s, id)) {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = idleButtonText
+    }
+    return
+  }
+  addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '', metadataFetchedAt: resolved.metadataFetchedAt })
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'channel-add',
+    status: 'success',
+    title: t('log.channelAdded.title'),
+    detail: name,
+    meta: { channelId: id }
+  })
+  if (!await saveState(s)) {
+    if (btn) { btn.disabled = false; btn.textContent = idleButtonText }
+    idEl?.focus()
+    return false
+  }
+  const catalogSource = String(options.catalogSource || '')
+  const isCatalogCandidate = !['curated', 'community', 'discovery'].includes(catalogSource)
+  trackEdeniaEvent('channel_added_via_add_button', {
+    channel_id: id,
+    channel_name: name,
+    channel_thumbnail_url: resolved.thumbnail || '',
+    source: options.source || (options.resolvedChannel ? 'youtube_search' : 'direct_input'),
+    catalog_id: options.catalogId || null,
+    catalog_source: catalogSource || null,
+    catalog_candidate: isCatalogCandidate,
+    learning_languages: Array.isArray(s.learnerProfile?.languages)
+      ? s.learnerProfile.languages.map(String)
+      : [],
+    learner_level: s.learnerProfile?.level || null,
+    internal_or_test_user: Boolean(IS_SANDBOX || IS_INTERNAL_TEST || IS_LOCALHOST),
+    total_channel_count: s.config.channels.length
+  })
+  renderFeed(s)
+  renderActivityLog(s)
+  if (idEl) idEl.value = ''
+  if (btn) {
+    btn.disabled = false
+    btn.textContent = idleButtonText
+  }
+  if (options.closePopover) closeManualVideoPopover()
+  if (addedFromFilter && usesPhoneComposition()) closeChannelFilterMenu()
+  if (IS_SANDBOX) {
+    showToast(t('toast.channelAdded', { name }))
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(t('toast.channelAddedNoKey', { name }), 'warn')
+    return
+  }
+  showToast(t('toast.channelAddedLoading', { name }))
+  if (starterFeedPreparationPromise) return
+  refreshAddedChannel(id)
+}
+
+function addChannelFromFilter(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  addChannel()
+}
+
+function removeChannelFromFilter(event, channelId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  removeChannel(channelId)
+}
+
+async function removeChannel(id) {
+  const s = loadState({ persistCleanup: false })
+  if (!s) return false
+  const channel = s.config.channels.find(c => c.id === id) || getInferredChannelEntry(s, id)
+  if (!channel) return
+  const checkpoint = captureChannelActionState(s, id)
+  const before = getChannelRemoveSnapshot(s, id, channel)
+
+  applyChannelRemoval(s, id)
+  const after = getChannelRemoveSnapshot(s, id)
+  pushUndoAction(s, {
+    type: 'channel-remove',
+    channelId: id,
+    channelName: channel.name || id,
+    before,
+    after
+  })
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'channel-remove',
+    status: 'success',
+    title: t('log.channelRemoved.title'),
+    detail: channel?.name || id,
+    meta: { channelId: id }
+  })
+  if (!await persistChannelAction(s, checkpoint)) return false
+  renderAll(s)
+  renderActivityLog(s)
+  return true
+}
+
+function applyChannelRemoval(s, channelId, { preserveManualVideos = false } = {}) {
+  const refreshes = getChannelRefreshes(s)
+  const removedChannel = (s.config.channels || []).find(channel => channel.id === channelId)
+  const channelImageUrl = removedChannel?.imageUrl || ''
+  s.config.channels = (s.config.channels || []).filter(c => c.id !== channelId)
+  delete refreshes[channelId]
+  if (!Array.isArray(s.config.removedChannelIds)) s.config.removedChannelIds = []
+  if (!s.config.removedChannelIds.includes(channelId)) {
+    s.config.removedChannelIds.push(channelId)
+  }
+  if (!Array.isArray(s.config.removedDefaultChannelIds)) s.config.removedDefaultChannelIds = []
+  if (isDefaultChannelId(channelId) && !s.config.removedDefaultChannelIds.includes(channelId)) {
+    s.config.removedDefaultChannelIds.push(channelId)
+  }
+  Object.values(s.videos || {}).forEach(video => {
+    if (!isChannelRemovalVideo(video, channelId)) return
+    if (!video.channelImageUrl && channelImageUrl) video.channelImageUrl = channelImageUrl
+    if (shouldPreserveVideoAfterTrackedChannelRemoval(video, { preserveManualVideos })) {
+      video.hiddenFromGrid = false
+      video.hiddenFromGridAt = null
+      return
+    }
+    video.hiddenFromGrid = true
+    video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+  })
+}
+
+function restoreChannelVideosToGrid(s, channelId) {
+  Object.values(s.videos || {}).forEach(video => {
+    if (!isChannelRemovalVideo(video, channelId)) return
+    video.hiddenFromGrid = false
+    video.hiddenFromGridAt = null
+  })
+}
+
+function getChannelRemoveSnapshot(s, channelId, channel = null) {
+  const refreshes = getChannelRefreshes(s)
+  return {
+    channel: channel
+      ? { ...channel }
+      : (s.config.channels || []).find(c => c.id === channelId) || null,
+    refresh: refreshes[channelId] ? { ...refreshes[channelId] } : null,
+    removedChannelIds: [...(s.config.removedChannelIds || [])],
+    removedDefaultChannelIds: [...(s.config.removedDefaultChannelIds || [])],
+    // Redo computes visibility from the current progress, so only Undo needs
+    // the previous presentation fields. The library retains every video.
+    ...(channel ? { videoVisibility: Object.fromEntries(Object.entries(s.videos || {})
+      .filter(([, video]) => isChannelRemovalVideo(video, channelId))
+      .map(([videoId, video]) => [videoId, getChannelRemovalVideoFields(video)])) } : {})
+  }
+}
+
+function captureChannelActionState(state, channelId) {
+  const { videos, ...metadata } = state
+  return {
+    metadata: structuredClone(metadata),
+    videoVisibility: Object.fromEntries(Object.entries(videos || {})
+      .filter(([, video]) => isChannelRemovalVideo(video, channelId))
+      .map(([id, video]) => [id, getChannelRemovalVideoFields(video, { includeImage: true })])),
+    videoIds: new Set(Object.keys(videos || {}))
+  }
+}
+
+async function persistChannelAction(state, checkpoint) {
+  // These actions retain their own Undo record. Do not consume recovery
+  // backups in an attempt to fit the change into an exhausted browser quota.
+  if (await saveState(state, { backup: false, pruneBackups: false })) return true
+  if (primaryProfileRepository) {
+    showToast(t('toast.channelSaveFailed'), 'error', { durationMs: 10000 })
+    return false
+  }
+  for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
+  Object.assign(state, checkpoint.metadata)
+  for (const [id, fields] of Object.entries(checkpoint.videoVisibility)) {
+    if (state.videos[id]) restoreChannelRemovalVideoFields(state.videos[id], fields, { includeImage: true })
+  }
+  for (const id of Object.keys(state.videos)) {
+    if (!checkpoint.videoIds.has(id)) delete state.videos[id]
+  }
+  return false
+}
+
+function getInferredChannelEntry(s, channelId) {
+  const video = Object.values(s.videos || {}).find(candidate => isChannelRemovalVideo(candidate, channelId))
+  return video ? { id: channelId, name: video.channelTitle || channelId } : null
+}
+
+function isChannelRemovalVideo(video, channelId) {
+  return Boolean(
+    video &&
+    (video.channelId || video.channelTitle) === channelId
+  )
+}
+
+function isVideoFromRemovedChannel(s, video) {
+  const removedChannelIds = new Set(s.config?.removedChannelIds || [])
+  return removedChannelIds.has(video?.channelId)
+    || removedChannelIds.has(video?.channelTitle)
+}
+
+function renderChannelList(channels) {
+  const el = document.getElementById('channelList')
+  if (!el) return
+  if (!channels.length) { el.innerHTML = `<p style="color:var(--muted);font-size:.82rem">${escHtml(t('videos.channels.none'))}</p>`; return }
+  el.innerHTML = channels.map(c => `
+    <div class="channel-item">
+      <div>
+        <div class="channel-item-name">${escHtml(c.name)}</div>
+        <div class="channel-item-id">${escHtml(c.id)}</div>
+      </div>
+      <button class="channel-remove" data-settings-channel-action="remove" data-channel-id="${escHtml(c.id)}" data-analytics-action="removeChannel" title="${escHtml(t('settings.remove'))}">✕</button>
+    </div>
+  `).join('')
+  bindSettingsChannelRemoveActions(el, {
+    remove: removeChannel
+  })
+}
+
+function showResetConfirm() {
+  document.getElementById('resetConfirm')?.classList.remove('hidden')
+}
+
+function hideResetConfirm() {
+  document.getElementById('resetConfirm')?.classList.add('hidden')
+}
+
+function renderStartOverUndo(protectedReset) {
+  const controlKeys = LEARNER_PROFILE_LIFECYCLE_ENABLED
+    ? {
+        cancel: 'settings.startOver.cancel',
+        confirm: 'settings.startOver.confirm',
+        show: 'settings.startOver.open'
+      }
+    : {
+        cancel: 'settings.reset.cancel',
+        confirm: 'settings.reset.delete',
+        show: 'settings.reset.open'
+      }
+  for (const [action, key] of Object.entries(controlKeys)) {
+    const control = document.querySelector(
+      `[data-settings-reset-confirm-action="${action}"]`
+    )
+    if (!control) continue
+    control.dataset.i18n = key
+    control.textContent = t(key)
+  }
+  const warning = document.getElementById('startOverWarning')
+  if (warning) {
+    warning.dataset.i18n = LEARNER_PROFILE_LIFECYCLE_ENABLED
+      ? 'settings.startOver.warning'
+      : 'settings.reset.warning'
+    warning.textContent = t(warning.dataset.i18n)
+  }
+  const root = document.getElementById('startOverUndo')
+  const deadline = document.getElementById('startOverUndoDeadline')
+  const protectedUntil = Number(protectedReset?.protectedUntil)
+  const available = Boolean(
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && protectedReset?.status === 'available'
+    && Number.isFinite(protectedUntil)
+    && protectedUntil > Date.now()
+  )
+  learnerProfileProtectedReset = available ? protectedReset : null
+  root?.classList.toggle('hidden', !available)
+  if (deadline) {
+    deadline.textContent = available
+      ? t('settings.startOver.undoAvailableUntil', {
+          date: formatLocaleDateTime(protectedUntil, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+          })
+        })
+      : ''
+  }
+}
+
+function releaseStartOverControl(control) {
+  if (!control?.isConnected) return
+  delete control.dataset.backupBusy
+  control.removeAttribute('aria-disabled')
+}
+
+async function resetApp() {
+  const control = document.querySelector(
+    '[data-settings-reset-confirm-action="confirm"]'
+  )
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
+  }
+  if (learnerProfileLifecycleAuthority) {
+    const startedOver = await learnerProfileLifecycleAuthority.startOverProfile(
+      defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale()),
+      { confirmed: true }
+    )
+    if (!startedOver) {
+      releaseStartOverControl(control)
+      showToast(t('toast.startOverFailed'), 'error')
+      return
+    }
+    releaseStartOverControl(control)
+    hideResetConfirm()
+    document.querySelector(
+      '[data-settings-reset-confirm-action="undo"]'
+    )?.focus()
+    return
+  }
+  if (LOCAL_BACKUPS_ENABLED) {
+    const rollbackBackup = await createVerifiedStateBackup(
+      'before reset',
+      { force: true }
+    )
+    if (!rollbackBackup) {
+      releaseStartOverControl(control)
+      showToast(t('toast.backupCreateFailed'), 'error')
+      return
+    }
+  }
+  queueSandboxWalkthroughAfterReset()
+  const nextState = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS, DEFAULT_THEME)
+  appendActivityLog(nextState, {
+    actor: 'user',
+    type: 'reset',
+    status: 'warn',
+    title: t('log.reset.title'),
+    detail: t('log.reset.detail')
+  })
+  if (!await saveState(nextState, { backup: false })) {
+    releaseStartOverControl(control)
+    showToast(t('toast.progressSaveFailed'), 'error')
+    return
+  }
+  location.reload()
+}
+
+async function undoStartOver() {
+  const control = document.querySelector(
+    '[data-settings-reset-confirm-action="undo"]'
+  )
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
+  }
+  const restored = await learnerProfileLifecycleAuthority?.undoStartOver({
+    confirmed: true
+  })
+  if (!restored) {
+    releaseStartOverControl(control)
+    showToast(t('toast.startOverUndoFailed'), 'error')
+    return
+  }
+  releaseStartOverControl(control)
+  document.querySelector(
+    '[data-settings-reset-confirm-action="show"]'
+  )?.focus()
+}
+
+// ════════════════════════════════════════════════════════════
+// YOUTUBE API
+// ════════════════════════════════════════════════════════════
+
+let youtubeRequestGate
+
+async function recordYoutubeQuotaError(error) {
+  if (!isYoutubeQuotaError(error)) return false
+  const state = loadState()
+  if (!state) return true
+  const quotaId = `${error.bucket}:${error.retryAt}`
+  if (!state.activityLog?.some(entry => entry.meta?.youtubeQuotaId === quotaId)) {
+    appendActivityLog(state, {
+      actor: 'auto', type: 'youtube-refresh', status: 'error',
+      title: t('log.refreshFailed.title'),
+      detail: error.message,
+      meta: { youtubeQuotaId: quotaId, reasons: error.reasons, retryAt: error.retryAt, bucket: error.bucket }
+    })
+    if (!await saveState(state, { backup: false })) return false
+    renderActivityLog(state)
+  }
+  return true
+}
+
+async function ytFetch(url) {
+  youtubeRequestGate ||= createYoutubeRequestGate({
+    namespace: `${STORAGE_KEY}_youtube_quota`, timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS
+  })
+  try {
+    return await youtubeRequestGate(url)
+  } catch (error) {
+    if (isYoutubeQuotaError(error)) {
+      error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
+      if (!await recordYoutubeQuotaError(error)) return false
+    }
+    if (error?.name === 'AbortError') throw Object.assign(new Error(t('toast.youtubeRequestTimeout')), { kind: 'timeout' })
+    throw error
+  }
+}
+
+async function fetchYoutubeChannelByFilter(filter, value) {
+  const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&maxResults=1&${filter}=${encodeURIComponent(value)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const data = await ytFetch(url)
+  const item = data.items?.[0]
+  if (!item?.id) throw new Error(t('toast.channelResolveNotFound'))
+  return {
+    id: item.id,
+    name: item.snippet?.title || item.id,
+    thumbnail: getBestThumbnail(item.snippet?.thumbnails),
+    metadataFetchedAt: new Date().toISOString()
+  }
+}
+
+async function resolveYoutubeChannelInput(value) {
+  const parsed = parseYoutubeChannelInput(value)
+  if (!parsed) throw new Error(t('toast.channelInvalid'))
+  if (parsed.kind === 'id') {
+    if (hasYoutubeApiKey()) return fetchYoutubeChannelByFilter('id', parsed.channelId)
+    return { id: parsed.channelId, name: parsed.channelId }
+  }
+  if (parsed.kind === 'custom-url') throw new Error(t('toast.channelCustomUrlUnsupported'))
+  if (!hasYoutubeApiKey()) throw new Error(t('toast.channelResolveNeedsKey'))
+  if (parsed.kind === 'handle') return fetchYoutubeChannelByFilter('forHandle', parsed.handle)
+  if (parsed.kind === 'username') return fetchYoutubeChannelByFilter('forUsername', parsed.username)
+  throw new Error(t('toast.channelInvalid'))
+}
+
+async function fetchChannelVideosPage(channel, pageToken = '') {
+  const pid  = uploadsId(channel.id)
+  const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
+  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=${FETCH_PAGE_SIZE}&playlistId=${pid}&key=${encodeURIComponent(getYoutubeApiKey())}${tokenParam}`
+  const data = await ytFetch(url)
+  return {
+    videos: data.items.map(item => ({
+      id:           item.snippet.resourceId.videoId,
+      title:        item.snippet.title,
+      channelTitle: item.snippet.channelTitle,
+      channelId:    channel.id,
+      thumbnail:    item.snippet.thumbnails?.high?.url
+                    || item.snippet.thumbnails?.medium?.url
+                    || item.snippet.thumbnails?.default?.url,
+      publishedAt:  item.snippet.publishedAt
+    })),
+    nextPageToken: data.nextPageToken || null
+  }
+}
+
+async function hydrateYoutubeChannelProfiles(channels = []) {
+  const missingChannels = Array.from(new Map(
+    channels
+      .filter(channel => channel?.id && (!channel.imageUrl || !isYoutubeMetadataFresh(channel)))
+      .map(channel => [channel.id, channel])
+  ).values())
+  let updatedCount = 0
+
+  for (let index = 0; index < missingChannels.length; index += 50) {
+    const batch = missingChannels.slice(index, index + 50)
+    const ids = batch.map(channel => channel.id).join(',')
+    const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${encodeURIComponent(ids)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+    const data = await ytFetch(url)
+    const profiles = new Map((data.items || []).map(item => [item.id, item]))
+
+    batch.forEach(channel => {
+      const profile = profiles.get(channel.id)
+      const imageUrl = getBestThumbnail(profile?.snippet?.thumbnails)
+      channel.imageUrl = imageUrl || ''
+      channel.name = profile?.snippet?.title || channel.id
+      channel.metadataFetchedAt = new Date().toISOString()
+      updatedCount += 1
+    })
+  }
+
+  return updatedCount
+}
+
+async function fetchVideoMetadata(videoId) {
+  const cached = loadState()?.videos?.[videoId]
+  if (cached && !cached.metadataUnavailable && isYoutubeMetadataFresh(cached)) return { ...cached }
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const data = await ytFetch(url)
+  const item = data.items?.[0]
+  if (!item) throw new Error(t('toast.videoNotFound'))
+  const channelId = item.snippet?.channelId || 'manual-youtube'
+  const cachedChannel = loadState()?.config?.channels?.find(channel => channel.id === channelId && channel.imageUrl && isYoutubeMetadataFresh(channel))
+  const channelProfile = cachedChannel ? { thumbnail: cachedChannel.imageUrl, metadataFetchedAt: cachedChannel.metadataFetchedAt } : YOUTUBE_CHANNEL_ID_RE.test(channelId)
+    ? await fetchYoutubeChannelByFilter('id', channelId).catch(err => {
+        console.warn('Could not load the manually added video channel profile:', err)
+        return null
+      })
+    : null
+  return {
+    id: item.id,
+    title: item.snippet?.title || t('videos.search.untitled'),
+    channelTitle: item.snippet?.channelTitle || t('videos.search.youtube'),
+    channelId,
+    channelImageUrl: channelProfile?.thumbnail || '',
+    channelMetadataFetchedAt: channelProfile?.metadataFetchedAt || null,
+    thumbnail: getBestThumbnail(item.snippet?.thumbnails) || `https://i.ytimg.com/vi/${encodeURIComponent(item.id)}/hqdefault.jpg`,
+    publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
+    duration: parseDuration(item.contentDetails?.duration),
+    aspectRatio: getVideoAspectRatioFromItem(item),
+    metadataFetchedAt: new Date().toISOString(),
+    metadataUnavailable: false,
+    source: 'manual',
+    manuallyAdded: true
+  }
+}
+
+async function hydrateStoredManualVideoChannelImages() {
+  if (IS_SANDBOX || !hasYoutubeApiKey() || hydrateStoredManualVideoChannelImages._running) return
+
+  const initialState = loadState()
+  const channelIds = Array.from(new Set(
+    Object.values(initialState?.videos || {})
+      .filter(video => video?.manuallyAdded && !video.channelImageUrl && YOUTUBE_CHANNEL_ID_RE.test(video.channelId || ''))
+      .map(video => video.channelId)
+  ))
+  if (!channelIds.length) return
+
+  hydrateStoredManualVideoChannelImages._running = true
+  try {
+    const channelProfiles = channelIds.map(id => ({ id, imageUrl: '' }))
+    await hydrateYoutubeChannelProfiles(channelProfiles)
+    const imageUrlsByChannelId = new Map(
+      channelProfiles
+        .filter(channel => channel.imageUrl)
+        .map(channel => [channel.id, channel.imageUrl])
+    )
+    if (!imageUrlsByChannelId.size) return
+
+    const state = loadState()
+    let changed = false
+    Object.values(state?.videos || {}).forEach(video => {
+      if (!video?.manuallyAdded || video.channelImageUrl) return
+      const imageUrl = imageUrlsByChannelId.get(video.channelId)
+      if (!imageUrl) return
+      video.channelImageUrl = imageUrl
+      changed = true
+    })
+    if (changed) {
+      if (!await saveState(state)) return false
+      renderFeed(state)
+    }
+  } catch (err) {
+    console.warn('Could not load stored manual video channel profiles:', err)
+  } finally {
+    hydrateStoredManualVideoChannelImages._running = false
+  }
+}
+
+function grantWatchedConfirmationUnlock(state, video) {
+  if (!state || !video || hasWatchedConfirmationUnlock(video)) return false
+  video.watchedConfirmationUnlockedAt = getCurrentAppTimestamp(state)
+  return true
+}
+
+function getVideoAnalyticsProperties(video, properties = {}) {
+  const videoId = String(video?.id || '')
+  return {
+    video_url: videoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : null,
+    video_title: video?.title || null,
+    channel_id: video?.channelId || null,
+    channel_name: video?.channelTitle || null,
+    video_source: video?.manuallyAdded ? 'manual' : 'channel',
+    duration_seconds: Math.max(0, Math.round(Number(video?.duration) || 0)),
+    is_short: Boolean(video?.isShort),
+    ...properties
+  }
+}
+
+function getVideoFavoriteCount(state) {
+  return Object.values(state?.videos || {}).filter(isFavoriteVideo).length
+}
+
+function trackVideoFavoriteChanged(state, video, previousFavorite, surface) {
+  trackEdeniaEvent('video_favorite_changed', getVideoAnalyticsProperties(video, {
+    favorite: isFavoriteVideo(video),
+    previous_favorite: previousFavorite === true,
+    current_status: getVideoStatus(video),
+    surface: surface || 'video_card',
+    current_favorite_video_count: getVideoFavoriteCount(state)
+  }))
+}
+
+function getVideoWatchProgressEntries(video) {
+  const entries = normalizeVideoWatchProgress(video?.watchProgress, video?.duration)
+  if (entries.length) return entries
+  if (video?.watchProgressTracked === true) return []
+
+  if (video?.watchedAt && getVideoStatus(video) === 'watched') {
+    const seconds = Math.max(0, Math.floor(Number(video.duration || 0)))
+    return seconds > 0 ? [{ watchedAt: video.watchedAt, seconds }] : []
+  }
+
+  return []
+}
+
+function getTotalVideoWatchProgressSeconds(video) {
+  return getVideoWatchProgressEntries(video)
+    .reduce((total, entry) => total + (entry.seconds || 0), 0)
+}
+
+function addVideoWatchProgress(video, seconds, watchedAt = new Date().toISOString(), options = {}) {
+  if (!video) return false
+  const normalizedSeconds = Math.max(0, Math.floor(Number(seconds || 0)))
+  if (!normalizedSeconds || !isValidTimestamp(watchedAt)) return false
+
+  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
+  const secondsToAdd = options.allowRepeat === true
+    ? normalizedSeconds
+    : duration > 0
+    ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
+    : normalizedSeconds
+
+  if (!secondsToAdd) return false
+  entries.push({ watchedAt, seconds: secondsToAdd })
+  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
+  return true
+}
+
+function getVideoWatchActivityDateKeys(video) {
+  return getVideoWatchProgressEntries(video)
+    .map(entry => toDateKey(new Date(entry.watchedAt)))
+}
+
+function getRefreshCandidateDetails(s, videos) {
+  const detailsById = {}
+  videos.forEach(video => {
+    const existing = s.videos[video.id]
+    const videoAspectRatio = normalizeVideoAspectRatio(video.aspectRatio)
+    const existingAspectRatio = normalizeVideoAspectRatio(existing?.aspectRatio)
+    if (isYoutubeMetadataFresh(video) && Number.isFinite(Number(video.duration)) && videoAspectRatio !== null) {
+      detailsById[video.id] = {
+        duration: Number(video.duration),
+        aspectRatio: videoAspectRatio,
+        isShort: Boolean(video.isShort),
+        shortsCheckedAt: video.shortsCheckedAt || null,
+        shortsDetectionVersion: video.shortsDetectionVersion || null
+      }
+    } else if (existing && isYoutubeMetadataFresh(existing) && typeof existing.duration === 'number' && existingAspectRatio !== null) {
+      detailsById[video.id] = {
+        duration: existing.duration,
+        aspectRatio: existingAspectRatio,
+        isShort: Boolean(existing.isShort),
+        shortsCheckedAt: existing.shortsCheckedAt || null,
+        shortsDetectionVersion: existing.shortsDetectionVersion || null
+      }
+    }
+  })
+  return detailsById
+}
+
+async function fetchChannelVideos(channel, knownVideos = {}, refresh = null) {
+  const legacyIds = refresh?.lastFetchedAt && !refresh?.coverage
+    ? Object.values(knownVideos).filter(video => video.channelId === channel.id && !video.manuallyAdded).map(video => video.id)
+    : []
+  const result = await checkNewUploads({
+    fetchPage: token => fetchChannelVideosPage(channel, token),
+    coverage: refresh?.coverage,
+    legacyIds
+  })
+  return { ...result, filteredShorts: 0 }
+}
+
+async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
+  const result = {}
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const batch = videoIds.slice(i, i + 50).join(',')
+    const url   = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
+    const data  = await ytFetch(url)
+    data.items.forEach(item => { result[item.id] = {
+      ...getVideoDetailFromItem(item),
+      ...(item.snippet ? {
+        title: item.snippet.title,
+        channelTitle: item.snippet.channelTitle,
+        thumbnail: getBestThumbnail(item.snippet.thumbnails),
+        publishedAt: item.snippet.publishedAt
+      } : {}),
+      metadataFetchedAt: new Date().toISOString(), metadataUnavailable: false
+    } })
+    videoIds.slice(i, i + 50).forEach(id => {
+      if (!result[id]) result[id] = {
+        title: '', thumbnail: '', channelTitle: '', channelImageUrl: '', publishedAt: null,
+        duration: 0, aspectRatio: null, isShort: false,
+        metadataFetchedAt: new Date().toISOString(), metadataUnavailable: true
+      }
+    })
+  }
+  if (detectShorts) {
+    const checkedAt = new Date().toISOString()
+    Object.values(result).forEach(detail => {
+      detail.shortsCheckedAt = checkedAt
+      detail.shortsDetectionVersion = SHORT_VIDEO_DETECTION_VERSION
+    })
+  }
+  return result
+}
+
+function getChannelRefreshes(s) {
+  if (!s.channelRefreshes || typeof s.channelRefreshes !== 'object' || Array.isArray(s.channelRefreshes)) {
+    s.channelRefreshes = {}
+  }
+  return s.channelRefreshes
+}
+
+function getChannelLastFetchedMs(s, channelId) {
+  const lastFetchedAt = getChannelRefreshes(s)[channelId]?.lastFetchedAt
+  const lastFetchedMs = new Date(lastFetchedAt).getTime()
+  return Number.isFinite(lastFetchedMs) ? lastFetchedMs : null
+}
+
+function formatChannelLastRefreshLabel(s, channelId) {
+  const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
+  if (!lastFetchedMs) return t('time.notYet')
+
+  const elapsedMs = Date.now() - lastFetchedMs
+  if (elapsedMs < 60_000) return t('time.justNow')
+  if (elapsedMs < 3_600_000) return `${Math.floor(elapsedMs / 60_000)}m ago`
+  if (elapsedMs < 86_400_000) return `${Math.floor(elapsedMs / 3_600_000)}h ago`
+  return timeAgo(new Date(lastFetchedMs).toISOString())
+}
+
+function formatChannelLastRefreshTitle(s, channelId) {
+  const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
+  if (!lastFetchedMs) return t('time.notRefreshedYet')
+  return t('time.lastRefreshed', { time: formatLocaleDateTime(new Date(lastFetchedMs), {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }) })
+}
+
+function getChannelLastFailedMs(s, channelId) {
+  const lastFailedAt = getChannelRefreshes(s)[channelId]?.lastFailedAt
+  const lastFailedMs = new Date(lastFailedAt).getTime()
+  return Number.isFinite(lastFailedMs) ? lastFailedMs : null
+}
+
+function getChannelRefreshWaitMs(s, channelId) {
+  const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
+  const lastFailedMs = getChannelLastFailedMs(s, channelId)
+  const successWait = lastFetchedMs
+    ? Math.max(0, YOUTUBE_REFRESH_INTERVAL_MS - (Date.now() - lastFetchedMs))
+    : 0
+  const failureWait = lastFailedMs
+    ? Math.max(0, YOUTUBE_REFRESH_ERROR_BACKOFF_MS - (Date.now() - lastFailedMs))
+    : 0
+  const quotaRetryAt = typeof youtubeRequestGate === 'function' ? youtubeRequestGate.retryAt('general') : 0
+  const quotaWait = Math.max(0, quotaRetryAt - Date.now())
+  return Math.max(successWait, failureWait, quotaWait)
+}
+
+function isChannelRefreshDue(s, channelId) {
+  return getChannelRefreshWaitMs(s, channelId) <= 0
+}
+
+function getDueYoutubeChannels(s) {
+  if (IS_SANDBOX || !hasYoutubeApiKey() || !s.config.channels.length) return []
+  return s.config.channels.filter(channel => isChannelRefreshDue(s, channel.id))
+}
+
+function hasAnyChannelRefreshTimestamp(s) {
+  return Object.values(getChannelRefreshes(s)).some(entry => isValidTimestamp(entry?.lastFetchedAt))
+}
+
+function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOString(), coverage) {
+  getChannelRefreshes(s)[channelId] = {
+    ...getChannelRefreshes(s)[channelId],
+    ...(coverage ? { coverage: { ...coverage, history: s.channelRefreshes?.[channelId]?.coverage?.history || coverage.history } } : {}),
+    lastFetchedAt: timestamp,
+    lastError: null,
+    lastFailedAt: null
+  }
+}
+
+function markChannelRefreshError(s, channelId, error) {
+  const refreshes = getChannelRefreshes(s)
+  refreshes[channelId] = {
+    ...refreshes[channelId],
+    lastFetchedAt: refreshes[channelId]?.lastFetchedAt || null,
+    lastError: String(error?.message || error || 'Refresh failed'),
+    lastFailedAt: isYoutubeQuotaError(error) ? null : new Date().toISOString()
+  }
+}
+
+function shouldRefreshYoutubeFeed(s) {
+  return getDueYoutubeChannels(s).length > 0
+}
+
+function getYoutubeRefreshRemainingMs(s) {
+  if (IS_SANDBOX || !s.config.channels.length) return 0
+  const waits = s.config.channels.map(channel => getChannelRefreshWaitMs(s, channel.id))
+  return Math.min(...waits)
+}
+
+function formatRefreshWait(ms) {
+  const totalMinutes = Math.ceil(ms / 60_000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours && minutes) return t('time.hoursMinutesCompact', { hours, minutes })
+  if (hours) return t('time.hoursCompact', { hours })
+  return t('time.minutesCompact', { minutes })
+}
+
+let youtubeMetadataBudget = null
+
+function visibleYoutubeMetadataIds() {
+  return [...document.querySelectorAll('[data-video-id]')].filter(element => {
+    const rect = element.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
+      && rect.right > 0 && rect.left < window.innerWidth
+  }).map(element => element.dataset.videoId)
+}
+
+async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
+  if (maybeRefreshFeed._running) return
+  maybeRefreshFeed._running = true
+  const s = loadState()
+  try {
+    if (!s) return
+    if (!IS_SANDBOX && hasYoutubeApiKey()) {
+      youtubeMetadataBudget ||= createYoutubeMetadataBudget({ namespace: `${STORAGE_KEY}_youtube_metadata_recovery` })
+      const recover = youtubeMetadataBudget.createRun()
+      const changed = await refreshSavedYoutubeMetadata({
+        state: s,
+        priorityIds: visibleYoutubeMetadataIds(),
+        fetchVideos: ids => recover('videos', ids, batch => fetchVideoDetails(batch)),
+        fetchChannels: async channels => {
+          const details = await recover('channels', channels.map(channel => channel.id), async ids => {
+            const batch = channels.filter(channel => ids.includes(channel.id))
+            await hydrateYoutubeChannelProfiles(batch)
+            return Object.fromEntries(batch.map(channel => [channel.id, {
+              name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
+            }]))
+          })
+          channels.forEach(channel => Object.assign(channel, details[channel.id]))
+        },
+        isCurrent: () => isCurrentLearnerProfileOperation(s),
+        readCurrent: () => {
+          const latest = loadState()
+          primaryProfileRepository?.inheritRevision(s, latest)
+          return latest
+        },
+        // Persist each batch without rebuilding the feed during an active card reveal.
+        onChange: async current => {
+          if (!isCurrentLearnerProfileOperation(s) || !await saveState(current)) return false
+          return true
+        },
+        onOutcome: (current, outcome) => appendActivityLog(current, {
+          actor: 'auto', type: 'youtube-metadata',
+          status: outcome.status === 'complete' ? 'success' : outcome.status === 'partial' ? 'warn' : 'error',
+          title: t(`log.youtubeMetadata.${outcome.status}`),
+          detail: t('log.youtubeMetadata.counts', { videos: outcome.videos, channels: outcome.channels })
+            + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : '')
+            + (outcome.deferred ? ` ${t('log.youtubeMetadata.budgetPaused')}` : ''),
+          meta: outcome
+        })
+      })
+      if (!isCurrentLearnerProfileOperation(s)) return
+      if (changed) renderAll(s)
+    }
+    if (shouldRefreshYoutubeFeed(s)) {
+      await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
+    } else if (!hasYoutubeApiKey() && notifyMissingKey) {
+      showToast(t('toast.apiKeyMissing'), 'warn')
+    }
+  } finally {
+    maybeRefreshFeed._running = false
+    scheduleYoutubeAutoRefresh(loadState())
+  }
+}
+
+function startYoutubeAutoRefresh() {
+  clearTimeout(startYoutubeAutoRefresh._timer)
+  window.removeEventListener('focus', handleYoutubeRefreshWake)
+  window.removeEventListener('online', handleYoutubeRefreshWake)
+  document.removeEventListener('visibilitychange', handleYoutubeRefreshVisibility)
+  window.addEventListener('focus', handleYoutubeRefreshWake)
+  window.addEventListener('online', handleYoutubeRefreshWake)
+  document.addEventListener('visibilitychange', handleYoutubeRefreshVisibility)
+  maybeRefreshFeed({ notifyMissingKey: true })
+}
+
+function scheduleYoutubeAutoRefresh(s = loadState()) {
+  clearTimeout(startYoutubeAutoRefresh._timer)
+  if (IS_SANDBOX || !hasYoutubeApiKey() || !s || (!s.config?.channels?.length && !Object.keys(s.videos || {}).length)) return
+
+  const quotaWait = Math.max(0, (youtubeRequestGate?.retryAt('general') || 0) - Date.now())
+  const recoveryWait = Math.max(0, (youtubeMetadataBudget?.retryAt() || 0) - Date.now())
+  const feedWait = s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS
+  const waitMs = Math.max(quotaWait, recoveryWait > 0 ? Math.min(feedWait, recoveryWait) : feedWait)
+  startYoutubeAutoRefresh._timer = setTimeout(maybeRefreshFeed, Math.max(1_000, waitMs))
+}
+
+function handleYoutubeRefreshWake() {
+  maybeRefreshFeed()
+}
+
+function handleYoutubeRefreshVisibility() {
+  if (!document.hidden) maybeRefreshFeed()
+}
+
+function dedupeVideos(videos = []) {
+  const seen = new Set()
+  return videos.filter(video => {
+    if (seen.has(video.id)) return false
+    seen.add(video.id)
+    return true
+  })
+}
+
+async function getFetchedVideoDetails(s, videos, includeShorts) {
+  const knownDetailsById = getRefreshCandidateDetails(s, videos)
+  const detailIds = videos
+    .filter(v => !knownDetailsById[v.id])
+    .map(v => v.id)
+  return {
+    ...knownDetailsById,
+    ...await fetchVideoDetails(detailIds, { detectShorts: !includeShorts })
+  }
+}
+
+function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
+  const videosToMerge = includeShorts
+    ? videos
+    : videos.filter(v => s.videos[v.id] || !detailsById[v.id]?.isShort)
+
+  let mergedCount = 0
+  videosToMerge.forEach(v => {
+    const existing = s.videos[v.id]
+    if (!existing) mergedCount += 1
+    const detail = detailsById[v.id] || {}
+    const duration = detail.duration ?? v.duration ?? existing?.duration ?? 0
+    s.videos[v.id] = {
+      ...existing,
+      ...v,
+      ...detail,
+      duration,
+      aspectRatio: normalizeVideoAspectRatio(
+        detail.aspectRatio ?? v.aspectRatio ?? existing?.aspectRatio
+      ),
+      status:     existing?.status    ?? 'unwatched',
+      watchedAt:  existing?.watchedAt ?? null,
+      watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
+        ? existing.watchedConfirmationUnlockedAt
+        : null,
+      favorite: Boolean(existing?.favorite),
+      watchLater: isVideoWatchLater(existing),
+      setAside: existing?.setAside === true,
+      setAsideAt: isValidTimestamp(existing?.setAsideAt)
+        ? existing.setAsideAt
+        : null,
+      setAsideResumeAtSeconds: normalizeResumeAtSeconds(
+        existing?.setAsideResumeAtSeconds,
+        duration
+      ),
+      removedFromFeedAt: isVideoRemovedFromFeed(existing)
+        ? existing.removedFromFeedAt
+        : null,
+      resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
+      pausedAt: hasVideoResumePriority(existing) && isValidTimestamp(existing?.pausedAt)
+        ? existing.pausedAt
+        : null,
+      watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
+      watchProgressTracked: existing?.watchProgressTracked === true,
+      ...(Object.prototype.hasOwnProperty.call(existing || {}, 'watchCycleCoverage')
+        ? { watchCycleCoverage: normalizeVideoWatchCoverage(existing.watchCycleCoverage, duration) }
+        : Object.prototype.hasOwnProperty.call(existing || {}, 'rewatchCoverage')
+        ? { watchCycleCoverage: normalizeVideoWatchCoverage(existing.rewatchCoverage, duration) }
+        : {}),
+      source: existing?.source || v.source || null,
+      manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
+      hiddenFromGrid: Boolean(existing?.hiddenFromGrid || v.hiddenFromGrid),
+      hiddenFromGridAt: existing?.hiddenFromGridAt || v.hiddenFromGridAt || null,
+      isShort: isShortDuration(duration),
+      shortsCheckedAt: detail.shortsCheckedAt || existing?.shortsCheckedAt || null,
+      shortsDetectionVersion: detail.shortsDetectionVersion || existing?.shortsDetectionVersion || null
+    }
+  })
+
+  return {
+    mergedCount,
+    skippedShorts: includeShorts ? 0 : videos.length - videosToMerge.length
+  }
+}
+
+function formatSkippedShortsMessage(skippedShorts, loadedVideos = 0) {
+  if (!skippedShorts) return ''
+  const showSettingsHint = loadedVideos < ACTIVE_VIDEOS_PER_CHANNEL
+    && skippedShorts >= ACTIVE_VIDEOS_PER_CHANNEL
+  const key = showSettingsHint ? 'toast.skippedShortsSettingsHint' : 'toast.skippedShorts'
+  return t(key, { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' })
+}
+
+function trackRefreshCompleted(startedAtMs, properties = {}) {
+  trackEdeniaEvent('refresh_completed', {
+    trigger: properties.trigger || 'automatic',
+    result: properties.result || 'failure',
+    failure_reason: properties.failureReason || null,
+    requested_channel_count: Math.max(0, Number(properties.requestedChannelCount) || 0),
+    refreshed_channel_count: Math.max(0, Number(properties.refreshedChannelCount) || 0),
+    failed_channel_count: Math.max(0, Number(properties.failedChannelCount) || 0),
+    new_video_count: Math.max(0, Number(properties.newVideoCount) || 0),
+    skipped_short_count: Math.max(0, Number(properties.skippedShortCount) || 0),
+    elapsed_ms: Math.max(0, Date.now() - startedAtMs)
+  })
+}
+
+async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
+  if (starterFeedPreparationPromise) {
+    const task = getActiveStarterFeed(loadState())
+    if (task) showStarterFeedProgress(task)
+    return { ok: true, skipped: true, reason: 'starter-feed-running', errors: [] }
+  }
+  const refreshStartedAtMs = Date.now()
+  trackEdeniaEvent('refresh_started', {
+    trigger,
+    requested_channel_count: Array.isArray(channelIds) ? channelIds.length : null,
+    silent: Boolean(silent)
+  })
+  const btn = document.getElementById('refreshBtn')
+  let originatingState = null
+  let attemptedChannelIds = []
+  if (btn) {
+    btn.textContent = `↻ ${t('videos.refreshing')}`
+    btn.classList.add('loading')
+    btn.disabled = true
+  }
+
+  try {
+    if (IS_SANDBOX) {
+      refreshSandboxFeed()
+      return { ok: true, sandbox: true }
+    }
+
+    let s = loadState()
+    originatingState = s
+    if (!hasYoutubeApiKey()) {
+      showToast(t('toast.apiKeyMissing'), 'warn')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'failure',
+        failureReason: 'missing_api_key',
+        requestedChannelCount: Array.isArray(channelIds) ? channelIds.length : s.config.channels.length
+      })
+      return { ok: false, reason: 'missing-key', errors: [] }
+    }
+    if (!s.config.channels.length) {
+      showToast(t('toast.addChannelFirst'), 'warn')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'failure',
+        failureReason: 'no_channels'
+      })
+      return { ok: false, reason: 'no-channels', errors: [] }
+    }
+    const requestedChannelIds = Array.isArray(channelIds) ? new Set(channelIds) : null
+    const channelsToRefresh = requestedChannelIds
+      ? s.config.channels.filter(channel => requestedChannelIds.has(channel.id))
+      : getDueYoutubeChannels(s)
+    if (!channelsToRefresh.length) {
+      if (!silent) showToast(t('toast.nextRefresh', { time: formatRefreshWait(getYoutubeRefreshRemainingMs(s)) }), 'warn')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'skipped',
+        failureReason: 'cooldown',
+        requestedChannelCount: requestedChannelIds?.size || s.config.channels.length
+      })
+      return { ok: true, skipped: true, mergedCount: 0, successfulChannels: 0, errors: [] }
+    }
+
+    attemptedChannelIds = channelsToRefresh.map(channel => channel.id)
+    const all    = []
+    const errors = []
+    let successfulChannels = 0
+    const completedCoverage = new Map()
+    let filteredShortsDuringFetch = 0
+    const includeShorts = getEffectiveIncludeShorts(s)
+
+    try {
+      await hydrateYoutubeChannelProfiles(channelsToRefresh)
+    } catch (err) {
+      console.warn('Channel profile pictures:', err.message)
+    }
+    if (!isCurrentLearnerProfileOperation(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
+
+    const pendingActivity = []
+    const detailsById = {}
+    for (const ch of channelsToRefresh) {
+      try {
+        const { videos: vids, filteredShorts, coverage } = await fetchChannelVideos(ch, s.videos, s.channelRefreshes?.[ch.id])
+        Object.assign(detailsById, await getFetchedVideoDetails(s, vids, includeShorts))
+        successfulChannels += 1
+        all.push(...vids)
+        filteredShortsDuringFetch += filteredShorts
+        const first = vids[0]
+        if (first?.channelTitle && first.channelTitle !== ch.name) {
+          ch.name = first.channelTitle
+        }
+        completedCoverage.set(ch.id, coverage)
+        pendingActivity.push({
+          actor: 'auto',
+          type: 'youtube-refresh',
+          status: 'success',
+          title: t('log.channelRefreshed.title'),
+          detail: t('log.channelRefreshed.fetched', { name: ch.name, count: vids.length }),
+          meta: { channelId: ch.id, fetchedCount: vids.length }
+        })
+      } catch (err) {
+        console.warn(`${ch.name}:`, err.message)
+        markChannelRefreshError(s, ch.id, err)
+        pendingActivity.push({
+          actor: 'auto',
+          type: 'youtube-refresh',
+          status: 'error',
+          title: t('log.channelRefreshFailed.title'),
+          detail: `${ch.name}: ${err.message || t('log.unknownError')}`,
+          meta: { channelId: ch.id }
+        })
+        errors.push({ channelId: ch.id, name: ch.name, kind: err.kind, message: err.message || t('log.unknownError') })
+      }
+    }
+    if (!isCurrentLearnerProfileOperation(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
+
+    // History retrieval and study actions can finish while provider calls await.
+    // Apply fetched metadata to the latest library, never the request snapshot.
+    s = loadState()
+    if (!s) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    channelsToRefresh.forEach(channel => {
+      const current = s.config.channels.find(entry => entry.id === channel.id)
+      if (current) Object.assign(current, {
+        name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
+      })
+    })
+    pendingActivity.forEach(event => appendActivityLog(s, event))
+    errors.forEach(error => markChannelRefreshError(s, error.channelId, error))
+
+    if (successfulChannels === 0) {
+      if (!await saveState(s)) {
+        return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+      }
+      if (errors.some(error => error.kind !== 'daily-quota')) showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'failure',
+        failureReason: 'all_channels_failed',
+        requestedChannelCount: channelsToRefresh.length,
+        failedChannelCount: errors.length
+      })
+      return { ok: false, mergedCount: 0, successfulChannels, errors }
+    }
+
+    const unique = dedupeVideos(all)
+    if (!isCurrentLearnerProfileOperation(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
+    const mergeResult = mergeFetchedVideos(s, unique, detailsById, includeShorts)
+    completedCoverage.forEach((coverage, channelId) => markChannelRefreshSuccess(s, channelId, undefined, coverage))
+    const mergedCount = mergeResult.mergedCount
+    const skippedShorts = filteredShortsDuringFetch + mergeResult.skippedShorts
+    if (skippedShorts) {
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'short-videos',
+        status: 'info',
+        title: t('log.shortsSkipped.title'),
+        detail: t('log.shortsSkipped.detail', { count: skippedShorts }),
+        meta: { skippedShorts }
+      })
+    }
+
+    if (!await saveState(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
+    renderAll(s)
+
+    const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
+    const msg = errors.length
+      ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
+      : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
+    if ((!silent || errors.length) && !errors.some(error => error.kind === 'daily-quota')) showToast(msg, errors.length ? 'warn' : 'success')
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger,
+      result: errors.length ? 'partial' : 'success',
+      requestedChannelCount: channelsToRefresh.length,
+      refreshedChannelCount: successfulChannels,
+      failedChannelCount: errors.length,
+      newVideoCount: mergedCount,
+      skippedShortCount: skippedShorts
+    })
+    return {
+      ok: errors.length === 0,
+      mergedCount,
+      successfulChannels,
+      errors
+    }
+
+  } catch (err) {
+    if (
+      originatingState
+      && !isCurrentLearnerProfileOperation(originatingState)
+    ) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
+    console.error(err)
+    const s = loadState()
+    if (s) {
+      attemptedChannelIds.forEach(channelId => markChannelRefreshError(s, channelId, err))
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'youtube-refresh',
+        status: 'error',
+        title: t('log.refreshFailed.title'),
+        detail: err.message || t('log.unknownRefreshError')
+      })
+      if (!await saveState(s)) return false
+    }
+    if (!await recordYoutubeQuotaError(err)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger,
+      result: 'failure',
+      failureReason: 'unexpected_error',
+      requestedChannelCount: Array.isArray(channelIds) ? channelIds.length : 0,
+      failedChannelCount: 1
+    })
+    return { ok: false, error: err, errors: [{ message: err.message || t('log.unknownRefreshError') }] }
+  } finally {
+    if (btn) {
+      btn.textContent = `↻ ${t('videos.refresh')}`
+      btn.classList.remove('loading')
+      btn.disabled = false
+    }
+    if (
+      !IS_SANDBOX
+      && (!originatingState || isCurrentLearnerProfileOperation(originatingState))
+    ) scheduleYoutubeAutoRefresh(loadState())
+  }
+}
+
+async function refreshAddedChannel(channelId, options = {}) {
+  if (IS_SANDBOX) return
+  const refreshStartedAtMs = Date.now()
+  const focusVideoId = String(options.focusVideoId || '')
+  let focusRevealScheduled = false
+  let originatingState = null
+  trackEdeniaEvent('refresh_started', {
+    trigger: 'channel_added',
+    requested_channel_count: 1,
+    silent: false
+  })
+  if (!hasYoutubeApiKey()) {
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger: 'channel_added',
+      result: 'failure',
+      failureReason: 'missing_api_key',
+      requestedChannelCount: 1
+    })
+    return
+  }
+  const revealNotBefore = Date.now() + Math.max(0, Number(options.revealDelayMs) || 0)
+
+  try {
+    let s = loadState()
+    originatingState = s
+    const channel = s.config.channels.find(ch => ch.id === channelId)
+    if (!channel) {
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger: 'channel_added',
+        result: 'failure',
+        failureReason: 'channel_missing',
+        requestedChannelCount: 1
+      })
+      return
+    }
+
+    try {
+      await hydrateYoutubeChannelProfiles([channel])
+    } catch (err) {
+      console.warn('Channel profile picture:', err.message)
+    }
+    if (!isCurrentLearnerProfileOperation(s)) return
+
+    const includeShorts = getEffectiveIncludeShorts(s)
+    const fetchResult = await fetchChannelVideos(channel, s.videos, s.channelRefreshes?.[channel.id])
+    if (!isCurrentLearnerProfileOperation(s)) return
+    const videos = dedupeVideos(fetchResult.videos)
+    const first = videos[0]
+    if (first?.channelTitle && first.channelTitle !== channel.name) {
+      channel.name = first.channelTitle
+    }
+
+    const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
+    if (!isCurrentLearnerProfileOperation(s)) return
+    const mergeResult = mergeFetchedVideos(s, videos, detailsById, includeShorts)
+    const mergedCount = mergeResult.mergedCount
+    const skippedShorts = fetchResult.filteredShorts + mergeResult.skippedShorts
+    const revealDelayRemaining = revealNotBefore - Date.now()
+    if (revealDelayRemaining > 0) {
+      await new Promise(resolve => window.setTimeout(resolve, revealDelayRemaining))
+    }
+    if (!isCurrentLearnerProfileOperation(s)) return
+    const currentState = loadState()
+    if (!currentState.config.channels.some(currentChannel => currentChannel.id === channel.id)) {
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger: 'channel_added',
+        result: 'skipped',
+        failureReason: 'channel_removed',
+        requestedChannelCount: 1
+      })
+      return
+    }
+
+    if (primaryProfileRepository) {
+      s = currentState
+      mergeFetchedVideos(s, videos, detailsById, includeShorts)
+      const tracked = s.config.channels.find(entry => entry.id === channel.id)
+      if (tracked) Object.assign(tracked, { name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt })
+    }
+    markChannelRefreshSuccess(s, channel.id, undefined, fetchResult.coverage)
+    appendActivityLog(s, {
+      actor: 'auto',
+      type: 'youtube-refresh',
+      status: 'success',
+      title: t('log.channelRefreshed.title'),
+      detail: t('log.channelRefreshed.loaded', { name: channel.name || channelId, count: mergedCount }),
+      meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
+    })
+    if (!await saveState(s)) return
+    if (focusVideoId && s.videos[focusVideoId]) {
+      pendingAddedChannelReveal = { channelId, videoId: focusVideoId }
+      forcedSearchVideoId = focusVideoId
+    }
+    renderAll(s)
+    renderChannelList(s.config.channels)
+    if (focusVideoId && s.videos[focusVideoId]) {
+      const activeReveal = pendingAddedChannelReveal
+      focusRevealScheduled = true
+      window.requestAnimationFrame(() => {
+        if (!isCurrentLearnerProfileOperation(s)) return
+        revealRenderedAddedVideoCard(focusVideoId)
+        const focusedCard = findVideoCard(focusVideoId)
+        const refreshedShelf = focusedCard?.closest('.channel-refresh-arriving')
+        window.setTimeout(() => {
+          if (isCurrentLearnerProfileOperation(s)) {
+            refreshedShelf?.classList.remove('channel-refresh-arriving')
+          }
+        }, 900)
+        window.setTimeout(() => {
+          if (!isCurrentLearnerProfileOperation(s)) return
+          if (forcedSearchVideoId === focusVideoId) forcedSearchVideoId = null
+          if (pendingAddedChannelReveal === activeReveal) pendingAddedChannelReveal = null
+        }, 1800)
+      })
+    }
+
+    const channelName = channel.name || channelId
+    const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
+    showToast(t('toast.channelLoaded', { name: channelName, count: mergedCount, shorts: shortsMsg }), 'success')
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger: 'channel_added',
+      result: 'success',
+      requestedChannelCount: 1,
+      refreshedChannelCount: 1,
+      newVideoCount: mergedCount,
+      skippedShortCount: skippedShorts
+    })
+  } catch (err) {
+    if (
+      originatingState
+      && !isCurrentLearnerProfileOperation(originatingState)
+    ) return
+    console.error(err)
+    const s = loadState()
+    if (s?.config?.channels?.some(channel => channel.id === channelId)) {
+      markChannelRefreshError(s, channelId, err)
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'youtube-refresh',
+        status: 'error',
+        title: t('log.channelRefreshFailed.title'),
+        detail: `${channelId}: ${err.message || t('log.unknownError')}`,
+        meta: { channelId }
+      })
+      if (!await saveState(s)) return false
+    }
+    if (!await recordYoutubeQuotaError(err)) showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger: 'channel_added',
+      result: 'failure',
+      failureReason: 'channel_refresh_failed',
+      requestedChannelCount: 1,
+      failedChannelCount: 1
+    })
+    if (focusVideoId && !focusRevealScheduled) {
+      revealAddedVideoCard(focusVideoId, loadState())
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// WATCH STATUS & STREAK
+// ════════════════════════════════════════════════════════════
+
+function getBaseDocumentTitle() {
+  return IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
+}
+
+function updateDocumentTitle() {
+  const hasDuePlayerReminder = document.hidden && Boolean(
+    activeVideoShelfPlayer
+    && activeVideoShelfPlayer.completionPromptPending
+  )
+  document.title = hasDuePlayerReminder ? t('videoReminder.tabTitle') : getBaseDocumentTitle()
+}
+
+function getVideoWatchReminderMarkup(videoId, options = {}) {
+  const {
+    rewatch = false,
+    video = null
+  } = options
+  const safeVideoId = escHtml(String(videoId ?? ''))
+  const promptId = `videoWatchPrompt-${safeVideoId}-player`
+  const isFavorite = isFavoriteVideo(video)
+  const favoriteActive = isFavorite ? ' active' : ''
+  const favoriteLabel = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
+  return `
+    <div class="video-watch-reminder-popover is-player"
+      data-video-id="${safeVideoId}"
+      role="dialog"
+      aria-live="polite"
+      aria-labelledby="${promptId}">
+      <div class="video-watch-reminder-copy">
+        <span class="video-watch-reminder-icon" aria-hidden="true">✓</span>
+        <span id="${promptId}">${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
+      </div>
+      <div class="video-watch-reminder-actions">
+        ${rewatch ? '' : `
+        <button type="button"
+          class="video-watch-reminder-favorite${favoriteActive}"
+          data-video-watch-prompt-action="favorite"
+          data-video-id="${safeVideoId}"
+          data-analytics-action="favoriteVideoFromWatchPrompt"
+          aria-pressed="${String(isFavorite)}"
+          aria-label="${escHtml(favoriteLabel)}"
+          title="${escHtml(favoriteLabel)}">
+          ${renderVideoActionIcon('favorite')}
+        </button>
+        `}
+        <button type="button"
+          class="video-watch-reminder-mark"
+          data-video-watch-prompt-action="confirm"
+          data-video-id="${safeVideoId}"
+          data-rewatch="${String(rewatch)}"
+          data-analytics-action="confirmVideoWatchPrompt">${escHtml(t('videoReminder.yes'))}</button>
+        <button type="button"
+          class="video-watch-reminder-later"
+          data-video-watch-prompt-action="dismiss"
+          data-video-id="${safeVideoId}"
+          data-analytics-action="dismissVideoWatchPrompt">${escHtml(t('videoReminder.notYet'))}</button>
+      </div>
+    </div>
+  `
+}
+
+async function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false) {
+  if (!prompt || !video) return false
+  if (!rewatch && grantWatchedConfirmationUnlock(state, video)) {
+    if (!await saveState(state, {
+      backup: false,
+      syncAnalytics: false
+    })) return false
+  }
+  trackEdeniaEvent('video_completion_prompt_shown', getVideoAnalyticsProperties(video, {
+    is_rewatch: rewatch === true,
+    surface: 'embedded_player',
+    current_status: getVideoStatus(video),
+    resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
+    completion_percent: video.duration > 0
+      ? Math.min(100, Math.round((getTotalVideoWatchProgressSeconds(video) / video.duration) * 100))
+      : null
+  }))
+  window.requestAnimationFrame(() => {
+    prompt.querySelector('.video-watch-reminder-mark')?.focus()
+  })
+  return true
+}
+
+async function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const targetVideoId = String(videoId ?? '')
+  if (!targetVideoId) return false
+
+  const session = activeVideoShelfPlayer
+  if (
+    !session
+    || session.videoId !== targetVideoId
+    || session.completionPromptVisible !== true
+    || session.isRewatch !== (rewatch === true)
+  ) return false
+  if (rewatch) {
+    const video = loadState()?.videos?.[targetVideoId]
+    const completed = await completeVideoShelfPlayerRewatchConfirmation(session)
+    restorePlayerReturnPosition(session)
+    if (completed) {
+      trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+        is_rewatch: true,
+        surface: 'embedded_player'
+      }))
+    }
+    return completed
+  }
+  syncActiveVideoShelfPlayer({
+    persist: true,
+    captureStoppedPlayback: true
+  })
+  const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
+  const marked = await markVideo(targetVideoId, 'watched', {
+    creditOnlyRecordedProgress: true,
+    surface: 'embedded_player_prompt'
+  })
+  restorePlayerReturnPosition(completedPlayer)
+  if (marked) {
+    trackEdeniaEvent(
+      'video_completion_prompt_accepted',
+      getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
+        is_rewatch: false,
+        surface: 'embedded_player'
+      })
+    )
+  }
+  return marked
+}
+
+function dismissVideoWatchPrompt(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const targetVideoId = String(videoId ?? '')
+  const session = activeVideoShelfPlayer
+  if (!session || session.videoId !== targetVideoId) return false
+  const video = loadState()?.videos?.[targetVideoId]
+  const isRewatch = session.isRewatch === true
+  dismissVideoShelfCompletionPrompt(session)
+  trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
+    is_rewatch: isRewatch,
+    surface: 'embedded_player'
+  }))
+  return true
+}
+
+function revealFavoritedWatchedVideo(videoId, state) {
+  const targetVideoId = String(videoId ?? '')
+  if (!targetVideoId || !state?.videos?.[targetVideoId]) return false
+  selectedStatusFilter = 'all'
+
+  if (!usesPhoneComposition()) {
+    focusNextStudyVideoCard(null, targetVideoId)
+    renderUndoButton(state)
+    window.requestAnimationFrame(() => {
+      findVideoCard(targetVideoId, '#videoGrid .channel-shelf-card')
+        ?.querySelector('.favorite-btn')
+        ?.focus({ preventScroll: true })
+    })
+    return true
+  }
+
+  forcedSearchVideoId = targetVideoId
+  renderFeed(state)
+  renderUndoButton(state)
+  window.requestAnimationFrame(() => {
+    const card = findVideoCard(targetVideoId, '#videoGrid .channel-shelf-card')
+    const found = card && scrollToVideoCard(targetVideoId, '#videoGrid .channel-shelf-card', {
+      className: 'next-study-focus-arriving',
+      duration: 1800
+    })
+    forcedSearchVideoId = null
+    if (!found) {
+      showToast(t('toast.couldNotShowVideo'), 'warn')
+      return
+    }
+    card.querySelector('.favorite-btn')?.focus({ preventScroll: true })
+  })
+  return true
+}
+
+// Snapshot only the affected record and profile metadata, not the full library.
+// Restore in place so a failed write cannot leave the active profile ahead of disk.
+function captureVideoActionState(state, videoId) {
+  const { videos, ...metadata } = state
+  return { metadata: structuredClone(metadata), videoId, video: structuredClone(videos[videoId]) }
+}
+
+async function persistVideoAction(state, checkpoint) {
+  if (await saveState(state)) return true
+  if (checkpoint && !primaryProfileRepository) {
+    for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
+    Object.assign(state, checkpoint.metadata)
+    if (checkpoint.video) state.videos[checkpoint.videoId] = checkpoint.video
+    else delete state.videos[checkpoint.videoId]
+  }
+  showToast(t('toast.progressSaveFailed'), 'error')
+  return false
+}
+
+async function toggleVideoFavorite(videoId, options = {}) {
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (!video) return null
+  const checkpoint = captureVideoActionState(s, videoId)
+  const preservePreview = isActiveVideoShelfPreview(videoId)
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  video.favorite = !isFavoriteVideo(video)
+  if (!isFavoriteVideo(video) && getVideoStatus(video) === 'watched') {
+    video.resumeAtSeconds = null
+    video.pausedAt = null
+  }
+  const shouldRefreshRemovedChannel = (
+    isFavoriteVideo(beforeVideo)
+    && !isFavoriteVideo(video)
+    && isVideoFromRemovedChannel(s, video)
+  )
+  const shouldRevealWatchedFavorite = (
+    options.surface === 'watched_card'
+    && getVideoStatus(video) === 'watched'
+    && !isFavoriteVideo(beforeVideo)
+    && isFavoriteVideo(video)
+  )
+  pushUndoAction(s, {
+    type: 'video-favorite',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      favorite: isFavoriteVideo(beforeVideo)
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      favorite: isFavoriteVideo(video)
+    }
+  })
+  if (!await persistVideoAction(s, checkpoint)) return false
+  trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
+  if (shouldRevealWatchedFavorite) {
+    revealFavoritedWatchedVideo(videoId, s)
+  } else if (preservePreview && !shouldRefreshRemovedChannel) {
+    refreshVideoActionUiPreservingPreview(s, videoId)
+  } else {
+    renderAll(s)
+  }
+  return isFavoriteVideo(video)
+}
+
+function syncVideoWatchPromptFavoriteAction(videoId, isFavorite) {
+  document.querySelectorAll('.video-watch-reminder-favorite').forEach(button => {
+    if (button.dataset.videoId === String(videoId ?? '')) {
+      const label = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
+      button.classList.toggle('active', isFavorite === true)
+      button.setAttribute('aria-pressed', String(isFavorite === true))
+      button.setAttribute('aria-label', label)
+      button.title = label
+    }
+  })
+}
+
+function updateVideoPlayerFavoriteButton(button, isFavorite) {
+  if (!button) return
+  const label = t(isFavorite ? 'videos.card.removeFavorite' : 'videos.card.favorite')
+  button.classList.toggle('active', isFavorite)
+  button.setAttribute('aria-pressed', String(isFavorite))
+  button.setAttribute('aria-label', label)
+  button.title = label
+}
+
+async function favoriteVideoFromWatchPrompt(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video) return false
+
+  const checkpoint = captureVideoActionState(state, videoId)
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  video.favorite = !isFavoriteVideo(video)
+  const isFavorite = isFavoriteVideo(video)
+  if (!isFavorite && getVideoStatus(video) === 'watched') {
+    video.resumeAtSeconds = null
+    video.pausedAt = null
+  }
+  pushUndoAction(state, {
+    type: 'video-favorite',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      favorite: isFavoriteVideo(beforeVideo)
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      favorite: isFavorite
+    }
+  })
+  if (!await persistVideoAction(state, checkpoint)) return false
+  trackVideoFavoriteChanged(state, video, isFavoriteVideo(beforeVideo), 'completion_prompt')
+  syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
+  if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
+    updateVideoPlayerFavoriteButton(
+      activeVideoShelfPlayer.overlay?.querySelector('.video-player-favorite'),
+      isFavorite
+    )
+  }
+  return isFavorite
+}
+
+async function toggleVideoPlayerFavorite(videoId, button) {
+  const isFavorite = await toggleVideoFavorite(videoId, { surface: 'embedded_player' })
+  if (typeof isFavorite !== 'boolean' || !button) return
+  updateVideoPlayerFavoriteButton(button, isFavorite)
+  syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
+}
+
+function recordVideoRewatch(state, video, seconds = null, options = {}) {
+  if (!state || !video || !isFavoriteVideo(video) || getVideoStatus(video) !== 'watched') return false
+  const rewatchSeconds = seconds === null
+    ? Math.max(0, Math.floor(Number(video.duration || 0)))
+    : Math.max(0, Math.floor(Number(seconds || 0)))
+  const watchedAt = getCurrentAppTimestamp(state)
+  if (rewatchSeconds > 0 && options.creditProgress !== false) {
+    addVideoWatchProgress(video, rewatchSeconds, watchedAt, { allowRepeat: true })
+  }
+  delete video.watchCycleCoverage
+  delete video.rewatchCoverage
+  video.resumeAtSeconds = null
+  video.pausedAt = null
+  state.lastVideoMarkedWatchedAt = watchedAt
+  recordNoAnkiFrequentUserWatchedDate(state, watchedAt)
+  syncStreak(state)
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'video-rewatch',
+    status: 'success',
+    title: t('log.videoRewatch.title'),
+    detail: t('log.videoRewatch.detail', { title: formatToastTitle(video.title) }),
+    meta: { videoId: video.id, seconds: rewatchSeconds }
+  })
+  state.totalRewatchCount = Math.max(
+    Number(state.totalRewatchCount) || 0,
+    (Array.isArray(state.activityLog) ? state.activityLog : [])
+      .filter(entry => entry?.type === 'video-rewatch' && entry?.status === 'success')
+      .length
+  )
+  return true
+}
+
+function trackVideoRewatchCompleted(state, video, rewatchSeconds, surface) {
+  trackEdeniaEvent('video_rewatch_completed', getVideoAnalyticsProperties(video, {
+    rewatch_seconds: Math.max(0, Math.floor(Number(rewatchSeconds) || 0)),
+    surface: surface || 'watch_reminder',
+    total_rewatch_count: Math.max(0, Number(state?.totalRewatchCount) || 0)
+  }))
+}
+
+async function markVideo(videoId, requestedStatus, options = {}) {
+  requestedStatus = normalizeVideoStatus(requestedStatus)
+  const s     = loadState()
+  const video = s.videos[videoId]
+  if (!video) return false
+  const checkpoint = captureVideoActionState(s, videoId)
+  const preservePreview = (
+    requestedStatus === 'watch-later'
+    || typeof options.watchLater === 'boolean'
+  )
+    && isActiveVideoShelfPreview(videoId)
+  const previousStatus = getVideoStatus(video)
+  const previousWatchLater = isVideoWatchLater(video)
+  const previousSetAside = isVideoSetAside(video)
+  const previousSetAsideResumeAtSeconds = normalizeResumeAtSeconds(
+    video.setAsideResumeAtSeconds,
+    video.duration
+  )
+  const previousResumePriority = hasVideoResumePriority(video)
+  const nextWatchLater = typeof options.watchLater === 'boolean'
+    ? options.watchLater
+    : requestedStatus === 'watch-later'
+    ? true
+    : previousWatchLater
+  const resolvedWatchLater = requestedStatus === 'watched' ? false : nextWatchLater
+  const isReactivatingSetAside = previousSetAside && requestedStatus === 'watch-later'
+  let newStatus = requestedStatus
+  if (requestedStatus === 'watch-later' && previousStatus === 'partial') {
+    newStatus = 'partial'
+  } else if (requestedStatus === 'unwatched' && hasVideoResumePriority(video) && resolvedWatchLater) {
+    newStatus = 'watch-later'
+  }
+  const isClearingResume = requestedStatus === 'unwatched' && hasVideoResumePriority(video)
+  if (previousStatus === newStatus && previousWatchLater === resolvedWatchLater && !isClearingResume) return false
+  if (newStatus === 'watched' && !hasWatchedConfirmationUnlock(video)) return false
+  if (isClearingResume) clearFocusedVideoPreview(videoId)
+  if (previousStatus === 'watched' && newStatus !== 'watched' && !previousSetAside) {
+    grantWatchedConfirmationUnlock(s, video)
+  }
+
+  const undoAction = {
+    type: 'video-status',
+    videoId,
+    before: {
+      exists: true,
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+    },
+    after: {
+      exists: true,
+      status: newStatus
+    }
+  }
+
+  video.status    = newStatus
+  video.watchLater = resolvedWatchLater
+  if (previousSetAside && newStatus !== 'watched') {
+    delete video.setAside
+    delete video.setAsideAt
+    delete video.setAsideResumeAtSeconds
+  }
+  const watchedAt = newStatus === 'watched' ? getCurrentAppTimestamp(s) : null
+  if (watchedAt) {
+    if (options.creditOnlyRecordedProgress === true || video.watchProgressTracked === true) {
+      video.watchProgressTracked = true
+    } else {
+      const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
+      if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
+    }
+    delete video.watchCycleCoverage
+    delete video.rewatchCoverage
+  } else if (
+    (requestedStatus === 'unwatched' || previousStatus === 'watched')
+    && !isReactivatingSetAside
+  ) {
+    video.watchProgress = []
+    delete video.watchProgressTracked
+    delete video.watchCycleCoverage
+    delete video.rewatchCoverage
+  }
+  video.watchedAt = watchedAt
+  video.pausedAt = newStatus === 'partial'
+    ? previousStatus === 'partial' && isValidTimestamp(video.pausedAt)
+      ? video.pausedAt
+      : getCurrentAppTimestamp(s)
+    : null
+  if (watchedAt) {
+    s.lastVideoMarkedWatchedAt = watchedAt
+    recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
+  }
+  video.resumeAtSeconds = isReactivatingSetAside
+    ? previousSetAsideResumeAtSeconds
+    : requestedStatus !== 'unwatched'
+      && (
+        newStatus === 'partial'
+        || (newStatus === 'watch-later' && previousResumePriority)
+      )
+      ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+      : null
+  const shouldHideRemovedChannelVideo = (
+    previousWatchLater
+    && !resolvedWatchLater
+    && isVideoFromRemovedChannel(s, video)
+    && !shouldPreserveVideoAfterTrackedChannelRemoval(video)
+  )
+  if (shouldHideRemovedChannelVideo) {
+    video.hiddenFromGrid = true
+    video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+  }
+  undoAction.after.watchedAt = video.watchedAt
+  undoAction.after.resumeAtSeconds = video.resumeAtSeconds
+  undoAction.after.video = cloneVideoForHistoryAction(video)
+  pushUndoAction(s, undoAction)
+
+  syncStreak(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-status',
+    status: 'success',
+    title: t('log.videoStatus.title'),
+    detail: t('log.videoStatus.detail', { title: formatToastTitle(video.title), status: formatVideoStatus(newStatus) }),
+    meta: { videoId, status: newStatus }
+  })
+  if (getVideoActionPointDelta(undoAction, 'redo') < 0) {
+    appendPointDeltaActivityLog(s, {
+      action: undoAction,
+      direction: 'redo',
+      reason: 'unmark',
+      video
+    })
+  }
+
+  if (!await persistVideoAction(s, checkpoint)) return false
+  trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(video, {
+    previous_status: previousStatus,
+    new_status: newStatus,
+    previous_watch_later: previousWatchLater,
+    watch_later: resolvedWatchLater,
+    previous_set_aside: previousSetAside,
+    set_aside: isVideoSetAside(video),
+    favorite: isFavoriteVideo(video),
+    resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
+    surface: options.surface || 'video_card'
+  }))
+  if (preservePreview && !shouldHideRemovedChannelVideo) {
+    refreshVideoActionUiPreservingPreview(s, videoId)
+  } else {
+    renderAll(s)
+  }
+  return true
+}
+
+function getVideoOrganizationMenuItems(video) {
+  const items = []
+  if (hasVideoResumePriority(video)) {
+    items.push({
+      action: 'remove-continue',
+      label: t('videos.actions.removeContinue')
+    })
+  }
+  items.push({
+    action: 'remove-feed',
+    label: t('videos.actions.removeFromFeed')
+  })
+  return items
+}
+
+function positionVideoOrganizationMenu(popover, trigger) {
+  if (!popover || !trigger || usesPhoneComposition()) return false
+  const card = trigger.closest('.channel-shelf-card')
+  const triggerRect = trigger.getBoundingClientRect()
+  const visualViewport = window.visualViewport
+  const viewportLeft = Math.max(0, Number(visualViewport?.offsetLeft) || 0)
+  const viewportTop = Math.max(0, Number(visualViewport?.offsetTop) || 0)
+  const viewportWidth = Math.max(0, Number(visualViewport?.width) || window.innerWidth)
+  const viewportHeight = Math.max(0, Number(visualViewport?.height) || window.innerHeight)
+  const viewportRight = viewportLeft + viewportWidth
+  const viewportBottom = viewportTop + viewportHeight
+  const margin = 12
+  const gap = 8
+  const minLeft = viewportLeft + margin
+  const maxWidth = Math.max(0, viewportWidth - (margin * 2))
+  let anchorRect = triggerRect
+  if (card) {
+    anchorRect = card.getBoundingClientRect()
+    popover.classList.add('is-card-aligned')
+    popover.style.width = `${Math.min(anchorRect.width, maxWidth)}px`
+  } else {
+    popover.classList.remove('is-card-aligned')
+    popover.style.removeProperty('width')
+  }
+  const popoverRect = popover.getBoundingClientRect()
+  const maxLeft = viewportRight - popoverRect.width - margin
+  const preferredLeft = card
+    ? anchorRect.left
+    : triggerRect.right - popoverRect.width
+  const left = clampNumber(preferredLeft, minLeft, maxLeft)
+  const belowTop = anchorRect.bottom + gap
+  const aboveTop = anchorRect.top - popoverRect.height - gap
+  const maxTop = viewportBottom - popoverRect.height - margin
+  const top = belowTop <= maxTop
+    ? belowTop
+    : aboveTop >= viewportTop + margin
+      ? aboveTop
+      : clampNumber(belowTop, viewportTop + margin, maxTop)
+  popover.style.left = `${left}px`
+  popover.style.top = `${Math.round(top)}px`
+  return true
+}
+
+function openVideoOrganizationMenu(event, videoId, trigger) {
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  const popover = document.getElementById('videoActionsPopover')
+  const list = document.getElementById('videoActionsList')
+  if (!video || !popover || !list) return false
+  closeVideoOrganizationMenu(false)
+  closeHistoryActionPopovers()
+  closeVideoShelfPreviewOnViewportChange()
+  activeVideoOrganizationTrigger = trigger
+  trigger?.setAttribute('aria-expanded', 'true')
+  const items = getVideoOrganizationMenuItems(video)
+  list.classList.toggle('has-divider', items.length > 1)
+  list.innerHTML = items.map(item => `
+    <button type="button"
+      class="video-actions-item"
+      role="menuitem"
+      data-video-id="${escHtml(videoId)}"
+      data-video-organization-action="${item.action}"
+      data-analytics-action="${item.action}">${escHtml(item.label)}</button>
+  `).join('')
+  popover.classList.remove('hidden')
+  popover.setAttribute('aria-hidden', 'false')
+  if (!usesPhoneComposition() && trigger) {
+    positionVideoOrganizationMenu(popover, trigger)
+  } else {
+    popover.classList.remove('is-card-aligned')
+    popover.style.removeProperty('width')
+    popover.style.removeProperty('left')
+    popover.style.removeProperty('top')
+  }
+  window.requestAnimationFrame(() => list.querySelector('button')?.focus({ preventScroll: true }))
+  return true
+}
+
+function closeVideoOrganizationMenu(restoreFocus = false) {
+  const popover = document.getElementById('videoActionsPopover')
+  const trigger = activeVideoOrganizationTrigger
+  if (!popover || popover.classList.contains('hidden')) return false
+  popover.classList.add('hidden')
+  popover.setAttribute('aria-hidden', 'true')
+  popover.classList.remove('is-card-aligned')
+  popover.style.removeProperty('width')
+  popover.style.removeProperty('left')
+  popover.style.removeProperty('top')
+  trigger?.setAttribute('aria-expanded', 'false')
+  activeVideoOrganizationTrigger = null
+  if (restoreFocus) trigger?.focus?.({ preventScroll: true })
+  return true
+}
+
+function closeVideoOrganizationMenuOnOutsideClick(event) {
+  if (event.target.closest('#videoActionsPopover, [data-video-organization-action="menu"]')) return
+  closeVideoOrganizationMenu(false)
+}
+
+function closeVideoOrganizationMenuOnEscape(event) {
+  if (event.key !== 'Escape') return
+  if (document.getElementById('videoActionsPopover')?.classList.contains('hidden')) return
+  event.preventDefault()
+  closeVideoOrganizationMenu(true)
+}
+
+function closeVideoOrganizationMenuOnViewportChange(event) {
+  if (event?.type === 'scroll' && usesPhoneComposition()) return false
+  return closeVideoOrganizationMenu(true)
+}
+
+async function saveVideoOrganizationChange(state, video, beforeVideo, operation, checkpoint) {
+  const action = pushUndoAction(state, {
+    type: 'video-organization',
+    operation,
+    videoId: video.id,
+    before: { video: beforeVideo },
+    after: { video: cloneVideoForHistoryAction(video) }
+  })
+  const eventNames = {
+    'remove-continue': 'video_removed_from_continue_watching',
+    'remove-feed': 'video_removed_from_feed',
+    'restore-feed': 'video_restored_to_feed'
+  }
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'video-organization',
+    status: 'success',
+    title: t('log.videoOrganization.title'),
+    detail: `"${formatToastTitle(video.title)}"`,
+    meta: { videoId: video.id, operation }
+  })
+  if (!await persistVideoAction(state, checkpoint)) return null
+  trackEdeniaEvent(eventNames[operation], getVideoAnalyticsProperties(video, {
+    operation,
+    current_status: getVideoStatus(video),
+    favorite: isFavoriteVideo(video),
+    watch_later: isVideoWatchLater(video)
+  }))
+  return action
+}
+
+function showVideoOrganizationUndoToast(message, action) {
+  showToast(message, 'success', {
+    actionLabel: t('videos.undo'),
+    onAction: async () => await undoHistoryActionById(action.id)
+  })
+}
+
+async function removeVideoFromContinueWatching(videoId) {
+  closeVideoOrganizationMenu(true)
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video || !hasVideoResumePriority(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  if (getVideoStatus(video) !== 'watched') {
+    video.status = isVideoWatchLater(video) ? 'watch-later' : 'unwatched'
+  }
+  video.resumeAtSeconds = null
+  video.pausedAt = null
+  delete video.watchCycleCoverage
+  delete video.rewatchCoverage
+  clearFocusedVideoPreview(videoId)
+  const action = await saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue', checkpoint)
+  if (!action) return false
+  renderAll(state)
+  showVideoOrganizationUndoToast(t('toast.videoRemovedFromContinue'), action)
+  return true
+}
+
+async function removeVideoFromFeed(videoId) {
+  closeVideoOrganizationMenu(true)
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video || isVideoRemovedFromFeed(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  video.removedFromFeedAt = getCurrentAppTimestamp(state)
+  clearFocusedVideoPreview(videoId)
+  const action = await saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed', checkpoint)
+  if (!action) return false
+  renderAll(state)
+  showVideoOrganizationUndoToast(t('toast.videoRemovedFromFeed'), action)
+  return true
+}
+
+async function restoreVideoToFeed(videoId) {
+  closeVideoOrganizationMenu(true)
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video || !isVideoRemovedFromFeed(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  delete video.removedFromFeedAt
+  const action = await saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed', checkpoint)
+  if (!action) return false
+  selectedStatusFilter = 'all'
+  forcedSearchVideoId = videoId
+  if (getVideoStatus(video) === 'watched') isWatchedSectionCollapsed = false
+  renderAll(state)
+  window.requestAnimationFrame(() => {
+    scrollToVideoCard(videoId, '.video-card', {
+      className: 'flash-target',
+      duration: 1400
+    })
+    findVideoCard(videoId)?.querySelector('.more-btn, .thumb-link')?.focus({ preventScroll: true })
+    forcedSearchVideoId = null
+  })
+  showVideoOrganizationUndoToast(t('toast.videoRestoredToFeed'), action)
+  return true
+}
+
+async function markVideoInProgressOnOpen(videoId, options = {}) {
+  const shouldRender = options.render !== false
+  const s     = loadState()
+  const video = s.videos[videoId]
+  if (!video) return false
+  const previousStatus = getVideoStatus(video)
+  const openedAt = getCurrentAppTimestamp(s)
+  s.lastVideoOpenedAt = openedAt
+  trackEdeniaEvent('video_opened', getVideoAnalyticsProperties(video, {
+    previous_status: previousStatus,
+    resumed: hasVideoResumePriority(video) && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null,
+    resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
+    favorite: isFavoriteVideo(video),
+    watch_later: isVideoWatchLater(video),
+    surface: options.surface || 'youtube_direct',
+    player_mode: options.playerMode || 'youtube',
+    opened_at: openedAt
+  }))
+  if (previousStatus === 'watched') {
+    if (!isFavoriteVideo(video)) {
+      if (!await saveState(s, { backup: false })) return false
+      return false
+    }
+    video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) ?? 0
+    video.pausedAt = getCurrentAppTimestamp(s)
+    if (!await saveState(s, { backup: false })) return false
+    if (shouldRender) {
+      setTimeout(() => {
+        const nextState = loadState()
+        renderAll(nextState)
+      }, 0)
+    }
+    return true
+  }
+  if (previousStatus === 'partial') {
+    video.pausedAt = getCurrentAppTimestamp(s)
+    if (!await saveState(s, { backup: false })) return false
+    if (shouldRender) {
+      setTimeout(() => {
+        const nextState = loadState()
+        renderAll(nextState)
+      }, 0)
+    }
+    return true
+  }
+
+  pushUndoAction(s, {
+    type: 'video-status',
+    videoId,
+    before: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+    },
+    after: {
+      video: null,
+      status: 'partial',
+      watchedAt: null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+    }
+  })
+
+  if (previousStatus === 'watch-later') video.watchLater = true
+  video.status = 'partial'
+  video.watchedAt = null
+  video.pausedAt = getCurrentAppTimestamp(s)
+  video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+  const action = s.undoStack[s.undoStack.length - 1]
+  if (action?.videoId === videoId && action.after) {
+    action.after.video = cloneVideoForHistoryAction(video)
+  }
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-status',
+    status: 'success',
+    title: t('log.videoStatus.title'),
+    detail: t('log.videoStatus.detail', { title: formatToastTitle(video.title), status: formatVideoStatus('partial') }),
+    meta: { videoId, status: 'partial' }
+  })
+
+  if (!await saveState(s)) return false
+  if (shouldRender) {
+    setTimeout(() => {
+      const nextState = loadState()
+      renderAll(nextState)
+    }, 0)
+  }
+  return true
+}
+
+function revealRenderedAddedVideoCard(videoId) {
+  const targetVideoId = String(videoId ?? '')
+  const card = findVideoCard(targetVideoId)
+  const found = Boolean(card)
+  if (card) {
+    flashVideoCard(card, {
+      duration: 1800,
+      highlightTarget: 'spotlight'
+    })
+  }
+  trackAddedVideoRevealResult(targetVideoId, card)
+  if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+  return found
+}
+
+function revealAddedVideoCard(videoId, state) {
+  const targetVideoId = String(videoId ?? '')
+  forcedSearchVideoId = targetVideoId
+  renderAll(state)
+  const revealCard = () => {
+    revealRenderedAddedVideoCard(targetVideoId)
+    // Retain the reveal's render options while scrolling and highlighting. A
+    // background feed update must not replace the card being observed.
+    window.setTimeout(() => {
+      if (forcedSearchVideoId === targetVideoId) forcedSearchVideoId = null
+    }, 2500)
+  }
+
+  if (usesTabletAddedVideoReveal()) {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(revealCard))
+  } else {
+    window.setTimeout(revealCard, 0)
+  }
+}
+
+function usesTabletAddedVideoReveal() {
+  return usesTabletCoarseInput()
+}
+
+function trackAddedVideoRevealResult(videoId, card) {
+  const videoUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+  const revealMode = usesTabletAddedVideoReveal() ? 'tablet_coarse' : 'standard'
+  if (!card) {
+    trackEdeniaEvent('manual_video_reveal_completed', {
+      video_url: videoUrl,
+      result: 'card_not_found',
+      card_found: false,
+      scroll_requested: false,
+      highlight_started: false,
+      card_visible_after_reveal: false,
+      reveal_mode: revealMode
+    })
+    return
+  }
+
+  let completed = false
+  let observer = null
+  let timeoutId = null
+  const complete = visible => {
+    if (completed) return
+    completed = true
+    observer?.disconnect()
+    if (timeoutId) window.clearTimeout(timeoutId)
+    trackEdeniaEvent('manual_video_reveal_completed', {
+      video_url: videoUrl,
+      result: visible ? 'visible' : 'not_visible',
+      card_found: true,
+      scroll_requested: true,
+      highlight_started: true,
+      card_visible_after_reveal: visible,
+      reveal_mode: revealMode
+    })
+  }
+
+  if (typeof IntersectionObserver === 'function') {
+    observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.target === card && entry.intersectionRatio >= 0.98)) {
+        complete(true)
+      }
+    }, { threshold: [0.98] })
+    observer.observe(card)
+  }
+
+  window.requestAnimationFrame(() => {
+    if (isVideoCardFullyVisibleInViewport(card)) complete(true)
+  })
+  timeoutId = window.setTimeout(() => {
+    complete(isVideoCardFullyVisibleInViewport(card))
+  }, 2500)
+}
+
+async function addVideoFromUrl(event) {
+  event.preventDefault()
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  const rawUrl = input?.value?.trim() || ''
+  const videoId = parseYoutubeVideoId(rawUrl)
+
+  if (!videoId) {
+    showToast(t('toast.validYoutubeUrl'), 'warn')
+    input?.focus()
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(t('toast.apiKeyMissing'), 'warn')
+    return
+  }
+
+  if (btn) {
+    btn.disabled = true
+    btn.textContent = t('videos.manual.adding')
+  }
+
+  try {
+    const metadata = await fetchVideoMetadata(videoId)
+    const s = loadState()
+    const existing = s.videos[videoId]
+    const existingChannel = s.config.channels.find(channel => channel.id === metadata.channelId) || null
+    const before = {
+      exists: Boolean(existing),
+      video: existing ? cloneVideoForHistoryAction(existing) : null,
+      channel: existingChannel ? { ...existingChannel } : null
+    }
+
+    const watchProgress = normalizeVideoWatchProgress(existing?.watchProgress, existing?.duration ?? metadata.duration)
+    const status = existing ? getVideoStatus(existing) : 'unwatched'
+    const watchedAt = status === 'watched' ? existing?.watchedAt || null : null
+    const duration = metadata.duration || existing?.duration || 0
+    const channelWasAdded = shouldTrackManualVideoChannel(plusAccessPolicy)
+      ? addTrackedYoutubeChannelToState(s, {
+          id: metadata.channelId,
+          name: metadata.channelTitle,
+          imageUrl: metadata.channelImageUrl,
+          metadataFetchedAt: metadata.channelMetadataFetchedAt
+        })
+      : false
+    const channelTrackingMode = channelWasAdded
+      ? 'new-tracked-channel'
+      : existingChannel
+        ? 'existing-tracked-channel'
+        : 'manual-video-only'
+    s.videos[videoId] = {
+      ...metadata,
+      ...existing,
+      metadataFetchedAt: metadata.metadataFetchedAt,
+      metadataUnavailable: false,
+      id: videoId,
+      title: metadata.title || existing?.title || t('videos.search.untitled'),
+      channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',
+      channelId: metadata.channelId || existing?.channelId || 'manual-youtube',
+      channelImageUrl: metadata.channelImageUrl || existing?.channelImageUrl || '',
+      thumbnail: metadata.thumbnail || existing?.thumbnail || `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
+      publishedAt: metadata.publishedAt || existing?.publishedAt || getCurrentAppTimestamp(s),
+      duration,
+      status,
+      watchedAt,
+      watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
+        ? existing.watchedConfirmationUnlockedAt
+        : null,
+      resumeAtSeconds: hasVideoResumePriority(existing)
+        ? normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration)
+        : null,
+      pausedAt: hasVideoResumePriority(existing) && isValidTimestamp(existing?.pausedAt)
+        ? existing.pausedAt
+        : null,
+      watchProgress,
+      source: existing?.source || 'manual',
+      manuallyAdded: true,
+      hiddenFromGrid: false,
+      hiddenFromGridAt: null
+    }
+
+    pushUndoAction(s, {
+      type: 'manual-video-add',
+      videoId,
+      channelId: metadata.channelId,
+      channelName: metadata.channelTitle || metadata.channelId,
+      channelWasAdded,
+      channelTrackingMode,
+      before,
+      after: {
+        exists: true,
+        video: cloneVideoForHistoryAction(s.videos[videoId]),
+        channel: s.config.channels.find(channel => channel.id === metadata.channelId)
+          ? { ...s.config.channels.find(channel => channel.id === metadata.channelId) }
+          : null
+      }
+    })
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'manual-video',
+      status: 'success',
+      title: t('log.videoAdded.title'),
+      detail: t('log.videoAdded.detail', { title: formatToastTitle(s.videos[videoId].title) }),
+      meta: { videoId }
+    })
+    if (channelWasAdded) {
+      appendActivityLog(s, {
+        actor: 'user',
+        type: 'channel-add',
+        status: 'success',
+        title: t('log.channelAdded.title'),
+        detail: metadata.channelTitle || metadata.channelId,
+        meta: { channelId: metadata.channelId }
+      })
+    }
+    if (!await saveState(s)) return false
+    trackEdeniaEvent('manual_video_added', {
+      video_url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      channel_id: metadata.channelId || null,
+      channel_tracking_mode: channelTrackingMode,
+      tracked_channel_count: getTrackedChannelIds(s).length,
+      free_channel_allowance: getFreeTrackedChannelAllowance(s),
+      free_limits_enforced: plusAccessPolicy.enforcesFreeLimits === true
+    })
+    input.value = ''
+    if (usesTabletAddedVideoReveal()) input.blur()
+    closeManualVideoPopover()
+    if (channelWasAdded) {
+      renderAll(s)
+    } else {
+      revealAddedVideoCard(videoId, s)
+    }
+    showToast(t('toast.addedWatchedVideo', {
+      title: formatToastTitle(s.videos[videoId].title)
+    }), 'success')
+    if (channelWasAdded) {
+      refreshAddedChannel(metadata.channelId, {
+        focusVideoId: videoId,
+        revealDelayMs: 1500
+      })
+    }
+  } catch (err) {
+    console.warn(err)
+    if (!await recordYoutubeQuotaError(err)) showToast(err.message || t('toast.addVideoFailed'), 'error')
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = t('videos.manual.add')
+    }
+  }
+}
+
+function normalizeCuratedChannelSearchText(value) {
+  return normalizeChannelSearchText(value)
+}
+
+function getCuratedChannelSearchTokens(value) {
+  const normalized = normalizeCuratedChannelSearchText(value)
+  const tokens = normalized.split(' ').filter(Boolean)
+  const meaningfulTokens = tokens.filter(token => !CURATED_CHANNEL_SEARCH_IGNORED_WORDS.has(token))
+  return meaningfulTokens.length ? meaningfulTokens : tokens
+}
+
+function tokenMatchesCuratedChannel(token, candidateTokens) {
+  return tokenMatchesChannelSearch(token, candidateTokens)
+}
+
+function getCuratedChannelSearchMatches(value, limit = 6) {
+  const normalizedQuery = normalizeCuratedChannelSearchText(value)
+  if (!isSupportedChannelSearchQuery(normalizedQuery)) return []
+
+  const queryTokens = getCuratedChannelSearchTokens(normalizedQuery)
+  if (!queryTokens.length) return []
+
+  return getSearchableChannelCatalog()
+    .map((channel, catalogIndex) => {
+      const normalizedName = normalizeCuratedChannelSearchText(channel.name)
+      const normalizedInput = normalizeCuratedChannelSearchText(channel.input)
+      const languages = Array.isArray(channel.languages)
+        ? channel.languages
+        : [channel.language].filter(Boolean)
+      const languageAliases = languages.flatMap(language => (
+        CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES[language] || [language]
+      ))
+      const normalizedSearchText = normalizeCuratedChannelSearchText([
+        channel.name,
+        channel.input,
+        ...(Array.isArray(channel.aliases) ? channel.aliases : []),
+        ...languages,
+        ...languageAliases,
+        channel.style,
+        channel.description,
+        channel.searchText
+      ].filter(Boolean).join(' '))
+      const candidateTokens = normalizedSearchText.split(' ').filter(Boolean)
+      const matchedTokens = queryTokens.filter(token => tokenMatchesCuratedChannel(token, candidateTokens))
+      const coverage = matchedTokens.length / queryTokens.length
+
+      if (!matchedTokens.length || (queryTokens.length > 1 && coverage < 0.5)) return null
+
+      const nameTokens = normalizedName.split(' ').filter(Boolean)
+      const matchedNameTokens = queryTokens.filter(token => tokenMatchesCuratedChannel(token, nameTokens)).length
+      let score = Math.round(coverage * 500) + (matchedNameTokens * 60)
+      if (normalizedName === normalizedQuery) score += 1000
+      else if (normalizedQuery.includes(normalizedName)) score += 800
+      else if (normalizedName.startsWith(normalizedQuery)) score += 650
+      else if (normalizedName.includes(normalizedQuery)) score += 500
+      if (normalizedInput === normalizedQuery) score += 900
+      else if (normalizedInput.startsWith(normalizedQuery)) score += 450
+
+      return { channel, score, catalogIndex }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || a.catalogIndex - b.catalogIndex)
+    .slice(0, Math.max(1, Number(limit) || 6))
+    .map(result => result.channel)
+}
+
+function isCuratedChannelAlreadyAdded(channel, state = loadState()) {
+  if (channel?.channelId) {
+    return (state?.config?.channels || []).some(existing => existing?.id === channel.channelId)
+  }
+  const normalizedCatalogName = normalizeCuratedChannelSearchText(channel?.name)
+  if (!normalizedCatalogName) return false
+  return (state?.config?.channels || []).some(existing => (
+    normalizeCuratedChannelSearchText(existing?.name) === normalizedCatalogName
+  ))
+}
+
+function getCuratedChannelInitials(channel) {
+  return String(channel?.name || 'YT')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toLocaleUpperCase() || 'YT'
+}
+
+function bindManualVideoActions(root = document) {
+  return bindManualVideoShellActions(root, {
+    toggle: toggleManualVideoPopover,
+    close: closeManualVideoPopover,
+    renderSuggestions: renderManualChannelSuggestions,
+    handleInputKey: handleManualChannelSuggestionKeydown,
+    submit: addYoutubeInput,
+    searchYoutube: searchYoutubeChannels,
+    selectCurated: selectManualChannelSuggestion,
+    selectYoutube: selectYoutubeChannelSearchResult
+  })
+}
+
+function renderManualYoutubeSearchAction(query) {
+  return `
+    <div class="manual-youtube-search-action">
+      <button type="button" class="manual-youtube-search-btn" data-manual-video-action="search-youtube" data-analytics-action="searchYoutubeChannels">
+        ${escHtml(t('videos.manual.searchYoutubeFor', { query }))}
+      </button>
+    </div>
+  `
+}
+
+function closeManualChannelSuggestions() {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (list) {
+    list.classList.add('hidden')
+    list.removeAttribute('aria-busy')
+    list.innerHTML = ''
+  }
+  input?.setAttribute('aria-expanded', 'false')
+  input?.removeAttribute('aria-activedescendant')
+  renderManualChannelSuggestions.activeIndex = -1
+}
+
+function getTrackedChannelSuggestionAccess(state, channelId, alreadyAdded) {
+  if (alreadyAdded) return { decision: TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED, key: '' }
+  const decision = getTrackedChannelAddDecision(
+    state,
+    plusAccessPolicy,
+    channelId
+  )
+  const key = {
+    [TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED]: 'plus.channels.result.requiresPlus',
+    [TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_LOADING]: 'plus.channels.result.loading',
+    [TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_UNAVAILABLE]: 'plus.channels.result.unavailable'
+  }[decision] || ''
+  return { decision, key }
+}
+
+function renderManualChannelSuggestions() {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!input || !list) return
+
+  const value = input.value.trim()
+  const isYoutubeResource = Boolean(
+    parseYoutubeVideoId(value)
+    || parseYoutubeChannelInput(value)
+    || YOUTUBE_CHANNEL_ID_RE.test(value)
+    || /(?:youtube\.com|youtu\.be)/i.test(value)
+  )
+  if (!isSupportedChannelSearchQuery(value) || isYoutubeResource) {
+    closeManualChannelSuggestions()
+    searchAnalyticsState.lastChannelCatalogOutcomeKey = null
+    return
+  }
+
+  const matches = getCuratedChannelSearchMatches(value)
+  const outcomeKey = `${normalizeCuratedChannelSearchText(value)}:${matches.length}`
+  renderManualChannelSuggestions.activeIndex = -1
+  input.removeAttribute('aria-activedescendant')
+  input.setAttribute('aria-expanded', 'true')
+  list.classList.remove('hidden')
+  list.removeAttribute('aria-busy')
+
+  if (!matches.length) {
+    list.innerHTML = `
+      <p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.noMatches'))}</p>
+      ${renderManualYoutubeSearchAction(value)}
+    `
+    bindManualVideoActions(list)
+    if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
+      trackEdeniaEvent('search_no_results', {
+        search_source: 'channel_catalog',
+        search_query: value,
+        query_length: value.length,
+        query_token_count: value.split(/\s+/).filter(Boolean).length,
+        result_count: 0
+      })
+      searchAnalyticsState.lastChannelCatalogOutcomeKey = outcomeKey
+    }
+    return
+  }
+
+  const state = loadState()
+  const localSuggestions = matches.map(channel => {
+    const alreadyAdded = isCuratedChannelAlreadyAdded(channel, state)
+    const parsedChannel = parseYoutubeChannelInput(channel.input)
+    const access = getTrackedChannelSuggestionAccess(
+      state,
+      channel.channelId || parsedChannel?.channelId,
+      alreadyAdded
+    )
+    const isRestricted = access.decision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+    const meta = [
+      channel.input,
+      alreadyAdded ? t('toast.channelDuplicate') : '',
+      access.key ? t(access.key) : ''
+    ].filter(Boolean).join(' · ')
+    return `
+      <button type="button"
+        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''} ${isRestricted ? 'is-plus-restricted' : ''}"
+        id="manualChannelSuggestion-${escHtml(channel.id)}"
+        data-catalog-id="${escHtml(channel.id)}"
+        data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-channel-access="${escHtml(access.decision)}"
+        data-manual-video-action="select-curated"
+        data-analytics-action="selectManualChannelSuggestion"
+        role="option"
+        aria-selected="false">
+        <span class="manual-channel-suggestion-avatar" aria-hidden="true">
+          <span>${escHtml(getCuratedChannelInitials(channel))}</span>
+          <img src="${escHtml(channel.thumbnailUrl || getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback-action="hide">
+        </span>
+        <span class="manual-channel-suggestion-copy">
+          <span class="manual-channel-suggestion-name">${escHtml(channel.name)}</span>
+          <span class="manual-channel-suggestion-meta">${escHtml(meta)}</span>
+        </span>
+      </button>
+    `
+  }).join('')
+  list.innerHTML = `${localSuggestions}${renderManualYoutubeSearchAction(value)}`
+  bindManualVideoActions(list)
+  if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
+    trackEdeniaEvent('search_results_shown', {
+      search_source: 'channel_catalog',
+      search_query: value,
+      query_length: value.length,
+      query_token_count: value.split(/\s+/).filter(Boolean).length,
+      result_count: matches.length
+    })
+    searchAnalyticsState.lastChannelCatalogOutcomeKey = outcomeKey
+  }
+}
+
+function getYoutubeChannelSearchDateKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-')
+}
+
+function readYoutubeChannelSearchCache() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY) || '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function getCachedYoutubeChannelSearch(query) {
+  const cache = readYoutubeChannelSearchCache()
+  const key = normalizeCuratedChannelSearchText(query)
+  const entry = cache[key]
+  if (!entry || Date.now() - Number(entry.savedAt || 0) > YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS) {
+    return null
+  }
+  if (!Array.isArray(entry.results)) return null
+  return entry.results.filter(result => YOUTUBE_CHANNEL_ID_RE.test(String(result?.id || '')))
+}
+
+function cacheYoutubeChannelSearch(query, results) {
+  try {
+    const cache = readYoutubeChannelSearchCache()
+    const key = normalizeCuratedChannelSearchText(query)
+    cache[key] = {
+      savedAt: Date.now(),
+      results: results.map(result => ({
+        id: result.id,
+        name: result.name,
+        thumbnail: result.thumbnail || ''
+      }))
+    }
+    const trimmedCache = budgetObjectCache(Object.fromEntries(
+      Object.entries(cache)
+        .sort(([, a], [, b]) => Number(b?.savedAt || 0) - Number(a?.savedAt || 0))
+        .slice(0, 20)
+    ))
+    localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, JSON.stringify(trimmedCache))
+  } catch {
+    // Searching still works when browser storage is unavailable.
+  }
+}
+
+function getYoutubeChannelSearchUsage() {
+  const today = getYoutubeChannelSearchDateKey()
+  try {
+    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY) || '{}')
+    if (parsed?.date === today) {
+      return { date: today, count: Math.max(0, Number(parsed.count) || 0) }
+    }
+  } catch {
+    // Fall back to a fresh in-memory-equivalent daily count.
+  }
+  return { date: today, count: 0 }
+}
+
+function incrementYoutubeChannelSearchUsage() {
+  const usage = getYoutubeChannelSearchUsage()
+  usage.count += 1
+  try {
+    localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY, JSON.stringify(usage))
+  } catch {
+    // The API request can still proceed if browser storage is unavailable.
+  }
+  return usage
+}
+
+async function fetchYoutubeChannelSearchResults(query) {
+  const url = new URL('https://www.googleapis.com/youtube/v3/search')
+  url.searchParams.set('part', 'snippet')
+  url.searchParams.set('type', 'channel')
+  url.searchParams.set('maxResults', String(YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT))
+  url.searchParams.set('safeSearch', 'moderate')
+  url.searchParams.set('q', query)
+  url.searchParams.set('key', getYoutubeApiKey())
+  const data = await ytFetch(url.toString())
+  return (data.items || [])
+    .map(item => ({
+      id: String(item?.id?.channelId || ''),
+      name: String(item?.snippet?.channelTitle || item?.snippet?.title || item?.id?.channelId || ''),
+      thumbnail: getBestThumbnail(item?.snippet?.thumbnails)
+    }))
+    .filter(result => YOUTUBE_CHANNEL_ID_RE.test(result.id))
+}
+
+function renderYoutubeChannelSearchResults(query, results, options = {}) {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!input || !list) return
+  if (normalizeCuratedChannelSearchText(input.value) !== normalizeCuratedChannelSearchText(query)) return
+
+  searchYoutubeChannels.results = results
+  renderManualChannelSuggestions.activeIndex = -1
+  input.removeAttribute('aria-activedescendant')
+  input.setAttribute('aria-expanded', 'true')
+  list.classList.remove('hidden')
+  list.removeAttribute('aria-busy')
+
+  if (!results.length) {
+    list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.youtubeNoMatches'))}</p>`
+    trackEdeniaEvent('search_no_results', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      query_token_count: query.split(/\s+/).filter(Boolean).length,
+      result_count: 0,
+      cache_hit: options.cacheHit === true
+    })
+    return
+  }
+
+  const state = loadState()
+  const resultRows = results.map(result => {
+    const alreadyAdded = (state?.config?.channels || []).some(channel => channel.id === result.id)
+    const access = getTrackedChannelSuggestionAccess(
+      state,
+      result.id,
+      alreadyAdded
+    )
+    const isRestricted = access.decision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+    const meta = alreadyAdded
+      ? t('toast.channelDuplicate')
+      : [result.id, access.key ? t(access.key) : ''].filter(Boolean).join(' · ')
+    return `
+      <button type="button"
+        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''} ${isRestricted ? 'is-plus-restricted' : ''}"
+        id="manualYoutubeSuggestion-${escHtml(result.id)}"
+        data-channel-id="${escHtml(result.id)}"
+        data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-channel-access="${escHtml(access.decision)}"
+        data-suggestion-source="youtube"
+        data-manual-video-action="select-youtube"
+        data-analytics-action="selectYoutubeChannelSearchResult"
+        role="option"
+        aria-selected="false">
+        <span class="manual-channel-suggestion-avatar" aria-hidden="true">
+          <span>${escHtml(getCuratedChannelInitials(result))}</span>
+          ${result.thumbnail
+            ? `<img src="${escHtml(result.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback-action="hide">`
+            : ''}
+        </span>
+        <span class="manual-channel-suggestion-copy">
+          <span class="manual-channel-suggestion-name">${escHtml(result.name)}</span>
+          <span class="manual-channel-suggestion-meta">${escHtml(meta)}</span>
+        </span>
+      </button>
+    `
+  }).join('')
+
+  list.innerHTML = `
+    <div class="manual-youtube-results-label">${escHtml(t('videos.manual.youtubeResults'))}</div>
+    ${resultRows}
+  `
+  bindManualVideoActions(list)
+  trackEdeniaEvent('search_results_shown', {
+    search_source: 'youtube_channels',
+    search_query: query,
+    query_length: query.length,
+    query_token_count: query.split(/\s+/).filter(Boolean).length,
+    result_count: results.length,
+    cache_hit: options.cacheHit === true
+  })
+}
+
+function renderYoutubeChannelSearchMessage(messageKey, query = '') {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!input || !list) return
+  if (
+    query
+    && normalizeCuratedChannelSearchText(input.value) !== normalizeCuratedChannelSearchText(query)
+  ) return
+  input.setAttribute('aria-expanded', 'true')
+  list.classList.remove('hidden')
+  list.removeAttribute('aria-busy')
+  list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t(messageKey))}</p>`
+}
+
+async function searchYoutubeChannels(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  const query = input?.value?.trim() || ''
+  if (!input || !list || query.length < 2) return
+  trackEdeniaEvent('search_started', {
+    search_source: 'youtube_channels',
+    search_query: query,
+    query_length: query.length,
+    query_token_count: query.split(/\s+/).filter(Boolean).length
+  })
+
+  const cachedResults = getCachedYoutubeChannelSearch(query)
+  if (cachedResults) {
+    renderYoutubeChannelSearchResults(query, cachedResults, { cacheHit: true })
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(t('toast.apiKeyMissing'), 'warn')
+    trackEdeniaEvent('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'missing_api_key'
+    })
+    return
+  }
+
+  const usage = getYoutubeChannelSearchUsage()
+  if (usage.count >= YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT) {
+    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchLimit', query)
+    trackEdeniaEvent('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'daily_limit'
+    })
+    return
+  }
+
+  const now = Date.now()
+  const lastRequestAt = Number(searchYoutubeChannels.lastRequestAt || 0)
+  if (now - lastRequestAt < YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS) {
+    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchCooldown', query)
+    trackEdeniaEvent('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'cooldown'
+    })
+    return
+  }
+
+  searchYoutubeChannels.lastRequestAt = now
+  if (!(youtubeRequestGate?.retryAt('search') > now)) incrementYoutubeChannelSearchUsage()
+  list.classList.remove('hidden')
+  list.setAttribute('aria-busy', 'true')
+  list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.searchingYoutube'))}</p>`
+
+  try {
+    const results = await fetchYoutubeChannelSearchResults(query)
+    cacheYoutubeChannelSearch(query, results)
+    renderYoutubeChannelSearchResults(query, results, { cacheHit: false })
+  } catch (error) {
+    console.warn(error)
+    if (await recordYoutubeQuotaError(error)) {
+      renderManualChannelSuggestions()
+    } else renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
+    trackEdeniaEvent('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'request_failed'
+    })
+  }
+}
+
+function setActiveManualChannelSuggestion(index) {
+  const input = document.getElementById('manualVideoUrlInput')
+  const options = Array.from(document.querySelectorAll(
+    '#manualChannelSuggestions .manual-channel-suggestion:not(.is-added)'
+  ))
+  if (!input || !options.length) return
+
+  const normalizedIndex = (index + options.length) % options.length
+  renderManualChannelSuggestions.activeIndex = normalizedIndex
+  options.forEach((option, optionIndex) => {
+    const isActive = optionIndex === normalizedIndex
+    option.classList.toggle('is-active', isActive)
+    option.setAttribute('aria-selected', String(isActive))
+  })
+  const activeOption = options[normalizedIndex]
+  input.setAttribute('aria-activedescendant', activeOption.id)
+  activeOption.scrollIntoView({ block: 'nearest' })
+}
+
+function handleManualChannelSuggestionKeydown(event) {
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!list || list.classList.contains('hidden')) return
+
+  const inputValue = String(event.currentTarget?.value || '').trim()
+  if (
+    event.key === 'Enter'
+    && (parseYoutubeVideoId(inputValue) || parseYoutubeChannelInput(inputValue))
+  ) return
+
+  const options = Array.from(list.querySelectorAll('.manual-channel-suggestion:not(.is-added)'))
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    closeManualChannelSuggestions()
+    return
+  }
+  if (!options.length) return
+
+  const activeIndex = Number.isInteger(renderManualChannelSuggestions.activeIndex)
+    ? renderManualChannelSuggestions.activeIndex
+    : -1
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    setActiveManualChannelSuggestion(activeIndex + 1)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    setActiveManualChannelSuggestion(activeIndex <= 0 ? options.length - 1 : activeIndex - 1)
+  } else if (event.key === 'Enter' && activeIndex >= 0) {
+    event.preventDefault()
+    const activeOption = options[activeIndex]
+    if (activeOption.dataset.suggestionSource === 'youtube') {
+      selectYoutubeChannelSearchResult(event, activeOption.dataset.channelId)
+    } else {
+      selectManualChannelSuggestion(event, activeOption.dataset.catalogId)
+    }
+  }
+}
+
+async function addCuratedChannelSuggestion(catalogId) {
+  const channel = getSearchableChannelEntry(catalogId)
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  if (!channel || !input) return
+
+  if (isCuratedChannelAlreadyAdded(channel)) {
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+  const parsedChannel = parseYoutubeChannelInput(channel.input)
+  if (!requestTrackedChannelAddition(
+    loadState(),
+    channel.channelId || parsedChannel?.channelId
+  )) return
+
+  input.value = channel.input
+  closeManualChannelSuggestions()
+  if (channel.channelId) {
+    const catalogSource = channel.catalogSource || 'community'
+    await addChannel({
+      input,
+      button: btn,
+      idleButtonText: t('videos.manual.add'),
+      closePopover: true,
+      resolvedChannel: {
+        id: channel.channelId,
+        name: channel.name,
+        thumbnail: channel.thumbnailUrl
+      },
+      source: catalogSource === 'discovery'
+        ? 'youtube_discovery_catalog'
+        : catalogSource === 'curated'
+          ? 'curated_catalog'
+          : 'community_catalog',
+      catalogId: channel.id,
+      catalogSource
+    })
+    return
+  }
+  await addChannel({
+    input,
+    button: btn,
+    idleButtonText: t('videos.manual.add'),
+    closePopover: true,
+    source: 'curated_catalog',
+    catalogId: channel.id,
+    catalogSource: 'curated'
+  })
+}
+
+function selectManualChannelSuggestion(event, catalogId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const option = event?.currentTarget
+  const query = document.getElementById('manualVideoUrlInput')?.value?.trim() || ''
+  trackEdeniaEvent('search_result_selected', {
+    search_source: option?.dataset?.suggestionSource === 'discovery'
+      ? 'discovery_catalog'
+      : 'channel_catalog',
+    search_query: query,
+    query_length: query.length,
+    catalog_id: catalogId || null,
+    already_added: option?.dataset?.added === 'true'
+  })
+  if (option?.dataset?.added === 'true') {
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+  addCuratedChannelSuggestion(catalogId)
+}
+
+async function selectYoutubeChannelSearchResult(event, channelId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const result = (searchYoutubeChannels.results || []).find(channel => channel.id === channelId)
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  if (!result || !input) return
+
+  const alreadyAdded = (loadState()?.config?.channels || []).some(channel => channel.id === result.id)
+  trackEdeniaEvent('search_result_selected', {
+    search_source: 'youtube_channels',
+    search_query: input.value.trim(),
+    query_length: input.value.trim().length,
+    channel_id: result.id,
+    channel_name: result.name || null,
+    result_position: (searchYoutubeChannels.results || []).findIndex(channel => channel.id === result.id) + 1,
+    already_added: alreadyAdded
+  })
+  if (alreadyAdded) {
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+
+  closeManualChannelSuggestions()
+  await addChannel({
+    input,
+    button: btn,
+    idleButtonText: t('videos.manual.add'),
+    closePopover: true,
+    resolvedChannel: result,
+    source: 'youtube_search'
+  })
+}
+
+async function addYoutubeInput(event) {
+  event.preventDefault()
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  const rawUrl = input?.value?.trim() || ''
+
+  if (parseYoutubeVideoId(rawUrl)) {
+    await addVideoFromUrl(event)
+    return
+  }
+  if (parseYoutubeChannelInput(rawUrl)) {
+    await addChannel({
+      input,
+      button: btn,
+      idleButtonText: t('videos.manual.add'),
+      closePopover: true
+    })
+    return
+  }
+
+  const catalogMatch = getCuratedChannelSearchMatches(rawUrl, 1)[0]
+  if (catalogMatch) {
+    await addCuratedChannelSuggestion(catalogMatch.id)
+    return
+  }
+
+  showToast(t('videos.manual.noMatches'), 'warn')
+  input?.focus()
+}
+
+async function openNextStudyVideoPlayer(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const targetVideoId = String(videoId ?? '')
+  if (!targetVideoId || !await openVideoPlayer(targetVideoId)) {
+    showToast(t('toast.videoGone'), 'warn')
+  }
+  return false
+}
+
+function focusNextStudyVideoCard(event, videoId) {
+  if (usesPhoneComposition()) return true
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const targetVideoId = String(videoId ?? '')
+  const state = loadState()
+  if (!targetVideoId || !state?.videos?.[targetVideoId]) {
+    showToast(t('toast.videoGone'), 'warn')
+    return false
+  }
+
+  window.clearTimeout(nextStudyFocusZoomTimer)
+  activeNextStudyFocusVideoId = null
+  document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
+    card.classList.remove('next-study-focus-target')
+  })
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+  activeNextStudyFocusVideoId = targetVideoId
+  forcedSearchVideoId = targetVideoId
+  renderFeed(state)
+
+  window.requestAnimationFrame(() => {
+    const found = scrollToVideoCard(targetVideoId, '.channel-shelf-card', {
+      className: 'next-study-focus-arriving',
+      duration: 1800
+    })
+    forcedSearchVideoId = null
+    if (!found) {
+      clearFocusedVideoPreview(targetVideoId)
+      showToast(t('toast.couldNotShowVideo'), 'warn')
+      return
+    }
+
+    const reduceMotion = prefersReducedMotion()
+    nextStudyFocusZoomTimer = window.setTimeout(() => {
+      const card = findVideoCard(targetVideoId, '.channel-shelf-card')
+      const previewStarted = card && openVideoShelfPreview(card, true)
+      if (!previewStarted) {
+        clearFocusedVideoPreview(targetVideoId)
+        showToast(t('toast.couldNotShowVideo'), 'warn')
+        return
+      }
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (
+            activeNextStudyFocusVideoId === targetVideoId
+            && !isActiveVideoShelfPreview(targetVideoId)
+          ) {
+            clearFocusedVideoPreview(targetVideoId)
+            showToast(t('toast.couldNotShowVideo'), 'warn')
+          }
+        })
+      })
+    }, reduceMotion ? 0 : 750)
+  })
+  return false
+}
+
+function clearFocusedVideoPreview(videoId) {
+  const targetVideoId = String(videoId ?? '')
+  window.clearTimeout(nextStudyFocusZoomTimer)
+  if (activeNextStudyFocusVideoId === targetVideoId) activeNextStudyFocusVideoId = null
+  document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
+    if (card.dataset.videoId === targetVideoId) card.classList.remove('next-study-focus-target')
+  })
+  if (activeVideoShelfPreview?.dataset.videoId === targetVideoId) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
+}
+
+function shouldIgnoreVideoShelfHoverForPendingFocus(card, force = false, pointerEvent = null) {
+  const focusedVideoId = String(activeNextStudyFocusVideoId ?? '')
+  const requestedVideoId = String(card?.dataset?.videoId ?? '')
+  // A smooth shelf scroll can move another card beneath the pointer before the requested preview opens.
+  return !force
+    && pointerEvent?.type === 'mouseenter'
+    && Boolean(focusedVideoId)
+    && Boolean(requestedVideoId)
+    && requestedVideoId !== focusedVideoId
+    && !isActiveVideoShelfPreview(focusedVideoId)
+}
+
+function releaseNextStudyFocusForShelfPreview(card, force = false) {
+  const focusedVideoId = String(activeNextStudyFocusVideoId ?? '')
+  const requestedVideoId = String(card?.dataset?.videoId ?? '')
+  if (force || !focusedVideoId || !requestedVideoId || requestedVideoId === focusedVideoId) return false
+  clearFocusedVideoPreview(focusedVideoId)
+  return true
+}
+
+function pushUndoAction(s, action) {
+  normalizeUndoState(s)
+  if (!action.createdAt) action.createdAt = new Date().toISOString()
+  if (!action.id) {
+    action.id = typeof crypto?.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `action-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  }
+  s.undoStack.push(action)
+  s.redoStack = []
+  if (s.undoStack.length > UNDO_STACK_LIMIT) {
+    s.undoStack.splice(0, s.undoStack.length - UNDO_STACK_LIMIT)
+  }
+  return action
+}
+
+async function undoHistoryActionById(actionId) {
+  const state = loadState({ persistCleanup: false })
+  normalizeUndoState(state)
+  const index = state.undoStack.findIndex(action => action?.id === actionId)
+  if (index < 0) {
+    showToast(t('toast.nothingUndo'), 'warn')
+    return false
+  }
+  if (!await applyHistoryAction('undo', index)) return false
+  return true
+}
+
+function cloneVideoForHistoryAction(video) {
+  return video ? {
+    ...video,
+    watchProgress: normalizeVideoWatchProgress(video.watchProgress, video.duration),
+    ...(Object.prototype.hasOwnProperty.call(video, 'watchCycleCoverage')
+      ? { watchCycleCoverage: normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration) }
+      : Object.prototype.hasOwnProperty.call(video, 'rewatchCoverage')
+      ? { watchCycleCoverage: normalizeVideoWatchCoverage(video.rewatchCoverage, video.duration) }
+      : {})
+  } : null
+}
+
+async function undoLastVideoAction() {
+  const s = loadState({ persistCleanup: false })
+  normalizeUndoState(s)
+  if (!await applyHistoryAction('undo', s.undoStack.length - 1)) return false
+}
+
+async function redoLastVideoAction() {
+  const s = loadState({ persistCleanup: false })
+  normalizeUndoState(s)
+  if (!await applyHistoryAction('redo', s.redoStack.length - 1)) return false
+}
+
+async function applyHistoryAction(direction, actionIndex) {
+  const s = loadState({ persistCleanup: false })
+  normalizeUndoState(s)
+  const sourceStack = direction === 'redo' ? s.redoStack : s.undoStack
+  const targetStack = direction === 'redo' ? s.undoStack : s.redoStack
+  const index = Number(actionIndex)
+  const action = sourceStack[index]
+
+  if (!UNDO_ACTION_TYPES.includes(action?.type)) {
+    showToast(direction === 'redo' ? t('toast.nothingRedo') : t('toast.nothingUndo'), 'warn')
+    return
+  }
+
+  const checkpoint = action.videoId ? captureVideoActionState(s, action.videoId) : null
+  const channelCheckpoint = action.type === 'channel-remove'
+    ? captureChannelActionState(s, action.channelId) : null
+  const persistAction = async () => channelCheckpoint
+    ? await persistChannelAction(s, channelCheckpoint) : await persistVideoAction(s, checkpoint)
+  const targetSnapshot = direction === 'redo' ? action.after : action.before
+  const previousSnapshot = direction === 'redo' ? action.before : action.after
+  const restoresTrackedChannel = action.type === 'channel-remove'
+    && Boolean(targetSnapshot?.channel)
+    && !getTrackedChannelIds(s).includes(action.channelId)
+  if (
+    restoresTrackedChannel
+    && !requestTrackedChannelAddition(s, action.channelId)
+  ) return
+
+  sourceStack.splice(index, 1)
+  let historyResult = null
+
+  if (action.type === 'channel-remove') {
+    historyResult = applyChannelRemoveActionSnapshot(s, action, targetSnapshot, direction)
+  } else if (action.type === 'manual-video-add') {
+    historyResult = applyManualVideoAddActionSnapshot(s, action, targetSnapshot, direction)
+  } else {
+    const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot, action, direction)
+    if (video) {
+      historyResult = {
+        detail: formatHistoryActionToast(direction, video, targetSnapshot, action),
+        toast: formatHistoryActionToast(direction, video, targetSnapshot, action),
+        meta: { videoId: action.videoId },
+        video
+      }
+    }
+  }
+
+  if (!historyResult) {
+    if (!await persistAction()) return false
+    renderAll(s)
+    showToast(t('toast.videoGone'), 'warn')
+    return
+  }
+
+  targetStack.push(action)
+  if (targetStack.length > UNDO_STACK_LIMIT) {
+    targetStack.splice(0, targetStack.length - UNDO_STACK_LIMIT)
+  }
+  syncStreak(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: direction === 'redo' ? 'redo' : 'undo',
+    status: 'success',
+    title: direction === 'redo' ? t('undo.logRedoTitle') : t('undo.logUndoTitle'),
+    detail: historyResult.detail,
+    meta: historyResult.meta
+  })
+  if (action.type === 'video-status' || action.type === 'video-resume-time') {
+    appendPointDeltaActivityLog(s, {
+      action,
+      direction,
+      reason: direction,
+      video: historyResult.video,
+      createdAt: new Date().toISOString()
+    })
+  }
+
+  closeHistoryActionPopovers()
+  if (!await persistAction()) return false
+  const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
+  trackEdeniaEvent(`${direction}_applied`, {
+    action_type: action.type,
+    video_url: affectedVideo
+      ? getVideoAnalyticsProperties(affectedVideo).video_url
+      : null,
+    channel_id: action.channelId || affectedVideo?.channelId || null,
+    affected_video_status: affectedVideo ? getVideoStatus(affectedVideo) : null
+  })
+  if (action.type === 'video-favorite' && affectedVideo) {
+    trackVideoFavoriteChanged(
+      s,
+      affectedVideo,
+      previousSnapshot?.favorite === true || isFavoriteVideo(previousSnapshot?.video),
+      direction
+    )
+  }
+  if (action.type === 'video-status' && affectedVideo) {
+    trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(affectedVideo, {
+      previous_status: normalizeVideoStatus(previousSnapshot?.status),
+      new_status: getVideoStatus(affectedVideo),
+      previous_watch_later: Boolean(previousSnapshot?.video?.watchLater),
+      watch_later: isVideoWatchLater(affectedVideo),
+      previous_set_aside: isVideoSetAside(previousSnapshot?.video),
+      set_aside: isVideoSetAside(affectedVideo),
+      favorite: isFavoriteVideo(affectedVideo),
+      resume_at_seconds: normalizeResumeAtSeconds(affectedVideo.resumeAtSeconds, affectedVideo.duration),
+      surface: direction
+    }))
+  }
+  renderAll(s)
+  if (action.type === 'video-favorite' && activeVideoShelfPlayer?.videoId === String(action.videoId ?? '')) {
+    const isFavorite = isFavoriteVideo(s.videos?.[action.videoId])
+    updateVideoPlayerFavoriteButton(
+      activeVideoShelfPlayer.overlay?.querySelector('.video-player-favorite'),
+      isFavorite
+    )
+    syncVideoWatchPromptFavoriteAction(action.videoId, isFavorite)
+  }
+  showToast(historyResult.toast)
+}
+
+function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo') {
+  if (!snapshot) return null
+  const channelId = action.channelId
+  const channel = snapshot.channel || action.before?.channel || action.after?.channel || {
+    id: channelId,
+    name: action.channelName || channelId
+  }
+
+  s.config.channels = Array.isArray(s.config.channels) ? s.config.channels : []
+  for (const key of ['removedChannelIds', 'removedDefaultChannelIds']) {
+    // Undo one channel without changing intentional removals of other channels.
+    s.config[key] = (s.config[key] || []).filter(id => id !== channelId)
+    if (snapshot[key]?.includes(channelId)) s.config[key].push(channelId)
+  }
+
+  const channelIndex = s.config.channels.findIndex(existing => existing.id === channelId)
+  if (snapshot.channel) {
+    if (channelIndex >= 0) s.config.channels[channelIndex] = { ...channel }
+    else s.config.channels.push({ ...channel })
+  } else if (channelIndex >= 0) {
+    s.config.channels.splice(channelIndex, 1)
+  }
+
+  const refreshes = getChannelRefreshes(s)
+  if (snapshot.refresh) refreshes[channelId] = { ...snapshot.refresh }
+  else delete refreshes[channelId]
+
+  Object.entries(snapshot.videos || {}).forEach(([videoId, video]) => {
+    if (video) s.videos[videoId] = cloneVideoForHistoryAction(video)
+  })
+  Object.entries(snapshot.videoVisibility || {}).forEach(([videoId, fields]) => {
+    if (s.videos[videoId]) restoreChannelRemovalVideoFields(s.videos[videoId], fields)
+  })
+  if (!snapshot.channel) {
+    Object.values(s.videos || {}).forEach(video => {
+      if (!isChannelRemovalVideo(video, channelId)) return
+      if (!video.channelImageUrl && channel.imageUrl) video.channelImageUrl = channel.imageUrl
+      if (shouldPreserveVideoAfterTrackedChannelRemoval(video)) {
+        video.hiddenFromGrid = false
+        video.hiddenFromGridAt = null
+      } else {
+        video.hiddenFromGrid = true
+        video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+      }
+    })
+  }
+
+  normalizeRemovedChannels(s)
+
+  return {
+    detail: formatChannelRemoveActionToast(direction, channel, snapshot),
+    toast: formatChannelRemoveActionToast(direction, channel, snapshot),
+    meta: { channelId }
+  }
+}
+
+function applyManualVideoAddActionSnapshot(s, action, snapshot, direction = 'undo') {
+  if (!snapshot) return null
+  const videoId = action.videoId
+  const channelId = action.channelId
+  const actionVideo = snapshot.video || action.after?.video || action.before?.video
+  if (!videoId || !actionVideo) return null
+  let channelChanged = false
+
+  if (direction === 'undo') {
+    if (
+      action.channelWasAdded
+      && channelId
+      && s.config.channels.some(channel => channel.id === channelId)
+    ) {
+      applyChannelRemoval(s, channelId)
+      channelChanged = true
+    }
+    if (snapshot.exists && snapshot.video) {
+      s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    } else {
+      delete s.videos[videoId]
+    }
+  } else {
+    if (
+      action.channelWasAdded
+      && snapshot.channel
+      && shouldTrackManualVideoChannel(plusAccessPolicy)
+    ) {
+      channelChanged = addTrackedYoutubeChannelToState(s, snapshot.channel)
+    }
+    s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+  }
+
+  const title = formatToastTitle(actionVideo.title)
+  const channelName = action.channelName || snapshot.channel?.name || channelId
+  const detail = direction === 'redo'
+    ? channelChanged
+      ? t('undo.addedVideoAndChannelRestored', { title, channel: channelName })
+      : t('undo.addedVideoRestored', { title })
+    : channelChanged
+      ? t('undo.addedVideoAndChannelRemoved', { title, channel: channelName })
+      : t('undo.addedVideoRemoved', { title })
+
+  return {
+    detail,
+    toast: detail,
+    meta: { videoId, channelId }
+  }
+}
+
+function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, direction = 'undo') {
+  if (!snapshot) return null
+  let video = s.videos?.[videoId]
+  const wasWatched = getVideoStatus(video) === 'watched'
+  const wasSetAside = isVideoSetAside(video)
+  if (!video && snapshot.video) {
+    s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    video = s.videos[videoId]
+  }
+  if (!video) return null
+  if (shouldDeleteManualVideoOnUndo(video, action, snapshot, direction)) {
+    if (!Object.prototype.hasOwnProperty.call(snapshot, 'exists')) snapshot.exists = false
+    if (action?.after && !action.after.video) action.after.video = cloneVideoForHistoryAction(video)
+    delete s.videos[videoId]
+    return cloneVideoForHistoryAction(video)
+  }
+  if (snapshot.video) {
+    s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    if (wasWatched && !wasSetAside && getVideoStatus(s.videos[videoId]) !== 'watched') {
+      grantWatchedConfirmationUnlock(s, s.videos[videoId])
+    }
+    return s.videos[videoId]
+  }
+  video.status = snapshot.status
+  video.watchedAt = snapshot.watchedAt
+  video.resumeAtSeconds = normalizeResumeAtSeconds(snapshot.resumeAtSeconds, video.duration)
+  if (wasWatched && !wasSetAside && getVideoStatus(video) !== 'watched') {
+    grantWatchedConfirmationUnlock(s, video)
+  }
+  return video
+}
+
+function shouldDeleteManualVideoOnUndo(video, action, snapshot, direction) {
+  if (direction !== 'undo') return false
+  if (snapshot?.exists === false) return true
+  if (Object.prototype.hasOwnProperty.call(snapshot || {}, 'exists')) return false
+  return Boolean(
+    video?.manuallyAdded &&
+    video?.source === 'manual' &&
+    action?.after?.status === 'watched' &&
+    action?.before?.status === 'unwatched' &&
+    !action?.before?.watchedAt
+  )
+}
+
+function formatHistoryActionToast(direction, video, snapshot, action = null) {
+  if (action?.type === 'video-grid-remove') {
+    return direction === 'redo'
+      ? t('undo.videoRemoved', { title: formatToastTitle(video.title) })
+      : t('undo.videoRestored', { title: formatToastTitle(video.title) })
+  }
+  if (action?.type === 'video-organization') {
+    return t(`undo.videoOrganization.${direction}Toast`, {
+      title: formatToastTitle(video.title)
+    })
+  }
+  if (action?.type === 'video-favorite') {
+    const isFavorite = snapshot?.video
+      ? isFavoriteVideo(snapshot.video)
+      : snapshot?.favorite === true
+    return t(isFavorite ? 'undo.favoriteAdded' : 'undo.favoriteRemoved', {
+      title: formatToastTitle(video.title)
+    })
+  }
+  const verb = direction === 'redo' ? t('undo.redid') : t('undo.undid')
+  if (action?.type === 'video-resume-time') {
+    return t('undo.continueAtSet', {
+      verb,
+      title: formatToastTitle(video.title),
+      time: formatResumeTimestamp(snapshot?.resumeAtSeconds) || '00:00:00'
+    })
+  }
+  if (snapshot?.exists === false) {
+    return t('undo.removed', { verb, title: formatToastTitle(video.title) })
+  }
+  const statusLabel = isVideoSetAside(snapshot?.video)
+    ? t('videos.status.setAside')
+    : formatVideoStatus(snapshot.status)
+  return t('undo.backTo', { verb, title: formatToastTitle(video.title), status: statusLabel })
+}
+
+function formatChannelRemoveActionToast(direction, channel, snapshot) {
+  const channelName = channel?.name || channel?.id || t('videos.channels.one')
+  return snapshot?.channel
+    ? t('undo.channelRestored', { name: channelName })
+    : t('undo.channelRemoved', { name: channelName })
+}
+
+function getHistoricalStreakDayCounts(s, end) {
+  const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
+    .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .map(row => row.dateKey)
+    .sort()
+  const streakDayCounts = new Map()
+  let run = []
+  const saveRun = () => {
+    if (run.length >= HEATMAP_STREAK_RUN_MIN_DAYS) {
+      run.forEach((dateKey, index) => streakDayCounts.set(dateKey, index + 1))
+    }
+  }
+
+  qualifyingDays.forEach(dateKey => {
+    const previous = run[run.length - 1]
+    if (previous && getDaysBetweenDateKeys(previous, dateKey) !== 1) {
+      saveRun()
+      run = []
+    }
+    run.push(dateKey)
+  })
+  saveRun()
+  return streakDayCounts
+}
+
+function syncStreak(s) {
+  const today = getCurrentAppDateKey(s)
+  const end = getCurrentAppDate(s)
+  end.setHours(23, 59, 59, 999)
+
+  const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
+    .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .map(row => row.dateKey)
+    .sort()
+
+  const qualifyingSet = new Set(qualifyingDays)
+  let longest = 0
+  let run = 0
+  let previous = null
+
+  for (const dateKey of qualifyingDays) {
+    run = previous && getDaysBetweenDateKeys(previous, dateKey) === 1 ? run + 1 : 1
+    longest = Math.max(longest, run)
+    previous = dateKey
+  }
+
+  const yesterday = getPreviousDateKey(today)
+  const anchor = qualifyingSet.has(today) ? today : qualifyingSet.has(yesterday) ? yesterday : null
+  let current = 0
+  let cursor = anchor
+
+  while (cursor && qualifyingSet.has(cursor)) {
+    current += 1
+    cursor = getPreviousDateKey(cursor)
+  }
+
+  s.streak.current = current
+  s.streak.longest = longest
+  s.streak.lastActivityDate = qualifyingDays[qualifyingDays.length - 1] || null
+}
+
+function isStreakAlive(s) {
+  const today     = getCurrentAppDateKey(s)
+  const yesterday = getPreviousDateKey(today)
+  return s.streak.lastActivityDate === today || s.streak.lastActivityDate === yesterday
+}
+
+function formatVideoStatus(status) {
+  return {
+    unwatched: t('videos.status.unwatched'),
+    'watch-later': t('videos.status.watchLater'),
+    partial: t('videos.status.partial'),
+    watched: t('videos.status.watched')
+  }[status] || t('videos.status.previous')
+}
+
+function formatToastTitle(title) {
+  const clean = title || 'Video'
+  return clean.length > 48 ? `${clean.slice(0, 45)}...` : clean
+}
+
+// ════════════════════════════════════════════════════════════
+// ANKI
+// ════════════════════════════════════════════════════════════
+
+async function ankiConnect(action, params = {}, timeoutMs = 2500) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(ANKI_CONNECT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, version: 6, params }),
+      signal: controller.signal
+    })
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    return data.result
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function fetchAnkiStats() {
+  const actions = [
+    { action: 'getNumCardsReviewedToday' },
+    { action: 'findCards', params: { query: 'added:1' } },
+    { action: 'findCards', params: { query: 'is:due' } }
+  ]
+  const result = await ankiConnect('multi', { actions })
+  const unwrap = (idx, fallback) => {
+    const item = result?.[idx]
+    if (item == null) return fallback
+    if (typeof item === 'object' && !Array.isArray(item) && 'error' in item) {
+      if (item.error) return fallback
+      return item.result ?? fallback
+    }
+    return item
+  }
+
+  const newToday = unwrap(1, [])
+  const dueCards = unwrap(2, [])
+  return {
+    reviewedToday: unwrap(0, 0) || 0,
+    newToday: Array.isArray(newToday) ? newToday.length : 0,
+    dueCards: Array.isArray(dueCards) ? dueCards.length : 0,
+    fetchedAt: new Date().toISOString(),
+    ankiDateKey: getCurrentAnkiDateKey()
+  }
+}
+
+function isHostedOrigin() {
+  return window.location.protocol === 'https:' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
+}
+
+function formatAnkiConnectError(err) {
+  if (err?.name === 'AbortError') {
+    return t('anki.unavailableOpen')
+  }
+
+  const message = err?.message || ''
+  if (message === 'Failed to fetch') {
+    return isHostedOrigin()
+      ? t('anki.blockedHosted')
+      : t('anki.unavailableOpen')
+  }
+
+  return message ? t('anki.failed', { message }) : t('anki.notAvailable')
+}
+
+async function refreshAnkiStats({ silent = false } = {}) {
+  if (ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(loadState())) return
+  try {
+    ankiStatsCache = await fetchAnkiStats()
+    if (await syncAnkiStatsToState(ankiStatsCache) === false) return false
+    renderAnkiStatus(loadState())
+  } catch (err) {
+    ankiStatsCache = null
+    const s = loadState()
+    // Failed automatic refreshes contain no Study fact. Keep their status
+    // feedback local instead of creating a signed-in profile revision.
+    if (s && !(silent && learnerProfileLifecycleAuthority)) {
+      const message = formatAnkiConnectError(err)
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'anki-refresh',
+        status: 'warn',
+        title: t('log.ankiRefreshFailed.title'),
+        detail: message
+      })
+      if (!await saveState(s)) return false
+    }
+    renderAnkiStatus(s)
+  }
+}
+
+function startAnkiAutoRefresh() {
+  clearInterval(startAnkiAutoRefresh._timer)
+  startAnkiAutoRefresh._timer = setInterval(() => {
+    if (!ankiRefreshDeferredForPrompt && !document.hidden && isAnkiTrackingActive(loadState())) refreshAnkiStats({ silent: true })
+  }, ANKI_AUTO_REFRESH_MS)
+}
+
+function stopAnkiAutoRefresh() {
+  clearInterval(startAnkiAutoRefresh._timer)
+  startAnkiAutoRefresh._timer = null
+  ankiStatsCache = null
+}
+
+function applyAnkiRefreshPreference(state = loadState()) {
+  if (IS_SANDBOX || ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(state)) {
+    stopAnkiAutoRefresh()
+    return
+  }
+  startAnkiAutoRefresh()
+  refreshAnkiStats({ silent: true })
+}
+
+function refreshAnkiStatsOnVisible() {
+  if (!IS_SANDBOX && !ankiRefreshDeferredForPrompt && !document.hidden && isAnkiTrackingActive(loadState())) refreshAnkiStats({ silent: true })
+}
+
+async function syncAnkiStatsToState(stats) {
+  const s = loadState()
+  if (!s || !stats) return
+
+  applyAnkiStatsToState(s, stats)
+  const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
+  const tracked = getTrackedAnkiCounts(s, ankiDateKey)
+  appendActivityLog(s, {
+    actor: 'auto',
+    type: 'anki-refresh',
+    status: 'success',
+    title: t('log.ankiStats.title'),
+    detail: t('log.ankiStats.detail', { reviewed: tracked.reviewed, created: tracked.created }),
+    meta: {
+      ankiDateKey,
+      reviewedToday: tracked.reviewed,
+      newToday: tracked.created,
+      rawReviewedToday: stats.reviewedToday,
+      rawNewToday: stats.newToday,
+      dueCards: stats.dueCards
+    }
+  })
+  trackEdeniaEvent('anki_refresh_succeeded', {
+    refreshed_at: stats.fetchedAt || new Date().toISOString(),
+    anki_date: ankiDateKey,
+    reviewed_today: tracked.reviewed,
+    cards_created_today: tracked.created,
+    raw_reviewed_today: stats.reviewedToday,
+    raw_cards_created_today: stats.newToday,
+    due_card_count: stats.dueCards
+  })
+  syncStreak(s)
+  if (!await saveState(s)) return false
+  renderHeader(s)
+  renderAnalytics(getWeeklyStats(s), s)
+  const score = getCurrentCityScore(s)
+  renderCity(score, s)
+}
+
+function applyAnkiStatsToState(s, stats) {
+  if (!s || !stats) return null
+  const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
+  const rawReviewed = normalizeAnkiCount(stats.reviewedToday)
+  const rawCreated = normalizeAnkiCount(stats.newToday)
+  const pending = s.config?.ankiPendingResumeBaseline
+
+  if (pending?.dateKey === ankiDateKey) {
+    if (!s.config.ankiResumeBaselines || typeof s.config.ankiResumeBaselines !== 'object' || Array.isArray(s.config.ankiResumeBaselines)) {
+      s.config.ankiResumeBaselines = {}
+    }
+    s.config.ankiResumeBaselines[ankiDateKey] = {
+      rawReviewed,
+      rawCreated,
+      trackedReviewed: normalizeAnkiCount(pending.trackedReviewed),
+      trackedCreated: normalizeAnkiCount(pending.trackedCreated),
+      createdAt: pending.createdAt || new Date().toISOString()
+    }
+    s.config.ankiPendingResumeBaseline = null
+  }
+
+  const baseline = s.config?.ankiResumeBaselines?.[ankiDateKey]
+  const reviewed = baseline
+    ? normalizeAnkiCount(baseline.trackedReviewed) + Math.max(0, rawReviewed - normalizeAnkiCount(baseline.rawReviewed))
+    : rawReviewed
+  const created = baseline
+    ? normalizeAnkiCount(baseline.trackedCreated) + Math.max(0, rawCreated - normalizeAnkiCount(baseline.rawCreated))
+    : rawCreated
+
+  s.anki[ankiDateKey] = {
+    reviewed,
+    created,
+    loggedAt: stats.fetchedAt,
+    source: 'ankiconnect',
+    rawReviewed,
+    rawCreated
+  }
+  return s.anki[ankiDateKey]
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id)
+  if (el) el.textContent = value ?? '—'
+}
+
+function getHistoryRange(range = selectedHistoryRange, from = new Date(), state = null) {
+  const currentDate = getCurrentAppDate(state)
+  const end = new Date(from)
+  end.setHours(23, 59, 59, 999)
+
+  const start = new Date(from)
+  if (range === 'month') {
+    start.setDate(1)
+    start.setHours(0, 0, 0, 0)
+    end.setMonth(start.getMonth() + 1, 0)
+    end.setHours(23, 59, 59, 999)
+  } else if (range === 'week') {
+    start.setTime(getWeekStart(from).getTime())
+    end.setTime(start.getTime())
+    end.setDate(start.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
+  } else {
+    start.setHours(0, 0, 0, 0)
+  }
+
+  if (end > currentDate) {
+    end.setTime(currentDate.getTime())
+    end.setHours(23, 59, 59, 999)
+  }
+  return { start, end }
+}
+
+function createHistoryBucket(dateKey) {
+  return {
+    dateKey,
+    secondsWatched: 0,
+    videosWatched: 0,
+    ankiReviewed: 0,
+    ankiCreated: 0,
+    points: 0,
+    watchedVideos: []
+  }
+}
+
+function getStudyHistory(s, range = selectedHistoryRange, periodKey = selectedHistoryPeriod[range]) {
+  const options = getHistoryPeriodOptions(s, range)
+  const selectedOption = options.find(option => option.key === periodKey) || options[0]
+  if (!selectedOption) return { rows: [], summary: createHistoryBucket('summary') }
+  const { start, end } = getHistoryRange(range, selectedOption.start, s)
+  return getStudyHistoryBetween(s, start, end)
+}
+
+function getHistoryPeriodAccessDecision(state, periodStart) {
+  return getStudyHistoryAccessDecision({
+    accessPolicy: plusAccessPolicy,
+    currentDate: getCurrentAppDate(state),
+    periodStart
+  })
+}
+
+function getSelectedHistoryPeriodOption(
+  state,
+  range = selectedHistoryRange,
+  periodKey = selectedHistoryPeriod[range]
+) {
+  const options = getHistoryPeriodOptions(state, range)
+  return options.find(option => option.key === periodKey) || options[0] || null
+}
+
+function requestStudyHistoryAccess(accessState) {
+  hideHeatmapTooltip()
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.LOADING) {
+    showToast(t('plus.history.feedback.loading'), 'warn')
+    return false
+  }
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE) {
+    showToast(t('plus.history.feedback.unavailable'), 'warn')
+    return false
+  }
+  return openPlusUpgradeModal(PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY)
+}
+
+function getStudyActivityDateKeys(s) {
+  const dateKeys = new Set()
+  for (const video of Object.values(s?.videos || {})) {
+    getVideoWatchActivityDateKeys(video).forEach(dateKey => dateKeys.add(dateKey))
+  }
+
+  for (const [dateKey, day] of Object.entries(s?.anki || {})) {
+    const reviewed = normalizeAnkiCount(day.reviewed)
+    const created = normalizeAnkiCount(day.created)
+    if (reviewed <= 0 && created <= 0) continue
+    dateKeys.add(dateKey)
+  }
+
+  return [...dateKeys].sort((a, b) => b.localeCompare(a))
+}
+
+function getHistoryPeriodOptions(s, range = selectedHistoryRange) {
+  const periods = new Map()
+  getStudyActivityDateKeys(s).forEach(dateKey => {
+    const date = dateKeyToLocalDate(dateKey)
+    const start = range === 'month'
+      ? new Date(date.getFullYear(), date.getMonth(), 1)
+      : getWeekStart(date)
+    const key = range === 'month'
+      ? `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`
+      : toDateKey(start)
+
+    if (!periods.has(key)) {
+      periods.set(key, {
+        key,
+        start,
+        label: range === 'month' ? formatHistoryMonthOption(start) : formatHistoryWeekOption(start)
+      })
+    }
+  })
+
+  return [...periods.values()].sort((a, b) => b.start - a.start)
+}
+
+function formatHistoryMonthOption(start) {
+  return formatLocaleDate(start, { month: 'long', year: 'numeric' })
+}
+
+function formatHistoryWeekOption(start) {
+  const end = addDays(start, 6)
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const startText = formatLocaleDate(start, {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric'
+  })
+  const endText = formatLocaleDate(end, { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${startText} - ${endText}`
+}
+
+function syncHistoryPeriodSelection(s) {
+  const options = getHistoryPeriodOptions(s, selectedHistoryRange)
+  if (!options.length) {
+    selectedHistoryPeriod[selectedHistoryRange] = null
+    return options
+  }
+
+  const currentKey = selectedHistoryPeriod[selectedHistoryRange]
+  if (!options.some(option => option.key === currentKey)) {
+    const currentRange = getHistoryRange(selectedHistoryRange, getCurrentAppDate(s), s)
+    const currentPeriodKey = selectedHistoryRange === 'month'
+      ? `${currentRange.start.getFullYear()}-${String(currentRange.start.getMonth() + 1).padStart(2, '0')}`
+      : toDateKey(currentRange.start)
+    selectedHistoryPeriod[selectedHistoryRange] =
+      options.find(option => option.key === currentPeriodKey)?.key || options[0].key
+  }
+
+  return options
+}
+
+function getStudyHistoryBetween(s, start, end) {
+  const buckets = new Map()
+  const ensureBucket = dateKey => {
+    if (!buckets.has(dateKey)) buckets.set(dateKey, createHistoryBucket(dateKey))
+    return buckets.get(dateKey)
+  }
+
+  for (const video of Object.values(s.videos || {})) {
+    getVideoWatchProgressEntries(video).forEach(entry => {
+      const date = new Date(entry.watchedAt)
+      if (date < start || date > end) return
+      const bucket = ensureBucket(toDateKey(date))
+      if (!bucket.watchedVideoMap) bucket.watchedVideoMap = new Map()
+      const videoId = video.id || ''
+      let watchedVideo = bucket.watchedVideoMap.get(videoId)
+      if (!watchedVideo) {
+        watchedVideo = {
+          id: videoId,
+          title: video.title || t('videos.search.untitled'),
+          thumbnail: video.thumbnail || '',
+          duration: 0,
+          watchedAt: entry.watchedAt
+        }
+        bucket.watchedVideoMap.set(videoId, watchedVideo)
+        bucket.watchedVideos.push(watchedVideo)
+        bucket.videosWatched += 1
+      }
+      watchedVideo.duration += entry.seconds || 0
+      if (new Date(entry.watchedAt) > new Date(watchedVideo.watchedAt)) watchedVideo.watchedAt = entry.watchedAt
+      bucket.secondsWatched += entry.seconds || 0
+    })
+  }
+
+  for (const [dateKey, day] of Object.entries(s.anki || {})) {
+    const reviewed = normalizeAnkiCount(day.reviewed)
+    const created = normalizeAnkiCount(day.created)
+    if (reviewed <= 0 && created <= 0) continue
+    const date = new Date(`${dateKey}T00:00:00`)
+    if (date < start || date > end) continue
+    const bucket = ensureBucket(dateKey)
+    bucket.ankiReviewed += reviewed
+    bucket.ankiCreated += created
+  }
+
+  const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+  rows.forEach(row => {
+    row.watchedVideos.sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt))
+    delete row.watchedVideoMap
+  })
+
+  const summary = rows.reduce((acc, row) => {
+    acc.secondsWatched += row.secondsWatched
+    acc.videosWatched += row.videosWatched
+    acc.ankiReviewed += row.ankiReviewed
+    acc.ankiCreated += row.ankiCreated
+    acc.points += getHistoryDayPoints(row)
+    acc.watchedVideos.push(...row.watchedVideos)
+    return acc
+  }, createHistoryBucket('summary'))
+
+  return { rows, summary }
+}
+
+function renderHistoryWatchedCell(row) {
+  if (!row.videosWatched || !row.watchedVideos.length) {
+    return `
+      <span class="history-video-cell">
+        <span class="history-video-count history-video-count-empty">
+          <span class="history-video-count-number">0</span>
+        </span>
+      </span>
+    `
+  }
+  return `
+    <span class="history-video-cell" data-history-watched-popover-action="toggle">
+      <button type="button" class="history-video-count" aria-expanded="false" aria-label="${escHtml(t('history.showWatched', { count: row.videosWatched, date: formatHeatmapTitle(row) }))}">
+        <span class="history-video-count-number">${row.videosWatched}</span>
+        <span class="history-video-count-caret" aria-hidden="true"></span>
+      </button>
+      <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}">
+        ${row.watchedVideos.map(video => `
+          <button type="button" class="history-video-popover-item" data-history-watched-video-action="jump" data-video-id="${escHtml(video.id)}">
+            ${video.thumbnail
+              ? `<img src="${escHtml(video.thumbnail)}" alt="" class="history-video-thumb" loading="lazy">`
+              : '<span class="history-video-thumb history-video-thumb-empty"></span>'}
+            <span class="history-video-details">
+              <span class="history-video-title">${escHtml(video.title)}</span>
+              <span class="history-video-duration">${formatDuration(video.duration)}</span>
+            </span>
+          </button>
+        `).join('')}
+      </span>
+    </span>
+  `
+}
+
+function formatHistoryPointNumber(points) {
+  const value = Number(points || 0)
+  return new Intl.NumberFormat(getCurrentLocale(), {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 1
+  }).format(value)
+}
+
+function formatHistoryPointLabel(points) {
+  const value = Number(points || 0)
+  return t('points.many', { count: formatHistoryPointNumber(value) })
+}
+
+function getVideoPointsFromSeconds(seconds) {
+  return ((Number(seconds) || 0) / 3600) * VIDEO_HOUR_POINTS
+}
+
+function getAnkiPointsFromReviews(reviews) {
+  return ((Number(reviews) || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS
+}
+
+function formatSignedHistoryPointLabel(points) {
+  const value = Number(points || 0)
+  const sign = value > 0 ? '+' : ''
+  return t('points.many', { count: `${sign}${formatHistoryPointNumber(value)}` })
+}
+
+function formatSignedActivityLogPointLabel(points) {
+  const value = Number(points || 0)
+  const sign = value > 0 ? '+' : ''
+  const count = new Intl.NumberFormat(getCurrentLocale(), {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
+  }).format(value)
+  return t('points.many', { count: `${sign}${count}` })
+}
+
+function getVideoSnapshotPoints(video) {
+  const secondsByDate = new Map()
+  getVideoWatchProgressEntries(video).forEach(entry => {
+    const dateKey = toDateKey(new Date(entry.watchedAt))
+    secondsByDate.set(dateKey, (secondsByDate.get(dateKey) || 0) + (entry.seconds || 0))
+  })
+  return Array.from(secondsByDate.values())
+    .reduce((sum, seconds) => sum + Math.floor((seconds / 3600) * VIDEO_HOUR_POINTS), 0)
+}
+
+function getVideoActionPointDelta(action, direction = 'redo') {
+  if (!action?.before || !action?.after) return 0
+  const beforePoints = getVideoSnapshotPoints(action.before.video)
+  const afterPoints = getVideoSnapshotPoints(action.after.video)
+  return direction === 'undo'
+    ? beforePoints - afterPoints
+    : afterPoints - beforePoints
+}
+
+function appendPointDeltaActivityLog(state, { action, direction = 'redo', reason = 'redo', video = null, createdAt = null } = {}) {
+  const delta = getVideoActionPointDelta(action, direction)
+  if (!delta) return null
+  const sourceVideo = video || action?.after?.video || action?.before?.video
+  const titleKey = reason === 'unmark'
+    ? 'activity.points.unmarkTitle'
+    : direction === 'undo'
+    ? 'activity.points.undoTitle'
+    : 'activity.points.redoTitle'
+  return appendActivityLog(state, {
+    actor: 'user',
+    type: 'point-delta',
+    status: delta < 0 ? 'warn' : 'success',
+    title: t(titleKey, { title: formatToastTitle(sourceVideo?.title || t('videos.search.untitled')) }),
+    detail: formatSignedHistoryPointLabel(delta),
+    createdAt: isValidTimestamp(createdAt) ? createdAt : new Date().toISOString(),
+    meta: {
+      pointsDelta: delta,
+      videoId: action?.videoId || sourceVideo?.id || null
+    }
+  })
+}
+
+function getHistoryPointBreakdown(row) {
+  const videoItems = (row.watchedVideos || [])
+    .filter(video => (video.duration || 0) > 0)
+    .map(video => ({
+      type: 'video',
+      title: video.title || t('videos.search.untitled'),
+      detail: formatHistoryTime(video.duration || 0),
+      points: getVideoPointsFromSeconds(video.duration || 0)
+    }))
+
+  const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+  const items = []
+  if ((row.ankiReviewed || 0) > 0) {
+    items.push({
+      type: 'anki',
+      title: t('history.pointsAnkiReviews'),
+      detail: t('history.pointsReviewsCount', { count: row.ankiReviewed }),
+      points: ankiPoints
+    })
+  }
+  items.push(...videoItems)
+
+  const total = Math.floor(items.reduce((sum, item) => sum + item.points, 0))
+  return {
+    items,
+    total
+  }
+}
+
+function renderHistoryPointsCell(row) {
+  const breakdown = getHistoryPointBreakdown(row)
+  const points = getHistoryDayPoints(row)
+  return `
+    <span class="history-points-cell" data-history-points-popover-action="toggle">
+      <button type="button" class="history-points-trigger" aria-expanded="false" aria-label="${escHtml(t('history.showPoints', { date: formatHeatmapTitle(row) }))}">
+        ${points}
+      </button>
+      <span class="history-points-popover" role="dialog" aria-label="${escHtml(t('history.pointsDialog'))}">
+        <span class="history-points-popover-total">
+          <span>${escHtml(t('history.pointsDailyTotal'))}</span>
+          <b>${escHtml(formatHistoryPointLabel(breakdown.total))}</b>
+        </span>
+        ${breakdown.items.length
+          ? breakdown.items.map(item => `
+            <span class="history-points-popover-item">
+              <span class="history-points-popover-title">${escHtml(item.title)}</span>
+              <span class="history-points-popover-detail">${escHtml(item.detail)}</span>
+              <span class="history-points-popover-score">${escHtml(formatHistoryPointLabel(item.points))}</span>
+            </span>
+          `).join('')
+          : `<span class="history-points-popover-empty">${escHtml(t('history.pointsNone'))}</span>`}
+      </span>
+    </span>
+  `
+}
+
+function toggleHistoryVideoPopover(event) {
+  event.stopPropagation()
+  const cell = event.currentTarget.closest('.history-video-cell')
+  if (!cell) return
+  if (hasCoarsePrimaryPointer()) {
+    openHistoryVideoCell(cell, true)
+    return
+  }
+  const shouldOpen = !cell.classList.contains('open')
+  openHistoryVideoCell(cell, shouldOpen)
+}
+
+function openHistoryVideoPopover(event) {
+  const cell = event.currentTarget.closest('.history-video-cell')
+  if (!cell) return
+  openHistoryVideoCell(cell, true)
+}
+
+function closeHistoryVideoPopoverSoon() {
+  clearTimeout(openHistoryVideoCell._closeTimer)
+  openHistoryVideoCell._closeTimer = window.setTimeout(() => closeHistoryVideoPopovers(), 80)
+}
+
+function openHistoryVideoCell(cell, shouldOpen = true) {
+  clearTimeout(openHistoryVideoCell._closeTimer)
+  closeManualVideoPopover()
+  closeHistoryPointsPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryVideoPopovers(cell)
+  cell.classList.toggle('open', shouldOpen)
+  cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', String(shouldOpen))
+}
+
+function closeHistoryVideoPopovers(exceptCell = null) {
+  clearTimeout(openHistoryVideoCell._closeTimer)
+  document.querySelectorAll('.history-video-cell.open').forEach(cell => {
+    if (cell === exceptCell) return
+    cell.classList.remove('open')
+    cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryVideoPopoversOnOutsideClick(event) {
+  if (event.target.closest('.history-video-cell')) return
+  closeHistoryVideoPopovers()
+}
+
+function closeHistoryVideoPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryVideoPopovers()
+}
+
+function toggleHistoryPointsPopover(event) {
+  event.stopPropagation()
+  const cell = event.currentTarget.closest('.history-points-cell')
+  if (!cell) return
+  if (hasCoarsePrimaryPointer()) {
+    openHistoryPointsCell(cell, true)
+    return
+  }
+  const shouldOpen = !cell.classList.contains('open')
+  openHistoryPointsCell(cell, shouldOpen)
+}
+
+function openHistoryPointsPopover(event) {
+  const cell = event.currentTarget.closest('.history-points-cell')
+  if (!cell) return
+  openHistoryPointsCell(cell, true)
+}
+
+function closeHistoryPointsPopoverSoon() {
+  clearTimeout(openHistoryPointsCell._closeTimer)
+  openHistoryPointsCell._closeTimer = window.setTimeout(() => closeHistoryPointsPopovers(), 80)
+}
+
+function openHistoryPointsCell(cell, shouldOpen = true) {
+  clearTimeout(openHistoryPointsCell._closeTimer)
+  closeManualVideoPopover()
+  closeHistoryVideoPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryPointsPopovers(cell)
+  cell.classList.toggle('open', shouldOpen)
+  cell.querySelector('.history-points-trigger')?.setAttribute('aria-expanded', String(shouldOpen))
+}
+
+function closeHistoryPointsPopovers(exceptCell = null) {
+  clearTimeout(openHistoryPointsCell._closeTimer)
+  document.querySelectorAll('.history-points-cell.open').forEach(cell => {
+    if (cell === exceptCell) return
+    cell.classList.remove('open')
+    cell.querySelector('.history-points-trigger')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryPointsPopoversOnOutsideClick(event) {
+  if (event.target.closest('.history-points-cell')) return
+  closeHistoryPointsPopovers()
+}
+
+function closeHistoryPointsPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryPointsPopovers()
+}
+
+function jumpToWatchedVideo(event, videoId) {
+  event?.stopPropagation()
+  const targetId = String(videoId ?? '')
+  const state = loadState()
+  const video = state?.videos?.[targetId]
+  if (!video) {
+    closeHistoryVideoPopovers()
+    showToast(t('toast.videoGone'), 'warn')
+    return
+  }
+
+  closeHistoryVideoPopovers()
+  if (isVideoRemovedFromFeed(video)) {
+    selectedStatusFilter = 'all'
+    isRemovedSectionCollapsed = false
+    forcedSearchVideoId = targetId
+    renderFeed(state)
+    window.requestAnimationFrame(() => {
+      const found = scrollToVideoCard(targetId, '#removedGrid .video-card', {
+        className: 'history-video-arriving',
+        duration: 2200
+      })
+      forcedSearchVideoId = null
+      if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+    })
+    return
+  }
+  if (getVideoStatus(video) === 'watched' && !isFavoriteVideo(video)) {
+    if (selectedStatusFilter === 'favorite') selectedStatusFilter = 'all'
+    isWatchedSectionCollapsed = false
+    forcedSearchVideoId = targetId
+    renderFeed(state)
+    window.requestAnimationFrame(() => {
+      const found = scrollToVideoCard(targetId, '#watchedGrid .video-card', {
+        className: 'history-video-arriving',
+        duration: 2200
+      })
+      forcedSearchVideoId = null
+      if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+    })
+    return
+  }
+
+  if (!usesPhoneComposition()) {
+    focusNextStudyVideoCard(event, targetId)
+    return
+  }
+
+  forcedSearchVideoId = targetId
+  renderFeed(state)
+  window.setTimeout(() => {
+    const found = scrollToVideoCard(targetId)
+    forcedSearchVideoId = null
+    if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+  }, 0)
+}
+
+function scrollToVideoCard(videoId, selector = '.video-card', options = {}) {
+  const card = findVideoCard(videoId, selector)
+  if (!card) return false
+  flashVideoCard(card, options)
+  return true
+}
+
+function findVideoCard(videoId, selector = '.video-card') {
+  const targetId = String(videoId ?? '')
+  for (const entry of videoShelfWindows.values()) {
+    const video = entry.group.videos.find(video => String(video.id) === targetId)
+    if (!video) continue
+    const format = getChannelVideoFormat(video)
+    if (entry.format !== format) applyChannelVideoFormatSelection(entry.shelf, entry.group.key, format)
+    entry.window.ensure(targetId)
+  }
+  videoCollectionWindows.forEach(entry => entry.ensure(targetId))
+  return Array.from(document.querySelectorAll(selector))
+    .find(element => element.dataset.videoId === targetId) || null
+}
+
+function isVideoCardFullyVisibleInViewport(card) {
+  if (!card?.isConnected) return false
+  const rect = card.getBoundingClientRect()
+  const trackRect = card.closest('.channel-shelf-track')?.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
+  const edgeTolerance = 1
+  const leftEdge = trackRect ? Math.max(0, trackRect.left) : 0
+  const rightEdge = trackRect
+    ? Math.min(viewportWidth, trackRect.right)
+    : viewportWidth
+  return rect.width > 0
+    && rect.height > 0
+    && rect.left >= leftEdge - edgeTolerance
+    && rect.right <= rightEdge + edgeTolerance
+    && rect.top >= -edgeTolerance
+    && rect.bottom <= viewportHeight + edgeTolerance
+}
+
+function scrollVideoCardIntoView(card, behavior = 'smooth') {
+  const slot = card.closest('.channel-shelf-slot')
+  const track = card.closest('.channel-shelf-track')
+  const shelf = card.closest('.channel-shelf')
+  if (!slot || !track || !shelf) {
+    card.scrollIntoView({ behavior, block: 'center', inline: 'center' })
+    return
+  }
+
+  shelf.scrollIntoView({ behavior, block: 'center' })
+  if (isVideoShelfCardFullyVisible(card)) return
+  const centeredLeft = slot.offsetLeft - ((track.clientWidth - slot.offsetWidth) / 2)
+  track.scrollTo({
+    behavior,
+    left: Math.max(0, centeredLeft)
+  })
+}
+
+function cancelPendingSettledVideoCardHighlight() {
+  const pending = pendingSettledVideoCardHighlight
+  if (!pending) return
+  if (pending.frame) window.cancelAnimationFrame(pending.frame)
+  pendingSettledVideoCardHighlight = null
+}
+
+function startVideoCardHighlight(card, options = {}, duration = 1900) {
+  if (!card?.isConnected) return
+  if (options.highlightTarget === 'spotlight') {
+    showAddedVideoSpotlight(card, duration)
+    return
+  }
+  const className = options.className || 'flash-target'
+  const highlightTarget = options.highlightTarget === 'slot'
+    ? card.closest('.channel-shelf-slot') || card
+    : card
+  highlightTarget.classList.remove(className)
+  void highlightTarget.offsetWidth
+  highlightTarget.classList.add(className)
+  window.setTimeout(() => highlightTarget.classList.remove(className), duration)
+}
+
+function highlightVideoCardWhenScrollSettles(card, options, duration, initialRect) {
+  const movementTolerance = 0.75
+  const requiredStableFrames = 3
+  const maximumWait = 2000
+  const startedAt = performance.now()
+  let previousLeft = initialRect.left
+  let previousTop = initialRect.top
+  let movementStarted = false
+  let stableFrames = 0
+  const pending = { frame: null }
+  pendingSettledVideoCardHighlight = pending
+
+  const finish = () => {
+    if (pendingSettledVideoCardHighlight !== pending) return
+    pendingSettledVideoCardHighlight = null
+    startVideoCardHighlight(card, options, duration)
+  }
+
+  const checkPosition = now => {
+    if (pendingSettledVideoCardHighlight !== pending) return
+    if (!card.isConnected) {
+      pendingSettledVideoCardHighlight = null
+      return
+    }
+
+    const rect = card.getBoundingClientRect()
+    const movement = Math.hypot(
+      rect.left - previousLeft,
+      rect.top - previousTop
+    )
+    if (movement > movementTolerance) movementStarted = true
+    stableFrames = movementStarted && movement <= movementTolerance
+      ? stableFrames + 1
+      : 0
+    previousLeft = rect.left
+    previousTop = rect.top
+
+    if (
+      (stableFrames >= requiredStableFrames && isVideoCardFullyVisibleInViewport(card))
+      || now - startedAt >= maximumWait
+    ) {
+      finish()
+      return
+    }
+    pending.frame = window.requestAnimationFrame(checkPosition)
+  }
+
+  pending.frame = window.requestAnimationFrame(checkPosition)
+}
+
+function removeAddedVideoSpotlight() {
+  if (addedVideoSpotlightState.frame) window.cancelAnimationFrame(addedVideoSpotlightState.frame)
+  if (addedVideoSpotlightState.timer) window.clearTimeout(addedVideoSpotlightState.timer)
+  addedVideoSpotlightState.element?.remove()
+  addedVideoSpotlightState.element = null
+  addedVideoSpotlightState.frame = null
+  addedVideoSpotlightState.timer = null
+}
+
+function showAddedVideoSpotlight(card, duration = 1800) {
+  removeAddedVideoSpotlight()
+  if (!card?.isConnected) return
+
+  const spotlight = document.createElement('div')
+  spotlight.className = 'walkthrough-highlight added-video-spotlight'
+  spotlight.setAttribute('aria-hidden', 'true')
+  document.body.appendChild(spotlight)
+  addedVideoSpotlightState.element = spotlight
+
+  const positionSpotlight = () => {
+    if (!card.isConnected || addedVideoSpotlightState.element !== spotlight) {
+      removeAddedVideoSpotlight()
+      return
+    }
+    const rect = card.getBoundingClientRect()
+    const padding = 6
+    const left = clampNumber(rect.left - padding, 8, window.innerWidth - 8)
+    const top = clampNumber(rect.top - padding, 8, window.innerHeight - 8)
+    const right = clampNumber(rect.right + padding, left + 1, window.innerWidth - 8)
+    const bottom = clampNumber(rect.bottom + padding, top + 1, window.innerHeight - 8)
+    spotlight.style.borderRadius = '12px'
+    setFixedRect(spotlight, {
+      left,
+      top,
+      width: right - left,
+      height: bottom - top
+    })
+    addedVideoSpotlightState.frame = window.requestAnimationFrame(positionSpotlight)
+  }
+
+  positionSpotlight()
+  addedVideoSpotlightState.timer = window.setTimeout(removeAddedVideoSpotlight, Math.max(0, Number(duration) || 1800))
+}
+
+function flashVideoCard(card, options = {}) {
+  const duration = Math.max(0, Number(options.duration) || 1900)
+  cancelPendingSettledVideoCardHighlight()
+  const initiallyVisible = isVideoCardFullyVisibleInViewport(card)
+  const initialRect = card.getBoundingClientRect()
+  const reduceMotion = options.highlightWhenScrollSettles
+    && prefersReducedMotion()
+  scrollVideoCardIntoView(card, reduceMotion ? 'auto' : 'smooth')
+  if (
+    options.highlightWhenScrollSettles
+    && !initiallyVisible
+    && !reduceMotion
+  ) {
+    highlightVideoCardWhenScrollSettles(card, options, duration, initialRect)
+    return
+  }
+  startVideoCardHighlight(card, options, duration)
+}
+
+function toggleVideoSearchPopover(event) {
+  event?.stopPropagation()
+  const popover = document.getElementById('videoSearchPopover')
+  const button = document.getElementById('videoSearchBtn')
+  const input = document.getElementById('videoSearchInput')
+  if (!popover || !button || !input) return
+
+  const shouldOpen = popover.classList.contains('hidden')
+  if (!shouldOpen) {
+    closeVideoSearchPopover()
+    return
+  }
+
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeManualVideoPopover()
+  closeHistoryVideoPopovers()
+  closeHistoryPointsPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryActionPopovers()
+  closeVideoSearchPopover()
+  hideHeatmapTooltip()
+  popover.classList.remove('hidden')
+  button.setAttribute('aria-expanded', 'true')
+  searchAnalyticsState.lastSavedVideoOutcomeKey = null
+  trackEdeniaEvent('search_opened', {
+    search_source: 'saved_videos',
+    search_query: input.value.trim(),
+    current_video_count: Object.keys(loadState()?.videos || {}).length
+  })
+  renderVideoSearchResults(input.value)
+  window.setTimeout(() => input.focus(), 0)
+}
+
+function closeVideoSearchPopover(restoreFocus = false) {
+  const popover = document.getElementById('videoSearchPopover')
+  const button = document.getElementById('videoSearchBtn')
+  if (popover) popover.classList.add('hidden')
+  if (button) button.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && button && usesPhoneComposition()) window.setTimeout(() => button.focus(), 0)
+}
+
+function closeVideoSearchPopoverOnOutsideClick(event) {
+  if (event.target.closest('.video-search')) return
+  closeVideoSearchPopover()
+}
+
+function closeVideoSearchPopoverOnEscape(event) {
+  if (event.key !== 'Escape') return
+  if (document.getElementById('videoSearchPopover')?.classList.contains('hidden')) return
+  closeVideoSearchPopover(true)
+}
+
+function handleVideoSearchInputKey(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeVideoSearchPopover(true)
+    return
+  }
+  if (event.key !== 'Enter') return
+  const firstResult = document.querySelector('#videoSearchResults .video-search-result')
+  if (!firstResult) return
+  event.preventDefault()
+  firstResult.click()
+}
+
+function renderVideoSearchResults(query = '') {
+  const list = document.getElementById('videoSearchResults')
+  if (!list) return
+
+  const rawQuery = String(query ?? '').trim()
+  const normalizedQuery = normalizeVideoSearchText(rawQuery)
+  if (!normalizedQuery) {
+    list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.empty'))}</p>`
+    searchAnalyticsState.lastSavedVideoOutcomeKey = null
+    return
+  }
+
+  const results = getVideoSearchMatches(normalizedQuery, loadState())
+  const outcomeKey = `${normalizedQuery}:${results.length}`
+  if (!results.length) {
+    list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.noMatches'))}</p>`
+    if (searchAnalyticsState.lastSavedVideoOutcomeKey !== outcomeKey) {
+      trackEdeniaEvent('search_no_results', {
+        search_source: 'saved_videos',
+        search_query: rawQuery,
+        query_length: normalizedQuery.length,
+        query_token_count: normalizedQuery.split(' ').filter(Boolean).length,
+        result_count: 0
+      })
+      searchAnalyticsState.lastSavedVideoOutcomeKey = outcomeKey
+    }
+    return
+  }
+
+  list.innerHTML = results.map(video => `
+    <button type="button" class="video-search-result" data-video-search-action="select-result" data-video-id="${escHtml(video.id)}" data-analytics-action="jumpToVideoFromSearch">
+      ${video.thumbnail
+        ? `<img src="${escHtml(video.thumbnail)}" alt="" class="video-search-thumb" loading="lazy">`
+        : '<span class="video-search-thumb video-search-thumb-empty"></span>'}
+      <span class="video-search-copy">
+        <span class="video-search-title">${escHtml(video.title || t('videos.search.untitled'))}</span>
+        <span class="video-search-meta">
+          <span>${escHtml(video.channelTitle || t('videos.search.youtube'))}</span>
+          <span class="video-search-status">${escHtml(isVideoRemovedFromFeed(video)
+            ? t('videos.removedSection')
+            : formatVideoStatus(getVideoStatus(video)))}</span>
+        </span>
+      </span>
+    </button>
+  `).join('')
+  if (searchAnalyticsState.lastSavedVideoOutcomeKey !== outcomeKey) {
+    trackEdeniaEvent('search_results_shown', {
+      search_source: 'saved_videos',
+      search_query: rawQuery,
+      query_length: normalizedQuery.length,
+      query_token_count: normalizedQuery.split(' ').filter(Boolean).length,
+      result_count: results.length
+    })
+    searchAnalyticsState.lastSavedVideoOutcomeKey = outcomeKey
+  }
+}
+
+function jumpToVideoFromSearch(videoId) {
+  const targetId = String(videoId ?? '')
+  const state = loadState()
+  if (!state?.videos?.[targetId]) {
+    closeVideoSearchPopover()
+    showToast(t('toast.videoGone'), 'warn')
+    return
+  }
+  const rawInputQuery = document.getElementById('videoSearchInput')?.value?.trim() || ''
+  const inputQuery = normalizeVideoSearchText(rawInputQuery)
+  const results = getVideoSearchMatches(inputQuery, state)
+  const video = state.videos[targetId]
+  trackEdeniaEvent('search_result_selected', getVideoAnalyticsProperties(video, {
+    search_source: 'saved_videos',
+    search_query: rawInputQuery,
+    query_length: inputQuery.length,
+    result_position: results.findIndex(result => result.id === targetId) + 1,
+    current_status: getVideoStatus(video)
+  }))
+
+  closeVideoSearchPopover()
+  const isRemovedTarget = isVideoRemovedFromFeed(video)
+  const shouldRevealInWatchedSection = !isRemovedTarget
+    && getVideoStatus(video) === 'watched'
+    && !isFavoriteVideo(video)
+  if (isRemovedTarget) {
+    selectedStatusFilter = 'all'
+    isRemovedSectionCollapsed = false
+  }
+  if (shouldRevealInWatchedSection) {
+    if (selectedStatusFilter === 'favorite') selectedStatusFilter = 'all'
+    isWatchedSectionCollapsed = false
+  }
+  forcedSearchVideoId = targetId
+  renderFeed(state)
+  if (shouldRevealInWatchedSection) {
+    window.requestAnimationFrame(() => {
+      const found = scrollToVideoCard(targetId, '#watchedGrid .video-card', {
+        className: 'video-search-arriving',
+        duration: 2200,
+        highlightWhenScrollSettles: true
+      })
+      forcedSearchVideoId = null
+      if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+    })
+    return
+  }
+  window.setTimeout(() => {
+    const found = scrollToVideoCard(targetId)
+    forcedSearchVideoId = null
+    if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+  }, 0)
+}
+
+function formatHistoryDate(dateKey, state = null) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  const todayDate = getCurrentAppDate(state)
+  const today = toDateKey(todayDate)
+  const yesterday = toDateKey(addDays(todayDate, -1))
+  if (dateKey === today) return t('history.today')
+  if (dateKey === yesterday) return t('history.yesterday')
+  return formatLocaleDate(date, { month: 'short', day: 'numeric' })
+}
+
+function getRestrictedStudyHistoryView(accessState) {
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.LOADING) {
+    return {
+      bodyKey: 'plus.history.loading.body',
+      titleKey: 'plus.history.loading.title'
+    }
+  }
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE) {
+    return {
+      bodyKey: 'plus.history.unavailable.body',
+      titleKey: 'plus.history.unavailable.title'
+    }
+  }
+  return {
+    actionKey: 'plus.history.action',
+    bodyKey: 'plus.history.locked.body',
+    titleKey: 'plus.history.locked.title'
+  }
+}
+
+function renderRestrictedStudyHistory(accessState) {
+  const view = getRestrictedStudyHistoryView(accessState)
+  return `
+    <div class="history-lock-shell">
+      <div class="history-lock-preview" aria-hidden="true">
+        ${Array.from({ length: 3 }, () => `
+          <span></span><span></span><span></span><span></span>
+        `).join('')}
+      </div>
+      <div class="history-lock-card" role="status">
+        <span class="history-lock-icon" aria-hidden="true">✦</span>
+        <strong>${escHtml(t(view.titleKey))}</strong>
+        <span>${escHtml(t(view.bodyKey))}</span>
+        ${view.actionKey ? `
+          <button type="button" class="history-lock-action" data-history-access-action="request" data-history-access-state="${accessState}">
+            ${escHtml(t(view.actionKey))}
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `
+}
+
+function renderStudyHistoryPanel(s) {
+  const historyState = s || { videos: {}, anki: {} }
+  const hasHistoryActivity = getStudyActivityDateKeys(historyState).length > 0
+  document.querySelectorAll('.history-range-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
+    btn.setAttribute('aria-expanded', String(btn.closest('.history-period-cell')?.classList.contains('open') || false))
+  })
+  document.querySelectorAll('.history-view-btn').forEach(btn => {
+    const isActive = btn.dataset.historyView === selectedHistoryView
+    btn.classList.toggle('active', isActive)
+    btn.setAttribute('aria-selected', String(isActive))
+  })
+
+  renderHistoryPeriodPopover('week', 'historyWeekPeriodPopover', historyState)
+  renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', historyState)
+
+  const selectedOption = getSelectedHistoryPeriodOption(historyState)
+  const historyAccess = selectedOption
+    ? getHistoryPeriodAccessDecision(historyState, selectedOption.start)
+    : { state: STUDY_HISTORY_ACCESS_STATES.AVAILABLE }
+  const isHistoryRestricted = historyAccess.state
+    !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE
+  const history = isHistoryRestricted ? null : getStudyHistory(historyState)
+  const showAnkiColumns = isAnkiTrackingActive(historyState)
+  const thirdStatLabelKey = showAnkiColumns ? 'history.ankiReviewed' : 'history.daysStudied'
+  const fourthStatLabelKey = showAnkiColumns ? 'history.ankiCreated' : 'history.pointsScored'
+  const thirdStatLabel = document.getElementById('historyThirdStatLabel')
+  const fourthStatLabel = document.getElementById('historyFourthStatLabel')
+  setText('historyStudyTime', isHistoryRestricted
+    ? '••'
+    : formatHistoryTime(history.summary.secondsWatched))
+  setText('historyVideosWatched', isHistoryRestricted
+    ? '••'
+    : history.summary.videosWatched)
+  setText('historyAnkiReviewed', isHistoryRestricted
+    ? '••'
+    : showAnkiColumns ? history.summary.ankiReviewed : history.rows.length)
+  setText('historyAnkiCreated', isHistoryRestricted
+    ? '••'
+    : showAnkiColumns ? history.summary.ankiCreated : history.summary.points)
+  if (thirdStatLabel) {
+    thirdStatLabel.dataset.i18n = thirdStatLabelKey
+    thirdStatLabel.textContent = t(thirdStatLabelKey)
+  }
+  if (fourthStatLabel) {
+    fourthStatLabel.dataset.i18n = fourthStatLabelKey
+    fourthStatLabel.textContent = t(fourthStatLabelKey)
+  }
+
+  const table = document.getElementById('historyTable')
+  if (table) {
+    table.classList.toggle('is-history-restricted', isHistoryRestricted)
+    table.setAttribute('aria-busy', String(
+      historyAccess.state === STUDY_HISTORY_ACCESS_STATES.LOADING
+    ))
+    table.innerHTML = isHistoryRestricted
+      ? renderRestrictedStudyHistory(historyAccess.state)
+      : history.rows.length
+      ? `
+        <div class="history-row history-row-head ${showAnkiColumns ? '' : 'history-row-no-anki'}">
+          <span>${escHtml(t('history.table.date'))}</span>
+          <span>${escHtml(t('history.table.video'))}</span>
+          <span>${escHtml(t('history.table.watched'))}</span>
+          ${showAnkiColumns ? `<span>${escHtml(t('history.table.anki'))}</span>` : ''}
+          <span class="history-points-col">${escHtml(t('history.table.points'))}</span>
+        </div>
+        ${history.rows.map(row => `
+          <div class="history-row ${showAnkiColumns ? '' : 'history-row-no-anki'}">
+            <span data-label="${escHtml(t('history.table.date'))}">${formatHistoryDate(row.dateKey, s)}</span>
+            <span data-label="${escHtml(t('history.table.video'))}">${formatHistoryTime(row.secondsWatched)}</span>
+            <span data-label="${escHtml(t('history.table.watched'))}">${renderHistoryWatchedCell(row)}</span>
+            ${showAnkiColumns ? `<span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>` : ''}
+            <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${renderHistoryPointsCell(row)}</span>
+          </div>
+        `).join('')}
+      `
+      : `<div class="history-empty">${escHtml(t('history.emptyRange'))}</div>`
+    bindStudyHistoryWatchedPopoverActions(table, {
+      open: openHistoryVideoPopover,
+      closeSoon: closeHistoryVideoPopoverSoon,
+      toggle: toggleHistoryVideoPopover
+    })
+    bindStudyHistoryPointsPopoverActions(table, {
+      open: openHistoryPointsPopover,
+      closeSoon: closeHistoryPointsPopoverSoon,
+      toggle: toggleHistoryPointsPopover
+    })
+    bindStudyHistoryWatchedVideoActions(table, {
+      jump: jumpToWatchedVideo
+    })
+  }
+
+  const summaryView = document.getElementById('historySummaryView')
+  const heatmapView = document.getElementById('historyHeatmapView')
+  const rangeToolbar = document.getElementById('historyRangeToolbar')
+  if (rangeToolbar) {
+    rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
+    rangeToolbar.classList.toggle('mobile-history-empty', !hasHistoryActivity)
+  }
+  if (summaryView) {
+    summaryView.classList.toggle('hidden', selectedHistoryView !== 'summary')
+    summaryView.dataset.historyAccessState = historyAccess.state
+  }
+  if (heatmapView) {
+    heatmapView.classList.toggle('hidden', selectedHistoryView !== 'heatmap')
+    if (!plusAccessPolicy.featureAccess[PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY]) {
+      clearHeatmapTooltip()
+    }
+    if (selectedHistoryView === 'heatmap') {
+      renderHistoryHeatmap(s || { videos: {}, anki: {} }, heatmapView)
+    } else if (!plusAccessPolicy.featureAccess[PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY]) {
+      heatmapView.replaceChildren()
+    }
+  }
+}
+
+function getHistoryHeatLevel(row) {
+  const score = getHistoryDayRawPoints(row)
+  if (score <= 0) return 0
+  if (score < 5) return 1
+  if (score < 10) return 2
+  if (score < 20) return 3
+  if (score < 40) return 4
+  if (score < 70) return 5
+  return 6
+}
+
+function getHistoryDayRawPoints(row) {
+  const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
+  const watchedVideos = Array.isArray(row.watchedVideos) ? row.watchedVideos : []
+  const videoPoints = watchedVideos.length
+    ? watchedVideos.reduce((sum, video) => sum + getVideoPointsFromSeconds(video.duration || 0), 0)
+    : getVideoPointsFromSeconds(row.secondsWatched || 0)
+  return ankiPoints + videoPoints
+}
+
+function getHistoryDayPoints(row) {
+  return Math.floor(getHistoryDayRawPoints(row))
+}
+
+function hasHistoryActivity(row) {
+  return row.secondsWatched > 0 || row.videosWatched > 0 || row.ankiReviewed > 0 || row.ankiCreated > 0
+}
+
+function formatHeatmapTitle(row) {
+  const date = new Date(`${row.dateKey}T00:00:00`)
+  return formatLocaleDate(date, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatHeatmapAriaLabel(row, ankiEnabled = true, streakDayCount = 0) {
+  const key = ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
+  const details = t(key, {
+    date: formatHeatmapTitle(row),
+    points: getHistoryDayPoints(row),
+    time: formatHistoryTime(row.secondsWatched),
+    videos: row.videosWatched,
+    reviewed: row.ankiReviewed,
+    created: row.ankiCreated
+  })
+  return streakDayCount > 0
+    ? `${details}; ${streakDayCount} ${t('streak.day')}`
+    : details
+}
+
+function getWeekMonday(date) {
+  const monday = new Date(date)
+  const day = monday.getDay()
+  const offset = day === 0 ? -6 : 1 - day
+  monday.setDate(monday.getDate() + offset)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
+
+function getHeatmapMonthLabels(gridStart, end, weekCount) {
+  return Array.from({ length: weekCount }, (_, index) => {
+    const weekStart = addDays(gridStart, index * 7)
+    const weekEnd = addDays(weekStart, 6)
+    const nextMonthStart = new Date(weekStart.getFullYear(), weekStart.getMonth() + 1, 1)
+    const labelDate = nextMonthStart <= weekEnd && nextMonthStart <= end
+      ? nextMonthStart
+      : (index === 0 ? weekStart : null)
+    return labelDate ? formatLocaleDate(labelDate, { month: 'short' }) : ''
+  })
+}
+
+function renderRestrictedHistoryHeatmapDay(accessState) {
+  const ariaKey = accessState === STUDY_HISTORY_ACCESS_STATES.LOADING
+    ? 'plus.history.heatmap.loadingAria'
+    : accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE
+      ? 'plus.history.heatmap.unavailableAria'
+      : 'plus.history.heatmap.lockedAria'
+  return `
+    <button type="button" class="heatmap-day is-history-restricted" data-history-access-action="request" data-history-access-state="${accessState}" aria-label="${escHtml(t(ariaKey))}"></button>
+  `
+}
+
+function renderHistoryHeatmap(s, container) {
+  hideHeatmapTooltip()
+  const existingScroll = container.querySelector('.heatmap-scroll')
+  const preservedScrollLeft = container.dataset.historyScrollSession === 'active'
+    ? existingScroll?.scrollLeft ?? null
+    : null
+  const ankiEnabled = isAnkiTrackingActive(s)
+  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : getCurrentAppDate(s)
+  end.setHours(23, 59, 59, 999)
+  const start = addDays(end, -364)
+  start.setHours(0, 0, 0, 0)
+  const history = getStudyHistoryBetween(s, start, end)
+  const firstActive = history.rows
+    .slice()
+    .reverse()
+    .find(hasHistoryActivity)
+  if (!firstActive) {
+    container.innerHTML = `<div class="history-empty">${escHtml(t('history.noActivityMap'))}</div>`
+    return
+  }
+  const gridStart = getWeekMonday(new Date(`${firstActive.dateKey}T00:00:00`))
+  const rowsByDate = new Map(history.rows.map(row => [row.dateKey, row]))
+  const days = []
+  for (let date = new Date(gridStart); date <= end; date = addDays(date, 1)) {
+    const dateKey = toDateKey(date)
+    const row = rowsByDate.get(dateKey) || createHistoryBucket(dateKey)
+    days.push(row)
+  }
+  const historicalStreakDayCounts = getHistoricalStreakDayCounts(s, end)
+  const weekCount = Math.ceil(days.length / 7)
+  const monthLabels = getHeatmapMonthLabels(gridStart, end, weekCount)
+
+  container.innerHTML = `
+    <div class="heatmap-body">
+      <div class="heatmap-weekday-labels" aria-hidden="true">
+        ${['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(day => `<span>${escHtml(t(`history.weekdays.${day}`))}</span>`).join('')}
+      </div>
+      <div class="heatmap-scroll">
+        <div class="heatmap-months" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))" aria-hidden="true">
+          ${monthLabels.map(label => `<span class="heatmap-month-label">${escHtml(label)}</span>`).join('')}
+        </div>
+        <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
+          ${days.map(row => {
+            const access = getHistoryPeriodAccessDecision(s, row.dateKey)
+            if (access.state !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE) {
+              return renderRestrictedHistoryHeatmapDay(access.state)
+            }
+            const showAnkiForRow = ankiEnabled || row.ankiReviewed > 0 || row.ankiCreated > 0
+            const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
+            const streakOutlineClass = streakDayCount ? ' streak-run' : ''
+            return `
+            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}"></button>
+          `}).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="heatmap-legend" aria-label="${escHtml(t('history.heatmap.legend'))}">
+      <span>${escHtml(t('history.heatmap.less'))}</span>
+      ${[0, 1, 2, 3, 4, 5, 6].map(level => `<span class="heatmap-legend-cell level-${level}" aria-hidden="true"></span>`).join('')}
+      <span>${escHtml(t('history.heatmap.more'))}</span>
+    </div>
+  `
+  bindStudyHistoryHeatmapTooltipActions(container, {
+    show: showHeatmapTooltip,
+    position: positionHeatmapTooltip,
+    hide: hideHeatmapTooltip,
+    toggle: toggleHeatmapTooltip
+  })
+  window.requestAnimationFrame(() => {
+    const scroll = container.querySelector('.heatmap-scroll')
+    if (!scroll) return
+    scroll.scrollLeft = preservedScrollLeft ?? scroll.scrollWidth
+    container.dataset.historyScrollSession = 'active'
+  })
+}
+
+function toggleHeatmapTooltip(event) {
+  const target = event.currentTarget
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip) return
+  event.stopPropagation()
+  if (hasCoarsePrimaryPointer()) {
+    showHeatmapTooltip(event)
+    return
+  }
+  if (tooltip.classList.contains('show') && tooltip._target === target) {
+    hideHeatmapTooltip()
+    return
+  }
+  showHeatmapTooltip(event)
+}
+
+function showHeatmapTooltip(event) {
+  const target = event.currentTarget
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip) return
+  const streakDayCount = Math.max(0, Number(target.dataset.streakDays) || 0)
+  const streakBadge = streakDayCount
+    ? `
+      <span class="heatmap-tooltip-streak ${streakDayCount >= 5 ? 'streak-high' : 'streak-low'}" aria-label="${escHtml(`${streakDayCount} ${t('streak.day')}`)}">
+        <span class="heatmap-tooltip-streak-icon" aria-hidden="true">🔥</span>
+        <b>${streakDayCount}</b>
+      </span>
+    `
+    : ''
+  const ankiRows = target.dataset.ankiEnabled === 'true'
+    ? `
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>${escHtml(t('history.tooltip.ankiReviewed'))}</span><b>${escHtml(target.dataset.reviewed)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>${escHtml(t('history.tooltip.ankiCreated'))}</span><b>${escHtml(target.dataset.created)}</b></div>
+  `
+    : ''
+  tooltip.innerHTML = `
+    <div class="heatmap-tooltip-head">
+      <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
+      <div class="heatmap-tooltip-badges">
+        ${streakBadge}
+        <div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>
+      </div>
+    </div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>${escHtml(t('history.tooltip.videoTime'))}</span><b>${escHtml(target.dataset.time)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>${escHtml(t('history.tooltip.videosWatched'))}</span><b>${escHtml(target.dataset.videos)}</b></div>
+    ${ankiRows}
+  `
+  tooltip._target = target
+  tooltip.classList.add('show')
+  positionHeatmapTooltip(target)
+}
+
+function positionHeatmapTooltip(target) {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip || !tooltip.classList.contains('show')) return
+  const rect = target.getBoundingClientRect()
+  const gap = 10
+  const margin = 8
+  const isCoarsePointer = usesDocumentHeatmapPositioning(window.innerWidth)
+  const baseLeft = rect.left + (isCoarsePointer ? window.scrollX : 0)
+  const baseTop = rect.top + (isCoarsePointer ? window.scrollY : 0)
+  const viewportLeft = Math.min(
+    window.innerWidth - tooltip.offsetWidth - margin,
+    Math.max(margin, rect.left + rect.width / 2 - tooltip.offsetWidth / 2)
+  )
+  let top = rect.top - tooltip.offsetHeight - gap
+  if (top < margin) top = rect.bottom + gap
+  const absoluteLeft = Math.min(
+    window.scrollX + window.innerWidth - tooltip.offsetWidth - margin,
+    Math.max(window.scrollX + margin, baseLeft + rect.width / 2 - tooltip.offsetWidth / 2)
+  )
+  const absoluteTop = (top < margin ? baseTop + rect.height + gap : baseTop - tooltip.offsetHeight - gap)
+  tooltip.style.position = isCoarsePointer ? 'absolute' : 'fixed'
+  tooltip.style.left = `${isCoarsePointer ? absoluteLeft : viewportLeft}px`
+  tooltip.style.top = `${isCoarsePointer ? absoluteTop : top}px`
+}
+
+function hideHeatmapTooltip() {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!tooltip) return
+  tooltip._target = null
+  tooltip.classList.remove('show')
+  tooltip.replaceChildren()
+}
+
+function clearHeatmapTooltip() {
+  hideHeatmapTooltip()
+}
+
+function hideHeatmapTooltipOnEscape(event) {
+  if (event.key === 'Escape') hideHeatmapTooltip()
+}
+
+function hideHeatmapTooltipOnOutsideClick(event) {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!tooltip?.classList.contains('show')) return
+  if (event.target?.closest?.('.heatmap-day') || tooltip.contains(event.target)) return
+  hideHeatmapTooltip()
+}
+
+// ════════════════════════════════════════════════════════════
+// ANALYTICS & CITY SCORE
+// ════════════════════════════════════════════════════════════
+
+function getStudyInsightTimeWindow(hour) {
+  const normalizedHour = clampNumber(Math.floor(Number(hour) || 0), 0, 23)
+  return STUDY_INSIGHT_TIME_WINDOWS.find(window => (
+    window.startHour < window.endHour
+      ? normalizedHour >= window.startHour && normalizedHour < window.endHour
+      : normalizedHour >= window.startHour || normalizedHour < window.endHour
+  ))?.id || 'night'
+}
+
+function getLiveStudyGuidance(state, referenceDate = getCurrentAppDate(state)) {
+  if (!STUDY_GUIDANCE_ENABLED || !state) return null
+  const end = new Date(referenceDate)
+  if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
+  const start = addDays(end, -(STUDY_GUIDANCE_LOOKBACK_DAYS - 1))
+  start.setHours(0, 0, 0, 0)
+  const history = getStudyHistoryBetween(state, start, end)
+  return buildStudyGuidance({
+    referenceDateKey: toDateKey(referenceDate),
+    studyDays: history.rows.map(row => ({
+      dateKey: row.dateKey,
+      videoSeconds: row.secondsWatched
+    }))
+  })
+}
+
+function getStudyGuidanceViewModel(guidance) {
+  if (!guidance) return null
+  const weekday = Number.isInteger(guidance.weekdayIndex)
+    ? formatLocaleDate(
+        new Date(2026, 0, 4 + guidance.weekdayIndex),
+        { weekday: 'long' }
+      )
+    : ''
+  const common = {
+    weekday,
+    minutes: guidance.suggestedMinutes,
+    successfulWeeks: guidance.successfulWeekdayCount,
+    completeWeeks: guidance.completeWeeks,
+    currentTime: formatHoursMinutes(guidance.currentWeekSeconds),
+    usualTime: formatHoursMinutes(guidance.usualThroughTodaySeconds),
+    typicalTime: formatHoursMinutes(guidance.typicalActiveDaySeconds)
+  }
+
+  if (guidance.type === 'extra-day') {
+    return {
+      title: t('guidance.extraDay.title', common),
+      body: t('guidance.extraDay.body', common),
+      evidence: t('guidance.extraDay.evidence', common)
+    }
+  }
+
+  const direction = ['above', 'below'].includes(guidance.comparisonDirection)
+    ? guidance.comparisonDirection
+    : 'similar'
+  return {
+    title: t(`guidance.week.${direction}.title`),
+    body: t(`guidance.week.${direction}.body`, common),
+    evidence: t('guidance.week.evidence', common)
+  }
+}
+
+function getStudyGuidanceAnalyticsProperties(guidance) {
+  return {
+    guidance_key: guidance?.id || '',
+    guidance_type: guidance?.type || '',
+    guidance_version: guidance?.version || 0,
+    confidence: guidance?.confidence || '',
+    complete_weeks: guidance?.completeWeeks || 0,
+    current_week_seconds: guidance?.currentWeekSeconds || 0,
+    current_week_active_days: guidance?.currentWeekActiveDays || 0,
+    usual_week_seconds: guidance?.usualWeekSeconds || 0,
+    usual_week_active_days: guidance?.usualWeekActiveDays || 0,
+    usual_through_today_seconds: guidance?.usualThroughTodaySeconds || 0,
+    typical_active_day_seconds: guidance?.typicalActiveDaySeconds || 0,
+    comparison_direction: guidance?.comparisonDirection || '',
+    suggested_minutes: guidance?.suggestedMinutes || 0,
+    weekday_index: Number.isInteger(guidance?.weekdayIndex)
+      ? guidance.weekdayIndex
+      : null
+  }
+}
+
+function trackStudyGuidanceShown(guidance) {
+  if (!guidance?.id || lastTrackedStudyGuidanceKey === guidance.id) return
+  lastTrackedStudyGuidanceKey = guidance.id
+  trackEdeniaEvent(
+    'study_guidance_shown',
+    getStudyGuidanceAnalyticsProperties(guidance)
+  )
+}
+
+function showNextStudyFromGuidance() {
+  const container = document.getElementById('nextStudyCard')
+  const nextActions = Array.from(
+    container?.querySelectorAll('[data-next-study-action="open"]') || []
+  )
+  const nextAction = nextActions.find(action => action.getClientRects().length)
+    || nextActions[0]
+  if (!container || container.classList.contains('hidden') || !nextAction) {
+    showToast(t('guidance.nextVideo.unavailable'), 'warn')
+    return false
+  }
+  trackEdeniaEvent('study_guidance_action_clicked', {
+    ...getStudyGuidanceAnalyticsProperties(activeStudyGuidance),
+    action_kind: 'show_next_video'
+  })
+  container.scrollIntoView({
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    block: 'center'
+  })
+  window.requestAnimationFrame(() => nextAction.focus({ preventScroll: true }))
+  return true
+}
+
+function getStudyInsightEvents(state, referenceDate = getCurrentAppDate(state)) {
+  const end = new Date(referenceDate)
+  if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
+  const start = new Date(end)
+  start.setDate(start.getDate() - (STUDY_INSIGHT_LOOKBACK_DAYS - 1))
+  start.setHours(0, 0, 0, 0)
+
+  return Object.values(state?.videos || {})
+    .flatMap(video => getVideoWatchProgressEntries(video).map(entry => ({
+      ...entry,
+      videoId: video.id || '',
+      videoTitle: video.title || '',
+      channelId: video.channelId || '',
+      channelTitle: video.channelTitle || ''
+    })))
+    .map(entry => {
+      const watchedAt = new Date(entry.watchedAt)
+      const seconds = Math.max(0, Math.floor(Number(entry.seconds) || 0))
+      if (!seconds || watchedAt < start || watchedAt > end) return null
+      return {
+        watchedAt: entry.watchedAt,
+        dateKey: toDateKey(watchedAt),
+        seconds,
+        videoId: entry.videoId,
+        videoTitle: entry.videoTitle,
+        channelId: entry.channelId,
+        channelTitle: entry.channelTitle,
+        windowId: getStudyInsightTimeWindow(watchedAt.getHours())
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))
+}
+
+function getWeeklySummaryInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const end = new Date(referenceDate)
+  if (end.getDay() !== 0) return null
+  if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
+  const start = getWeekStart(end)
+  const events = getStudyInsightEvents(state, end).filter(event => {
+    const watchedAt = new Date(event.watchedAt)
+    return watchedAt >= start && watchedAt <= end
+  })
+  const totalSeconds = events.reduce((sum, event) => sum + event.seconds, 0)
+  const videoTotals = new Map()
+  events.forEach(event => {
+    const key = event.videoId || event.videoTitle
+    if (!key) return
+    const current = videoTotals.get(key) || {
+      title: event.videoTitle || t('videos.search.untitled'),
+      seconds: 0
+    }
+    current.seconds += event.seconds
+    videoTotals.set(key, current)
+  })
+  const topVideo = Array.from(videoTotals.values()).sort((a, b) => b.seconds - a.seconds)[0] || null
+  const channelTotals = new Map()
+  events.forEach(event => {
+    const key = event.channelId || event.channelTitle || 'youtube'
+    const current = channelTotals.get(key) || {
+      name: event.channelTitle || t('videos.search.youtube'),
+      seconds: 0
+    }
+    current.seconds += event.seconds
+    channelTotals.set(key, current)
+  })
+  const sortedChannels = Array.from(channelTotals.values()).sort((a, b) => b.seconds - a.seconds)
+  const channelBreakdown = sortedChannels.slice(0, 4)
+  if (sortedChannels.length > 4) {
+    channelBreakdown.push({
+      name: t('insights.weekly.otherChannel'),
+      seconds: sortedChannels.slice(4).reduce((sum, channel) => sum + channel.seconds, 0)
+    })
+  }
+
+  const startKey = toDateKey(start)
+  const endKey = toDateKey(end)
+  const weeklyAnki = Object.entries(state?.anki || {})
+    .filter(([dateKey]) => dateKey >= startKey && dateKey <= endKey)
+    .map(([dateKey, day]) => ({
+      dateKey,
+      reviewed: normalizeAnkiCount(day?.reviewed),
+      created: normalizeAnkiCount(day?.created)
+    }))
+  const reviewedCards = weeklyAnki.reduce((sum, day) => sum + day.reviewed, 0)
+  const ankiCreated = weeklyAnki.reduce((sum, day) => sum + day.created, 0)
+  const activeDateKeys = new Set(events.map(event => event.dateKey))
+  weeklyAnki.forEach(day => {
+    if (day.reviewed > 0 || day.created > 0) activeDateKeys.add(day.dateKey)
+  })
+
+  return {
+    id: 'weekly-summary',
+    type: 'weekly-summary',
+    variant: 0,
+    totalSeconds,
+    activeDays: activeDateKeys.size,
+    videoCount: videoTotals.size,
+    topVideoTitle: topVideo?.title || '',
+    topVideoSeconds: topVideo?.seconds || 0,
+    reviewedCards,
+    ankiCreated,
+    channelBreakdown,
+    observationDays: 7
+  }
+}
+
+function getRoutineRestartInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const referenceKey = toDateKey(referenceDate)
+  const activityDateKeys = getStudyActivityDateKeys(state)
+    .filter(dateKey => dateKey <= referenceKey)
+    .sort((a, b) => b.localeCompare(a))
+  if (!activityDateKeys.length) return null
+
+  const daysSinceLastActivity = getDaysBetweenDateKeys(activityDateKeys[0], referenceKey)
+  if (daysSinceLastActivity >= 3) {
+    return {
+      id: 'routine-reset',
+      type: 'routine-reset',
+      gapDays: daysSinceLastActivity,
+      suggestedMinutes: 15
+    }
+  }
+
+  for (let index = 0; index < activityDateKeys.length - 1; index += 1) {
+    const returnDateKey = activityDateKeys[index]
+    const daysSinceReturn = getDaysBetweenDateKeys(returnDateKey, referenceKey)
+    if (daysSinceReturn > 6) break
+    const gapDays = getDaysBetweenDateKeys(activityDateKeys[index + 1], returnDateKey) - 1
+    if (gapDays >= 3) {
+      return {
+        id: 'routine-return',
+        type: 'routine-return',
+        gapDays,
+        suggestedMinutes: 15
+      }
+    }
+  }
+
+  return null
+}
+
+function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(state)) {
+  const events = getStudyInsightEvents(state, referenceDate)
+  const activeDateKeys = new Set(events.map(event => event.dateKey))
+  const totalSeconds = events.reduce((sum, event) => sum + event.seconds, 0)
+  if (activeDateKeys.size < STUDY_INSIGHT_MIN_ACTIVE_DAYS || totalSeconds < STUDY_INSIGHT_MIN_VIDEO_SECONDS) return []
+
+  const firstStudyDate = new Date(`${events[0].dateKey}T12:00:00`)
+  const lastObservationDate = new Date(referenceDate)
+  lastObservationDate.setHours(12, 0, 0, 0)
+  const observationDays = Math.min(
+    STUDY_INSIGHT_LOOKBACK_DAYS,
+    Math.max(1, Math.floor((lastObservationDate - firstStudyDate) / 86_400_000) + 1)
+  )
+  if (observationDays < 14) return []
+
+  const distribution = Object.fromEntries(STUDY_INSIGHT_TIME_WINDOWS.map(window => [window.id, {
+    seconds: 0,
+    activeDateKeys: new Set()
+  }]))
+  events.forEach(event => {
+    distribution[event.windowId].seconds += event.seconds
+    distribution[event.windowId].activeDateKeys.add(event.dateKey)
+  })
+
+  const suggestedMinutes = 15
+  const candidates = []
+  const ankiLookbackStart = new Date(referenceDate)
+  ankiLookbackStart.setDate(ankiLookbackStart.getDate() - (STUDY_INSIGHT_LOOKBACK_DAYS - 1))
+  const ankiLookbackStartKey = toDateKey(ankiLookbackStart)
+  const ankiLookbackEndKey = toDateKey(referenceDate)
+  const ankiReviewDays = Object.entries(state?.anki || {})
+    .map(([dateKey, day]) => ({ dateKey, reviewed: normalizeAnkiCount(day?.reviewed) }))
+    .filter(day => day.dateKey >= ankiLookbackStartKey && day.dateKey <= ankiLookbackEndKey && day.reviewed > 0)
+  const reviewedCards = ankiReviewDays.reduce((sum, day) => sum + day.reviewed, 0)
+  const activeDates = Array.from(activeDateKeys).map(dateKey => new Date(`${dateKey}T12:00:00`))
+  const weekdayCounts = Array(7).fill(0)
+  activeDates.forEach(date => { weekdayCounts[date.getDay()] += 1 })
+  const dominantWeekdayIndex = weekdayCounts.reduce(
+    (bestIndex, count, index) => count > weekdayCounts[bestIndex] ? index : bestIndex,
+    0
+  )
+  const dominantWeekdayDays = weekdayCounts[dominantWeekdayIndex]
+  const dominantWeekdayRatio = dominantWeekdayDays / activeDateKeys.size
+  const weekendDateKeys = new Set(events
+    .filter(event => {
+      const day = new Date(`${event.dateKey}T12:00:00`).getDay()
+      return day === 0 || day === 6
+    })
+    .map(event => event.dateKey))
+  const weekendSeconds = events
+    .filter(event => weekendDateKeys.has(event.dateKey))
+    .reduce((sum, event) => sum + event.seconds, 0)
+  const weekendRatio = weekendSeconds / totalSeconds
+  const comparisonEnd = new Date(referenceDate)
+  comparisonEnd.setHours(23, 59, 59, 999)
+  const recentStart = new Date(comparisonEnd)
+  recentStart.setDate(recentStart.getDate() - 13)
+  recentStart.setHours(0, 0, 0, 0)
+  const previousStart = new Date(recentStart)
+  previousStart.setDate(previousStart.getDate() - 14)
+  const recentEvents = events.filter(event => new Date(event.watchedAt) >= recentStart)
+  const previousEvents = events.filter(event => {
+    const watchedAt = new Date(event.watchedAt)
+    return watchedAt >= previousStart && watchedAt < recentStart
+  })
+  const recentSeconds = recentEvents.reduce((sum, event) => sum + event.seconds, 0)
+  const previousSeconds = previousEvents.reduce((sum, event) => sum + event.seconds, 0)
+  const recentActiveDays = new Set(recentEvents.map(event => event.dateKey)).size
+  const dominantWindow = STUDY_INSIGHT_TIME_WINDOWS
+    .map(window => ({
+      id: window.id,
+      seconds: distribution[window.id].seconds,
+      activeDays: distribution[window.id].activeDateKeys.size,
+      ratio: distribution[window.id].seconds / totalSeconds
+    }))
+    .sort((a, b) => b.ratio - a.ratio)[0]
+
+  if (dominantWindow?.ratio >= 0.55 && dominantWindow.activeDays >= 4) {
+    candidates.push({
+      id: `preferred-${dominantWindow.id}`,
+      type: 'preferred-window',
+      score: dominantWindow.ratio + 0.18,
+      windowId: dominantWindow.id,
+      percent: Math.round(dominantWindow.ratio * 100),
+      suggestedMinutes,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  const morning = distribution.morning
+  const morningRatio = morning.seconds / totalSeconds
+  if (morningRatio <= 0.08 && morning.activeDateKeys.size <= 1) {
+    candidates.push({
+      id: 'morning-opportunity',
+      type: 'morning-opportunity',
+      score: 0.72 + Math.max(0, 0.08 - morningRatio),
+      windowId: 'morning',
+      percent: Math.round(morningRatio * 100),
+      suggestedMinutes: 15,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  if (dominantWeekdayDays >= 4 && dominantWeekdayRatio >= 0.28) {
+    candidates.push({
+      id: `reliable-weekday-${dominantWeekdayIndex}`,
+      type: 'reliable-weekday',
+      score: 0.62 + dominantWeekdayRatio,
+      weekdayIndex: dominantWeekdayIndex,
+      percent: Math.round(dominantWeekdayRatio * 100),
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  if (weekendRatio <= 0.08 && weekendDateKeys.size <= 1) {
+    candidates.push({
+      id: 'weekend-opportunity',
+      type: 'weekend-opportunity',
+      score: 0.6 + Math.max(0, 0.08 - weekendRatio),
+      percent: Math.round(weekendRatio * 100),
+      suggestedMinutes: 15,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  if (previousSeconds >= 30 * 60 && recentSeconds >= previousSeconds * 1.4 && recentActiveDays >= 3) {
+    candidates.push({
+      id: 'momentum-up',
+      type: 'momentum-up',
+      score: 0.78,
+      comparisonPercent: Math.round((recentSeconds / previousSeconds - 1) * 100),
+      recentMinutes: Math.round(recentSeconds / 60),
+      previousMinutes: Math.round(previousSeconds / 60),
+      activeDays: recentActiveDays,
+      observationDays
+    })
+  } else if (previousSeconds >= 60 * 60 && recentSeconds <= previousSeconds * 0.55) {
+    candidates.push({
+      id: 'momentum-reset',
+      type: 'momentum-reset',
+      score: 0.74,
+      comparisonPercent: Math.round((1 - recentSeconds / previousSeconds) * 100),
+      recentMinutes: Math.round(recentSeconds / 60),
+      previousMinutes: Math.round(previousSeconds / 60),
+      suggestedMinutes: 15,
+      activeDays: recentActiveDays,
+      observationDays
+    })
+  }
+
+  if (isAnkiTrackingActive(state) && ankiReviewDays.length >= 2 && reviewedCards >= 30) {
+    candidates.push({
+      id: 'anki-fallback',
+      type: 'anki-fallback',
+      score: 0.64,
+      ankiDays: ankiReviewDays.length,
+      reviewedCards,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  candidates.push({
+    id: 'steady-process',
+    type: 'steady-process',
+    score: 0.54,
+    activeDays: activeDateKeys.size,
+    observationDays
+  })
+
+  return candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+}
+
+function getStudyInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const routineRestart = getRoutineRestartInsight(state, referenceDate)
+  if (routineRestart) return applyStudyInsightVariant(routineRestart, state, referenceDate)
+  const weeklySummary = getWeeklySummaryInsight(state, referenceDate)
+  if (weeklySummary) return weeklySummary
+  const candidates = getStudyInsightCandidates(state, referenceDate)
+  if (!candidates.length) return null
+
+  const date = new Date(referenceDate)
+  date.setHours(12, 0, 0, 0)
+  const weekIndex = Math.floor(date.getTime() / (7 * 86_400_000))
+  const candidate = candidates[weekIndex % candidates.length]
+  return applyStudyInsightVariant(candidate, state, referenceDate)
+}
+
+function applyStudyInsightVariant(candidate, state, referenceDate = getCurrentAppDate(state)) {
+  const history = state?.config?.studyInsights?.history || []
+  const currentKey = getStudyInsightHistoryKey(candidate, state, referenceDate)
+  const currentEntry = history.find(entry => entry.key === currentKey)
+  const previousEntry = history.find(entry => entry.insightId === candidate.id)
+  const variant = currentEntry
+    ? currentEntry.variant
+    : ((Number(previousEntry?.variant) || 0) + (previousEntry ? 1 : 0)) % STUDY_INSIGHT_VARIANT_COUNT
+  return { ...candidate, variant }
+}
+
+function getStudyInsightHistoryKey(insight, state, referenceDate = getCurrentAppDate(state)) {
+  if (!insight?.id) return ''
+  return `${toDateKey(getWeekStart(referenceDate))}:${insight.id}`
+}
+
+async function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(state)) {
+  if (!state?.config || !insight) return ''
+  normalizeStudyInsightConfig(state)
+  const key = getStudyInsightHistoryKey(insight, state, referenceDate)
+  if (!key) return ''
+  const recordedAt = getCurrentAppTimestamp(state)
+  const historyEntry = {
+    key,
+    insightId: insight.id,
+    type: insight.type,
+    variant: insight.variant || 0,
+    windowId: insight.windowId || null,
+    weekdayIndex: Number.isInteger(insight.weekdayIndex) ? insight.weekdayIndex : null,
+    percent: insight.percent || 0,
+    comparisonPercent: insight.comparisonPercent || 0,
+    recentMinutes: insight.recentMinutes || 0,
+    previousMinutes: insight.previousMinutes || 0,
+    suggestedMinutes: clampNumber(
+      Math.round(Number(insight.suggestedMinutes) || 0),
+      1,
+      180
+    ),
+    gapDays: insight.gapDays || 0,
+    activeDays: insight.activeDays || 0,
+    ankiDays: insight.ankiDays || 0,
+    reviewedCards: insight.reviewedCards || 0,
+    ankiCreated: insight.ankiCreated || 0,
+    totalSeconds: insight.totalSeconds || 0,
+    videoCount: insight.videoCount || 0,
+    topVideoTitle: insight.topVideoTitle || '',
+    topVideoSeconds: insight.topVideoSeconds || 0,
+    channelBreakdown: insight.channelBreakdown || [],
+    observationDays: insight.observationDays || 0,
+    firstRecordedAt: recordedAt,
+    recordedAt
+  }
+  const existingIndex = state.config.studyInsights.history.findIndex(entry => entry.key === key)
+  if (existingIndex >= 0) {
+    if (!['weekly-summary', 'routine-reset', 'routine-return'].includes(insight.type)) return key
+    historyEntry.firstRecordedAt = state.config.studyInsights.history[existingIndex].firstRecordedAt
+      || state.config.studyInsights.history[existingIndex].recordedAt
+      || historyEntry.firstRecordedAt
+    const { recordedAt: existingRecordedAt, ...existingContent } = state.config.studyInsights.history[existingIndex]
+    const { recordedAt: nextRecordedAt, ...nextContent } = historyEntry
+    if (JSON.stringify(existingContent) === JSON.stringify(nextContent)) return key
+    state.config.studyInsights.history[existingIndex] = historyEntry
+  } else {
+    state.config.studyInsights.history.unshift(historyEntry)
+  }
+  normalizeStudyInsightConfig(state)
+  if (!await saveState(state, { backup: false })) return false
+  return key
+}
+
+function getPreviousStudyInsights(state, currentKey = '') {
+  normalizeStudyInsightConfig(state)
+  return state.config.studyInsights.history.filter(entry => entry.key !== currentKey)
+}
+
+function getWeeklyStats(s) {
+  const currentDate = getCurrentAppDate(s)
+  const weekStart = getWeekStart(currentDate)
+  const weekEnd = new Date(currentDate)
+  if (IS_SANDBOX) weekEnd.setHours(23, 59, 59, 999)
+
+  const videos = Object.values(s.videos)
+  const partial = videos.filter(hasVideoResumePriority)
+  const weekHistory = getStudyHistoryBetween(s, weekStart, weekEnd).summary
+  const secondsWatched = weekHistory.secondsWatched
+
+  const hoursWatched = secondsWatched / 3600
+  const goalHours    = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
+  const goalProgress = Math.min((hoursWatched / goalHours) * 100, 100)
+  const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
+
+  return {
+    hoursWatched, secondsWatched, goalHours, goalProgress,
+    videosWatched: weekHistory.videosWatched,
+    videosPartial: partial.length,
+    remainingSeconds,
+    ankiReviewed: weekHistory.ankiReviewed,
+    ankiCreated:  weekHistory.ankiCreated
+  }
+}
+
+function formatHoursMinutes(secs) {
+  const hours = Math.floor(secs / 3600)
+  const minutes = Math.ceil((secs % 3600) / 60)
+  if (hours > 0) {
+    return minutes > 0
+      ? t('time.hoursMinutesCompact', { hours, minutes })
+      : t('time.hoursCompact', { hours })
+  }
+  return t('time.minutesCompact', { minutes })
+}
+
+function formatWeeklyWatchedTime(secs) {
+  if (secs < 3600) {
+    const minutes = secs > 0 ? Math.max(1, Math.floor(secs / 60)) : 0
+    return t('time.minutesCompact', { minutes })
+  }
+  return t('time.hoursCompact', { hours: (secs / 3600).toFixed(1) })
+}
+
+function formatHistoryTime(secs) {
+  const totalMinutes = secs > 0 ? Math.max(1, Math.round(secs / 60)) : 0
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours > 0) {
+    return minutes > 0
+      ? t('time.hoursMinutes', { hours, minutes })
+      : t('time.hours', { hours })
+  }
+  return t('time.minutes', { minutes })
+}
+
+function getCurrentCityScore(s) {
+  return getCityScoreThroughDate(s, getCurrentAppDate(s))
+}
+
+function getCityStage(score) {
+  return getCityLevelLabel(getCityLevel(score))
+}
+
+function getCityLevelLabel(level) {
+  if (!level) return ''
+  return level.labelKey ? t(level.labelKey) : level.label
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDERING
+// ════════════════════════════════════════════════════════════
+
+function renderAll(s) {
+  const viewport = captureFeedViewport()
+  const stats = getWeeklyStats(s)
+  const score = getCurrentCityScore(s)
+  renderHeader(s)
+  renderAnalytics(stats, s)
+  renderAnkiStatus(s)
+  renderCity(score, s)
+  renderFeed(s, viewport)
+  renderUndoButton(s)
+  syncMobileAddButtonWidth()
+}
+
+function renderHeader(s) {
+  document.getElementById('weekLabel').textContent  = getWeekLabel(s)
+  document.getElementById('streakCount').textContent = s.streak.current
+  const pill = document.getElementById('streakDisplay')
+  const streakCount = Math.max(0, Number(s.streak.current) || 0)
+  pill.classList.toggle('streak-zero', streakCount === 0)
+  pill.classList.toggle('streak-low', streakCount > 0 && streakCount < 5)
+  pill.classList.toggle('streak-high', streakCount >= 5)
+}
+
+function renderAnalytics(stats, s) {
+  setText('hoursWatched', formatWeeklyWatchedTime(stats.secondsWatched))
+  setText('goalHours', stats.goalHours)
+  setText('videosWatched', stats.videosWatched)
+  setText('videosPartial', stats.videosPartial)
+  setText('videosRemaining', formatHoursMinutes(stats.remainingSeconds))
+
+  const bar = document.getElementById('goalProgressBar')
+  if (bar) {
+    bar.style.width = `${stats.goalProgress}%`
+    bar.classList.toggle('has-progress', stats.goalProgress > 0)
+    bar.classList.toggle('complete', stats.goalProgress >= 100)
+  }
+  renderGoalPaceGuidance(stats, s)
+  renderStudyInsight(s)
+}
+
+function getFriendlyPaceMinutes(minutes) {
+  const roundedMinutes = Math.max(1, Math.ceil(Number(minutes) || 0))
+  const friendlySteps = [5, 10, 15, 20, 30, 45, 60]
+  return friendlySteps.find(step => roundedMinutes <= step) || Math.ceil(roundedMinutes / 15) * 15
+}
+
+function getGoalPaceGuidance(stats, state) {
+  if (stats.goalProgress >= 100 || stats.remainingSeconds <= 0) {
+    return { state: 'complete', text: t('goal.pace.complete') }
+  }
+  const includeShorts = getEffectiveIncludeShorts(state)
+  const hasStudyVideo = getVisibleActiveVideos(
+    Object.values(state.videos || {}),
+    includeShorts
+  ).length > 0
+  if (!hasStudyVideo) return null
+
+  const currentDate = getCurrentAppDate(state)
+  const dayIndex = (currentDate.getDay() + 6) % 7
+  const expectedThroughToday = stats.goalHours * 3600 * ((dayIndex + 1) / 7)
+  if (stats.secondsWatched > 0 && stats.secondsWatched >= expectedThroughToday) {
+    return { state: 'on-track', text: t('goal.pace.onTrack') }
+  }
+
+  const remainingDays = Math.max(1, 7 - dayIndex)
+  const paceMinutes = getFriendlyPaceMinutes(stats.remainingSeconds / remainingDays / 60)
+  const isShortSession = paceMinutes <= 60
+  const text = isShortSession
+    ? t('goal.pace.session', { minutes: paceMinutes })
+    : t('goal.pace.longSession', { time: formatHoursMinutes(paceMinutes * 60) })
+  return { state: 'action', text }
+}
+
+function renderGoalPaceGuidance(stats, state) {
+  const container = document.getElementById('goalPaceGuidance')
+  const text = document.getElementById('goalPaceText')
+  if (!container || !text) return
+
+  const guidance = getGoalPaceGuidance(stats, state)
+  container.classList.toggle('hidden', !guidance)
+  if (!guidance) {
+    container.removeAttribute('data-state')
+    text.textContent = ''
+    return
+  }
+  container.dataset.state = guidance.state
+  text.textContent = guidance.text
+}
+
+function getStudyInsightSubject(state) {
+  const languages = Array.isArray(state?.learnerProfile?.languages)
+    ? Array.from(new Set(state.learnerProfile.languages))
+    : []
+  const language = languages.length === 1 ? getLearnerLanguageOption(languages[0]) : null
+  return language ? t(`onboarding.language.${language.id}`) : t('insights.subject.study')
+}
+
+function getStudyInsightViewModel(insight, state) {
+  if (!insight) return null
+  const windowLabel = insight.windowId ? t(`insights.window.${insight.windowId}`) : ''
+  const weekday = Number.isInteger(insight.weekdayIndex)
+    ? formatLocaleDate(new Date(2026, 0, 4 + insight.weekdayIndex), { weekday: 'long' })
+    : ''
+  const suffix = insight.variant === 1 ? '.alt' : ''
+  const common = {
+    window: windowLabel,
+    weekday,
+    minutes: insight.suggestedMinutes,
+    suggestedMinutes: insight.suggestedMinutes,
+    percent: insight.percent,
+    comparisonPercent: insight.comparisonPercent,
+    recentMinutes: insight.recentMinutes,
+    previousMinutes: insight.previousMinutes,
+    gapDays: insight.gapDays,
+    days: insight.activeDays,
+    ankiDays: insight.ankiDays,
+    reviewedCards: insight.reviewedCards,
+    observationDays: insight.observationDays,
+    subject: getStudyInsightSubject(state)
+  }
+
+  if (insight.type === 'weekly-summary') {
+    const summaryKey = insight.videoCount === 0
+      ? 'insights.weekly.summary.zero'
+      : insight.videoCount === 1
+        ? 'insights.weekly.summary.one'
+        : 'insights.weekly.summary.many'
+    const summary = t(summaryKey, {
+      time: formatHoursMinutes(insight.totalSeconds),
+      videos: insight.videoCount
+    })
+    const channelText = insight.channelBreakdown?.length
+      ? t('insights.weekly.channels', {
+          channels: insight.channelBreakdown
+            .map(channel => `${channel.name} ${formatHoursMinutes(channel.seconds)}`)
+            .join(', ')
+        })
+      : ''
+    const details = [t('insights.weekly.activeDays', { days: insight.activeDays })]
+    if (insight.topVideoTitle && insight.topVideoSeconds > 0) {
+      details.push(t('insights.weekly.topVideo', {
+        video: insight.topVideoTitle,
+        time: formatHoursMinutes(insight.topVideoSeconds)
+      }))
+    }
+    if (insight.reviewedCards > 0 || insight.ankiCreated > 0) {
+      details.push(t('insights.weekly.anki', {
+        reviewed: insight.reviewedCards,
+        created: insight.ankiCreated
+      }))
+    }
+    return {
+      title: t('insights.weekly.title'),
+      body: channelText ? `${summary} ${channelText}` : summary,
+      evidence: details.join(' · ')
+    }
+  }
+
+  if (insight.type === 'preferred-window') {
+    return {
+      title: t(`insights.title.preferred-window${suffix}`),
+      body: t(`insights.body.preferred-window${suffix}`, common),
+      evidence: t('insights.evidence.preferred-window', common)
+    }
+  }
+  if (insight.type === 'morning-opportunity') {
+    return {
+      title: t(`insights.title.morning-opportunity${suffix}`),
+      body: t(`insights.body.morning-opportunity${suffix}`, common),
+      evidence: t('insights.evidence.morning-opportunity', common)
+    }
+  }
+  if (insight.type === 'reliable-weekday') {
+    return {
+      title: t(`insights.title.reliable-weekday${suffix}`, common),
+      body: t(`insights.body.reliable-weekday${suffix}`, common),
+      evidence: t('insights.evidence.reliable-weekday', common)
+    }
+  }
+  if (insight.type === 'weekend-opportunity') {
+    return {
+      title: t(`insights.title.weekend-opportunity${suffix}`),
+      body: t(`insights.body.weekend-opportunity${suffix}`, common),
+      evidence: t('insights.evidence.weekend-opportunity', common)
+    }
+  }
+  if (insight.type === 'momentum-up') {
+    return {
+      title: t(`insights.title.momentum-up${suffix}`),
+      body: t(`insights.body.momentum-up${suffix}`, common),
+      evidence: t('insights.evidence.momentum-up', common)
+    }
+  }
+  if (insight.type === 'momentum-reset') {
+    return {
+      title: t(`insights.title.momentum-reset${suffix}`),
+      body: t(`insights.body.momentum-reset${suffix}`, common),
+      evidence: t('insights.evidence.momentum-reset', common)
+    }
+  }
+  if (insight.type === 'routine-reset') {
+    return {
+      title: t(`insights.title.routine-reset${suffix}`),
+      body: t(`insights.body.routine-reset${suffix}`, common),
+      evidence: t('insights.evidence.routine-reset', common)
+    }
+  }
+  if (insight.type === 'routine-return') {
+    return {
+      title: t(`insights.title.routine-return${suffix}`),
+      body: t(`insights.body.routine-return${suffix}`, common),
+      evidence: t('insights.evidence.routine-return', common)
+    }
+  }
+  if (insight.type === 'anki-fallback') {
+    return {
+      title: t(`insights.title.anki-fallback${suffix}`),
+      body: t(`insights.body.anki-fallback${suffix}`),
+      evidence: t('insights.evidence.anki-fallback', common)
+    }
+  }
+  if (insight.type === 'steady-process') {
+    return {
+      title: t(`insights.title.steady-process${suffix}`),
+      body: t(`insights.body.steady-process${suffix}`),
+      evidence: t('insights.evidence.steady-process', common)
+    }
+  }
+  return null
+}
+
+function renderPreviousStudyInsightItem(entry, state) {
+  const viewModel = getStudyInsightViewModel(entry, state)
+  if (!viewModel) return ''
+  const recordedAt = new Date(entry.recordedAt)
+  const dateLabel = formatLocaleDate(recordedAt, { year: 'numeric', month: 'short', day: 'numeric' })
+  return `
+    <article class="study-insight-history-item">
+      <span class="study-insight-history-head">
+        <strong class="study-insight-title">${escHtml(viewModel.title)}</strong>
+        <time class="study-insight-history-date" datetime="${escHtml(recordedAt.toISOString())}">${escHtml(dateLabel)}</time>
+      </span>
+      <span class="study-insight-body">${escHtml(viewModel.body)}</span>
+      <span class="study-insight-evidence">${escHtml(viewModel.evidence)}</span>
+    </article>
+  `
+}
+
+function requestStudyInsightAccess(accessState) {
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.LOADING) {
+    showToast(t('plus.insights.feedback.loading'), 'warn')
+    return false
+  }
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.UNAVAILABLE) {
+    showToast(t('plus.insights.feedback.unavailable'), 'warn')
+    return false
+  }
+  return openPlusUpgradeModal(PLUS_FEATURE_IDS.ALL_STUDY_INSIGHTS)
+}
+
+function getRestrictedStudyInsightView(accessState) {
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.LOADING) {
+    return {
+      bodyKey: 'plus.insights.current.loading.body',
+      titleKey: 'plus.insights.current.loading.title'
+    }
+  }
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.UNAVAILABLE) {
+    return {
+      bodyKey: 'plus.insights.current.unavailable.body',
+      titleKey: 'plus.insights.current.unavailable.title'
+    }
+  }
+  return {
+    actionKey: 'plus.insights.action',
+    bodyKey: 'plus.insights.current.locked.body',
+    titleKey: 'plus.insights.current.locked.title'
+  }
+}
+
+function renderRestrictedCurrentStudyInsight(accessState) {
+  const view = getRestrictedStudyInsightView(accessState)
+  const content = `
+    <span class="study-insight-lock-icon" aria-hidden="true">✦</span>
+    <strong>${escHtml(t(view.titleKey))}</strong>
+    <span>${escHtml(t(view.bodyKey))}</span>
+    ${view.actionKey ? `<span class="study-insight-lock-cta">${escHtml(t(view.actionKey))}</span>` : ''}
+  `
+  return view.actionKey
+    ? `<button type="button" class="study-insight-current-lock-card" data-insight-access-action="request" data-insight-access-state="${accessState}">${content}</button>`
+    : `<div class="study-insight-current-lock-card" role="status">${content}</div>`
+}
+
+function renderRestrictedStudyInsightArchive(count, accessState) {
+  const key = accessState === STUDY_INSIGHT_ACCESS_STATES.LOADING
+    ? 'plus.insights.archive.loading'
+    : accessState === STUDY_INSIGHT_ACCESS_STATES.UNAVAILABLE
+      ? 'plus.insights.archive.unavailable'
+      : count === 1
+        ? 'plus.insights.archive.locked.one'
+        : 'plus.insights.archive.locked.many'
+  const content = `
+    <span class="study-insight-history-lock-preview" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </span>
+    <span class="study-insight-history-lock-copy">
+      <span class="study-insight-lock-icon" aria-hidden="true">✦</span>
+      <strong>${escHtml(t(key, { count }))}</strong>
+    </span>
+  `
+  return accessState === STUDY_INSIGHT_ACCESS_STATES.LOCKED
+    ? `<button type="button" class="study-insight-history-lock" data-insight-access-action="request" data-insight-access-state="${accessState}">${content}</button>`
+    : `<div class="study-insight-history-lock" role="status">${content}</div>`
+}
+
+function setStudyInsightView(view) {
+  selectedStudyInsightView = view === 'previous' ? 'previous' : 'current'
+  const state = loadState()
+  if (state) renderStudyInsight(state)
+}
+
+async function renderStudyInsight(state) {
+  const container = document.getElementById('studyInsightCard')
+  const reopenButton = document.getElementById('studyInsightReopen')
+  const icon = document.getElementById('studyInsightIcon')
+  const title = document.getElementById('studyInsightTitle')
+  const body = document.getElementById('studyInsightBody')
+  const evidence = document.getElementById('studyInsightEvidence')
+  const currentTab = document.getElementById('studyInsightCurrentTab')
+  const previousTab = document.getElementById('studyInsightPreviousTab')
+  const currentPanel = document.getElementById('studyInsightCurrentPanel')
+  const currentLock = document.getElementById('studyInsightCurrentLock')
+  const guidanceAction = document.getElementById('studyGuidanceNextAction')
+  const historyPanel = document.getElementById('studyInsightHistoryPanel')
+  const historyCount = document.getElementById('studyInsightHistoryCount')
+  if (!container || !icon || !title || !body || !evidence) return
+
+  normalizeStudyInsightConfig(state)
+  const guidance = getLiveStudyGuidance(state)
+  const usingGuidance = Boolean(guidance)
+  const insight = guidance || getStudyInsight(state)
+  const viewModel = usingGuidance
+    ? getStudyGuidanceViewModel(guidance)
+    : getStudyInsightViewModel(insight, state)
+  activeStudyGuidance = guidance
+  const enabled = isStudyInsightsEnabled(state)
+  const collapsed = state.config.studyInsights.collapsed === true
+  const currentKey = !usingGuidance && insight && viewModel
+    ? (collapsed && enabled ? getStudyInsightHistoryKey(insight, state) : await recordStudyInsight(state, insight))
+    : ''
+  if (!isCurrentLearnerProfileOperation(state)) return
+  const archiveAccess = getStudyInsightArchiveAccess({
+    accessPolicy: plusAccessPolicy,
+    history: state.config.studyInsights.history
+  })
+  const currentAccess = currentKey
+    ? getStudyInsightAccessDecision({
+        accessPolicy: plusAccessPolicy,
+        history: state.config.studyInsights.history,
+        insightKey: currentKey
+      })
+    : STUDY_INSIGHT_ACCESS_STATES.AVAILABLE
+  const currentIsRestricted = currentAccess
+    !== STUDY_INSIGHT_ACCESS_STATES.AVAILABLE
+  const previousInsights = archiveAccess.accessibleEntries.filter(
+    entry => entry.key !== currentKey
+  )
+  const restrictedPreviousCount = archiveAccess.restrictedEntries.filter(
+    entry => entry.key !== currentKey
+  ).length
+  const allPreviousInsights = getPreviousStudyInsights(state, currentKey)
+  if (selectedStudyInsightView === 'previous' && !allPreviousInsights.length) selectedStudyInsightView = 'current'
+  const showingHistory = selectedStudyInsightView === 'previous'
+  container.classList.toggle('hidden', !viewModel || collapsed || !enabled)
+  reopenButton?.classList.toggle('hidden', !viewModel || !collapsed || !enabled)
+  if (!viewModel) {
+    selectedStudyInsightView = 'current'
+    container.removeAttribute('data-insight-id')
+    container.classList.remove('showing-history')
+    title.textContent = ''
+    body.textContent = ''
+    evidence.textContent = ''
+    guidanceAction?.classList.add('hidden')
+    container.removeAttribute('data-guidance-key')
+    currentPanel?.classList.remove('is-insight-restricted')
+    currentLock?.classList.add('hidden')
+    if (currentLock) currentLock.replaceChildren()
+    return
+  }
+
+  if (currentIsRestricted || usingGuidance) {
+    container.removeAttribute('data-insight-id')
+  } else {
+    container.dataset.insightId = insight.id
+  }
+  if (usingGuidance) container.dataset.guidanceKey = guidance.id
+  else container.removeAttribute('data-guidance-key')
+  container.classList.toggle('showing-history', showingHistory)
+  title.textContent = currentIsRestricted ? '' : viewModel.title
+  body.textContent = currentIsRestricted ? '' : viewModel.body
+  evidence.textContent = currentIsRestricted ? '' : viewModel.evidence
+  currentPanel?.classList.toggle('is-insight-restricted', currentIsRestricted)
+  guidanceAction?.classList.toggle(
+    'hidden',
+    !usingGuidance || currentIsRestricted || showingHistory
+  )
+  currentLock?.classList.toggle('hidden', !currentIsRestricted)
+  if (currentLock) {
+    currentLock.innerHTML = currentIsRestricted
+      ? renderRestrictedCurrentStudyInsight(currentAccess)
+      : ''
+  }
+
+  currentTab?.classList.toggle('active', !showingHistory)
+  currentTab?.setAttribute('aria-selected', String(!showingHistory))
+  currentTab?.setAttribute('tabindex', showingHistory ? '-1' : '0')
+  previousTab?.classList.toggle('active', showingHistory)
+  previousTab?.setAttribute('aria-selected', String(showingHistory))
+  previousTab?.setAttribute('tabindex', showingHistory ? '0' : '-1')
+  previousTab?.toggleAttribute('disabled', !allPreviousInsights.length)
+  previousTab?.setAttribute('aria-label', t('insights.previous.aria', { count: allPreviousInsights.length }))
+  currentPanel?.classList.toggle('hidden', showingHistory)
+  historyPanel?.classList.toggle('hidden', !showingHistory)
+  if (usingGuidance && !showingHistory && !collapsed && enabled) {
+    trackStudyGuidanceShown(guidance)
+  }
+  if (historyCount) historyCount.textContent = String(allPreviousInsights.length)
+  if (historyPanel) {
+    historyPanel.innerHTML = allPreviousInsights.length
+      ? `${restrictedPreviousCount
+          ? renderRestrictedStudyInsightArchive(
+              restrictedPreviousCount,
+              archiveAccess.restrictedState
+            )
+          : ''}${previousInsights.map(entry => renderPreviousStudyInsightItem(entry, state)).join('')}`
+      : `<span class="study-insight-history-empty">${escHtml(t('insights.previous.empty'))}</span>`
+  }
+}
+
+async function setStudyInsightsCollapsed(collapsed) {
+  const state = loadState()
+  if (!state) return
+  normalizeStudyInsightConfig(state)
+  state.config.studyInsights.collapsed = collapsed === true
+  if (!await saveState(state, { backup: false })) return false
+  renderStudyInsight(state)
+  requestAnimationFrame(() => {
+    if (collapsed) document.getElementById('studyInsightReopen')?.focus()
+    else document.querySelector('.study-insight-tab.active')?.focus()
+  })
+}
+
+function renderNextStudy(activeVideos = [], favoriteVideos = []) {
+  const container = document.getElementById('nextStudyCard')
+  if (!container) return null
+  const nextVideo = [...activeVideos, ...favoriteVideos]
+    .filter(hasVideoResumePriority)
+    .sort(comparePausedVideos)[0]
+    || activeVideos.find(video => getVideoStatus(video) === 'watch-later')
+    || favoriteVideos.find(video => getVideoStatus(video) === 'watched')
+  container.classList.toggle('hidden', !nextVideo)
+  if (!nextVideo) {
+    container.classList.remove('continue-watching-card', 'study-next-card', 'rewatch-card')
+    container.innerHTML = ''
+    return null
+  }
+
+  const title = getVideoDisplayTitle(nextVideo)
+  const status = getVideoStatus(nextVideo)
+  const isInProgress = hasVideoResumePriority(nextVideo)
+  const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
+  const safeVideoId = escHtml(nextVideo.id)
+  const resumeTimestamp = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
+  const panelTitleKey = isInProgress
+    ? 'nextStudy.title'
+    : isRewatch
+    ? 'nextStudy.rewatch'
+    : 'nextStudy.studyNext'
+  const cta = isInProgress
+    ? t('nextStudy.continueAt', { timestamp: resumeTimestamp })
+    : isRewatch
+    ? t('nextStudy.watchAgain')
+    : t('nextStudy.watch')
+  const panelLabel = `${t(panelTitleKey)}: ${title}`
+  container.classList.toggle('continue-watching-card', isInProgress)
+  container.classList.toggle('study-next-card', !isInProgress && !isRewatch)
+  container.classList.toggle('rewatch-card', isRewatch)
+  container.classList.toggle(
+    'has-video-actions',
+    isInProgress
+  )
+  const inProgressSecondaryAction = `
+      <button type="button"
+        class="next-study-cta next-study-more"
+        data-video-id="${safeVideoId}"
+        data-video-organization-action="menu"
+        data-video-organization-surface="continue_watching"
+        data-analytics-action="openVideoActions"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-label="${escHtml(t('videos.actions.more'))}"
+        title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>
+    `
+  const actions = isInProgress
+    ? `
+      ${inProgressSecondaryAction}
+      <button type="button"
+        class="next-study-cta next-study-continue"
+        data-video-id="${safeVideoId}"
+        data-next-study-action="open"
+        data-analytics-action="openNextStudyVideoPlayer"
+        aria-label="${escHtml(cta)}: ${escHtml(title)}">${escHtml(cta)}</button>
+    `
+    : isRewatch
+    ? `
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        data-next-study-action="toggle-favorite"
+        data-next-study-surface="next_study"
+        data-analytics-action="toggleVideoFavorite">${escHtml(t('nextStudy.removeFavorite'))}</button>
+      <button type="button"
+        class="next-study-cta next-study-watch"
+        data-video-id="${safeVideoId}"
+        data-next-study-action="open"
+        data-analytics-action="openNextStudyVideoPlayer">${escHtml(t('nextStudy.watchAgain'))}</button>
+    `
+    : `
+      <button type="button"
+        class="next-study-cta next-study-watch"
+        data-video-id="${safeVideoId}"
+        data-next-study-action="open"
+        data-analytics-action="openNextStudyVideoPlayer">${escHtml(t('nextStudy.watch'))}</button>
+    `
+  container.innerHTML = `
+    <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" data-next-study-action="focus" data-analytics-action="focusNextStudyVideoCard" aria-label="${escHtml(panelLabel)}"></button>
+    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" data-next-study-action="open" data-analytics-action="openNextStudyVideoPlayer" aria-label="${escHtml(cta)}: ${escHtml(title)}"></button>
+    <span class="next-study-thumb-link" aria-hidden="true">
+      ${renderVideoThumbnail(nextVideo, 'next-study-thumb')}
+    </span>
+    <span class="next-study-copy">
+      <span class="next-study-eyebrow">${escHtml(t(panelTitleKey))}</span>
+      <span class="next-study-title" title="${escHtml(title)}">${escHtml(title)}</span>
+      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(isRewatch ? t('videos.status.favorite') : formatVideoStatus(status))}</span>
+    </span>
+    <span class="next-study-actions">
+      ${actions}
+    </span>
+  `
+  bindNextStudyActions(container, {
+    open: openNextStudyVideoPlayer,
+    focus: focusNextStudyVideoCard,
+    toggleFavorite: toggleVideoFavorite
+  })
+  return nextVideo
+}
+
+function renderAnkiStatus(s) {
+  renderStudyHistoryPanel(s)
+}
+
+function setHistoryRange(range) {
+  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  renderStudyHistoryPanel(loadState())
+}
+
+function getHistoryPeriodAccessLabel(accessState) {
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.LOADING) {
+    return t('plus.history.period.loading')
+  }
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE) {
+    return t('plus.history.period.unavailable')
+  }
+  return t('plus.history.period.locked')
+}
+
+function renderHistoryPeriodOption(range, option, state) {
+  const access = getHistoryPeriodAccessDecision(state, option.start)
+  const isRestricted = access.state !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE
+  const accessLabel = isRestricted
+    ? getHistoryPeriodAccessLabel(access.state)
+    : ''
+  const isActive = selectedHistoryPeriod[range] === option.key
+  return `
+    <button type="button" class="history-period-option ${isActive ? 'active' : ''}${isRestricted ? ' is-history-restricted' : ''}" data-history-period-action="select" data-history-range="${range}" data-history-period-key="${escHtml(option.key)}" data-history-access-state="${access.state}" data-analytics-action="setHistoryPeriodForRange" aria-label="${escHtml(isRestricted ? `${option.label}. ${accessLabel}` : option.label)}" aria-pressed="${isActive}">
+      <span>${escHtml(option.label)}</span>
+      ${isRestricted ? `<span class="history-period-access-badge" aria-hidden="true">${escHtml(accessLabel)}</span>` : ''}
+    </button>
+  `
+}
+
+function renderHistoryPeriodPopover(range, popoverId, state) {
+  const options = range === selectedHistoryRange ? syncHistoryPeriodSelection(state) : getHistoryPeriodOptions(state, range)
+  const popover = document.getElementById(popoverId)
+  if (!popover) return
+  popover.innerHTML = options.length
+    ? options.map(option => renderHistoryPeriodOption(range, option, state)).join('')
+    : `<span class="history-period-empty">${escHtml(t('history.noActivityYet'))}</span>`
+}
+
+function toggleHistoryPeriodPopover(event, range) {
+  event.stopPropagation()
+  const state = loadState()
+  if (usesPhoneComposition() && getHistoryPeriodOptions(state || { videos: {}, anki: {} }, range).length === 0) return
+  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  const cell = event.currentTarget.closest('.history-period-cell')
+  if (!cell) return
+  const shouldOpen = !cell.classList.contains('open')
+  closeManualVideoPopover()
+  closeHistoryVideoPopovers()
+  closeHistoryPointsPopovers()
+  closeHistoryPeriodPopovers(cell)
+  cell.classList.toggle('open', shouldOpen)
+  event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
+  renderStudyHistoryPanel(state)
+}
+
+function closeHistoryPeriodPopovers(exceptCell = null) {
+  document.querySelectorAll('.history-period-cell.open').forEach(cell => {
+    if (cell === exceptCell) return
+    cell.classList.remove('open')
+    cell.querySelector('.history-range-btn')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryPeriodPopoversOnOutsideClick(event) {
+  if (event.target.closest('.history-period-cell')) return
+  closeHistoryPeriodPopovers()
+}
+
+function closeHistoryPeriodPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryPeriodPopovers()
+}
+
+function setHistoryPeriodForRange(range, periodKey) {
+  const nextRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  const state = loadState()
+  const option = getHistoryPeriodOptions(state, nextRange)
+    .find(candidate => candidate.key === periodKey)
+  if (option) {
+    const access = getHistoryPeriodAccessDecision(state, option.start)
+    if (access.state !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE) {
+      closeHistoryPeriodPopovers()
+      requestStudyHistoryAccess(access.state)
+      return false
+    }
+  }
+  selectedHistoryRange = nextRange
+  selectedHistoryPeriod[selectedHistoryRange] = periodKey || null
+  closeHistoryPeriodPopovers()
+  renderStudyHistoryPanel(state)
+  return true
+}
+
+async function setHistoryView(view) {
+  const nextView = view === 'heatmap' ? 'heatmap' : 'summary'
+  const state = loadState()
+  if (state?.config) {
+    state.config.historyView = nextView
+    if (!await saveState(state, { backup: false })) return false
+  }
+  if (selectedHistoryView !== nextView) {
+    delete document.getElementById('historyHeatmapView')?.dataset.historyScrollSession
+  }
+  selectedHistoryView = nextView
+  renderStudyHistoryPanel(state)
+}
+
+function setDefaultCityDayOffset(state) {
+  selectedCityDayOffset = IS_SANDBOX ? getLastCityDayOffset(state) : 0
+}
+
+function setCityDayOffset(offset) {
+  const state = loadState()
+  if (!state) return
+  selectedCityDayOffset = clampCityDayOffset(state, offset)
+  // Timeline selection only changes the view; it does not award a level.
+  renderCitySnapshot(getCitySnapshot(getCurrentCityScore(state), state), state, true)
+}
+
+function previewCityDayOffset(offset) {
+  const state = loadState()
+  if (!state) return
+  const previousOffset = selectedCityDayOffset
+  selectedCityDayOffset = clampCityDayOffset(state, offset)
+  const snapshot = getCitySnapshot(getCurrentCityScore(state), state)
+  selectedCityDayOffset = previousOffset
+  renderCitySnapshot(snapshot, state, false)
+}
+
+async function renderCity(score, s) {
+  refreshTownEconomy(s)
+  if (await updatePersistentCityLevel(s, score) === false) {
+    s = loadState({ persistCleanup: false })
+    if (!s) return
+    score = getCurrentCityScore(s)
+  }
+  if (!isCurrentLearnerProfileOperation(s)) return
+  const snapshot = getCitySnapshot(score, s)
+  renderCitySnapshot(snapshot, s, true)
+}
+
+function renderCitySnapshot(snapshot, s, includeTimeline = true) {
+  document.getElementById('cityScore').textContent = snapshot.score
+  document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
+  const scoreContext = document.getElementById('cityScoreContext')
+  if (scoreContext) {
+    scoreContext.textContent = snapshot.isToday
+      ? t(usesPhoneComposition() ? 'points.short' : 'city.totalPts')
+      : t('city.ptsByThen')
+  }
+  const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
+  const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
+  const currentLevel = CITY_LEVELS[snapshot.visualLevelIndex]
+  const progressStart = currentLevel?.threshold || 0
+  const progressEnd = nextLevel?.threshold ?? progressStart
+  const progressRange = Math.max(1, progressEnd - progressStart)
+  const progressRatio = nextLevel
+    ? clampNumber((snapshot.score - progressStart) / progressRange, 0, 1)
+    : 1
+  const progress = document.getElementById('cityLevelProgress')
+  const progressFill = document.getElementById('cityLevelProgressFill')
+  progress?.style.setProperty('--city-level-progress', `${(progressRatio * 100).toFixed(2)}%`)
+  progress?.style.setProperty('--city-level-filled-center', `${(progressRatio * 50).toFixed(2)}%`)
+  progress?.style.setProperty('--city-level-remaining-center', `${((progressRatio + 1) * 50).toFixed(2)}%`)
+  progressFill?.classList.toggle('has-progress', progressRatio > 0)
+  progressFill?.classList.toggle('complete', progressRatio >= 1)
+  if (progress) {
+    progress.setAttribute('aria-valuemin', String(progressStart))
+    progress.setAttribute('aria-valuemax', String(progressEnd))
+    progress.setAttribute('aria-valuenow', String(Math.min(snapshot.score, progressEnd)))
+  }
+  document.getElementById('cityCurrentLevel').textContent = t('city.levelNumber', {
+    count: snapshot.visualLevelIndex + 1
+  })
+  document.getElementById('cityFollowingLevel').textContent = nextLevel
+    ? t('city.levelNumber', { count: CITY_LEVELS.indexOf(nextLevel) + 1 })
+    : t('city.maxLevel')
+  document.getElementById('cityCurrentMilestonePoints').textContent =
+    `${progressStart} ${t('points.short')}`
+  document.getElementById('cityNextMilestonePoints').textContent = nextLevel
+    ? `${progressEnd} ${t('points.short')}`
+    : ''
+  const pointsToNextLevel = nextLevel ? Math.max(0, nextLevel.threshold - snapshot.score) : 0
+  document.getElementById('cityNextLevel').textContent = nextLevel
+    ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
+      ? t('city.readyNext')
+      : t('city.ptsToNext', { count: pointsToNextLevel })
+    : t('city.maxLevel')
+  document.getElementById('cityNextEffort').textContent = nextLevel && pointsToNextLevel > 0
+    ? t('city.effortToNext', {
+        minutes: Math.ceil((pointsToNextLevel * 60) / VIDEO_HOUR_POINTS),
+        reviews: Math.ceil((pointsToNextLevel * ANKI_REVIEW_CHUNK_SIZE) / ANKI_REVIEW_CHUNK_POINTS)
+      })
+    : ''
+  if (includeTimeline) renderLevelUpButton(snapshot)
+  if (includeTimeline && snapshot.isToday) maybeStartLevelUpGuidance(s)
+
+  if (includeTimeline) renderCityTimeControls(snapshot)
+  updateCityMilestoneImage(snapshot.visualScore, { preloadCenterIndex: getCurrentCityImageIndex(s) })
+}
+
+function getCitySnapshot(currentScore, s) {
+  selectedCityDayOffset = clampCityDayOffset(s, selectedCityDayOffset)
+  const date = addDays(new Date(), selectedCityDayOffset)
+  const isToday = toDateKey(date) === getCurrentAppDateKey(s)
+  const minOffset = getFirstCityDayOffset(s)
+  const maxOffset = getLastCityDayOffset(s)
+  if (isToday) {
+    normalizeCityProgress(s)
+    const visualLevelIndex = s.cityProgress.maxLevelIndex
+    return {
+      date,
+      isToday,
+      minOffset,
+      maxOffset,
+      score: currentScore,
+      visualLevelIndex,
+      visualScore: getCityScoreForLevelIndex(visualLevelIndex),
+      earnedLevelIndex: getCityLevelIndex(currentScore),
+      pendingLevelIndex: s.cityProgress?.pendingLevelIndex ?? null,
+      hasPendingLevel: Number.isInteger(s.cityProgress?.pendingLevelIndex) && s.cityProgress.pendingLevelIndex > visualLevelIndex
+    }
+  }
+
+  const score = getCityScoreThroughDate(s, date)
+  const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
+    ? s.cityProgress.maxLevelIndex
+    : 0
+  const visualLevelIndex = Math.min(getHistoricMaxCityLevelIndex(s, date), revealedLevelIndex)
+  return {
+    date,
+    isToday,
+    minOffset,
+    maxOffset,
+    score,
+    visualLevelIndex,
+    visualScore: getCityScoreForLevelIndex(visualLevelIndex),
+    earnedLevelIndex: getCityLevelIndex(score),
+    pendingLevelIndex: s.cityProgress?.pendingLevelIndex ?? null,
+    hasPendingLevel: Number.isInteger(s.cityProgress?.pendingLevelIndex) && s.cityProgress.pendingLevelIndex > revealedLevelIndex
+  }
+}
+
+async function updatePersistentCityLevel(s, score) {
+  const previous = JSON.stringify(s.cityProgress || {})
+  normalizeCityProgress(s)
+  const earnedLevelIndex = getCityLevelIndex(score)
+  if (earnedLevelIndex < s.cityProgress.maxLevelIndex) {
+    s.cityProgress.maxLevelIndex = earnedLevelIndex
+    s.cityProgress.pendingLevelIndex = null
+  } else if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
+    const nextLevelIndex = s.cityProgress.maxLevelIndex + 1
+    s.cityProgress.pendingLevelIndex = Math.min(
+      Math.max(s.cityProgress.pendingLevelIndex || nextLevelIndex, nextLevelIndex),
+      earnedLevelIndex
+    )
+  } else if (
+    s.cityProgress.pendingLevelIndex &&
+    (s.cityProgress.pendingLevelIndex <= s.cityProgress.maxLevelIndex || s.cityProgress.pendingLevelIndex > earnedLevelIndex)
+  ) {
+    s.cityProgress.pendingLevelIndex = null
+  }
+  s.cityProgress.scoringVersion = SCORING_RULES_VERSION
+  if (JSON.stringify(s.cityProgress) !== previous) {
+    if (!await saveState(s)) return false
+  }
+  return s.cityProgress.maxLevelIndex
+}
+
+function renderLevelUpButton(snapshot) {
+  const button = document.getElementById('levelUpButton')
+  if (!button) return
+  button.classList.toggle('show', !!snapshot.hasPendingLevel)
+  button.disabled = !snapshot.hasPendingLevel
+  button.setAttribute('aria-hidden', String(!snapshot.hasPendingLevel))
+  document.getElementById('cityLevelProgress')?.classList.toggle('is-level-ready', !!snapshot.hasPendingLevel)
+}
+
+function maybeStartLevelUpGuidance(s) {
+  if (
+    levelUpGuidanceTimer ||
+    s?.onboarding?.levelUpGuidanceShownAt ||
+    s?.cityProgress?.maxLevelIndex !== 0 ||
+    s?.cityProgress?.pendingLevelIndex !== 1
+  ) return
+
+  levelUpGuidanceTimer = window.setTimeout(async () => {
+    levelUpGuidanceTimer = null
+    const currentState = loadState()
+    if (!currentState) return
+    normalizeOnboardingState(currentState)
+    normalizeCityProgress(currentState)
+    if (
+      currentState.onboarding.levelUpGuidanceShownAt ||
+      currentState.cityProgress.maxLevelIndex !== 0 ||
+      currentState.cityProgress.pendingLevelIndex !== 1
+    ) return
+    if (walkthroughState.active) {
+      maybeStartLevelUpGuidance(currentState)
+      return
+    }
+
+    startWalkthrough([LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP], { trackCompletion: false })
+    if (!walkthroughState.active || walkthroughState.steps[0]?.id !== LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP.id) return
+    currentState.onboarding.levelUpGuidanceShownAt = new Date().toISOString()
+    if (!await saveState(currentState)) return false
+  }, 450)
+}
+
+function launchCityLevelUpConfetti() {
+  const cityImageWrap = document.querySelector('.city-image-wrap')
+  if (!cityImageWrap) return
+
+  cityImageWrap.querySelector('.city-level-up-confetti')?.remove()
+  const burst = document.createElement('div')
+  burst.className = 'city-level-up-confetti'
+  burst.setAttribute('aria-hidden', 'true')
+  const colors = ['#dfff45', '#12bcea', '#ff5f87', '#ffd84a', '#ffffff', '#9f7aea']
+  const { width, height } = cityImageWrap.getBoundingClientRect()
+
+  ;['left', 'right'].forEach(corner => {
+    const emitter = document.createElement('div')
+    emitter.className = `city-confetti-emitter city-confetti-emitter-${corner}`
+    const direction = corner === 'left' ? 1 : -1
+
+    for (let index = 0; index < 44; index += 1) {
+      const particle = document.createElement('i')
+      const particleKind = index % 5 === 0 ? 'ribbon' : index % 4 === 0 ? 'streamer' : 'paper'
+      particle.className = `city-confetti-${particleKind}`
+      const horizontalDistance = direction * width * (0.08 + Math.random() * 0.42)
+      const verticalDistance = -height * (0.52 + Math.random() * 0.48)
+      particle.style.setProperty('--confetti-x', `${horizontalDistance.toFixed(1)}px`)
+      particle.style.setProperty('--confetti-y', `${verticalDistance.toFixed(1)}px`)
+      particle.style.setProperty('--confetti-rotation', `${Math.round((Math.random() - 0.5) * 1080)}deg`)
+      particle.style.setProperty('--confetti-delay', `${(Math.random() * 90).toFixed(0)}ms`)
+      particle.style.setProperty('--confetti-duration', `${(780 + Math.random() * 520).toFixed(0)}ms`)
+      particle.style.setProperty('--confetti-color', colors[index % colors.length])
+      particle.style.setProperty('--confetti-width', `${(4 + Math.random() * 5).toFixed(1)}px`)
+      particle.style.setProperty('--confetti-height', `${(7 + Math.random() * 7).toFixed(1)}px`)
+      emitter.appendChild(particle)
+    }
+
+    burst.appendChild(emitter)
+  })
+
+  cityImageWrap.appendChild(burst)
+  window.setTimeout(() => burst.remove(), 1700)
+}
+
+async function claimCityLevelUp() {
+  const s = loadState()
+  if (!s) return
+  normalizeCityProgress(s)
+  const earnedLevelIndex = getCityLevelIndex(getCurrentCityScore(s))
+  const pendingLevelIndex = Math.min(
+    s.cityProgress.pendingLevelIndex || s.cityProgress.maxLevelIndex + 1,
+    earnedLevelIndex
+  )
+  if (pendingLevelIndex <= s.cityProgress.maxLevelIndex) return
+
+  s.cityProgress.maxLevelIndex = clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1)
+  s.cityProgress.pendingLevelIndex = null
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'level-claim',
+    status: 'success',
+    title: t('log.levelUp.title'),
+    detail: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]),
+    meta: { levelIndex: s.cityProgress.maxLevelIndex }
+  })
+  if (!await saveState(s)) return false
+  renderAll(s)
+  launchCityLevelUpConfetti()
+  showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
+}
+
+function clampCityDayOffset(s, offset) {
+  const firstOffset = getFirstCityDayOffset(s)
+  const lastOffset = getLastCityDayOffset(s)
+  return Math.max(firstOffset, Math.min(lastOffset, offset))
+}
+
+function getFirstCityDayOffset(s) {
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  if (!firstDateKey) return 0
+  return Math.min(0, daysBetweenDateKeys(toDateKey(), firstDateKey))
+}
+
+function getLastCityDayOffset(s) {
+  if (!IS_SANDBOX) return 0
+  const lastDateKey = getLastStudyActionDateKey(s)
+  if (!lastDateKey) return 0
+  return Math.max(0, daysBetweenDateKeys(toDateKey(), lastDateKey))
+}
+
+function getFirstStudyActionDateKey(s) {
+  const dates = []
+
+  if (IS_SANDBOX && s?.sandboxStartDate) dates.push(s.sandboxStartDate)
+
+  Object.values(s?.videos || {}).forEach(video => {
+    getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
+  })
+
+  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+    if (normalizeAnkiCount(day.reviewed) > 0 || normalizeAnkiCount(day.created) > 0) dates.push(dateKey)
+  })
+
+  return dates.sort()[0] || null
+}
+
+function getLastStudyActionDateKey(s) {
+  const dates = []
+
+  if (IS_SANDBOX && s?.sandboxLastDate) dates.push(s.sandboxLastDate)
+
+  Object.values(s?.videos || {}).forEach(video => {
+    getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
+  })
+
+  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+    if (normalizeAnkiCount(day.reviewed) > 0 || normalizeAnkiCount(day.created) > 0) dates.push(dateKey)
+  })
+
+  return dates.sort().pop() || null
+}
+
+function getCityScoreThroughDate(s, date) {
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  const start = firstDateKey ? dateKeyToLocalDate(firstDateKey) : new Date(0)
+  const end = new Date(date)
+  end.setHours(23, 59, 59, 999)
+  const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
+  return history.rows.reduce((total, row) => total + getHistoryDayPoints(row), 0)
+}
+
+function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
+  return getCityLevelIndex(getCityScoreThroughDate(s, endDate))
+}
+
+function renderCityTimeControls(snapshot) {
+  const waveform = document.getElementById('cityTimeWaveform')
+  const bars = document.getElementById('cityWaveBars')
+  const track = document.getElementById('cityWaveTrack')
+  const tooltip = document.getElementById('cityWaveTooltip')
+  if (!waveform || !bars || !track || !tooltip) return
+
+  const state = loadState()
+  const rowsByDate = getCityHistoryRowsByDate(state)
+  const days = getCityWaveformDays(snapshot.minOffset, snapshot.maxOffset)
+  const levelChangeDates = getCityWaveformLevelChangeDates(state, days)
+  const selectedIndex = days.findIndex(day => day.offset === selectedCityDayOffset)
+
+  track.innerHTML = days.map((day, index) => {
+    const row = rowsByDate.get(day.dateKey)
+    const points = row ? getHistoryDayPoints(row) : 0
+    const height = 8 + Math.min(20, points * 2)
+    const label = formatCitySnapshotDate(day.date)
+    const hasLevelChange = levelChangeDates.has(day.dateKey)
+    const ariaLabel = t('city.timelineAria', {
+      date: label,
+      points,
+      changed: hasLevelChange ? t('city.timelineChanged') : ''
+    })
+    return `
+      <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${hasLevelChange ? 'has-level-change' : ''} ${index === selectedIndex ? 'selected' : ''}"
+        type="button"
+        data-city-wave-action="select"
+        data-analytics-action="selectCityWaveBar"
+        data-index="${index}"
+        data-offset="${day.offset}"
+        data-label="${escHtml(label)}"
+        style="--bar-height:${height}px; --hover-boost:0px"
+        aria-label="${escHtml(ariaLabel)}"></button>
+    `
+  }).join('')
+
+  bindCityWaveformBarActions(track, {
+    select: selectCityWaveBar,
+    preview: previewCityWaveBar
+  })
+  updateCityWaveformScrollState()
+  const selectedBar = track.querySelector('.city-wave-bar.selected')
+  if (selectedBar) {
+    centerCityWaveBar(selectedBar)
+    positionCityWaveTooltip(selectedBar)
+  }
+}
+
+function getCityWaveformLevelChangeDates(s, days) {
+  const changeDates = new Set()
+  if (!s || !days.length) return changeDates
+
+  const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
+    ? s.cityProgress.maxLevelIndex
+    : 0
+  let previousLevelIndex = null
+
+  days.forEach(day => {
+    const historicLevelIndex = getHistoricMaxCityLevelIndex(s, day.date)
+    const visualLevelIndex = Math.min(historicLevelIndex, revealedLevelIndex)
+    if (previousLevelIndex !== null && visualLevelIndex > previousLevelIndex) {
+      changeDates.add(day.dateKey)
+    }
+    previousLevelIndex = visualLevelIndex
+  })
+
+  return changeDates
+}
+
+function updateCityWaveformScrollState() {
+  const bars = document.getElementById('cityWaveBars')
+  const track = document.getElementById('cityWaveTrack')
+  if (!bars || !track) return
+
+  track.style.setProperty('--city-wave-edge-space', '0px')
+  bars.classList.remove('is-scrollable')
+  bars.classList.remove('has-centered-touch-ends')
+  const isScrollable = bars.scrollWidth > bars.clientWidth + 1
+  bars.classList.toggle('is-scrollable', isScrollable)
+  if (!isScrollable || !usesPhoneComposition()) return
+
+  const firstBar = track.querySelector('.city-wave-bar')
+  if (!firstBar) return
+  const styles = getComputedStyle(bars)
+  const trackStyles = getComputedStyle(track)
+  const horizontalPadding =
+    Number.parseFloat(styles.paddingLeft)
+    + Number.parseFloat(styles.paddingRight)
+  const itemGap = Number.parseFloat(trackStyles.columnGap) || 0
+  const edgeSpace = Math.max(
+    0,
+    ((bars.clientWidth - horizontalPadding - firstBar.getBoundingClientRect().width) / 2)
+    - itemGap
+  )
+  track.style.setProperty('--city-wave-edge-space', `${edgeSpace}px`)
+  bars.classList.add('has-centered-touch-ends')
+}
+
+function refreshCityWaveformScrollGeometry() {
+  updateCityWaveformScrollState()
+  const selectedBar = document.querySelector('#cityWaveTrack .city-wave-bar.selected')
+  if (selectedBar) centerCityWaveBar(selectedBar)
+}
+
+function initCityWaveformTouchNavigation() {
+  const bars = document.getElementById('cityWaveBars')
+  if (!bars || bars.dataset.touchNavigationReady === 'true') return
+  bars.dataset.touchNavigationReady = 'true'
+
+  bars.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
+    cityWaveformScroll.touchPointerId = event.pointerId
+    cityWaveformScroll.touchStartX = event.clientX
+    cityWaveformScroll.touchStartY = event.clientY
+    cityWaveformScroll.touchStartScrollLeft = bars.scrollLeft
+    cityWaveformScroll.touchAxis = null
+    cityWaveformScroll.touchDragging = false
+    cityWaveformScroll.touchPreviewOffset = null
+  })
+
+  bars.addEventListener('pointermove', event => {
+    if (event.pointerId !== cityWaveformScroll.touchPointerId) return
+    const deltaX = event.clientX - cityWaveformScroll.touchStartX
+    const deltaY = event.clientY - cityWaveformScroll.touchStartY
+
+    if (!cityWaveformScroll.touchAxis) {
+      if (Math.abs(deltaX) < 6 && Math.abs(deltaY) < 6) return
+      cityWaveformScroll.touchAxis = Math.abs(deltaY) >= Math.abs(deltaX)
+        ? 'vertical'
+        : 'horizontal'
+    }
+    if (cityWaveformScroll.touchAxis === 'vertical') return
+
+    if (!cityWaveformScroll.touchDragging) {
+      cityWaveformScroll.touchDragging = true
+      bars.classList.add('is-touch-dragging')
+      try { bars.setPointerCapture(event.pointerId) } catch {}
+    }
+
+    event.preventDefault()
+    const maxScroll = Math.max(0, bars.scrollWidth - bars.clientWidth)
+    bars.scrollLeft = clampNumber(cityWaveformScroll.touchStartScrollLeft - deltaX, 0, maxScroll)
+    scheduleCityWaveformTouchPreview(bars, { pointerX: event.clientX })
+  }, { passive: false })
+
+  const finishTouchNavigation = event => {
+    if (event.pointerId !== cityWaveformScroll.touchPointerId) return
+    const didDrag = cityWaveformScroll.touchDragging
+    if (didDrag) {
+      scheduleCityWaveformTouchPreview(bars, { commit: true, pointerX: event.clientX })
+      cityWaveformScroll.suppressClickUntil = Date.now() + 450
+    }
+    bars.classList.remove('is-touch-dragging')
+    cityWaveformScroll.touchPointerId = null
+    cityWaveformScroll.touchAxis = null
+    cityWaveformScroll.touchDragging = false
+    try { bars.releasePointerCapture(event.pointerId) } catch {}
+  }
+
+  bars.addEventListener('pointerup', finishTouchNavigation)
+  bars.addEventListener('pointercancel', finishTouchNavigation)
+  bars.addEventListener('click', event => {
+    if (Date.now() > cityWaveformScroll.suppressClickUntil) return
+    event.preventDefault()
+    event.stopPropagation()
+  }, true)
+}
+
+function scheduleCityWaveformTouchPreview(bars, { commit = false, pointerX = null } = {}) {
+  if (!bars) return
+  if (cityWaveformScroll.touchPreviewFrame) cancelAnimationFrame(cityWaveformScroll.touchPreviewFrame)
+  cityWaveformScroll.touchPreviewFrame = requestAnimationFrame(() => {
+    cityWaveformScroll.touchPreviewFrame = null
+    const rect = bars.getBoundingClientRect()
+    cityWaveformScroll.pointerX = bars.scrollWidth > bars.clientWidth + 1
+      ? rect.left + rect.width / 2
+      : clampNumber(pointerX ?? rect.left + rect.width / 2, rect.left, rect.right)
+    cityWaveformScroll.pointerY = rect.top + rect.height / 2
+    const bar = getClosestCityWaveBarAtPointer(bars)
+    const offset = Number.parseInt(bar?.dataset?.offset, 10)
+    if (!bar || !Number.isFinite(offset)) return
+
+    if (commit) {
+      selectCityWaveBar(bar, { preserveScrollLeft: bars.scrollLeft })
+      return
+    }
+    if (offset === cityWaveformScroll.touchPreviewOffset) return
+    cityWaveformScroll.touchPreviewOffset = offset
+    previewCityWaveBar(bar, { persist: true })
+    document.getElementById('cityTimeWaveform')?.classList.add('has-touch-preview')
+  })
+}
+
+function getCityWaveformDays(minOffset, maxOffset = 0) {
+  const days = []
+  for (let offset = minOffset; offset <= maxOffset; offset += 1) {
+    const date = addDays(new Date(), offset)
+    days.push({ offset, date, dateKey: toDateKey(date) })
+  }
+  return days
+}
+
+function getCityHistoryRowsByDate(s) {
+  const rows = new Map()
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  if (!firstDateKey) return rows
+
+  const start = dateKeyToLocalDate(firstDateKey)
+  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
+  end.setHours(23, 59, 59, 999)
+  getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end).rows
+    .forEach(row => rows.set(row.dateKey, row))
+  return rows
+}
+
+function previewCityWaveBar(bar, options = {}) {
+  const waveform = document.getElementById('cityTimeWaveform')
+  if (!bar || !waveform) return
+
+  const index = parseInt(bar.dataset.index, 10)
+  const bars = Array.from(waveform.querySelectorAll('.city-wave-bar'))
+  bars.forEach((item, itemIndex) => {
+    const distance = Math.abs(itemIndex - index)
+    const boost = Math.max(0, 16 - distance * 5)
+    item.style.setProperty('--hover-boost', `${boost}px`)
+  })
+
+  previewCityDayOffset(parseInt(bar.dataset.offset, 10))
+  positionCityWaveTooltip(bar)
+
+  if (!options.persist) {
+    clearTimeout(previewCityWaveBar._timer)
+  }
+}
+
+function selectCityWaveBar(bar, { preserveScrollLeft = null } = {}) {
+  const offset = parseInt(bar?.dataset?.offset, 10)
+  if (!Number.isFinite(offset)) return
+  setCityDayOffset(offset)
+
+  const waveform = document.getElementById('cityTimeWaveform')
+  const scrollViewport = document.getElementById('cityWaveBars')
+  if (scrollViewport && Number.isFinite(preserveScrollLeft)) {
+    const maxScroll = Math.max(0, scrollViewport.scrollWidth - scrollViewport.clientWidth)
+    scrollViewport.scrollLeft = clampNumber(preserveScrollLeft, 0, maxScroll)
+  }
+  const selected = waveform?.querySelector(`.city-wave-bar[data-offset="${offset}"]`)
+  if (!waveform || !selected) return
+
+  previewCityWaveBar(selected, { persist: true })
+  waveform.classList.add('has-touch-preview')
+  clearTimeout(selectCityWaveBar._timer)
+  selectCityWaveBar._timer = setTimeout(() => {
+    waveform.classList.remove('has-touch-preview')
+  }, 2600)
+}
+
+function handleCityWaveformMouseMove(event) {
+  if (usesPhoneComposition()) return
+  const waveform = document.getElementById('cityTimeWaveform')
+  const bars = document.getElementById('cityWaveBars')
+  cityWaveformScroll.pointerX = event.clientX
+  cityWaveformScroll.pointerY = event.clientY
+  if (!waveform || !bars || bars.scrollWidth <= bars.clientWidth) {
+    stopCityWaveformAutoScroll()
+    return
+  }
+
+  const rect = waveform.getBoundingClientRect()
+  const edgeSize = Math.min(28, rect.width * 0.24)
+  const leftDistance = event.clientX - rect.left
+  const rightDistance = rect.right - event.clientX
+
+  let speed = 0
+  if (leftDistance >= 0 && leftDistance < edgeSize) {
+    speed = -getCityWaveformEdgeSpeed(leftDistance, edgeSize)
+  } else if (rightDistance >= 0 && rightDistance < edgeSize) {
+    speed = getCityWaveformEdgeSpeed(rightDistance, edgeSize)
+  }
+
+  cityWaveformScroll.speed = speed
+  if (cityWaveformScroll.speed === 0) {
+    stopCityWaveformAutoScroll()
+  } else {
+    startCityWaveformAutoScroll()
+  }
+}
+
+function getCityWaveformEdgeSpeed(distance, edgeSize) {
+  const intensity = 1 - clampNumber(distance / edgeSize, 0, 1)
+  if (intensity <= 0) return 0
+  return 1.5 + (intensity * intensity * 7)
+}
+
+function startCityWaveformAutoScroll() {
+  if (cityWaveformScroll.frame) return
+
+  const step = () => {
+    const bars = document.getElementById('cityWaveBars')
+    if (!bars || cityWaveformScroll.speed === 0) {
+      stopCityWaveformAutoScroll()
+      return
+    }
+    const maxScroll = bars.scrollWidth - bars.clientWidth
+    const nextLeft = clampNumber(bars.scrollLeft + cityWaveformScroll.speed, 0, maxScroll)
+    if (nextLeft === bars.scrollLeft) {
+      previewCityWaveformBarAtPointer()
+      stopCityWaveformAutoScroll()
+      return
+    }
+    bars.scrollLeft = nextLeft
+    previewCityWaveformBarAtPointer()
+    cityWaveformScroll.frame = requestAnimationFrame(step)
+  }
+
+  cityWaveformScroll.frame = requestAnimationFrame(step)
+}
+
+function stopCityWaveformAutoScroll() {
+  cityWaveformScroll.speed = 0
+  if (!cityWaveformScroll.frame) return
+  cancelAnimationFrame(cityWaveformScroll.frame)
+  cityWaveformScroll.frame = null
+}
+
+function centerCityWaveBar(bar) {
+  const bars = document.getElementById('cityWaveBars')
+  if (!bar || !bars || bars.scrollWidth <= bars.clientWidth) return
+
+  const barRect = bar.getBoundingClientRect()
+  const barsRect = bars.getBoundingClientRect()
+  const barLeftInScroll = barRect.left - barsRect.left + bars.scrollLeft
+  const targetLeft = barLeftInScroll - (bars.clientWidth / 2) + (barRect.width / 2)
+  const maxScroll = bars.scrollWidth - bars.clientWidth
+  bars.scrollLeft = clampNumber(targetLeft, 0, maxScroll)
+}
+
+function previewCityWaveformBarAtPointer() {
+  const bars = document.getElementById('cityWaveBars')
+  const target = document.elementFromPoint(cityWaveformScroll.pointerX, cityWaveformScroll.pointerY)
+  const directBar = target?.closest?.('.city-wave-bar')
+  const bar = directBar && bars?.contains(directBar)
+    ? directBar
+    : getClosestCityWaveBarAtPointer(bars)
+  if (!bar || !bars?.contains(bar)) return
+  previewCityWaveBar(bar, { persist: true })
+}
+
+function getClosestCityWaveBarAtPointer(bars) {
+  if (!bars) return null
+  const pointerX = cityWaveformScroll.pointerX
+  const pointerY = cityWaveformScroll.pointerY
+  const barsRect = bars.getBoundingClientRect()
+  if (pointerX < barsRect.left || pointerX > barsRect.right || pointerY < barsRect.top || pointerY > barsRect.bottom) return null
+
+  return Array.from(bars.querySelectorAll('.city-wave-bar'))
+    .filter(bar => {
+      const rect = bar.getBoundingClientRect()
+      return rect.right >= barsRect.left && rect.left <= barsRect.right
+    })
+    .reduce((closest, bar) => {
+      const rect = bar.getBoundingClientRect()
+      const center = rect.left + rect.width / 2
+      const distance = Math.abs(pointerX - center)
+      return !closest || distance < closest.distance ? { bar, distance } : closest
+    }, null)?.bar || null
+}
+
+function positionCityWaveTooltip(bar) {
+  const waveform = document.getElementById('cityTimeWaveform')
+  const tooltip = document.getElementById('cityWaveTooltip')
+  if (!bar || !waveform || !tooltip) return
+
+  tooltip.textContent = bar.dataset.label || ''
+  const barRect = bar.getBoundingClientRect()
+  const waveRect = waveform.getBoundingClientRect()
+  const left = barRect.left + barRect.width / 2 - waveRect.left
+  tooltip.style.setProperty('--tooltip-left', `${left}px`)
+}
+
+function clearCityWaveformPreview() {
+  clearTimeout(previewCityWaveBar._timer)
+  stopCityWaveformAutoScroll()
+  document.getElementById('cityTimeWaveform')?.classList.remove('has-touch-preview')
+  document.querySelectorAll('.city-wave-bar').forEach(bar => {
+    bar.style.setProperty('--hover-boost', '0px')
+  })
+  const selected = document.querySelector('.city-wave-bar.selected')
+  if (selected) positionCityWaveTooltip(selected)
+  const state = loadState()
+  if (state) renderCity(getCurrentCityScore(state), state)
+}
+
+function clearCityWaveformPreviewOnOutsideClick(event) {
+  if (event.target?.closest?.('.city-time-waveform')) return
+  const waveform = document.getElementById('cityTimeWaveform')
+  if (!waveform?.classList.contains('has-touch-preview')) return
+  clearCityWaveformPreview()
+}
+
+function formatCitySnapshotDate(date) {
+  const dateKey = toDateKey(date)
+  if (dateKey === toDateKey(new Date(Date.now() - 86_400_000))) return t('history.yesterday')
+  return formatLocaleDate(date, { month: 'short', day: 'numeric' })
+}
+
+function initCityImagePanZoom() {
+  const wrap = document.querySelector('.city-image-wrap')
+  const image = document.getElementById('cityMilestoneImage')
+  if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
+
+  wrap.dataset.panZoomReady = 'true'
+  cityImageView.scale = getDefaultCityImageZoom()
+  cityImageView.y = getDefaultCityImageY()
+  image.draggable = false
+  image.addEventListener('dragstart', event => event.preventDefault())
+  image.addEventListener('load', () => {
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
+  })
+  applyCityImageTransform()
+
+  wrap.addEventListener('wheel', event => {
+    if (event.target.closest('.city-time-waveform, .town-build-panel, .town-flower-outline')) return
+    const zoomDelta = getCityImageWheelZoomDelta(event)
+    if (!canZoomCityImageBy(zoomDelta)) return
+    event.preventDefault()
+    zoomCityImageBy(zoomDelta, event)
+  }, { passive: false })
+
+  wrap.addEventListener('pointerdown', event => {
+    if (event.target.closest('button, .city-time-waveform, .town-build-panel')) return
+    if (event.pointerType === 'touch') {
+      cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (cityImageView.touchPointers.size >= 2) {
+        event.preventDefault()
+        beginCityImagePinch(wrap)
+      } else if (canPanCityImage()) {
+        event.preventDefault()
+        beginCityImageTouchDrag(wrap, event.pointerId, event.clientX, event.clientY)
+      }
+      return
+    }
+    if (!canPanCityImage()) return
+    event.preventDefault()
+    cityImageView.dragging = true
+    cityImageView.pointerId = event.pointerId
+    cityImageView.startX = event.clientX
+    cityImageView.startY = event.clientY
+    cityImageView.originX = cityImageView.x
+    cityImageView.originY = cityImageView.y
+    wrap.classList.add('is-dragging')
+    wrap.setPointerCapture(event.pointerId)
+  })
+
+  wrap.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch' && cityImageView.touchPointers.has(event.pointerId)) {
+      cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (cityImageView.pinching && cityImageView.touchPointers.size >= 2) {
+        event.preventDefault()
+        updateCityImagePinch(wrap)
+        return
+      }
+    }
+    if (!cityImageView.dragging || cityImageView.pointerId !== event.pointerId) return
+    if (event.pointerType === 'touch') event.preventDefault()
+    cityImageView.x = cityImageView.originX + event.clientX - cityImageView.startX
+    cityImageView.y = cityImageView.originY + event.clientY - cityImageView.startY
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
+  })
+
+  const endDrag = event => {
+    if (event.pointerType === 'touch') {
+      const trackedTouch = cityImageView.touchPointers.has(event.pointerId)
+      cityImageView.touchPointers.delete(event.pointerId)
+      if (trackedTouch && cityImageView.pinching) {
+        cityImageView.pinching = false
+        if (cityImageView.touchPointers.size >= 2) {
+          beginCityImagePinch(wrap)
+          return
+        }
+        const remaining = cityImageView.touchPointers.entries().next().value
+        if (remaining && canPanCityImage()) {
+          const [pointerId, point] = remaining
+          beginCityImageTouchDrag(wrap, pointerId, point.x, point.y)
+        } else {
+          cityImageView.dragging = false
+          cityImageView.pointerId = null
+          wrap.classList.remove('is-dragging')
+        }
+        return
+      }
+    }
+    if (cityImageView.pointerId !== event.pointerId) return
+    cityImageView.dragging = false
+    cityImageView.pointerId = null
+    wrap.classList.remove('is-dragging')
+  }
+  wrap.addEventListener('pointerup', endDrag)
+  wrap.addEventListener('pointercancel', endDrag)
+  window.addEventListener('resize', () => {
+    cityImageView.scale = clampNumber(
+      cityImageView.scale,
+      CITY_IMAGE_MIN_ZOOM,
+      getCityImageMaxZoom()
+    )
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
+  })
+}
+
+function beginCityImageTouchDrag(wrap, pointerId, clientX, clientY) {
+  cityImageView.pinching = false
+  cityImageView.dragging = true
+  cityImageView.pointerId = pointerId
+  cityImageView.startX = clientX
+  cityImageView.startY = clientY
+  cityImageView.originX = cityImageView.x
+  cityImageView.originY = cityImageView.y
+  wrap.classList.add('is-dragging')
+  try { wrap.setPointerCapture(pointerId) } catch {}
+}
+
+function beginCityImagePinch(wrap) {
+  const points = Array.from(cityImageView.touchPointers.values()).slice(0, 2)
+  if (points.length < 2) return
+  const rect = wrap.getBoundingClientRect()
+  const center = getCityImageTouchCenter(points, rect)
+  cityImageView.pinching = true
+  cityImageView.dragging = false
+  cityImageView.pointerId = null
+  cityImageView.pinchStartDistance = Math.max(1, getCityImageTouchDistance(points))
+  cityImageView.pinchStartScale = cityImageView.scale
+  cityImageView.pinchStartX = cityImageView.x
+  cityImageView.pinchStartY = cityImageView.y
+  cityImageView.pinchStartCenterX = center.x
+  cityImageView.pinchStartCenterY = center.y
+  wrap.classList.add('is-dragging')
+  cityImageView.touchPointers.forEach((_point, pointerId) => {
+    try { wrap.setPointerCapture(pointerId) } catch {}
+  })
+}
+
+function updateCityImagePinch(wrap) {
+  const points = Array.from(cityImageView.touchPointers.values()).slice(0, 2)
+  if (points.length < 2 || !cityImageView.pinchStartDistance) return
+  const rect = wrap.getBoundingClientRect()
+  const center = getCityImageTouchCenter(points, rect)
+  const nextScale = clampNumber(
+    cityImageView.pinchStartScale * getCityImageTouchDistance(points) / cityImageView.pinchStartDistance,
+    CITY_IMAGE_MIN_ZOOM,
+    getCityImageMaxZoom()
+  )
+  const scaleRatio = nextScale / cityImageView.pinchStartScale
+  cityImageView.scale = nextScale
+  cityImageView.x = center.x - (cityImageView.pinchStartCenterX - cityImageView.pinchStartX) * scaleRatio
+  cityImageView.y = center.y - (cityImageView.pinchStartCenterY - cityImageView.pinchStartY) * scaleRatio
+  const geometry = clampCityImagePan()
+  applyCityImageTransform(geometry)
+}
+
+function getCityImageTouchDistance(points) {
+  return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y)
+}
+
+function getCityImageTouchCenter(points, rect) {
+  return {
+    x: (points[0].x + points[1].x) / 2 - rect.left - rect.width / 2,
+    y: (points[0].y + points[1].y) / 2 - rect.top - rect.height / 2
+  }
+}
+
+function zoomCityImage(direction, event = null) {
+  zoomCityImageBy(direction * CITY_IMAGE_ZOOM_STEP, event)
+}
+
+function getWheelZoomAmount(event) {
+  return Math.min(0.12, Math.max(0.025, Math.abs(event.deltaY) / 120 * CITY_IMAGE_WHEEL_ZOOM_STEP))
+}
+
+function getCityImageWheelZoomDelta(event) {
+  if (!event.deltaY) return 0
+  return event.deltaY > 0 ? -getWheelZoomAmount(event) : getWheelZoomAmount(event)
+}
+
+function canZoomCityImageBy(delta) {
+  if (!delta) return false
+  const nextScale = clampNumber(
+    cityImageView.scale + delta,
+    CITY_IMAGE_MIN_ZOOM,
+    getCityImageMaxZoom()
+  )
+  return nextScale !== cityImageView.scale
+}
+
+function zoomCityImageBy(delta, event = null) {
+  const previousScale = cityImageView.scale
+  const nextScale = clampNumber(
+    previousScale + delta,
+    CITY_IMAGE_MIN_ZOOM,
+    getCityImageMaxZoom()
+  )
+  if (nextScale === previousScale) return
+
+  if (event) {
+    const wrap = document.querySelector('.city-image-wrap')
+    const rect = wrap?.getBoundingClientRect()
+    if (rect) {
+      const focusX = event.clientX - rect.left - rect.width / 2
+      const focusY = event.clientY - rect.top - rect.height / 2
+      const ratio = nextScale / previousScale
+      cityImageView.x = focusX - (focusX - cityImageView.x) * ratio
+      cityImageView.y = focusY - (focusY - cityImageView.y) * ratio
+    }
+  }
+
+  cityImageView.scale = nextScale
+  const geometry = clampCityImagePan()
+  applyCityImageTransform(geometry)
+}
+
+function resetCityImageView() {
+  cityImageView.touchPointers.clear()
+  cityImageView.pinching = false
+  cityImageView.dragging = false
+  cityImageView.pointerId = null
+  cityImageView.scale = getDefaultCityImageZoom()
+  cityImageView.x = 0
+  cityImageView.y = getDefaultCityImageY()
+  applyCityImageTransform()
+}
+
+function getCityImageMaxZoom() {
+  return usesPhoneComposition()
+    ? CITY_IMAGE_PHONE_MAX_ZOOM
+    : CITY_IMAGE_MAX_ZOOM
+}
+
+function getDefaultCityImageZoom() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return CITY_IMAGE_MIN_ZOOM
+  return usesPhoneComposition()
+    ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
+    : CITY_IMAGE_MIN_ZOOM
+}
+
+function getDefaultCityImageY() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return 0
+  return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
+}
+
+function getCityImagePanGeometry(scale = cityImageView.scale) {
+  const wrap = document.querySelector('.city-image-wrap')
+  const image = document.getElementById('cityMilestoneImage')
+  if (!wrap || !image) return null
+
+  const rect = wrap.getBoundingClientRect()
+  return getCityImageCoverGeometry({
+    viewportWidth: rect.width,
+    viewportHeight: rect.height,
+    // The pixel scene fills its viewport; all three layers share these bounds.
+    imageWidth: window.EDENIA_PIXEL_TOWN?.enabled ? rect.width : image.naturalWidth,
+    imageHeight: window.EDENIA_PIXEL_TOWN?.enabled ? rect.height : image.naturalHeight,
+    scale
+  })
+}
+
+function canPanCityImage() {
+  const geometry = getCityImagePanGeometry()
+  return isCityImagePanGeometryPannable(geometry)
+}
+
+function isCityImagePanGeometryPannable(geometry) {
+  return Boolean(
+    geometry
+    && (
+      geometry.maxX > CITY_IMAGE_PAN_EPSILON
+      || geometry.maxY > CITY_IMAGE_PAN_EPSILON
+    )
+  )
+}
+
+function clampCityImagePan() {
+  const geometry = getCityImagePanGeometry()
+  if (!geometry) {
+    cityImageView.x = 0
+    cityImageView.y = 0
+    return null
+  }
+
+  cityImageView.x = clampNumber(cityImageView.x, -geometry.maxX, geometry.maxX)
+  cityImageView.y = clampNumber(cityImageView.y, -geometry.maxY, geometry.maxY)
+  return geometry
+}
+
+function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
+  const image = document.getElementById('cityMilestoneImage')
+  if (!image) return
+  const wrap = document.querySelector('.city-image-wrap')
+  if (window.EDENIA_PIXEL_TOWN?.enabled) {
+    // Reuse production gestures and bounds for the still, animation and flower target.
+    wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
+    wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
+    wrap?.style.setProperty('--town-view', cityImageView.scale === 1
+      ? 'none'
+      : `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`)
+    return
+  }
+  if (geometry) {
+    image.style.width = `${geometry.baseWidth}px`
+    image.style.height = `${geometry.baseHeight}px`
+  }
+  wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
+  wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
+  image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
+}
+
+function getCityImageSource(index) {
+  if (CITY_IMAGE_SOURCES.length === 0) return null
+  return CITY_IMAGE_SOURCES[clampNumber(index, 0, CITY_IMAGE_SOURCES.length - 1)]
+}
+
+function getCurrentCityImageIndex(state) {
+  if (!state) return 0
+  normalizeCityProgress(state)
+  return clampNumber(state.cityProgress.maxLevelIndex, 0, CITY_IMAGE_SOURCES.length - 1)
+}
+
+function normalizeCityImageSource(source) {
+  if (!source) return null
+  if (typeof source === 'string') return { primary: source, fallback: source }
+  const primary = source.primary || source.fallback
+  const fallback = source.fallback || source.primary
+  if (!primary && !fallback) return null
+  return { primary, fallback }
+}
+
+function getCityImageCacheKey(source) {
+  const normalized = normalizeCityImageSource(source)
+  return normalized?.primary || normalized?.fallback || ''
+}
+
+function isCityImageLoaded(source) {
+  return Boolean(cityImagePreloadCache.get(getCityImageCacheKey(source))?.loaded)
+}
+
+function decodeCityPreloadImage(img) {
+  if (!img?.decode) return Promise.resolve()
+  return img.decode().catch(() => {})
+}
+
+function preloadCityImages(centerIndex = 0) {
+  queueCityImagePreloadsAround(centerIndex)
+}
+
+function preloadCityImage(source, options = {}) {
+  const normalized = normalizeCityImageSource(source)
+  if (!normalized) return null
+
+  const cacheKey = getCityImageCacheKey(normalized)
+  const cached = cityImagePreloadCache.get(cacheKey)
+  if (cached) return cached
+
+  const img = new Image()
+  img.decoding = 'async'
+  if ('fetchPriority' in img) img.fetchPriority = options.fetchPriority || 'low'
+
+  const entry = {
+    img,
+    loaded: false,
+    loadedSrc: null,
+    promise: null,
+    source: normalized
+  }
+  const promise = new Promise(resolve => {
+    let triedFallback = false
+    const finish = (loaded, src = null) => {
+      entry.loaded = loaded
+      entry.loadedSrc = src
+      resolve({ loaded, src })
+    }
+
+    img.onload = () => {
+      const loadedSrc = img.currentSrc || img.src
+      decodeCityPreloadImage(img).then(() => finish(true, loadedSrc))
+    }
+    img.onerror = () => {
+      if (!triedFallback && normalized.fallback && normalized.fallback !== normalized.primary) {
+        triedFallback = true
+        img.src = normalized.fallback
+        return
+      }
+      finish(false)
+    }
+  })
+
+  entry.promise = promise
+  cityImagePreloadCache.set(cacheKey, entry)
+  img.src = normalized.primary || normalized.fallback
+  return entry
+}
+
+function getCityImagePreloadOrder(centerIndex) {
+  const order = []
+  for (let i = centerIndex - 1; i >= 0; i -= 1) order.push(i)
+  if (centerIndex + 1 < CITY_IMAGE_SOURCES.length) order.push(centerIndex + 1)
+  for (let i = centerIndex + 2; i < CITY_IMAGE_SOURCES.length; i += 1) order.push(i)
+  return order
+}
+
+function queueCityImagePreloadsAround(centerIndex) {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return
+  if (!Number.isInteger(centerIndex) || CITY_IMAGE_SOURCES.length === 0) return
+  if (activeCityImagePreloadCenter === centerIndex) return
+
+  activeCityImagePreloadCenter = centerIndex
+  cityImagePreloadQueue.length = 0
+  getCityImagePreloadOrder(centerIndex).forEach(index => {
+    const source = getCityImageSource(index)
+    if (source && !isCityImageLoaded(source)) cityImagePreloadQueue.push(source)
+  })
+  runCityImagePreloadQueue()
+}
+
+function scheduleCityImagePreloadStep(callback) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(callback, { timeout: 1500 })
+  } else {
+    setTimeout(callback, 120)
+  }
+}
+
+function runCityImagePreloadQueue() {
+  if (cityImagePreloadQueueRunning) return
+  cityImagePreloadQueueRunning = true
+
+  const loadNext = () => {
+    const source = cityImagePreloadQueue.shift()
+    if (!source) {
+      cityImagePreloadQueueRunning = false
+      return
+    }
+
+    const preload = preloadCityImage(source, { fetchPriority: 'low' })
+    if (!preload) {
+      scheduleCityImagePreloadStep(loadNext)
+      return
+    }
+    preload.promise.then(() => scheduleCityImagePreloadStep(loadNext))
+  }
+
+  scheduleCityImagePreloadStep(loadNext)
+}
+
+function updateCityMilestoneImage(score, options = {}) {
+  const image = document.getElementById('cityMilestoneImage')
+  if (!image || CITY_IMAGE_SOURCES.length === 0) return
+
+  const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
+  const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
+  if (window.EDENIA_PIXEL_TOWN?.enabled) {
+    const town = window.EDENIA_PIXEL_TOWN
+    const economy = loadState()?.townEconomy
+    const stage = economy?.mode === 'starter'
+      ? (Object.hasOwn(economy.purchases, FIRST_FLOWER_ID) ? 14 : 13)
+      : imageIndex + 1
+    image.alt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
+    if (image.dataset.pixelStage !== String(stage)) {
+      image.dataset.pixelStage = String(stage)
+      image.src = `${town.base}${stage}-${town.light()}.png`
+      image.classList.remove('loading')
+    }
+    return
+  }
+  const preloadCenterIndex = Number.isInteger(options.preloadCenterIndex)
+    ? clampNumber(options.preloadCenterIndex, 0, CITY_IMAGE_SOURCES.length - 1)
+    : imageIndex
+  const nextSource = getCityImageSource(imageIndex)
+  const nextKey = getCityImageCacheKey(nextSource)
+  const nextAlt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
+
+  image.alt = nextAlt
+  if (image.dataset.citySourceKey === nextKey) {
+    queueCityImagePreloadsAround(preloadCenterIndex)
+    return
+  }
+  if (image.getAttribute('src') === nextSource.primary) {
+    image.dataset.citySourceKey = nextKey
+    image.dataset.citySrc = nextSource.primary
+    image.classList.remove('loading')
+    queueCityImagePreloadsAround(preloadCenterIndex)
+    return
+  }
+
+  const shouldAnimateTransition = image.dataset.initialCityTransitionStarted !== 'true'
+  image.dataset.initialCityTransitionStarted = 'true'
+  image.dataset.cityTargetKey = nextKey
+  image.classList.toggle('loading', shouldAnimateTransition)
+  if ('fetchPriority' in image) image.fetchPriority = 'high'
+  const applyImage = result => {
+    if (image.dataset.cityTargetKey !== nextKey) return
+    const loadedSrc = result?.src || result?.loadedSrc || nextSource.fallback || nextSource.primary
+    image.dataset.citySourceKey = nextKey
+    image.dataset.citySrc = loadedSrc
+    image.src = loadedSrc
+    if (!shouldAnimateTransition) {
+      image.classList.remove('loading')
+      return
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (image.dataset.citySourceKey === nextKey && image.dataset.cityTargetKey === nextKey) {
+          image.classList.remove('loading')
+        }
+      })
+    })
+  }
+
+  const preload = preloadCityImage(nextSource, { fetchPriority: 'high' })
+  if (preload?.loaded && preload.loadedSrc) {
+    applyImage(preload)
+    queueCityImagePreloadsAround(preloadCenterIndex)
+  } else {
+    preload?.promise.then(result => {
+      if (result.loaded) {
+        applyImage(result)
+        if (image.dataset.cityTargetKey === nextKey) queueCityImagePreloadsAround(preloadCenterIndex)
+      }
+    })
+  }
+}
+
+const channelHistoryRequests = new Set()
+let channelHistoryProfileEpoch = 0
+window.addEventListener('storage', event => {
+  if (event.key === STORAGE_KEY || event.key === null) channelHistoryProfileEpoch += 1
+})
+
+function channelCoverageWithHistory(state, channelId, history, fetched = []) {
+  const coverage = getChannelRefreshes(state)[channelId]?.coverage
+  if (Array.isArray(coverage?.headIds)) return { ...coverage, history }
+  // Browsing a legacy library establishes real playlist coverage too. Without
+  // its head boundary the next hourly check would mistake history for catch-up.
+  const head = (fetched.length ? fetched : Object.values(state.videos)
+    .filter(video => video.channelId === channelId && !video.manuallyAdded)
+    .sort(compareActiveVideos)).slice(0, FETCH_PAGE_SIZE)
+  const dates = head.map(video => Date.parse(video.publishedAt)).filter(Number.isFinite)
+  return {
+    ...coverage, headIds: head.map(video => video.id),
+    oldestPublishedAt: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
+    history
+  }
+}
+
+async function loadOlderChannelUploads(track, entry) {
+  const origin = loadState()
+  const profileEpoch = channelHistoryProfileEpoch
+  let state = origin
+  const channelId = entry.group.key
+  const channel = state?.config?.channels?.find(channel => channel.id === channelId)
+  if (!channel || !hasYoutubeApiKey() || channelHistoryRequests.has(channelId)) return null
+  const current = () => isCurrentLearnerProfileOperation(origin)
+    && profileEpoch === channelHistoryProfileEpoch
+    && track.isConnected
+    && ['all', 'unwatched'].includes(selectedStatusFilter)
+    && loadState()?.config?.channels?.some(channel => channel.id === channelId)
+  const run = async () => {
+    if (!current()) return null
+    state = loadState()
+    const refresh = getChannelRefreshes(state)[channelId] || {}
+    const history = refresh.coverage?.history
+    if (history?.exhausted === true) return { exhausted: true }
+    if (history?.retryAt > Date.now()) return { failed: true, retryAt: history.retryAt }
+    try {
+      const result = await fetchOlderUploads({
+        history,
+        fetchPage: token => {
+          if (!current()) throw new Error('Inactive profile')
+          return fetchChannelVideosPage(channel, token)
+        }
+      })
+      if (!current()) return null
+      // Retain both formats; a format selection must not punch holes in coverage.
+      state = loadState()
+      const details = await getFetchedVideoDetails(state, result.videos, true)
+      if (!current()) return null
+      state = loadState()
+      const previousVideos = new Map(result.videos.map(video => [video.id, state.videos[video.id]]))
+      const previousRefresh = getChannelRefreshes(state)[channelId]
+      mergeFetchedVideos(state, result.videos, details, true)
+      const latest = getChannelRefreshes(state)[channelId] || {}
+      state.channelRefreshes[channelId] = {
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, result.history, result.videos)
+      }
+      if (!await saveState(state)) {
+        previousVideos.forEach((video, id) => {
+          if (video) state.videos[id] = video
+          else delete state.videos[id]
+        })
+        if (previousRefresh) state.channelRefreshes[channelId] = previousRefresh
+        else delete state.channelRefreshes[channelId]
+        throw new Error('History could not be saved')
+      }
+      const known = new Set(entry.group.videos.map(video => video.id))
+      const added = result.videos.map(video => state.videos[video.id]).filter(video =>
+        !known.has(video.id) && !isHiddenFromVideoGrid(video)
+        && (getVideoStatus(video) === 'unwatched' || selectedStatusFilter === 'all' && getVideoStatus(video) === 'partial'))
+      renderFeed(state)
+      return { exhausted: result.exhausted, matched: added.some(video => getChannelVideoFormat(video) === entry.format) }
+    } catch (error) {
+      if (!current()) return null
+      state = loadState()
+      const latest = getChannelRefreshes(state)[channelId] || {}
+      const failureCount = Math.min(5, (latest.coverage?.history?.failureCount || 0) + 1)
+      const retryAt = error.retryAt || Date.now() + Math.min(300_000, 30_000 * 2 ** (failureCount - 1))
+      state.channelRefreshes[channelId] = {
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, { ...latest.coverage?.history, retryAt, failureCount })
+      }
+      if (!await saveState(state)) return false
+      return { failed: true, retryAt }
+    }
+  }
+  channelHistoryRequests.add(channelId)
+  try {
+    // Co-operating tabs never queue duplicate history work. The profile authority
+    // additionally fences an activation replaced by another tab or profile.
+    return navigator.locks?.request
+      ? await navigator.locks.request(`${STORAGE_KEY}:upload-history:${channelId}`, { ifAvailable: true }, lock => lock ? run() : { busy: true, retryAt: Date.now() + 1000 })
+      : await run()
+  } finally {
+    channelHistoryRequests.delete(channelId)
+  }
+}
+
+function syncChannelHistoryActions(track, entry) {
+  const enabled = !IS_SANDBOX && hasYoutubeApiKey() && ['all', 'unwatched'].includes(selectedStatusFilter)
+  const key = enabled ? `${selectedStatusFilter}:${entry.format}:${document.documentElement.lang}` : ''
+  if (entry.historyViewKey === key) return
+  entry.history?.destroy()
+  entry.history = null
+  entry.historyViewKey = key
+  if (enabled) entry.history = bindUploadHistoryActions(track, {
+    load: () => loadOlderChannelUploads(track, entry)
+  })
+}
+
+const videoShelfWindows = new Map()
+const videoCollectionWindows = new Map()
+const videoCollectionDefinitions = new Map()
+const videoCollectionSignatures = new Map()
+let pendingShelfGroups = []
+
+function captureFeedViewport() {
+  const nodes = [...document.querySelectorAll('.channel-shelf, #watchedGrid .video-card, #removedGrid .video-card')]
+  const focused = document.activeElement
+  const visible = node => { const rect = node.getBoundingClientRect(); return rect.bottom > 0 && rect.top < innerHeight }
+  let index = nodes.findIndex(node => node.contains(focused) && visible(node))
+  if (index < 0) {
+    let largestVisibleHeight = 0
+    nodes.forEach((node, i) => {
+      const rect = node.getBoundingClientRect()
+      const height = Math.min(innerHeight, rect.bottom) - Math.max(0, rect.top)
+      if (height > largestVisibleHeight) { largestVisibleHeight = height; index = i }
+    })
+  }
+  if (index < 0) return null
+  return { nodes, locations: nodes.map(node => ({ grid: node.closest('#watchedGrid, #removedGrid'), id: node.dataset.videoId })), index, top: nodes[index].getBoundingClientRect().top,
+    focusLost: nodes[index].contains(focused) }
+}
+
+function restoreFeedViewport(anchor) {
+  if (!anchor) return
+  const { nodes, locations, index, top, focusLost } = anchor
+  let target = null
+  for (let distance = 0; distance < nodes.length && !target; distance++) {
+    target = [index + distance, index - distance].map(i => {
+      const node = nodes[i]
+      if (node?.isConnected) return node
+      const location = locations[i]
+      return location?.grid && [...location.grid.querySelectorAll('.video-card')]
+        .find(card => card.dataset.videoId === location.id)
+    }).find(node => node?.isConnected && node.getClientRects().length)
+  }
+  target ||= document.querySelector('#videoGrid .empty-state')
+  if (!target) return
+  window.scrollBy({ top: target.getBoundingClientRect().top - top, behavior: 'instant' })
+  if (focusLost && (document.activeElement === document.body || !document.activeElement?.getClientRects().length)) {
+    const control = target.querySelector('.channel-shelf-track, a, button') || target
+    if (!control.hasAttribute('tabindex')) control.tabIndex = -1
+    control.focus({ preventScroll: true })
+  }
+}
+
+function renderFeed(s, viewport = captureFeedViewport()) {
+  pendingShelfGroups = []
+  closeVideoOrganizationMenu(false)
+  renderChannelFilterOptions(s)
+  renderTrackedChannelAccess(s)
+
+  const statusFilter = selectedStatusFilter
+  const grid   = document.getElementById('videoGrid')
+  const watchedSection = document.getElementById('watchedSection')
+  const watchedGrid = document.getElementById('watchedGrid')
+  const watchedCount = document.getElementById('watchedCount')
+  const watchedToggle = document.getElementById('watchedSectionToggle')
+  const removedSection = document.getElementById('removedSection')
+  const removedGrid = document.getElementById('removedGrid')
+  const removedCount = document.getElementById('removedCount')
+  const removedToggle = document.getElementById('removedSectionToggle')
+  if (
+    !grid || !watchedSection || !watchedGrid || !watchedCount
+    || !removedSection || !removedGrid || !removedCount
+  ) return
+  grid.classList.add('channel-view')
+  const retainedShelves = new Map([...videoShelfWindows.values()].map(entry => [entry.group.key, entry]))
+  const shelfScrollPositions = new Map([...videoShelfWindows.keys()].map(track => [track, track.scrollLeft]))
+  const feedFocus = document.activeElement
+
+  const allVideos = Object.values(s.videos)
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  const channelFilters = getSelectedChannelFilters(s)
+  const removedChannelIds = new Set(s.config?.removedChannelIds || [])
+  const includeShorts = getEffectiveIncludeShorts(s)
+  renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
+
+  const forcedSearchCandidate = forcedSearchVideoId && s.videos?.[forcedSearchVideoId]
+    ? s.videos[forcedSearchVideoId]
+    : null
+  const forcedSearchVideo = forcedSearchCandidate && !isHiddenShortVideo(forcedSearchCandidate, includeShorts)
+    ? forcedSearchCandidate
+    : null
+
+  const visibleActiveVideos = getVisibleActiveVideos(allVideos, includeShorts, {
+    limitPerChannel: false
+  })
+    .filter(v => matchesActiveChannelFilter(v, channelFilters, removedChannelIds))
+  const favoriteVideos = allVideos
+    .filter(isFavoriteVideo)
+    .filter(v => !isHiddenFromVideoGrid(v))
+    .filter(v => !isHiddenShortVideo(v, includeShorts))
+    .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
+  const timelineVideos = [
+    ...visibleActiveVideos,
+    ...favoriteVideos.filter(v => getVideoStatus(v) === 'watched')
+  ].sort(compareActiveVideos)
+  let activeVideos = statusFilter === 'favorite'
+    ? favoriteVideos
+    : timelineVideos.filter(v => (
+      ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter)
+      && (
+        statusFilter === 'all'
+        || (statusFilter === 'watch-later' ? isVideoWatchLater(v) : getVideoStatus(v) === statusFilter)
+      )
+    ))
+
+  let watchedVideos = statusFilter === 'favorite' ? [] : allVideos
+    .filter(v => getVideoStatus(v) === 'watched')
+    .filter(v => !isFavoriteVideo(v))
+    .filter(v => !isHiddenFromVideoGrid(v))
+    .filter(v => !isHiddenShortVideo(v, includeShorts))
+    .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
+    .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
+  let removedVideos = statusFilter === 'all'
+    ? getRemovedFromFeedVideos(allVideos, includeShorts)
+      .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
+    : []
+
+  if (forcedSearchVideo) {
+    const isRemoved = isVideoRemovedFromFeed(forcedSearchVideo)
+    const shouldFocusInChannelShelf = activeNextStudyFocusVideoId === String(forcedSearchVideo.id)
+    const shouldStayInChannelTimeline = isFavoriteVideo(forcedSearchVideo)
+      && ['all', 'favorite'].includes(statusFilter)
+    if (isRemoved) {
+      removedVideos = includeForcedSearchVideo(removedVideos, forcedSearchVideo)
+    } else if (getVideoStatus(forcedSearchVideo) === 'watched' && !shouldFocusInChannelShelf && !shouldStayInChannelTimeline) {
+      watchedVideos = includeForcedSearchVideo(watchedVideos, forcedSearchVideo)
+    } else {
+      activeVideos = includeForcedSearchVideo(activeVideos, forcedSearchVideo)
+    }
+  }
+
+  renderNextStudy(visibleActiveVideos, favoriteVideos)
+  const historyChannels = !IS_SANDBOX && hasYoutubeApiKey() && ['all', 'unwatched'].includes(statusFilter)
+    ? (s.config?.channels || []).filter(channel => channelFilters.has(channel.id)
+      && s.channelRefreshes?.[channel.id]
+      && (s.channelRefreshes[channel.id].coverage?.history?.exhausted !== true || retainedShelves.has(channel.id)))
+    : []
+  const cardOptions = {
+    currentDateKey: getCurrentAppDateKey(s),
+    focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
+    arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
+    removedChannelIds,
+    chronologicalOnly: statusFilter === 'favorite',
+    channelVideoFormats: s.config?.channelVideoFormats,
+    historyChannels
+  }
+
+  if (!activeVideos.length && !historyChannels.length) {
+    const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
+    const filterName = statusFilter === 'partial'
+      ? t('videos.filter.inProgress')
+      : statusFilter === 'watch-later'
+      ? t('videos.filter.watchLater')
+      : statusFilter === 'favorite'
+      ? t('videos.filter.favorite')
+      : getStatusFilterLabel(statusFilter).toLowerCase()
+    const msg = statusFilter === 'all' && watchedVideos.length
+      ? t('videos.empty.activeBelow')
+      : statusFilter === 'all' && !channelMsg
+      ? t('videos.empty.default')
+      : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
+    grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
+  } else {
+    const shelfTemplate = document.createElement('template')
+    shelfTemplate.innerHTML = renderChannelVideoGroups(
+      activeVideos,
+      cardOptions,
+      s.config?.channelShelfOrder,
+      s.config?.channels
+    )
+    let previousShelf = null
+    for (const freshShelf of [...shelfTemplate.content.children]) {
+      const retained = retainedShelves.get(freshShelf.dataset.channelKey)
+      const shelf = retained?.shelf || freshShelf
+      if (retained) {
+        const freshHeader = freshShelf.querySelector('header')
+        const headerMarkup = freshHeader.outerHTML
+        if (retained.headerMarkup !== headerMarkup
+          || shelf.dataset.channelSelectedVideoFormat !== freshShelf.dataset.channelSelectedVideoFormat) {
+          shelf.querySelector('header').replaceWith(freshHeader)
+          retained.headerMarkup = headerMarkup
+        }
+      }
+      const next = previousShelf ? previousShelf.nextElementSibling : grid.firstElementChild
+      if (next !== shelf) grid.insertBefore(shelf, next)
+      previousShelf = shelf
+    }
+    const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
+    for (const child of [...grid.children]) {
+      if (!wantedKeys.has(child.dataset.channelKey)) child.remove()
+    }
+  }
+  const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
+  for (const [track, entry] of videoShelfWindows) {
+    if (wantedKeys.has(entry.group.key)) continue
+    entry.history?.destroy()
+    entry.window.destroy()
+    entry.shelf.remove()
+    videoShelfWindows.delete(track)
+  }
+  // Moving a section with insertBefore can reset nested scrollers and focus.
+  for (const [track, left] of shelfScrollPositions) {
+    if (track.isConnected && Math.abs(track.scrollLeft - left) > 1) {
+      track.scrollTo({ left, behavior: 'instant' })
+    }
+  }
+  if (feedFocus?.isConnected && document.activeElement !== feedFocus) feedFocus.focus({ preventScroll: true })
+  pendingShelfGroups.forEach(({ group, trackId, cardOptions, selectedFormat }) => {
+    const track = document.getElementById(trackId)
+    const shelf = track.closest('.channel-shelf')
+    const signature = JSON.stringify([group, cardOptions, selectedFormat, [...removedChannelIds], document.documentElement.lang])
+    const retained = retainedShelves.get(group.key)
+    if (retained) {
+      retained.group = group
+      retained.cardOptions = cardOptions
+      retained.state = s
+      retained.format = selectedFormat
+      shelf.dataset.channelSelectedVideoFormat = selectedFormat
+      if (retained.signature !== signature) {
+        retained.signature = signature
+        retained.window.reconcile(group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat))
+      }
+      syncChannelHistoryActions(track, retained)
+      return
+    }
+    const entry = { group, shelf, state: s, format: selectedFormat, cardOptions, signature,
+      headerMarkup: shelf.querySelector('header').outerHTML }
+    entry.window = createShelfWindow(track, {
+      videos: group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat),
+      render: video => `<div class="channel-shelf-slot ${video.id === entry.cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" data-channel-video-format="${getChannelVideoFormat(video)}" style="--channel-refresh-delay: ${Math.min(entry.group.videos.indexOf(video), 8) * 45}ms">${renderCard(video, false, { ...entry.cardOptions, shelf: true })}</div>`,
+      bind: root => {
+        bindRenderedVideoStateActions(root)
+        bindRenderedVideoShelfPreviewActions(root)
+      },
+      empty: () => `<div class="channel-shelf-format-empty" data-channel-video-format-empty="${entry.format}">${escHtml(t(entry.format === 'shorts' ? 'videos.channel.format.emptyShorts' : 'videos.channel.format.emptyVideos'))}</div>`,
+      isPinned: node => node.contains(activeVideoShelfPreview),
+      patchPinned: video => patchVideoShelfPreview(entry.state, video.id)
+    })
+    videoShelfWindows.set(track, entry)
+    syncChannelHistoryActions(track, entry)
+  })
+  bindChannelShelfScrollActions(grid, {
+    scroll: scrollVideoChannelShelf,
+    sync: syncVideoChannelShelfControls
+  })
+  bindChannelRemoveActions(grid, {
+    remove: removeChannelFromFilter
+  })
+  bindRenderedVideoStateActions(grid)
+  bindChannelOrderActions(grid, {
+    start: startChannelShelfDrag,
+    finish: finishChannelShelfDrag,
+    move: moveChannelShelfDrag,
+    leave: leaveChannelShelfDrag,
+    drop: dropChannelShelf,
+    startTouch: startTouchChannelShelfDrag
+  })
+  bindRenderedVideoShelfPreviewActions(grid)
+  bindChannelVideoFormatActions(grid, {
+    select: selectChannelVideoFormat
+  })
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
+  })
+
+  watchedCount.textContent = watchedVideos.length
+  watchedSection.classList.toggle('hidden', statusFilter === 'favorite' || !watchedVideos.length)
+  const watchedCollapsed = isWatchedSectionCollapsed === null
+    ? watchedVideos.length > 6
+    : isWatchedSectionCollapsed
+  watchedSection.classList.toggle('collapsed', watchedCollapsed)
+  if (watchedToggle) {
+    watchedToggle.setAttribute('aria-expanded', String(!watchedCollapsed))
+    watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
+  }
+  videoCollectionDefinitions.set(watchedGrid, {
+    videos: watchedVideos,
+    renderKey: JSON.stringify([cardOptions, [...removedChannelIds]]),
+    render: video => renderCard(video, true, {
+      ...cardOptions,
+      hideOrganizationActions: true,
+      stateActionSurface: 'watched_card'
+    }),
+    bind: root => {
+      bindRenderedVideoStateActions(root)
+      bindRenderedVideoShelfPreviewActions(root)
+    }
+  })
+  updateVideoCollection(watchedGrid, watchedCollapsed)
+
+  removedCount.textContent = removedVideos.length
+  removedSection.classList.toggle(
+    'hidden',
+    !removedVideos.length
+      || statusFilter !== 'all'
+  )
+  removedSection.classList.toggle('collapsed', isRemovedSectionCollapsed)
+  if (removedToggle) {
+    removedToggle.setAttribute('aria-expanded', String(!isRemovedSectionCollapsed))
+    removedToggle.setAttribute('aria-label', t(isRemovedSectionCollapsed
+      ? 'videos.removed.show'
+      : 'videos.removed.hide'))
+  }
+  videoCollectionDefinitions.set(removedGrid, {
+    videos: removedVideos,
+    renderKey: JSON.stringify([cardOptions, [...removedChannelIds]]),
+    render: renderRemovedVideoCard,
+    bind: bindRenderedVideoShelfPreviewActions
+  })
+  updateVideoCollection(removedGrid, isRemovedSectionCollapsed)
+  restoreFeedViewport(viewport)
+}
+
+function updateVideoCollection(grid, collapsed) {
+  const definition = videoCollectionDefinitions.get(grid)
+  const signature = JSON.stringify([collapsed, definition?.videos, definition?.renderKey, document.documentElement.lang])
+  if (videoCollectionSignatures.get(grid) === signature) return
+  videoCollectionSignatures.set(grid, signature)
+  if (!collapsed && videoCollectionWindows.has(grid)) {
+    videoCollectionWindows.get(grid).reconcile(definition)
+    return
+  }
+  videoCollectionWindows.get(grid)?.destroy()
+  videoCollectionWindows.delete(grid)
+  grid.replaceChildren()
+  if (!collapsed && definition) {
+    videoCollectionWindows.set(grid, createCollectionWindow(grid, definition))
+  }
+}
+
+function toggleWatchedSection() {
+  const watchedSection = document.getElementById('watchedSection')
+  const watchedToggle = document.getElementById('watchedSectionToggle')
+  if (!watchedSection || !watchedToggle) return
+  isWatchedSectionCollapsed = !watchedSection.classList.contains('collapsed')
+  watchedSection.classList.toggle('collapsed', isWatchedSectionCollapsed)
+  updateVideoCollection(document.getElementById('watchedGrid'), isWatchedSectionCollapsed)
+  watchedToggle.setAttribute('aria-expanded', String(!isWatchedSectionCollapsed))
+  watchedToggle.setAttribute('aria-label', t(isWatchedSectionCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
+}
+
+function toggleRemovedSection() {
+  const removedSection = document.getElementById('removedSection')
+  const removedToggle = document.getElementById('removedSectionToggle')
+  if (!removedSection || !removedToggle) return
+  isRemovedSectionCollapsed = !removedSection.classList.contains('collapsed')
+  removedSection.classList.toggle('collapsed', isRemovedSectionCollapsed)
+  updateVideoCollection(document.getElementById('removedGrid'), isRemovedSectionCollapsed)
+  removedToggle.setAttribute('aria-expanded', String(!isRemovedSectionCollapsed))
+  removedToggle.setAttribute('aria-label', t(isRemovedSectionCollapsed
+    ? 'videos.removed.show'
+    : 'videos.removed.hide'))
+}
+
+function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
+  const publishedAt = new Date(video?.publishedAt || '')
+  if (Number.isNaN(publishedAt.getTime())) return null
+  return toDateKey(publishedAt) === currentDateKey ? t('videos.card.new') : null
+}
+
+function getSelectedChannelVideoFormat(channelVideoFormats, channelKey) {
+  return getChannelVideoFormatPreference(channelVideoFormats, channelKey)
+}
+
+function getChannelVideoFormatCountLabel(count) {
+  return count === 1
+    ? t('videos.channel.oneVideo')
+    : t('videos.channel.videoCount', { count })
+}
+
+function renderChannelVideoFormatIcon(format) {
+  const normalizedFormat = normalizeChannelVideoFormat(format)
+  return `<span class="channel-shelf-format-icon channel-shelf-format-icon-${normalizedFormat}" aria-hidden="true"></span>`
+}
+
+function renderChannelVideoFormatControls(group, trackId, selectedFormat) {
+  const formats = [
+    {
+      id: CHANNEL_VIDEO_FORMATS.VIDEOS,
+      label: t('videos.channel.format.videos')
+    },
+    {
+      id: CHANNEL_VIDEO_FORMATS.SHORTS,
+      label: t('videos.channel.format.shorts')
+    }
+  ]
+  return `
+    <div class="channel-shelf-format-switcher"
+      role="group"
+      aria-label="${escHtml(t('videos.channel.format.label', { channel: group.title }))}">
+      ${formats.map(({ id, label }) => `
+        <button type="button"
+          class="channel-shelf-format-option"
+          data-channel-video-format-action="select"
+          data-channel-key="${escHtml(group.key)}"
+          data-channel-video-format="${id}"
+          data-analytics-action="channelVideoFormat"
+          aria-controls="${trackId}"
+          aria-label="${escHtml(label)}"
+          aria-pressed="${selectedFormat === id}"
+          title="${escHtml(label)}">
+          ${renderChannelVideoFormatIcon(id)}
+        </button>
+      `).join('')}
+    </div>
+  `
+}
+
+function applyChannelVideoFormatSelection(shelf, channelKey, format) {
+  const selectedFormat = normalizeChannelVideoFormat(format)
+  if (!shelf || shelf.dataset.channelKey !== channelKey) return false
+
+  const activePreviewSlot = activeVideoShelfPreview?.closest?.(
+    '.channel-shelf-slot[data-channel-video-format]'
+  )
+  if (
+    activePreviewSlot
+    && shelf.contains(activePreviewSlot)
+    && activePreviewSlot.dataset.channelVideoFormat !== selectedFormat
+  ) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
+
+  const entry = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+  if (!entry) return false
+  const videos = entry.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat)
+  const visibleCount = videos.length
+  entry.format = selectedFormat
+  syncChannelHistoryActions(shelf.querySelector('.channel-shelf-track'), entry)
+  entry.window.replace(videos)
+  shelf.querySelectorAll('[data-channel-video-format-action="select"]').forEach(button => {
+    button.setAttribute(
+      'aria-pressed',
+      String(button.dataset.channelVideoFormat === selectedFormat)
+    )
+  })
+
+  shelf.dataset.channelSelectedVideoFormat = selectedFormat
+  const countLabel = shelf.querySelector('[data-channel-video-format-count-label]')
+  if (countLabel) countLabel.textContent = getChannelVideoFormatCountLabel(visibleCount)
+  const track = shelf.querySelector('.channel-shelf-track')
+  if (track) {
+    track.scrollLeft = 0
+    syncVideoChannelShelfControls(track)
+  }
+  return true
+}
+
+async function selectChannelVideoFormat(control, channelKey, format) {
+  const shelf = control?.closest?.('.channel-shelf')
+  const selectedFormat = normalizeChannelVideoFormat(format)
+  const previousFormat = shelf?.dataset.channelSelectedVideoFormat
+  if (
+    !shelf
+    || shelf.dataset.channelKey !== channelKey
+    || shelf.dataset.channelSelectedVideoFormat === selectedFormat
+  ) return false
+
+  const state = loadState()
+  const preferenceUpdated = setChannelVideoFormatPreference(
+    state,
+    channelKey,
+    selectedFormat
+  )
+  const persisted = preferenceUpdated
+    ? await saveState(state, { backup: false, syncAnalytics: false })
+    : false
+  if (preferenceUpdated && !persisted) return false
+  const applied = applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
+  if (!applied) return false
+
+  const channel = state?.config?.channels?.find(entry => entry?.id === channelKey)
+  const channelName = channel?.name
+    || shelf.querySelector('.channel-shelf-heading strong')?.textContent?.trim()
+    || channelKey
+  const visibleVideoCount = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+    ?.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat).length || 0
+  trackEdeniaEvent('channel_video_format_viewed', {
+    channel_id: channelKey,
+    channel_name: channelName,
+    previous_format: previousFormat,
+    selected_format: selectedFormat,
+    visible_video_count: visibleVideoCount,
+    surface: 'channel_shelf',
+    persistence_succeeded: persisted
+  })
+  return true
+}
+
+function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
+  const groups = groupActiveVideosByChannel(
+    videos,
+    channelOrder,
+    configuredChannels,
+    cardOptions.chronologicalOnly,
+    t('videos.search.youtube'),
+    cardOptions.historyChannels
+  )
+  return groups.map((group, index) => {
+    const preferredFormat = getSelectedChannelVideoFormat(
+      cardOptions.channelVideoFormats,
+      group.key
+    )
+    const formatCounts = {
+      [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
+      [CHANNEL_VIDEO_FORMATS.SHORTS]: 0
+    }
+    group.videos.forEach(video => {
+      formatCounts[getChannelVideoFormat(video)] += 1
+    })
+    const selectedFormat = getAvailableChannelVideoFormat(
+      preferredFormat,
+      formatCounts
+    )
+    const visibleCount = formatCounts[selectedFormat]
+    const countLabel = getChannelVideoFormatCountLabel(visibleCount)
+    const trackId = `channelShelfTrack-${encodeURIComponent(group.key)}`
+    pendingShelfGroups.push({ group, trackId, cardOptions, selectedFormat })
+    const isArrivingChannel = group.key === cardOptions.arrivingChannelId
+    const isRemovedChannel = cardOptions.removedChannelIds?.has(group.key)
+    return `
+      <section class="channel-video-group channel-shelf ${isArrivingChannel ? 'channel-refresh-arriving' : ''}"
+        data-channel-key="${escHtml(group.key)}"
+        data-channel-selected-video-format="${selectedFormat}"
+        data-channel-order-action="shelf"
+        draggable="true">
+        <header class="channel-shelf-header has-video-format-toggle"
+          aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
+          title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
+          <div class="channel-shelf-identity">
+            ${renderChannelShelfAvatar(group)}
+            <span class="channel-shelf-heading">
+              <span class="channel-shelf-title-row">
+                <strong>${escHtml(group.title)}</strong>
+                ${isRemovedChannel ? '' : `<button type="button"
+                  class="channel-shelf-remove"
+                  data-channel-id="${escHtml(group.key)}"
+                  data-channel-remove-action="remove"
+                  data-analytics-action="removeChannelFromFilter"
+                  title="${escHtml(t('settings.remove'))}"
+                  aria-label="${escHtml(t('settings.remove'))}">
+                  <svg class="channel-shelf-remove-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M4 4l8 8M12 4l-8 8"></path>
+                  </svg>
+                </button>`}
+              </span>
+              <span data-channel-video-format-count-label>${escHtml(countLabel)}</span>
+            </span>
+          </div>
+          ${renderChannelVideoFormatControls(group, trackId, selectedFormat)}
+          <div class="channel-shelf-controls">
+            <button type="button"
+              class="channel-shelf-scroll channel-shelf-scroll-prev"
+              data-shelf-direction="-1"
+              data-channel-shelf-scroll-action="scroll"
+              data-analytics-action="scrollVideoChannelShelf"
+              aria-controls="${trackId}"
+              aria-label="${escHtml(t('videos.channel.previousLabel', { channel: group.title }))}">
+              <span aria-hidden="true">‹</span>
+            </button>
+            <button type="button"
+              class="channel-shelf-scroll channel-shelf-scroll-next"
+              data-shelf-direction="1"
+              data-channel-shelf-scroll-action="scroll"
+              data-analytics-action="scrollVideoChannelShelf"
+              aria-controls="${trackId}"
+              aria-label="${escHtml(t('videos.channel.nextLabel', { channel: group.title }))}">
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+        </header>
+        <div class="channel-shelf-track"
+          id="${trackId}"
+          tabindex="0"
+          data-channel-shelf-scroll-action="sync"
+          data-analytics-action="syncVideoChannelShelfControls"
+          aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}">
+          <div class="channel-shelf-format-empty"
+            data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.VIDEOS}"
+            ${selectedFormat !== CHANNEL_VIDEO_FORMATS.VIDEOS || formatCounts[CHANNEL_VIDEO_FORMATS.VIDEOS] > 0 ? 'hidden' : ''}>
+            ${escHtml(t('videos.channel.format.emptyVideos'))}
+          </div>
+          <div class="channel-shelf-format-empty"
+            data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.SHORTS}"
+            ${selectedFormat !== CHANNEL_VIDEO_FORMATS.SHORTS || formatCounts[CHANNEL_VIDEO_FORMATS.SHORTS] > 0 ? 'hidden' : ''}>
+            ${escHtml(t('videos.channel.format.emptyShorts'))}
+          </div>
+
+        </div>
+      </section>
+    `
+  }).join('')
+}
+
+function renderChannelShelfAvatar(group) {
+  const title = String(group?.title || t('videos.search.youtube')).trim()
+  const initials = title
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase() || 'YT'
+  const normalizedTitle = title
+    .normalize('NFKD')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+  const curatedChannel = CURATED_CHANNEL_CATALOG.find(channel => (
+    channel.name
+      .normalize('NFKD')
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '') === normalizedTitle
+  ))
+  const sandboxChannel = IS_SANDBOX
+    ? SANDBOX_CHANNEL_DEFINITIONS.find(channel => channel.id === group?.key)
+    : null
+  const avatarUrl = group?.imageUrl
+    || sandboxChannel?.imageUrl
+    || (group?.catalogId ? getCuratedChannelAvatarPath(group.catalogId) : '')
+    || (curatedChannel ? getCuratedChannelAvatarPath(curatedChannel.id) : '')
+  const avatarImage = avatarUrl
+    ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer" data-image-fallback-action="hide">`
+    : ''
+  const channelId = String(group?.key || '').trim()
+  const channelUrl = YOUTUBE_CHANNEL_ID_RE.test(channelId)
+    ? `https://www.youtube.com/channel/${encodeURIComponent(channelId)}`
+    : ''
+  const avatarContent = `<span aria-hidden="true">${escHtml(initials)}</span>${avatarImage}`
+  if (!channelUrl) {
+    return `<span class="channel-shelf-avatar" data-channel-order-action="touch-handle" aria-hidden="true">${avatarContent}</span>`
+  }
+  return `<a class="channel-shelf-avatar" data-channel-order-action="touch-handle" href="${escHtml(channelUrl)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${escHtml(`${title} — YouTube`)}">${avatarContent}</a>`
+}
+
+function syncVideoChannelShelfControls(track) {
+  if (!track) return
+  if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
+    const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+      || activeVideoShelfPreview.classList.contains('is-layout-reanchoring')
+    if (isPinnedPreview) {
+      positionVideoShelfPreview(activeVideoShelfPreview)
+    } else {
+      closeVideoShelfPreview(activeVideoShelfPreview, true)
+    }
+  }
+  const shelf = track.closest('.channel-shelf')
+  const atStart = track.scrollLeft <= 2
+  const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2
+  const previousButton = shelf?.querySelector('[data-shelf-direction="-1"]')
+  const nextButton = shelf?.querySelector('[data-shelf-direction="1"]')
+  if (previousButton) previousButton.disabled = atStart
+  if (nextButton) nextButton.disabled = atEnd && (!videoShelfWindows.get(track)?.history || track.dataset.historyExhausted === 'true')
+}
+
+function scrollVideoChannelShelf(button, direction) {
+  const shelf = button?.closest?.('.channel-shelf')
+  const track = shelf?.querySelector('.channel-shelf-track')
+  if (!track) return
+  const firstVisibleSlot = track.querySelector('.channel-shelf-slot:not([hidden])')
+  const slotWidth = firstVisibleSlot?.getBoundingClientRect().width || 0
+  const gap = Number.parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap) || 0
+  const cardPitch = slotWidth > 0 ? slotWidth + gap : 0
+  const currentCardIndex = cardPitch > 0 ? Math.round(track.scrollLeft / cardPitch) : 0
+  const targetCardIndex = Math.max(0, currentCardIndex + (direction < 0 ? -4 : 4))
+  const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth)
+  const targetLeft = cardPitch > 0
+    ? Math.min(targetCardIndex * cardPitch, maxScrollLeft)
+    : clampNumber(track.scrollLeft + ((direction < 0 ? -1 : 1) * track.clientWidth), 0, maxScrollLeft)
+  const reduceMotion = prefersReducedMotion()
+  track.scrollTo({
+    left: targetLeft,
+    behavior: reduceMotion ? 'auto' : 'smooth'
+  })
+}
+
+let activeChannelShelfDrag = null
+let activeChannelShelfDragPreview = null
+let activeChannelShelfPointerId = null
+let activeChannelShelfPointerSource = null
+let activeChannelShelfDropTarget = null
+let activeChannelShelfDropPosition = null
+let pendingTouchChannelShelfDrag = null
+let touchChannelShelfDragStartX = 0
+let touchChannelShelfDragStartY = 0
+
+function canReorderChannelShelves() {
+  return supportsChannelShelfMouseDrag()
+}
+
+function clearChannelShelfDropIndicators() {
+  document.querySelectorAll('.channel-shelf.drag-over-before, .channel-shelf.drag-over-after').forEach(shelf => {
+    shelf.classList.remove('drag-over-before', 'drag-over-after')
+  })
+}
+
+function canUseTouchChannelShelfDrag(event) {
+  return event?.pointerType !== 'mouse'
+}
+
+function startTouchChannelShelfDrag(event, dragTarget) {
+  const shelf = dragTarget?.closest?.('.channel-shelf')
+  if (!event || !shelf || !canUseTouchChannelShelfDrag(event)) return
+  if (event.target?.closest?.('button, input, label, select, textarea')) return
+  const targetLink = event.target?.closest?.('a')
+  if (targetLink && !targetLink.classList.contains('channel-shelf-avatar')) return
+
+  activeChannelShelfPointerId = event.pointerId
+  activeChannelShelfPointerSource = dragTarget
+  pendingTouchChannelShelfDrag = shelf
+  touchChannelShelfDragStartX = event.clientX
+  touchChannelShelfDragStartY = event.clientY
+  dragTarget.setPointerCapture?.(event.pointerId)
+  window.addEventListener('pointermove', moveTouchChannelShelfDrag, { passive: false })
+  window.addEventListener('pointerup', finishTouchChannelShelfDrag)
+  window.addEventListener('pointercancel', cancelTouchChannelShelfDrag)
+}
+
+function moveTouchChannelShelfDrag(event) {
+  if (event.pointerId !== activeChannelShelfPointerId) return
+
+  if (!activeChannelShelfDrag && pendingTouchChannelShelfDrag) {
+    const distance = Math.hypot(
+      event.clientX - touchChannelShelfDragStartX,
+      event.clientY - touchChannelShelfDragStartY
+    )
+    if (distance < 8) return
+
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    activeChannelShelfDrag = pendingTouchChannelShelfDrag
+    pendingTouchChannelShelfDrag = null
+    activeChannelShelfDrag.classList.add('is-dragging')
+    document.body.classList.add('channel-shelf-dragging')
+    createChannelShelfDragPreview(activeChannelShelfDrag)
+    suppressChannelShelfIdentityClick(activeChannelShelfPointerSource)
+  }
+  if (!activeChannelShelfDrag) return
+
+  event.preventDefault()
+  positionTouchChannelShelfDragPreview(event)
+
+  const edgeSize = 72
+  if (event.clientY < edgeSize) {
+    window.scrollBy(0, -12)
+  } else if (event.clientY > window.innerHeight - edgeSize) {
+    window.scrollBy(0, 12)
+  }
+
+  const shelf = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('.channel-shelf')
+  const dragGrid = activeChannelShelfDrag.closest('.video-grid')
+  if (!shelf || shelf === activeChannelShelfDrag || shelf.closest('.video-grid') !== dragGrid) {
+    activeChannelShelfDropTarget = null
+    activeChannelShelfDropPosition = null
+    clearChannelShelfDropIndicators()
+    return
+  }
+
+  const position = getChannelShelfDropPosition(event, shelf)
+  const indicatorClass = position === 'before' ? 'drag-over-before' : 'drag-over-after'
+  if (shelf === activeChannelShelfDropTarget && position === activeChannelShelfDropPosition) return
+  clearChannelShelfDropIndicators()
+  shelf.classList.add(indicatorClass)
+  activeChannelShelfDropTarget = shelf
+  activeChannelShelfDropPosition = position
+}
+
+function finishTouchChannelShelfDrag(event) {
+  if (event.pointerId !== activeChannelShelfPointerId) return
+  const movedShelf = activeChannelShelfDrag
+  if (movedShelf && activeChannelShelfDropTarget && activeChannelShelfDropPosition) {
+    placeChannelShelf(movedShelf, activeChannelShelfDropTarget, activeChannelShelfDropPosition)
+    saveChannelShelfOrder(movedShelf.closest('.video-grid'))
+    movedShelf.classList.add('just-dropped')
+    window.setTimeout(() => movedShelf.classList.remove('just-dropped'), 520)
+  }
+  finishChannelShelfDrag()
+}
+
+function cancelTouchChannelShelfDrag(event) {
+  if (event.pointerId === activeChannelShelfPointerId) finishChannelShelfDrag()
+}
+
+function positionTouchChannelShelfDragPreview(event) {
+  if (!activeChannelShelfDragPreview) return
+  const previewRect = activeChannelShelfDragPreview.getBoundingClientRect()
+  const viewportMargin = 12
+  const left = clampNumber(
+    event.clientX - 28,
+    viewportMargin,
+    Math.max(viewportMargin, window.innerWidth - previewRect.width - viewportMargin)
+  )
+  const top = clampNumber(
+    event.clientY - (previewRect.height / 2),
+    viewportMargin,
+    Math.max(viewportMargin, window.innerHeight - previewRect.height - viewportMargin)
+  )
+  activeChannelShelfDragPreview.style.left = `${left}px`
+  activeChannelShelfDragPreview.style.top = `${top}px`
+}
+
+function suppressChannelShelfIdentityClick(target) {
+  if (!target) return
+  const suppressClick = event => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  target.addEventListener('click', suppressClick, { capture: true, once: true })
+  window.setTimeout(() => target.removeEventListener('click', suppressClick, true), 500)
+}
+
+function createChannelShelfDragPreview(shelf) {
+  activeChannelShelfDragPreview?.remove()
+  const header = shelf.querySelector('.channel-shelf-header')?.cloneNode(true)
+  if (!header) return null
+  header.removeAttribute('draggable')
+  header.removeAttribute('ondragstart')
+  header.removeAttribute('ondragend')
+  header.removeAttribute('title')
+
+  const preview = document.createElement('div')
+  preview.className = 'channel-shelf-drag-preview'
+  const viewportMaxWidth = Math.max(240, window.innerWidth - 24)
+  preview.style.width = `${Math.min(Math.max(shelf.getBoundingClientRect().width * 0.42, 280), 420, viewportMaxWidth)}px`
+  preview.append(header)
+  document.body.append(preview)
+  activeChannelShelfDragPreview = preview
+  return preview
+}
+
+function startChannelShelfDrag(event, dragTarget) {
+  const shelf = dragTarget?.closest?.('.channel-shelf')
+  if (!event || !shelf || !canReorderChannelShelves()) {
+    event?.preventDefault()
+    return
+  }
+  if (event.target?.closest?.('.channel-shelf-card, button, a, input, label, select, textarea')) {
+    event.preventDefault()
+    return
+  }
+
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+  activeChannelShelfDrag = shelf
+  shelf.classList.add('is-dragging')
+  document.body.classList.add('channel-shelf-dragging')
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', shelf.dataset.channelKey || '')
+  const dragPreview = createChannelShelfDragPreview(shelf)
+  if (dragPreview) {
+    event.dataTransfer.setDragImage(dragPreview, 28, dragPreview.offsetHeight / 2)
+  }
+}
+
+function getChannelShelfDropPosition(event, shelf) {
+  const rect = shelf.getBoundingClientRect()
+  return event.clientY < rect.top + (rect.height / 2) ? 'before' : 'after'
+}
+
+function moveChannelShelfDrag(event, shelf) {
+  if (!activeChannelShelfDrag || !shelf || shelf === activeChannelShelfDrag) return
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'move'
+  const position = getChannelShelfDropPosition(event, shelf)
+  const indicatorClass = position === 'before' ? 'drag-over-before' : 'drag-over-after'
+  if (shelf.classList.contains(indicatorClass)) return
+  clearChannelShelfDropIndicators()
+  shelf.classList.add(indicatorClass)
+}
+
+function leaveChannelShelfDrag(event, shelf) {
+  if (!shelf || shelf.contains(event.relatedTarget)) return
+  shelf.classList.remove('drag-over-before', 'drag-over-after')
+}
+
+async function saveChannelShelfOrder(grid) {
+  const visibleOrder = Array.from(grid?.querySelectorAll?.('.channel-shelf') || [])
+    .map(shelf => shelf.dataset.channelKey)
+    .filter(Boolean)
+  if (!visibleOrder.length) return
+
+  const state = loadState()
+  if (!state?.config) return
+  const visibleKeys = new Set(visibleOrder)
+  const mergedOrder = normalizeChannelShelfOrder(state.config.channelShelfOrder)
+  visibleOrder.forEach(key => {
+    if (!mergedOrder.includes(key)) mergedOrder.push(key)
+  })
+  let visibleIndex = 0
+  state.config.channelShelfOrder = mergedOrder.map(key => (
+    visibleKeys.has(key) ? visibleOrder[visibleIndex++] : key
+  ))
+  if (!await saveState(state)) return false
+}
+
+function placeChannelShelf(movedShelf, targetShelf, position) {
+  if (position === 'before') {
+    targetShelf.before(movedShelf)
+  } else {
+    targetShelf.after(movedShelf)
+  }
+}
+
+function dropChannelShelf(event, shelf) {
+  if (!activeChannelShelfDrag || !shelf || shelf === activeChannelShelfDrag) return
+  event.preventDefault()
+  const grid = shelf.closest('.video-grid')
+  const movedShelf = activeChannelShelfDrag
+  const position = getChannelShelfDropPosition(event, shelf)
+  placeChannelShelf(movedShelf, shelf, position)
+  saveChannelShelfOrder(grid)
+  movedShelf.classList.add('just-dropped')
+  window.setTimeout(() => movedShelf.classList.remove('just-dropped'), 520)
+  finishChannelShelfDrag()
+}
+
+function finishChannelShelfDrag() {
+  if (
+    activeChannelShelfPointerId !== null
+    && activeChannelShelfPointerSource?.hasPointerCapture?.(activeChannelShelfPointerId)
+  ) {
+    activeChannelShelfPointerSource?.releasePointerCapture?.(activeChannelShelfPointerId)
+  }
+  window.removeEventListener('pointermove', moveTouchChannelShelfDrag)
+  window.removeEventListener('pointerup', finishTouchChannelShelfDrag)
+  window.removeEventListener('pointercancel', cancelTouchChannelShelfDrag)
+  activeChannelShelfDrag?.classList.remove('is-dragging')
+  activeChannelShelfDrag = null
+  activeChannelShelfPointerId = null
+  activeChannelShelfPointerSource = null
+  activeChannelShelfDropTarget = null
+  activeChannelShelfDropPosition = null
+  pendingTouchChannelShelfDrag = null
+  touchChannelShelfDragStartX = 0
+  touchChannelShelfDragStartY = 0
+  activeChannelShelfDragPreview?.remove()
+  activeChannelShelfDragPreview = null
+  clearChannelShelfDropIndicators()
+  document.body.classList.remove('channel-shelf-dragging')
+}
+
+async function handleVideoThumbnailClick(event, link) {
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const card = link?.closest?.('.channel-shelf-card')
+  const videoId = String(link?.dataset?.videoId || '')
+  if (!videoId) {
+    showToast(t('toast.videoGone'), 'warn')
+    return false
+  }
+
+  if (link?.dataset?.videoPreviewAction === 'removed-thumbnail') {
+    if (!await openVideoPlayer(videoId, {
+      mode: VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+    })) {
+      showToast(t('toast.videoGone'), 'warn')
+    }
+    return false
+  }
+
+  if (card && canUseVideoShelfPreview() && !card.classList.contains('is-previewing')) {
+    if (usesTapVideoShelfPreview()) {
+      openVideoShelfPreview(card, true)
+      return false
+    }
+    openVideoShelfPreview(card, false, event)
+    return false
+  }
+
+  if (card?.classList.contains('is-previewing')) {
+    openVideoShelfPlayer(card, videoId)
+  } else if (!await openVideoPlayer(videoId)) {
+    showToast(t('toast.videoGone'), 'warn')
+  }
+  return false
+}
+
+function getVideoShelfEmbedUrl(videoId, startSeconds = 0) {
+  const params = new URLSearchParams({
+    autoplay: '1',
+    enablejsapi: '1',
+    playsinline: '1',
+    rel: '0',
+    start: String(Math.max(0, Math.floor(Number(startSeconds) || 0)))
+  })
+  if (/^https?:$/.test(window.location.protocol)) params.set('origin', window.location.origin)
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`
+}
+
+function loadYoutubeIframeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT)
+  if (youtubeIframeApiPromise) return youtubeIframeApiPromise
+
+  youtubeIframeApiPromise = new Promise((resolve, reject) => {
+    const previousReady = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousReady === 'function') previousReady()
+      if (window.YT?.Player) resolve(window.YT)
+    }
+
+    let script = document.querySelector('script[data-edenia-youtube-iframe-api]')
+    if (!script) {
+      script = document.createElement('script')
+      script.src = 'https://www.youtube.com/iframe_api'
+      script.async = true
+      script.dataset.edeniaYoutubeIframeApi = 'true'
+      document.head.append(script)
+    }
+    script.addEventListener('error', () => {
+      youtubeIframeApiPromise = null
+      reject(new Error('YouTube IFrame API failed to load'))
+    }, { once: true })
+  })
+
+  return youtubeIframeApiPromise
+}
+
+function getVideoPlayerFallbackAspectRatio(video) {
+  return normalizeVideoAspectRatio(video?.aspectRatio)
+    || (video?.isShort ? 9 / 16 : 16 / 9)
+}
+
+function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
+  const videoId = String(video.id)
+  const overlay = document.createElement('div')
+  overlay.className = 'video-player-overlay'
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-label', getVideoDisplayTitle(video))
+  overlay.setAttribute('tabindex', '-1')
+  overlay.innerHTML = `
+    <div class="video-player-dialog">
+      <div class="video-player-frame">
+      <iframe
+        src="${escHtml(getVideoShelfEmbedUrl(videoId, startSeconds))}"
+        title="${escHtml(getVideoDisplayTitle(video))}"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowfullscreen></iframe>
+      </div>
+    </div>
+  `
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) closeVideoShelfPlayer()
+  })
+  document.body.append(overlay)
+  document.body.classList.add('video-player-open')
+  overlay.focus({ preventScroll: true })
+  return {
+    overlay,
+    frame: overlay.querySelector('.video-player-frame'),
+    iframe: overlay.querySelector('iframe')
+  }
+}
+
+async function openVideoShelfPlayer(card, videoId) {
+  if (!card?.classList.contains('is-previewing')) return false
+  if (activeNextStudyFocusVideoId === String(videoId ?? '')) {
+    clearFocusedVideoPreview(videoId)
+  } else {
+    closeVideoShelfPreview(card, true)
+  }
+  return await openVideoPlayer(videoId)
+}
+
+function isStudyVideoShelfPlayerSession(session) {
+  return session?.mode !== VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+}
+
+function capturePlayerReturnPosition(videoId) {
+  const card = [...document.querySelectorAll('.video-card')].find(node => node.dataset.videoId === videoId)
+  if (!card) return null
+  const slot = card.closest('.channel-shelf-slot') || card
+  const track = card.closest('.channel-shelf-track')
+  const entry = videoShelfWindows.get(track)
+  const rect = slot.getBoundingClientRect()
+  return { videoId, viewport: captureFeedViewport(), channelKey: entry?.group.key, ids: entry?.group.videos.map(video => String(video.id)) || [videoId],
+    left: rect.left, top: rect.top }
+}
+
+function restorePlayerReturnPosition(session) {
+  const position = session?.returnPosition
+  if (!position) return
+  const entry = [...videoShelfWindows.values()].find(entry => entry.group.key === position.channelKey)
+  const ids = entry?.group.videos.map(video => String(video.id)) || []
+  const index = position.ids.indexOf(position.videoId)
+  const nextIndex = resolveWindowAnchor(position.ids, ids, index)
+  const videoId = entry && nextIndex >= 0 ? ids[nextIndex] : position.videoId
+  const card = findVideoCard(videoId)
+  if (!card) {
+    restoreFeedViewport(position.viewport && { ...position.viewport, focusLost: true })
+    return
+  }
+  const slot = card.closest('.channel-shelf-slot') || card
+  const track = card.closest('.channel-shelf-track')
+  if (track) track.scrollTo({ left: track.scrollLeft + slot.getBoundingClientRect().left - position.left, behavior: 'instant' })
+  window.scrollBy({ top: slot.getBoundingClientRect().top - position.top, behavior: 'instant' })
+  card.querySelector('.thumb-link, button')?.focus({ preventScroll: true })
+}
+
+async function openVideoPlayer(videoId, options = {}) {
+  videoId = String(videoId ?? '')
+  if (!videoId) return false
+  const mode = options.mode === VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+    ? VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+    : VIDEO_SHELF_PLAYER_MODE_STUDY
+  if (
+    activeVideoShelfPlayer?.videoId === videoId
+    && activeVideoShelfPlayer.mode === mode
+  ) return true
+  if (activeVideoShelfPlayer) stopActiveVideoShelfPlayer({ persist: true })
+
+  const existingVideo = loadState()?.videos?.[videoId]
+  const isRemovedPreview = mode === VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+  if (
+    isRemovedPreview
+    && (
+      !existingVideo
+      || !isVideoRemovedFromFeed(existingVideo)
+    )
+  ) return false
+  const wasWatched = getVideoStatus(existingVideo) === 'watched'
+  if (!isRemovedPreview && !wasWatched && !await markVideoInProgressOnOpen(videoId, {
+    render: false,
+    reminder: false,
+    surface: 'channel_shelf',
+    playerMode: 'embedded'
+  })) return false
+  if (!isRemovedPreview && wasWatched && isFavoriteVideo(existingVideo)) {
+    if (!await markVideoInProgressOnOpen(videoId, {
+      render: false,
+      reminder: false,
+      surface: 'channel_shelf',
+      playerMode: 'embedded'
+    })) return false
+  }
+
+  const video = loadState()?.videos?.[videoId]
+  const isRewatch = Boolean(
+    !isRemovedPreview
+    && video
+    && getVideoStatus(video) === 'watched'
+    && isFavoriteVideo(video)
+  )
+  if (
+    !video
+    || (!isRemovedPreview && getVideoStatus(video) !== 'partial' && !wasWatched)
+  ) return false
+
+  const returnPosition = capturePlayerReturnPosition(videoId)
+  const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch)
+  if (!playerElements?.iframe) return false
+
+  const session = {
+    videoId,
+    mode,
+    returnPosition,
+    analyticsSurface: isRemovedPreview ? 'removed_section' : 'channel_shelf',
+    overlay: playerElements.overlay,
+    frame: playerElements.frame,
+    iframe: playerElements.iframe,
+    aspectRatio: getVideoPlayerFallbackAspectRatio(video),
+    player: null,
+    syncTimer: null,
+    lastKnownSeconds: startSeconds,
+    lastPersistedSeconds: startSeconds,
+    lastPersistedAt: Date.now(),
+    progressEntryAt: null,
+    progressSeconds: isRemovedPreview
+      ? 0
+      : getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
+    watchCycleCoverage: isRemovedPreview
+      ? []
+      : normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration),
+    lastPlaybackSampleSeconds: startSeconds,
+    lastPlaybackSampleAt: Date.now(),
+    playedSecondsTotal: 0,
+    lastReportedPlayedSeconds: 0,
+    lastReportedSeconds: startSeconds,
+    lastReportedProgressSeconds: isRemovedPreview
+      ? 0
+      : getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
+    lastOutcomeReason: null,
+    isRewatch,
+    completionPromptVisible: false,
+    completionPromptPending: false,
+    destroyed: false
+  }
+  activeVideoShelfPlayer = session
+  if (isRemovedPreview) {
+    trackEdeniaEvent('removed_video_preview_opened', getVideoAnalyticsProperties(video, {
+      surface: session.analyticsSurface,
+      player_mode: 'embedded',
+      study_credit_eligible: false,
+      resume_at_seconds: startSeconds
+    }))
+  }
+  positionVideoShelfPlayerOverlay(session)
+  hydrateVideoShelfPlayerAspectRatio(session)
+
+  loadYoutubeIframeApi()
+    .then(YT => {
+      if (activeVideoShelfPlayer !== session || session.destroyed || !session.iframe.isConnected) return
+      session.player = new YT.Player(session.iframe, {
+        events: {
+          onReady: event => {
+            if (activeVideoShelfPlayer !== session) return
+            if (session.lastKnownSeconds > 0) event.target.seekTo(session.lastKnownSeconds, true)
+            event.target.playVideo()
+          },
+          onStateChange: event => handleVideoShelfPlayerStateChange(session, event.data),
+          onError: () => {
+            stopVideoShelfPlayerSyncTimer(session)
+            syncActiveVideoShelfPlayer({ persist: true })
+            trackVideoPlaybackSessionEnded(session, 'player_error')
+          }
+        }
+      })
+    })
+    .catch(() => {
+      // The iframe itself remains usable; only automatic timestamp sync is unavailable.
+    })
+
+  return true
+}
+
+function positionVideoShelfPlayerOverlay(session = activeVideoShelfPlayer) {
+  if (!session?.frame) return
+  const aspectRatio = normalizeVideoAspectRatio(session.aspectRatio) || 16 / 9
+  const viewportPadding = window.innerWidth <= 900 ? 12 : 24
+  const toolbarAllowance = window.innerWidth <= 900 ? 104 : 60
+  const maxWidth = Math.max(200, window.innerWidth - (viewportPadding * 2))
+  const maxHeight = Math.max(200, window.innerHeight - toolbarAllowance - (viewportPadding * 2))
+  const width = Math.min(maxWidth, maxHeight * aspectRatio)
+  session.frame.style.width = `${Math.max(200, Math.floor(width))}px`
+  session.frame.style.aspectRatio = String(aspectRatio)
+}
+
+async function fetchVideoAspectRatio(videoId) {
+  if (!hasYoutubeApiKey()) return null
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=player&maxWidth=1920&maxHeight=1080&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const data = await ytFetch(url)
+  return getVideoAspectRatioFromItem(data.items?.[0])
+}
+
+async function hydrateVideoShelfPlayerAspectRatio(session) {
+  if (!session || normalizeVideoAspectRatio(loadState()?.videos?.[session.videoId]?.aspectRatio) !== null) return
+  try {
+    const aspectRatio = await fetchVideoAspectRatio(session.videoId)
+    if (activeVideoShelfPlayer !== session || aspectRatio === null) return
+    session.aspectRatio = aspectRatio
+    positionVideoShelfPlayerOverlay(session)
+
+    const state = loadState()
+    const video = state?.videos?.[session.videoId]
+    if (!video || !isStudyVideoShelfPlayerSession(session)) return
+    video.aspectRatio = aspectRatio
+    if (!await saveState(state, {
+      backup: false,
+      syncAnalytics: false
+    })) return false
+  } catch {
+    // Keep the stored or conservative fallback ratio when metadata is unavailable.
+  }
+}
+
+function getVideoShelfPlayerCurrentTime(session = activeVideoShelfPlayer) {
+  if (!session) return null
+  try {
+    const seconds = Number(session.player?.getCurrentTime?.())
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds
+  } catch {}
+  return Number.isFinite(session.lastKnownSeconds) ? session.lastKnownSeconds : null
+}
+
+function updateVideoShelfPlayerTimestamp(session, seconds) {
+  if (!session || !Number.isFinite(Number(seconds))) return
+  session.lastKnownSeconds = Math.max(0, Math.floor(Number(seconds)))
+}
+
+function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
+  const normalizedSeconds = Math.max(0, Math.floor(Number(seconds) || 0))
+  if (!video || !session || !normalizedSeconds || !isValidTimestamp(watchedAt)) return false
+
+  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
+  const secondsToAdd = session.isRewatch
+    ? normalizedSeconds
+    : duration > 0
+    ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
+    : normalizedSeconds
+  if (!secondsToAdd) return false
+
+  let sessionEntry = session.progressEntryAt
+    ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
+    : null
+  if (!sessionEntry) {
+    session.progressEntryAt = watchedAt
+    sessionEntry = { watchedAt, seconds: 0 }
+    entries.push(sessionEntry)
+  }
+  sessionEntry.seconds += secondsToAdd
+  session.progressSeconds = Math.max(0, Number(session.progressSeconds) || 0) + secondsToAdd
+  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
+  return true
+}
+
+function trackVideoShelfWatchCoverage(session, seconds, options = {}) {
+  if (!session || !Number.isFinite(Number(seconds))) return false
+  const sampledAt = Date.now()
+  const currentSeconds = Math.max(0, Number(seconds))
+  const previousSeconds = Number(session.lastPlaybackSampleSeconds)
+  const previousSampledAt = Number(session.lastPlaybackSampleAt)
+  session.lastPlaybackSampleSeconds = currentSeconds
+  session.lastPlaybackSampleAt = sampledAt
+  if (!Number.isFinite(previousSeconds) || !Number.isFinite(previousSampledAt)) return false
+
+  let playerState = null
+  let playbackRate = 1
+  try {
+    playerState = Number(session.player?.getPlayerState?.())
+    const reportedRate = Number(session.player?.getPlaybackRate?.())
+    if (Number.isFinite(reportedRate) && reportedRate > 0) playbackRate = reportedRate
+  } catch {}
+  if (playerState !== 1 && options.captureStoppedPlayback !== true) return false
+
+  const playedSeconds = currentSeconds - previousSeconds
+  const elapsedSeconds = Math.max(0, (sampledAt - previousSampledAt) / 1000)
+  const maxContinuousSeconds = (
+    elapsedSeconds * playbackRate
+    + VIDEO_SHELF_PLAYER_SEEK_TOLERANCE_SECONDS
+  )
+  if (playedSeconds <= 0 || playedSeconds > maxContinuousSeconds) return false
+  session.playedSecondsTotal = Math.max(0, Number(session.playedSecondsTotal) || 0) + playedSeconds
+  if (!isStudyVideoShelfPlayerSession(session)) return true
+
+  const nextCoverage = addVideoWatchCoverageRange(
+    session.watchCycleCoverage,
+    previousSeconds,
+    currentSeconds
+  )
+  if (JSON.stringify(nextCoverage) === JSON.stringify(session.watchCycleCoverage)) return false
+  session.watchCycleCoverage = nextCoverage
+  session.progressSeconds = getVideoWatchCoverageSeconds(nextCoverage)
+  return true
+}
+
+function persistVideoShelfWatchCoverage(video, session, watchedAt) {
+  if (!video || !session || !isValidTimestamp(watchedAt)) return false
+  const previousCoverage = normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration)
+  const nextCoverage = normalizeVideoWatchCoverage(session.watchCycleCoverage, video.duration)
+  const previousSeconds = Math.floor(getVideoWatchCoverageSeconds(previousCoverage, video.duration))
+  const nextSeconds = Math.floor(getVideoWatchCoverageSeconds(nextCoverage, video.duration))
+  const coverageChanged = JSON.stringify(previousCoverage) !== JSON.stringify(nextCoverage)
+  video.watchCycleCoverage = nextCoverage
+  video.watchProgressTracked = true
+
+  const newlyCoveredSeconds = Math.max(0, nextSeconds - previousSeconds)
+  const progressChanged = newlyCoveredSeconds > 0
+    ? addVideoShelfSessionProgress(video, newlyCoveredSeconds, session, watchedAt)
+    : false
+  session.progressSeconds = nextSeconds
+  return coverageChanged || progressChanged
+}
+
+async function syncActiveVideoShelfPlayer(options = {}) {
+  const persist = options.persist !== false
+  const shouldSyncAnalytics = options.syncAnalytics !== false
+  const session = activeVideoShelfPlayer
+  if (!session) return false
+
+  const currentSeconds = getVideoShelfPlayerCurrentTime(session)
+  if (!Number.isFinite(currentSeconds)) return false
+  trackVideoShelfWatchCoverage(session, currentSeconds, {
+    captureStoppedPlayback: options.captureStoppedPlayback === true
+  })
+  updateVideoShelfPlayerTimestamp(session, currentSeconds)
+  if (!isStudyVideoShelfPlayerSession(session)) return true
+  if (!persist) return true
+
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  if (
+    !video
+    || (
+      getVideoStatus(video) !== 'partial'
+      && !(session.isRewatch && getVideoStatus(video) === 'watched' && isFavoriteVideo(video))
+    )
+  ) return false
+  const normalized = normalizeResumeAtSeconds(currentSeconds, video.duration)
+  const nextResume = normalized || 0
+  const previousResume = session.isRewatch
+    ? Math.max(0, Number(session.lastPersistedSeconds) || 0)
+    : normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+
+  const watchedAt = getCurrentAppTimestamp(state)
+  const progressChanged = persistVideoShelfWatchCoverage(video, session, watchedAt)
+  video.resumeAtSeconds = normalized
+  if (session.isRewatch) video.pausedAt = watchedAt
+  if (nextResume === previousResume && !progressChanged && !session.isRewatch) return true
+  syncStreak(state)
+  if (!await saveState(state, {
+    backup: false,
+    syncAnalytics: shouldSyncAnalytics
+  })) return false
+  session.lastPersistedAt = Date.now()
+  session.lastPersistedSeconds = nextResume
+  return true
+}
+
+function startVideoShelfPlayerSyncTimer(session) {
+  if (!session || session.syncTimer) return
+  session.syncTimer = window.setInterval(() => {
+    if (activeVideoShelfPlayer !== session) {
+      stopVideoShelfPlayerSyncTimer(session)
+      return
+    }
+    syncActiveVideoShelfPlayer({ persist: false })
+    if (Date.now() - session.lastPersistedAt >= VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS) {
+      syncActiveVideoShelfPlayer({
+        persist: true,
+        syncAnalytics: false
+      })
+    }
+  }, 1000)
+}
+
+function stopVideoShelfPlayerSyncTimer(session) {
+  if (!session?.syncTimer) return
+  window.clearInterval(session.syncTimer)
+  session.syncTimer = null
+}
+
+function dismissVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
+  if (!session) return
+  session.frame?.querySelector('.video-watch-reminder-popover.is-player')?.remove()
+  session.completionPromptVisible = false
+  session.completionPromptPending = false
+  updateDocumentTitle()
+}
+
+function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
+  if (
+    !session
+    || activeVideoShelfPlayer !== session
+    || session.destroyed
+    || !isStudyVideoShelfPlayerSession(session)
+  ) return false
+  if (document.hidden) {
+    session.completionPromptPending = true
+    updateDocumentTitle()
+    return false
+  }
+  if (session.completionPromptVisible) return true
+
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  const canPrompt = session.isRewatch
+    ? video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video)
+    : video && getVideoStatus(video) !== 'watched'
+  if (!canPrompt || !session.frame) return false
+
+  session.frame.querySelector('.video-watch-reminder-popover.is-player')?.remove()
+  session.frame.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(session.videoId, {
+    rewatch: session.isRewatch,
+    video
+  }))
+  const prompt = session.frame.querySelector('.video-watch-reminder-popover.is-player')
+  if (!prompt) return false
+  bindVideoWatchPromptActions(prompt, {
+    favorite: favoriteVideoFromWatchPrompt,
+    confirm: confirmVideoWatchPrompt,
+    dismiss: dismissVideoWatchPrompt
+  })
+  session.completionPromptVisible = true
+  session.completionPromptPending = false
+  finalizeRenderedVideoWatchPrompt(state, video, prompt, session.isRewatch)
+  updateDocumentTitle(state)
+  return true
+}
+
+function trackVideoPlaybackSessionEnded(session, exitReason) {
+  if (!session) return false
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  if (!video) return false
+  const endedAtSeconds = Math.max(
+    0,
+    Math.floor(Number(getVideoShelfPlayerCurrentTime(session)) || Number(session.lastKnownSeconds) || 0)
+  )
+  const currentProgressSeconds = Math.max(0, Math.floor(Number(session.progressSeconds) || 0))
+  const previousProgressSeconds = Math.max(0, Math.floor(Number(session.lastReportedProgressSeconds) || 0))
+  const playedSecondsTotal = Math.max(0, Number(session.playedSecondsTotal) || 0)
+  const previousPlayedSeconds = Math.max(0, Number(session.lastReportedPlayedSeconds) || 0)
+  const previousEndedAtSeconds = Math.max(0, Math.floor(Number(session.lastReportedSeconds) || 0))
+  if (
+    session.lastOutcomeReason
+    && endedAtSeconds === previousEndedAtSeconds
+    && currentProgressSeconds === previousProgressSeconds
+    && playedSecondsTotal === previousPlayedSeconds
+  ) return false
+
+  const durationSeconds = Math.max(0, Math.floor(Number(video.duration) || 0))
+  trackEdeniaEvent('video_playback_session_ended', getVideoAnalyticsProperties(video, {
+    surface: session.analyticsSurface || 'channel_shelf',
+    player_mode: 'embedded',
+    study_credit_eligible: isStudyVideoShelfPlayerSession(session),
+    started_at_seconds: previousEndedAtSeconds,
+    ended_at_seconds: endedAtSeconds,
+    seconds_watched: Math.max(0, Math.round(playedSecondsTotal - previousPlayedSeconds)),
+    newly_covered_seconds: Math.max(0, currentProgressSeconds - previousProgressSeconds),
+    completion_percent: durationSeconds > 0
+      ? Math.min(100, Math.round((endedAtSeconds / durationSeconds) * 100))
+      : null,
+    exit_reason: exitReason,
+    is_rewatch: session.isRewatch === true,
+    resumed: previousEndedAtSeconds > 0
+  }))
+  session.lastReportedSeconds = endedAtSeconds
+  session.lastReportedProgressSeconds = currentProgressSeconds
+  session.lastReportedPlayedSeconds = playedSecondsTotal
+  session.lastOutcomeReason = exitReason
+  return true
+}
+
+function handleVideoShelfPlayerStateChange(session, state) {
+  if (activeVideoShelfPlayer !== session) return
+  if (state === 1) {
+    session.completionPromptPending = false
+    startVideoShelfPlayerSyncTimer(session)
+    syncActiveVideoShelfPlayer({ persist: false })
+    return
+  }
+  if (state === 0) {
+    stopVideoShelfPlayerSyncTimer(session)
+    syncActiveVideoShelfPlayer({
+      persist: true,
+      captureStoppedPlayback: true
+    })
+    trackVideoPlaybackSessionEnded(session, 'ended')
+    window.setTimeout(() => completeVideoShelfPlayer(session), 0)
+    return
+  }
+  if (state === 2 || state === 5) {
+    stopVideoShelfPlayerSyncTimer(session)
+    syncActiveVideoShelfPlayer({
+      persist: true,
+      captureStoppedPlayback: state === 2
+    })
+    trackVideoPlaybackSessionEnded(session, state === 2 ? 'paused' : 'cued')
+  }
+}
+
+function completeVideoShelfPlayer(session) {
+  if (
+    activeVideoShelfPlayer !== session
+    || !isStudyVideoShelfPlayerSession(session)
+  ) return false
+  showVideoShelfCompletionPrompt(session)
+  return true
+}
+
+async function completeVideoShelfPlayerRewatchConfirmation(session) {
+  if (activeVideoShelfPlayer !== session || !session.isRewatch) return false
+  syncActiveVideoShelfPlayer({
+    persist: true,
+    captureStoppedPlayback: true
+  })
+  const completedSession = stopActiveVideoShelfPlayer({ persist: false })
+  const state = loadState()
+  const video = state?.videos?.[completedSession?.videoId]
+  if (!video || getVideoStatus(video) !== 'watched' || !isFavoriteVideo(video)) return false
+  const coveredSeconds = Math.floor(getVideoWatchCoverageSeconds(
+    video.watchCycleCoverage,
+    video.duration
+  ))
+  if (!recordVideoRewatch(state, video, coveredSeconds, { creditProgress: false })) return false
+  if (!await saveState(state)) return false
+  trackVideoRewatchCompleted(state, video, coveredSeconds, 'embedded_player')
+  renderAll(state)
+  return true
+}
+
+function stopActiveVideoShelfPlayer(options = {}) {
+  const session = activeVideoShelfPlayer
+  if (!session) return null
+  if (options.persist !== false) syncActiveVideoShelfPlayer({ persist: true })
+  trackVideoPlaybackSessionEnded(session, options.exitReason || 'closed')
+
+  stopVideoShelfPlayerSyncTimer(session)
+  session.destroyed = true
+  activeVideoShelfPlayer = null
+  try {
+    session.player?.destroy?.()
+  } catch {}
+  session.overlay?.remove()
+  document.body.classList.remove('video-player-open')
+  updateDocumentTitle()
+  return session
+}
+
+function closeVideoShelfPlayer() {
+  const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true, exitReason: 'closed' })
+  if (!stoppedPlayer) return
+  if (isStudyVideoShelfPlayerSession(stoppedPlayer)) {
+    const state = loadState()
+    if (state) renderAll(state)
+  }
+  restorePlayerReturnPosition(stoppedPlayer)
+}
+
+function handleVideoShelfPlayerVisibilityChange() {
+  if (document.hidden) {
+    syncActiveVideoShelfPlayer({ persist: true })
+    return
+  }
+  const session = activeVideoShelfPlayer
+  if (session?.completionPromptPending) {
+    showVideoShelfCompletionPrompt(session)
+  }
+  updateDocumentTitle()
+}
+
+function handleVideoShelfPlayerKeydown(event) {
+  const session = activeVideoShelfPlayer
+  if (!session || !session.overlay?.isConnected) return
+  if (event.key === 'Escape') {
+    closeVideoShelfPlayer()
+    return
+  }
+  if (
+    (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.shiftKey
+    && !session.completionPromptVisible
+  ) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    try {
+      if (typeof session.player?.seekTo !== 'function') return
+      syncActiveVideoShelfPlayer({ persist: false })
+      const currentSeconds = getVideoShelfPlayerCurrentTime(session)
+      if (!Number.isFinite(currentSeconds)) return
+      const duration = Number(session.player?.getDuration?.())
+      const offsetSeconds = event.key === 'ArrowLeft' ? -2 : 2
+      const targetSeconds = Math.max(
+        0,
+        Number.isFinite(duration) && duration > 0
+          ? Math.min(duration, currentSeconds + offsetSeconds)
+          : currentSeconds + offsetSeconds
+      )
+      session.player.seekTo(targetSeconds, true)
+      updateVideoShelfPlayerTimestamp(session, targetSeconds)
+      session.lastPlaybackSampleSeconds = targetSeconds
+      session.lastPlaybackSampleAt = Date.now()
+    } catch {}
+    return
+  }
+  if (
+    (event.key !== ' ' && event.code !== 'Space')
+    || event.repeat
+    || session.completionPromptVisible
+  ) return
+
+  try {
+    const playerState = session.player?.getPlayerState?.()
+    if (!Number.isFinite(playerState)) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (playerState === 1 || playerState === 3) {
+      session.player.pauseVideo()
+    } else {
+      session.player.playVideo()
+    }
+  } catch {}
+}
+
+function keepVideoShelfPlayerEscapeAvailable() {
+  const session = activeVideoShelfPlayer
+  if (!session || document.activeElement !== session.iframe) return
+  window.setTimeout(() => {
+    if (
+      activeVideoShelfPlayer !== session
+      || session.destroyed
+      || document.activeElement !== session.iframe
+    ) return
+    session.overlay?.focus({ preventScroll: true })
+  }, 0)
+}
+
+let activeVideoShelfPreview = null
+const videoShelfPreviewCleanupTimers = new WeakMap()
+const videoShelfPreviewLeaveTimers = new WeakMap()
+let videoShelfPreviewAnchorTimer = null
+
+function usesTapVideoShelfPreview() {
+  return usesTapVideoShelfPreviewInput()
+}
+
+function canUseVideoShelfPreview() {
+  return !document.body.classList.contains('walkthrough-active')
+    && supportsVideoShelfPreviewInput()
+}
+
+function isVideoShelfCardFullyVisible(card) {
+  const slot = card?.closest?.('.channel-shelf-slot')
+  const track = card?.closest?.('.channel-shelf-track')
+  if (!slot || !track) return false
+
+  const slotRect = slot.getBoundingClientRect()
+  const trackRect = track.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
+  const edgeTolerance = 1
+  return slotRect.left >= Math.max(0, trackRect.left) - edgeTolerance
+    && slotRect.right <= Math.min(viewportWidth, trackRect.right) + edgeTolerance
+    && slotRect.top >= -edgeTolerance
+    && slotRect.bottom <= viewportHeight + edgeTolerance
+}
+
+function keepPointerInsideVideoShelfPreview(position, size, viewportSize, pointerPosition) {
+  if (!Number.isFinite(pointerPosition)) return position
+
+  const pointerInset = 6
+  let adjustedPosition = position
+  if (pointerPosition < adjustedPosition + pointerInset) {
+    adjustedPosition = pointerPosition - pointerInset
+  } else if (pointerPosition > adjustedPosition + size - pointerInset) {
+    adjustedPosition = pointerPosition - size + pointerInset
+  }
+  return clampNumber(adjustedPosition, 0, Math.max(0, viewportSize - size))
+}
+
+const HORIZONTAL_VIDEO_SHELF_ASPECT_RATIO = 16 / 9
+const VIDEO_SHELF_PREVIEW_HEIGHT_RATIO = 0.815625
+const SHORTS_VIDEO_SHELF_PREVIEW_MAX_WIDTH = 150
+const SHORTS_VIDEO_SHELF_THUMBNAIL_ASPECT_RATIO = 31 / 40
+const SHORTS_VIDEO_SHELF_BODY_HEIGHT_RATIO = 0.254902
+
+function getHorizontalVideoShelfPreviewDimensions(sourceWidth, viewportMargin) {
+  const maxPreviewSize = Math.max(
+    sourceWidth,
+    Math.min(
+      315,
+      window.innerWidth - (viewportMargin * 2),
+      window.innerHeight - (viewportMargin * 2)
+    )
+  )
+  const width = Math.min(Math.max(sourceWidth * 1.25, 295), maxPreviewSize)
+  return {
+    height: width * VIDEO_SHELF_PREVIEW_HEIGHT_RATIO,
+    width
+  }
+}
+
+function getShortsVideoShelfPreviewWidth(card, previewHeight) {
+  const cardStyle = getComputedStyle(card)
+  const inlineBorder = (Number.parseFloat(cardStyle.borderLeftWidth) || 0)
+    + (Number.parseFloat(cardStyle.borderRightWidth) || 0)
+  const blockBorder = (Number.parseFloat(cardStyle.borderTopWidth) || 0)
+    + (Number.parseFloat(cardStyle.borderBottomWidth) || 0)
+  const contentHeight = Math.max(0, previewHeight - blockBorder)
+  const thumbnailHeight = contentHeight * (1 - SHORTS_VIDEO_SHELF_BODY_HEIGHT_RATIO)
+  return Math.min(
+    SHORTS_VIDEO_SHELF_PREVIEW_MAX_WIDTH,
+    inlineBorder + (thumbnailHeight * SHORTS_VIDEO_SHELF_THUMBNAIL_ASPECT_RATIO)
+  )
+}
+
+function positionVideoShelfPreview(card, pointerEvent = null) {
+  const slot = card?.closest?.('.channel-shelf-slot')
+  if (!slot) return false
+
+  const isShortsPreview = slot.dataset.channelVideoFormat === CHANNEL_VIDEO_FORMATS.SHORTS
+  const slotRect = slot.getBoundingClientRect()
+  const rect = isShortsPreview
+    ? card.getBoundingClientRect()
+    : slotRect
+  const viewportMargin = 12
+  const horizontalSourceWidth = isShortsPreview
+    ? slotRect.height * HORIZONTAL_VIDEO_SHELF_ASPECT_RATIO
+    : slotRect.width
+  const horizontalPreview = getHorizontalVideoShelfPreviewDimensions(
+    horizontalSourceWidth,
+    viewportMargin
+  )
+  const previewSize = isShortsPreview
+    ? Math.min(
+      getShortsVideoShelfPreviewWidth(card, horizontalPreview.height),
+      Math.max(0, window.innerWidth - (viewportMargin * 2))
+    )
+    : horizontalPreview.width
+  const previewHeight = horizontalPreview.height
+  const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
+  const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
+  const anchorToSource = card.matches('.next-study-focus-target')
+  let targetLeft = anchorToSource
+    ? sourceLeft
+    : clampNumber(
+      sourceLeft,
+      viewportMargin,
+      Math.max(viewportMargin, window.innerWidth - previewSize - viewportMargin)
+    )
+  let targetTop = anchorToSource
+    ? sourceTop
+    : clampNumber(
+      sourceTop,
+      viewportMargin,
+      Math.max(viewportMargin, window.innerHeight - previewHeight - viewportMargin)
+    )
+  if (!anchorToSource && pointerEvent) {
+    targetLeft = keepPointerInsideVideoShelfPreview(
+      targetLeft,
+      previewSize,
+      window.innerWidth,
+      pointerEvent.clientX
+    )
+    targetTop = keepPointerInsideVideoShelfPreview(
+      targetTop,
+      previewHeight,
+      window.innerHeight,
+      pointerEvent.clientY
+    )
+  }
+
+  card.style.setProperty('--shelf-preview-origin-left', `${rect.left}px`)
+  card.style.setProperty('--shelf-preview-origin-top', `${rect.top}px`)
+  card.style.setProperty('--shelf-preview-origin-width', `${rect.width}px`)
+  card.style.setProperty('--shelf-preview-origin-height', `${rect.height}px`)
+  card.style.setProperty('--shelf-preview-left', `${targetLeft}px`)
+  card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
+  card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
+  card.style.setProperty('--shelf-preview-height', `${previewHeight}px`)
+  return true
+}
+
+function keepVideoShelfPreviewAnchoredAfterLayout(card, videoId) {
+  const finishReanchoring = () => card?.classList.remove('is-layout-reanchoring')
+  const reposition = () => {
+    if (!isActiveVideoShelfPreview(videoId) || activeVideoShelfPreview !== card) return false
+    clearVideoShelfPreviewLeave(card)
+    return positionVideoShelfPreview(card)
+  }
+
+  if (!reposition()) {
+    finishReanchoring()
+    return
+  }
+  requestAnimationFrame(() => {
+    if (!reposition()) {
+      finishReanchoring()
+      return
+    }
+    requestAnimationFrame(() => {
+      reposition()
+      requestAnimationFrame(finishReanchoring)
+    })
+  })
+}
+
+function clearVideoShelfPreviewCleanup(card) {
+  const cleanupTimer = videoShelfPreviewCleanupTimers.get(card)
+  if (cleanupTimer) window.clearTimeout(cleanupTimer)
+  videoShelfPreviewCleanupTimers.delete(card)
+}
+
+function clearVideoShelfPreviewLeave(card) {
+  const leaveTimer = videoShelfPreviewLeaveTimers.get(card)
+  if (leaveTimer) window.clearTimeout(leaveTimer)
+  videoShelfPreviewLeaveTimers.delete(card)
+}
+
+function queueVideoShelfPreviewClose(card) {
+  clearVideoShelfPreviewLeave(card)
+  videoShelfPreviewLeaveTimers.set(
+    card,
+    window.setTimeout(() => {
+      videoShelfPreviewLeaveTimers.delete(card)
+      closeVideoShelfPreview(card)
+    }, 70)
+  )
+}
+
+function isActiveVideoShelfPreview(videoId) {
+  const card = activeVideoShelfPreview
+  return Boolean(
+    card
+    && card.isConnected
+    && card.dataset.videoId === String(videoId ?? '')
+    && card.classList.contains('is-previewing')
+  )
+}
+
+function patchVideoShelfPreview(state, videoId) {
+  const card = activeVideoShelfPreview
+  const video = state?.videos?.[videoId]
+  if (!card || !video || !isActiveVideoShelfPreview(videoId)) return
+
+  // Preview actions deliberately preserve the live card. Refresh its window's
+  // record too, so a later remount uses the updated learner-owned state.
+  for (const entry of videoShelfWindows.values()) {
+    const index = entry.group.videos.findIndex(item => String(item.id) === String(videoId))
+    if (index < 0) continue
+    entry.group.videos[index] = video
+    entry.window.updateVideo(video)
+  }
+
+  const template = document.createElement('template')
+  template.innerHTML = renderCard(video, false, {
+    shelf: true,
+    currentDateKey: getCurrentAppDateKey(state)
+  }).trim()
+  const updatedCard = template.content.firstElementChild
+  if (!updatedCard) return
+
+  Array.from(card.classList)
+    .filter(className => className === 'is-favorite' || className.startsWith('status-'))
+    .forEach(className => card.classList.remove(className))
+  Array.from(updatedCard.classList)
+    .filter(className => className === 'is-favorite' || className.startsWith('status-'))
+    .forEach(className => card.classList.add(className))
+
+  const currentPriorityBadge = card.querySelector('.channel-shelf-priority-badge')
+  const updatedPriorityBadge = updatedCard.querySelector('.channel-shelf-priority-badge')
+  if (currentPriorityBadge && updatedPriorityBadge) {
+    currentPriorityBadge.className = updatedPriorityBadge.className
+    currentPriorityBadge.innerHTML = updatedPriorityBadge.innerHTML
+    Array.from(currentPriorityBadge.attributes).forEach(attribute => {
+      if (!updatedPriorityBadge.hasAttribute(attribute.name)) {
+        currentPriorityBadge.removeAttribute(attribute.name)
+      }
+    })
+    Array.from(updatedPriorityBadge.attributes).forEach(attribute => {
+      currentPriorityBadge.setAttribute(attribute.name, attribute.value)
+    })
+  } else if (currentPriorityBadge) {
+    const shouldRestoreActionFocus = document.activeElement === currentPriorityBadge
+    currentPriorityBadge.remove()
+    if (shouldRestoreActionFocus) {
+      card.querySelector('.watch-later-btn, .favorite-btn')?.focus({ preventScroll: true })
+    }
+  } else if (updatedPriorityBadge) {
+    card.querySelector('.card-body')?.before(updatedPriorityBadge)
+  }
+
+  ;['.watch-later-btn', '.favorite-btn'].forEach(selector => {
+    const currentButton = card.querySelector(selector)
+    const updatedButton = updatedCard.querySelector(selector)
+    if (!currentButton || !updatedButton) return
+    currentButton.className = updatedButton.className
+    Array.from(currentButton.attributes).forEach(attribute => {
+      if (!updatedButton.hasAttribute(attribute.name)) currentButton.removeAttribute(attribute.name)
+    })
+    Array.from(updatedButton.attributes).forEach(attribute => {
+      currentButton.setAttribute(attribute.name, attribute.value)
+    })
+  })
+
+  const currentStatus = card.querySelector('.card-status')
+  const updatedStatus = updatedCard.querySelector('.card-status')
+  if (currentStatus && updatedStatus) {
+    currentStatus.className = updatedStatus.className
+    currentStatus.innerHTML = updatedStatus.innerHTML
+  } else if (currentStatus) {
+    currentStatus.remove()
+  } else if (updatedStatus) {
+    card.querySelector('.card-copy')?.before(updatedStatus)
+  }
+  bindRenderedVideoStateActions(card)
+
+  return card
+}
+
+function refreshVideoActionUiPreservingPreview(state, videoId) {
+  const card = patchVideoShelfPreview(state, videoId)
+  if (!card) return
+  card.classList.add('is-layout-reanchoring')
+  renderFeed(state)
+  renderUndoButton(state)
+  keepVideoShelfPreviewAnchoredAfterLayout(card, videoId)
+}
+
+function cleanupVideoShelfPreview(card) {
+  if (!card || card.classList.contains('is-previewing')) return
+  clearVideoShelfPreviewCleanup(card)
+  clearVideoShelfPreviewLeave(card)
+  const shelf = card.closest('.channel-shelf')
+  if (shelf) shelf.draggable = true
+  card.classList.add('is-preview-resetting')
+  card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored', 'is-layout-reanchoring')
+  card.classList.remove('is-floating-preview')
+  card.style.removeProperty('--shelf-preview-origin-left')
+  card.style.removeProperty('--shelf-preview-origin-top')
+  card.style.removeProperty('--shelf-preview-origin-width')
+  card.style.removeProperty('--shelf-preview-origin-height')
+  card.style.removeProperty('--shelf-preview-left')
+  card.style.removeProperty('--shelf-preview-top')
+  card.style.removeProperty('--shelf-preview-size')
+  card.style.removeProperty('--shelf-preview-height')
+  if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+  card.getBoundingClientRect()
+  requestAnimationFrame(() => card.classList.remove('is-preview-resetting'))
+}
+
+function dismissVideoShelfPreview(card) {
+  if (!card) return false
+  const hasPreviewState = activeVideoShelfPreview === card
+    || card.classList.contains('is-floating-preview')
+    || card.classList.contains('is-preview-armed')
+    || card.classList.contains('is-previewing')
+    || card.classList.contains('is-preview-closing')
+  if (!hasPreviewState) return false
+
+  const videoId = String(card.dataset.videoId || '')
+  if (activeNextStudyFocusVideoId === videoId) {
+    window.clearTimeout(nextStudyFocusZoomTimer)
+    activeNextStudyFocusVideoId = null
+    card.classList.remove('next-study-focus-target')
+  }
+
+  window.clearTimeout(videoShelfPreviewAnchorTimer)
+  card.classList.remove('is-previewing')
+  cleanupVideoShelfPreview(card)
+  return true
+}
+
+function closeVideoShelfPreviewsOnEscape(event) {
+  if (event.key !== 'Escape') return
+  const previewCards = new Set(document.querySelectorAll(
+    '.channel-shelf-card.is-floating-preview, .channel-shelf-card.is-preview-armed, .channel-shelf-card.is-previewing, .channel-shelf-card.is-preview-closing'
+  ))
+  if (activeVideoShelfPreview) previewCards.add(activeVideoShelfPreview)
+
+  let dismissed = false
+  previewCards.forEach(card => {
+    if (dismissVideoShelfPreview(card)) dismissed = true
+  })
+  if (!dismissed) return
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function reopenVideoShelfPreview(card) {
+  clearVideoShelfPreviewCleanup(card)
+  clearVideoShelfPreviewLeave(card)
+  card.classList.remove('is-preview-closing')
+  activeVideoShelfPreview = card
+  requestAnimationFrame(() => {
+    if (activeVideoShelfPreview === card && card.classList.contains('is-floating-preview')) {
+      card.classList.add('is-previewing')
+    }
+  })
+}
+
+function openVideoShelfPreview(card, force = false, pointerEvent = null) {
+  if (
+    !card
+    || !canUseVideoShelfPreview()
+  ) return false
+  clearVideoShelfPreviewLeave(card)
+  if (activeChannelShelfDrag) return false
+  if (!force && !isVideoShelfCardFullyVisible(card)) return false
+  if (shouldIgnoreVideoShelfHoverForPendingFocus(card, force, pointerEvent)) return false
+  releaseNextStudyFocusForShelfPreview(card, force)
+  if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
+  if (card.classList.contains('is-floating-preview')) {
+    if (card.classList.contains('is-preview-closing')) reopenVideoShelfPreview(card)
+    return true
+  }
+
+  clearVideoShelfPreviewCleanup(card)
+  window.clearTimeout(videoShelfPreviewAnchorTimer)
+  if (!positionVideoShelfPreview(card, pointerEvent)) return false
+  const shelf = card.closest('.channel-shelf')
+  if (shelf) shelf.draggable = false
+  card.classList.add('is-floating-preview')
+  activeVideoShelfPreview = card
+  card.getBoundingClientRect()
+  requestAnimationFrame(() => {
+    if (!card.classList.contains('is-floating-preview')) return
+    if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
+    card.classList.add('is-preview-armed')
+    requestAnimationFrame(() => {
+      if (!card.classList.contains('is-preview-armed')) return
+      if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
+      card.classList.add('is-previewing')
+      if (card.matches('.next-study-focus-target')) {
+        videoShelfPreviewAnchorTimer = window.setTimeout(() => {
+          if (card.classList.contains('is-previewing')) card.classList.add('is-source-anchored')
+        }, 220)
+      }
+    })
+  })
+  return true
+}
+
+function closeVideoShelfPreview(card, force = false) {
+  if (!card?.classList.contains('is-floating-preview')) return
+  if (!force && activeNextStudyFocusVideoId && card.dataset.videoId === activeNextStudyFocusVideoId) return
+  const hasKeyboardFocus = Boolean(card.querySelector(':focus-visible'))
+  if (!force && (card.matches(':hover') || hasKeyboardFocus)) return
+
+  clearVideoShelfPreviewLeave(card)
+  clearVideoShelfPreviewCleanup(card)
+  if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+  card.classList.add('is-preview-closing')
+  card.classList.remove('is-previewing')
+  window.clearTimeout(videoShelfPreviewAnchorTimer)
+  if (force || prefersReducedMotion()) {
+    cleanupVideoShelfPreview(card)
+    return
+  }
+
+  const finishClosingPreview = event => {
+    if (event.target !== card || event.propertyName !== 'width') return
+    card.removeEventListener('transitionend', finishClosingPreview)
+    if (!card.classList.contains('is-preview-closing')) return
+    cleanupVideoShelfPreview(card)
+  }
+  card.addEventListener('transitionend', finishClosingPreview)
+  videoShelfPreviewCleanupTimers.set(
+    card,
+    window.setTimeout(() => {
+      card.removeEventListener('transitionend', finishClosingPreview)
+      cleanupVideoShelfPreview(card)
+    }, 240)
+  )
+}
+
+function closeVideoShelfPreviewAfterFocus(card) {
+  requestAnimationFrame(() => closeVideoShelfPreview(card))
+}
+
+function openVideoShelfPreviewFromFocus(card) {
+  if (usesTapVideoShelfPreview()) return
+  openVideoShelfPreview(card)
+}
+
+function toggleVideoShelfPreviewOnTouch(event, card) {
+  if (!usesTapVideoShelfPreview() || !card) return
+  if (event?.target?.closest?.('button, input, label, select, textarea')) return
+  if (card.classList.contains('is-previewing')) return
+
+  event?.preventDefault()
+  event?.stopPropagation()
+  openVideoShelfPreview(card, true)
+}
+
+function closeVideoShelfPreviewOnOutsideClick(event) {
+  if (!activeVideoShelfPreview) return
+  const isNextStudyFocusPreview = Boolean(
+    activeNextStudyFocusVideoId
+    && activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+  )
+  if (!usesTapVideoShelfPreview() && !isNextStudyFocusPreview) return
+  if (activeVideoShelfPreview.contains(event.target)) return
+  if (isNextStudyFocusPreview) {
+    const focusedVideoId = activeNextStudyFocusVideoId
+    const state = loadState()
+    const shouldRestoreWatchedSection = getVideoStatus(state?.videos?.[focusedVideoId]) === 'watched'
+    activeNextStudyFocusVideoId = null
+    activeVideoShelfPreview.classList.remove('next-study-focus-target')
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    if (shouldRestoreWatchedSection && state) renderFeed(state)
+    return
+  }
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+}
+
+function closeVideoShelfPreviewOnViewportChange() {
+  if (usesPhoneComposition() && activeNextStudyFocusVideoId) {
+    window.clearTimeout(nextStudyFocusZoomTimer)
+    activeNextStudyFocusVideoId = null
+    document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
+      card.classList.remove('next-study-focus-target')
+    })
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    return
+  }
+  if (activeVideoShelfPreview?.classList.contains('is-layout-reanchoring')) {
+    positionVideoShelfPreview(activeVideoShelfPreview)
+    return
+  }
+  const isAnchoredPreview = Boolean(
+    activeVideoShelfPreview
+    && (
+      activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+    )
+  )
+  if (isAnchoredPreview) {
+    positionVideoShelfPreview(activeVideoShelfPreview)
+    return
+  }
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+}
+
+function includeForcedSearchVideo(videos, forcedVideo) {
+  if (!forcedVideo?.id) return videos
+  if (videos.some(video => video.id === forcedVideo.id)) return videos
+  return [forcedVideo, ...videos]
+}
+
+function renderUndoButton(s) {
+  renderHistoryActionButton({
+    buttonId: 'undoBtn',
+    tooltipId: 'undoTooltip',
+    actions: Array.isArray(s.undoStack) ? s.undoStack : [],
+    state: s,
+    label: t('videos.undo'),
+    emptyTitle: t('videos.undo.empty'),
+    queueTitle: t('videos.undo.queue'),
+    titleVerb: t('videos.undo.title'),
+    direction: 'undo'
+  })
+  renderHistoryActionButton({
+    buttonId: 'redoBtn',
+    tooltipId: 'redoTooltip',
+    actions: Array.isArray(s.redoStack) ? s.redoStack : [],
+    state: s,
+    label: t('videos.redo'),
+    emptyTitle: t('videos.redo.empty'),
+    queueTitle: t('videos.redo.queue'),
+    titleVerb: t('videos.redo.title'),
+    direction: 'redo'
+  })
+}
+
+function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label, emptyTitle, queueTitle, titleVerb, direction }) {
+  const btn = document.getElementById(buttonId)
+  const tooltip = document.getElementById(tooltipId)
+  if (!btn) return
+  const count = actions.length
+  const canUse = count > 0
+  const wrap = btn.closest('.undo-action-wrap')
+  btn.disabled = !canUse
+  btn.textContent = label
+  btn.title = canUse ? `${titleVerb} (${count} available)` : emptyTitle
+  if (!canUse) {
+    wrap?.classList.remove('open')
+    tooltip?.classList.add('hidden')
+  }
+  btn.setAttribute('aria-expanded', String(Boolean(canUse && wrap?.classList.contains('open'))))
+  if (tooltip) {
+    tooltip.innerHTML = renderHistoryActionTooltip(actions, state, emptyTitle, queueTitle, direction)
+    bindUndoRedoActions(tooltip, {
+      toggle: toggleHistoryActionPopover,
+      apply: applyHistoryAction,
+      close: closeHistoryActionPopovers,
+      scroll: handleHistoryActionScrollHover,
+      stopScroll: stopHistoryActionAutoScroll
+    })
+  }
+}
+
+function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, direction) {
+  const indexedActions = Array.isArray(actions)
+    ? actions
+      .map((action, index) => ({ action, index }))
+      .reverse()
+    : []
+  if (!indexedActions.length) {
+    return `<div class="undo-tooltip-title">${escHtml(emptyTitle)}</div>`
+  }
+
+  return `
+    <div class="mobile-popover-header">
+      <strong>${escHtml(queueTitle)}</strong>
+      <button class="mobile-popover-close" type="button" data-undo-redo-action="close" data-analytics-action="closeHistoryActionPopovers" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+    </div>
+    <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
+    <div class="undo-tooltip-scroll" data-undo-redo-action="scroll">
+      ${indexedActions.map(entry => renderHistoryActionTooltipItem(entry, s, direction)).join('')}
+    </div>
+  `
+}
+
+function renderHistoryActionTooltipItem(entry, s, direction) {
+  const { action, index } = entry
+  if (action.type === 'channel-remove') {
+    const channelName = action.channelName || action.before?.channel?.name || action.channelId || t('videos.channels.one')
+    const actionText = direction === 'redo' ? t('undo.removeChannelAgain') : t('undo.restoreChannel')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+        <span class="undo-tooltip-video">${escHtml(channelName)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(formatHistoryActionTimestamp(action))}</span>
+      </button>
+    `
+  }
+
+  const video = s.videos?.[action.videoId]
+  const title = video?.title || action.before?.video?.title || action.after?.video?.title || t('videos.search.untitled')
+  const timestamp = formatHistoryActionTimestamp(action)
+  if (action.type === 'manual-video-add') {
+    const channelWillChange = action.channelWasAdded && (
+      direction === 'redo'
+        ? shouldTrackManualVideoChannel(plusAccessPolicy)
+        : (s.config?.channels || []).some(channel => channel.id === action.channelId)
+    )
+    const actionText = direction === 'redo'
+      ? channelWillChange
+        ? t('undo.restoreAddedVideoAndChannel')
+        : t('undo.restoreAddedVideo')
+      : channelWillChange
+        ? t('undo.removeAddedVideoAndChannel')
+        : t('undo.removeAddedVideo')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  if (action.type === 'video-grid-remove') {
+    const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  if (action.type === 'video-organization') {
+    const actionLabelKeys = {
+      'remove-continue': 'videos.actions.removeContinue',
+      'remove-feed': 'videos.actions.removeFromFeed',
+      'restore-feed': 'videos.actions.returnToFeed',
+      'return-feed': 'videos.actions.returnToFeed'
+    }
+    const actionText = t(`undo.videoOrganization.${direction}`, {
+      action: t(actionLabelKeys[action.operation] || 'videos.actions.more')
+    })
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  if (action.type === 'video-favorite') {
+    const targetSnapshot = direction === 'redo' ? action.after : action.before
+    const isFavorite = targetSnapshot?.video
+      ? isFavoriteVideo(targetSnapshot.video)
+      : targetSnapshot?.favorite === true
+    const actionText = t(isFavorite ? 'undo.addFavorite' : 'undo.removeFavorite')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  if (action.type === 'video-resume-time') {
+    const fromTime = formatResumeTimestamp(
+      direction === 'redo' ? action.before?.resumeAtSeconds : action.after?.resumeAtSeconds
+    ) || '00:00:00'
+    const toTime = formatResumeTimestamp(
+      direction === 'redo' ? action.after?.resumeAtSeconds : action.before?.resumeAtSeconds
+    ) || '00:00:00'
+    const actionText = direction === 'redo'
+      ? t('undo.continueAtChange', { from: fromTime, to: toTime })
+      : t('undo.continueAtBack', { from: fromTime, to: toTime })
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  const formatSnapshotStatus = (snapshot, fallbackStatus = null) => (
+    isVideoSetAside(snapshot?.video)
+      ? t('videos.status.setAside')
+      : formatVideoStatus(snapshot?.status || fallbackStatus)
+  )
+  const fromStatus = direction === 'redo'
+    ? formatSnapshotStatus(action.before)
+    : formatSnapshotStatus(action.after, video?.status)
+  const toStatus = direction === 'redo'
+    ? formatSnapshotStatus(action.after)
+    : formatSnapshotStatus(action.before)
+  const actionText = direction === 'redo'
+    ? t('undo.statusChange', { from: fromStatus, to: toStatus })
+    : t('undo.backToStatus', { from: fromStatus, to: toStatus })
+  return `
+    <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
+      <span class="undo-tooltip-video">${escHtml(title)}</span>
+      <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+      <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+    </button>
+  `
+}
+
+function formatHistoryActionTimestamp(action) {
+  if (!action?.createdAt) return t('undo.timeUnavailable')
+  const date = new Date(action.createdAt)
+  if (Number.isNaN(date.getTime())) return t('undo.timeUnavailable')
+  return t('undo.doneAt', { time: formatLocaleDateTime(date, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }) })
+}
+
+function handleHistoryActionScrollHover(event) {
+  if (!usesPhoneComposition()) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+
+  const scroller = event.currentTarget
+  if (!scroller || scroller.scrollHeight <= scroller.clientHeight) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+
+  const edgeSize = 44
+  const maxSpeed = 8
+  const rect = scroller.getBoundingClientRect()
+  const topDistance = event.clientY - rect.top
+  const bottomDistance = rect.bottom - event.clientY
+  let speed = 0
+
+  if (topDistance < edgeSize) {
+    speed = -Math.ceil(((edgeSize - Math.max(0, topDistance)) / edgeSize) * maxSpeed)
+  } else if (bottomDistance < edgeSize) {
+    speed = Math.ceil(((edgeSize - Math.max(0, bottomDistance)) / edgeSize) * maxSpeed)
+  }
+
+  startHistoryActionAutoScroll(scroller, speed)
+}
+
+function startHistoryActionAutoScroll(scroller, speed) {
+  if (!speed) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+  historyActionScroll.scroller = scroller
+  historyActionScroll.speed = speed
+  if (historyActionScroll.frame) return
+  historyActionScroll.frame = requestAnimationFrame(stepHistoryActionAutoScroll)
+}
+
+function stepHistoryActionAutoScroll() {
+  const scroller = historyActionScroll.scroller
+  if (!scroller || !historyActionScroll.speed) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+  const before = scroller.scrollTop
+  scroller.scrollTop += historyActionScroll.speed
+  if (scroller.scrollTop === before) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+  historyActionScroll.frame = requestAnimationFrame(stepHistoryActionAutoScroll)
+}
+
+function stopHistoryActionAutoScroll() {
+  if (historyActionScroll.frame) cancelAnimationFrame(historyActionScroll.frame)
+  historyActionScroll.frame = null
+  historyActionScroll.scroller = null
+  historyActionScroll.speed = 0
+}
+
+function toggleHistoryActionPopover(event, direction) {
+  event.stopPropagation()
+  const btn = event.currentTarget
+  if (!btn || btn.disabled) return
+  const wrap = btn.closest('.undo-action-wrap')
+  const popover = wrap?.querySelector('.undo-tooltip')
+  if (!wrap || !popover) return
+  const shouldOpen = popover.classList.contains('hidden')
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeManualVideoPopover()
+  closeHistoryVideoPopovers()
+  closeHistoryPointsPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryActionPopovers(wrap)
+  wrap.classList.toggle('open', shouldOpen)
+  popover.classList.toggle('hidden', !shouldOpen)
+  btn.setAttribute('aria-expanded', String(shouldOpen))
+  if (shouldOpen) {
+    positionFilterMenuWithinViewport(popover)
+    if (usesPhoneComposition()) window.setTimeout(() => popover.querySelector('.undo-tooltip-action-btn')?.focus(), 0)
+  }
+}
+
+function closeHistoryActionPopovers(exceptWrap = null, restoreFocus = false) {
+  stopHistoryActionAutoScroll()
+  let focusButton = null
+  document.querySelectorAll('.undo-action-wrap.open').forEach(wrap => {
+    if (wrap === exceptWrap) return
+    wrap.classList.remove('open')
+    const btn = wrap.querySelector('.undo-btn')
+    const popover = wrap.querySelector('.undo-tooltip')
+    btn?.setAttribute('aria-expanded', 'false')
+    popover?.classList.add('hidden')
+    if (popover) {
+      popover.style.left = ''
+      popover.style.right = ''
+    }
+    if (!focusButton) focusButton = btn
+  })
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => focusButton?.focus(), 0)
+}
+
+function closeHistoryActionPopoversOnOutsideClick(event) {
+  if (event.target.closest('.undo-action-wrap')) return
+  closeHistoryActionPopovers()
+}
+
+function closeHistoryActionPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  if (!document.querySelector('.undo-action-wrap.open')) return
+  closeHistoryActionPopovers(null, true)
+}
+
+function toggleLocaleMenu(event) {
+  event.stopPropagation()
+  const btn = document.getElementById('settingsLocaleBtn')
+  const menu = document.getElementById('settingsLocaleMenu')
+  if (!btn || !menu) return
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeManualVideoPopover()
+  closeHistoryPointsPopovers()
+  closeHistoryActionPopovers()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) positionFilterMenuWithinViewport(menu, true)
+}
+
+function closeLocaleMenu() {
+  const btn = document.getElementById('settingsLocaleBtn')
+  const menu = document.getElementById('settingsLocaleMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  menu.style.left = ''
+  menu.style.right = ''
+  btn.setAttribute('aria-expanded', 'false')
+}
+
+function closeLocaleMenuOnOutsideClick(event) {
+  if (event.target.closest('.settings-locale-picker')) return
+  closeLocaleMenu()
+}
+
+function closeLocaleMenuOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeLocaleMenu()
+}
+
+function renderStatusFilterOptions(allVideos = [], channelFilters = null, includeShorts = true, removedChannelIds = new Set()) {
+  const btn = document.getElementById('statusFilterBtn')
+  const menu = document.getElementById('statusFilterMenu')
+  if (!btn || !menu) return
+
+  const counts = getStatusFilterCounts(allVideos, channelFilters, includeShorts, removedChannelIds)
+  document.querySelectorAll('[data-status-tab]').forEach(tab => {
+    const status = tab.dataset.statusTab
+    const isActive = selectedStatusFilter === status
+    tab.classList.toggle('active', isActive)
+    tab.setAttribute('aria-selected', String(isActive))
+    tab.setAttribute('tabindex', isActive ? '0' : '-1')
+    const count = tab.querySelector('.status-tab-count')
+    if (count) count.textContent = String(counts[status] ?? 0)
+  })
+  btn.textContent = getStatusFilterLabel(selectedStatusFilter)
+  menu.innerHTML = `
+    <div class="mobile-popover-header">
+      <strong>${escHtml(getStatusFilterLabel(selectedStatusFilter))}</strong>
+      <button class="mobile-popover-close" type="button" data-status-filter-action="close" data-analytics-action="closeStatusFilterMenu" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+    </div>
+  ` + STATUS_FILTERS.map(([value, label]) => `
+    <label class="channel-filter-option status-filter-option">
+      <input type="radio" name="statusFilter" data-status-filter-action="select-option" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''}>
+      <span class="status-filter-label">${escHtml(t(label))}</span>
+      <span class="status-filter-count">${counts[value] ?? 0}</span>
+    </label>
+  `).join('')
+  bindStatusFilterActions(menu, {
+    select: setStatusFilter,
+    toggle: toggleStatusFilterMenu,
+    close: closeStatusFilterMenu
+  })
+  if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
+}
+
+function getStatusFilterCounts(allVideos = [], channelFilters = null, includeShorts = true, removedChannelIds = new Set()) {
+  const selectedChannels = channelFilters || new Set()
+  const matchesSelection = video => !channelFilters
+    || matchesActiveChannelFilter(video, selectedChannels, removedChannelIds)
+  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
+    limitPerChannel: false
+  }).filter(matchesSelection)
+  const counts = Object.fromEntries(STATUS_FILTERS.map(([value]) => [value, 0]))
+
+  activeVideos.forEach(video => {
+    const status = getVideoStatus(video)
+    if (status !== 'watched') counts[status] += 1
+    if (status !== 'watch-later' && isVideoWatchLater(video)) counts['watch-later'] += 1
+  })
+
+  counts.all = activeVideos.length
+  const visibleFavorites = allVideos.filter(video => (
+    isFavoriteVideo(video)
+    && !isHiddenFromVideoGrid(video)
+    && !isHiddenShortVideo(video, includeShorts)
+    && (!channelFilters || matchesWatchedChannelFilter(video, selectedChannels, removedChannelIds))
+  ))
+  counts.favorite = visibleFavorites.length
+  counts.all += visibleFavorites.filter(video => getVideoStatus(video) === 'watched').length
+
+  return counts
+}
+
+function getStatusFilterLabel(status) {
+  if (status === 'all') return t('videos.status.all')
+  const key = STATUS_FILTERS.find(([value]) => value === status)?.[1] || 'videos.status.all'
+  return t(key)
+}
+
+function setStatusFilter(status) {
+  selectedStatusFilter = STATUS_FILTERS.some(([value]) => value === status) ? status : 'all'
+  closeStatusFilterMenu()
+  renderFeed(loadState())
+}
+
+function toggleStatusFilterMenu() {
+  const btn = document.getElementById('statusFilterBtn')
+  const menu = document.getElementById('statusFilterMenu')
+  if (!btn || !menu) return
+  closeChannelFilterMenu()
+  closeManualVideoPopover()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) positionFilterMenuWithinViewport(menu)
+}
+
+function closeStatusFilterMenu(restoreFocus = false) {
+  const btn = document.getElementById('statusFilterBtn')
+  const menu = document.getElementById('statusFilterMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  menu.style.left = ''
+  menu.style.right = ''
+  btn.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
+}
+
+function renderChannelFilterOptions(s) {
+  const optionsWrap = document.getElementById('manualVideoChannelOptions')
+  if (!optionsWrap) return
+
+  const entries = getChannelFilterEntries(s)
+  const ids = new Set(entries.map(([id]) => id))
+  if (selectedChannelFilters) {
+    entries.forEach(([id]) => {
+      if (!knownChannelFilterIds.has(id)) selectedChannelFilters.add(id)
+    })
+    selectedChannelFilters = new Set([...selectedChannelFilters].filter(id => ids.has(id)))
+  }
+  knownChannelFilterIds = ids
+
+  const selected = getSelectedChannelFilters(s)
+  const selectedCount = selected.size
+  const removableChannelIds = new Set([
+    ...(s.config.channels || []).map(channel => channel.id),
+    ...Object.values(s.videos || {})
+      .filter(video => !isHiddenManualVideoChannelEntry(video))
+      .map(video => video.channelId || video.channelTitle)
+      .filter(Boolean)
+  ])
+  const allChannelsControl = entries.length
+    ? `
+      <div class="channel-filter-select-all" data-channel-filter-action="select-all-row" data-analytics-action="handleChannelFilterSelectAllClick">
+        <input type="checkbox"
+          id="channelFilterSelectAll"
+          ${selectedCount === entries.length ? 'checked' : ''}
+          data-channel-filter-action="select-all"
+          data-analytics-action="setAllChannelFilters"
+          aria-label="${escHtml(t('videos.channels.all'))}">
+        <span>${escHtml(t('videos.channels.all'))}</span>
+      </div>
+    `
+    : ''
+  const options = entries.length
+    ? entries.map(([id, name]) => {
+      const refreshLabel = formatChannelLastRefreshLabel(s, id)
+      const refreshTitle = formatChannelLastRefreshTitle(s, id)
+      const canRemove = removableChannelIds.has(id)
+      return `
+      <div class="channel-filter-option" data-channel-id="${escHtml(id)}" data-channel-filter-action="option-row" data-analytics-action="handleChannelFilterOptionClick">
+        <input type="checkbox" data-channel-id="${escHtml(id)}" data-channel-filter-action="select" data-analytics-action="setChannelFilter" ${selected.has(id) ? 'checked' : ''}>
+        <span class="channel-filter-label">${escHtml(name)}</span>
+        <span class="channel-filter-refresh" title="${escHtml(refreshTitle)}">${escHtml(refreshLabel)}</span>
+        ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" data-channel-remove-action="remove" data-analytics-action="removeChannelFromFilter" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
+      </div>
+    `
+    }).join('')
+    : `<div class="channel-filter-empty">${escHtml(t('videos.channels.none'))}</div>`
+  optionsWrap.innerHTML = `
+    <div class="manual-video-channel-title">${escHtml(t('videos.channels.manage'))}</div>
+    ${allChannelsControl}
+    ${options}
+  `
+  bindChannelRemoveActions(optionsWrap, {
+    remove: removeChannelFromFilter
+  })
+  bindChannelFilterActions(optionsWrap, {
+    setChannel: setChannelFilter,
+    setAll: setAllChannelFilters,
+    handleSelectAllClick: handleChannelFilterSelectAllClick,
+    handleOptionClick: handleChannelFilterOptionClick
+  })
+  const selectAllInput = document.getElementById('channelFilterSelectAll')
+  if (selectAllInput) {
+    selectAllInput.indeterminate = selectedCount > 0 && selectedCount < entries.length
+  }
+  optionsWrap.dataset.selectedCount = selectedCount
+}
+
+function refreshOpenChannelFilterTimestamps() {
+  const popover = document.getElementById('manualVideoPopover')
+  if (!popover || popover.classList.contains('hidden')) return
+  renderChannelFilterOptions(loadState())
+}
+
+function startChannelRefreshLabelTicker() {
+  clearInterval(startChannelRefreshLabelTicker._timer)
+  startChannelRefreshLabelTicker._timer = setInterval(refreshOpenChannelFilterTimestamps, 30_000)
+}
+
+function getChannelFilterEntries(s) {
+  const channels = new Map()
+  const removedChannelIds = new Set(s.config?.removedChannelIds || [])
+  const manualVideoOnlyChannelIds = new Set(
+    getManualVideoOnlyChannels(s).map(channel => channel.id)
+  )
+  s.config.channels.forEach(channel => {
+    channels.set(channel.id, channel.name || channel.id)
+  })
+  Object.values(s.videos).forEach(video => {
+    const key = video.channelId || video.channelTitle
+    if (isHiddenManualVideoChannelEntry(video)) return
+    if (
+      key
+      && removedChannelIds.has(key)
+      && !manualVideoOnlyChannelIds.has(key)
+    ) return
+    if (key) channels.set(key, video.channelTitle || channels.get(key) || key)
+  })
+  return Array.from(channels.entries()).sort((a, b) => a[1].localeCompare(b[1]))
+}
+
+function isHiddenManualVideoChannelEntry(video) {
+  return Boolean(
+    video?.manuallyAdded
+    && video?.source === 'manual'
+    && isHiddenFromVideoGrid(video)
+  )
+}
+
+function getSelectedChannelFilters(s) {
+  const ids = getChannelFilterEntries(s).map(([id]) => id)
+  if (!selectedChannelFilters) return new Set(ids)
+  return new Set(ids.filter(id => selectedChannelFilters.has(id)))
+}
+
+function getChannelFilterLabel(entries, selected, hasConfiguredChannels = true) {
+  if (!hasConfiguredChannels) return t('videos.channels.add')
+  if (!entries.length) return t('videos.channels.none')
+  if (selected.size === entries.length) return t('videos.channels.manage')
+  if (!selected.size) return t('videos.channels.none')
+  if (selected.size === 1) {
+    const selectedEntry = entries.find(([id]) => selected.has(id))
+    return selectedEntry?.[1] || t('videos.channels.one')
+  }
+  return t('videos.channels.count', { count: selected.size })
+}
+
+function setChannelFilter(channelId, enabled) {
+  const s = loadState()
+  if (!selectedChannelFilters) {
+    selectedChannelFilters = new Set(getChannelFilterEntries(s).map(([id]) => id))
+  }
+  if (enabled) selectedChannelFilters.add(channelId)
+  else selectedChannelFilters.delete(channelId)
+  renderFeed(s)
+}
+
+function setAllChannelFilters(enabled) {
+  const s = loadState()
+  selectedChannelFilters = enabled
+    ? new Set(getChannelFilterEntries(s).map(([id]) => id))
+    : new Set()
+  renderFeed(s)
+}
+
+function handleChannelFilterSelectAllClick(event) {
+  if (event?.target?.matches?.('input')) return
+  const checkbox = event.currentTarget?.querySelector?.('input[type="checkbox"]')
+  if (!checkbox) return
+  checkbox.checked = !checkbox.checked
+  setAllChannelFilters(checkbox.checked)
+}
+
+function handleChannelFilterOptionClick(event, channelId) {
+  if (event?.target?.closest?.('.channel-filter-remove')) return
+  if (event?.altKey) {
+    event.preventDefault()
+    event.stopPropagation()
+    selectOnlyChannelFilter(channelId)
+    return
+  }
+  if (event?.target?.matches?.('input')) return
+  const checkbox = event.currentTarget?.querySelector?.('input[type="checkbox"]')
+  if (!checkbox) return
+  checkbox.checked = !checkbox.checked
+  setChannelFilter(channelId, checkbox.checked)
+}
+
+function selectOnlyChannelFilter(channelId) {
+  const s = loadState()
+  const ids = new Set(getChannelFilterEntries(s).map(([id]) => id))
+  if (!ids.has(channelId)) return
+  selectedChannelFilters = new Set([channelId])
+  renderFeed(s)
+}
+
+function toggleChannelFilterMenu() {
+  const btn = document.getElementById('channelFilterBtn')
+  const menu = document.getElementById('channelFilterMenu')
+  if (!btn || !menu || btn.disabled) return
+  closeStatusFilterMenu()
+  closeManualVideoPopover()
+  closeHistoryPointsPopovers()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) positionFilterMenuWithinViewport(menu)
+}
+
+function closeChannelFilterMenu(restoreFocus = false) {
+  const btn = document.getElementById('channelFilterBtn')
+  const menu = document.getElementById('channelFilterMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  menu.style.left = ''
+  menu.style.right = ''
+  btn.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
+}
+
+function toggleManualVideoPopover(event) {
+  event.stopPropagation()
+  const btn = document.getElementById('manualVideoBtn')
+  const menu = document.getElementById('manualVideoPopover')
+  const input = document.getElementById('manualVideoUrlInput')
+  if (!btn || !menu) return
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeHistoryPointsPopovers()
+  closeHistoryActionPopovers()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) {
+    searchAnalyticsState.lastChannelCatalogOutcomeKey = null
+    trackEdeniaEvent('search_opened', {
+      search_source: 'channel_catalog',
+      search_query: input?.value?.trim() || '',
+      current_channel_count: loadState()?.config?.channels?.length || 0
+    })
+    positionFilterMenuWithinViewport(menu)
+    setTimeout(() => {
+      input?.focus()
+      renderManualChannelSuggestions()
+    }, 0)
+  }
+}
+
+function closeManualVideoPopover(restoreFocus = false) {
+  const btn = document.getElementById('manualVideoBtn')
+  const menu = document.getElementById('manualVideoPopover')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  menu.style.left = ''
+  menu.style.right = ''
+  btn.setAttribute('aria-expanded', 'false')
+  closeManualChannelSuggestions()
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
+}
+
+function positionFilterMenuWithinViewport(menu, positionOnPhone = false) {
+  if (!menu || menu.classList.contains('hidden')) return
+
+  if (usesPhoneComposition() && !positionOnPhone) {
+    menu.style.left = ''
+    menu.style.right = ''
+    return
+  }
+
+  menu.style.left = '0px'
+  menu.style.right = 'auto'
+
+  const margin = 12
+  const parentRect = menu.parentElement?.getBoundingClientRect()
+  const buttonRect = menu.parentElement?.querySelector?.('button')?.getBoundingClientRect()
+  const menuWidth = menu.offsetWidth || 320
+
+  if (!parentRect || !buttonRect) return
+
+  const desiredLeft = Math.round(buttonRect.left - parentRect.left)
+  const minLeft = Math.round(margin - parentRect.left)
+  const maxLeft = Math.round(window.innerWidth - margin - menuWidth - parentRect.left)
+  const clampedLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft))
+
+  menu.style.left = `${clampedLeft}px`
+}
+
+function closeChannelFilterMenuOnOutsideClick(event) {
+  const channelFilter = document.getElementById('channelFilter')
+  const statusFilter = document.getElementById('statusFilter')
+  if (channelFilter?.contains(event.target) || statusFilter?.contains(event.target)) return
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+}
+
+function closeFilterMenusOnEscape(event) {
+  if (event.key !== 'Escape') return
+  const statusMenu = document.getElementById('statusFilterMenu')
+  const channelMenu = document.getElementById('channelFilterMenu')
+  if (statusMenu && !statusMenu.classList.contains('hidden')) {
+    closeStatusFilterMenu(true)
+  } else if (channelMenu && !channelMenu.classList.contains('hidden')) {
+    closeChannelFilterMenu(true)
+  }
+}
+
+function closeManualVideoPopoverOnOutsideClick(event) {
+  if (event.target.closest('.manual-video')) return
+  closeManualVideoPopover()
+}
+
+function closeManualVideoPopoverOnEscape(event) {
+  if (event.key !== 'Escape') return
+  if (document.getElementById('manualVideoPopover')?.classList.contains('hidden')) return
+  closeManualVideoPopover(true)
+}
+
+function renderVideoActionIcon(type) {
+  const paths = {
+    play: '<path d="m9 5 11 7-11 7V5Z"></path>',
+    partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
+    'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>',
+    favorite: '<path d="M12 20.2 4.2 12.8A5.1 5.1 0 0 1 11.4 5.6L12 6.2l.6-.6a5.1 5.1 0 0 1 7.2 7.2L12 20.2Z"></path>',
+    more: '<circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle>',
+    restore: '<path d="M4 8v5h5"></path><path d="M5.5 12A7 7 0 1 1 7 17"></path>'
+  }
+  return `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`
+}
+
+function bindRenderedVideoStateActions(root) {
+  return bindVideoStateActions(root, {
+    mark: markVideo,
+    toggleFavorite: toggleVideoFavorite
+  })
+}
+
+function bindRenderedVideoShelfPreviewActions(root) {
+  return bindVideoShelfPreviewActions(root, {
+    thumbnail: handleVideoThumbnailClick,
+    toggleTouch: toggleVideoShelfPreviewOnTouch,
+    open: openVideoShelfPreview,
+    queueClose: queueVideoShelfPreviewClose,
+    openFromFocus: openVideoShelfPreviewFromFocus,
+    closeAfterFocus: closeVideoShelfPreviewAfterFocus
+  })
+}
+
+function getVideoDisplayTitle(video) {
+  return String(video.title || '').trim() || t(
+    video.metadataUnavailable && isYoutubeMetadataFresh(video)
+      ? 'videos.card.detailsUnavailable'
+      : 'videos.card.savedVideo',
+    { id: video.id }
+  )
+}
+
+function renderVideoThumbnail(video, className = 'thumb', compact = false) {
+  const url = String(video.thumbnail || '').trim()
+  const thumbnailUrl = compact ? url.replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg') : url
+  return `<span class="video-thumbnail-placeholder ${className}" aria-hidden="true">${renderVideoActionIcon('play')}</span>${thumbnailUrl
+    ? `<img src="${escHtml(thumbnailUrl)}" alt="" class="${className}" loading="lazy" data-image-fallback-action="hide">`
+    : ''}`
+}
+
+function renderVideoDuration(video) {
+  return Number.isFinite(video.duration) && video.duration > 0
+    ? `<span class="dur-badge">${formatDuration(video.duration)}</span>`
+    : ''
+}
+
+function renderCard(v, compact = false, options = {}) {
+  const title = getVideoDisplayTitle(v)
+  const status = getVideoStatus(v)
+  const videoId = String(v.id ?? '')
+  const safeVideoId = escHtml(videoId)
+  const isWatched = status === 'watched'
+  const isPartial = hasVideoResumePriority(v)
+  const isWatchLater = isVideoWatchLater(v)
+  const displayStatus = isPartial ? 'partial' : status
+  const isFavorite = isFavoriteVideo(v)
+  const supportsCompactPublishedAt = options.shelf
+    && getChannelVideoFormat(v) === CHANNEL_VIDEO_FORMATS.SHORTS
+  const publishedAtLabel = timeAgo(v.publishedAt)
+  const publishedAtMarkup = !publishedAtLabel ? '' : supportsCompactPublishedAt
+    ? `<span class="pub-ago"><span class="pub-ago-full">${escHtml(publishedAtLabel)}</span><span class="pub-ago-compact">${escHtml(timeAgo(v.publishedAt, { compact: true }))}</span></span>`
+    : `<span class="pub-ago">${escHtml(publishedAtLabel)}</span>`
+  const stateActionSurface = options.stateActionSurface || 'video_card'
+  const watchLaterNextStatus = isWatchLater
+    ? (isPartial ? 'partial' : 'unwatched')
+    : 'watch-later'
+  const watchedAtLabel = compact && v.watchedAt
+    ? formatWatchedAt(v.watchedAt)
+    : ''
+  const uploadRibbon = compact
+    ? null
+    : getVideoUploadRibbon(v, options.currentDateKey)
+  const thumbnailContent = `
+    ${renderVideoThumbnail(v, 'thumb', compact)}
+    ${uploadRibbon && !options.shelf ? `<span class="video-card-ribbon video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
+    ${renderVideoDuration(v)}
+  `
+  const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(title)}">${thumbnailContent}</button>`
+  const shelfPriorityBadge = options.shelf && isPartial
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge partial-priority-badge">${escHtml(t('videos.status.partial'))}</span>`
+    : options.shelf && isWatchLater
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge watch-later-priority-badge">${escHtml(t('videos.card.watchLater'))}</span>`
+    : options.shelf && isFavorite
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge favorite-priority-badge">${escHtml(t('videos.card.favorite'))}</span>`
+    : options.shelf && uploadRibbon
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge new-priority-badge">${escHtml(uploadRibbon)}</span>`
+    : ''
+  const shelfPreviewAction = options.shelf
+    ? 'data-video-preview-action="card"'
+    : ''
+  const nextStudyFocusClass = options.shelf && videoId === activeNextStudyFocusVideoId
+    ? 'next-study-focus-target'
+    : ''
+  return `
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewAction}>
+      ${thumbnailLink}
+      ${shelfPriorityBadge}
+      <div class="card-body">
+        ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</div>` : ''}
+        ${isWatchLater && !isPartial ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
+        <div class="card-copy">
+          <div class="card-title" title="${escHtml(title)}">${escHtml(title)}</div>
+          ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
+        </div>
+        <div class="card-footer">
+          <div class="card-meta">
+            <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
+            ${publishedAtMarkup}
+          </div>
+          <div class="card-actions">
+            ${!isWatched ? `<button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
+              data-video-id="${safeVideoId}"
+              data-status="${watchLaterNextStatus}"
+              data-watch-later="${String(!isWatchLater)}"
+              data-video-state-action="toggle-watch-later"
+              data-analytics-action="markVideo"
+              aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
+              title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>` : ''}
+            <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
+              data-video-id="${safeVideoId}"
+              data-video-state-action="toggle-favorite"
+              data-video-state-surface="${escHtml(stateActionSurface)}"
+              data-analytics-action="toggleVideoFavorite"
+              aria-pressed="${String(isFavorite)}"
+              aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
+              title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
+            ${options.hideOrganizationActions ? '' : `<button class="action-btn more-btn"
+              data-video-id="${safeVideoId}"
+              data-video-organization-action="menu"
+              data-video-organization-surface="video_card"
+              data-analytics-action="openVideoActions"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-label="${escHtml(t('videos.actions.more'))}"
+              title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>`}
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderRemovedVideoCard(video) {
+  const safeVideoId = escHtml(video.id)
+  const title = getVideoDisplayTitle(video)
+  return `
+    <div class="video-card compact-card removed-card" data-video-id="${safeVideoId}">
+      <button type="button" class="thumb-link removed-thumb"
+        data-video-id="${safeVideoId}"
+        data-video-preview-action="removed-thumbnail"
+        data-analytics-action="previewRemovedVideo"
+        aria-label="${escHtml(title)}">
+        ${renderVideoThumbnail(video, 'thumb', true)}
+        ${renderVideoDuration(video)}
+      </button>
+      <div class="card-body">
+        <div class="card-copy">
+          <div class="card-title" title="${escHtml(title)}">${escHtml(title)}</div>
+          <div class="card-watched-at">${escHtml(t('videos.card.removedAt', {
+            date: timeAgo(video.removedFromFeedAt)
+          }))}</div>
+        </div>
+        <button type="button"
+          class="removed-video-restore"
+          data-video-id="${safeVideoId}"
+          data-video-organization-action="restore-feed"
+          data-analytics-action="restoreVideoToFeed">
+          ${renderVideoActionIcon('restore')}
+          <span>${escHtml(t('videos.actions.returnToFeed'))}</span>
+        </button>
+      </div>
+    </div>
+  `
+}
+
+// ════════════════════════════════════════════════════════════
+// FEEDBACK
+// ════════════════════════════════════════════════════════════
+
+function getFeedbackAssetVersion() {
+  const appScript = document.querySelector('script[src*="app.js"]')
+  if (!appScript) return null
+  try {
+    return new URL(appScript.src, window.location.href).searchParams.get('v')
+  } catch {
+    return null
+  }
+}
+
+function setFeedbackStatus(message = '', type = '') {
+  const status = document.getElementById('feedbackStatus')
+  if (!status) return
+  status.textContent = message
+  status.className = `feedback-status${message ? '' : ' hidden'}${type ? ` is-${type}` : ''}`
+}
+
+function openFeedbackModal() {
+  const modal = document.getElementById('feedbackModal')
+  if (!modal) return
+  window.clearTimeout(modal._closeTimer)
+  modal._previousFocus = document.activeElement
+  modal.classList.remove('hidden')
+  document.body.classList.add('feedback-modal-open')
+  setFeedbackStatus()
+  window.requestAnimationFrame(() => document.getElementById('feedbackMessage')?.focus())
+}
+
+function closeFeedbackModal() {
+  const modal = document.getElementById('feedbackModal')
+  if (!modal || modal.classList.contains('hidden')) return
+  modal.classList.add('hidden')
+  document.body.classList.remove('feedback-modal-open')
+  modal._previousFocus?.focus?.()
+  modal._previousFocus = null
+}
+
+function handleFeedbackModalKeydown(event) {
+  const modal = document.getElementById('feedbackModal')
+  if (!modal || modal.classList.contains('hidden')) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeFeedbackModal()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const focusable = Array.from(modal.querySelectorAll('button, input, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(element => !element.disabled && element.offsetParent !== null)
+  if (!focusable.length) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+function showFeedbackConfirmation() {
+  const confirmation = document.getElementById('feedbackConfirmation')
+  if (!confirmation) return
+  confirmation.classList.remove('hidden')
+  confirmation.classList.add('show')
+  window.requestAnimationFrame(() => confirmation.querySelector('.feedback-confirmation-ok')?.focus())
+}
+
+function closeFeedbackConfirmation() {
+  const confirmation = document.getElementById('feedbackConfirmation')
+  if (!confirmation) return
+  confirmation.classList.remove('show')
+  confirmation.classList.add('hidden')
+  document.getElementById('feedbackLaunchBtn')?.focus()
+}
+
+function submitFeedback(event) {
+  event.preventDefault()
+  const form = event.currentTarget
+  const modal = document.getElementById('feedbackModal')
+  const submitButton = document.getElementById('feedbackSubmitBtn')
+  const category = String(new FormData(form).get('feedbackCategory') || 'other')
+  const message = String(document.getElementById('feedbackMessage')?.value || '').trim()
+  const name = String(document.getElementById('feedbackName')?.value || '').trim()
+  const email = String(document.getElementById('feedbackEmail')?.value || '').trim()
+
+  if (!message) {
+    setFeedbackStatus(t('feedback.messageRequired'), 'error')
+    document.getElementById('feedbackMessage')?.focus()
+    return
+  }
+
+  const submittedAt = new Date().toISOString()
+  const feedbackId = typeof crypto?.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  const sessionReplayUrl = IS_LOCAL_FEEDBACK_TEST
+    ? null
+    : getEdeniaSessionReplayUrl() || null
+  const properties = {
+    feedback_id: feedbackId,
+    feedback_category: category,
+    feedback_message: message,
+    feedback_name: name || null,
+    feedback_email: email || null,
+    has_feedback_name: Boolean(name),
+    has_feedback_email: Boolean(email),
+    feedback_source: 'main_page_footer',
+    submitted_at: submittedAt,
+    app_version: getFeedbackAssetVersion(),
+    locale: getCurrentLocale(),
+    theme: document.body.dataset.theme || DEFAULT_THEME,
+    page_url: window.location.href,
+    viewport_width: window.innerWidth,
+    viewport_height: window.innerHeight,
+    screen_width: window.screen?.width || null,
+    screen_height: window.screen?.height || null,
+    session_replay_url: sessionReplayUrl
+  }
+
+  if (!IS_LOCAL_FEEDBACK_TEST) {
+    const captured = trackEdeniaEvent('feedback_submitted', properties)
+    if (!captured) {
+      setFeedbackStatus(t('feedback.unavailable'), 'error')
+      return
+    }
+
+    const personProperties = {
+      has_submitted_feedback: true,
+      latest_feedback_category: category,
+      latest_feedback_at: submittedAt
+    }
+    if (name) personProperties.name = name
+    if (email) personProperties.email = email
+    setEdeniaPersonProperties(personProperties, {
+      first_feedback_at: submittedAt
+    })
+  }
+
+  submitButton.disabled = true
+  form.setAttribute('aria-busy', 'true')
+  form.reset()
+  form.removeAttribute('aria-busy')
+  submitButton.disabled = false
+  closeFeedbackModal()
+  showFeedbackConfirmation()
+}
+
+// ════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════
+
+function showToast(msg, type = 'success', options = {}) {
+  const el = document.getElementById('toast')
+  el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite')
+  el.replaceChildren()
+  const message = document.createElement('span')
+  message.textContent = msg
+  el.append(message)
+  if (options.actionLabel && typeof options.onAction === 'function') {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'toast-action'
+    button.textContent = options.actionLabel
+    button.addEventListener('click', () => {
+      clearTimeout(el._t)
+      el.classList.remove('show')
+      options.onAction()
+    }, { once: true })
+    el.append(button)
+  }
+  el.className   = `toast toast-${type} show`
+  el.classList.toggle('has-action', Boolean(options.actionLabel))
+  clearTimeout(el._t)
+  const durationMs = options.durationMs === undefined ? 3500 : Number(options.durationMs)
+  if (durationMs > 0) {
+    el._t = setTimeout(() => {
+      el.classList.remove('show')
+    }, durationMs)
+  } else {
+    el._t = null
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// FILTER & UI HELPERS
+// ════════════════════════════════════════════════════════════
+
+function show(id) { document.getElementById(id).classList.remove('hidden') }
+function hide(id) { document.getElementById(id).classList.add('hidden') }
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+
+bindStudyInsightActions(document, {
+  setView: setStudyInsightView,
+  setCollapsed: setStudyInsightsCollapsed,
+  showNextStudy: showNextStudyFromGuidance
+})
+bindStudyInsightLockedAccessActions(document, {
+  requestAccess: requestStudyInsightAccess
+})
+bindSettingsAccordionActions(document, {
+  toggleAccount: toggleSettingsAccount,
+  toggleHowTo: toggleSettingsHowTo,
+  toggleActivityLog: toggleSettingsActivityLog,
+  toggleBackups: toggleSettingsBackups
+})
+bindActivityLogFilterActions(document, {
+  setFilter: setActivityLogFilter
+})
+bindActivityLogPaginationActions(document, {
+  showOlder: showOlderActivityLogEntries
+})
+bindStudyHistoryViewActions(document, {
+  setView: setHistoryView
+})
+bindCityZoomActions(document, {
+  zoom: zoomCityImage,
+  reset: resetCityImageView
+})
+bindCityWaveformMouseActions(document, {
+  move: handleCityWaveformMouseMove,
+  clear: clearCityWaveformPreview
+})
+bindSandboxActions(document, {
+  addDay: addSandboxDay,
+  reset: resetSandboxState
+})
+bindThemeActions(document, {
+  toggle: toggleTheme
+})
+bindSettingsResetConfirmActions(document, {
+  show: showResetConfirm,
+  hide: hideResetConfirm,
+  confirm: resetApp,
+  undo: undoStartOver
+})
+bindFeedbackConfirmationActions(document, {
+  close: closeFeedbackConfirmation
+})
+bindFeedbackModalActions(document, {
+  open: openFeedbackModal,
+  close: closeFeedbackModal
+})
+bindFeedbackSubmissionActions(document, {
+  submit: submitFeedback
+})
+bindSettingsLocaleActions(document, {
+  toggle: toggleLocaleMenu,
+  select: saveLocaleFromSettings
+})
+bindSettingsSyncActions(document, {
+  beforeChooseFile: beginSettingsSyncImportInteraction,
+  cancelImport: cancelPendingLearnerProfileImport,
+  confirmImport: confirmPendingLearnerProfileImport,
+  exportFile: exportSyncFile,
+  importFile: importSyncFileFromInput
+})
+bindLegacyProgressRecoveryActions(document, {
+  recover: () => legacyProgressMigrationController
+    .startRecoveryFromSettings()
+})
+document.getElementById('legacyProgressRecoverySettings')?.classList.toggle(
+  'hidden',
+  !LEGACY_PROGRESS_RELAY_RUNTIME.valid
+)
+bindSettingsPreferenceActions(document, {
+  save: saveSettingsOnTheFly
+})
+bindSettingsAccountActions(document, {
+  requestEmailCode: requestAccountEmailCode,
+  verifyEmailCode: verifyAccountEmailCode,
+  signOut: signOutAccount,
+  signOutEverywhere: signOutAccountEverywhere,
+  downloadAccount: downloadAccountData
+})
+bindAccountlessProfileMigrationActions(document, {
+  begin() {
+    if (!accountlessProfileMigrationController?.begin()) return
+    if (
+      accountlessProfileMigrationController.getState().status
+        === ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
+    ) openAccountlessProfileMigrationSignIn()
+  },
+  confirm: () => accountlessProfileMigrationController
+    ?.confirmInheritedSession(),
+  later: () => accountlessProfileMigrationController?.later(),
+  openSignIn: openAccountlessProfileMigrationSignIn,
+  retry: () => accountlessProfileMigrationController?.retry()
+})
+bindLearnerProfileAccessActions(document, {
+  closeSignIn: closeLearnerProfileAccessSignIn,
+  continueReplacement: continueLearnerProfileOwnerReplacement,
+  discardReplacement: discardAndReplaceLearnerProfileOwner,
+  exportReplacement: exportAndReplaceLearnerProfileOwner,
+  exportRecovery: candidateId => learnerProfileLifecycleAuthority
+    ?.exportRecoveryCandidate(candidateId),
+  openSignIn: openLearnerProfileAccessSignIn,
+  retry: () => learnerProfileLifecycleAuthority?.refresh(),
+  restoreRecovery: candidateId => learnerProfileLifecycleAuthority
+    ?.restoreRecoveryCandidate(candidateId, { confirmed: true }),
+  signOut: () => {
+    learnerProfileAccessVisualTestActive = false
+    return signOutAccount()
+  }
+})
+bindLearnerProfileSyncActions(document, {
+  retry: () => learnerProfileLifecycleAuthority?.retryCloudBackup(),
+  exportRecovery: () => learnerProfileLifecycleAuthority?.exportActiveProfile()
+})
+bindLearnerProfileConflictActions(document, {
+  cancelChoice: () => learnerProfileConflictView.cancelChoice(),
+  async confirmChoice(side) {
+    learnerProfileConflictView.setBusy(true)
+    const chosen = await learnerProfileLifecycleAuthority
+      ?.chooseConflictVersion(side, { confirmed: true })
+    learnerProfileConflictView.setBusy(false)
+    if (!chosen) showToast(t('profileConflict.choiceFailed'), 'error')
+  },
+  async exportBoth() {
+    const [device, cloud] = await Promise.all([
+      learnerProfileLifecycleAuthority?.exportConflictVersion('device'),
+      learnerProfileLifecycleAuthority?.exportConflictVersion('cloud')
+    ])
+    if (!device || !cloud) {
+      showToast(t('profileConflict.exportFailed'), 'error')
+      return
+    }
+    showToast(t('toast.syncExported'))
+  },
+  async exportVersion(side, conflictId) {
+    const exported = await learnerProfileLifecycleAuthority
+      ?.exportConflictVersion(
+        side,
+        conflictId
+      )
+    if (!exported) {
+      showToast(t('profileConflict.exportFailed'), 'error')
+      return
+    }
+    showToast(t('profileConflict.protectedDownloadStarted'))
+  },
+  requestChoice: side => learnerProfileConflictView.requestChoice(side)
+})
+bindReminderPreferenceActions(document, {
+  save: saveReminderPreference,
+  retry: retryReminderPreferenceLoad
+})
+bindPlusUpgradeActions(document.getElementById('plusUpgradeModal'), {
+  close: closePlusUpgradeModal,
+  selectPlan: selectPlusPlan,
+  startCheckout: startPlusCheckout,
+  startUpgradeSignIn: startPlusUpgradeSignIn,
+  restore: restorePlusAccount,
+  refresh: refreshPlusAccount,
+  openBillingPortal: managePlusBilling,
+  signOut: signOutPlusAccount
+})
+bindWatchedSectionActions(document, {
+  toggle: toggleWatchedSection
+})
+bindVideoOrganizationActions(document, {
+  openMenu: openVideoOrganizationMenu,
+  closeMenu: closeVideoOrganizationMenu,
+  removeFromContinueWatching: removeVideoFromContinueWatching,
+  removeFromFeed: removeVideoFromFeed,
+  restoreToFeed: restoreVideoToFeed,
+  toggleRemovedSection
+})
+bindSettingsShellActions(document, {
+  open: openSettings,
+  close: closeSettings
+})
+bindSettingsReplayActions(document, {
+  walkthrough: showWalkthroughAgain,
+  trailer: showTrailerAgain
+})
+bindCityLevelUpActions(document, {
+  claim: claimCityLevelUp
+})
+bindStudyHistoryPeriodToggleActions(document, {
+  toggle: toggleHistoryPeriodPopover
+})
+bindStudyHistoryPeriodOptionActions(document, {
+  selectPeriod: setHistoryPeriodForRange
+})
+bindStudyHistoryLockedAccessActions(document, {
+  requestAccess: requestStudyHistoryAccess
+})
+bindVideoSearchResultActions(document, {
+  selectResult: jumpToVideoFromSearch
+})
+bindVideoSearchShellActions(document, {
+  toggle: toggleVideoSearchPopover,
+  close: closeVideoSearchPopover,
+  renderResults: renderVideoSearchResults,
+  handleInputKey: handleVideoSearchInputKey
+})
+bindManualVideoActions(document)
+bindIntroCityLevelActions(document, {
+  selectLevel: selectIntroCityLevel
+})
+bindIntroFinishActions(document, {
+  finish: finishIntroTrailer
+})
+bindIntroLocaleMenuActions(document, {
+  toggleIntro: toggleIntroLocaleMenu,
+  toggleOnboarding: toggleOnboardingLocaleMenu
+})
+bindIntroNavigationActions(document, {
+  navigate: navigateIntroTrailer
+})
+bindIntroSoundActions(document, {
+  toggle: toggleIntroSound
+})
+bindStatusFilterActions(document, {
+  select: setStatusFilter,
+  toggle: toggleStatusFilterMenu,
+  close: closeStatusFilterMenu
+})
+bindUndoRedoActions(document, {
+  toggle: toggleHistoryActionPopover,
+  apply: applyHistoryAction,
+  close: closeHistoryActionPopovers,
+  scroll: handleHistoryActionScrollHover,
+  stopScroll: stopHistoryActionAutoScroll
+})
+
+bindImageFallbackActions(document)
+async function initializeBrowserStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
+  // Retire only replaceable search metadata before opening a durable profile.
+  // This also gives the small opening markers room in the localStorage pool.
+  try {
+    const raw = localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY)
+    if (raw && raw.length * 2 > 64 * 1024) {
+      const bounded = JSON.stringify(budgetObjectCache(readYoutubeChannelSearchCache()))
+      if (bounded !== raw) localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, bounded)
+    }
+  } catch {}
+  await initializeStateBackupStorage()
+  let migrated = false
+  try { migrated = ['1', 'empty'].includes(localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`))
+    || isIndexedDbProfilePointer(localStorage.getItem(STORAGE_KEY)) } catch {}
+  if (!INDEXED_DB_PROFILE_ENABLED && !migrated) return
+  try {
+    primaryProfileRepository = await openIndexedDbProfile({
+      storage: localStorage, storageKey: STORAGE_KEY,
+      accessKey: LEARNER_PROFILE_ACCESS_KEY,
+      isValidState: isValidStateShape, eventTarget: window,
+      onChange() {
+        channelHistoryProfileEpoch += 1
+        if (!applicationStarted) return
+        if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+        else {
+          const state = loadState({ persistCleanup: false })
+          if (state) renderAll(state)
+        }
+      }
+    })
+    primaryProfileStorageUnavailable = false
+  } catch (error) {
+    console.warn('Edenia durable profile opening failed.', error)
+    // A migrated store may hold newer learner data than any legacy fallback.
+    // Retry opening instead of silently starting from a cookie or old backup.
+    primaryProfileStorageUnavailable = true
+  }
+}
+stateBackupStorageInitialization = initializeBrowserStorage()
+  .finally(() => { stateBackupStorageReady = true })
+document.addEventListener('DOMContentLoaded', init)
+window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
+window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('scroll', closeVideoOrganizationMenuOnViewportChange, {
+  capture: true,
+  passive: true
+})
+window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('resize', closeVideoOrganizationMenuOnViewportChange, { passive: true })
+window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { passive: true })
+window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
+window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
+window.addEventListener('resize', scheduleOnboardingChoiceLayoutSyncForViewportResize, { passive: true })
+window.addEventListener('resize', refreshCityWaveformScrollGeometry, { passive: true })
+window.visualViewport?.addEventListener(
+  'resize',
+  scheduleOnboardingChoiceLayoutSyncForViewportResize,
+  { passive: true }
+)
+window.visualViewport?.addEventListener(
+  'resize',
+  closeVideoOrganizationMenuOnViewportChange,
+  { passive: true }
+)
+window.visualViewport?.addEventListener(
+  'scroll',
+  closeVideoOrganizationMenuOnViewportChange,
+  { passive: true }
+)
+document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})
+document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
+document.addEventListener('visibilitychange', handleVideoShelfPlayerVisibilityChange)
+document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
+document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
+document.addEventListener('click', closeHistoryPointsPopoversOnOutsideClick)
+document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
+document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
+document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
+document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
+document.addEventListener('click', closeLocaleMenuOnOutsideClick)
+document.addEventListener('click', closeVideoShelfPreviewOnOutsideClick)
+document.addEventListener('click', closeVideoOrganizationMenuOnOutsideClick)
+document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
+document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
+document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
+document.addEventListener('keydown', hideHeatmapTooltipOnEscape)
+document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
+document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
+document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
+document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
+document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
+document.addEventListener('keydown', closeFilterMenusOnEscape)
+document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
+document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
+document.addEventListener('keydown', closeLocaleMenuOnEscape)
+document.addEventListener('keydown', closeVideoShelfPreviewsOnEscape)
+document.addEventListener('keydown', closeVideoOrganizationMenuOnEscape)
+document.addEventListener('keydown', handleSettingsKeydown)
+document.addEventListener('keydown', handleIntroTrailerKeydown)
+document.addEventListener('keydown', handleFeedbackModalKeydown)
+document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
+window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
+window.addEventListener('pagehide', event => {
+  if (!event.persisted) learnerProfileReverificationController?.destroy()
+  if (!event.persisted) learnerProfileLifecycleAuthority?.destroy()
+  if (!event.persisted) accountAuthController?.destroy()
+  if (!event.persisted) googleIdentityServicesController?.destroy()
+  if (!event.persisted) turnstileController?.destroy()
+  if (!event.persisted) accountStudySnapshotController?.destroy()
+  if (!event.persisted) plusAccountController?.destroy()
+  const session = activeVideoShelfPlayer
+  syncActiveVideoShelfPlayer({ persist: true })
+  trackVideoPlaybackSessionEnded(session, 'page_hidden')
+})
+if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
-import { I18N } from '../../src/i18n/index.js'
+import { loadProductionModule } from '../support/production-module.mjs'
 import { GLOBAL_ACTION_NAMES } from '../../src/core/global-action-contract.js'
+
+const { I18N } = await loadProductionModule('src/i18n/index.js')
 
 const fixedNow = new Date('2026-07-28T04:00:00.000Z')
 const PHONE_PROJECT_NAMES = new Set(['phone-standard', 'phone-small'])

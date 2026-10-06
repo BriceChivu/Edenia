@@ -352,21 +352,223 @@ test('a failed migrated-backup reopen preserves primary operation without recrea
 const edgeDatabaseName = 'synthetic_profile_edge_cases'
 async function repositoryFixture(page) {
   const source = await readFile(new URL('../../src/state/indexed-db-profile.js', import.meta.url), 'utf8')
+  const adapter = await readFile(new URL('../../src/state/tiny-swords-island.js', import.meta.url), 'utf8')
   await configure(page, false)
   await page.route('**/profile-repository-fixture.js', route => route.fulfill({
     body: source, contentType: 'application/javascript'
+  }))
+  await page.route('**/island-adapter-fixture.js', route => route.fulfill({
+    body: adapter, contentType: 'application/javascript'
   }))
   await page.goto('/')
   await expect(page.locator('#mainApp')).toBeVisible()
   await page.evaluate(async databaseName => {
     const { openIndexedDbProfile } = await import('/profile-repository-fixture.js')
-    window.openEdgeRepository = () => openIndexedDbProfile({
+    window.openEdgeRepository = (onChange = () => {}) => openIndexedDbProfile({
       storage: localStorage, storageKey: 'synthetic-profile', accessKey: 'synthetic-access',
-      databaseName, eventTarget: null, isValidState: state => Boolean(state?.config)
+      databaseName, eventTarget: null, onChange, isValidState: state => Boolean(state?.config)
     })
     window.edgeState = { config: { theme: 'light' }, videos: {}, anki: {} }
   }, edgeDatabaseName)
 }
+
+test('island checkpoints survive reload, merge with queued study saves and travel with profile replacement', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    localStorage.setItem('synthetic-profile', JSON.stringify({ ...window.edgeState,
+      cityProgress: { maxLevelIndex: 3 }, tinySwordsIsland: null }))
+    let repository = await window.openEdgeRepository()
+    const first = { version: 23, level: 4, resources: { wood: 6 } }
+    const migrated = await repository.saveIsland(first, 'null')
+    const study = repository.snapshot()
+    study.anki.day = { reviewed: 12 }
+    const second = { ...first, resources: { wood: 8 } }
+    const islandSave = repository.saveIsland(second, JSON.stringify(first))
+    const studySave = repository.save(study)
+    const queued = await Promise.all([islandSave, studySave])
+    const failedStudy = repository.snapshot()
+    failedStudy.config.theme = 'unacknowledged'
+    let checks = 0
+    const fullFailed = await repository.save(failedStudy, { canPersist: () => ++checks < 3 })
+    const portableAndBackup = JSON.parse(repository.readRaw())
+    repository.close()
+    repository = await window.openEdgeRepository()
+    const reloaded = repository.snapshot()
+    const notifications = []
+    const observer = await window.openEdgeRepository(change => notifications.push(change))
+    await repository.save(reloaded, { replace: true })
+    await observer.refresh()
+    observer.close()
+    const replacement = { ...window.edgeState, tinySwordsIsland: null }
+    const replaced = await repository.save(replacement, { replace: true })
+    const stale = await repository.saveIsland(first, JSON.stringify(second))
+    const reset = repository.snapshot()
+    // Importing a profile with no island must remove the previous overlay.
+    const absentImport = await repository.save(window.edgeState, { replace: true })
+    const absent = repository.readIslandState()
+    repository.close()
+    return { migrated, queued, fullFailed, portableAndBackup, reloaded, notifications, replaced, stale, reset, absentImport, absent }
+  })
+  expect(result.migrated).toBe(true)
+  expect(result.queued).toEqual([true, true])
+  expect(result.fullFailed).toBe(false)
+  expect(result.reloaded.config.theme).toBe('light')
+  expect(result.reloaded).toEqual(result.portableAndBackup)
+  expect(result.notifications).toEqual([{ islandOnly: false, replacement: true }])
+  expect(result.reloaded.anki.day.reviewed).toBe(12)
+  expect(result.reloaded.tinySwordsIsland.resources.wood).toBe(8)
+  expect(result.replaced).toBe(true)
+  expect(result.stale).toBe(false)
+  expect(result.reset.tinySwordsIsland).toBeNull()
+  expect(result.absentImport).toBe(true)
+  expect(result.absent).not.toHaveProperty('tinySwordsIsland')
+})
+
+test('unacknowledged checkpoints retain the previous island and stale repositories cannot overwrite another tab', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    localStorage.setItem('synthetic-profile', JSON.stringify({ ...window.edgeState, tinySwordsIsland: null }))
+    const repository = await window.openEdgeRepository()
+    const first = { version: 23, resources: { wood: 6 } }
+    await repository.saveIsland(first, 'null')
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === 'profiles') throw new DOMException('Synthetic quota', 'QuotaExceededError')
+      return put.apply(this, args)
+    }
+    const quota = await repository.saveIsland({ ...first, changed: true }, JSON.stringify(first))
+    IDBObjectStore.prototype.put = put
+    const transaction = IDBDatabase.prototype.transaction
+    let interrupted = false
+    IDBDatabase.prototype.transaction = function (...args) {
+      const result = transaction.apply(this, args)
+      if (this.name === 'synthetic_profile_edge_cases' && args[1] === 'readonly' && !interrupted) {
+        interrupted = true
+        queueMicrotask(() => result.abort())
+      }
+      return result
+    }
+    const readback = await repository.saveIsland({ ...first, changed: true }, JSON.stringify(first))
+    IDBDatabase.prototype.transaction = transaction
+    let checks = 0
+    const fence = await repository.saveIsland({ ...first, changed: true }, JSON.stringify(first), {
+      canPersist() {
+        if (++checks < 3) return true
+        localStorage.setItem('synthetic-access', 'replacement-owner')
+        return false
+      }
+    })
+    const retained = repository.readIslandState().tinySwordsIsland
+    const other = await window.openEdgeRepository()
+    const newer = { ...first, resources: { wood: 10 } }
+    const otherSaved = await other.saveIsland(newer, JSON.stringify(first))
+    const stale = await repository.saveIsland({ ...first, stale: true }, JSON.stringify(first))
+    const final = repository.snapshot()
+    repository.close(); other.close()
+    return { quota, readback, interrupted, fence, retained, otherSaved, stale, final }
+  })
+  expect(result.quota).toBe(false)
+  expect(result.readback).toBe(false)
+  expect(result.interrupted).toBe(true)
+  expect(result.fence).toBe(false)
+  expect(result.retained).toEqual({ version: 23, resources: { wood: 6 } })
+  expect(result.otherSaved).toBe(true)
+  expect(result.stale).toBe(false)
+  expect(result.final.tinySwordsIsland.resources.wood).toBe(10)
+})
+
+test('a checkpoint losing its fence after commit preserves a newer replacement transaction', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    localStorage.setItem('synthetic-profile', JSON.stringify({ ...window.edgeState, tinySwordsIsland: null }))
+    const repository = await window.openEdgeRepository()
+    const first = { version: 23, resources: { wood: 6 } }
+    await repository.saveIsland(first, 'null')
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('synthetic_profile_edge_cases', 1)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    let checks = 0
+    const accepted = await repository.saveIsland({ ...first, changed: true }, JSON.stringify(first), {
+      canPersist() {
+        if (++checks < 3) return true
+        localStorage.setItem('synthetic-access', 'replacement-owner')
+        const transaction = database.transaction('profiles', 'readwrite')
+        transaction.objectStore('profiles').put({ key: 'active', revision: 4,
+          raw: JSON.stringify({ ...window.edgeState, config: { theme: 'new-owner' }, tinySwordsIsland: null }) })
+        return false
+      }
+    })
+    repository.close(); database.close()
+    const reopened = await window.openEdgeRepository()
+    const durable = reopened.snapshot()
+    reopened.close()
+    return { accepted, durable }
+  })
+  expect(result.accepted).toBe(false)
+  expect(result.durable.config.theme).toBe('new-owner')
+  expect(result.durable.tinySwordsIsland).toBeNull()
+})
+
+test('warm island writes touch only the small head with empty and 30000-video libraries', async ({ page }) => {
+  await repositoryFixture(page)
+  const measurements = await page.evaluate(async () => {
+    const { createTinySwordsPersistence } = await import('/island-adapter-fixture.js')
+    const results = []
+    const get = IDBObjectStore.prototype.get
+    const put = IDBObjectStore.prototype.put
+    for (const count of [0, 30000]) {
+      const repository = await window.openEdgeRepository()
+      const videos = Object.fromEntries(Array.from({ length: count }, (_, index) => [String(index), {
+        title: `Synthetic video ${index} ${'metadata '.repeat(20)}`, favorite: index === 0,
+        watchProgress: index === 0 ? [{ seconds: 90, studyDay: '2026-10-05' }] : []
+      }]))
+      await repository.save({ ...window.edgeState, videos, tinySwordsIsland: null }, { replace: true })
+      let island = { version: 23, resources: { wood: 6 }, tiles: Array.from({ length: 80 }, (_, index) => [index, 0, 'meadow']) }
+      await repository.saveIsland(island, 'null') // One-time split is measured separately from warm writes.
+      const adapter = createTinySwordsPersistence({
+        read() { throw new Error('Checkpoint read the complete profile') },
+        readDurable() { throw new Error('Checkpoint normalized the complete profile') },
+        save() { throw new Error('Checkpoint used the whole-profile save path') },
+        getCheckpointRepository: () => repository
+      })
+      const other = await window.openEdgeRepository()
+      const keys = []
+      const bytes = []
+      IDBObjectStore.prototype.get = function (key) { if (this.name === 'profiles') keys.push(key); return get.call(this, key) }
+      IDBObjectStore.prototype.put = function (value) { if (this.name === 'profiles') bytes.push(JSON.stringify(value).length); return put.call(this, value) }
+      const times = []
+      for (let index = 0; index < 20; index += 1) {
+        const expected = JSON.stringify(island)
+        island = { ...island, tick: index }
+        const started = performance.now()
+        if (!await adapter.save(island, expected)) throw new Error('Synthetic checkpoint rejected')
+        if (JSON.stringify(adapter.readIsland().tinySwordsIsland) !== JSON.stringify(island)) throw new Error('Acknowledgment lost the island')
+        times.push(performance.now() - started)
+        await other.refresh()
+        if (other.readIslandState().tinySwordsIsland.tick !== index) throw new Error('Other tab did not refresh')
+      }
+      IDBObjectStore.prototype.get = get
+      IDBObjectStore.prototype.put = put
+      const state = repository.snapshot()
+      times.sort((a, b) => a - b)
+      results.push({ count, videoCount: Object.keys(state.videos).length,
+        facts: state.videos['0'] ?? null, keys: [...new Set(keys)], maxHeadBytes: Math.max(...bytes),
+        medianMs: times[10], p95Ms: times[19] })
+      repository.close(); other.close()
+    }
+    return results
+  })
+  for (const measurement of measurements) {
+    expect(measurement.keys).toEqual(['active'])
+    expect(measurement.maxHeadBytes).toBeLessThan(3000)
+    expect(measurement.videoCount).toBe(measurement.count)
+  }
+  expect(measurements[1].facts.favorite).toBe(true)
+  expect(measurements[1].facts.watchProgress).toEqual([{ seconds: 90, studyDay: '2026-10-05' }])
+  console.log('Synthetic warm checkpoint timings:', JSON.stringify(measurements.map(({ count, medianMs, p95Ms, maxHeadBytes }) => ({ count, medianMs, p95Ms, maxHeadBytes }))))
+})
 
 test('an empty store remains retryable after a failed first save and becomes durable after retry', async ({ page }) => {
   await repositoryFixture(page)

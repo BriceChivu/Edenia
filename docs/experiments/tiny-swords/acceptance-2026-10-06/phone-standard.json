@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-10-06T10:16:40.296Z",
+  "project": "phone-standard",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "physicalDevice": false,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+  "release": {
+    "godotVersion": "4.7.2",
+    "version": "f0fbf825656fd8824d6e87165e7bd8e797422d21704cad8cb65fd6c7685f69bd"
+  },
+  "navigationToReadyMs": 1840,
+  "transfer": [
+    {
+      "asset": "index.wasm",
+      "encoding": "br",
+      "bytes": 8182023
+    },
+    {
+      "asset": "index.pck",
+      "encoding": "br",
+      "bytes": 1934366
+    }
+  ],
+  "progressAccessibility": "- progressbar: Level 7 Level 8 15 XP 405 XP to next level \u2248 405 min video or 405 Anki reviews 315 XP 420 XP",
+  "canvasAccessibility": "- text: Your browser does not support the canvas tag."
+}

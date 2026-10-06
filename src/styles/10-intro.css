@@ -601,9 +601,10 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
   align-items: center;
   align-content: center;
   gap: clamp(28px, 4vw, 62px);
-  grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.28fr);
+  grid-template-columns: 1fr;
 }
-.intro-city-copy { align-content: center; display: grid; gap: clamp(10px, 1.5vw, 16px); text-align: left; }
+.intro-city-copy { align-content: center; display: grid; gap: clamp(10px, 1.5vw, 16px); justify-items: center; text-align: center; }
+.intro-city-copy p:not(.intro-kicker) { max-width: 48ch; font-size: clamp(0.9rem, 1.5vw, 1.1rem); line-height: 1.5; }
 .intro-city-copy h2 {
   font-size: clamp(2rem, 3.1vw, 3.5rem);
   line-height: 0.98;
@@ -624,115 +625,6 @@ html:lang(zh-Hans) .intro-scene-purpose .intro-copy h2 {
   white-space: pre-line;
   word-break: keep-all;
 }
-.intro-city-growth {
-  align-items: center;
-  display: grid;
-  grid-template-columns: 30px minmax(12px, 1fr) 30px minmax(12px, 1fr) 30px minmax(12px, 1fr) 34px;
-  margin-top: clamp(4px, 1vw, 10px);
-  max-width: 340px;
-  width: 100%;
-}
-.intro-city-growth button {
-  align-items: center;
-  background: var(--planet-white);
-  border: 2px solid var(--planet-black);
-  border-radius: 50%;
-  color: var(--text);
-  cursor: pointer;
-  display: flex;
-  font-family: inherit;
-  font-size: 0.68rem;
-  font-weight: 900;
-  height: 30px;
-  justify-content: center;
-  padding: 0;
-  position: relative;
-  transition: box-shadow 160ms ease, transform 160ms ease;
-  width: 30px;
-  z-index: 2;
-}
-.intro-city-growth button:hover { box-shadow: 0 0 0 4px rgba(18,188,234,0.2); transform: scale(1.08); }
-.intro-city-growth button:focus-visible { outline: 3px solid var(--planet-cyan); outline-offset: 3px; }
-.intro-city-growth button:last-child { height: 34px; width: 34px; }
-.intro-city-growth i {
-  background: var(--soft-blue);
-  border-block: 2px solid var(--planet-black);
-  display: block;
-  height: 8px;
-  transform: scaleX(0);
-  transform-origin: left;
-}
-.intro-trailer[data-scene="2"] .intro-city-growth button { animation: introGrowthStep 420ms var(--ease-emphasized) both; }
-.intro-trailer[data-scene="2"] .intro-city-growth i { animation: introGrowthRail 520ms var(--ease-emphasized) both; }
-.intro-trailer[data-scene="2"] .intro-city-growth i:nth-of-type(1),
-.intro-trailer[data-scene="2"] .intro-city-growth button:nth-of-type(2) { animation-delay: 2300ms; }
-.intro-trailer[data-scene="2"] .intro-city-growth i:nth-of-type(2),
-.intro-trailer[data-scene="2"] .intro-city-growth button:nth-of-type(3) { animation-delay: 4900ms; }
-.intro-trailer[data-scene="2"] .intro-city-growth i:nth-of-type(3),
-.intro-trailer[data-scene="2"] .intro-city-growth button:nth-of-type(4) { animation-delay: 7500ms; }
-.intro-city-viewport {
-  aspect-ratio: 4 / 3;
-  background: #dff8ff;
-  border: 3px solid var(--planet-black);
-  border-radius: clamp(14px, 2vw, 24px);
-  box-shadow: 0 8px 0 rgba(5,5,5,0.15), 0 24px 48px rgba(25,75,88,0.16);
-  justify-self: stretch;
-  max-height: min(58vh, 590px);
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-}
-.intro-city-viewport::after {
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), transparent 32%, rgba(7,23,29,0.08));
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28);
-  content: '';
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 3;
-}
-.intro-city-frame {
-  height: 100%;
-  inset: 0;
-  object-fit: cover;
-  object-position: center 66%;
-  opacity: 0;
-  position: absolute;
-  transform: scale(1.22);
-  transform-origin: center 66%;
-  width: 100%;
-}
-.intro-trailer[data-scene="2"] .intro-city-frame-one { animation: introCityOne 10400ms linear both; }
-.intro-trailer[data-scene="2"] .intro-city-frame-two { animation: introCityTwo 10400ms linear both; }
-.intro-trailer[data-scene="2"] .intro-city-frame-three { animation: introCityThree 10400ms linear both; }
-.intro-trailer[data-scene="2"] .intro-city-frame-four { animation: introCityFour 10400ms linear both; }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-frame { animation: none; opacity: 0; }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-frame.is-selected { opacity: 1; transform: scale(1.16); }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-frame-four.is-selected { transform: translateX(-4%) scale(1.16); }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-growth button,
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-growth i { animation: none; }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-growth button.is-reached { background: var(--planet-lime); }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-growth button.is-selected { box-shadow: 0 0 0 4px rgba(18,188,234,0.32); transform: scale(1.08); }
-.intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-growth i.is-reached {
-  background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
-  transform: scaleX(1);
-}
-.intro-level-chip {
-  background: rgba(255,255,255,0.88);
-  border: 2px solid var(--planet-black);
-  border-radius: 999px;
-  bottom: 14px;
-  color: #10232a;
-  font-size: clamp(0.65rem, 1.3vw, 0.82rem);
-  font-weight: 800;
-  left: 50%;
-  padding: 7px 12px;
-  position: absolute;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  z-index: 5;
-}
-.intro-level-chip b { color: #087fa6; }
 .intro-scene-features {
   gap: clamp(28px, 6vw, 78px);
   grid-template-columns: minmax(300px, 0.95fr) minmax(0, 1.05fr);
@@ -912,9 +804,20 @@ body[data-theme="dark"] .intro-demo-insight > p { color: var(--muted); }
 @keyframes introTimelineFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes introHeatmapCell { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
 @keyframes introInsightIn { from { opacity: 0; transform: translateY(14px) rotate(1deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(1deg) scale(1); } }
-@keyframes introGrowthStep { from { background: var(--planet-white); transform: scale(0.78); } to { background: var(--planet-lime); transform: scale(1); } }
-@keyframes introGrowthRail { from { background: var(--soft-blue); transform: scaleX(0); } to { background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime)); transform: scaleX(1); } }
-@keyframes introCityOne { 0%, 22.12% { opacity: 1; transform: scale(1.22); } 26.16%, 100% { opacity: 0; transform: scale(1.16); } }
-@keyframes introCityTwo { 0%, 22.12% { opacity: 0; } 26.16%, 47.12% { opacity: 1; } 51.16%, 100% { opacity: 0; } }
-@keyframes introCityThree { 0%, 47.12% { opacity: 0; } 51.16%, 72.12% { opacity: 1; } 76.16%, 100% { opacity: 0; } }
-@keyframes introCityFour { 0%, 72.12% { opacity: 0; transform: translateX(-4%) scale(1.22); } 76.16%, 100% { opacity: 1; transform: translateX(-4%) scale(1.16); } }
+
+/* Source-captured game media shares the trailer's existing scene timer. */
+.intro-island-demo { margin: 0; width: 100%; display: grid; gap: 8px; }
+.intro-island-frames { position: relative; aspect-ratio: 1152 / 496; overflow: hidden; border-radius: 16px; background: #47aba9; }
+.intro-island-frames img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; opacity: 0; image-rendering: pixelated; }
+.intro-island-frames img.is-selected { opacity: 1; }
+.intro-island-stages { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.intro-island-stages button { background: var(--planet-white); color: var(--planet-black); border: 1px solid currentColor; border-radius: 12px; padding: 6px 10px; font-size: 0.75rem; cursor: pointer; }
+.intro-island-stages button[aria-pressed="true"] { background: var(--planet-lime); }
+.intro-island-stages button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.intro-scene-city { gap: 20px; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); }
+@media (max-width: 640px) {
+  .intro-trailer .intro-scene-city { grid-template-columns: 1fr; gap: 16px; align-content: center; }
+  .intro-island-frames { aspect-ratio: 4 / 3; }
+  .intro-island-frames img { object-fit: cover; }
+  .intro-island-stages button { min-height: 40px; flex: 1; padding: 5px; }
+}

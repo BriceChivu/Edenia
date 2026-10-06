@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { recoverProductionCityProgress } from '../../src/domain/city-progression-recovery.js'
-import { normalizeCityProgress } from '../../src/features/city/model.js'
-import { preparePortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
+import { build } from 'esbuild'
+import { resolve } from 'node:path'
+import { createProductionSourceResolver } from '../../scripts/build-production-experience.mjs'
+
+// Exercise the same production sources and dependency selection as the site build.
+const { sourcePath, plugin } = await createProductionSourceResolver(resolve('.'))
+const modules = await Promise.all([
+  'src/domain/city-progression-recovery.js',
+  'src/features/city/model.js',
+  'src/state/portable-learner-profile.js'
+].map(async path => {
+  const result = await build({entryPoints:[sourcePath(path)],bundle:true,format:'esm',write:false,plugins:[plugin]})
+  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`)
+}))
+const [{ recoverProductionCityProgress }, { normalizeCityProgress }, { preparePortableLearnerProfileEnvelope }] = modules
 
 test('affected profiles recover their earned legacy town level once without changing study facts', () => {
   for (const [score, level] of [[0, 0], [60, 1], [140, 2], [1050, 11], [10000, 11]]) {

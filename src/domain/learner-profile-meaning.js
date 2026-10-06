@@ -64,9 +64,10 @@ function isEmptyRecord(value) {
 }
 
 export function isMeaningfullyEmptyLearnerProfile(profile) {
-  if (profile?.cityProgress?.experienceVersion === 1) {
-    const { experienceVersion, ...cityProgress } = profile.cityProgress
-    profile = { ...profile, cityProgress }
+  if (profile?.tinySwordsIsland !== undefined) {
+    if (profile.tinySwordsIsland !== null) return false
+    const { tinySwordsIsland, ...withoutIsland } = profile
+    profile = withoutIsland
   }
   if (profile?.townEconomy !== undefined) {
     const economy = profile.townEconomy
@@ -76,6 +77,10 @@ export function isMeaningfullyEmptyLearnerProfile(profile) {
       || !isEmptyRecord(economy.purchases)) return false
     const { townEconomy, ...withoutEconomy } = profile
     profile = withoutEconomy
+  }
+  if (profile?.cityProgress?.experienceVersion === 1) {
+    const { experienceVersion, ...cityProgress } = profile.cityProgress
+    profile = { ...profile, cityProgress }
   }
   if (
     !hasExactKeys(profile, PORTABLE_PROFILE_KEYS)

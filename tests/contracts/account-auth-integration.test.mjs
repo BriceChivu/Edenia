@@ -93,7 +93,7 @@ test('legacy Plus routes and dialogs share the internal account rollout', async 
   )
   assert.match(
     plusPageSource,
-    /if \(!accountFeaturesEnabled\) \{\s*window\.location\.replace\('\.\.\/'\)/
+    /if \(!accountFeaturesEnabled\) \{\s*window\.location\.replace\(appReturnUrl\.href\)/
   )
   assert.match(plusPageHtml, /id="plusPage" data-plus-upgrade-root hidden/)
 })

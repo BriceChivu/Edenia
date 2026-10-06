@@ -190,6 +190,8 @@
       longest_streak_days: streak.longestDays || 0,
       last_streak_activity_date: streak.lastActivityDate || null,
       last_study_date: lastStudyDate,
+      town_experience: town.experience || 'legacy_town',
+      town_level_count: town.levelCount || 12,
       current_town_level: (town.visibleLevelIndex || 0) + 1,
       earned_town_level: (town.earnedLevelIndex || 0) + 1,
       pending_town_level: Number.isInteger(town.pendingLevelIndex)
@@ -426,6 +428,8 @@
     if (!isInitialSync && valuesMatch(previousTown, currentTown)) return;
 
     capture('town_level_updated', {
+      town_experience: currentTown.experience || 'legacy_town',
+      town_level_count: currentTown.levelCount || 12,
       visible_town_level: (currentTown.visibleLevelIndex || 0) + 1,
       earned_town_level: (currentTown.earnedLevelIndex || 0) + 1,
       pending_town_level: Number.isInteger(currentTown.pendingLevelIndex)
@@ -433,6 +437,8 @@
         : null,
       has_pending_level: Boolean(currentTown.hasPendingLevel),
       total_study_score: currentTown.totalStudyScore || 0,
+      previous_town_experience: previousTown ? previousTown.experience || 'legacy_town' : null,
+      previous_town_level_count: previousTown ? previousTown.levelCount || 12 : null,
       previous_visible_town_level: previousTown
         ? (previousTown.visibleLevelIndex || 0) + 1
         : null,
@@ -503,6 +509,8 @@
         study_insight_message_count: snapshot.studyInsights?.length || 0,
         study_day_count: snapshot.studyDays?.length || 0,
         current_streak_days: snapshot.streak?.currentDays || 0,
+        town_experience: snapshot.town?.experience || 'legacy_town',
+        town_level_count: snapshot.town?.levelCount || 12,
         current_town_level: (snapshot.town?.visibleLevelIndex || 0) + 1,
         walkthrough_completed: Boolean(snapshot.settings?.walkthroughCompleted)
       });

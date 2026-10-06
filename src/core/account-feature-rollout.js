@@ -19,7 +19,8 @@ export function deriveAccountFeaturesEnabled(
   runtimeEnvironment,
   rollout = ACCOUNT_FEATURE_ROLLOUTS.OFF
 ) {
-  if (!runtimeEnvironment || runtimeEnvironment.isSandbox === true) return false
+  if (!runtimeEnvironment || runtimeEnvironment.isSandbox === true
+    || runtimeEnvironment.isTinySwordsTester === true) return false
 
   const normalizedRollout = normalizeAccountFeaturesRollout(rollout)
   if (normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.PUBLIC) return true
