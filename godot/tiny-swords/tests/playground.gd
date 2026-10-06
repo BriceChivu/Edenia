@@ -41,12 +41,14 @@ func run() -> void:
 				check(restored.restore(layout.snapshot()), "Ordinary upgrades preserve testing grant accounting")
 	var game = load("res://scenes/level_two_preview.tscn").instantiate()
 	game.preview_save_enabled = false
+	game.island_start_enabled = false
 	game.camera_save_enabled = false
 	root.add_child(game)
 	check(game.playground == null, "Ordinary game does not mount testing controls")
 	game.free()
 	game = load("res://scenes/level_two_preview.tscn").instantiate()
 	game.preview_save_enabled = false
+	game.island_start_enabled = false
 	game.camera_save_enabled = false
 	game.playground_enabled = true
 	root.add_child(game)
@@ -87,6 +89,7 @@ func run() -> void:
 	check(tools.run_action("restore") and game.layout.snapshot() == checkpoint and not game.pawn.hammering, "Restore clears actions and returns exact checkpoint")
 	var reloaded = load("res://scenes/level_two_preview.tscn").instantiate()
 	reloaded.preview_save_enabled = false
+	reloaded.island_start_enabled = false
 	reloaded.camera_save_enabled = false
 	reloaded.playground_enabled = true
 	root.add_child(reloaded)

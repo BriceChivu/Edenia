@@ -16,6 +16,7 @@ func run() -> void:
 	var game = load(ProjectSettings.get_setting("application/run/main_scene")).instantiate()
 	game.preview_save_enabled = false
 	game.camera_save_enabled = false
+	game.island_start_enabled = false
 	root.add_child(game)
 	game.game_camera.force_update_scroll()
 	check(is_equal_approx(game.game_camera.zoom.x, 0.8), "Default view is 20 percent farther out")

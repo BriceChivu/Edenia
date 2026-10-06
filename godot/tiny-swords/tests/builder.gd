@@ -10,6 +10,7 @@ func check(ok: bool, message: String) -> void:
 func run() -> void:
 	var level = load("res://scenes/level_two_preview.tscn").instantiate()
 	level.preview_save_enabled = false
+	level.island_start_enabled = false
 	root.add_child(level)
 	await process_frame
 	var layout = level.layout

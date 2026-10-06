@@ -68,6 +68,9 @@ var playground_ready := true
 var playground
 var pending_unlock_level := 0
 var saved_playground_checkpoint: Dictionary = {}
+@export var island_start_enabled := false
+var island_started := false
+var arrival
 
 func _ready() -> void:
 	super._ready()
@@ -139,6 +142,10 @@ func _ready() -> void:
 		playground = preload("res://scripts/playground.gd").new()
 		playground.world = self
 		add_child(playground)
+	if island_start_enabled:
+		arrival = preload("res://scripts/island_arrival.gd").new()
+		arrival.world = self
+		add_child(arrival)
 	get_window().mouse_exited.connect(func():
 		if world_dragging:
 			save_camera_view()
@@ -154,6 +161,8 @@ func refresh() -> void:
 	ui.refresh(editing, selected, not history.is_empty())
 
 func apply_study_level(claimed_level: int) -> void:
+	if arrival != null and arrival.blocks_gameplay():
+		return
 	if (study_claims_authoritative or not playground_manual_progression) and layout.level < claimed_level:
 		unlock_level(layout.level + 1)
 
@@ -161,6 +170,8 @@ func unlock_level_two() -> void:
 	unlock_level(2)
 
 func unlock_level(target_level: int) -> void:
+	if arrival != null and arrival.blocks_gameplay():
+		return
 	if pending_unlock_level > 0:
 		return
 	if construction != null and construction.busy():
@@ -193,6 +204,8 @@ func complete_level_unlock(saved_level: int, persisted: bool) -> void:
 	ui.celebrate(unlocked_level)
 
 func toggle_editing() -> void:
+	if arrival != null and arrival.blocks_gameplay():
+		return
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
 	# Opening inventory changes input tools, not the pawn's current work.
@@ -209,6 +222,9 @@ func toggle_editing() -> void:
 
 func _process(_delta: float) -> void:
 	if terrain == null:
+		return
+	if arrival != null and arrival.blocks_gameplay():
+		update_cursor()
 		return
 	if log_pickup != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 		if not editing and water_phase == WaterPhase.READY and layout.pick_log(log_pickup):
@@ -437,6 +453,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if arrival != null and arrival.blocks_gameplay():
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and ui.celebration == null:
 		# Defer world clicks until release, after distinguishing a click from a pan.
 		# Godot GUI controls consume their own presses before this handler.
@@ -527,6 +545,8 @@ func update_cursor() -> void:
 	if not editing and water_phase == WaterPhase.READY and ui.celebration == null and layout.level >= 5 and int(layout.log_piles.get(log_at(get_global_mouse_position()), 0)) == 6:
 		mode = "house"
 	var hovered := get_viewport().gui_get_hovered_control()
+	if arrival != null and arrival.blocks_gameplay():
+		mode = "ui"
 	if hovered != null and (hovered == ui.root or ui.root.is_ancestor_of(hovered)):
 		mode = "invalid" if hovered is BaseButton and hovered.disabled else "ui"
 	if mode != cursor_mode:
@@ -652,6 +672,8 @@ func surface_cell(point: Vector2) -> Vector2i:
 	return layout.cell_at(point)
 
 func handle_world_click(event: InputEvent) -> void:
+	if arrival != null and arrival.blocks_gameplay():
+		return
 	if ui == null or ui.celebration != null or (not editing and water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -1250,6 +1272,7 @@ func respawn_location(spawn: Vector2, _spawn_height: float) -> Dictionary:
 
 func saved_snapshot() -> Dictionary:
 	var data: Dictionary = layout.snapshot()
+	data["island_started"] = island_started if island_start_enabled else true
 	if playground_manual_progression:
 		data["playground_manual_progression"] = true
 	var saved: Dictionary = playground.checkpoint_snapshot() if playground != null else saved_playground_checkpoint
@@ -1279,8 +1302,12 @@ func load_layout() -> void:
 			restore_saved_layout(data)
 
 func restore_saved_layout(data: Dictionary, restore_checkpoint: bool = true) -> bool:
+	# Saves predating the arrival sequence already contain a playable island.
+	if not data.get("island_started", true) is bool:
+		return false
 	if not layout.restore(data):
 		return false
+	island_started = data.get("island_started", true)
 	playground_manual_progression = playground_enabled and data.get("playground_manual_progression", false) == true
 	if restore_checkpoint:
 		var saved = data.get("playground_checkpoint", {})
@@ -1297,6 +1324,8 @@ func restore_saved_layout(data: Dictionary, restore_checkpoint: bool = true) -> 
 			construction.open_placement()
 		construction.resume_build()
 		refresh()
+		if arrival != null:
+			arrival.restore()
 	return true
 
 func _exit_tree() -> void:

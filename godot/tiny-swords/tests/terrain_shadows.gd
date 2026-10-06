@@ -6,6 +6,7 @@ func _initialize() -> void:
 func run() -> void:
 	root.size = Vector2i(1152, 496)
 	var level = load("res://scenes/level_two_preview.tscn").instantiate()
+	level.island_start_enabled = false
 	level.preview_save_enabled = false
 	root.add_child(level)
 	# Pixel fixtures use one world unit per pixel, independent of gameplay zoom.

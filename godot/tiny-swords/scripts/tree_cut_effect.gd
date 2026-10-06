@@ -1,15 +1,8 @@
-extends Node2D
+extends "res://scripts/dust_effect.gd"
 
 ## Transient completion visual; the saved tree becomes a stump immediately.
 const FADE_SECONDS := 0.2
-const FRAME_SECONDS := 0.1
-const DUST_TEXTURES := [
-	preload("res://Tiny Swords (Free Pack)/Particle FX/Dust_01.png"),
-	preload("res://Tiny Swords (Free Pack)/Particle FX/Dust_02.png"),
-]
 var tree: Sprite2D
-var dust: Array[Sprite2D] = []
-var elapsed := 0.0
 
 func setup(source: Sprite2D, height: float) -> void:
 	position = source.position
@@ -24,26 +17,8 @@ func setup(source: Sprite2D, height: float) -> void:
 	if source.material != null:
 		tree.material = source.material.duplicate()
 	add_child(tree)
-	for index in DUST_TEXTURES.size():
-		var puff := Sprite2D.new()
-		puff.texture = DUST_TEXTURES[index]
-		puff.hframes = puff.texture.get_width() / 64
-		puff.position = Vector2(-16 if index == 0 else 16, -height - 8)
-		puff.flip_h = index == 1
-		add_child(puff)
-		dust.append(puff)
-
-func _process(delta: float) -> void:
-	advance(delta)
+	setup_dust(height)
 
 func advance(delta: float) -> void:
-	elapsed += delta
-	tree.modulate.a = maxf(0.0, 1.0 - elapsed / FADE_SECONDS)
-	var finished := true
-	for puff in dust:
-		var frame_index := int(elapsed / FRAME_SECONDS)
-		puff.visible = frame_index < puff.hframes
-		puff.frame = mini(frame_index, puff.hframes - 1)
-		finished = finished and not puff.visible
-	if finished:
-		queue_free()
+	tree.modulate.a = maxf(0.0, 1.0 - (elapsed + delta) / FADE_SECONDS)
+	super.advance(delta)

@@ -14,6 +14,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	var game = load("res://scenes/level_two_preview.tscn").instantiate()
+	game.island_start_enabled = false
 	game.preview_save_enabled = false
 	game.camera_save_enabled = false
 	root.add_child(game)

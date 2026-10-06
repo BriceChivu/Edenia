@@ -5,3 +5,4 @@
 
 [node name="LevelTwoPreview" instance=ExtResource("Base")]
 script = ExtResource("Builder")
+island_start_enabled = true

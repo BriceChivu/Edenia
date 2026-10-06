@@ -11,6 +11,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	var level = load("res://scenes/level_two_preview.tscn").instantiate()
+	level.island_start_enabled = false
 	level.preview_save_enabled = false
 	root.add_child(level)
 	await process_frame
