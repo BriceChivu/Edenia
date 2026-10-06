@@ -11,6 +11,7 @@ const HOUSE_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elem
 const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_01.png")
 const INVALID_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_03.png")
 const BUILD_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_04.png")
+const CURSOR_PRESS_SHADER := preload("res://shaders/cursor_press.gdshader")
 const Construction = preload("res://scripts/house_construction.gd")
 const Harvesting = preload("res://scripts/tree_harvesting.gd")
 const AXE_CURSOR := preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Tools/Tool_02.png")
@@ -58,6 +59,8 @@ var build_cursor: Texture2D
 var build_cursor_size := Vector2i.ZERO
 var cursor_mode := ""
 var pointer: Sprite2D
+var cursor_press_material: ShaderMaterial
+var cursor_press_tween: Tween
 var pointer_inside := false
 var pointer_focused := true
 var pointer_position := Vector2.ZERO
@@ -98,15 +101,21 @@ func _ready() -> void:
 	add_child(pointer_layer)
 	pointer = Sprite2D.new()
 	pointer.centered = false
+	cursor_press_material = ShaderMaterial.new()
+	cursor_press_material.shader = CURSOR_PRESS_SHADER
 	pointer.hide()
 	pointer_layer.add_child(pointer)
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	get_window().mouse_entered.connect(func(): pointer_inside = true)
 	get_window().mouse_exited.connect(func():
 		pointer_inside = false
+		set_cursor_pressed(false, true)
 		pointer.hide())
 	get_window().focus_exited.connect(func():
 		pointer_focused = false
+		set_cursor_pressed(false, true)
+		world_pointer_down = null
+		world_dragging = false
 		pointer.hide())
 	get_window().focus_entered.connect(func():
 		pointer_focused = true
@@ -433,6 +442,8 @@ func _input(event: InputEvent) -> void:
 		pointer_inside = get_viewport().get_visible_rect().has_point(event.position)
 		pointer_position = event.position
 
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		set_cursor_pressed(false)
 	if world_pointer_down == null:
 		return
 	if event is InputEventMouseMotion:
@@ -461,6 +472,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		world_pointer_down = event
 		world_drag_origin = game_camera.position
 		world_dragging = false
+		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
+		if not editing and water_phase in [WaterPhase.READY, WaterPhase.APPROACHING] and layout.cells.has(clicked_cell(point)) and not layout.bridges.has(Layout.BridgeRules.hit(layout, point)):
+			set_cursor_pressed(true)
 		get_viewport().set_input_as_handled()
 		return
 	handle_world_click(event)
@@ -550,8 +564,10 @@ func update_cursor() -> void:
 	if hovered != null and (hovered == ui.root or ui.root.is_ancestor_of(hovered)):
 		mode = "invalid" if hovered is BaseButton and hovered.disabled else "ui"
 	if mode != cursor_mode:
+		set_cursor_pressed(false, true)
 		cursor_mode = mode
 		pointer.texture = HOUSE_CURSOR if mode == "house" else AXE_CURSOR if mode == "axe" else UI_CURSOR if mode == "ui" or mode == "place" else (CURSOR if mode == "walk" else (build_cursor if mode == "build" else INVALID_CURSOR))
+		pointer.material = cursor_press_material if mode == "walk" else null
 	var hotspot := Vector2(build_cursor_size) / 2.0 if mode == "build" else (Vector2(32, 32) if mode == "axe" or mode == "house" else Vector2(24, 18))
 	pointer.scale = (game_camera.zoom if game_camera != null else Vector2.ONE * DEFAULT_ZOOM) if mode == "build" else Vector2.ONE
 	# The original handle faces left; mirror it when the pawn is on the right.
@@ -567,6 +583,22 @@ func update_cursor() -> void:
 			pointer.scale *= 0.5
 	pointer.position = pointer_position - hotspot * pointer.scale
 	pointer.visible = pointer_inside and pointer_focused
+
+func set_cursor_pressed(pressed: bool, immediate: bool = false) -> void:
+	if cursor_press_material == null or (pressed and cursor_mode != "walk"):
+		return
+	if cursor_press_tween != null:
+		cursor_press_tween.kill()
+	if immediate:
+		cursor_press_material.set_shader_parameter("press", 0.0)
+		return
+	var current := float(cursor_press_material.get_shader_parameter("press"))
+	var target := 1.0 if pressed else 0.0
+	if is_equal_approx(current, target):
+		return
+	cursor_press_tween = create_tween()
+	# Mouse-down settles into this pose; only release starts the return tween.
+	cursor_press_tween.tween_method(func(value: float): cursor_press_material.set_shader_parameter("press", value), current, target, 0.055 if pressed else 0.125).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT if pressed else Tween.EASE_IN_OUT)
 
 func bridge_placement_at(point: Vector2) -> Vector2i:
 	for bank in layout.cells:
