@@ -407,12 +407,14 @@ async function installProgressSyncRpcFixture(page, {
   return { commitOperations, migrationOperations }
 }
 
-test('the Internal lifecycle canary leaves the ordinary accountless path unchanged', async ({
+test('the retired Internal lifecycle setting leaves the ordinary accountless path unchanged', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   let enabled = false
-  await installRuntimeRoute(page, () => enabled)
+  await installRuntimeRoute(page, () => enabled, {
+    getAccountFeaturesRollout: () => enabled ? 'internal' : 'off'
+  })
 
   await page.goto('/')
   await seedAccountlessProfile(page, {
