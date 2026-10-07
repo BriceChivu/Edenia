@@ -6,6 +6,7 @@ const LOCALES := ["en", "zh-Hant", "zh-Hans", "es", "fr"]
 var locale := "en"
 var catalogs := {}
 var fonts := {}
+var button_fonts := {}
 var default_font: Font
 
 func _ready() -> void:
@@ -13,6 +14,13 @@ func _ready() -> void:
 		catalogs[language] = JSON.parse_string(FileAccess.get_file_as_string("res://i18n/%s.json" % language))
 	fonts["zh-Hant"] = preload("res://fonts/EdeniaNotoTC.otf")
 	fonts["zh-Hans"] = preload("res://fonts/EdeniaNotoSC.otf")
+	for language in fonts:
+		var button_font := FontVariation.new()
+		button_font.base_font = fonts[language]
+		# Noto's Chinese glyphs sit low in the button artwork. Lift them by
+		# two pixels at 16px, including the normal pressed-state displacement.
+		button_font.baseline_offset = -0.125
+		button_fonts[language] = button_font
 	default_font = ThemeDB.fallback_font
 
 func set_locale(value: String) -> void:
@@ -34,7 +42,7 @@ func font(control: Control) -> void:
 	if control is Button:
 		control.add_theme_stylebox_override("focus", focus_style())
 	if fonts.has(locale):
-		control.add_theme_font_override("font", fonts[locale])
+		control.add_theme_font_override("font", button_fonts[locale] if control is Button else fonts[locale])
 	else:
 		control.remove_theme_font_override("font")
 

@@ -100,7 +100,9 @@ const server = createServer(async (request, response) => {
     ...(host === 'localhost' && extname(filePath).toLowerCase() === '.html'
       ? { 'Referrer-Policy': 'no-referrer-when-downgrade' }
       : {}),
-    'Cache-Control': 'no-store',
+    'Cache-Control': /^\/(tiny-swords-engine|tiny-swords-decoder)\/[a-f0-9]{64}\//.test(requestedPath)
+      ? 'public, max-age=31536000, immutable'
+      : 'no-store',
     ...(encoding ? { 'Content-Encoding': encoding } : {}),
     'Vary': 'Accept-Encoding',
     'Content-Length': String((await stat(servedPath)).size),

@@ -19,6 +19,7 @@ func _ready() -> void:
 	load_checkpoint(world.saved_playground_checkpoint)
 	layer = 21
 	root = Control.new()
+	root.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	toggle = Button.new()

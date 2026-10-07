@@ -24,6 +24,8 @@ export const EN_CORE = {
 
   "island.title": "Study island",
   "island.loading": "Loading your island… You can keep studying.",
+  "island.downloading": "Downloading island…",
+  "island.preparing": "Preparing your island…",
   "island.slow": "Your island is taking longer to load. You can keep studying; your saved island is retained.",
   "island.failed": "Your island could not start. You can keep studying; your saved island is retained.",
   "island.restoreFailed": "Your saved island could not be restored. Saving is blocked; your saved island is retained.",

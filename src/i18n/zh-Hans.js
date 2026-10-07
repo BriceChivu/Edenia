@@ -25,6 +25,8 @@ export const ZH_HANS_LOCALIZED = {
   "city.level.10": "3 块草地，已达第 10 级",
 
   "island.loading": "正在加载你的岛屿……你可以继续学习。",
+  "island.downloading": "正在下载岛屿……",
+  "island.preparing": "正在准备你的岛屿……",
   "island.slow": "岛屿加载较慢。你可以继续学习；已保存的岛屿仍保留。",
   "island.failed": "岛屿无法启动。你可以继续学习；已保存的岛屿仍保留。",
   "island.restoreFailed": "无法还原已保存的岛屿。已阻止新的保存；原有岛屿仍保留。",

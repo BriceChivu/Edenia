@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",
+    "brotli-dec-wasm": "2.3.2",
     "svix": "1.99.1"
   }
 }

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
+import { I18N, SUPPORTED_LOCALES } from '../../src/i18n/index.js'
 
 test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Selected by the Tiny Swords integration suite')
 const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8'))
@@ -45,6 +46,65 @@ async function accept(game) {
   await expect.poll(() => game.evaluate(() => window.session)).toBeGreaterThan(0)
   await game.evaluate(() => parent.postMessage({ type: 'edenia-tiny-restored', session: window.session, accepted: true }, location.origin))
 }
+
+test('loading progress follows downloads, preparation, retry and live locale changes', async ({ page }) => {
+  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await seed(page)
+  const progress = page.locator('#tinySwordsLoadProgress')
+  const bar = page.locator('#tinySwordsLoadBar')
+  const label = page.locator('#tinySwordsLoadProgressLabel')
+  const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  const report = (current, total) => game().evaluate(({ current, total }) =>
+    parent.postMessage({ type: 'edenia-game-loading-progress', current, total }, location.origin), { current, total })
+  await expect(progress).toBeVisible()
+  await expect(bar).not.toHaveAttribute('aria-valuenow')
+  // A host-page message and malformed game values cannot change the bar.
+  await page.evaluate(() => window.postMessage({ type: 'edenia-game-loading-progress', current: 100, total: 100 }, location.origin))
+  await report(-1, 100)
+  await report(200, 100)
+  await report(1, 0)
+  await expect(bar).not.toHaveAttribute('aria-valuenow')
+  await report(50, 100)
+  await expect(bar).toHaveAttribute('aria-valuenow', '50')
+  await report(20, 100)
+  await expect(bar).toHaveAttribute('aria-valuenow', '50')
+  for (const locale of SUPPORTED_LOCALES) {
+    await page.evaluate(locale => saveLocaleFromSettings(locale), locale)
+    await expect(label).toHaveText(`${I18N[locale]['island.downloading']} 50%`)
+    await expect(page.locator('#tinySwordsLoadMessage')).toHaveText(I18N[locale]['island.loading'])
+    await expect(bar).toHaveAttribute('aria-valuenow', '50')
+  }
+  await page.evaluate(() => saveLocaleFromSettings('zh-Hant'))
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(async theme => { if (document.body.dataset.theme !== theme) await toggleTheme() }, theme)
+    await expect(page.locator('body')).toHaveAttribute('data-theme', theme)
+    await expect(bar).toHaveCSS('background-color', theme === 'dark' ? 'rgb(19, 39, 46)' : 'rgb(255, 255, 255)')
+    const bounds = await bar.boundingBox()
+    expect(bounds.width).toBeGreaterThan(100)
+    expect(bounds.x).toBeGreaterThanOrEqual(0)
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(await page.evaluate(() => innerWidth))
+    const fill = await bar.locator('span').boundingBox()
+    expect(fill.width / (bounds.width - 2)).toBeCloseTo(0.5, 2)
+    await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath(`loading-zh-Hant-${theme}.png`) })
+  }
+  await report(100, 100)
+  await expect(progress).toHaveAttribute('data-phase', 'preparing')
+  await expect(label).toHaveText(I18N['zh-Hant']['island.preparing'])
+  await expect(bar).not.toHaveAttribute('aria-valuenow')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  expect(await bar.locator('span').evaluate(node => getComputedStyle(node).animationName)).toBe('none')
+  await game().evaluate(() => parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin))
+  await expect(progress).toBeHidden()
+  await page.locator('#tinySwordsRetry').click()
+  await expect(progress).toBeVisible()
+  await expect(progress).toHaveAttribute('data-phase', 'download')
+  await expect(bar).not.toHaveAttribute('aria-valuenow')
+  await expect(label).toHaveText(I18N['zh-Hant']['island.downloading'])
+  await accept(game())
+  await expect(progress).toBeHidden()
+  await report(50, 100)
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready')
+})
 
 test('slow startup retains study and saved work; dialogs and walkthroughs block game input', async ({ page }) => {
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
@@ -103,7 +163,7 @@ test('engine download failure retains island and history; retry can restore the 
   await seed(page)
   const retained = await durable(page)
   await page.unroute('**/tiny-swords-game/*/index.html')
-  await page.route('**/tiny-swords-game/*/index.wasm', route => route.abort())
+  await page.route('**/tiny-swords-engine/*/index.wasm{,.br}', route => route.abort())
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'failed', { timeout: 60000 })
   await expect(page.locator('#tinySwordsLoadStatus')).toContainText('saved island is retained')
@@ -114,7 +174,7 @@ test('engine download failure retains island and history; retry can restore the 
   for (let index = pageDiagnostics.length - 1; index >= 0; index--) {
     if (/^(console: Failed to load resource: net::ERR_FAILED|page: Failed to fetch)$/.test(pageDiagnostics[index])) pageDiagnostics.splice(index, 1)
   }
-  await page.unroute('**/tiny-swords-game/*/index.wasm')
+  await page.unroute('**/tiny-swords-engine/*/index.wasm{,.br}')
   await page.locator('#tinySwordsRetry').click()
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
   const saved = await durable(page)

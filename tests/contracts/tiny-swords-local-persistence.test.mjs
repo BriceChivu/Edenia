@@ -20,7 +20,7 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
       return true
     }
   })
-  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){} }
+  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){} }
   const context = {
     location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},
     URL,

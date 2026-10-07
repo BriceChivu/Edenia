@@ -25,6 +25,8 @@ export const FR_LOCALIZED = {
   "city.level.10": "3 parcelles : niveau 10 atteint",
 
   "island.loading": "Chargement de votre île… Vous pouvez continuer à étudier.",
+  "island.downloading": "Téléchargement de l’île…",
+  "island.preparing": "Préparation de votre île…",
   "island.slow": "Votre île met du temps à se charger. Vous pouvez continuer à étudier ; votre île sauvegardée est conservée.",
   "island.failed": "Votre île n’a pas pu démarrer. Vous pouvez continuer à étudier ; votre île sauvegardée est conservée.",
   "island.restoreFailed": "Votre île n’a pas pu être restaurée. Les nouvelles sauvegardes sont bloquées ; votre île sauvegardée est conservée.",

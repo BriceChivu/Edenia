@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { resolve, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { brotliCompressSync, gzipSync, constants } from 'node:zlib'
+import { prepareTinySwordsDelivery } from './build-tiny-swords-delivery.mjs'
 
 export const GODOT_VERSION = '4.7.2'
 export const GODOT_BUILD = '4.7.2.stable.official.ed1daf0bf'
@@ -59,11 +60,13 @@ parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
   await cp(resolve(source, 'Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_02.png'), resolve(staging, 'Cursor_02.png'))
   await cp(resolve(source, 'notices'), resolve(staging, 'notices'), { recursive: true })
   await cp('assets/tiny-swords/README.md', resolve(staging, 'notices/ASSET-PROVENANCE.md'))
-  // Hash delivery bytes, including parent, hooks, engine and pack. Cached parents
-  // can only reference their own immutable directory, even after another build.
+  const delivery = await prepareTinySwordsDelivery(staging, outputDir)
+  // Hash parent, hooks, pack and the exact engine/decoder references. Engine bytes
+  // have their own immutable URL, so game updates reuse the browser's engine cache.
   const hash = createHash('sha256')
   async function hashFiles(directory, prefix = '') {
     for (const name of (await readdir(directory)).sort()) {
+      if (name.endsWith('.br') || name.endsWith('.gz')) continue
       const path = resolve(directory, name)
       if ((await stat(path)).isDirectory()) await hashFiles(path, `${prefix}${name}/`)
       else { hash.update(`${prefix}${name}\0`); hash.update(await readFile(path)) }
@@ -71,10 +74,10 @@ parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
   }
   await hashFiles(staging)
   const versionId = hash.digest('hex')
-  await writeFile(resolve(staging, 'release.json'), JSON.stringify({ godotVersion: GODOT_VERSION, version: versionId }, null, 2) + '\n')
-  for (const name of ['index.wasm', 'index.pck', 'index.js']) {
+  await writeFile(resolve(staging, 'release.json'), JSON.stringify({ godotVersion: GODOT_VERSION, version: versionId, ...delivery }, null, 2) + '\n')
+  for (const name of ['index.js']) {
     const bytes = await readFile(resolve(staging, name))
-    await writeFile(resolve(staging, name + '.br'), brotliCompressSync(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 6 } }))
+    await writeFile(resolve(staging, name + '.br'), brotliCompressSync(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }))
     await writeFile(resolve(staging, name + '.gz'), gzipSync(bytes))
   }
   const releases = resolve(outputDir, GAME_DIRECTORY)

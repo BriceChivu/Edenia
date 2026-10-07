@@ -6,6 +6,9 @@ if (window.edeniaTinySwordsEnabled === true) {
     const surface = document.getElementById('tinySwordsSurface')
     const loadStatus = document.getElementById('tinySwordsLoadStatus')
     const loadMessage = document.getElementById('tinySwordsLoadMessage')
+    const loadProgress = document.getElementById('tinySwordsLoadProgress')
+    const loadBar = document.getElementById('tinySwordsLoadBar')
+    const progressLabel = document.getElementById('tinySwordsLoadProgressLabel')
     const retry = document.getElementById('tinySwordsRetry')
     const controls = surface.querySelector('.tiny-swords-camera-controls')
     let frame
@@ -13,7 +16,22 @@ if (window.edeniaTinySwordsEnabled === true) {
     let failed = false
     let blocked = false
     let statusKey = 'island.loading'
+    let progressPercent = null
+    let preparing = false
     const translate = key => window.edeniaTranslate?.(key) || key
+    function renderProgress() {
+      loadProgress.dataset.phase = preparing ? 'preparing' : 'download'
+      progressLabel.textContent = preparing ? translate('island.preparing')
+        : translate('island.downloading') + (progressPercent === null ? '' : ` ${progressPercent}%`)
+      if (preparing || progressPercent === null) loadBar.removeAttribute('aria-valuenow')
+      else loadBar.setAttribute('aria-valuenow', String(progressPercent))
+      loadBar.style.setProperty('--island-load-progress', `${progressPercent ?? 0}%`)
+    }
+    function prepareIsland() {
+      if (restored || failed) return
+      preparing = true
+      renderProgress()
+    }
     function setLoadState(state, key) {
       surface.dataset.gameState = state
       surface.setAttribute('aria-busy', String(state === 'loading' || state === 'slow'))
@@ -22,6 +40,8 @@ if (window.edeniaTinySwordsEnabled === true) {
       loadMessage.textContent = translate(key)
       loadStatus.hidden = state === 'ready'
       retry.hidden = !['slow', 'failed'].includes(state)
+      loadProgress.hidden = !['loading', 'slow'].includes(state)
+      renderProgress()
     }
     function failStartup(key = 'island.failed') {
       failed = true
@@ -52,6 +72,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     })
     window.addEventListener('edenia-locale-changed', () => {
       loadMessage.textContent = translate(statusKey)
+      renderProgress()
       if (frame) frame.title = translate('island.frameTitle')
       status.textContent = status.dataset.messageKey ? translate(status.dataset.messageKey) : ''
       sendLocale()
@@ -113,6 +134,8 @@ if (window.edeniaTinySwordsEnabled === true) {
       session += 1
       restored = false
       failed = false
+      progressPercent = null
+      preparing = false
       legacy = false
       gameLevelCount = null
       intersects = true
@@ -182,7 +205,18 @@ if (window.edeniaTinySwordsEnabled === true) {
       const data = event.data
       if (data?.type === 'edenia-game-startup-failed') { failStartup(); return }
       if (failed && data?.type !== 'edenia-tiny-layout') return
+      if (data?.type === 'edenia-game-loading-progress') {
+        if (restored || preparing || !Number.isFinite(data.current) || !Number.isFinite(data.total)
+          || data.total <= 0 || data.current < 0 || data.current > data.total) return
+        if (data.current === data.total) prepareIsland()
+        else {
+          progressPercent = Math.max(progressPercent ?? 0, Math.floor(data.current / data.total * 100))
+          renderProgress()
+        }
+        return
+      }
       if (data?.type === 'edenia-game-progression' && Array.isArray(data.thresholds)) {
+        prepareIsland()
         gameLevelCount = data.thresholds.length
         sendStudyLevel()
       }
@@ -193,7 +227,7 @@ if (window.edeniaTinySwordsEnabled === true) {
         controls.hidden = !restored || data.celebrating === true
         controls.classList.toggle('tiny-swords-editing', data.editing === true)
       }
-      if (data?.type === 'edenia-tiny-ready') sendStudyLevel()
+      if (data?.type === 'edenia-tiny-ready') { prepareIsland(); sendStudyLevel() }
       if (data?.session !== session) return
       if (data.type === 'edenia-game-focus-exit' && !blocked && restored && !failed) {
         controls.querySelector('[data-city-zoom-action="reset"]')?.focus()
