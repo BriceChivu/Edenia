@@ -14,8 +14,9 @@ static func apply_pose(pawn, frame: int, start: Vector2, direction: Vector2, hei
 	var index := clampi(frame, 0, 7)
 	pawn.position = start + direction * TRAVEL[index]
 	pawn.sprite.position = Vector2(0, -32 + VERTICAL[index] - height * (1.0 - minf(float(index) / CONTACT_FRAME, 1.0)))
-	pawn.sprite.animation = &"run"
-	pawn.sprite.set_frame_and_progress(index % 6, 0.0)
+	pawn.sprite.animation = &"chicken_run" if pawn.carrying_chicken else &"run"
+	var frame_count: int = pawn.sprite.sprite_frames.get_frame_count(pawn.sprite.animation)
+	pawn.sprite.set_frame_and_progress(index % frame_count, 0.0)
 	pawn.sprite.modulate.a = OPACITY[index]
 	pawn.sprite.rotation = 0.0
 	if absf(direction.x) > 0.01:

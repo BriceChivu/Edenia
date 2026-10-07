@@ -71,7 +71,7 @@ func _begin(cell: Vector2i) -> bool:
 				best = candidate
 		if not best.is_empty():
 			break
-	if best.is_empty():
+	if best.is_empty() or not world.begin_pawn_action():
 		return false
 	_stop()
 	world.movement_generation += 1

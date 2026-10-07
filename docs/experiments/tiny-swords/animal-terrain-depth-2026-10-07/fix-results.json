@@ -1,0 +1,17 @@
+{
+  "before": {
+    "individual_cases": 256,
+    "failures": 32
+  },
+  "after": {
+    "cases": 264,
+    "failures": 0,
+    "non_overlapping": 0,
+    "includes_simultaneous_actors": true
+  },
+  "pawn_edge_cases": 24,
+  "pawn_edge_pass": true,
+  "tree_approach_pass": true,
+  "stair_perspective_pass": true,
+  "tree_cutting_elevation_pass": true
+}

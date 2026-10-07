@@ -49,7 +49,7 @@ simulate the two local upgrades using the same reward and celebration code:
 Godot owns XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675**.
 The existing curve is `15 × level × (level − 1) / 2` total XP: each upgrade costs
 15 XP more than the previous one. Levels six through ten each grant three new
-grass tiles; level six also grants a third tree, level seven grants a second chicken, and level eight grants a second sheep. They share the grass reward popup. Fresh editor scenes
+grass tiles; level six also grants a third tree, level seven grants a second chicken, and level eight grants a second sheep and a fourth tree. They share the grass reward popup. Save version 32 adds the level-eight tree once to existing level-eight-or-higher islands. Fresh editor scenes
 `previews/level_six.tscn` through `previews/level_ten.tscn` start at those levels;
 choose **Done**, then **Playground → Level +1** to preview the next upgrade.
 Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
@@ -157,11 +157,11 @@ Sizing follows the [official UI showcase](https://pixelfrog-assets.itch.io/tiny-
 its 1600px source image displays at 920 CSS pixels on the desktop page (0.575×).
 The supplied 1840px screenshot is an enlarged capture, not logical game dimensions.
 Action icons use that reference scale with nearest-neighbor sampling.
-The collapsed launcher uses the pack’s cogwheel PNG (`Icons/Icon_10.png`) without a button background.
+The collapsed launcher uses the pack’s cogwheel PNG (`Icons/Icon_10.png`) at 36px wide without a button background.
 The expanded panel uses native-scale assembled nine-slice artwork;
 fixed 16px corners retain the source pixels and the middle/edges tile to fit. Pickup uses a compact four-corner icon; the collapsed
-control is a 45×45 icon button; the expanded strip is 180×44 with five 32×32
-hit targets, at both desktop and phone widths. It remains anchored 14px from the
+control is a 45×45 icon button anchored 4px from the right and bottom; the expanded strip is 180×44 with five 32×32
+hit targets, at both desktop and phone widths. The expanded strip remains anchored 14px from the
 right and bottom. Celebration buttons and game cursors retain their existing scale.
 
 Ground, stairs and pine are image-only choices, with no title or individual
@@ -401,10 +401,12 @@ notice is included in every release. Coverage: `tiny-swords-delivery.spec.mjs` a
 `tests/contracts/tiny-swords-delivery.test.mjs` at the repository root.
 
 The exported Godot download callback forwards byte progress to Edenia's loading
-bar. Its percentage describes downloads, not an estimated time remaining.
-After downloads finish, the bar shows an indeterminate localized preparation
-stage until Godot accepts the saved-island restoration. Retry resets progress;
-failure hides the bar. No gameplay or restore decisions move into the host UI.
+bar. The fill grows only from left to right and never animates back and forth.
+It starts empty, follows completed download bytes, and holds at 99% during
+preparation until Godot accepts the saved-island restoration. Only accepted
+restoration completes the bar. The visible copy is “Preparing your island...”
+with no time estimate. Retry resets progress; failure hides the bar.
+No gameplay or restore decisions move into the host UI.
 
 ## Island persistence in the local Edenia integration
 
@@ -483,7 +485,7 @@ CI imports a fresh copy without `.godot`; no Downloads/Desktop paths are needed.
 Only the official Linux editor and the two matching Web templates are installed.
 
 `npm run build` packages both experiences with **game mounting off**. Ordinary
-visits, retired tester links, unsupported values and sandbox retain the existing
+visits, `internal_test=1`, unsupported values and sandbox retain the existing
 production town, timeline, onboarding and scoring. The checked-in source overlay
 in `compat/production/` preserves that implementation; builds require no Git
 history. Page selection runs before either experience's markup is parsed, so
@@ -737,6 +739,12 @@ only move their shadow farther downward and reduce its opacity.
 Stair endpoints require ground at the low end and ground exactly one floor higher at the high
 end. Raised terrain and stairs are Y-sorted with lower-ground characters; upper
 characters render on the upper surface and return to lower depth on descent.
+Staircase depth follows its sloped back grass edge at the pawn’s X position.
+Off-ramp pawns behind that edge are covered; those in front remain visible,
+as do pawns walking on the ramp. Solid landings sort at their near edge so a
+lower-floor pawn approaching an adjacent tree stays behind the cliff rather than
+appearing on its upper grass. The real tree-cutting route is covered by
+`res://tests/tree_approach_cliff_depth.gd`. Pixel regression: `res://tests/stair_edge_depth.gd` (run with a renderer).
 The build grid and placement highlight render separately above both surfaces.
 
 ## Confirmed water-fall reference
@@ -1025,6 +1033,24 @@ can start another two-second follow delay. Random wandering after 10–15 grazin
 pawn is stationary. Pawn contact interrupts following and triggers escape over 3–5 safe tile steps,
 including shorter and sideways fallbacks. It follows the same paths through bushes,
 rocks and connected stairs, avoiding tree, log and house contact footprints.
+If the pawn shares the chicken's tile and floor and no safe first step leads away
+or sideways, the pawn picks it up. The original Wood carrying poses now have
+chicken idle/run sheets composed from the existing pawn and chicken pixels; the
+chicken retains its 59.5% scale. The pawn carries one chicken for one minute,
+then puts it on nearby reachable grass, using the same tile on a tiny island.
+It waits for a safe landing if the pawn is on a ramp without room. A bird put down
+on the pawn's tile cannot be picked up again until the pawn leaves that tile.
+Save version 31 retains the carried bird and wall-clock deadline through reloads
+and background suspension. Carrying pauses axe work and keeps wood intact;
+house work pauses while carrying, preserving reserved logs and started work. Focused check: `res://tests/chicken_carry.gd`.
+Starting a valid log pickup/delivery, tree-cutting or house action puts the bird
+down immediately, before the pawn equips its tool or approaches the target.
+Unreachable actions and ordinary walking retain the bird. Water falls use the
+same chicken-carrying frames, so it shares the pawn's fall, fade and respawn.
+An expired carry deadline waits until the pawn returns to land before put-down.
+Focused action/water check: `res://tests/chicken_carry_actions.gd`.
+Regenerate the composite sheets with `tools/generate_chicken_carry.py` (Pillow).
+
 When a sheep enters its grass tile, the chicken moves one reachable adjacent grass
 tile away, avoiding tiles occupied by sheep or the pawn. If none is available, it waits.
 Building pauses movement at the current step's safe destination. Background time
@@ -1105,16 +1131,29 @@ Ten levels use the Godot progression table above. From level two, Terrain opens 
 inventory; select an item and place it, then close the panel to return to walking.
 The old town snapshot timeline is retired; Study History remains available.
 
-The five-scene trailer uses three static captures of this game's fresh preview:
-level one, the level-two reward popup, and placement of its ground rewards. It loads
-responsive PNG media rather than another engine. Reward captures match the host locale. The captures advance within the existing scene
-timer; selecting a stage pauses that scene until navigation or Skip. Settings replay
-and the short host walkthrough preserve completed general onboarding. Walkthroughs
-point at the island surface and keep the game/camera controls inert beneath the overlay.
+The entire trailer is one island slide saying “Study and build your own island”. Its
+19-second animation is rendered by `previews/trailer_island.tscn` using the
+canonical game terrain, pawn, tree-harvesting and cloud scripts. The pawn crosses
+a fixed grass strip to a fixed tree at normal speed. Surrounding randomly generated
+islands change every 0.21 seconds while the pawn approaches, growing from two
+grass tiles through the ten study levels. Additional trees and terraces arrive
+from level three, followed by the level-five sheep and house, and another sheep
+at level eight. Rocks, bushes and ducks enrich the growing island; chickens and
+sharks are absent. Water ripples, foliage and animal animations
+retain their ordinary clocks across terrain changes.
+Clouds and the target tree retain their instances and ordinary animation clocks.
+The final island holds while the pawn performs its normal ten-second cut.
 
-Regenerate the media with the desktop renderer:
-`Godot --path godot/tiny-swords --script res://tools/capture_trailer.gd`.
-Captures write to `images/tiny-swords-trailer/` and never open learner saves.
+Run **F6** on that scene to preview it without reading or writing saves. Regenerate
+the desktop and square phone MP4s and populated-island posters with
+`node scripts/build-tiny-swords-trailer.mjs` (desktop Godot and FFmpeg required).
+Media writes to `images/tiny-swords-trailer/` at 2304×992 on desktop and
+1280×1280 on phones, with wider camera framing and normal browser scaling.
+The website plays the muted video
+only on the island slide, restarts it when returning, and pauses it on exit or Skip.
+Reduced motion shows the poster. Settings replay and the short host walkthrough
+preserve completed general onboarding. Walkthroughs point at the island surface
+and keep the game/camera controls inert beneath the overlay.
 
 Edenia sends its current locale at game readiness and on language changes. The bridge
 only transports that presentation preference. Godot's `GameCopy` owns English,

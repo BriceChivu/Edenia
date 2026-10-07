@@ -117,6 +117,14 @@ func avoid_sheep() -> void:
 		reset_grazing()
 		face_destination()
 
+# Escape may turn sideways, but a first step back toward the pawn is not away.
+var choosing_escape := false
+func escape_target() -> Vector2:
+	choosing_escape = true
+	var target := super.escape_target()
+	choosing_escape = false
+	return target
+
 const FOLLOW_DELAY := 2.0
 var follow_wait := -1.0
 var follow_target_cell := Vector2i(999, 999)
@@ -168,6 +176,12 @@ func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
 	return safe_follow_segment(start, target)
 
 func route_to_tile(start: Vector2, cell: Vector2i) -> Array[Vector2]:
+	if choosing_escape and world.layout.cell_at(start) == world.layout.cell_at(position):
+		var away: Vector2 = (position - world.pawn.position).normalized()
+		if away == Vector2.ZERO:
+			away = approach_direction.normalized()
+		if Vector2(cell - world.layout.cell_at(start)).dot(away) < -0.01:
+			return []
 	var route := super.route_to_tile(start, cell)
 	for point in route:
 		if not movement_segment_allowed(start, point):
@@ -336,4 +350,19 @@ func advance(delta: float, now: float) -> void:
 				elapsed = follow_wait - FOLLOW_DELAY
 				updated_at = now - elapsed
 				delta = elapsed
+	if can_move and not fleeing and world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position) and absf(world.ground_height(position) - world.ground_height(world.pawn.position)) <= 1.0:
+		var movement: Vector2 = world.pawn.position - previous_pawn_position
+		if movement.length_squared() > 0.001:
+			approach_direction = movement.normalized()
+		var target := escape_target()
+		if target == position:
+			if world.chicken_carry != null and world.chicken_carry.pickup(chicken_index, now):
+				hide()
+				set_process(false)
+				return
+		else:
+			destination = target
+			fleeing = true
+			reset_grazing()
+			face_destination()
 	super.advance(delta, now)

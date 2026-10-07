@@ -86,7 +86,7 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 	pawn.z_index = int(ceil(spawn_height / 64.0))
 	pawn.sprite.position = Vector2(0, -32 - spawn_height)
 	pawn.sprite.rotation = 0.0
-	pawn.sprite.play("idle")
+	pawn.sprite.play("chicken_idle" if pawn.carrying_chicken else "idle")
 	var appear := create_tween()
 	appear.tween_property(pawn.sprite, "modulate:a", 1.0, 0.25)
 	await appear.finished

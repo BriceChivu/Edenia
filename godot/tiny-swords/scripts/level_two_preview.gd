@@ -41,6 +41,7 @@ var walking_bridges: Array[Vector2i] = []
 var movement_generation := 0
 var waypoints: Array[Vector2] = []
 var harvesting
+var chicken_carry
 var construction
 var log_pickup := Vector2i(999, 999)
 var log_delivery := Vector2i(999, 999)
@@ -139,6 +140,8 @@ func _ready() -> void:
 	add_child(construction)
 	if layout.house_bundle > 0:
 		construction.open_placement()
+	chicken_carry = preload("res://scripts/chicken_carry.gd").new()
+	chicken_carry.world = self
 	rebuild_decorations()
 	construction.resume_build()
 	refresh()
@@ -238,21 +241,25 @@ func toggle_editing() -> void:
 	refresh()
 	update_inventory_preview(get_global_mouse_position(), false)
 
+func begin_pawn_action(excluded_cells: Array = []) -> bool:
+	return chicken_carry == null or chicken_carry.put_down(excluded_cells)
+
 func _process(_delta: float) -> void:
 	if terrain == null:
 		return
 	if arrival != null and arrival.blocks_gameplay():
 		update_cursor()
 		return
+	chicken_carry.advance(Time.get_unix_time_from_system())
 	if log_pickup != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
-		if not editing and water_phase == WaterPhase.READY and layout.pick_log(log_pickup):
+		if not editing and water_phase == WaterPhase.READY and layout.can_pick_log(log_pickup) and begin_pawn_action() and layout.pick_log(log_pickup):
 			history.clear()
 			rebuild_decorations()
 			save_layout()
 		log_pickup = Vector2i(999, 999)
 	pawn.carrying_wood = (layout.carried_wood > 0 or layout.house_bundle > 0) and not pawn.axe_equipped and not pawn.hammering
 	if log_delivery != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
-		var delivered := not editing and water_phase == WaterPhase.READY and layout.drop_logs(log_delivery)
+		var delivered := not editing and water_phase == WaterPhase.READY and layout.can_drop_logs(log_delivery) and begin_pawn_action([log_delivery]) and layout.drop_logs(log_delivery)
 		log_pickup = Vector2i(999, 999)
 		log_delivery = Vector2i(999, 999)
 		if delivered:
@@ -763,14 +770,14 @@ func handle_world_click(event: InputEvent) -> void:
 			if layout.can_pick_log(pile):
 				var destination: Vector2 = layout.center(pile)
 				var route := land_route(pawn.position, pile, destination)
-				if not route.is_empty() and route.back().is_equal_approx(destination):
+				if not route.is_empty() and route.back().is_equal_approx(destination) and begin_pawn_action():
 					walk_on_land(pile, destination)
 					log_pickup = pile
 				return
 			if layout.can_drop_logs(cell):
 				var destination: Vector2 = layout.center(cell)
 				var delivery_route := land_route(pawn.position, cell, destination)
-				if not delivery_route.is_empty() and delivery_route.back().is_equal_approx(destination):
+				if not delivery_route.is_empty() and delivery_route.back().is_equal_approx(destination) and begin_pawn_action([cell]):
 					walk_on_land(cell, destination)
 					log_delivery = cell
 				return
@@ -898,6 +905,10 @@ func animate_house_displacements() -> void:
 	layout.house_displacements.clear()
 
 func rebuild_decorations(display_layout = null) -> void:
+	if $World.get_script() == null:
+		$World.set_script(preload("res://scripts/terrain_depth.gd"))
+		$World.set_process(true)
+		$World.process_priority = 100 # Sort after actor animations and movement.
 	inventory_art_revision += 1
 	inventory_preview_inputs.clear()
 	var render_layout = display_layout if display_layout != null else layout
@@ -941,7 +952,9 @@ func rebuild_decorations(display_layout = null) -> void:
 			surface.render_source = terrain
 			surface.piece = cell
 			surface.z_index = maxi(0, int(render_layout.height_at(cell) / 64.0) - (0 if render_layout.cells[cell] == "stairs" else 1))
-			surface.position = render_layout.ORIGIN + Vector2(cell) * 64
+			# Solid cliffs cover lower-floor actors behind their near edge.
+			# TerrainDepth compares each actor with the ramp's sloped edge.
+			surface.position = render_layout.ORIGIN + Vector2(cell) * 64 + Vector2(0, 64)
 			surface.set_meta("terrain_occluder", true)
 			$World.add_child(surface)
 	for start in (render_layout.bridges if render_layout.bridges_enabled else {}):

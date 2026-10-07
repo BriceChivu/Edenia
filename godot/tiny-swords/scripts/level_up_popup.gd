@@ -13,7 +13,7 @@ func localize() -> void:
 	$BuildButton.text = GameCopy.text("ok")
 	$BuildButton.accessibility_name = $BuildButton.text
 	GameCopy.font($BuildButton)
-	for pair in [["GroundButton", "groundReward"], ["StairsButton", "stairsReward"], ["PineReward", "chickenReward" if configured_level in [2, 7] else "sheepReward" if configured_level == 8 else "treeReward"], ["AxeReward", "axeReward"], ["SheepReward", "sheepReward"], ["HouseReward", "houseReward"]]:
+	for pair in [["GroundButton", "groundReward"], ["StairsButton", "stairsReward"], ["PineReward", "chickenReward" if configured_level in [2, 7] else "sheepReward" if configured_level == 8 else "treeReward"], ["TreeReward", "treeReward"], ["AxeReward", "axeReward"], ["SheepReward", "sheepReward"], ["HouseReward", "houseReward"]]:
 		var reward := get_node_or_null(pair[0]) as Control
 		if reward != null:
 			reward.accessibility_name = GameCopy.text(pair[1])
@@ -24,9 +24,16 @@ func configure(level: int, _bridges_enabled := false) -> void:
 	$PineReward.visible = level in [2, 3, 4, 6, 7, 8]
 	$PineCount.visible = level in [2, 3, 4, 6, 7, 8]
 	if level in [2, 7]:
-		$PineReward.texture = preload("res://assets/chicken.png")
+		$PineReward.texture = preload("res://assets/ui/chicken_level_up.png")
 		$PineCount.text = "+1"
+	if has_node("TreeReward"):
+		$TreeReward.visible = level == 8
+		$TreeCount.visible = level == 8
 	if level == 8:
+		$GroundButton.position.x = 96
+		$GroundCount.position.x = 153
+		$PineReward.position.x = 194
+		$PineCount.position.x = 250
 		var sheep_icon := AtlasTexture.new()
 		sheep_icon.atlas = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Meat/Sheep/Sheep_Idle.png")
 		sheep_icon.region = Rect2(36, 32, 56, 56)

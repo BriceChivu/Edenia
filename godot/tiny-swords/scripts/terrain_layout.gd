@@ -41,7 +41,7 @@ const LEVEL_REWARDS := {
 	5: {"meadow": 3, "sheep": 1, "house": 0},
 	6: {"meadow": 3, "tree": 1},
 	7: {"meadow": 3, "chicken": 1},
-	8: {"meadow": 3, "sheep": 1},
+	8: {"meadow": 3, "sheep": 1, "tree": 1},
 	9: {"meadow": 3},
 	10: {"meadow": 3},
 }
@@ -56,6 +56,7 @@ var houses: Dictionary = {} # Cell -> four-way facing.
 var house_offsets: Dictionary = {} # Cell -> chosen ground-plane offset.
 var house_free_tiles: Dictionary = {} # House anchor -> its removable free foundation tiles.
 var chickens: Array[Vector2] = [] # Ground-plane positions, like sheep.
+var chicken_release_at := 0.0 # A carried bird is outside the ground-position array.
 var sheep: Array[Vector2] = [] # Ground-plane positions; rewards at levels five and eight.
 var trees: Dictionary = {}
 var tree_types: Dictionary = {}
@@ -973,7 +974,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 30, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 32, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.houses = []
 	for cell in houses:
 		var offset: Vector2 = house_offsets.get(cell, Vector2.ZERO)
@@ -984,6 +985,7 @@ func snapshot() -> Dictionary:
 		for square in house_free_tiles[owner]:
 			squares.append([square.x, square.y])
 		saved.house_free_tiles.append([owner.x, owner.y, squares])
+	saved.chicken_release_at = chicken_release_at
 	saved.chickens = []
 	for point in chickens:
 		saved.chickens.append([point.x, point.y])
@@ -1011,7 +1013,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
@@ -1158,11 +1160,14 @@ func restore(data: Dictionary) -> bool:
 		return false
 	if total != expected_total + int(bonus) + int(next_grants.get("ground", 0)):
 		return false
-	var tree_rewards := (0 if next_level < 3 else (1 if next_level == 3 else 2)) + (1 if int(data.version) >= 28 and next_level >= 6 else 0)
+	var tree_rewards := (0 if next_level < 3 else (1 if next_level == 3 else 2)) + (1 if int(data.version) >= 28 and next_level >= 6 else 0) + (1 if int(data.version) >= 32 and next_level >= 8 else 0)
 	if next_trees.size() + next_stock.tree != tree_rewards + int(next_grants.get("tree", 0)):
 		return false
 	# Grant the new level-six tree once to existing islands.
 	if int(data.version) < 28 and next_level >= 6:
+		next_stock.tree += 1
+	# Grant the new level-eight tree once to existing islands.
+	if int(data.version) < 32 and next_level >= 8:
 		next_stock.tree += 1
 	var next_bridges := {}
 	if int(data.version) >= 11:
@@ -1333,6 +1338,11 @@ func restore(data: Dictionary) -> bool:
 	# Grant the new level-eight reward once when upgrading older saves.
 	if int(data.version) < 26 and next_level >= 8:
 		next_stock.sheep += 1
+	var next_chicken_release = data.get("chicken_release_at", 0.0) if int(data.version) >= 31 else 0.0
+	if not (next_chicken_release is int or next_chicken_release is float) or not is_finite(float(next_chicken_release)) or next_chicken_release < 0:
+		return false
+	if next_chicken_release > 0 and next_level < 2:
+		return false
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
 		if not data.get("chickens") is Array:
@@ -1368,7 +1378,7 @@ func restore(data: Dictionary) -> bool:
 					return false
 			next_chickens.append(point)
 	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
-	if next_chickens.size() + next_stock.chicken != chicken_rewards + int(next_grants.get("chicken", 0)):
+	if next_chickens.size() + next_stock.chicken + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
 		return false
 	# Older islands have not received the new level-two reward.
 	if int(data.version) < 25 and next_level >= 2:
@@ -1423,6 +1433,7 @@ func restore(data: Dictionary) -> bool:
 		if next_build.x != owner.x or next_build.y != owner.y or next_houses.get(owner, -1) != 1 or next_build.started_at <= 0 or next_bundle != 0:
 			return false
 	chickens = next_chickens
+	chicken_release_at = float(next_chicken_release)
 	playground_grants = next_grants
 	house_build = next_build.duplicate(true)
 	free_house_grass = int(bonus)

@@ -13,7 +13,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	seed(0)
-	var scene = preload("res://previews/level_seven.tscn").instantiate()
+	var scene = load("res://previews/level_seven.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
@@ -171,7 +171,7 @@ func run() -> void:
 	chicken.advance(0.01, 122.01)
 	check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Build-mode settling stays outside pawn tile")
 	scene.editing = false
-	# A boxed-in chicken must not trap the pawn; contact matches sheep behavior.
+	# A boxed-in chicken is carried while the pawn completes its walk.
 	var saved_cells: Dictionary = scene.layout.cells.duplicate()
 	scene.layout.cells.clear()
 	scene.layout.cells[Vector2i.ZERO] = "meadow"
@@ -185,6 +185,11 @@ func run() -> void:
 		scene.pawn._physics_process(0.5)
 		chicken.advance(0.5, 123.0 + tick * 0.5)
 	check(scene.pawn.position.is_equal_approx(scene.pawn.destination), "Pawn reaches destination even when chicken cannot escape")
+	check(scene.layout.chickens.is_empty() and scene.pawn.carrying_chicken, "Boxed-in same-tile contact picks up the chicken")
+	# Restore the ground bird before exercising the unrelated follow-delay cases.
+	scene.layout.chicken_release_at = 0.0
+	scene.pawn.carrying_chicken = false
+	scene.layout.chickens.append(chicken.position)
 	scene.layout.cells.assign(saved_cells)
 	# A short walk retains the delay and finishes following after the pawn stops.
 	chicken.clear_following()

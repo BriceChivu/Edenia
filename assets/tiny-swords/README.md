@@ -21,6 +21,12 @@ sheep motion as references; imported on 4 October 2026. Its source provenance is
 `/Users/brice/Downloads/chicken-4.0-sprites/README.md`; it is not advertised as
 Pixel Frog's original art or part of the Free Pack license grant.
 
+The chicken-carrying idle/run sheets under `godot/tiny-swords/assets/pawn/`
+are deterministic composites of the original blue Wood pawn and existing chicken
+idle frames. Only the log is removed; the pawn's gloves, face, hat, stride and
+shadow are reused, and the bird uses its existing nearest-neighbor game scale.
+`godot/tiny-swords/tools/generate_chicken_carry.py` regenerates both sheets.
+
 The versioned game directory contains `notices/ASSET-PROVENANCE.md`, the Godot
 4.7.2 MIT license and complete third-party copyright/license collection, and
 MedievalSharp's SIL Open Font License with its copyright/reserved-name statement.
