@@ -1079,3 +1079,15 @@ Locale changes never replace the iframe or modify an island save. Chinese UI use
 bundled subset fonts; update their glyph subsets when changing the Godot catalogs.
 See `fonts/README.md` for provenance and regeneration. Validate with the integrated
 export contract and `tiny-swords-copy.spec.mjs`, then rebuild the integrated preview.
+
+## Ambient ocean shark
+
+One shark uses the supplied `assets/shark/shark.png` and roams continuously in
+open water in native and integrated scenes. Moving ripples reuse the sixteen-frame
+water-rock animation at 5 fps, with rock pixels removed by a palette shader.
+Its full sprite and ripple ring keep six pixels
+of clearance from land, the complete visible cliff column, stairs and the
+original water rocks. Every swimming step checks the whole route; terrain
+edits, previews, undo and restoration move a covered shark to clear water.
+Swimming freezes with reduced motion. This ambient animal does not consume
+inventory or enter island saves. Focused check: `res://tests/shark_water.gd`.
