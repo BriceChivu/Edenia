@@ -25,12 +25,25 @@ test('developed island loads compressed, remains usable, and releases keyboard f
   await page.unroute('**/tiny-swords-game/*/index.html')
   const responses = []
   page.on('response', response => {
-    if (/\/index\.(wasm|pck)$/.test(response.url())) responses.push(response)
+    if (/\/index\.(wasm|pck)\.br$/.test(response.url())) responses.push(response)
+  })
+  await page.addInitScript(() => {
+    window.islandLoadingProgress = []
+    addEventListener('message', event => {
+      if (event.origin === location.origin && event.data?.type === 'edenia-game-loading-progress') {
+        window.islandLoadingProgress.push(event.data)
+      }
+    })
   })
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
   const readyMs = await page.evaluate(() => performance.now())
   const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  const expectedBytes = await game.evaluate(() => Object.values(window.edeniaGameAssets.files).reduce((sum, asset) => sum + asset.bytes, 0))
+  const downloadProgress = await page.evaluate(() => window.islandLoadingProgress)
+  expect(downloadProgress.some(item => item.current > 0)).toBe(true)
+  expect(downloadProgress.every(item => item.total === expectedBytes && item.current <= item.total)).toBe(true)
+  await expect(page.locator('#tinySwordsLoadProgress')).toBeHidden()
   await expect.poll(() => game.evaluate(() => window.edeniaLastSavePersisted)).toBe(true)
   const release = await (await request.get(new URL('release.json', game.url()).href)).json()
   const transfer = await Promise.all(responses.map(async response => ({
@@ -38,14 +51,15 @@ test('developed island loads compressed, remains usable, and releases keyboard f
     encoding: await response.headerValue('content-encoding'),
     bytes: Number(await response.headerValue('content-length'))
   })))
-  expect(transfer.map(item => item.asset).sort()).toEqual(['index.pck', 'index.wasm'])
+  expect(transfer.map(item => item.asset).sort()).toEqual(['index.pck.br', 'index.wasm.br'])
   for (const asset of transfer) {
-    expect(asset.encoding).toMatch(/^(br|gzip)$/)
+    // Explicit Brotli artifacts work even without HTTP Content-Encoding.
+    expect(asset.encoding).toBeNull()
     expect(asset.bytes).toBeGreaterThan(0)
   }
   // Desktop HTTP compression negotiation is evidence independent of viewport.
   for (const encoding of ['br', 'gzip']) {
-    const response = await request.head(new URL('index.wasm', game.url()).href, { headers: { 'Accept-Encoding': encoding } })
+    const response = await request.head(new URL(`../../tiny-swords-engine/${release.engineHash}/index.wasm`, game.url()).href, { headers: { 'Accept-Encoding': encoding } })
     expect(response.headers()['content-encoding']).toBe(encoding)
   }
   const canvas = game.locator('#canvas')

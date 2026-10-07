@@ -28,6 +28,9 @@ var celebration_tweens: Array[Tween] = []
 func _ready() -> void:
 	layer = 20
 	root = preload("res://scenes/terrain_ui.tscn").instantiate()
+	# Rasterize text at the final UI scale, including fitted reward popups.
+	# This does not smooth the pixel-art textures or change their filtering.
+	root.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	add_child(root)
 	launch = root.get_node("TerrainButton")
 	panel = root.get_node("TerrainButton2")

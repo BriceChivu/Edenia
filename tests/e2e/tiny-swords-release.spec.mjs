@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { expect, test } from '../support/network-fixture.mjs'
 
 test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Selected by the required Tiny Swords integration suite')
@@ -6,7 +7,7 @@ test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Selected by the requi
 test('versioned export loads under the hosted base path and disable/re-enable preserves an island', async ({ page, request }) => {
   test.setTimeout(180000)
   let enabled = true
-  const config = await readFile('_site/config.local.js', 'utf8')
+  const config = await readFile(resolve(process.env.EDENIA_TEST_SITE_ROOT || '_site', 'config.local.js'), 'utf8')
   await page.route('**/config.local.js?*', route => route.fulfill({
     contentType: 'text/javascript',
     body: config + `\nwindow.EDENIA_CONFIG.tinySwordsEnabled = ${enabled};`
@@ -44,12 +45,14 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
   const metadata = await (await request.get(releaseURL.href)).json()
   expect(gameURL.pathname).toContain(`/${metadata.version}/`)
   expect(metadata.godotVersion).toBe('4.7.2')
-  for (const asset of ['index.wasm', 'index.pck', 'index.js', 'parent.js', 'Cursor_02.png',
+  for (const asset of ['index.pck', 'index.pck.br', 'index.js', 'asset-loader.js', 'parent.js', 'Cursor_02.png',
     'notices/GODOT-LICENSE.txt', 'notices/GODOT-COPYRIGHT.txt', 'notices/MEDIEVALSHARP-OFL.txt', 'notices/ASSET-PROVENANCE.md']) {
     expect((await request.head(new URL(asset, gameURL).href)).ok(), asset).toBe(true)
   }
-  expect(gameRequests.some(url => url.endsWith('/index.wasm'))).toBe(true)
-  expect(gameRequests.some(url => url.endsWith('/index.pck'))).toBe(true)
+  const engineURL = new URL(`../../tiny-swords-engine/${metadata.engineHash}/index.wasm`, gameURL)
+  expect((await request.head(engineURL.href)).ok()).toBe(true)
+  expect((await request.head(engineURL.href + '.br')).ok()).toBe(true)
+  expect(gameRequests.some(url => url.endsWith('/index.pck.br'))).toBe(true)
   expect(gameRequests.every(url => new URL(url).pathname.startsWith(`/Edenia/tiny-swords-game/${metadata.version}/`))).toBe(true)
   expect(failures).toEqual([])
   const retained = await page.evaluate(() => {

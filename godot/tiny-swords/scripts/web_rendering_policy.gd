@@ -5,8 +5,10 @@ extends RefCounted
 static func configure() -> void:
 	if not OS.has_feature("web"):
 		return
-	var maximum := maxf(1, float(ProjectSettings.get_setting("edenia/web/max_pixel_ratio", 2.0)))
-	JavaScriptBridge.eval("(() => { if (typeof GodotDisplayScreen !== 'object' || typeof GodotDisplayScreen.getPixelRatio !== 'function') return false; GodotDisplayScreen.getPixelRatio = () => GodotDisplayScreen.hidpi ? Math.min(window.devicePixelRatio || 1, %s) : 1; window.edeniaMaxPixelRatio = %s; return true; })()" % [maximum, maximum])
+	# Native display density avoids browser enlargement of a low-resolution canvas.
+	# A positive cap remains available for explicit performance diagnostics.
+	var maximum := maxf(0, float(ProjectSettings.get_setting("edenia/web/max_pixel_ratio", 0.0)))
+	JavaScriptBridge.eval("(() => { if (typeof GodotDisplayScreen !== 'object' || typeof GodotDisplayScreen.getPixelRatio !== 'function') return false; const maximum = %s; GodotDisplayScreen.getPixelRatio = () => GodotDisplayScreen.hidpi ? (maximum > 0 ? Math.min(window.devicePixelRatio || 1, Math.max(1, maximum)) : (window.devicePixelRatio || 1)) : 1; window.edeniaMaxPixelRatio = maximum; return true; })()" % maximum)
 	set_frame_interval(int(ProjectSettings.get_setting("edenia/web/frame_interval", 1)))
 
 static func set_frame_interval(interval: int) -> bool:

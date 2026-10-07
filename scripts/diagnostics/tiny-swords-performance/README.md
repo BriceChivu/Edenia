@@ -117,8 +117,13 @@ equivalent to live memory. This is a short action stress test, not a 30-minute r
 `startup` uses fresh uninstrumented contexts at DPR 1/2/3, including phone-size
 touch emulation and a cold 10-Mb/s, 100-ms-latency network probe. It records total
 navigation-to-ready time, resource transfer timings and the actual backing canvas.
-It negotiates the builder's Brotli WASM/PCK artifacts when present; use `--plain`
-to measure uncompressed delivery. This remains a Mac/browser/network-emulation
+It exercises explicit Brotli WASM/PCK delivery, including worker decoding on a
+host without Content-Encoding headers. Worker asset requests are included in the
+startup transfer measurements. Use `--gzip` to force the HTTP gzip fallback,
+`--plain` for uncompressed delivery, or `--slow-only` to run only the cold
+10-Mb/s probe. The startup server paces encoded response bytes through a shared
+10-Mb/s budget with 100-ms response latency, including worker requests (CDP page
+throttling does not cover those requests). This remains a Mac/browser/network-emulation
 measurement, not startup on a physical phone or production hosting.
 The integration builder prepares `.br`/`.gz` variants. The ordinary static server
 also negotiates those variants with original MIME types and `Vary: Accept-Encoding`;

@@ -802,6 +802,10 @@ and momentum—at a glance</h2>
       <div class="city-image-wrap tiny-swords-surface" id="tinySwordsSurface" aria-label="Study island" data-i18n-aria-label="island.title" data-game-state="unavailable">
         <div class="tiny-swords-load-status" id="tinySwordsLoadStatus" role="status">
           <p id="tinySwordsLoadMessage" data-i18n="island.unavailable">Island is currently unavailable. You can keep studying; your saved island is retained.</p>
+          <div class="tiny-swords-load-progress" id="tinySwordsLoadProgress" aria-live="off" hidden>
+            <div class="tiny-swords-load-track" id="tinySwordsLoadBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-labelledby="tinySwordsLoadProgressLabel"><span></span></div>
+            <span id="tinySwordsLoadProgressLabel"></span>
+          </div>
           <button type="button" id="tinySwordsRetry" class="btn-ghost" hidden data-i18n="island.retry">Retry island</button>
         </div>
         <div class="city-zoom-controls tiny-swords-camera-controls" hidden aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">

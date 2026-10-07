@@ -35,5 +35,5 @@ environment/defaults/default_clear_color=Color(0.2784314, 0.6705883, 0.6627451, 
 
 [edenia]
 
-web/max_pixel_ratio=2.0
+web/max_pixel_ratio=0.0
 web/frame_interval=1

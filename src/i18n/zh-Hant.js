@@ -25,6 +25,8 @@ export const ZH_HANT_LOCALIZED = {
   "city.level.10": "3 塊草地，已達第 10 級",
 
   "island.loading": "正在載入你的島嶼⋯⋯你可以繼續學習。",
+  "island.downloading": "正在下載島嶼⋯⋯",
+  "island.preparing": "正在準備你的島嶼⋯⋯",
   "island.slow": "島嶼載入較慢。你可以繼續學習；已儲存的島嶼仍保留。",
   "island.failed": "島嶼無法啟動。你可以繼續學習；已儲存的島嶼仍保留。",
   "island.restoreFailed": "無法還原已儲存的島嶼。已阻擋新的儲存；原有島嶼仍保留。",

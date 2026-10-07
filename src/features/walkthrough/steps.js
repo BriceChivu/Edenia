@@ -86,9 +86,7 @@ export const LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP = {
   actionLabelKey: 'walkthrough.done',
   placement: 'bottom',
   spotlightPadding: 6,
-  spotlightHeightTarget: '.goal-card',
-  spotlightVerticalPadding: 0,
-  spotlightRadius: 999,
+  spotlightRadius: 16,
   confirmationOnly: true,
   hooks: {
     afterEnter: 'focusWalkthroughTarget',

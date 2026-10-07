@@ -7,12 +7,26 @@ func check(ok: bool, message: String) -> void:
   failures += 1
   push_error(message)
 
+func check_text_sampling(node: Node) -> void:
+ if (node is Label or node is Button) and not node.text.is_empty():
+  var ancestor: Node = node
+  while ancestor is CanvasItem and ancestor.oversampling_with_scale == CanvasItem.OVERSAMPLING_WITH_SCALE_PARENT_NODE:
+   ancestor = ancestor.get_parent()
+  check(ancestor is CanvasItem and ancestor.oversampling_with_scale == CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED, "Scaled UI text rasterizes at its displayed size: " + str(node.get_path()))
+ for child in node.get_children():
+  check_text_sampling(child)
+
 func _initialize() -> void:
  run.call_deferred()
 
 func run() -> void:
  var game = load(ProjectSettings.get_setting("application/run/main_scene")).instantiate()
  root.add_child(game)
+ check_text_sampling(game.arrival.root)
+ check_text_sampling(game.ui.root)
+ if game.playground != null:
+  check_text_sampling(game.playground.root)
+ check(game.arrival.button.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, "Start artwork retains nearest-neighbor pixel filtering")
  # Motion is presentation only: freeze drifting scenery and omit reward sparks
  # without changing the reward, inventory or animation/action clocks.
  var presentation = root.get_node("GamePresentation")
@@ -24,6 +38,7 @@ func run() -> void:
  cloud._process(1.0)
  check(cloud.position == cloud_position, "Reduced motion freezes decorative cloud drift")
  game.ui.celebrate(2)
+ check_text_sampling(game.ui.celebration)
  check(game.ui.celebration.modulate.a == 1.0 and game.ui.celebration_tweens.is_empty(), "Reduced motion presents rewards without fade or sparks")
  check(game.layout.snapshot() == motion_snapshot, "Motion preference cannot modify game progress")
  game.ui.celebration.free()
@@ -103,6 +118,8 @@ func run() -> void:
   game.receive_locale([locale])
   check(copy.locale == locale, "Bridge delivers locale to Godot")
   game.ui.refresh(false, "", false)
+  check_text_sampling(game.arrival.root)
+  check_text_sampling(game.ui.root)
   check(game.ui.launch.accessibility_name == copy.text("terrain"), "Live inventory label follows locale")
   game.ui.refresh(true, "", false)
   if locale.begins_with("zh"):
@@ -115,6 +132,7 @@ func run() -> void:
    game.ui.celebrate(level)
    check(game.ui.celebration.get_node("Title").text == copy.text("level", {"level": level}), "All ten-level reward titles follow locale")
    game.ui.celebration.fit_text(0.5)
+   check_text_sampling(game.ui.celebration)
    check(game.ui.celebration.get_node("BuildButton").get_theme_font_size("font_size") >= 28, "Phone confirmation remains readable after popup fitting")
    var title = game.ui.celebration.get_node("Title")
    if locale.begins_with("zh"):

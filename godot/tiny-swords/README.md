@@ -376,6 +376,36 @@ Implement gameplay fixes and features in the Godot source, not in bridge scripts
 browser adapters, export builders, or generated exports. Rebuild the integrated
 preview from that source after changes.
 
+### Web asset delivery
+
+The integrated builder publishes the unchanged engine binary at
+`tiny-swords-engine/<engine-sha256>/index.wasm`, independently of the game's
+release directory. Pack, UI, locale and adapter changes retain that URL; changing
+the engine bytes changes it. The decoder has its own content hash too. The local
+server marks those immutable directories cacheable; GitHub Pages uses its own
+HTTP cache policy and can revalidate the same engine URL across game releases.
+The worker also keeps one validated opaque compressed engine in its own
+`edenia-tiny-swords-engine-v1` Cache API cache (about 7 MB). Older engine entries
+are evicted after a successful replacement. Storage failures leave loading usable;
+learner profiles and backups never enter this disposable cache.
+
+Engine and pack have quality-11 Brotli artifacts. The integration requests their
+explicit `.br` URLs, so GitHub Pages does not need custom Content-Encoding headers.
+A bounded streaming worker decodes them with native Brotli when available, or the
+pinned `brotli-dec-wasm` decoder otherwise. Godot still initializes the engine,
+loads the pack and owns gameplay. Missing compressed files or decoder support
+fall back to the ordinary HTTP-compressed URLs. Invalid/truncated streams report
+startup failure through the existing retry surface; accepted restoration still
+gates writes. Learner-profile fields and their storage keys stay unchanged. The decoder's MIT
+notice is included in every release. Coverage: `tiny-swords-delivery.spec.mjs` and
+`tests/contracts/tiny-swords-delivery.test.mjs` at the repository root.
+
+The exported Godot download callback forwards byte progress to Edenia's loading
+bar. Its percentage describes downloads, not an estimated time remaining.
+After downloads finish, the bar shows an indeterminate localized preparation
+stage until Godot accepts the saved-island restoration. Retry resets progress;
+failure hides the bar. No gameplay or restore decisions move into the host UI.
+
 ## Island persistence in the local Edenia integration
 
 The explicit localhost:8037 build stores Godot's versioned snapshot in the active
@@ -1034,6 +1064,20 @@ visibility bridge; Godot owns suspension and resume. Closing an overlay resumes
 the same frame. The focused dashboard smoke verifies pointer, keyboard and camera
 blocking alongside engine failure/retry and durable data preservation.
 
+## Rendering and display density
+
+Pixel-art textures retain their authored nearest-neighbor filtering. Start,
+inventory, reward and Playground UI roots enable scale-aware font oversampling,
+so readable text is rasterized at its displayed size rather than enlarging small
+glyph images when the UI compensates for narrow screens. Descendant controls,
+including fitted reward popups and localized fonts, inherit this policy.
+
+The Web canvas uses the browser's native display density by default.
+`edenia/web/max_pixel_ratio=0.0` disables the former 2× cap; a positive value
+enables an explicit cap for performance diagnostics. Moving from 2× to 3× density
+renders 2.25 times as many canvas pixels. Physical-device memory and frame-pacing
+checks remain separate from desktop viewport emulation.
+
 ## Browser input and motion preferences
 
 Tab navigates the Godot buttons. Escape cancels house placement or closes Terrain;
@@ -1079,3 +1123,5 @@ Locale changes never replace the iframe or modify an island save. Chinese UI use
 bundled subset fonts; update their glyph subsets when changing the Godot catalogs.
 See `fonts/README.md` for provenance and regeneration. Validate with the integrated
 export contract and `tiny-swords-copy.spec.mjs`, then rebuild the integrated preview.
+
+Chicken placement uses the same grass rules as sheep, including grass at both ends of stairs. The ramp itself and occupied tiles remain unavailable. Focused check: `res://tests/chicken_stair_placement.gd`.

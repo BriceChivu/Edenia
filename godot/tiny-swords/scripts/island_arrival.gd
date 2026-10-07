@@ -18,6 +18,7 @@ func _ready() -> void:
 	layer.layer = 22
 	add_child(layer)
 	root = Control.new()
+	root.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
 	button = preload("res://scenes/island_start.tscn").instantiate()

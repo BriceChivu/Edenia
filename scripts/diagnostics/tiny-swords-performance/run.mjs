@@ -8,15 +8,31 @@ const root=process.cwd(), out=resolve('.cache/tiny-swords-perf');let variant='or
 const siteRoot=resolve(process.argv.find(a=>a.startsWith('--site='))?.slice(7)||'_site');
 const releases=await readdir(resolve(siteRoot,'tiny-swords-game'));if(releases.length!==1)throw new Error('Build one integrated Tiny Swords release first');
 const gamePrefix='/tiny-swords-game/'+releases[0]+'/';
+let startupWireSlow=false,wireNextMs=0;
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// CDP's page throttling does not cover dedicated-worker requests. Pace the
+// actual encoded HTTP bytes through one shared 10-Mb/s budget instead.
+async function sendBody(res,body){
+ if(!startupWireSlow){res.end(body);return;}
+ await delay(100);
+ for(let offset=0;offset<body.length;offset+=16384){
+  const chunk=body.subarray(offset,offset+16384),at=Math.max(Date.now(),wireNextMs);
+  wireNextMs=at+chunk.length/1250;await delay(Math.max(0,at-Date.now()));
+  if(res.destroyed)return;res.write(chunk);
+ }
+ res.end();
+}
 const server=createServer(async(req,res)=>{try{
  const u=new URL(req.url,'http://localhost'); let p=u.pathname==='/'?'/index.html':u.pathname;
+ if((process.argv.includes('--plain')||process.argv.includes('--gzip'))&&p.endsWith('.br')){if(startupWireSlow)await delay(100);res.writeHead(404);res.end();return;}
  let body; if(p==='/alone.html'){body=Buffer.from('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}iframe{width:min(1054px,100vw);height:454px;border:0;display:block}</style><iframe src="'+gamePrefix+'index.html"></iframe>')}else body=await readFile(p.startsWith(gamePrefix)&&variant==='instrument'&&!p.endsWith('/parent.js')?resolve(out,'export3',p.split('/').at(-1)):resolve(siteRoot,'.'+p));
- if(!process.argv.includes('--plain')&&variant==='original'&&p.startsWith(gamePrefix)&&/\.(wasm|pck)$/.test(p)&&req.headers['accept-encoding']?.includes('br')){
-  try{body=await readFile(resolve(siteRoot,'.'+p+'.br'));res.setHeader('Content-Encoding','br');res.setHeader('Vary','Accept-Encoding');}catch{}
+ if(!process.argv.includes('--plain')&&variant==='original'&&/\.(wasm|pck)$/.test(p)){
+  const encoding=!process.argv.includes('--gzip')&&req.headers['accept-encoding']?.includes('br')?'br':'gzip';
+  try{body=await readFile(resolve(siteRoot,'.'+p+(encoding==='br'?'.br':'.gz')));res.setHeader('Content-Encoding',encoding);res.setHeader('Vary','Accept-Encoding');}catch{}
  }
  if(p.endsWith('.js'))body=Buffer.from(body.toString().replaceAll('8037','8047'));
  if(p==='/index.html'&&u.searchParams.has('nogame'))body=Buffer.from(body.toString().replace(/<script src="tiny-swords-game\/[^"]+\/parent.js" defer><\/script>/,''));
- res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.wasm':'application/wasm','.css':'text/css','.json':'application/json','.png':'image/png'})[extname(p)]||'application/octet-stream');res.end(body);
+ res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.wasm':'application/wasm','.css':'text/css','.json':'application/json','.png':'image/png'})[extname(p)]||'application/octet-stream');await sendBody(res,body);
  }catch{res.writeHead(404);res.end();}});await new Promise(r=>server.listen(8047,'127.0.0.1',r));
 const browser=await chromium.launch({headless:false,channel:process.argv.includes('--chrome')?'chrome':undefined,args:['--no-first-run']});
 const global=await browser.newBrowserCDPSession();await global.send('SystemInfo.getInfo').then(r=>writeFile(out+'/gpu.json',JSON.stringify(r.gpu,null,2)));
@@ -60,8 +76,10 @@ for(let y=side===20?-9:0;y<(side===20?11:side);y++)for(let x=0;x<side;x++){const
 a.chickens=animals?[[608,272]]:[];a.sheep=animals?[[672,208]]:[];a.version=24;a.playground_grants={ground:a.tiles.length+Object.entries(a.stock).filter(([k])=>['meadow','gold','high_gold','high_meadow','violet','stairs'].includes(k)).reduce((n,[k,v])=>n+v*(k==='stairs'?2:1),0)-27,tree:a.tree_offsets.length+a.stock.tree-2,sheep:a.sheep.length+a.stock.sheep-1,chicken:a.chickens.length+a.stock.chicken-1};return a;}
 function natural(){const a=structuredClone(fixture);a.level=10;a.tiles=[];a.tree_offsets=[];a.tree_cut_remaining=[];a.house_bundle=0;a.decorations=[];for(const k of Object.keys(a.stock))a.stock[k]=0;a.stock.bridge=1;for(let y=0;y<6;y++)for(let x=0;x<6;x++){const tree=(x===2&&y===2)||(x===5&&y===5);a.tiles.push([x,y,'meadow',tree,0,0,0]);if(tree)a.tree_offsets.push([x,y,0,0,'tree2']);}a.chickens=[[608,272]];a.sheep=[[672,208]];return a;}
 async function setup({mode='integrated',side=0,dpr=2,instrument=false,channels=0,videos=0,mobile=false,slow=false}={}){
+ startupWireSlow=suite==='startup'&&slow;wireNextMs=Date.now();
  variant=instrument?'instrument':'original'; const context=await browser.newContext({viewport:mobile?{width:393,height:852}:{width:1440,height:1000},deviceScaleFactor:dpr,isMobile:mobile,hasTouch:mobile});const page=await context.newPage();page.on('console',m=>{if(m.text().includes('ERROR')||m.type()==='error')console.log('GAME_CONSOLE',m.text().slice(0,300))});
- if(slow){const network=await context.newCDPSession(page);await network.send('Network.enable');await network.send('Network.emulateNetworkConditions',{offline:false,latency:100,downloadThroughput:1250000,uploadThroughput:1250000});}
+ const assetResponses=[];page.on('response',r=>{if(/\/index\.(wasm|pck)(\.br)?$/.test(r.url())&&r.ok())assetResponses.push(r)});
+ if(slow&&!startupWireSlow){const network=await context.newCDPSession(page);await network.send('Network.enable');await network.send('Network.emulateNetworkConditions',{offline:false,latency:100,downloadThroughput:1250000,uploadThroughput:1250000});}
  await page.addInitScript(()=>{window.__memories=[];for(const k of ['instantiate','instantiateStreaming']){const original=WebAssembly[k];WebAssembly[k]=async function(...args){const result=await original.apply(WebAssembly,args);const exports=result.instance?.exports||result.exports;for(const v of Object.values(exports||{}))if(v instanceof WebAssembly.Memory)window.__memories.push(v);return result}};window.__errorCount=0;const e=console.error;console.error=function(...args){window.__errorCount++;return e.apply(console,args)};window.__gl={};for(const C of [WebGLRenderingContext,WebGL2RenderingContext]){const get=C.prototype.getParameter;C.prototype.getParameter=function(p){const t=performance.now();const r=get.call(this,p);const k=String(p);const v=window.__gl[k]||{calls:0,ms:0};v.calls++;v.ms+=performance.now()-t;window.__gl[k]=v;return r;}};window.__longTasks=[];new PerformanceObserver(l=>window.__longTasks.push(...l.getEntries().map(e=>({at:e.startTime,ms:e.duration})))).observe({type:'longtask',buffered:true});if(navigator.serviceWorker)Object.defineProperty(navigator.serviceWorker,'getRegistration',{value:async()=>undefined})});
  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  if(checkpointSuite)await page.route('**/config.local.js*',r=>r.fulfill({contentType:'text/javascript',body:'window.EDENIA_CONFIG={tinySwordsEnabled:true,accountFeaturesRollout:"off",learnerProfileLifecycleEnabled:false,indexedDbProfileEnabled:true,indexedDbBackupsEnabled:true}'}));
@@ -76,7 +94,9 @@ async function setup({mode='integrated',side=0,dpr=2,instrument=false,channels=0
  }
  const gf=mode==='nogame'?null:page.frames().find(f=>f.url().includes('/tiny-swords-game/'));
  const start=Date.now();if(gf){try{await gf.waitForFunction(()=>window.edeniaGameLevel>=1,null,{timeout:60000});if(instrument)await gf.waitForFunction(()=>window.__godotPerf?.tiles>0,null,{timeout:60000})}catch(e){console.log('RESTORE DEBUG',await gf.evaluate(()=>({level:window.edeniaGameLevel,perf:window.__godotPerf,body:document.body.innerText})),await page.locator('.tiny-swords-save-status').innerText());throw e;}}
- const startup={readyAfterLoadMs:Date.now()-start,totalFromNavigationMs:Date.now()-navigationBegan,resources:gf?await gf.evaluate(()=>performance.getEntriesByType('resource').filter(x=>/wasm|pck|index.js/.test(x.name)).map(x=>({name:x.name.split('/').at(-1),duration:x.duration,transfer:x.transferSize,decoded:x.decodedBodySize}))):[]};console.log('STARTUP',startup);
+ const startup={readyAfterLoadMs:Date.now()-start,totalFromNavigationMs:Date.now()-navigationBegan,resources:gf?await gf.evaluate(()=>performance.getEntriesByType('resource').filter(x=>/index.js/.test(x.name)).map(x=>({name:x.name.split('/').at(-1),duration:x.duration,transfer:x.transferSize,decoded:x.decodedBodySize}))):[]};
+ const decoded=gf?await gf.evaluate(()=>window.edeniaGameAssets?.files||{}):{};
+ for(const response of assetResponses){const name=response.url().split('/').at(-1),t=response.request().timing(),sizes=await response.request().sizes();startup.resources.push({name,duration:t.responseEnd-t.requestStart,transfer:sizes.responseBodySize+sizes.responseHeadersSize,decoded:decoded[name.replace(/\.br$/,'')]?.bytes})}console.log('STARTUP',startup);
  await new Promise(r=>setTimeout(r,6000));return {context,page,gf,startup};
 }
 async function flags(gf,value){await gf.evaluate(v=>window.__perfFlags=v,value);await new Promise(r=>setTimeout(r,1400));}
@@ -148,7 +168,7 @@ try {
   }
   await s.context.close();
  } else if(suite==='startup') {
-  for(const config of [{dpr:1},{dpr:2},{dpr:3,mobile:true},{dpr:3,mobile:true,slow:true}]){
+  for(const config of (process.argv.includes('--slow-only')?[{dpr:3,mobile:true,slow:true}]:[{dpr:1},{dpr:2},{dpr:3,mobile:true},{dpr:3,mobile:true,slow:true}])){
    const s=await setup({mode:'alone',...config});
    results.push({config,startup:s.startup,...await s.gf.evaluate(()=>({canvas:[canvas.width,canvas.height],maxPixelRatio:window.edeniaMaxPixelRatio,errors:window.__errorCount||0}))});
    await writeFile(out+'/startup.json',JSON.stringify(results,null,2));await s.context.close();

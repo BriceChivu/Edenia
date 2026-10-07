@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
+import { brotliDecompressSync } from 'node:zlib'
 
 import { readBuiltExperience } from '../support/built-experience.mjs'
 
@@ -24,10 +25,23 @@ test('the built game is one content-versioned release and does not host raw pack
     }
   }
   await visit(directory)
-  assert.equal(hash.digest('hex'), parent[2], 'changing any parent, iframe or engine byte must change its URL')
-  for (const name of ['index.html', 'index.wasm', 'index.pck', 'index.js', 'Cursor_02.png',
+  assert.equal(hash.digest('hex'), parent[2], 'changing game bytes or an engine reference must change the release URL')
+  const engineDirectory = `_site/tiny-swords-engine/${manifest.engineHash}`
+  const engine = await readFile(`${engineDirectory}/index.wasm`)
+  assert.equal(createHash('sha256').update(engine).digest('hex'), manifest.engineHash)
+  assert.equal(engine.length, manifest.engineBytes)
+  assert.deepEqual(brotliDecompressSync(await readFile(`${engineDirectory}/index.wasm.br`)), engine)
+  assert.ok((await stat(`${engineDirectory}/index.wasm.br`)).size < (await stat(`${engineDirectory}/index.wasm.gz`)).size)
+  assert.deepEqual(brotliDecompressSync(await readFile(`${directory}/index.pck.br`)), await readFile(`${directory}/index.pck`))
+  await assert.rejects(stat(`${directory}/index.wasm`), { code: 'ENOENT' })
+  for (const name of ['index.html', 'index.pck', 'index.js', 'asset-loader.js', 'Cursor_02.png',
     'notices/GODOT-LICENSE.txt', 'notices/GODOT-COPYRIGHT.txt', 'notices/MEDIEVALSHARP-OFL.txt', 'notices/ASSET-PROVENANCE.md']) {
     assert.ok((await stat(`${directory}/${name}`)).size > 0, name)
   }
+  assert.ok((await stat(`${directory}/notices/BROTLI-DEC-WASM-MIT.txt`)).size > 0)
+  const decoderDirectory = `_site/tiny-swords-decoder/${manifest.decoderHash}`
+  assert.equal(createHash('sha256').update(Buffer.concat([
+    await readFile(`${decoderDirectory}/worker.js`), await readFile(`${decoderDirectory}/decoder.wasm`)
+  ])).digest('hex'), manifest.decoderHash)
   await assert.rejects(stat('_site/assets/tiny-swords'), { code: 'ENOENT' })
 })
