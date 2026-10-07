@@ -30,7 +30,7 @@
 | Theme | Light is the default; light/dark selection is saved and updates icons, tokens, cards, prompts, heatmap, insights, and modal surfaces. | Keep |
 | Locale | English, Traditional Chinese, Simplified Chinese, Spanish, and French are supported, including dynamic content, attributes, dates, labels, and locale-specific trailer sizing. | Keep |
 | Normal mode | Uses normal local state, backups, configuration cookie, search cache, integrations, and production analytics gate. | Keep |
-| Internal-test mode | `?internal_test=1` uses isolated state/configuration, preserves the query after onboarding, and labels analytics as internal/test. | Keep |
+| Tiny Swords tester mode | `?internal_test=2` uses isolated state/configuration, preserves the query after onboarding, and labels analytics as internal/test. | Keep |
 | Sandbox mode | Available only at the expected localhost sandbox origin, uses isolated demo state, exposes Add day/Reset tools, and avoids live integrations. Invalid sandbox origins redirect away. | Keep |
 | Local feedback test | The expected local origin simulates feedback success without sending the production analytics event. | Keep |
 
@@ -40,7 +40,7 @@
 |---|---|---|---|---|
 | APP-001 | Application boot and visibility | Main app initializes from normalized local state; new users receive default state; main UI is present behind first-run dialogs and made inert as appropriate. | High | Keep |
 | APP-002 | Animated background | Full-page physics canvas remains decorative and theme-aware without entering the accessibility tree. | Medium | Keep |
-| APP-003 | Mode isolation | Normal, internal-test, and sandbox state, backups, configuration, cache, and analytics contexts remain separate. | High | Keep |
+| APP-003 | Mode isolation | Normal, Tiny Swords tester, and sandbox state, backups, configuration, cache, and analytics contexts remain separate. | High | Keep |
 | INTRO-001 | Trailer shell | Five-scene localized trailer with creator identity, social links, scene stage, progress timeline, safe-area positioning, and light/dark presentation. | High | Keep |
 | INTRO-002 | Trailer content | Opening, YouTube/Anki progress demonstration, island introduction, history/insight demonstration, and final call to action retain their order. | High | Keep |
 | INTRO-003 | Trailer timing and navigation | Per-scene auto-advance, disabled boundary controls, Previous/Next buttons, final Next removal on phone, Skip, final Start/Return action, and replay behavior. | High | Keep |
@@ -210,7 +210,7 @@
 
 3. **Global handler compatibility:** Static HTML and generated markup call many global functions through inline handlers. Module conversion must preserve every callable boundary until its markup is migrated.
 
-4. **Persistence compatibility:** Normal, sandbox, and internal-test storage keys; backup keys; search cache/usage keys; onboarding notices; config cookies; state normalization; and backup limits must remain stable.
+4. **Persistence compatibility:** Normal, sandbox, and Tiny Swords tester storage keys; backup keys; search cache/usage keys; onboarding notices; config cookies; state normalization; and backup limits must remain stable.
 
 5. **Save side effects:** State writes also drive analytics synchronization, backups, activity history, streak calculation, reminders, and rerenders. Extracting state code must preserve ordering and optional suppression flags.
 

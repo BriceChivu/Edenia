@@ -504,7 +504,7 @@ test('sign-in redirects are selected from an exact application allowlist', () =>
 test('Google ID-token sign-in exchanges one ephemeral credential without redirecting', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'https://www.edenia.study/?internal_test=1'
+    href: 'https://www.edenia.study/'
   })
 
   assert.equal(await harness.controller.signInWithGoogleIdToken({
@@ -560,7 +560,7 @@ test('Google ID-token failures expose one safe error and no credential details',
 test('email sign-in requests a localized same-device code without a redirect', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'http://localhost:8000/?internal_test=1'
+    href: 'http://localhost:8000/'
   })
 
   assert.equal(
@@ -770,7 +770,7 @@ test('sign-in validation and provider failures publish safe controller errors', 
 test('sign-in fails closed before calling Supabase from an unknown location', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'https://preview.example/Edenia/?internal_test=1'
+    href: 'https://preview.example/Edenia/'
   })
 
   assert.equal(await harness.controller.signInWithGoogleIdToken({
@@ -791,7 +791,7 @@ test('sign-in fails closed before calling Supabase from an unknown location', as
 test('OAuth cancellations are surfaced and removed from browser history', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'https://www.edenia.study/?internal_test=1&account=1#error=access_denied&error_description=User+denied+access&preserved=yes'
+    href: 'https://www.edenia.study/?account=1#error=access_denied&error_description=User+denied+access&preserved=yes'
   })
 
   await harness.controller.initialize()
@@ -803,21 +803,21 @@ test('OAuth cancellations are surfaced and removed from browser history', async 
   assert.deepEqual(harness.replacedUrls, [{
     state: { preserved: true },
     title: '',
-    url: '/?internal_test=1&account=1#preserved=yes'
+    url: '/?account=1#preserved=yes'
   }])
 })
 
 test('non-cancellation OAuth failures are surfaced without provider details', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'http://localhost:8000/?internal_test=1&account=1&error=server_error&error_description=private+provider+details'
+    href: 'http://localhost:8000/?account=1&error=server_error&error_description=private+provider+details'
   })
 
   await harness.controller.initialize()
 
   assert.equal(harness.controller.getState().error, ACCOUNT_AUTH_ERRORS.OAUTH_FAILED)
   assert.deepEqual(harness.replacedUrls.map(entry => entry.url), [
-    '/?internal_test=1&account=1'
+    '/?account=1'
   ])
   assert.equal(
     JSON.stringify(harness.controller.getState()).includes('private'),

@@ -1,7 +1,7 @@
 # Internal pixel-town implementation
 
-Experiment: pixel-art-town  
-Gate: `EDENIA_PIXEL_TOWN_ENABLED=true` at build time **and** `?internal_test=1` at runtime  
+Experiment: pixel-art-town
+Retired: the mode-1 runtime and production build integration were removed on 2026-10-07. The standalone experiment sources remain for reference.
 Public path: unchanged (subject to the linked CI and browser evidence)
 
 Future economy direction: [Experience, coins, and player choices](economy-design.md)
@@ -18,7 +18,6 @@ EDENIA_PIXEL_TOWN_ENABLED=true npm run build
 node scripts/serve-static.mjs --host localhost --port 4188 --root .
 ```
 
-- Learner trial: `http://localhost:4188/_site/?internal_test=1`
 - Public comparison: `http://localhost:4188/_site/`
 - Local workshop: `http://localhost:4188/tools/pixel-town/`
 

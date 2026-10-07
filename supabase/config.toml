@@ -4,9 +4,9 @@
 # them with the CLI's localhost defaults. Do not add wildcard redirects.
 site_url = "https://www.edenia.study/"
 additional_redirect_urls = [
-  "https://bricechivu.github.io/Edenia/?internal_test=1&account=1",
-  "http://localhost:8000/?internal_test=1&account=1",
-  "https://www.edenia.study/?internal_test=1&account=1",
+  "https://bricechivu.github.io/Edenia/?account=1",
+  "http://localhost:8000/?account=1",
+  "https://www.edenia.study/?account=1",
 ]
 
 [auth.email]

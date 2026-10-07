@@ -9,7 +9,7 @@ const godot = process.env.GODOT_BIN || '/Applications/Godot.app/Contents/MacOS/G
 function run(command, args) {
   const result = spawnSync(command, args, {
     cwd: root, stdio: 'inherit',
-    env: { ...process.env, EDENIA_PIXEL_TOWN_ENABLED: 'false' }
+    env: process.env
   })
   if (result.error) throw result.error
   if (result.status !== 0) throw new Error(`${command} failed (${result.status})`)

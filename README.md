@@ -45,7 +45,7 @@ Supported video states are:
 
 Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-Video organization is permanent for every visitor. The per-channel Videos/Shorts view remains an independent runtime release, and `/?internal_test=1` enables that release gate against isolated internal-test state. `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
+Video organization is permanent for every visitor. The per-channel Videos/Shorts view is available to every visitor. `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
 
 Undo and redo cover recent status, progress, Favorite, video-placement, manual-video, and channel-removal actions together with their related history and score changes.
 
@@ -66,7 +66,7 @@ Undo and redo cover recent status, progress, Favorite, video-placement, manual-v
 
 Study insights are calculated locally from up to 42 days of recorded video progress. They appear only after at least 8 active days, 2 hours of video study, and a 14-day observation window.
 
-Study Guidance is a separate runtime release and is always available in the isolated `/?internal_test=1` profile. It needs at least two complete prior weeks, uses up to four complete weeks from the same 42-day window, and does not use the weekly goal or add its live recommendation to insight history.
+Study Guidance is a separate runtime release controlled by `studyGuidanceEnabled`. It needs at least two complete prior weeks, uses up to four complete weeks from the same 42-day window, and does not use the weekly goal or add its live recommendation to insight history.
 
 ### AnkiConnect
 
@@ -164,15 +164,13 @@ Edenia uses the Node.js version pinned in `.nvmrc`.
 
 4. Open [http://localhost:8000/](http://localhost:8000/).
 
-To test runtime-gated experiences without changing the normal browser profile,
-open
-[http://localhost:8000/?internal_test=1](http://localhost:8000/?internal_test=1).
-That mode always enables the video-organization, channel-format, and Study
-Guidance release gates against isolated state. Leave their corresponding local
-flags `false` when verifying the ordinary fallback experiences: Set aside, the
-saved global Shorts preference, and the existing Study Insight model.
+To test runtime-gated experiences, set their explicit flags in local runtime
+configuration and use a separate browser profile. Tiny Swords remains available
+at [http://localhost:8000/?internal_test=2](http://localhost:8000/?internal_test=2).
+The retired mode-1 query opens ordinary Edenia and is removed from the address.
+Its old browser data is left untouched.
 
-IndexedDB backup flags are not forced by internal-test mode. Test normal-mode
+Test normal-mode
 backup storage with `indexedDbBackupsEnabled`; enable
 `indexedDbBackupCleanupEnabled` only when also verifying the guarded removal of
 a fully migrated legacy backup copy.
@@ -418,12 +416,12 @@ Edenia communicates only with the local AnkiConnect endpoint at `http://127.0.0.
 
 ## Data Storage and Portability
 
-Normal, internal-test, and sandbox progress are isolated in browser storage.
+Normal, Tiny Swords tester, and sandbox progress are isolated in browser storage.
 
 | Mode | URL | State key | Config cookie |
 | --- | --- | --- | --- |
 | Normal | `/` | `edenia_v1` | `edenia_config` |
-| Internal test | `/?internal_test=1` | `edenia_v1_internal_test` | `edenia_config_internal_test` |
+| Tiny Swords tester | `/?internal_test=2` | `edenia_v1_internal_test_2` | `edenia_config_internal_test_2` |
 | Sandbox | `http://localhost:8001/?sandbox=1` | `edenia_v1_sandbox` | `edenia_config_sandbox` |
 
 The primary state includes:
@@ -438,9 +436,9 @@ The primary state includes:
 
 The config cookie mirrors basic configuration so Edenia can recover settings if the main state is unavailable.
 
-Normal and internal-test modes each maintain up to eight recent local backup snapshots and display the four newest in **Settings -> Recent local backups**. They create interval-limited automatic backups and verified rollback points before risky operations such as imports, resets, and restores. Internal-test snapshots use an isolated browser storage namespace and IndexedDB database; sandbox mode deliberately does not create or expose recovery snapshots.
+Normal and Tiny Swords tester modes each maintain up to eight recent local backup snapshots and display the four newest in **Settings -> Recent local backups**. They create interval-limited automatic backups and verified rollback points before risky operations such as imports, resets, and restores. Tiny Swords tester snapshots use an isolated browser storage namespace and IndexedDB database; sandbox mode deliberately does not create or expose recovery snapshots.
 
-When `indexedDbBackupsEnabled` is active, normal-mode snapshots use the `edenia_state_backups_v1` IndexedDB database and internal-test snapshots use a separate internal-test database instead of sharing the primary state's localStorage quota. Existing mode-specific backup data is merged and verified before migration completes. The separate `indexedDbBackupCleanupEnabled` switch removes a valid legacy copy only after that verification; malformed or unverifiable legacy data is left in place.
+When `indexedDbBackupsEnabled` is active, normal-mode snapshots use the `edenia_state_backups_v1` IndexedDB database and Tiny Swords tester snapshots use the separate `edenia_state_backups_v1_internal_test_2` database instead of sharing the primary state's localStorage quota. Existing mode-specific backup data is merged and verified before migration completes. The separate `indexedDbBackupCleanupEnabled` switch removes a valid legacy copy only after that verification; malformed or unverifiable legacy data is left in place.
 
 Use **Export sync file** to download the complete current state and **Import sync file** to move it to another browser or device. Normal and sandbox sync files cannot be imported into the opposite mode. Sync files contain personal study history and should be treated as private backups.
 
@@ -490,12 +488,12 @@ The supported public runtime variables are:
 
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
-| `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off`, `internal`, or `public`. Sandbox remains excluded. |
+| `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off` or `public`. Sandbox and Tiny Swords tester remain excluded. |
 | `EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT` | `accountlessProfileFinalCutoverAt` | Sets the authoritative UTC cutoff for legacy profile entry. Once elapsed, clearing local grace bookkeeping cannot restore accountless study. |
 | `EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED` | `emergencyAccountlessRollbackEnabled` | Temporarily restores legacy accountless entry during an approved serious incident. It does not change profile-data authorization. |
 | `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` | `learnerProfileLifecycleEnabled` | Routes profile loading, activation, rendering, saving, import, export, analytics sync, and future cloud work through the fenced lifecycle authority. Keep off until signed-in profile resolution is connected. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
-| `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal- and internal-test recovery snapshots in their mode-isolated IndexedDB databases. |
+| `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal and Tiny Swords tester recovery snapshots in their mode-isolated IndexedDB databases. |
 | `EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED` | `indexedDbBackupCleanupEnabled` | Removes a valid legacy backup copy after verified migration; effective only with IndexedDB backups enabled. |
 | `EDENIA_FREE_PLUS_ENABLED` | `freePlusEnabled` | Enforces the Free/Plus history, insight, and tracked-channel access policy. |
 | `EDENIA_PLUS_CHECKOUT_ENABLED` | `plusCheckoutEnabled` | Enables the Plus checkout entry point when the public Supabase configuration and backend are ready. |
@@ -508,10 +506,8 @@ as compatibility markers for cached pre-retirement application assets. They
 are not release gates and have no repository variables.
 
 Boolean release variables default to disabled and accept only `true` or `false`.
-`EDENIA_ACCOUNT_FEATURES_ROLLOUT` defaults to `off` and accepts only `off`,
-`internal`, or `public`. Use `internal` to make later account work reachable only
-through `/?internal_test=1`; that URL is a rollout surface, not an authorization
-boundary.
+`EDENIA_ACCOUNT_FEATURES_ROLLOUT` defaults to `off` and accepts only `off`
+or `public`. Account backends authenticate and authorize every operation.
 
 Changing a repository variable does not alter an already deployed artifact;
 run the Pages workflow and verify the generated runtime configuration. The

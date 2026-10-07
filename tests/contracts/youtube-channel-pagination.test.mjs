@@ -26,7 +26,6 @@ function createHarness(initialIds, { internalTest = false, requestHook = () => {
   const requests = []
   const context = vm.createContext({
     checkNewUploads,
-    IS_INTERNAL_TEST: internalTest,
     uploadsId: getYoutubeUploadsPlaylistId,
     getYoutubeApiKey: () => 'test-key',
     ytFetch: async input => {

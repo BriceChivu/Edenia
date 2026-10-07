@@ -9,10 +9,10 @@ const create = () => createNativeOpeningAuthenticationPolicy({ applicationOrigin
 const otp = () => JSON.stringify({ email: expectedEmail, data: { edenia_auth_locale: 'en' }, create_user: true,
   gotrue_meta_security: { captcha_token: 'synthetic' }, code_challenge: 'a'.repeat(43), code_challenge_method: 's256' })
 const request = (origin, path, method = 'GET', destination = 'empty', body = '') => ({ origin, path, method, destination, body })
-test('native policy permits only the exact internal document and declared static reads', () => {
+test('native policy permits only the exact application document and declared static reads', () => {
   const p = create()
-  assert.equal(p.classify(request(applicationOrigin, '/?internal_test=1', 'GET', 'document')).kind, 'static')
-  assert.equal(p.classify(request(applicationOrigin, '/', 'GET', 'document')).kind, 'deny')
+  assert.equal(p.classify(request(applicationOrigin, '/', 'GET', 'document')).kind, 'static')
+  assert.equal(p.classify(request(applicationOrigin, '/?retired=1', 'GET', 'document')).kind, 'deny')
   assert.equal(p.classify(request(applicationOrigin, '/app.js?v=abc', 'GET', 'script')).kind, 'static')
   for (const destination of ['iframe', 'frame', 'worker', 'sharedworker', 'serviceworker', null, 'unknown'])
     assert.equal(p.classify(request(applicationOrigin, '/app.js', 'GET', destination)).kind, 'deny')

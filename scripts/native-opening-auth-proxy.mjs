@@ -148,7 +148,7 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
           && (response.status !== 200 || hash(response.body) !== expectedRuntimeHash)) { seal('deployment-mismatch'); return }
         if (origin === applicationOrigin && assetIdentity && req.url.split('?')[0] === '/app.js'
           && (req.url !== '/app.js?v=' + assetIdentity.version || response.status !== 200 || hash(response.body) !== assetIdentity.sha256)) { seal('deployment-mismatch'); return }
-        const document = origin === applicationOrigin && req.url === '/?internal_test=1' && req.headers['sec-fetch-dest'] === 'document'
+        const document = origin === applicationOrigin && req.url === '/' && req.headers['sec-fetch-dest'] === 'document'
         if (document && (response.status !== 200 || response.body.length === 0
           || !/^text\/html(?:;|$)/iu.test(response.headers['content-type'] || ''))) {
           seal('document-response'); return

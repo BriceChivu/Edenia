@@ -4,13 +4,6 @@ import { mapPersistenceResult } from './state/persistence-result.js'
 import { budgetObjectCache } from './state/storage-budget.js'
 import { budgetUndoState } from './state/action-history.js'
 import { budgetYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
-import {
-  initializeTownEconomy,
-  recordTownRewards,
-  getTownBalance,
-  purchaseFirstFlower,
-  FIRST_FLOWER_ID
-} from './state/town-economy.js'
 import { createYoutubeMetadataBudget } from './integrations/youtube-metadata-budget.js'
 import { resolveWindowAnchor } from './features/videos/window-anchor.js'
 import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
@@ -581,11 +574,6 @@ import {
   renderPlusUpgradeExperience
 } from './features/plus/upgrade-presenter.js'
 
-import {
-  shouldHoldPausedInternalProfile,
-  showPausedInternalProfile
-} from './features/profile-access/experiment-pause.js'
-
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
 const DEFAULT_CHANNELS_VERSION = 2
@@ -597,25 +585,17 @@ const DEFAULT_CHANNELS_VERSION = 2
 const RUNTIME_ENVIRONMENT = deriveRuntimeEnvironment(window.location)
 const {
   isSandbox: IS_SANDBOX,
-  isInternalTest: IS_INTERNAL_TEST,
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
 } = RUNTIME_ENVIRONMENT
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
-  RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
 )
 const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
 )
-// Experiment: pixel-art-town. Gate: IS_INTERNAL_TEST with Auth rollout off.
-const INTERNAL_PROFILE_PAUSED = shouldHoldPausedInternalProfile({
-  location: window.location,
-  accountFeaturesEnabled: ACCOUNT_FEATURES_ENABLED,
-  readStorage: key => localStorage.getItem(key)
-})
 const EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED =
   getEmergencyAccountlessRollbackEnabled()
 const ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT =
@@ -683,8 +663,7 @@ const {
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
   configCookieKey: CONFIG_COOKIE_KEY
 } = deriveStorageKeys({
-  isSandbox: IS_SANDBOX,
-  isInternalTest: IS_INTERNAL_TEST
+  isSandbox: IS_SANDBOX
 })
 const LEGACY_PROGRESS_RELAY_RUNTIME = deriveLegacyProgressRelayRuntime({
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST,
@@ -705,7 +684,6 @@ const createBaseDefaultState = createDefaultStateFactory({
 })
 function defaultState(...args) {
   const state = createBaseDefaultState(...args)
-  if (window.EDENIA_PIXEL_TOWN?.enabled) initializeTownEconomy(state, { newProfile: true })
   return state
 }
 const onboardingProfileDraftStore = createOnboardingProfileDraftStore({
@@ -720,9 +698,7 @@ const readImportedState = createImportedStateReader({
   createDefaultState: defaultState,
   removeLegacyVideoWatchReminderState
 })
-const STATE_BACKUP_DATABASE = IS_INTERNAL_TEST
-  ? `${STATE_BACKUP_DATABASE_NAME}_internal_test`
-  : STATE_BACKUP_DATABASE_NAME
+const STATE_BACKUP_DATABASE = STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
   `${STATE_BACKUP_KEY}_indexed_db_v1`
 let primaryProfileRepository = null
@@ -796,7 +772,6 @@ function pruneBackupForPrimaryQuota(...args) {
 }
 
 async function initializeStateBackupStorage() {
-  if (INTERNAL_PROFILE_PAUSED) return
   if (!LOCAL_BACKUPS_ENABLED) {
     try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
     stateBackupStore = createDisabledStateBackupStore()
@@ -1003,7 +978,6 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
   translate: t
 })
 const learnerProfileConflictView = createLearnerProfileConflictView({
-  isTownEconomyEnabled: () => Boolean(window.EDENIA_PIXEL_TOWN?.enabled),
   clearTimer: timer => window.clearTimeout(timer),
   formatDateTime: value => formatLocaleDateTime(value, {
     dateStyle: 'medium',
@@ -1151,36 +1125,12 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
 }
 
 function loadState(options = {}) {
-  if (INTERNAL_PROFILE_PAUSED) return null
   return learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.readActiveProfile()
     : loadPersistedState(options)
 }
 
 const persistedPortableProfileSnapshots = new WeakMap()
-
-let townEconomyProfile = null
-function refreshTownEconomy(s) {
-  if (!window.EDENIA_PIXEL_TOWN?.enabled || !s) return
-  const town = window.EDENIA_PIXEL_TOWN
-  town.translate = t
-  town.economy = {
-    balance: getTownBalance(s.townEconomy),
-    owned: Boolean(s.townEconomy && Object.hasOwn(s.townEconomy.purchases, FIRST_FLOWER_ID)),
-    available: Boolean(s.townEconomy)
-  }
-  if (townEconomyProfile !== s) {
-    townEconomyProfile = s
-    town.buildFlower = async () => {
-      if (townEconomyProfile !== s || !isCurrentLearnerProfileOperation(s)) return 'unavailable'
-      const active = loadState()
-      const result = await purchaseFirstFlower(active, async value => await saveState(value))
-      if (active) renderCity(getCurrentCityScore(active), active)
-      return result
-    }
-  }
-  window.dispatchEvent(new Event('pixel-town-economy'))
-}
 
 function getPortableProfileSnapshot(state) {
   if (!state || typeof state !== 'object') return null
@@ -1199,7 +1149,6 @@ function rememberPersistedPortableProfile(state) {
 }
 
 function saveImportedState(state, options = {}) {
-  if (INTERNAL_PROFILE_PAUSED) return { persisted: false, error: null }
   const result = learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
     : saveImportedPersistedState(state, options)
@@ -1210,11 +1159,10 @@ function saveImportedState(state, options = {}) {
 }
 
 function saveState(state, options = {}) {
-  if (INTERNAL_PROFILE_PAUSED || primaryProfileStorageUnavailable) return false
+  if (primaryProfileStorageUnavailable) return false
   const complete = persisted => {
     if (persisted) {
       rememberPersistedPortableProfile(state)
-      refreshTownEconomy(state)
       return true
     }
     const saved = loadPersistedState({ persistCleanup: false })
@@ -1237,7 +1185,6 @@ function saveState(state, options = {}) {
     return false
   }
   try {
-    if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
     const portableSnapshot = getPortableProfileSnapshot(state)
     const persistenceOptions = options.syncCloud === undefined
         && portableSnapshot !== null
@@ -2012,7 +1959,6 @@ function normalizeLoadedState(state) {
     && recoverProductionCityProgress(state, getCurrentCityScore(state), SCORING_RULES_VERSION)) shouldSave = true
   normalizeCityProgress(state)
   delete state.nightVisuals
-  if (window.EDENIA_PIXEL_TOWN?.enabled && initializeTownEconomy(state)) shouldSave = true
   return shouldSave
 }
 
@@ -3402,10 +3348,6 @@ function resumeApplicationAfterMigration() {
 }
 
 async function init() {
-  if (INTERNAL_PROFILE_PAUSED) {
-    showPausedInternalProfile(document)
-    return
-  }
   reportMissingI18nKeys()
   applyPermanentChannelVideoFormatUi()
   if (!stateBackupStorageReady) {
@@ -5087,7 +5029,6 @@ async function finishPersonalizedOnboarding() {
 function getPostOnboardingAppUrl() {
   const url = new URL(window.location.href)
   url.search = ''
-  if (IS_INTERNAL_TEST && !IS_SANDBOX) url.searchParams.set('internal_test', '1')
   return url.toString()
 }
 
@@ -8049,7 +7990,7 @@ async function addChannel(options = {}) {
       ? s.learnerProfile.languages.map(String)
       : [],
     learner_level: s.learnerProfile?.level || null,
-    internal_or_test_user: Boolean(IS_SANDBOX || IS_INTERNAL_TEST || IS_LOCALHOST),
+    internal_or_test_user: Boolean(IS_SANDBOX || IS_LOCALHOST),
     total_channel_count: s.config.channels.length
   })
   renderFeed(s)
@@ -14581,7 +14522,6 @@ function previewCityDayOffset(offset) {
 }
 
 async function renderCity(score, s) {
-  refreshTownEconomy(s)
   if (await updatePersistentCityLevel(s, score) === false) {
     s = loadState({ persistCleanup: false })
     if (!s) return
@@ -15532,14 +15472,12 @@ function getCityImageMaxZoom() {
 }
 
 function getDefaultCityImageZoom() {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return CITY_IMAGE_MIN_ZOOM
   return usesPhoneComposition()
     ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
     : CITY_IMAGE_MIN_ZOOM
 }
 
 function getDefaultCityImageY() {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return 0
   return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
 }
 
@@ -15552,9 +15490,8 @@ function getCityImagePanGeometry(scale = cityImageView.scale) {
   return getCityImageCoverGeometry({
     viewportWidth: rect.width,
     viewportHeight: rect.height,
-    // The pixel scene fills its viewport; all three layers share these bounds.
-    imageWidth: window.EDENIA_PIXEL_TOWN?.enabled ? rect.width : image.naturalWidth,
-    imageHeight: window.EDENIA_PIXEL_TOWN?.enabled ? rect.height : image.naturalHeight,
+    imageWidth: image.naturalWidth,
+    imageHeight: image.naturalHeight,
     scale
   })
 }
@@ -15591,15 +15528,6 @@ function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
   const wrap = document.querySelector('.city-image-wrap')
-  if (window.EDENIA_PIXEL_TOWN?.enabled) {
-    // Reuse production gestures and bounds for the still, animation and flower target.
-    wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
-    wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
-    wrap?.style.setProperty('--town-view', cityImageView.scale === 1
-      ? 'none'
-      : `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`)
-    return
-  }
   if (geometry) {
     image.style.width = `${geometry.baseWidth}px`
     image.style.height = `${geometry.baseHeight}px`
@@ -15703,7 +15631,6 @@ function getCityImagePreloadOrder(centerIndex) {
 }
 
 function queueCityImagePreloadsAround(centerIndex) {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   if (!Number.isInteger(centerIndex) || CITY_IMAGE_SOURCES.length === 0) return
   if (activeCityImagePreloadCenter === centerIndex) return
 
@@ -15752,20 +15679,6 @@ function updateCityMilestoneImage(score, options = {}) {
 
   const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
   const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
-  if (window.EDENIA_PIXEL_TOWN?.enabled) {
-    const town = window.EDENIA_PIXEL_TOWN
-    const economy = loadState()?.townEconomy
-    const stage = economy?.mode === 'starter'
-      ? (Object.hasOwn(economy.purchases, FIRST_FLOWER_ID) ? 14 : 13)
-      : imageIndex + 1
-    image.alt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
-    if (image.dataset.pixelStage !== String(stage)) {
-      image.dataset.pixelStage = String(stage)
-      image.src = `${town.base}${stage}-${town.light()}.png`
-      image.classList.remove('loading')
-    }
-    return
-  }
   const preloadCenterIndex = Number.isInteger(options.preloadCenterIndex)
     ? clampNumber(options.preloadCenterIndex, 0, CITY_IMAGE_SOURCES.length - 1)
     : imageIndex
@@ -19520,7 +19433,6 @@ bindUndoRedoActions(document, {
 
 bindImageFallbackActions(document)
 async function initializeBrowserStorage() {
-  if (INTERNAL_PROFILE_PAUSED) return
   // Retire only replaceable search metadata before opening a durable profile.
   // This also gives the small opening markers room in the localStorage pool.
   try {

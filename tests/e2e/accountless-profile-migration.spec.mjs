@@ -4,22 +4,22 @@ import {
 } from '../../src/state/portable-learner-profile.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const ACCOUNT_RETURN_URL = 'http://localhost:8000/?internal_test=1'
+const ACCOUNT_RETURN_URL = 'http://localhost:8000/'
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const CONFLICT_ID = '423e4567-e89b-42d3-a456-426614174003'
 const PROTECTED_UNTIL = '2026-10-31T00:00:00.000Z'
-const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
+const AUTH_STORAGE_KEY = 'edenia_v1_plus_auth_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_access_v1'
+  'edenia_v1_learner_profile_access_v1'
 const PROFILE_SYNC_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_sync_v1'
+  'edenia_v1_learner_profile_sync_v1'
 const MIGRATION_STORAGE_KEY =
-  'edenia_v1_internal_test_accountless_profile_migration_v1'
+  'edenia_v1_accountless_profile_migration_v1'
 const MIGRATION_BACKUP_STORAGE_KEY =
   `${PROFILE_SYNC_STORAGE_KEY}_accountless_migration`
 const PUBLIC_STATE_STORAGE_KEY = 'edenia_v1'
-const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
+const STATE_STORAGE_KEY = 'edenia_v1'
 const SECRET_CHANNEL_NAME = 'LEGACY PRIVATE LEARNER CHANNEL'
 const YOUTUBE_CHANNEL_ID = 'UC0000000000000000000000'
 const ORDINARY_VIDEO_ID = 'accountless-ordinary-fetched-video'
@@ -30,7 +30,7 @@ function runtimeConfig(
   emergencyRollbackEnabled = false,
   finalCutoverAt = '',
   youtubeApiKey = '',
-  accountFeaturesRollout = enabled ? 'internal' : 'off'
+  accountFeaturesRollout = enabled ? 'public' : 'off'
 ) {
   return `window.EDENIA_CONFIG = {
     youtubeApiKey: '${youtubeApiKey}',
@@ -153,7 +153,7 @@ async function installRuntimeRoute(
   isEnabled,
   {
     getAccountFeaturesRollout = () => (
-      isEnabled() ? 'internal' : 'off'
+      isEnabled() ? 'public' : 'off'
     ),
     getFinalCutoverAt = () => '',
     getYoutubeApiKey = () => '',
@@ -407,12 +407,14 @@ async function installProgressSyncRpcFixture(page, {
   return { commitOperations, migrationOperations }
 }
 
-test('the Internal lifecycle canary leaves the ordinary accountless path unchanged', async ({
+test('the retired Internal lifecycle setting leaves the ordinary accountless path unchanged', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   let enabled = false
-  await installRuntimeRoute(page, () => enabled)
+  await installRuntimeRoute(page, () => enabled, {
+    getAccountFeaturesRollout: () => enabled ? 'internal' : 'off'
+  })
 
   await page.goto('/')
   await seedAccountlessProfile(page, {
@@ -469,7 +471,7 @@ test('the grace notice snoozes early and becomes non-dismissible for the final s
     route.fulfill({ json: {}, status: 200 })
   ))
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedAccountlessProfile(page)
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -566,7 +568,7 @@ test('an accountless town connects automatically and locks after sign-out', asyn
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const originalState = await seedAccountlessProfile(page, { withSession: true })
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -860,7 +862,7 @@ test('Later snoozes a failed backup across reload and expiry retries the same pr
     return fulfillMigration(route)
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const originalState = await seedAccountlessProfile(page, { withSession: true })
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -1070,7 +1072,7 @@ test('first signed-in progress sync keeps an active one-channel town rendered wh
       waitForAcceptedMigration: () => finalMigrationBarrier
     })
 
-  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
   await seedAccountlessProfile(page, {
     cachedVideo: { favorite: false },
     withSession: true
@@ -1194,7 +1196,7 @@ test('retained favorite stays rendered through first signed-in progress sync wit
   const { commitOperations, migrationOperations } =
     await installProgressSyncRpcFixture(page)
 
-  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
   await seedAccountlessProfile(page, {
     cachedVideo: { favorite: true },
     withSession: true
@@ -1279,7 +1281,7 @@ test('a restored sign-in starts the pending accountless migration automatically'
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedAccountlessProfile(page)
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })

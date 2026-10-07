@@ -6,7 +6,7 @@ const runtimeConfig = `window.EDENIA_CONFIG = {
   youtubeApiKey: '',
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
-  accountFeaturesRollout: 'internal',
+  accountFeaturesRollout: 'public',
   studyGuidanceEnabled: false,
   indexedDbBackupsEnabled: false,
   indexedDbBackupCleanupEnabled: false,
@@ -14,11 +14,11 @@ const runtimeConfig = `window.EDENIA_CONFIG = {
   supabasePublishableKey: 'test-publishable-key'
 }`
 const googleRuntimeConfig = runtimeConfig.replace(
-  "accountFeaturesRollout: 'internal',",
-  "accountFeaturesRollout: 'internal',\n  googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',\n  googleSignInMode: 'id_token',"
+  "accountFeaturesRollout: 'public',",
+  "accountFeaturesRollout: 'public',\n  googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',\n  googleSignInMode: 'id_token',"
 )
 const disabledRuntimeConfig = runtimeConfig.replace(
-  "accountFeaturesRollout: 'internal'",
+  "accountFeaturesRollout: 'public'",
   "accountFeaturesRollout: 'off'"
 )
 
@@ -47,7 +47,7 @@ const localeExpectations = {
 
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const SECOND_AUTHENTICATED_USER_ID = '223e4567-e89b-42d3-a456-426614174001'
-const ACCOUNT_AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
+const ACCOUNT_AUTH_STORAGE_KEY = 'edenia_v1_plus_auth_v1'
 
 function fakeAccessToken(userId, email) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -127,13 +127,13 @@ async function seedReadyState(page, locale) {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   }, locale)
 }
 
 async function readLocalStudyEvidence(page) {
   return page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       streak: state.streak,
       totalRewatchCount: state.totalRewatchCount,
@@ -169,7 +169,7 @@ async function installGoogleButtonMock(page) {
   })
 }
 
-test('internal Account settings are localized and responsive without exposing public mode', async ({
+test('Account settings are localized and responsive', async ({
   page
 }, testInfo) => {
   test.skip(![
@@ -184,14 +184,14 @@ test('internal Account settings are localized and responsive without exposing pu
     status: 200
   }))
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedReadyState(page, 'en')
 
   for (const [locale, [title, googleLabel]] of Object.entries(
     localeExpectations
   )) {
     await seedReadyState(page, locale)
-    await page.goto('/?internal_test=1&account=1')
+    await page.goto('/?account=1')
 
     const settings = page.locator('#settingsPanel')
     const account = page.locator('#accountSettings')
@@ -210,7 +210,7 @@ test('internal Account settings are localized and responsive without exposing pu
     await expect(page.locator('.settings-account-reminders')).toBeHidden()
     await expect(page.locator('#accountExportBtn')).toHaveCount(0)
     await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
-    await expect(page).toHaveURL(/\?internal_test=1$/)
+    await expect(page).toHaveURL(/\/$/)
 
     const geometry = await account.evaluate(element => ({
       accountWidth: element.scrollWidth,
@@ -285,9 +285,11 @@ test('first signed-in load enables both email types and each toggle saves automa
     })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedReadyState(page, 'en')
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto('/')
+  await expect(page.locator('#accountSignedIn')).not.toHaveClass(/\bhidden\b/)
+  await page.evaluate(() => openSettings())
 
   const accountToggle = page.locator('.settings-account-toggle')
   await expect(accountToggle).toHaveAttribute('aria-expanded', 'false')
@@ -395,10 +397,10 @@ test('shared-browser account switching clears the previous cloud view only', asy
     await route.fulfill({ json: [], status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedReadyState(page, 'en')
   await page.evaluate(() => {
-    const storageKey = 'edenia_v1_internal_test'
+    const storageKey = 'edenia_v1'
     const state = JSON.parse(localStorage.getItem(storageKey))
     state.streak = {
       current: 3,
@@ -408,7 +410,7 @@ test('shared-browser account switching clears the previous cloud view only', asy
     state.totalRewatchCount = 4
     localStorage.setItem(storageKey, JSON.stringify(state))
   })
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto('/?account=1')
 
   const localProgressBefore = await readLocalStudyEvidence(page)
   await expect(page.locator('.settings-account-toggle')).toHaveAttribute(
@@ -458,7 +460,7 @@ test('shared-browser account switching clears the previous cloud view only', asy
   expect(await readLocalStudyEvidence(page)).toEqual(localProgressBefore)
 })
 
-test('ordinary public mode keeps the internal Account settings section unavailable', async ({
+test('rollout off keeps Account settings unavailable', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -511,22 +513,28 @@ test('global off switch preserves the retained session and blocks the account de
     }
   )
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedReadyState(page, 'en')
   const retained = await page.evaluate(() => ({
-    profile: localStorage.getItem('edenia_v1_internal_test'),
-    session: localStorage.getItem('edenia_v1_internal_test_plus_auth_v1')
+    profile: localStorage.getItem('edenia_v1'),
+    session: localStorage.getItem('edenia_v1_plus_auth_v1')
   }))
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto('/?account=1')
 
   await expect(page.locator('#settingsPanel')).toBeHidden()
-  await expect(page).toHaveURL(/\?internal_test=1&account=1$/)
-  await expect(page.locator('#internalAuthPaused')).toBeVisible()
-  await expect(page.locator('[data-settings-shell-action="open"]')).toHaveCount(0)
-  expect(await page.evaluate(() => ({
-    profile: localStorage.getItem('edenia_v1_internal_test'),
-    session: localStorage.getItem('edenia_v1_internal_test_plus_auth_v1')
-  }))).toEqual(retained)
+  await expect(page).toHaveURL(/\?account=1$/)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('[data-settings-shell-action="open"]')).toHaveCount(1)
+  const after = await page.evaluate(() => ({
+    profile: localStorage.getItem('edenia_v1'),
+    session: localStorage.getItem('edenia_v1_plus_auth_v1')
+  }))
+  expect(after.session).toBe(retained.session)
+  const beforeProfile = JSON.parse(retained.profile)
+  expect(JSON.parse(after.profile)).toMatchObject({
+    config: beforeProfile.config, videos: beforeProfile.videos,
+    streak: beforeProfile.streak, totalRewatchCount: beforeProfile.totalRewatchCount
+  })
   expect(providerRequests).toEqual([])
   await expect(page.locator('#accountSettings')).toBeHidden()
   await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
@@ -536,7 +544,7 @@ test('global off switch preserves the retained session and blocks the account de
   expect(exportRequests).toEqual([])
 })
 
-test('unconfigured Turnstile stays hidden and sends no CAPTCHA on localhost internal settings', async ({ page }, testInfo) => {
+test('unconfigured Turnstile stays hidden and sends no CAPTCHA in localhost Account settings', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig, contentType: 'text/javascript'
@@ -546,9 +554,9 @@ test('unconfigured Turnstile stays hidden and sends no CAPTCHA on localhost inte
     requests.push(route.request().postDataJSON())
     return route.fulfill({ json: {} })
   })
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await seedReadyState(page, 'en')
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1&account=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?account=1`)
   await expect(page.locator('#accountEmail')).toBeVisible()
   await expect(page.locator('#accountTurnstile')).toBeHidden()
   await expect(page.locator('#accountTurnstileStatus')).toBeHidden()
@@ -581,9 +589,9 @@ test('configured Turnstile script without an API stays visible and blocks tokenl
     requests.push(route.request().postDataJSON())
     return route.fulfill({ json: {} })
   })
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await seedReadyState(page, 'en')
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1&account=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?account=1`)
   await expect(page.locator('#accountTurnstileStatus')).toBeVisible()
   await expect(page.locator('#accountTurnstileStatus')).toHaveAttribute('data-turnstile-tone', 'error')
   await expect(page.locator('#accountEmailBtn')).toBeDisabled()

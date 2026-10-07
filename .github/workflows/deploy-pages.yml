@@ -45,11 +45,9 @@ jobs:
         env:
           # Optional tester release only; ordinary visits always retain production.
           EDENIA_TINY_SWORDS_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_ENABLED || 'false' }}
-          # Retained mode 1 renderer, independent of the Tiny Swords tester mode.
-          EDENIA_PIXEL_TOWN_ENABLED: ${{ vars.EDENIA_PIXEL_TOWN_ENABLED }}
           EDENIA_FREE_PLUS_ENABLED: ${{ vars.EDENIA_FREE_PLUS_ENABLED }}
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}
-          # Internal Auth is paused; resumption requires a reviewed change.
+          # Account features are paused; resumption requires a reviewed change.
           EDENIA_ACCOUNT_FEATURES_ROLLOUT: 'off'
           EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT: ${{ vars.EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT }}
           EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED: ${{ vars.EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED }}

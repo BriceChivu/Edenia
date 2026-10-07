@@ -48,7 +48,7 @@ test('email authentication forwards constrained requests, blocks profile traffic
       }
       await intercept({ request: () => ({ url: () => providerOrigin + '/rest/v1/rpc/resolve_my_learner_profile', method: () => 'POST', postData: () => '{}' }),
         abort: async () => { blocked++ }, fetch: () => assert.fail('Profile request forwarded') })
-      await intercept({ request: () => ({ url: () => 'https://www.edenia.study/', method: () => 'GET', resourceType: () => 'document' }),
+      await intercept({ request: () => ({ url: () => 'https://www.edenia.study/?retired=1', method: () => 'GET', resourceType: () => 'document' }),
         abort: async () => { blocked++ }, continue: () => assert.fail('Public route forwarded') })
       await intercept({ request: () => ({ url: () => 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', method: () => 'GET', resourceType: () => 'script' }),
         continue: async () => { challenges++ } })

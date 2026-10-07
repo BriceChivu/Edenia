@@ -1,5 +1,7 @@
 # Internal canary execution manifest
 
+> Archived plan: mode 1 was retired on 2026-10-07. Its routes and rollout instructions below are historical and must not be used.
+
 Plan: `internal-canary-codex-autonomous-2026-09-05-v4`. Setup issue: #290.
 This document prepares later packet execution; reading it does not invoke another
 ticket or grant hosted mutation authority. Packet 0 runs only the local commands

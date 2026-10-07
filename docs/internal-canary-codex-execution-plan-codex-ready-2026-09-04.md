@@ -1,5 +1,7 @@
 # Internal canary Codex execution plan — Codex-ready revision — 2026-09-04
 
+> Archived plan: mode 1 was retired on 2026-10-07. Its routes and rollout instructions below are historical and must not be used.
+
 ## Status, identity, and purpose
 
 - **Plan ID:** `internal-canary-codex-ready-2026-09-04-v1`.

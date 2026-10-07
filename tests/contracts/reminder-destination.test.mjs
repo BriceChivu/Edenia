@@ -22,11 +22,11 @@ function consume(search, enabled = true) {
 
 test('accepts only complete streak and discovery destinations', () => {
   assert.deepEqual(
-    consume('?internal_test=1&reminder=streak').result,
+    consume('?reminder=streak').result,
     { emailType: 'streak', videoId: null, channelId: null }
   )
   assert.deepEqual(
-    consume('?internal_test=1&reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw').result,
+    consume('?reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw').result,
     {
       emailType: 'discovery',
       videoId: 'abcdefghijk',
@@ -37,9 +37,9 @@ test('accepts only complete streak and discovery destinations', () => {
 
 test('consumes malformed, duplicate, and switch-off parameters without acting', () => {
   for (const [search, enabled] of [
-    ['?internal_test=1&reminder=discovery&video=too-short', true],
-    ['?internal_test=1&reminder=streak&video=abcdefghijk', true],
-    ['?internal_test=1&reminder=discovery&reminder=streak&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw', true],
+    ['?reminder=discovery&video=too-short', true],
+    ['?reminder=streak&video=abcdefghijk', true],
+    ['?reminder=discovery&reminder=streak&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw', true],
     ['?reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw', false]
   ]) {
     const consumed = consume(search, enabled)
@@ -47,21 +47,21 @@ test('consumes malformed, duplicate, and switch-off parameters without acting', 
     assert.deepEqual(consumed.replacements, [{
       state: { kept: true },
       title: '',
-      url: enabled ? '/?internal_test=1' : '/'
+      url: enabled ? '/' : '/'
     }])
   }
 })
 
 test('leaves ordinary URLs untouched and preserves unrelated parameters', () => {
-  assert.deepEqual(consume('?internal_test=1'), {
+  assert.deepEqual(consume(''), {
     replacements: [],
     result: null
   })
   const consumed = consume(
-    '?internal_test=1&source=email&reminder=streak#study'
+    '?source=email&reminder=streak#study'
   )
   assert.equal(
     consumed.replacements[0].url,
-    '/?internal_test=1&source=email#study'
+    '/?source=email#study'
   )
 })

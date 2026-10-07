@@ -203,7 +203,7 @@ function createEmailRequestHarness({ configured, controller = null, requestFails
   } }
   const auth = createAccountAuthController({
     client, history: { replaceState() {} },
-    location: { href: 'http://localhost:8000/?internal_test=1&account=1' },
+    location: { href: 'http://localhost:8000/?account=1' },
     onStateChange() {}, schedule() {}
   })
   const start = appSource.indexOf('async function requestAccountEmailCode(')

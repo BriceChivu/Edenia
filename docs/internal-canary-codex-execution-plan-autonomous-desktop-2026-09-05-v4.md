@@ -1,5 +1,7 @@
 # Internal canary Codex execution plan — desktop acceptance amendment — 2026-09-05
 
+> Archived plan: mode 1 was retired on 2026-10-07. Its routes and rollout instructions below are historical and must not be used.
+
 ## Status, identity, and purpose
 
 - **Plan ID:** `internal-canary-codex-autonomous-2026-09-05-v4`.

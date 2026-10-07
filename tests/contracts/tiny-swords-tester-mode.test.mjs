@@ -14,7 +14,7 @@ test('tester mode is distinct from internal account experiments and mounting req
   const tester = deriveRuntimeEnvironment(url)
   assert.equal(tester.internalTestMode, '2')
   assert.equal(tester.isTinySwordsTester, true)
-  assert.equal(tester.isInternalTest, false)
+  assert.equal(Object.hasOwn(tester, 'isInternalTest'), false)
   for (const rollout of ['off', 'internal', 'public']) assert.equal(deriveAccountFeaturesEnabled(tester, rollout), false)
   assert.equal(deriveTinySwordsExperience(url), true)
   for (const flag of [undefined, false, 'true', 1]) assert.equal(deriveTinySwordsEnabled(url, { tinySwordsEnabled: flag }), false)

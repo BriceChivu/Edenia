@@ -64,7 +64,7 @@ for (const wrongOwner of [false, true, 'empty-document']) test(`real IPC worker 
   t.after(async()=>{if(worker.exitCode===null&&worker.signalCode===null){const exited=once(worker,'exit');worker.kill('SIGTERM');await exited}})
   await ready.promise
   const requestThroughProxy = (path, body) => new Promise(resolve => {
-    const origin = path === '/?internal_test=1' ? origins[0] : origins[1]
+    const origin = path === '/' ? origins[0] : origins[1]
     const hostname = new URL(origin).hostname
     const request = http.request({ hostname: '127.0.0.1', port, method: 'CONNECT', path: hostname + ':443', headers: { host: hostname + ':443' } })
     request.on('connect', (_response, socket) => {
@@ -74,14 +74,14 @@ for (const wrongOwner of [false, true, 'empty-document']) test(`real IPC worker 
     request.on('error', () => resolve('')); request.end()
   })
   if (wrongOwner === 'empty-document') {
-    assert.equal(await requestThroughProxy('/?internal_test=1', ''), '')
+    assert.equal(await requestThroughProxy('/', ''), '')
     await assert.rejects(result, error => {
       assert.equal(error.nativeDiagnostic.failure, 'upstream-reset')
       assert.equal(error.nativeDiagnostic.browserStarted, true)
       assert.equal(error.nativeDiagnostic.documentDelivered, false)
       return true
     })
-    assert.deepEqual(observed, ['/?internal_test=1'])
+    assert.deepEqual(observed, ['/'])
     assert.equal(worker.exitCode, 0)
     await assert.rejects(access(profileDirectory), { code: 'ENOENT' })
     return

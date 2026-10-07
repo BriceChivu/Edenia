@@ -2,7 +2,6 @@ import { expect, test } from '../support/network-fixture.mjs'
 
 const fixedNow = new Date('2026-08-03T04:00:00.000Z')
 const normalStorageKey = 'edenia_v1'
-const internalStorageKey = 'edenia_v1_internal_test'
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(fixedNow)
@@ -20,10 +19,10 @@ async function waitForApplication(page) {
 
 async function seedVideoOrganizationState(
   page,
-  { locale = 'en', internalTest = true, theme = 'light' } = {}
+  { locale = 'en', theme = 'light' } = {}
 ) {
-  const storageKey = internalTest ? internalStorageKey : normalStorageKey
-  await page.goto(internalTest ? '/?internal_test=1' : '/')
+  const storageKey = normalStorageKey
+  await page.goto('/')
   await waitForApplication(page)
   await page.evaluate(({ locale: seededLocale, storageKey: seededStorageKey, theme: seededTheme }) => {
     const state = window.defaultState(4, [], seededTheme, [], seededLocale)
@@ -134,7 +133,7 @@ test('Removed preview playback never mutates study state', async ({ page }, test
   await expect(previewButton).toHaveCount(1)
   const stateBefore = await page.evaluate(
     key => localStorage.getItem(key),
-    internalStorageKey
+    normalStorageKey
   )
 
   await previewButton.click()
@@ -161,7 +160,7 @@ test('Removed preview playback never mutates study state', async ({ page }, test
   )).toHaveCount(1)
   const stateAfter = await page.evaluate(
     key => localStorage.getItem(key),
-    internalStorageKey
+    normalStorageKey
   )
   expect(stateAfter).toBe(stateBefore)
 })
@@ -410,7 +409,7 @@ test('Watched Favorite reveals and highlights the active rewatch card', async ({
 
   const persistedVideo = await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key)).videos['watched-favorite-video']
-  ), internalStorageKey)
+  ), normalStorageKey)
   expect(persistedVideo.status).toBe('watched')
   expect(persistedVideo.watchedAt).toBe('2026-08-02T06:00:00.000Z')
   expect(persistedVideo.favorite).toBe(true)
@@ -418,7 +417,7 @@ test('Watched Favorite reveals and highlights the active rewatch card', async ({
 
 test('phone Favorite keeps the same video and shelf position', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone-standard')
-  await seedVideoOrganizationState(page, { internalTest: false })
+  await seedVideoOrganizationState(page)
   await page.evaluate(storageKey => {
     const state = JSON.parse(localStorage.getItem(storageKey))
     for (let index = 0; index < 10; index += 1) {
@@ -479,7 +478,7 @@ test('phone Favorite keeps the same video and shelf position', async ({ page }, 
 
 test('normal visitors use the permanent organization flow', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  await seedVideoOrganizationState(page, { internalTest: false })
+  await seedVideoOrganizationState(page)
 
   const card = page.locator(
     '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
@@ -504,7 +503,7 @@ test('normal visitors use the permanent organization flow', async ({ page }, tes
     video: JSON.parse(localStorage.getItem(normalKey)).videos['menu-anchor-video']
   }), {
     normalKey: normalStorageKey,
-    internalKey: internalStorageKey
+    internalKey: 'edenia_v1_internal_test'
   })
   expect(persisted.video.status).toBe('partial')
   expect(persisted.video.setAside).toBeUndefined()
@@ -512,13 +511,13 @@ test('normal visitors use the permanent organization flow', async ({ page }, tes
   expect(persisted.internal).toBeNull()
 })
 
-test('internal organization actions stay in isolated test storage', async ({ page }, testInfo) => {
+test('released organization actions preserve retired test storage', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await page.goto('/')
   await waitForApplication(page)
   await page.evaluate(key => {
-    localStorage.setItem(key, JSON.stringify({ sentinel: 'normal-state' }))
-  }, normalStorageKey)
+    localStorage.setItem(key, JSON.stringify({ sentinel: 'retired-state' }))
+  }, 'edenia_v1_internal_test')
   await seedVideoOrganizationState(page)
 
   const card = page.locator(
@@ -537,17 +536,17 @@ test('internal organization actions stay in isolated test storage', async ({ pag
     normal: JSON.parse(localStorage.getItem(normalKey))
   }), {
     normalKey: normalStorageKey,
-    internalKey: internalStorageKey
+    internalKey: 'edenia_v1_internal_test'
   })
-  expect(persisted.internal.videos['menu-anchor-video'].removedFromFeedAt).toBeTruthy()
-  expect(persisted.normal).toEqual({ sentinel: 'normal-state' })
+  expect(persisted.normal.videos['menu-anchor-video'].removedFromFeedAt).toBeTruthy()
+  expect(persisted.internal).toEqual({ sentinel: 'retired-state' })
 })
 
 test('enabled organization migrates legacy state and history idempotently', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await waitForApplication(page)
   await page.evaluate(storageKey => {
     const state = window.defaultState(4, [], 'light', [], 'en')
@@ -624,7 +623,7 @@ test('enabled organization migrates legacy state and history idempotently', asyn
       }
     }]
     localStorage.setItem(storageKey, JSON.stringify(state))
-  }, internalStorageKey)
+  }, normalStorageKey)
 
   const readMigratedState = () => page.evaluate(storageKey => {
     const state = JSON.parse(localStorage.getItem(storageKey))
@@ -641,7 +640,7 @@ test('enabled organization migrates legacy state and history idempotently', asyn
       redoBefore: state.redoStack[0].before.video,
       redoAfter: state.redoStack[0].after.video
     }
-  }, internalStorageKey)
+  }, normalStorageKey)
 
   await page.reload()
   await waitForApplication(page)
@@ -702,10 +701,10 @@ test('enabled organization migrates legacy state and history idempotently', asyn
 test('public feed refresh preserves Watch later and study progress', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await page.route('**/config.local.js', route => route.fulfill({
-    body: 'window.EDENIA_CONFIG = { youtubeApiKey: "", accountFeaturesRollout: "internal" }',
+    body: 'window.EDENIA_CONFIG = { youtubeApiKey: "", accountFeaturesRollout: "public" }',
     contentType: 'application/javascript'
   }))
-  await seedVideoOrganizationState(page, { internalTest: false })
+  await seedVideoOrganizationState(page)
   await page.evaluate(storageKey => {
     const state = JSON.parse(localStorage.getItem(storageKey))
     state.config.channels = [{ id: 'UC0000000000000000000000', name: 'Fixture Language Channel' }]
@@ -721,7 +720,7 @@ test('public feed refresh preserves Watch later and study progress', async ({ pa
   }, normalStorageKey)
   await page.unroute('**/config.local.js')
   await page.route('**/config.local.js', route => route.fulfill({
-    body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "internal" }',
+    body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "public" }',
     contentType: 'application/javascript'
   }))
   await page.reload()

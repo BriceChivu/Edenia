@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
       youtubeApiKey: '',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
-      accountFeaturesRollout: 'internal',
+      accountFeaturesRollout: 'public',
       supabaseUrl: '',
       supabasePublishableKey: ''
     }`,
@@ -79,7 +79,7 @@ async function seedCompletedHistoryState(
         state.anki[dateKey(recentDate)] = { reviewed: 11, created: 2 }
       }
     }
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   }, { enabled: ankiEnabled, shouldIncludeRecent: includeRecent })
 }
 
@@ -132,11 +132,15 @@ async function seedCompletedInsightState(page) {
         }
       }
     ).reverse()
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
 }
 
-test('public Plus page returns to Edenia without rendering authentication', async ({ page }) => {
+test('rollout off returns the Plus page to Edenia without authentication', async ({ page }) => {
+  await page.route('**/config.local.js*', route => route.fulfill({
+    body: 'window.EDENIA_CONFIG={accountFeaturesRollout:"off"}',
+    contentType: 'text/javascript'
+  }))
   await page.goto('/plus/')
 
   await expect(page).toHaveURL(/\/$/)
@@ -149,8 +153,8 @@ test('public Plus page returns to Edenia without rendering authentication', asyn
   await expect(page.locator('#plusUpgradeModal input[type="email"]:visible')).toHaveCount(0)
 })
 
-test('internal Plus page presents the approved offer and keeps purchasing disabled', async ({ page }) => {
-  await page.goto('/plus/?internal_test=1')
+test('Plus page presents the approved offer and keeps purchasing disabled', async ({ page }) => {
+  await page.goto('/plus/')
 
   await expect(page).toHaveTitle('Edenia Plus')
   await expect(page.locator('[data-plus-benefits] .plus-benefit')).toHaveCount(3)
@@ -176,7 +180,7 @@ test('internal Plus page presents the approved offer and keeps purchasing disabl
 })
 
 test('contextual Plus modal traps focus and closes with Escape', async ({ page }) => {
-  await page.goto('/?internal_test=1&plus=1&feature=complete-study-history')
+  await page.goto('/?plus=1&feature=complete-study-history')
 
   const modal = page.locator('#plusUpgradeModal')
   const dialog = modal.getByRole('dialog')
@@ -209,11 +213,11 @@ test('Free stores every Study Insight but reveals only the first five lifetime e
     : locator.tap()
 
   await seedCompletedInsightState(page)
-  await page.goto('/?internal_test=1&plus_access=free')
+  await page.goto('/?plus_access=free')
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 
   await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    JSON.parse(localStorage.getItem('edenia_v1'))
       .config.studyInsights.history.length
   ))).toBe(8)
   await expect(page.locator('#studyInsightCurrentPanel')).toHaveClass(
@@ -253,7 +257,7 @@ test('Free stores every Study Insight but reveals only the first five lifetime e
   )
 
   const restrictedRecordedAt = await page.evaluate(() => {
-    const history = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const history = JSON.parse(localStorage.getItem('edenia_v1'))
       .config.studyInsights.history
     return ['seed-insight-5', 'seed-insight-6'].map(key => (
       history.find(entry => entry.key === key).recordedAt
@@ -280,7 +284,7 @@ test('Plus reveals the current Study Insight and complete saved archive', async 
   test.skip(testInfo.project.name !== 'desktop-standard')
 
   await seedCompletedInsightState(page)
-  await page.goto('/?internal_test=1&plus_access=plus')
+  await page.goto('/?plus_access=plus')
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 
   await expect(page.locator('#studyInsightCard')).toHaveAttribute(
@@ -318,7 +322,7 @@ test('Free history keeps older periods visible but redacts summary and heatmap v
     : locator.tap()
 
   await seedCompletedHistoryState(page, { ankiEnabled: true })
-  await page.goto('/?internal_test=1&plus_access=free')
+  await page.goto('/?plus_access=free')
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 
   await activate(page.locator(
@@ -332,7 +336,7 @@ test('Free history keeps older periods visible but redacts summary and heatmap v
   await expect(lockedPeriod).toBeVisible()
   await expect(lockedPeriod).toContainText('Plus')
   const storedBefore = await page.evaluate(
-    () => localStorage.getItem('edenia_v1_internal_test')
+    () => localStorage.getItem('edenia_v1')
   )
   await lockedPeriod.focus()
   await lockedPeriod.press('Enter')
@@ -343,7 +347,7 @@ test('Free history keeps older periods visible but redacts summary and heatmap v
     name: 'Your earlier study history is still here.'
   })).toBeVisible()
   expect(await page.evaluate(
-    () => localStorage.getItem('edenia_v1_internal_test')
+    () => localStorage.getItem('edenia_v1')
   )).toBe(storedBefore)
   await activate(modal.locator('.plus-modal-close'))
 
@@ -389,7 +393,7 @@ test('Free summary replaces an old selected period with non-sensitive placeholde
     ankiEnabled: true,
     includeRecent: false
   })
-  await page.goto('/?internal_test=1&plus_access=free')
+  await page.goto('/?plus_access=free')
 
   const summary = page.locator('#historySummaryView')
   await expect(summary).toHaveAttribute('data-history-access-state', 'locked')
@@ -421,7 +425,7 @@ test('Plus reveals old no-Anki summary and heatmap values', async ({
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedCompletedHistoryState(page, { ankiEnabled: false })
-  await page.goto('/?internal_test=1&plus_access=plus')
+  await page.goto('/?plus_access=plus')
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 
   await page.locator(
@@ -503,14 +507,14 @@ test('Free transition keeps the first five shelves and preserves saved video sta
         watchLater: true
       })
     }
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   }, completedAt)
 
-  await page.goto('/?internal_test=1&plus_access=free')
+  await page.goto('/?plus_access=free')
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 
   await expect.poll(() => page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       channelIds: state.config.channels.map(channel => channel.id),
       removedChannelIds: state.config.removedChannelIds,
@@ -562,7 +566,7 @@ test('Free channel allowance gates direct, catalog, and restore flows but keeps 
       youtubeApiKey: 'fixture-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
-      accountFeaturesRollout: 'internal',
+      accountFeaturesRollout: 'public',
       supabaseUrl: '',
       supabasePublishableKey: ''
     }`,
@@ -614,10 +618,10 @@ test('Free channel allowance gates direct, catalog, and restore flows but keeps 
         videos: {}
       }
     }]
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
 
-  await page.goto('/?internal_test=1&plus_access=free')
+  await page.goto('/?plus_access=free')
   await expect(page.locator('#manualVideoChannelAccess')).toContainText(
     'All 5 Free tracked-channel slots are in use'
   )
@@ -633,7 +637,7 @@ test('Free channel allowance gates direct, catalog, and restore flows but keeps 
     name: 'Grow your study feed without a channel limit.'
   })).toBeVisible()
   await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem('edenia_v1_internal_test')).config.channels.length
+    JSON.parse(localStorage.getItem('edenia_v1')).config.channels.length
   ))).toBe(5)
   await activate(modal.locator('.plus-modal-close'))
 
@@ -653,7 +657,7 @@ test('Free channel allowance gates direct, catalog, and restore flows but keeps 
   ))
   await expect(modal).toBeVisible()
   await expect.poll(() => page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       channelCount: state.config.channels.length,
       undoCount: state.undoStack.length
@@ -669,7 +673,7 @@ test('Free channel allowance gates direct, catalog, and restore flows but keeps 
   await input.fill('https://www.youtube.com/watch?v=fixture0001')
   await input.press('Enter')
   await expect.poll(() => page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       channelCount: state.config.channels.length,
       hasVideo: Boolean(state.videos.fixture0001),
