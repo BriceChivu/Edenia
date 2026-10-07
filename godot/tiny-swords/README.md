@@ -1184,3 +1184,14 @@ See `fonts/README.md` for provenance and regeneration. Validate with the integra
 export contract and `tiny-swords-copy.spec.mjs`, then rebuild the integrated preview.
 
 Chicken placement uses the same grass rules as sheep, including grass at both ends of stairs. The ramp itself and occupied tiles remain unavailable. Focused check: `res://tests/chicken_stair_placement.gd`.
+## Ambient ocean shark
+
+One shark uses the supplied `assets/shark/shark.png` and roams continuously in
+open water in native and integrated scenes. Moving ripples reuse the sixteen-frame
+water-rock animation at 5 fps, with rock pixels removed by a palette shader.
+Its full sprite and ripple ring keep six pixels
+of clearance from land, the complete visible cliff column, stairs and the
+original water rocks. Every swimming step checks the whole route; terrain
+edits, previews, undo and restoration move a covered shark to clear water.
+Swimming freezes with reduced motion. This ambient animal does not consume
+inventory or enter island saves. Focused check: `res://tests/shark_water.gd`.
