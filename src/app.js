@@ -16431,19 +16431,6 @@ function handleVideoShelfPlayerKeydown(event) {
   } catch {}
 }
 
-function keepVideoShelfPlayerEscapeAvailable() {
-  const session = activeVideoShelfPlayer
-  if (!session || document.activeElement !== session.iframe) return
-  window.setTimeout(() => {
-    if (
-      activeVideoShelfPlayer !== session
-      || session.destroyed
-      || document.activeElement !== session.iframe
-    ) return
-    session.overlay?.focus({ preventScroll: true })
-  }, 0)
-}
-
 let activeVideoShelfPreview = null
 const videoShelfPreviewCleanupTimers = new WeakMap()
 const videoShelfPreviewLeaveTimers = new WeakMap()
@@ -18424,7 +18411,6 @@ document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
-window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', event => {
   if (!event.persisted) learnerProfileReverificationController?.destroy()
   if (!event.persisted) learnerProfileLifecycleAuthority?.destroy()
