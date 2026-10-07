@@ -413,13 +413,17 @@ gates writes. Learner-profile fields and their storage keys stay unchanged. The 
 notice is included in every release. Coverage: `tiny-swords-delivery.spec.mjs` and
 `tests/contracts/tiny-swords-delivery.test.mjs` at the repository root.
 
-The exported Godot download callback forwards byte progress to Edenia's loading
-bar. The fill grows only from left to right and never animates back and forth.
-It starts empty, follows completed download bytes, and holds at 99% during
-preparation until Godot accepts the saved-island restoration. Only accepted
-restoration completes the bar. The visible copy is “Preparing your island...”
-with no time estimate. Retry resets progress; failure hides the bar.
-No gameplay or restore decisions move into the host UI.
+The exported Godot download callback forwards byte progress to the first 60% of
+Edenia's loading bar. Engine initialization advances it to 80%; Godot scene
+readiness advances it to 90%. While each preparation stage runs, the fill eases
+forward within that stage's reserved range (below 80%, 89% and 97% respectively).
+Preparation fractions are bounded estimates, since compilation and first-frame
+rendering expose completion signals rather than a measurable fraction. Only
+accepted restoration, applied study level and the first rendered island frame
+complete the bar and enable input. Failed restoration reports immediately.
+The fill grows only from left to right, with “Preparing your island...” and no
+time estimate. Retry resets progress; failure hides the bar and stops updates.
+Godot owns restoration and rendering; the host displays startup telemetry.
 
 ## Island persistence in the local Edenia integration
 

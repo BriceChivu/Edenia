@@ -3,6 +3,19 @@
 (() => {
   const config = window.edeniaGameAssets
   const base = document.baseURI
+  window.edeniaTrackGameStartup = engine => {
+    const initialize = engine.init
+    let reported = false
+    engine.init = function (...args) {
+      return initialize.apply(this, args).then(result => {
+        if (!reported) {
+          reported = true
+          parent.postMessage({ type: 'edenia-game-engine-initialized' }, location.origin)
+        }
+        return result
+      })
+    }
+  }
   function compressedResponse(asset) {
     return new Promise((resolve, reject) => {
       const worker = new Worker(new URL(config.worker, base), { type: 'module' })

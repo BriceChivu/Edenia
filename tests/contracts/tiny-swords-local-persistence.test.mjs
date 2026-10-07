@@ -30,7 +30,8 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
       const frame = {...node,contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
     },querySelector(){return node},getElementById(){return node}},
     localStorage:{getItem:k=>storage.get(k)??null,removeItem:k=>storage.delete(k)},
-    setTimeout(){return 1}, clearTimeout(){}, MutationObserver:class{observe(){}},
+    setTimeout(){return 1}, clearTimeout(){}, setInterval(){return 1}, clearInterval(){}, performance,
+    MutationObserver:class{observe(){}},
     TextEncoder, Image:class{addEventListener(){}},ResizeObserver:class{observe(){} unobserve(){}},
     IntersectionObserver:class{constructor(fn){handlers.intersection=fn}observe(){}unobserve(){}}
   }
