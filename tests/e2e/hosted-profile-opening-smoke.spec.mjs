@@ -13,8 +13,8 @@ test('authentication becomes ready while a nonessential subresource remains pend
     const context = await browser.newContext(options)
     context.setDefaultNavigationTimeout(1500)
     await context.addInitScript(({ owner }) => {
-      if (location.href === 'https://www.edenia.study/?internal_test=1') {
-        localStorage.setItem('edenia_v1_internal_test_plus_auth_v1', JSON.stringify({ user: { id: owner } }))
+      if (location.href === 'https://www.edenia.study/') {
+        localStorage.setItem('edenia_v1_plus_auth_v1', JSON.stringify({ user: { id: owner } }))
       }
     }, { owner })
     // Entire document and subresource are intercepted; no hosted request runs.
@@ -49,7 +49,7 @@ for (const bookkeeping of ['clean', 'malformed', 'stale', 'retry']) {
     test.skip(testInfo.project.name !== 'desktop-standard')
     const result = await runOpeningCase({ browser, applicationOrigin: new URL(baseURL).origin,
       providerOrigin, synthetic: fixture, bookkeeping, testRuntime: {
-        accountFeaturesRollout: 'internal', learnerProfileLifecycleEnabled: true,
+        accountFeaturesRollout: 'public', learnerProfileLifecycleEnabled: true,
         supabasePublishableKey: 'synthetic-key', supabaseUrl: providerOrigin,
         freePlusEnabled: false, indexedDbBackupCleanupEnabled: false,
         indexedDbBackupsEnabled: false, plusCheckoutEnabled: false, studyGuidanceEnabled: false

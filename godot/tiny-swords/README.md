@@ -483,7 +483,7 @@ CI imports a fresh copy without `.godot`; no Downloads/Desktop paths are needed.
 Only the official Linux editor and the two matching Web templates are installed.
 
 `npm run build` packages both experiences with **game mounting off**. Ordinary
-visits, `internal_test=1`, unsupported values and sandbox retain the existing
+visits, retired tester links, unsupported values and sandbox retain the existing
 production town, timeline, onboarding and scoring. The checked-in source overlay
 in `compat/production/` preserves that implementation; builds require no Git
 history. Page selection runs before either experience's markup is parsed, so

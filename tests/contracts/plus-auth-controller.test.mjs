@@ -184,7 +184,7 @@ test('passwordless restoration validates email and preserves safe redirect param
   const clientHarness = createClient()
   const harness = createControllerHarness({
     clientHarness,
-    href: 'https://www.edenia.study/?internal_test=1#private'
+    href: 'https://www.edenia.study/#private'
   })
   await harness.controller.initialize()
   await harness.controller.refresh()
@@ -207,7 +207,7 @@ test('passwordless restoration validates email and preserves safe redirect param
       email: 'learner@example.com',
       options: {
         emailRedirectTo:
-          'https://www.edenia.study/?internal_test=1',
+          'https://www.edenia.study/',
         shouldCreateUser: false
       }
     }]
@@ -218,7 +218,7 @@ test('upgrade sign-in may create an account and preserves the selected plan', as
   const clientHarness = createClient()
   const harness = createControllerHarness({
     clientHarness,
-    href: 'https://www.edenia.study/plus/?internal_test=1'
+    href: 'https://www.edenia.study/plus/'
   })
   await harness.controller.initialize()
 
@@ -236,7 +236,7 @@ test('upgrade sign-in may create an account and preserves the selected plan', as
       email: 'learner@example.com',
       options: {
         emailRedirectTo:
-          'https://www.edenia.study/plus/?internal_test=1&plus=1&plan=monthly',
+          'https://www.edenia.study/plus/?plus=1&plan=monthly',
         shouldCreateUser: true
       }
     }]

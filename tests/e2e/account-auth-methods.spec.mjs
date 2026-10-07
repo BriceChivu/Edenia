@@ -6,7 +6,7 @@ const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 
 function runtimeConfig() {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
-    accountFeaturesRollout: 'internal',
+    accountFeaturesRollout: 'public',
     freePlusEnabled: false,
     googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',
     googleSignInMode: 'id_token',
@@ -230,7 +230,7 @@ async function seedStudyState(page, { setupCompleted, walkthroughCompleted }) {
       longest: 9
     }
     state.totalRewatchCount = 3
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   }, {
     setup: setupCompleted,
     walkthrough: walkthroughCompleted
@@ -238,7 +238,7 @@ async function seedStudyState(page, { setupCompleted, walkthroughCompleted }) {
 }
 
 async function openCompletedAccountPage(page, {
-  destination = `${LOCAL_ORIGIN}/?internal_test=1&account=1`,
+  destination = `${LOCAL_ORIGIN}/?account=1`,
   providerMocks = {}
 } = {}) {
   await installProviderMocks(page, providerMocks)
@@ -250,7 +250,7 @@ async function openCompletedAccountPage(page, {
     status: 200
   }))
 
-  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1`)
+  await page.goto(`${LOCAL_ORIGIN}/`)
   await seedStudyState(page, {
     setupCompleted: true,
     walkthroughCompleted: true
@@ -269,7 +269,7 @@ test('official Google and same-device email-code flows preserve local study data
   ].includes(testInfo.project.name))
   const requests = await openCompletedAccountPage(page)
   const studyStateBefore = await page.evaluate(() => (
-    localStorage.getItem('edenia_v1_internal_test')
+    localStorage.getItem('edenia_v1')
   ))
 
   const officialGoogleButton = page.locator(
@@ -300,7 +300,7 @@ test('official Google and same-device email-code flows preserve local study data
   })
   expect(tokenRequest.body.nonce).toMatch(/^[A-Za-z0-9_-]{43}$/)
   expect(await page.evaluate(() => (
-    localStorage.getItem('edenia_v1_internal_test')
+    localStorage.getItem('edenia_v1')
   ))).toBe(studyStateBefore)
   await expect(page).toHaveURL(new RegExp(`^${LOCAL_ORIGIN}/`))
 
@@ -368,7 +368,7 @@ test('official Google and same-device email-code flows preserve local study data
   await page.locator('.settings-account-toggle').click()
   await expect(page.locator('#accountSignedIn')).toBeVisible()
   expect(await page.evaluate(() => (
-    localStorage.getItem('edenia_v1_internal_test')
+    localStorage.getItem('edenia_v1')
   ))).toBe(studyStateBefore)
   const analyticsPayload = await page.evaluate(() => JSON.stringify({
     capture: window.__edeniaAuthE2e.posthogCapture,
@@ -384,7 +384,7 @@ test('browser auth identifies one UUID and protects replay from Auth fields and 
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await openCompletedAccountPage(page, {
-    destination: `${LOCAL_ORIGIN}/?internal_test=1&account=1`
+    destination: `${LOCAL_ORIGIN}/?account=1`
       + '&token=query-secret#token=fragment-secret',
     providerMocks: { analyticsEnabled: true }
   })
@@ -423,7 +423,7 @@ test('browser auth identifies one UUID and protects replay from Auth fields and 
     window.history.replaceState(
       window.history.state,
       '',
-      '/?internal_test=1&account=1'
+      '/?account=1'
     )
     window.resumeEdeniaSessionRecording()
   })

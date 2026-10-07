@@ -187,10 +187,10 @@ export async function verifyDomainMigration({
     )
     assert(config.plusCheckoutEnabled === false, 'Plus checkout is not false')
     assert(
-      config.accountFeaturesRollout === 'internal',
-      'account features are not limited to internal rollout'
+      config.accountFeaturesRollout === 'off',
+      'account features are not off'
     )
-    return `migration=${expectedLegacyProgressMigrationEnabled}; checkout=false; accounts=internal`
+    return `migration=${expectedLegacyProgressMigrationEnabled}; checkout=false; accounts=off`
   })
 
   await check('Apex redirects path and query to www', async () => {

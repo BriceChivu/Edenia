@@ -6,7 +6,7 @@ const id = 'fixture0001'
 async function seed(page, overrides = {}, theme = 'light') {
   await page.clock.setFixedTime(new Date(now))
   await page.route('**/config.local.js', route => route.fulfill({
-    contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "internal" }'
+    contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "public" }'
   }))
   await page.goto('/')
   await page.evaluate(({ now, id, overrides, theme }) => {

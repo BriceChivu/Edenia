@@ -30,7 +30,7 @@ export function parseRuntimeConfigRollout(value, name) {
   if (ACCOUNT_FEATURE_ROLLOUT_VALUES.has(normalizedValue)) {
     return normalizedValue
   }
-  throw new Error(`${name} must be off, internal, or public`)
+  throw new Error(`${name} must be off or public`)
 }
 
 export function parseRuntimeConfigTimestamp(value, name) {

@@ -4,7 +4,7 @@ const runtimeConfig = `window.EDENIA_CONFIG = {
   youtubeApiKey: 'fixture-key',
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
-  accountFeaturesRollout: 'internal',
+  accountFeaturesRollout: 'public',
   studyGuidanceEnabled: false,
   indexedDbBackupsEnabled: false,
   indexedDbBackupCleanupEnabled: false,
@@ -14,13 +14,13 @@ const runtimeConfig = `window.EDENIA_CONFIG = {
 const videoId = 'fixture0001'
 const channelId = 'UC0000000000000000000000'
 
-async function seedReadyInternalState(page) {
+async function seedReadyState(page) {
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig,
     contentType: 'application/javascript',
     status: 200
   }))
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await page.evaluate(() => {
     const state = window.defaultState(4, [], 'light', [], 'en')
     const completedAt = '2026-08-13T00:00:00.000Z'
@@ -31,21 +31,21 @@ async function seedReadyInternalState(page) {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
-    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
 }
 
-test('an internal discovery link opens its frozen video without following the channel', async ({
+test('a discovery link opens its frozen video without following the channel', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  await seedReadyInternalState(page)
+  await seedReadyState(page)
 
   await page.goto(
-    `/?internal_test=1&reminder=discovery&video=${videoId}&channel=${channelId}`
+    `/?reminder=discovery&video=${videoId}&channel=${channelId}`
   )
 
-  await expect(page).toHaveURL(/\?internal_test=1$/)
+  await expect(page).toHaveURL(/\/$/)
   const player = page.locator('.video-player-overlay')
   await expect(player).toBeVisible()
   await expect(player.locator('iframe')).toHaveAttribute(
@@ -53,7 +53,7 @@ test('an internal discovery link opens its frozen video without following the ch
     new RegExp(`/embed/${videoId}`)
   )
   const saved = await page.evaluate(id => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       channels: state.config.channels,
       video: state.videos[id],
@@ -79,7 +79,7 @@ test('an internal discovery link opens its frozen video without following the ch
   })
 })
 
-test('public and malformed reminder parameters are consumed without loading video metadata', async ({
+test('rollout off and malformed reminders do not load video metadata', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -89,15 +89,22 @@ test('public and malformed reminder parameters are consumed without loading vide
       youtubeApiCalls += 1
     }
   })
-  await seedReadyInternalState(page)
+  await seedReadyState(page)
+  await page.route('**/config.local.js*', route => route.fulfill({
+    body: runtimeConfig.replace("accountFeaturesRollout: 'public'", "accountFeaturesRollout: 'off'"),
+    contentType: 'text/javascript'
+  }))
 
   await page.goto(`/?reminder=discovery&video=${videoId}&channel=${channelId}`)
   await expect(page).toHaveURL(/\/$/)
   await expect(page.locator('.video-player-overlay')).toHaveCount(0)
   expect(youtubeApiCalls).toBe(0)
 
-  await page.goto('/?internal_test=1&reminder=discovery&video=too-short')
-  await expect(page).toHaveURL(/\?internal_test=1$/)
+  await page.route('**/config.local.js*', route => route.fulfill({
+    body: runtimeConfig, contentType: 'text/javascript'
+  }))
+  await page.goto('/?reminder=discovery&video=too-short')
+  await expect(page).toHaveURL(/\/$/)
   await expect(page.locator('.video-player-overlay')).toHaveCount(0)
   expect(youtubeApiCalls).toBe(0)
 })

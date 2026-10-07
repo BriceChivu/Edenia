@@ -177,8 +177,7 @@ async function seedCompletedState(page, locale = 'en', targetUrl = '/') {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
-    const storageKey = new URL(location.href).searchParams.get('internal_test') === '1'
-      ? 'edenia_v1_internal_test' : 'edenia_v1'
+    const storageKey = 'edenia_v1'
     localStorage.setItem(storageKey, JSON.stringify(state))
   }, locale)
   await page.reload()
@@ -5731,8 +5730,8 @@ async function expectClosedHeatmapDetails(tooltip) {
   expect(await tooltip.ariaSnapshot()).toBe('')
 }
 
-for (const targetUrl of ['/', '/?internal_test=1']) {
-  const heatmapStorageKey = targetUrl.includes('internal_test') ? 'edenia_v1_internal_test' : 'edenia_v1'
+for (const targetUrl of ['/']) {
+  const heatmapStorageKey = 'edenia_v1'
   test(`Study History heatmap listeners preserve tooltip input and positioning branches on ${targetUrl}`, async ({
     page
   }, testInfo) => {
@@ -5877,11 +5876,11 @@ for (const targetUrl of ['/', '/?internal_test=1']) {
   })
 }
 
-for (const targetUrl of ['/', '/?internal_test=1']) {
+for (const targetUrl of ['/']) {
   for (const locale of ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr']) {
     test(`Study History heatmap presents complete day names and fresh visual details in ${locale} on ${targetUrl}`, async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== 'desktop-standard')
-      const storageKey = targetUrl.includes('internal_test') ? 'edenia_v1_internal_test' : 'edenia_v1'
+      const storageKey = 'edenia_v1'
       await seedCompletedState(page, locale, targetUrl)
       await page.evaluate(key => {
         const state = JSON.parse(localStorage.getItem(key))

@@ -202,3 +202,11 @@ test('production replay starts immediately when the live URL has no auth secret'
   result.config.loaded()
   assert.deepEqual(result.dispatchedEvents, ['edenia:analytics-ready'])
 })
+
+test('retired mode 1 is removed from history and uses ordinary analytics', () => {
+  const result = runAnalyticsBootstrap('https://www.edenia.study/?internal_test=1&source=retained#study')
+  assert.equal(result.browserUrl, 'https://www.edenia.study/?source=retained#study')
+  assert.equal(result.context.EDENIA_INTERNAL_TEST, false)
+  const tester = runAnalyticsBootstrap('https://www.edenia.study/?internal_test=2')
+  assert.equal(tester.context.EDENIA_INTERNAL_TEST, true)
+})

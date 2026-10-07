@@ -90,9 +90,9 @@ test('cross-origin preflight is local, profile preflight remains denied', async 
   assert.match(await f.send({ path: '/rest/v1/rpc/resolve_my_learner_profile', method: 'OPTIONS', body: '', headers }), /403 Forbidden/)
   assert.equal(f.observed.length, 0)
 })
-test('native proxy denies public document, profile mutations, service workers and foreign CONNECT hosts', async t => {
+test('native proxy denies undeclared documents, profile mutations, service workers and foreign CONNECT hosts', async t => {
   const f = await fixture(t)
-  assert.match(await f.send({ origin: applicationOrigin, path: '/', method: 'GET', destination: 'document', body: '' }), /403 Forbidden/)
+  assert.match(await f.send({ origin: applicationOrigin, path: '/?retired=1', method: 'GET', destination: 'document', body: '' }), /403 Forbidden/)
   assert.match(await f.send({ path: '/rest/v1/rpc/resolve_my_learner_profile' }), /403 Forbidden/)
   assert.match(await f.send({ origin: applicationOrigin, path: '/sw.js', method: 'GET', destination: 'serviceworker', body: '' }), /403 Forbidden/)
   assert.equal(await f.send({ connectHost: 'evil.invalid:443' }), 'closed'); assert.equal(f.observed.length, 0)
@@ -155,7 +155,7 @@ for (const failure of ['empty', 'encoding']) test(`document transport retains sa
     if (failure === 'empty') res.destroy()
     else res.setHeader('content-encoding', 'gzip')
   } })
-  assert.equal(await f.send({ origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '' }), 'closed')
+  assert.equal(await f.send({ origin: applicationOrigin, path: '/', method: 'GET', destination: 'document', body: '' }), 'closed')
   assert.equal(f.proxy.stats.diagnostic.failure, failure === 'empty' ? 'upstream-reset' : 'response-encoding')
   assert.equal(f.proxy.stats.diagnostic.documentDelivered, false)
   assert.equal(f.proxy.stats.sealed, true)
@@ -165,7 +165,7 @@ test('document delivery requires successful nonempty HTML and is separate from b
   const f = await fixture(t, { onProgress: value => progress.push(value), onRequest: async (_req, res) => {
     res.setHeader('content-type', 'text/html; charset=utf-8'); res.end('<!doctype html><title>Fixture</title>')
   } })
-  assert.match(await f.send({ origin: applicationOrigin, raw: 'GET /?internal_test=1 HTTP/1.1\r\nHost: app.example.invalid\r\nConnection: keep-alive\r\nSec-Fetch-Dest: document\r\n\r\n' }), /200 OK/)
+  assert.match(await f.send({ origin: applicationOrigin, raw: 'GET / HTTP/1.1\r\nHost: app.example.invalid\r\nConnection: keep-alive\r\nSec-Fetch-Dest: document\r\n\r\n' }), /200 OK/)
   assert.equal(f.proxy.stats.diagnostic.documentDelivered, true)
   assert.equal(progress.some(value => value.documentDelivered), true)
 })
@@ -176,7 +176,7 @@ for (const response of ['empty-html', 'error-html', 'non-html']) test(`invalid d
     res.statusCode = response === 'error-html' ? 503 : 200
     res.end(response === 'empty-html' ? '' : '<title>Fixture</title>')
   } })
-  assert.equal(await f.send({ origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '' }), 'closed')
+  assert.equal(await f.send({ origin: applicationOrigin, path: '/', method: 'GET', destination: 'document', body: '' }), 'closed')
   assert.equal(f.proxy.stats.diagnostic.documentDelivered, false)
   assert.equal(f.proxy.stats.diagnostic.failure, 'document-response')
 })
@@ -224,7 +224,7 @@ test('provider TLS failure is separate from successful application transport', a
     res.setHeader('content-type', 'text/html'); res.end('<title>Local fixture</title>')
   } })
   await f.send({ sni: 'wrong-sni.invalid' })
-  assert.match(await f.send({ origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '' }), /200 OK/)
+  assert.match(await f.send({ origin: applicationOrigin, path: '/', method: 'GET', destination: 'document', body: '' }), /200 OK/)
   assert.deepEqual(f.proxy.stats.diagnostic.applicationTransport, {
     connectAccepted: true, tlsEstablished: true, connectionFailure: null
   })
@@ -235,7 +235,7 @@ test('provider TLS failure is separate from successful application transport', a
 test('application HTTP parser failure is recorded only after its TLS handshake', async t => {
   const f = await fixture(t)
   assert.equal(await f.send({ origin: applicationOrigin,
-    raw: 'GET /?internal_test=1 HTTP/1.1\r\nHost: app.example.invalid\r\nContent-Length: 0\r\nContent-Length: 1\r\n\r\nx' }), 'closed')
+    raw: 'GET / HTTP/1.1\r\nHost: app.example.invalid\r\nContent-Length: 0\r\nContent-Length: 1\r\n\r\nx' }), 'closed')
   assert.deepEqual(f.proxy.stats.diagnostic.applicationTransport, {
     connectAccepted: true, tlsEstablished: true, connectionFailure: 'client-http'
   })
@@ -249,7 +249,7 @@ for (const tlsVersion of ['TLSv1.2', 'TLSv1.3']) test(`allowed document reconnec
   } })
   let tlsSession
   const handshakes = []
-  const request = { origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '', tlsVersion,
+  const request = { origin: applicationOrigin, path: '/', method: 'GET', destination: 'document', body: '', tlsVersion,
     onTls: stream => {
       handshakes.push({ authorized: stream.authorized, reused: stream.isSessionReused(), protocol: stream.getProtocol() })
       if (tlsVersion === 'TLSv1.2') tlsSession = stream.getSession()
@@ -273,13 +273,13 @@ test('TLS reconnect cannot replace missing or wrong SNI, Host, or origin with sa
     res.setHeader('content-type', 'text/html'); res.end('<title>Local document</title>')
   } })
   let tlsSession
-  const document = { origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '', tlsVersion: 'TLSv1.2' }
+  const document = { origin: applicationOrigin, path: '/', method: 'GET', destination: 'document', body: '', tlsVersion: 'TLSv1.2' }
   assert.match(await f.send({ ...document, onTls: stream => { tlsSession = stream.getSession() } }), /200 OK/)
   assert.ok(Buffer.isBuffer(tlsSession))
   assert.equal(await f.send({ ...document, tlsSession, sni: 'wrong-sni.invalid' }), 'closed')
   assert.match(await f.send({ ...document, tlsSession, sni: null }), /403 Forbidden/)
   assert.match(await f.send({ ...document, tlsSession,
-    raw: 'GET /?internal_test=1 HTTP/1.1\r\nHost: wrong-host.invalid\r\nConnection: close\r\nSec-Fetch-Dest: document\r\n\r\n' }), /403 Forbidden/)
+    raw: 'GET / HTTP/1.1\r\nHost: wrong-host.invalid\r\nConnection: close\r\nSec-Fetch-Dest: document\r\n\r\n' }), /403 Forbidden/)
   assert.match(await f.send({ ...document, tlsSession, origin: providerOrigin }), /403 Forbidden/)
   assert.equal(f.observed.length, 1, 'only the initial allowed document reaches the upstream')
   assert.equal(f.sessions.length, 0)

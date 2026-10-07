@@ -46,7 +46,7 @@ test('ordinary, mode 1, unsupported values and sandbox never request game runtim
 })
 
 test('fresh tester onboarding, URL cleanup, navigation and reload retain mode 2', async ({ page }) => {
-  await config(page, false, false, 'internal')
+  await config(page, false, false, 'public')
   await page.goto('./?internal_test=2&account=1&extra=cleanup')
   await expect(page.locator('#introTrailer')).toBeVisible()
   await page.getByRole('button', { name: 'Skip intro' }).click()
@@ -146,7 +146,7 @@ for (const indexedDb of [false, true]) {
       expect(names).toContain('edenia_v1_internal_test_2_profiles_indexed_db_v1')
       expect(names).toContain('edenia_state_backups_v1_internal_test_2')
     }
-    for (const [query, title] of [['', 'Source lesson'], ['?internal_test=1', 'Mode 1 lesson']]) {
+    for (const [query, title] of [['', 'Source lesson'], ['?internal_test=1', 'Source lesson']]) {
       await page.goto(`./${query}`)
       await expect(page.locator('#mainApp')).toBeVisible()
       expect(await page.evaluate(() => loadState().videos.lesson.title)).toBe(title)

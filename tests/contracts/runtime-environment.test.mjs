@@ -38,7 +38,6 @@ function environment(url) {
 test('runtime environment preserves exact origins, hosts, and first query values', () => {
   assert.deepEqual(environment('http://localhost:8001/?sandbox=1'), {
     isSandbox: true,
-    isInternalTest: false,
     internalTestMode: null,
     isTinySwordsTester: false,
     isLocalhost: true,
@@ -61,14 +60,8 @@ test('runtime environment preserves exact origins, hosts, and first query values
     false
   )
 
-  assert.equal(
-    environment('https://example.com/?internal_test=1').isInternalTest,
-    true
-  )
-  assert.equal(
-    environment('https://example.com/?internal_test=true').isInternalTest,
-    false
-  )
+  assert.equal(environment('https://example.com/?internal_test=1').internalTestMode, null)
+  assert.equal(environment('https://example.com/?internal_test=true').internalTestMode, null)
   assert.equal(environment('http://localhost:8000/').isLocalFeedbackTest, true)
   assert.equal(
     environment('http://localhost:8000/?legacy_migration_test=1')
@@ -94,50 +87,27 @@ test('runtime environment preserves exact origins, hosts, and first query values
   }).isLocalhost, true)
 })
 
-test('learner profile access visual test is localhost-only and internal-only', () => {
-  assert.equal(
-    deriveLearnerProfileAccessVisualTest(
-      new URL('http://localhost:8000/?internal_test=1&profile_access_test=recovering')
-    ),
-    'recovering'
-  )
-  for (const url of [
-    'https://www.edenia.study/?internal_test=1&profile_access_test=recovering',
-    'http://localhost:8000/?profile_access_test=recovering',
-    'http://localhost:8000/?internal_test=1&profile_access_test=conflicting',
-    'http://localhost:8000/?internal_test=1&profile_access_test=recovering&profile_access_test=recovering',
-    'http://localhost:8000/?internal_test=1&profile_access_test=recovering&internal_test=1'
-  ]) {
+test('learner profile access visual test is localhost-only', () => {
+  assert.equal(deriveLearnerProfileAccessVisualTest(new URL('http://localhost:8000/?profile_access_test=recovering')), 'recovering')
+  for (const url of ['https://www.edenia.study/?profile_access_test=recovering', 'http://localhost:8000/?profile_access_test=conflicting', 'http://localhost:8000/?profile_access_test=recovering&profile_access_test=recovering']) {
     assert.equal(deriveLearnerProfileAccessVisualTest(new URL(url)), null, url)
   }
 })
 
-test('storage keys preserve normal, internal, sandbox, and combined isolation', () => {
+test('storage keys preserve normal and sandbox isolation', () => {
   const cases = [
     {
-      input: { isSandbox: false, isInternalTest: false },
+      input: { isSandbox: false },
       storageKey: 'edenia_v1',
       configCookieKey: 'edenia_config',
       onboardingNoticeKey: 'edenia_onboarding_notice'
     },
     {
-      input: { isSandbox: false, isInternalTest: true },
-      storageKey: 'edenia_v1_internal_test',
-      configCookieKey: 'edenia_config_internal_test',
-      onboardingNoticeKey: 'edenia_onboarding_notice_internal_test'
-    },
-    {
-      input: { isSandbox: true, isInternalTest: false },
+      input: { isSandbox: true },
       storageKey: 'edenia_v1_sandbox',
       configCookieKey: 'edenia_config_sandbox',
       onboardingNoticeKey: 'edenia_onboarding_notice'
     },
-    {
-      input: { isSandbox: true, isInternalTest: true },
-      storageKey: 'edenia_v1_sandbox',
-      configCookieKey: 'edenia_config_sandbox',
-      onboardingNoticeKey: 'edenia_onboarding_notice_internal_test'
-    }
   ]
 
   for (const expected of cases) {
@@ -198,12 +168,10 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
   }
 })
 
-test('study guidance enables only for internal tests or an explicit release', () => {
-  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: false }), false)
-  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: true }), true)
-  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: false }, true), true)
-  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: false }, 'true'), false)
-  assert.equal(deriveStudyGuidanceEnabled(null, true), true)
+test('study guidance requires an explicit release', () => {
+  assert.equal(deriveStudyGuidanceEnabled(), false)
+  assert.equal(deriveStudyGuidanceEnabled(true), true)
+  assert.equal(deriveStudyGuidanceEnabled('true'), false)
   assert.equal(deriveStudyGuidanceEnabled(null), false)
 })
 
@@ -236,7 +204,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     youtubeApiKey: '  key-one  ',
     freePlusEnabled: true,
     plusCheckoutEnabled: true,
-    accountFeaturesRollout: 'internal',
+    accountFeaturesRollout: 'public',
     accountlessProfileFinalCutoverAt: '2026-09-30T00:00:00.000Z',
     emergencyAccountlessRollbackEnabled: true,
     googleSignInMode: 'id_token',
@@ -256,7 +224,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), true)
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
-  assert.equal(getAccountFeaturesRollout(target), 'internal')
+  assert.equal(getAccountFeaturesRollout(target), 'public')
   assert.equal(
     getAccountlessProfileFinalCutoverAt(target),
     Date.parse('2026-09-30T00:00:00.000Z')

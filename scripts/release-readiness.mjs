@@ -52,7 +52,7 @@ const PRODUCT_OWNER_APPROVAL_VALUES = new Set([
   'approved',
   'rejected'
 ])
-const RUNTIME_ROLLOUT_VALUES = new Set(['off', 'internal', 'public'])
+const RUNTIME_ROLLOUT_VALUES = new Set(['off', 'public'])
 const PROFILE_DATA_GATE_VALUES = new Set([
   'unknown',
   'off',

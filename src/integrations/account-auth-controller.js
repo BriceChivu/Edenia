@@ -28,8 +28,8 @@ export const ACCOUNT_AUTH_NOTICES = Object.freeze({
 })
 
 export const ACCOUNT_AUTH_RETURN_DESTINATIONS = Object.freeze({
-  LOCAL: 'http://localhost:8000/?internal_test=1&account=1',
-  PRODUCTION: 'https://www.edenia.study/?internal_test=1&account=1'
+  LOCAL: 'http://localhost:8000/?account=1',
+  PRODUCTION: 'https://www.edenia.study/?account=1'
 })
 
 const AUTH_SESSION_EVENTS = new Set([

@@ -16,21 +16,21 @@ const SERVED_APPLICATION_ORIGIN = `http://localhost:${Number(
 const SECRET_ACTIVITY_TITLE = 'PRIVATE LEARNER ACTIVITY'
 const SECRET_CHANNEL_NAME = 'PRIVATE LEARNER CHANNEL'
 const NEXT_OWNER_CHANNEL_NAME = 'NEXT OWNER PRIVATE CHANNEL'
-const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
+const AUTH_STORAGE_KEY = 'edenia_v1_plus_auth_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_access_v1'
+  'edenia_v1_learner_profile_access_v1'
 const OWNER_VERIFICATION_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_owner_verification_v1'
+  'edenia_v1_learner_profile_owner_verification_v1'
 const ONBOARDING_DRAFT_STORAGE_KEY =
-  'edenia_v1_internal_test_onboarding_draft_v1'
+  'edenia_v1_onboarding_draft_v1'
 const PROFILE_SYNC_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_sync_v1'
+  'edenia_v1_learner_profile_sync_v1'
 const CHANNEL_CACHE_STORAGE_KEY =
-  'edenia_v1_internal_test_youtube_channel_search_cache_v1'
+  'edenia_v1_youtube_channel_search_cache_v1'
 const ACCOUNT_STUDY_OWNER_STORAGE_KEY =
-  'edenia_v1_internal_test_account_study_sync_owner_v1'
-const CONFIG_COOKIE_KEY = 'edenia_config_internal_test'
-const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
+  'edenia_v1_account_study_sync_owner_v1'
+const CONFIG_COOKIE_KEY = 'edenia_config'
+const STATE_STORAGE_KEY = 'edenia_v1'
 const OWNER_PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const OTHER_OWNER_PROFILE_ID = '423e4567-e89b-42d3-a456-426614174003'
 const youtubeFixtures = {
@@ -245,7 +245,7 @@ test('authenticated gate-off account can sign out from the locked authentication
   let logoutCount = 0
   const profileWrites = []
   await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig({ accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off', lifecycle: lifecycleEnabled }),
+    body: runtimeConfig({ accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off', lifecycle: lifecycleEnabled }),
     contentType: 'text/javascript', status: 200
   }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
@@ -257,7 +257,7 @@ test('authenticated gate-off account can sign out from the locked authentication
     if (pathname.includes('/rpc/')) profileWrites.push(pathname)
     return route.fulfill({ json: {}, status: 200 })
   })
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnedLearnerProfile(page)
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -299,7 +299,7 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
     } } }
   })
   await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig({ accountFeaturesRollout: 'internal', lifecycle: true,
+    body: runtimeConfig({ accountFeaturesRollout: 'public', lifecycle: true,
       googleIdentityClientId: '1234567890-test.apps.googleusercontent.com' }),
     contentType: 'text/javascript', status: 200
   }))
@@ -315,7 +315,7 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
     if (pathname.includes('/rpc/')) profileWrites.push(pathname)
     return route.fulfill({ json: {}, status: 200 })
   })
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await page.getByRole('button', { name: 'Skip intro' }).click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
@@ -356,7 +356,7 @@ test('a revoked activation fences an in-flight feed refresh completion', async (
 
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: 'internal',
+      accountFeaturesRollout: 'public',
       lifecycle: true,
       youtubeApiKey: 'fixture-key'
     }),
@@ -386,7 +386,7 @@ test('a revoked activation fences an in-flight feed refresh completion', async (
     await route.fallback()
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedOwnedLearnerProfile(page)
   await page.evaluate(storageKey => {
     const state = JSON.parse(localStorage.getItem(storageKey))
@@ -473,7 +473,7 @@ test('a revoked activation fences an in-flight added-channel refresh completion'
 
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: 'internal',
+      accountFeaturesRollout: 'public',
       lifecycle: true,
       youtubeApiKey: 'fixture-key'
     }),
@@ -503,7 +503,7 @@ test('a revoked activation fences an in-flight added-channel refresh completion'
     await route.fallback()
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedOwnedLearnerProfile(page)
   await page.evaluate(storageKey => {
     const state = JSON.parse(localStorage.getItem(storageKey))
@@ -773,7 +773,7 @@ test('resolving profile access exposes no learner content and performs no autosa
   let releaseAuthRequest = null
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -784,7 +784,7 @@ test('resolving profile access exposes no learner content and performs no autosa
     await route.fulfill({ json: { message: 'temporarily unavailable' }, status: 503 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedPrivateLearnerProfile(page)
   await page.evaluate(({ authStorageKey, session }) => {
     localStorage.setItem(authStorageKey, JSON.stringify(session))
@@ -804,7 +804,7 @@ test('matching restored progress repairs reset bookkeeping without asking the le
   let profileEnvelope = null
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -843,7 +843,7 @@ test('matching restored progress repairs reset bookkeeping without asking the le
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedOwnedLearnerProfile(page)
   const storedState = await page.evaluate(stateStorageKey => {
     const state = JSON.parse(localStorage.getItem(stateStorageKey))
@@ -934,7 +934,7 @@ test('matching cloud progress repairs an obsolete profile identity without askin
   let profileEnvelope = null
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -958,7 +958,7 @@ test('matching cloud progress repairs an obsolete profile identity without askin
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnedLearnerProfile(page)
   profileEnvelope = (
     await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
@@ -1071,7 +1071,7 @@ test('locked sign-in keeps an interactive security check usable after moving the
   })
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled,
       turnstileSiteKey: 'local-test-site-key'
     }),
@@ -1080,7 +1080,7 @@ test('locked sign-in keeps an interactive security check usable after moving the
   await page.route('https://profile-access-test.supabase.co/**', route => (
     route.fulfill({ json: {}, status: 200 })
   ))
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   const storedState = await seedOwnedLearnerProfile(page)
   await page.evaluate(key => localStorage.removeItem(key), AUTH_STORAGE_KEY)
   lifecycleEnabled = true
@@ -1122,7 +1122,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
   await useAccountReturnOrigin(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',
       lifecycle: lifecycleEnabled
     }),
@@ -1158,7 +1158,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   const storedState = await seedOwnedLearnerProfile(page)
   profileEnvelope = (
     await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
@@ -1320,7 +1320,7 @@ test('a missing cloud head offers neutral local and protected recovery copies', 
   let protectedReads = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1388,7 +1388,7 @@ test('a missing cloud head offers neutral local and protected recovery copies', 
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnedLearnerProfile(page)
   const protectedProfile = structuredClone(JSON.parse(storedState))
   protectedProfile.config.channels = [{
@@ -1470,7 +1470,7 @@ test('failed unusable-head restoration keeps recovery export and retry available
   let restoreAttempts = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1511,7 +1511,7 @@ test('failed unusable-head restoration keeps recovery export and retry available
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnedLearnerProfile(page)
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -1546,7 +1546,7 @@ test('missing-head history with no trusted copy routes to onboarding', async ({
   let lifecycleEnabled = false
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1573,7 +1573,7 @@ test('missing-head history with no trusted copy routes to onboarding', async ({
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await page.evaluate(({
     accessStorageKey,
     authStorageKey,
@@ -1611,7 +1611,7 @@ test('a valid cloud town opens and reloads past malformed durable metadata on th
   let resolutionCount = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1636,7 +1636,7 @@ test('a valid cloud town opens and reloads past malformed durable metadata on th
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedPrivateLearnerProfile(page)
   profileEnvelope = (
     await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
@@ -1695,7 +1695,7 @@ test('recovery-required with no trusted candidate enters onboarding on the inter
   const rpcCalls = []
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1724,7 +1724,7 @@ test('recovery-required with no trusted candidate enters onboarding on the inter
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await page.evaluate(({
     accessStorageKey,
     authStorageKey,
@@ -1761,7 +1761,7 @@ test('generic recovery gives the learner a retry and sign-out path', async ({
   let resolutionCount = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1779,7 +1779,7 @@ test('generic recovery gives the learner a retry and sign-out path', async ({
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnedLearnerProfile(page)
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -1813,7 +1813,7 @@ test('malformed access metadata keeps a valid local town on a signed-in path', a
   let migrationCount = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1839,7 +1839,7 @@ test('malformed access metadata keeps a valid local town on a signed-in path', a
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedPrivateLearnerProfile(page)
   await page.evaluate(({
     accessStorageKey,
@@ -1884,7 +1884,7 @@ test('localhost visual recovery switch opens the generic recovery gate', async (
   test.skip(testInfo.project.name !== 'desktop-standard')
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: 'internal',
+      accountFeaturesRollout: 'public',
       lifecycle: true
     }),
     contentType: 'text/javascript',
@@ -1894,7 +1894,7 @@ test('localhost visual recovery switch opens the generic recovery gate', async (
     route.fulfill({ json: {}, status: 200 })
   ))
 
-  await page.goto('/?internal_test=1&profile_access_test=recovering')
+  await page.goto('/?profile_access_test=recovering')
 
   await expectNeutralProfileGate(page, 'recovering', null)
   await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
@@ -1925,7 +1925,7 @@ test('a signed-in owner can reopen and save the matching local profile while the
   })
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -1966,7 +1966,7 @@ test('a signed-in owner can reopen and save the matching local profile while the
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const privateProfile = JSON.parse(await seedPrivateLearnerProfile(page))
   const olderCloudProfile = structuredClone(privateProfile)
   olderCloudProfile.config.channels = []
@@ -2070,14 +2070,14 @@ test('same-page sign-out removes rendered learner content before locking access'
   let lifecycleEnabled = false
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
     status: 200
   }))
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const privateProfile = JSON.parse(await seedPrivateLearnerProfile(page))
   privateProfile.activityLog = [{
     actor: 'user',
@@ -2127,7 +2127,7 @@ test('same-page sign-out removes rendered learner content before locking access'
     route => route.fulfill({ json: {}, status: 200 })
   )
   lifecycleEnabled = true
-  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
@@ -2162,7 +2162,7 @@ test('an unverified owner replacement stays blocked and local sign-out changes n
   const signOutScopes = []
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -2179,7 +2179,7 @@ test('an unverified owner replacement stays blocked and local sign-out changes n
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedPrivateLearnerProfile(page)
   await page.evaluate(({
     accessStorageKey,
@@ -2257,7 +2257,7 @@ test('a synchronized browser copy is replaced only after the learner continues',
   const nextOwnerEnvelope = await createNextOwnerEnvelope()
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -2279,7 +2279,7 @@ test('a synchronized browser copy is replaced only after the learner continues',
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedOwnerChangeStorage(page, {
     accountStudyOwner: false,
     pending: false
@@ -2370,7 +2370,7 @@ test('a different new account starts onboarding without exposing or replacing th
   let resolutionCount = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled,
       youtubeApiKey: 'fixture-key'
     }),
@@ -2419,7 +2419,7 @@ test('a different new account starts onboarding without exposing or replacing th
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnerChangeStorage(page, {
     accountStudyOwner: false,
     pending: false
@@ -2523,7 +2523,7 @@ test('an owner with no trusted cloud predecessor is routed through fresh onboard
   let resolutionCount = 0
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled,
       youtubeApiKey: 'fixture-key'
     }),
@@ -2575,7 +2575,7 @@ test('an owner with no trusted cloud predecessor is routed through fresh onboard
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedPrivateLearnerProfile(page)
   await page.evaluate(({
     accessStorageKey,
@@ -2667,7 +2667,7 @@ test('unverifiable progress downloads before the browser replaces its owner', as
   const nextOwnerEnvelope = await createNextOwnerEnvelope()
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -2684,7 +2684,7 @@ test('unverifiable progress downloads before the browser replaces its owner', as
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedOwnerChangeStorage(page, { pending: false })
   await page.evaluate(key => localStorage.removeItem(key), PROFILE_SYNC_STORAGE_KEY)
   lifecycleEnabled = true
@@ -2736,7 +2736,7 @@ test('discarding pending progress requires irreversible confirmation', async ({
   const nextOwnerEnvelope = await createNextOwnerEnvelope()
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -2753,7 +2753,7 @@ test('discarding pending progress requires irreversible confirmation', async ({
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const storedState = await seedOwnerChangeStorage(page, { pending: true })
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -2807,7 +2807,7 @@ test('discarding progress recovers from malformed sync metadata', async ({
   const nextOwnerEnvelope = await createNextOwnerEnvelope()
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
-      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -2824,7 +2824,7 @@ test('discarding progress recovers from malformed sync metadata', async ({
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await seedOwnerChangeStorage(page, { pending: false })
   await page.evaluate(({
     dirtyKey,
@@ -2880,7 +2880,7 @@ test('failed automatic Anki refresh does not write a signed-in profile diagnosti
   let commits = 0
   let ankiAttempts = 0
   await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript',
-    body: runtimeConfig({ accountFeaturesRollout: enabled ? 'internal' : 'off', lifecycle: enabled }) }))
+    body: runtimeConfig({ accountFeaturesRollout: enabled ? 'public' : 'off', lifecycle: enabled }) }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/rpc/resolve_my_learner_profile')) return route.fulfill({ json: [{
@@ -2891,7 +2891,7 @@ test('failed automatic Anki refresh does not write a signed-in profile diagnosti
   })
   await page.route('http://127.0.0.1:8765/**', route => { ankiAttempts += 1; return route.fulfill({ json: { result: null, error: 'Synthetic unavailable AnkiConnect' } }) })
   await page.route('http://localhost:8765/**', route => { ankiAttempts += 1; return route.fulfill({ json: { result: null, error: 'Synthetic unavailable AnkiConnect' } }) })
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   const state = await page.evaluate(() => {
     const state = window.defaultState(4, [], 'light', [], 'en')
     const time = '2026-09-04T12:00:00.000Z'

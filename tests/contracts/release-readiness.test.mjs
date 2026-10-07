@@ -48,7 +48,7 @@ const deployment = createDeploymentEvidenceContext({
   assetVersion: COMMIT.slice(0, 12),
   runtimeConfigSha256: CONFIG_HASH,
   gateState: {
-    accountFeaturesRollout: 'internal',
+    accountFeaturesRollout: 'public',
     learnerProfileLifecycleEnabled: true,
     emergencyAccountlessRollbackEnabled: false,
     legacyProgressMigrationEnabled: true,
@@ -604,7 +604,7 @@ test('rerun reports retain only independent evidence with its original deploymen
 })
 
 test('deployment inspection binds the cache-busted runtime bytes to the public manifest', async () => {
-  const runtimeConfig = 'window.EDENIA_CONFIG = {\n  "accountFeaturesRollout": "internal",\n  "learnerProfileLifecycleEnabled": true\n}\n'
+  const runtimeConfig = 'window.EDENIA_CONFIG = {\n  "accountFeaturesRollout": "public",\n  "learnerProfileLifecycleEnabled": true\n}\n'
   const runtimeConfigSha256 = await import('node:crypto').then(({ createHash }) => (
     createHash('sha256').update(runtimeConfig).digest('hex')
   ))
@@ -631,7 +631,7 @@ test('deployment inspection binds the cache-busted runtime bytes to the public m
 
   assert.equal(inspected.deployedCommit, COMMIT)
   assert.equal(inspected.runtimeConfigSha256, runtimeConfigSha256)
-  assert.equal(inspected.gateState.accountFeaturesRollout, 'internal')
+  assert.equal(inspected.gateState.accountFeaturesRollout, 'public')
   assert.ok(calls.some(url => /config\.local\.js\?v=/u.test(url)))
 })
 

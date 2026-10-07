@@ -1,5 +1,7 @@
 # Internal canary exploratory test record — 2026-09-04
 
+> Archived plan: mode 1 was retired on 2026-10-07. Its routes and rollout instructions below are historical and must not be used.
+
 ## Scope and safety boundary
 
 - Local mutation environment: `http://localhost:8000/?internal_test=1`, current checkout `4b48df6c0519`.

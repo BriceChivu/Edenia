@@ -41,7 +41,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     const match = source.match(/^window\.EDENIA_CONFIG\s*=\s*([\s\S]*?)\s*;?\s*$/u)
     const runtime = match ? JSON.parse(match[1]) : null
     if (release.deployedCommit !== candidate || release.runtimeConfigSha256 !== runtimeHash
-      || runtime?.accountFeaturesRollout !== 'internal' || runtime?.learnerProfileLifecycleEnabled !== true
+      || runtime?.accountFeaturesRollout !== 'public' || runtime?.learnerProfileLifecycleEnabled !== true
       || new URL(runtime.supabaseUrl).hostname !== config.projectRef + '.supabase.co') throw new Error('Candidate runtime mismatch')
     if (release.assetVersion !== candidate.slice(0, 12)) throw new Error('Asset version mismatch')
     const asset = await fetch('https://www.edenia.study/app.js?v=' + release.assetVersion)

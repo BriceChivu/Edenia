@@ -8,7 +8,7 @@ import {
 
 const USER_A = '11111111-1111-4111-8111-111111111111'
 const USER_B = '22222222-2222-4222-8222-222222222222'
-const OWNER_KEY = 'edenia_v1_internal_test_account_study_sync_owner_v1'
+const OWNER_KEY = 'edenia_v1_account_study_sync_owner_v1'
 
 function memoryStorage(initial = {}) {
   const entries = new Map(Object.entries(initial))

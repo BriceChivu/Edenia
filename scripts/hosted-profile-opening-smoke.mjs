@@ -1,6 +1,6 @@
 import { createCanaryOperationGuard } from './canary-operation-guard.mjs'
 
-export const OPENING_URL = 'https://www.edenia.study/?internal_test=1'
+export const OPENING_URL = 'https://www.edenia.study/'
 const PHASES = new Set(['activation', 'reload', 'injected-failure', 'retry'])
 // These application reads do not choose, restore, or commit learner state.
 const READS = new Set(['read_my_latest_learner_profile_reset'])
@@ -137,7 +137,7 @@ export async function installOpeningGuard(context, {
       }
       // Only static application reads; no public root document navigation.
       if (request.method() === 'GET' && target.origin === applicationOrigin
-        && (request.resourceType() !== 'document' || target.href === applicationOrigin + '/?internal_test=1')) {
+        && (request.resourceType() !== 'document' || target.href === applicationOrigin + '/')) {
         return await route.continue()
       }
       if (target.pathname.startsWith('/rest/v1/') || target.pathname.startsWith('/auth/v1/')) policy.fail()
@@ -183,12 +183,12 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
       contentType: 'text/javascript', body: 'window.EDENIA_CONFIG = ' + JSON.stringify(testRuntime)
     }))
     await context.addInitScript(({ session, bookkeeping, identity, applicationOrigin }) => {
-      if (location.origin !== applicationOrigin || location.search !== '?internal_test=1') return
+      if (location.origin !== applicationOrigin || location.search !== '') return
       if (sessionStorage.getItem('edenia-opening-smoke-seeded')) return
       sessionStorage.setItem('edenia-opening-smoke-seeded', '1')
       // This new context owns no pre-existing learner data. Never clear a user profile.
-      localStorage.setItem('edenia_v1_internal_test_plus_auth_v1', JSON.stringify(session))
-      const key = 'edenia_v1_internal_test_learner_profile_sync_v1'
+      localStorage.setItem('edenia_v1_plus_auth_v1', JSON.stringify(session))
+      const key = 'edenia_v1_learner_profile_sync_v1'
       if (bookkeeping === 'malformed') {
         localStorage.setItem(key, '{synthetic-malformed-sync')
         localStorage.setItem(key + '_import_v1', '{synthetic-malformed-import')
@@ -218,7 +218,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
     if (bookkeeping === 'retry') {
       await startPhase('injected-failure')
       guard.injectTransportFailure()
-      await page.goto(applicationOrigin + '/?internal_test=1', { waitUntil: 'domcontentloaded' })
+      await page.goto(applicationOrigin + '/', { waitUntil: 'domcontentloaded' })
       await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'waiting-cloud')
       await finishPhase()
       await startPhase('retry')
@@ -227,7 +227,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
       await finishPhase()
     } else {
       await startPhase('activation')
-      await page.goto(applicationOrigin + '/?internal_test=1', { waitUntil: 'domcontentloaded' })
+      await page.goto(applicationOrigin + '/', { waitUntil: 'domcontentloaded' })
       await assertActive()
       await finishPhase()
     }
@@ -286,7 +286,7 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
     const match = runtime.match(/^window\.EDENIA_CONFIG\s*=\s*([\s\S]*?)\s*;?\s*$/u)
     const config = match ? JSON.parse(match[1]) : null
     if (release.deployedCommit !== candidate || release.runtimeConfigSha256 !== hash
-      || config?.accountFeaturesRollout !== 'internal' || config?.learnerProfileLifecycleEnabled !== true
+      || config?.accountFeaturesRollout !== 'public' || config?.learnerProfileLifecycleEnabled !== true
       || new URL(config.supabaseUrl).hostname !== projectRef + '.supabase.co') throw new Error('Deployed opening identity mismatch')
     if (release.assetVersion !== candidate.slice(0, 12)) throw new Error('Asset version mismatch')
     const asset = await fetch(base + '/app.js?v=' + release.assetVersion)
@@ -451,7 +451,7 @@ export async function prepareOpeningAuthentication({ browser, providerOrigin, ex
     const deadline = Date.now() + timeoutMs
     while (!stopped && Date.now() < deadline) {
       const session = await page.evaluate(() => {
-        try { return JSON.parse(localStorage.getItem('edenia_v1_internal_test_plus_auth_v1')) } catch { return null }
+        try { return JSON.parse(localStorage.getItem('edenia_v1_plus_auth_v1')) } catch { return null }
       })
       if (session?.user?.id) {
         if (session.user.id !== expectedOwner) throw new Error('Authentication owner mismatch')

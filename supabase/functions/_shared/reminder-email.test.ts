@@ -18,7 +18,7 @@ import {
 const DELIVERY_ID = '61111111-1111-4111-8111-111111111111'
 const OTHER_DELIVERY_ID = '62222222-2222-4222-8222-222222222222'
 const SECRET = 'a-test-secret-with-at-least-32-bytes-of-entropy'
-const APP_URL = 'https://www.edenia.study/?internal_test=1'
+const APP_URL = 'https://www.edenia.study/'
 const ENDPOINT = 'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders'
 const PAGE = 'https://www.edenia.study/unsubscribe/'
 const LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
@@ -130,7 +130,7 @@ test('validates live URL configuration before any claim exists', () => {
   assert.equal(validateReminderAppUrl(APP_URL), APP_URL)
   assert.equal(validateReminderUnsubscribePageBaseUrl(PAGE), PAGE)
   assert.throws(
-    () => validateReminderAppUrl('https://www.edenia.study/'),
+    () => validateReminderAppUrl('https://www.edenia.study/?internal_test=1'),
     /not allowlisted/i,
   )
   assert.throws(
@@ -160,20 +160,20 @@ test('renders text and escaped HTML content in all five locales', async () => {
     assert.match(content.text, new RegExp(token))
     assert.match(content.html, new RegExp(`<html lang="${locale}">`))
     assert.match(content.html, /role="presentation"/)
-    assert.match(content.html, /internal_test=1/)
+    assert.doesNotMatch(content.html, /internal_test=/)
     assert.match(content.html, /&amp;lang=/)
     assert.doesNotMatch(content.html, /<script|javascript:/i)
   }
 })
 
-test('rejects non-internal app links and tampered unsubscribe links', async () => {
+test('rejects unapproved app links and tampered unsubscribe links', async () => {
   const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
   const unsubscribePageUrl = createReminderUnsubscribePageUrl(PAGE, token, 'en')
 
   assert.throws(
     () => renderReminderEmail({
       locale: 'en',
-      appUrl: 'https://www.edenia.study/',
+      appUrl: 'https://www.edenia.study/?internal_test=1',
       unsubscribePageUrl,
     }),
     /app URL is not allowlisted/i,
@@ -196,7 +196,7 @@ test('builds exact typed Edenia destinations without accepting arbitrary URLs', 
       videoId: null,
       channelId: null,
     }),
-    `${APP_URL}&reminder=streak`,
+    `${APP_URL}?reminder=streak`,
   )
   assert.equal(
     createTypedReminderDestinationUrl({
@@ -205,12 +205,12 @@ test('builds exact typed Edenia destinations without accepting arbitrary URLs', 
       videoId: 'abcdefghijk',
       channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
     }),
-    `${APP_URL}&reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw`,
+    `${APP_URL}?reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw`,
   )
 
   for (const input of [
     {
-      appUrl: 'https://evil.example/?internal_test=1',
+      appUrl: 'https://evil.example/',
       emailType: 'streak' as const,
       videoId: null,
       channelId: null,
@@ -291,7 +291,7 @@ test('allows a streak without a video and rejects partial or multiline payloads'
     emailType: 'streak',
   })
 
-  assert.equal(content.destinationUrl, `${APP_URL}&reminder=streak`)
+  assert.equal(content.destinationUrl, `${APP_URL}?reminder=streak`)
   assert.doesNotMatch(content.text, /Latest video/i)
 
   for (const invalid of [

@@ -13,7 +13,7 @@ const quota = { error: { message: 'Quota exhausted', errors: [{ reason: 'quotaEx
 async function seed(page) {
   await page.clock.setFixedTime(new Date(now))
   await page.route('**/config.local.js', route => route.fulfill({
-    contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "internal" }'
+    contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "public" }'
   }))
   await page.goto('/')
   await page.evaluate(({ channelId, now }) => {
@@ -306,7 +306,7 @@ test('a second tab reuses metadata recovery results for its stale active profile
   })
   const other = await context.newPage()
   await other.clock.setFixedTime(new Date(now))
-  await other.route('**/config.local.js*', route => route.fulfill({ contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "internal" }' }))
+  await other.route('**/config.local.js*', route => route.fulfill({ contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "public" }' }))
   await other.goto('/')
   await expect.poll(async () => (await saved(other)).videos.fixture0001.title).toBe('Shared recovery')
   await page.evaluate(() => window.maybeRefreshFeed())

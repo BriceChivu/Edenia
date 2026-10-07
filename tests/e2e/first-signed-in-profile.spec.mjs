@@ -10,16 +10,16 @@ import {
 const SUPABASE_ORIGIN = 'https://first-profile-test.supabase.co'
 // playwright.config.mjs serves the same built site at the fixed Auth return port.
 const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
-const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
+const STATE_STORAGE_KEY = 'edenia_v1'
 const DRAFT_STORAGE_KEY =
-  'edenia_v1_internal_test_onboarding_draft_v1'
+  'edenia_v1_onboarding_draft_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_access_v1'
+  'edenia_v1_learner_profile_access_v1'
 const PROFILE_SYNC_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_sync_v1'
+  'edenia_v1_learner_profile_sync_v1'
 const OWNER_VERIFICATION_STORAGE_KEY =
-  'edenia_v1_internal_test_learner_profile_owner_verification_v1'
-const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
+  'edenia_v1_learner_profile_owner_verification_v1'
+const AUTH_STORAGE_KEY = 'edenia_v1_plus_auth_v1'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const CREATED_PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
 const START_OVER_RESET_ID = '323e4567-e89b-42d3-a456-426614174002'
@@ -71,7 +71,7 @@ function authenticatedSession() {
 
 function runtimeConfig(overrides = {}) {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
-    accountFeaturesRollout: 'internal',
+    accountFeaturesRollout: 'public',
     freePlusEnabled: false,
     googleSignInMode: 'off',
     indexedDbBackupCleanupEnabled: false,
@@ -196,7 +196,7 @@ async function fulfillEmailAuthentication(route) {
 }
 
 async function reachAccountStep(page) {
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await page.getByRole('button', { name: 'Skip intro' }).click()
   await page.locator('[data-language-id="mandarin"]').click()
   await page.locator(
@@ -229,7 +229,7 @@ test('public onboarding uses a temporary draft without creating a learner profil
   await installRuntimeConfig(page)
   await installEmptySupabase(page)
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
 
   await expect(page.locator('#introTrailer')).toBeVisible()
   await expect(page.locator('#mainApp')).toBeHidden()
@@ -311,7 +311,7 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
   })
 
   try {
-    await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+    await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
     await expect.poll(() => resolutionCount).toBe(1)
 
     await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
@@ -638,7 +638,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect.poll(() => page.evaluate(stateKey => (
     JSON.parse(localStorage.getItem(stateKey))
@@ -834,7 +834,7 @@ test('a returning owner can retry an unresolved cloud-head check', async ({
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await expect.poll(() => resolutionCount).toBe(1)
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
@@ -881,7 +881,7 @@ test('pre-authentication choices survive reload before authentication', async ({
   await installRuntimeConfig(page)
   await installEmptySupabase(page)
 
-  await page.goto('/?internal_test=1')
+  await page.goto('/')
   await page.getByRole('button', { name: 'Skip intro' }).click()
   await page.locator('[data-language-id="mandarin"]').click()
   await page.reload()
@@ -1184,7 +1184,7 @@ test('offline progress survives reload and activates on a second device after sy
   })
   await installRuntimeConfig(page)
   await installCloud(page)
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
   const startingRevision = cloudRevision
@@ -1280,7 +1280,7 @@ test('offline progress survives reload and activates on a second device after sy
     })
     await installRuntimeConfig(secondPage)
     await installCloud(secondPage)
-    await secondPage.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+    await secondPage.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
     await expect(secondPage.locator('#mainApp')).toBeVisible()
     const secondDevice = await secondPage.evaluate(({
       accessKey,
@@ -1375,7 +1375,7 @@ test('rejected cloud backup preserves continued local study, recovery export, an
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
   const startingRevision = cloudRevision

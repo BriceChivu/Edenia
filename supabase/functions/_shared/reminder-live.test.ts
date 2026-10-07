@@ -35,7 +35,7 @@ const CONFIG: ReminderLiveConfig = Object.freeze({
   resendApiKey: 're_test_key_1234567890',
   fromAddress: 'Edenia <reminders@example.com>',
   unsubscribeSecret: 'a-test-secret-with-at-least-32-bytes-of-entropy',
-  appUrl: 'https://www.edenia.study/?internal_test=1',
+  appUrl: 'https://www.edenia.study/',
   unsubscribeEndpointUrl:
     'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
   unsubscribePageUrl: 'https://www.edenia.study/unsubscribe/',
@@ -302,7 +302,7 @@ test('stores the opaque token digest and rechecks the claim before send', async 
   assert.equal(sent[0].deliveryId, CLAIM.delivery_id)
   assert.equal(sent[0].apiKey, CONFIG.resendApiKey)
   assert.match(String(sent[0].unsubscribeApiUrl), /token=[A-Za-z0-9_-]{43}&lang=zh-Hant$/)
-  assert.match(String(sent[0].html), /internal_test=1/)
+  assert.doesNotMatch(String(sent[0].html), /internal_test=/)
   assert.match(String(sent[0].html), /reminder=streak/)
   assert.match(String(sent[0].html), /A new tone lesson/)
   assert.match(String(sent[0].text), /unsubscribe\/\?token=/)

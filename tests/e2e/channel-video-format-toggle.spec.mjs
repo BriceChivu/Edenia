@@ -2,7 +2,6 @@ import { expect, test } from '../support/network-fixture.mjs'
 
 const fixedNow = new Date('2026-08-04T04:00:00.000Z')
 const normalStorageKey = 'edenia_v1'
-const internalStorageKey = 'edenia_v1_internal_test'
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(fixedNow)
@@ -22,14 +21,13 @@ async function seedFormatState(
   page,
   {
     includeShorts = true,
-    internalTest = true,
     locale = 'en',
     overflow = false,
     publishedAt = null,
     runtimeFlag = null
   } = {}
 ) {
-  const storageKey = internalTest ? internalStorageKey : normalStorageKey
+  const storageKey = normalStorageKey
   if (typeof runtimeFlag === 'boolean') {
     await page.route('**/config.local.js', route => route.fulfill({
       body: `window.EDENIA_CONFIG = {
@@ -45,7 +43,7 @@ async function seedFormatState(
       status: 200
     }))
   }
-  await page.goto(internalTest ? '/?internal_test=1' : '/')
+  await page.goto('/')
   await waitForApplication(page)
   await page.evaluate(({
     includeShorts: seededIncludeShorts,
@@ -176,7 +174,7 @@ async function expectRightArrowScrollsForSelectedFormat(shelf) {
     .toBeGreaterThan(0)
 }
 
-test('internal format selection persists per channel and emits channel-aware analytics', async ({ page }, testInfo) => {
+test('format selection persists per channel and emits channel-aware analytics', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedFormatState(page)
   await page.evaluate(() => {
@@ -247,7 +245,7 @@ test('internal format selection persists per channel and emits channel-aware ana
 
   const storedAfter = await page.evaluate(
     key => JSON.parse(localStorage.getItem(key)).config.channelVideoFormats,
-    internalStorageKey
+    normalStorageKey
   )
   expect(storedAfter).toEqual({
     'channel-a': 'shorts',
@@ -307,7 +305,7 @@ test('status filters show the available format without overwriting channel prefe
     state.videos['b-horizontal'].status = 'partial'
     state.videos['b-vertical'].status = 'unwatched'
     localStorage.setItem(storageKey, JSON.stringify(state))
-  }, internalStorageKey)
+  }, normalStorageKey)
   await page.reload()
   await waitForApplication(page)
 
@@ -829,7 +827,6 @@ test('retired false marker cannot disable permanent format controls or migrate p
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await seedFormatState(page, {
     includeShorts: false,
-    internalTest: false,
     runtimeFlag: false
   })
   await expect(page.locator('body')).toHaveClass(
@@ -867,7 +864,6 @@ test('compatibility marker true preserves permanent controls in normal mode', as
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await seedFormatState(page, {
     includeShorts: false,
-    internalTest: false,
     runtimeFlag: true
   })
 

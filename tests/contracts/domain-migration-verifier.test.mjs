@@ -26,7 +26,7 @@ function createHealthyDependencies(overrides = {}) {
   const runtimeConfig = {
     legacyProgressMigrationEnabled: false,
     plusCheckoutEnabled: false,
-    accountFeaturesRollout: 'internal'
+    accountFeaturesRollout: 'off'
   }
   const responses = new Map([
     [CANONICAL_ROOT, response({
@@ -96,7 +96,7 @@ test('domain verifier accepts the exact safe cutover surface', async () => {
 test('domain verifier rejects parking DNS and an unexpected enabled migration', async () => {
   const badResponses = new Map()
   badResponses.set(`${CANONICAL_ROOT}config.local.js`, response({
-    body: 'window.EDENIA_CONFIG = {"legacyProgressMigrationEnabled":true,"plusCheckoutEnabled":false,"accountFeaturesRollout":"internal"}\n',
+    body: 'window.EDENIA_CONFIG = {"legacyProgressMigrationEnabled":true,"plusCheckoutEnabled":false,"accountFeaturesRollout":"off"}\n',
     url: `${CANONICAL_ROOT}config.local.js`
   }))
   const dependencies = createHealthyDependencies({
@@ -121,7 +121,7 @@ test('domain verifier rejects parking DNS and an unexpected enabled migration', 
 test('domain verifier accepts an explicitly expected public migration rollout', async () => {
   const runtimeResponse = new Map()
   runtimeResponse.set(`${CANONICAL_ROOT}config.local.js`, response({
-    body: 'window.EDENIA_CONFIG = {"legacyProgressMigrationEnabled":true,"plusCheckoutEnabled":false,"accountFeaturesRollout":"internal"}\n',
+    body: 'window.EDENIA_CONFIG = {"legacyProgressMigrationEnabled":true,"plusCheckoutEnabled":false,"accountFeaturesRollout":"off"}\n',
     url: `${CANONICAL_ROOT}config.local.js`
   }))
   const dependencies = createHealthyDependencies({

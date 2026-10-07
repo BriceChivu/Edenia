@@ -1,5 +1,7 @@
 # Internal canary issue plan — reviewed revision — 2026-09-04
 
+> Archived plan: mode 1 was retired on 2026-10-07. Its routes and rollout instructions below are historical and must not be used.
+
 ## Review status
 
 - **Status:** Revised draft for product-owner review.

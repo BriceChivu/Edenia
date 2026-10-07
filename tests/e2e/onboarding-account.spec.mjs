@@ -4,7 +4,7 @@ const internalRuntimeConfig = `window.EDENIA_CONFIG = {
   youtubeApiKey: '',
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
-  accountFeaturesRollout: 'internal',
+  accountFeaturesRollout: 'public',
   googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',
   googleSignInMode: 'id_token',
   studyGuidanceEnabled: false,
@@ -34,7 +34,7 @@ async function useAccountReturnOrigin(page) {
 
 async function seedAccountStep(page, {
   locale = 'en',
-  storageKey = 'edenia_v1_internal_test'
+  storageKey = 'edenia_v1'
 } = {}) {
   await page.evaluate(({ nextLocale, nextStorageKey }) => {
     const state = window.defaultState(4, [], 'light', [], nextLocale)
@@ -106,9 +106,9 @@ test('gated Account onboarding supports email sign-in and responsive completion'
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto(`${accountReturnOrigin}/?internal_test=1`)
+  await page.goto(`${accountReturnOrigin}/`)
   await seedAccountStep(page)
-  await page.goto(`${accountReturnOrigin}/?internal_test=1&account=1`)
+  await page.goto(`${accountReturnOrigin}/?account=1`)
 
   const panel = page.locator('#onboardingPanel')
   await expect(panel).toBeVisible()
@@ -166,7 +166,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   await skipButton.click()
   await expect(panel).toBeHidden()
   const completion = await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       accountStepReachedAt: state.onboarding.accountStepReachedAt,
       setupCompleted: state.onboarding.setupCompleted
@@ -184,7 +184,7 @@ test('switch-off onboarding retains immediate accountless completion', async ({
   test.skip(testInfo.project.name !== 'desktop-standard')
   await page.route('**/config.local.js', route => route.fulfill({
     body: internalRuntimeConfig.replace(
-      "accountFeaturesRollout: 'internal'",
+      "accountFeaturesRollout: 'public'",
       "accountFeaturesRollout: 'off'"
     ),
     contentType: 'text/javascript',
@@ -221,9 +221,9 @@ test('configured unavailable Turnstile blocks onboarding email without tokenless
     requests.push(route.request().postDataJSON())
     return route.fulfill({ json: {} })
   })
-  await page.goto(`${accountReturnOrigin}/?internal_test=1`)
+  await page.goto(`${accountReturnOrigin}/`)
   await seedAccountStep(page)
-  await page.goto(`${accountReturnOrigin}/?internal_test=1&account=1`)
+  await page.goto(`${accountReturnOrigin}/?account=1`)
   const form = page.locator('.onboarding-account-email-form')
   await expect(form).toBeVisible()
   await expect(form.locator('[data-turnstile-status]')).toBeVisible()

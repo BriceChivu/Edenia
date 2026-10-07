@@ -114,7 +114,7 @@ the domain is tested.
 | Supabase Auth | Site URL `https://www.edenia.study/`; email authentication uses same-device OTP verification without an Edenia redirect. Keep any provider callback entries exact and never use a wildcard for production. |
 | Google Identity Services | Authorized JavaScript origin `https://www.edenia.study`; use the official button with ID-token exchange and no One Tap or automatic account selection. |
 | Account APIs | Deploy the reviewed exact-`www` account-export and reminder-unsubscribe CORS allowlists before invoking those APIs from `www`. The old app origin is not allowed on these canonical-only APIs. |
-| Reminder email | `REMINDER_APP_URL=https://www.edenia.study/?internal_test=1` and `REMINDER_UNSUBSCRIBE_PAGE_URL=https://www.edenia.study/unsubscribe/`; inspect generated HTML/text and one inert dummy link before any canary. |
+| Reminder email | `REMINDER_APP_URL=https://www.edenia.study/` and `REMINDER_UNSUBSCRIBE_PAGE_URL=https://www.edenia.study/unsubscribe/`; inspect generated HTML/text and one inert dummy link before any canary. |
 | Stripe or replacement billing provider | Live `APP_URL=https://www.edenia.study/`; exact success, cancel, portal, and approved-return URLs remain under `/plus/`. The backend rejects any other live root. Keep checkout off until sandbox and live callback smoke evidence is reviewed separately. |
 | YouTube browser key | Add both `https://www.edenia.study` and `https://www.edenia.study/*`, retain API restriction to YouTube Data API v3, test from `www`, then remove the old app referrer after the old app no longer serves the full application. Google notes that some browsers send origin-only referrers, so both entries are intentional. |
 | PostHog | Confirm the project/toolbar authorized-domain setting if one is configured. The application initializes PostHog only on the exact `www` root, never on the helper, localhost, sandbox, subpages, or a migration-return page. Do not add email identity as part of this migration. |
@@ -195,7 +195,7 @@ remain available permanently.
 
 ## Retired video-organization switch
 
-Video organization is permanent for ordinary and internal-test visitors. The
+Video organization is permanent for ordinary and Tiny Swords tester visitors. The
 legacy Set aside interface and the `EDENIA_VIDEO_ORGANIZATION_ENABLED`
 repository variable are no longer supported. Loading or saving state migrates
 legacy Set aside and individually hidden videos into the Removed model while
@@ -215,7 +215,7 @@ Use this release sequence:
 2. Smoke-check both a returning profile and a clean browser on the ordinary
    production URL. Exercise removal from Continue Watching, removal from the
    feed, restore, Undo/Redo, and a Removed thumbnail preview.
-3. Repeat a storage-isolation check with `/?internal_test=1` and confirm normal
+3. Repeat a storage-isolation check with `/?internal_test=2` and confirm normal
    progress is unchanged.
 4. Allow at least the published Pages cache lifetime plus an observation
    window before removing the compatibility marker in a separate pull request.
@@ -228,7 +228,7 @@ state fields from migrated data.
 
 ## Retired channel video-format switch
 
-Per-channel Videos/Shorts controls are permanent for ordinary and internal-test
+Per-channel Videos/Shorts controls are permanent for ordinary and Tiny Swords tester
 visitors. The application always includes every video duration and uses the
 saved per-channel `channelVideoFormats` preferences. The legacy global Shorts
 preference remains in stored state for rollback compatibility, but the new
@@ -253,7 +253,7 @@ Use this release sequence:
 3. Verify format persistence, shelf scrolling, card actions, previews, long
    localized channel names, and phone, tablet, and desktop layouts. Confirm the
    legacy global Shorts setting stays hidden and its stored value is unchanged.
-4. Repeat a storage-isolation check with `/?internal_test=1`.
+4. Repeat a storage-isolation check with `/?internal_test=2`.
 5. Allow at least the published Pages cache lifetime plus an observation window
    before removing the compatibility marker, body class, and hidden Settings
    markup in a separate pull request.
@@ -287,15 +287,14 @@ The staged general-account work uses the public repository variable
 `EDENIA_ACCOUNT_FEATURES_ROLLOUT`. Its accepted values are:
 
 - `off`: disable the general-account experience everywhere;
-- `internal`: allow it only with `/?internal_test=1`;
-- `public`: allow it on the ordinary and internal-test application paths.
+- `public`: allow it on the ordinary application path.
 
 Missing values default to `off`, invalid values fail the production build, and
-sandbox mode remains excluded. Keep the variable set to `internal` during the
-initial account implementation. Changing the variable requires a new Pages
+sandbox and Tiny Swords tester modes remain excluded. Keep the variable set
+to `off` until account features are ready for public release. Changing the variable requires a new Pages
 deployment before the generated runtime configuration changes.
 
-The internal-test query is public and is not an authorization boundary. Every
+The Tiny Swords tester query is public and is not an authorization boundary. Every
 future account backend must independently authenticate users, authorize access,
 and restrict test-only side effects such as email delivery on the server.
 

@@ -47,7 +47,7 @@ export function createNativeOpeningAuthenticationPolicy({ applicationOrigin, pro
       }
       if (origin === applicationOrigin) {
         if (method !== 'GET' || body) return deny()
-        if (destination === 'document') return path === '/?internal_test=1' ? { kind: 'static' } : deny()
+        if (destination === 'document') return path === '/' ? { kind: 'static' } : deny()
         if (!staticDestinations.has(destination) || target.pathname === '/' || target.pathname.startsWith('/auth/')) return deny()
         return { kind: 'static' }
       }

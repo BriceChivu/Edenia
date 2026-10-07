@@ -8,7 +8,7 @@ envelope into a command, issue, chat, or log.
 
 ## Internal experiment pause (2026-09-27)
 
-Authentication testing is paused for the internal pixel-town trial. The Pages
+Authentication testing remains paused after retirement of the internal pixel-town trial. The Pages
 workflow pins account rollout to `off` and profile lifecycle to `false`.
 The server profile gate is off with no developer owner; containment advances
 its timestamp fence so a previously captured enable request cannot reopen it.
@@ -20,12 +20,9 @@ manual-probe jobs, restore rehearsals, and profile maintenance to run. It is
 currently `false`. Existing Auth/soak/Packet 1 Codex reminders remain paused.
 Do not interpret an intentionally stale probe as an active Auth incident.
 
-Fresh and accountless internal browsers show the ordinary town. A browser with
-retained ownership, session, sync, migration, or ambiguous access bookkeeping
-shows a pause notice before loading profile data or initializing backup storage.
-It preserves all retained bytes; use a separate browser profile for the town
-trial. Do not clear storage, convert the cache, or authenticate to bypass it.
-Public accountless storage and behavior are unchanged.
+The mode-1 browser experiment and its pause notice were retired on 2026-10-07.
+Saved mode-1 data remains untouched and unopened. Account features accept only
+`off` or `public`; sandbox and Tiny Swords tester modes remain excluded.
 
 Keep the shared Supabase project online: legacy transfer creation/consumption
 and its five-minute cleanup, unsubscribe handling, provider webhook suppression,
@@ -340,4 +337,4 @@ Before claiming Auth launch readiness, retain evidence for each exercise:
   unchanged.
 
 Each record names the deployed commit and the non-secret gate values. A source
-test, `internal_test=1`, or a local browser alone is not production evidence.
+test or a local browser alone is not production evidence.

@@ -6,8 +6,8 @@ const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,}$/
 const UNSUBSCRIBE_API_PATH = '/functions/v1/unsubscribe-study-reminders'
 
 const ALLOWED_APP_URLS = new Set([
-  'https://www.edenia.study/?internal_test=1',
-  'http://localhost:8000/?internal_test=1',
+  'https://www.edenia.study/',
+  'http://localhost:8000/',
 ])
 const ALLOWED_UNSUBSCRIBE_PAGE_URLS = new Set([
   'https://www.edenia.study/unsubscribe/',

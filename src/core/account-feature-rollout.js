@@ -1,6 +1,5 @@
 export const ACCOUNT_FEATURE_ROLLOUTS = Object.freeze({
   OFF: 'off',
-  INTERNAL: 'internal',
   PUBLIC: 'public'
 })
 
@@ -23,8 +22,5 @@ export function deriveAccountFeaturesEnabled(
     || runtimeEnvironment.isTinySwordsTester === true) return false
 
   const normalizedRollout = normalizeAccountFeaturesRollout(rollout)
-  if (normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.PUBLIC) return true
-
-  return normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.INTERNAL
-    && runtimeEnvironment.isInternalTest === true
+  return normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.PUBLIC
 }

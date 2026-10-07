@@ -64,9 +64,9 @@ function accessLimits(hasUnrestrictedAccess) {
 
 export function derivePlusAccessSimulation(
   locationLike,
-  { isInternalTest = false, isLocalhost = false } = {}
+  { isLocalhost = false } = {}
 ) {
-  if (!isInternalTest && !isLocalhost) return null
+  if (!isLocalhost) return null
 
   const params = new URLSearchParams(locationLike?.search || '')
   return normalizeSimulationTier(

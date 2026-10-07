@@ -2,7 +2,6 @@ import { expect, test } from '../support/network-fixture.mjs'
 
 const fixedNow = new Date('2026-08-03T04:00:00.000Z')
 const normalStorageKey = 'edenia_v1'
-const internalStorageKey = 'edenia_v1_internal_test'
 const guidanceProjects = new Set([
   'desktop-standard',
   'tablet-portrait',
@@ -17,9 +16,13 @@ async function waitForApplication(page) {
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 }
 
-async function seedGuidanceState(page, { internalTest }) {
-  const storageKey = internalTest ? internalStorageKey : normalStorageKey
-  const path = internalTest ? '/?internal_test=1' : '/'
+async function seedGuidanceState(page, { guidanceEnabled }) {
+  const storageKey = normalStorageKey
+  const path = '/'
+  await page.route('**/config.local.js*', route => route.fulfill({
+    contentType: 'text/javascript',
+    body: `window.EDENIA_CONFIG={studyGuidanceEnabled:${guidanceEnabled}}`
+  }))
   await page.goto(path)
   await waitForApplication(page)
   await page.evaluate(({ seededStorageKey }) => {
@@ -111,11 +114,11 @@ async function seedGuidanceState(page, { internalTest }) {
   return storageKey
 }
 
-test('Internal study guidance is simple, actionable, and not archived', async ({
+test('Released study guidance is simple, actionable, and not archived', async ({
   page
 }, testInfo) => {
   test.skip(!guidanceProjects.has(testInfo.project.name))
-  const storageKey = await seedGuidanceState(page, { internalTest: true })
+  const storageKey = await seedGuidanceState(page, { guidanceEnabled: true })
   const insight = page.locator('#studyInsightCard')
 
   await expect(insight).toBeVisible()
@@ -161,7 +164,7 @@ test('Public mode keeps the new study guidance switched off', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  await seedGuidanceState(page, { internalTest: false })
+  await seedGuidanceState(page, { guidanceEnabled: false })
 
   await expect(page.locator('#studyInsightCard')).not.toHaveAttribute(
     'data-guidance-key',

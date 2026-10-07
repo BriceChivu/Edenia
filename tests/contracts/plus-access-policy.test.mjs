@@ -158,17 +158,17 @@ test('Free and Plus simulation overrides access only in approved test environmen
     new URL('http://localhost:8000/?plus_access=free'),
     { isLocalhost: true }
   )
-  const internalPlusSimulation = derivePlusAccessSimulation(
-    new URL('https://edenia.example/?internal_test=1&plus_access=plus'),
-    { isInternalTest: true }
+  const localPlusSimulation = derivePlusAccessSimulation(
+    new URL('http://localhost:8000/?plus_access=plus'),
+    { isLocalhost: true }
   )
   const publicSimulation = derivePlusAccessSimulation(
     new URL('https://edenia.example/?plus_access=plus'),
-    { isInternalTest: false, isLocalhost: false }
+    { isLocalhost: false }
   )
 
   assert.equal(localFreeSimulation, PLUS_ACCESS_TIERS.FREE)
-  assert.equal(internalPlusSimulation, PLUS_ACCESS_TIERS.PLUS)
+  assert.equal(localPlusSimulation, PLUS_ACCESS_TIERS.PLUS)
   assert.equal(publicSimulation, null)
 
   const freePolicy = createPlusAccessPolicy({
@@ -187,7 +187,7 @@ test('Free and Plus simulation overrides access only in approved test environmen
   const plusPolicy = createPlusAccessPolicy({
     entitlementState: PLUS_ENTITLEMENT_STATES.FREE,
     freePlusEnabled: true,
-    simulatedTier: internalPlusSimulation
+    simulatedTier: localPlusSimulation
   })
   assert.equal(plusPolicy.accessSource, PLUS_ACCESS_SOURCES.SIMULATION)
   assert.equal(plusPolicy.simulatedTier, PLUS_ACCESS_TIERS.PLUS)

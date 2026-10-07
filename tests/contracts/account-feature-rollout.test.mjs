@@ -11,10 +11,7 @@ test('account rollout normalization fails closed', () => {
   assert.equal(normalizeAccountFeaturesRollout(''), ACCOUNT_FEATURE_ROLLOUTS.OFF)
   assert.equal(normalizeAccountFeaturesRollout('unknown'), ACCOUNT_FEATURE_ROLLOUTS.OFF)
   assert.equal(normalizeAccountFeaturesRollout(true), ACCOUNT_FEATURE_ROLLOUTS.OFF)
-  assert.equal(
-    normalizeAccountFeaturesRollout(' INTERNAL '),
-    ACCOUNT_FEATURE_ROLLOUTS.INTERNAL
-  )
+  assert.equal(normalizeAccountFeaturesRollout(' INTERNAL '), ACCOUNT_FEATURE_ROLLOUTS.OFF)
   assert.equal(
     normalizeAccountFeaturesRollout('PUBLIC'),
     ACCOUNT_FEATURE_ROLLOUTS.PUBLIC
@@ -34,14 +31,14 @@ test('account features are disabled when the rollout is off or unavailable', () 
   )
 })
 
-test('internal rollout requires the isolated internal-test audience', () => {
+test('retired internal rollout fails closed even with a legacy environment', () => {
   assert.equal(
     deriveAccountFeaturesEnabled({ isInternalTest: false }, 'internal'),
     false
   )
   assert.equal(
     deriveAccountFeaturesEnabled({ isInternalTest: true }, 'internal'),
-    true
+    false
   )
 })
 

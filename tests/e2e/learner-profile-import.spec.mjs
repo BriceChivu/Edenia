@@ -12,11 +12,11 @@ const SUPABASE_ORIGIN = 'https://profile-import-test.supabase.co'
 const USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const OTHER_USER_ID = '923e4567-e89b-42d3-a456-426614174009'
 const PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
-const STATE_KEY = 'edenia_v1_internal_test'
-const ACCESS_KEY = 'edenia_v1_internal_test_learner_profile_access_v1'
-const SYNC_KEY = 'edenia_v1_internal_test_learner_profile_sync_v1'
+const STATE_KEY = 'edenia_v1'
+const ACCESS_KEY = 'edenia_v1_learner_profile_access_v1'
+const SYNC_KEY = 'edenia_v1_learner_profile_sync_v1'
 const IMPORT_KEY = `${SYNC_KEY}_import_v1`
-const AUTH_KEY = 'edenia_v1_internal_test_plus_auth_v1'
+const AUTH_KEY = 'edenia_v1_plus_auth_v1'
 const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
 const SERVED_ORIGIN = `http://localhost:${Number(
   process.env.EDENIA_TEST_NORMAL_PORT || 8000
@@ -55,7 +55,7 @@ function authenticatedSession() {
 
 function runtimeConfig() {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
-    accountFeaturesRollout: 'internal',
+    accountFeaturesRollout: 'public',
     freePlusEnabled: false,
     googleSignInMode: 'off',
     indexedDbBackupCleanupEnabled: false,
@@ -356,7 +356,7 @@ async function prepareImportPage(page, {
     }
     await route.fulfill({ json: {}, status: 200 })
   })
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
     'active'

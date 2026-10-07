@@ -2,7 +2,6 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { build, transform } from 'esbuild'
 import { minify } from 'terser'
-import { preparePixelTownHtml } from './pixel-town-html.mjs'
 
 // Retain the released town's presentation and scoring while the new dashboard
 // is tested. Unchanged modules remain shared; the manifest pins each override.
@@ -47,10 +46,6 @@ export async function buildProductionExperience(projectRoot, outputDir, assetVer
     ['analytics.js', 'analytics-production.js'], ['config.local.js', 'config.local.js']
   ]) {
     html = html.replace(new RegExp(`${before.replaceAll('.', '\\.')}\\?v=[^"\\s]+|${before.replaceAll('.', '\\.')}(?=")`), `${after}?v=${assetVersion}`)
-  }
-  if (process.env.EDENIA_PIXEL_TOWN_ENABLED === 'true') {
-    const { buildPixelTown } = await import('./build-pixel-town.mjs')
-    html = preparePixelTownHtml(html, await buildPixelTown(outputDir), true)
   }
   return html
 }

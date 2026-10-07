@@ -95,7 +95,7 @@ export function runNativeOpeningAuthenticationWorker(channel = process, dependen
         '--user-data-dir=' + config.profileDirectory, '--no-first-run', '--no-default-browser-check',
         '--proxy-server=http://127.0.0.1:' + proxy.port, '--proxy-bypass-list=<-loopback>',
         '--disable-quic', '--webrtc-ip-handling-policy=disable_non_proxied_udp',
-        config.applicationOrigin + '/?internal_test=1'
+        config.applicationOrigin + '/'
       ], { stdio: 'ignore' })
       browser.once('exit', () => { browserExited = true; if (!exiting) void finish(null, 'browser-exit') })
       browser.once('error', () => { browserExited = true; if (!exiting) void finish(null, 'browser-start') })

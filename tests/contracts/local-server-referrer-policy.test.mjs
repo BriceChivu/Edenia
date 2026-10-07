@@ -35,7 +35,7 @@ async function withServer(host, run) {
 
 test('HTTP localhost pages send the referrer policy required by GIS', async () => {
   await withServer('localhost', async origin => {
-    for (const route of ['/', '/?internal_test=1']) {
+    for (const route of ['/', '/']) {
       for (const method of ['GET', 'HEAD']) {
         const response = await fetch(origin + route, { method })
         assert.equal(response.status, 200)

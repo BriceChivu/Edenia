@@ -469,7 +469,7 @@ function createPersistenceInterleavingHarness() {
 function createSyncRepairCompletionHarness() {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
-  const stateStorageKey = 'edenia_v1_internal_test'
+  const stateStorageKey = 'edenia_v1'
   const accessStorageKey = `${stateStorageKey}_profile_access_v1`
   const syncStorageKey = `${stateStorageKey}_profile_sync_v1`
   const importStorageKey = `${syncStorageKey}_import_v1`

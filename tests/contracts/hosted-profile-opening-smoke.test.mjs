@@ -113,7 +113,7 @@ test('versioned synthetic profile fixture has a valid portable integrity envelop
   assert.equal(fixture.session.user.email, 'synthetic@example.invalid')
 })
 
-test('private authentication blocks public documents and provider redirects', async () => {
+test('private authentication blocks undeclared documents and provider redirects', async () => {
   const { prepareOpeningAuthentication, OPENING_URL } = await import('../../scripts/hosted-profile-opening-smoke.mjs')
   const owner = '11111111-1111-1111-1111-111111111111'
   let intercept, closed = false, publicBlocked = false, redirectBlocked = false
@@ -128,7 +128,7 @@ test('private authentication blocks public documents and provider redirects', as
   closed = false
   const pending = prepareOpeningAuthentication({ browser: { newContext: async () => context }, providerOrigin: origin,
     expectedOwner: owner, verifyGateOff: async () => {}, onReady: async () => {
-      await intercept({ request: () => ({ url: () => 'https://www.edenia.study/', method: () => 'GET', resourceType: () => 'document' }), abort: async () => { publicBlocked = true }, continue: () => assert.fail('Public root forwarded') })
+      await intercept({ request: () => ({ url: () => 'https://www.edenia.study/?retired=1', method: () => 'GET', resourceType: () => 'document' }), abort: async () => { publicBlocked = true }, continue: () => assert.fail('Undeclared root query forwarded') })
       await intercept({ request: () => ({ url: () => origin + '/auth/v1/token?grant_type=id_token', method: () => 'POST' }),
         fetch: async options => { assert.equal(options.maxRedirects, 0); return { status: () => 302 } }, abort: async () => { redirectBlocked = true }, continue: () => assert.fail('Provider redirect forwarded') })
     } })

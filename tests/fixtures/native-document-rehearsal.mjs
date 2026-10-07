@@ -47,7 +47,7 @@ try {
  await stopChrome()
  upstream=https.createServer(materials['https://localhost'],async(req,res)=>{
   if(req.headers.host!==new URL(origins[0]).hostname){res.writeHead(403);res.end();return}
-  if(req.url==='/?internal_test=1'){
+  if(req.url==='/'){
    result.documentRequests++
    if(resetArmed){result.injectedResets++;res.destroy();await record('injected-upstream-reset');return}
    res.setHeader('content-type','text/html');res.end('<!doctype html><meta charset="utf-8"><title>Issue 315 local page loaded</title><style>body{font:24px system-ui;background:#effbf2;color:#153d23;padding:60px}h1{font-size:40px}</style><h1>Local page loaded successfully</h1><p id="status">Checking page script…</p><script>'+nativeDocumentSequenceScript+'</script>');return
@@ -57,7 +57,7 @@ try {
  })
  const upstreamPort=await listen(upstream)
  proxy=await createNativeOpeningAuthenticationProxy({applicationOrigin:origins[0],providerOrigin:origins[1],localChallengeOrigin:origins[2],expectedOwner:owner,expectedEmail:'approved@example.invalid',certificates:materials,localTestUpstreams:Object.fromEntries(origins.map(o=>[o,{hostname:'127.0.0.1',port:upstreamPort,servername:'localhost',ca:materials['https://localhost'].cert}])),authorize:async()=>!stopping,deadlineMs:300000,onProgress:diagnostic=>{result.diagnostic={...diagnostic,browserStarted:result.browserStarted===true}}})
- await launch(origins[0]+'/?internal_test=1',proxy.port)
+ await launch(origins[0]+'/',proxy.port)
  result.browserStarted=true
  result.diagnostic={...proxy.stats.diagnostic,browserStarted:true}
  await record('guarded-native-browser-started')
