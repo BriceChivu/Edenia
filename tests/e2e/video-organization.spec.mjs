@@ -19,11 +19,11 @@ async function waitForApplication(page) {
 
 async function seedVideoOrganizationState(
   page,
-  { locale = 'en', theme = 'light' } = {}
+  { locale = 'en', theme = 'light', testerMode = false } = {}
 ) {
-  const storageKey = normalStorageKey
-  await page.goto('/')
-  await waitForApplication(page)
+  const storageKey = testerMode ? 'edenia_v1_internal_test_2' : normalStorageKey
+  await page.goto(testerMode ? '/?internal_test=2' : '/')
+  await page.waitForFunction(() => typeof window.defaultState === 'function')
   await page.evaluate(({ locale: seededLocale, storageKey: seededStorageKey, theme: seededTheme }) => {
     const state = window.defaultState(4, [], seededTheme, [], seededLocale)
     const completedAt = '2026-07-20T04:00:00.000Z'
@@ -734,3 +734,49 @@ test('public feed refresh preserves Watch later and study progress', async ({ pa
   expect(video).toMatchObject({ status: 'partial', watchLater: true, favorite: true, resumeAtSeconds: 42 })
   expect(video.watchProgress).toEqual([{ seconds: 42, watchedAt: '2026-08-01T04:00:00.000Z' }])
 })
+
+for (const testerMode of [false, true]) {
+  test(`embedded subtitles retain focus for selection and copy (${testerMode ? 'tester' : 'production'})`, async ({ page, context }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-standard')
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({
+      contentType: 'text/html', body: '<!doctype html><title>Island stub</title>'
+    }))
+    // Keep the subtitle in a cross-origin embed, like asbplayer's injected text.
+    await page.route('https://www.youtube.com/embed/**', route => route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><style>
+        body { margin: 20px; } #subtitle { display: inline-block; font: 24px monospace; user-select: text; }
+      </style><span id="subtitle">Selectable subtitle text</span>
+      <script>addEventListener('keydown', event => document.body.dataset.lastKey = event.key)</script>`
+    }))
+    await seedVideoOrganizationState(page, { testerMode })
+    await installFakeYoutubePlayer(page)
+    await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+    const overlay = page.locator('.video-player-overlay')
+    const iframe = overlay.locator('iframe')
+    const subtitle = page.frameLocator('.video-player-overlay iframe').locator('#subtitle')
+    await expect(subtitle).toBeVisible()
+    await subtitle.click()
+    await expect(iframe).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.frameLocator('.video-player-overlay iframe').locator('body')).toHaveAttribute('data-last-key', 'ArrowRight')
+    const box = await subtitle.boundingBox()
+    await page.mouse.move(box.x + 1, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 10 })
+    await page.mouse.up()
+    await expect.poll(() => subtitle.evaluate(() => getSelection().toString())).toBe('Selectable subtitle text')
+    await page.keyboard.press('ControlOrMeta+c')
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('Selectable subtitle text')
+    // Keys inside the cross-origin frame stay with it; the backdrop still closes.
+    await page.keyboard.press('Escape')
+    await expect(overlay).toBeVisible()
+    await overlay.click({ position: { x: 2, y: 2 } })
+    await expect(overlay).toHaveCount(0)
+    await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+    await expect(overlay).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(overlay).toHaveCount(0)
+  })
+}
