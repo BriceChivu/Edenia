@@ -11,7 +11,6 @@ const RESPAWN_DELAY := 1.0
 const WaterFall = preload("res://scripts/water_fall.gd")
 const SPAWN := Vector2(576, 240)
 const CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_02.png")
-var shark
 var water_phase: WaterPhase = WaterPhase.READY
 @onready var pawn = $World/Pawn
 @onready var splash: AnimatedSprite2D = $WaterSplash
@@ -26,9 +25,6 @@ func _ready() -> void:
 	$ShoreFoam.z_index = -17
 	$Islands.z_index = -16
 	$WaterRocks.z_index = -15
-	shark = preload("res://scripts/shark_visual.gd").new()
-	shark.world = self
-	add_child(shark)
 	Input.set_custom_mouse_cursor(CURSOR, Input.CURSOR_ARROW, Vector2(24, 18))
 
 func _exit_tree() -> void:
