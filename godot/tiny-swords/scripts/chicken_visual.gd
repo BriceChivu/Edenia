@@ -168,7 +168,7 @@ func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
 	if not clear_of_chickens(start, target):
 		return false
 	if house_fleeing:
-		return true
+		return world.terrain_clear_segment(start, target, true)
 	# Legacy saves or an externally restored pawn can begin on this tile.
 	# Permit an escape from that origin; normal movement never enters it.
 	if world.layout.cell_at(start) == world.layout.cell_at(world.pawn.position):

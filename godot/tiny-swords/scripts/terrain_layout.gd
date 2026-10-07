@@ -135,6 +135,8 @@ func tree_footprint(position: Vector2, kind := "tree") -> PackedVector2Array:
 
 func tree_house_space_free(position: Vector2, kind: String) -> bool:
 	var roots := tree_footprint(position, kind)
+	if not terrain_supports_contact(roots, height_at(cell_at(position))):
+		return false
 	for owner in houses:
 		if not Geometry2D.intersect_polygons(roots, house_footprint(owner)).is_empty():
 			return false
@@ -166,10 +168,10 @@ func tree_blocks_segment(cell: Vector2i, start: Vector2, end: Vector2) -> bool:
 # Raised boots and the translucent shadow do not extend ground contact upwards.
 const PAWN_LOG_FEET := Rect2(-20, -1, 40, 2)
 
-func log_footprint(cell: Vector2i) -> PackedVector2Array:
+func log_footprint(cell: Vector2i, amount: int = -1) -> PackedVector2Array:
 	# Annotated contact patch in the 64px Wood Resource PNG, at its 0.9 scale.
 	# Only the bottom row widens the parallelogram; upper logs add no ground area.
-	var spread := (mini(int(log_piles.get(cell, 0)), 3) - 1) * 6.5
+	var spread := (mini(int(log_piles.get(cell, 0)) if amount < 0 else amount, 3) - 1) * 6.5
 	var anchor := center(cell) + Vector2(0, 6)
 	return PackedVector2Array([
 		anchor + Vector2(-18 * 0.9 - spread, 14 * 0.9),
@@ -311,7 +313,40 @@ func pickup_cells(cell: Vector2i) -> Array[Vector2i]:
 		return [cell, cell + stair_direction(cell)]
 	return [cell]
 
+var skip_terrain_contact_validation := false
+
 func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO, occupied_position: Vector2 = Vector2.INF, house_placement_offset: Vector2 = Vector2.ZERO) -> bool:
+	if not can_edit_rules(cell, tool, occupied, ground_height, tree_placement_offset, occupied_position, house_placement_offset):
+		return false
+	if skip_terrain_contact_validation or tool not in ["ground", "stairs"]:
+		return true
+	var proposed = terrain_edit_preview(cell, tool, ground_height)
+	if proposed == null:
+		return false
+	# Placing terrain next to an object must enforce the same contact boundary
+	# as placing the object next to terrain. Ignore pre-existing legacy gaps.
+	for tree in trees:
+		var patch := tree_footprint(tree_position(tree), tree_types.get(tree, "tree"))
+		if terrain_supports_contact(patch, height_at(tree)) and not proposed.terrain_supports_contact(patch, proposed.height_at(tree)):
+			return false
+	for pile in log_piles:
+		var patch := log_footprint(pile)
+		if terrain_supports_contact(patch, height_at(pile)) and not proposed.terrain_supports_contact(patch, proposed.height_at(pile)):
+			return false
+	for owner in houses:
+		var patch := house_footprint(owner)
+		if terrain_supports_contact(patch, height_at(owner)) and not proposed.terrain_supports_contact(patch, proposed.height_at(owner)):
+			return false
+	for animals in [sheep, chickens]:
+		for point: Vector2 in animals:
+			if terrain_feet_free(point, true) and (not proposed.terrain_feet_free(point, true) or surface_height(point) != proposed.surface_height(point)):
+				return false
+	if occupied_position != Vector2.INF and terrain_feet_free(occupied_position):
+		if not proposed.terrain_feet_free(occupied_position) or surface_height(occupied_position) != proposed.surface_height(occupied_position):
+			return false
+	return true
+
+func can_edit_rules(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO, occupied_position: Vector2 = Vector2.INF, house_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not unlocked or not in_bounds(cell):
 		return false
 	if log_piles.has(cell):
@@ -328,9 +363,9 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 		if not houses.has(owner) and cell in house_free_tiles[owner]:
 			return false
 	if tool == "chicken":
-		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell, false, true) and cell != occupied
+		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell, false, true) and terrain_feet_free(center(cell), true) and cell != occupied
 	if tool == "sheep":
-		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell, false, true) and cell != occupied
+		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell, false, true) and terrain_feet_free(center(cell), true) and cell != occupied
 	if tool != "tree" and not (tool == "remove" and trees.has(cell)) and house_owner(cell) != Vector2i(999, 999):
 		return tool == "remove" and house_refund_cell(house_owner(cell), occupied) != Vector2i(999, 999)
 	# Animals can share a tree's grass tile. Changing an existing tree's
@@ -690,11 +725,117 @@ func spend_ground() -> void:
 			stock[kind] -= 1
 			return
 
-func walkable_point(point: Vector2, moving_sheep: bool = false) -> bool:
-	var ground_offsets := [Vector2.ZERO] if moving_sheep else [Vector2(-7, -7), Vector2(7, -7), Vector2(-7, 7), Vector2(7, 7)]
-	for offset in ground_offsets:
-		if not cells.has(cell_at(point + offset)):
+# The logical ground tile is the solid terrain's ground contact, not its
+# elevated drawing rectangle. All contacts use this one floor-aware boundary.
+func surface_height(point: Vector2) -> float:
+	var cell := cell_at(point)
+	if cells.get(cell) == "stairs":
+		var progress := (point.x - ORIGIN.x - cell.x * SIZE) / SIZE
+		return height_at(cell) + clampf(progress if stair_direction(cell).x > 0 else 1.0 - progress, 0.0, 1.0) * SIZE
+	return height_at(cell)
+
+func terrain_supports_contact(patch: PackedVector2Array, height: float, allow_missing: bool = false) -> bool:
+	var minimum := patch[0]
+	var maximum := patch[0]
+	for point in patch:
+		minimum = minimum.min(point)
+		maximum = maximum.max(point)
+	var first := cell_at(minimum)
+	var last := cell_at(maximum)
+	if first == last:
+		return allow_missing if not cells.has(first) else cells[first] != "stairs" and height_at(first) == height
+	for y in range(first.y, last.y + 1):
+		for x in range(first.x, last.x + 1):
+			var cell := Vector2i(x, y)
+			var origin := ORIGIN + Vector2(cell) * SIZE
+			var square := PackedVector2Array([origin, origin + Vector2(SIZE, 0), origin + Vector2.ONE * SIZE, origin + Vector2(0, SIZE)])
+			if Geometry2D.intersect_polygons(patch, square).is_empty():
+				continue
+			if not cells.has(cell):
+				if allow_missing:
+					continue
+				return false
+			if cells[cell] == "stairs" or height_at(cell) != height:
+				return false
+	return true
+
+func terrain_feet_free(point: Vector2, moving_animal: bool = false) -> bool:
+	if not cells.has(cell_at(point)):
+		return false
+	var half_depth := 2.0 if moving_animal else 7.0
+	var first := cell_at(point - Vector2(7, half_depth))
+	var last := cell_at(point + Vector2(7, half_depth))
+	if first == last:
+		return true
+	var height := surface_height(point)
+	# The existing diagonal passage joins the two open, low stair corners.
+	# Their shallow first steps can support the feet across that one corner.
+	var low_corner := false
+	for diagonal in [Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]:
+		if can_cross(cell_at(point), cell_at(point) + diagonal):
+			low_corner = true
+			break
+	for offset in [Vector2(-7, -half_depth), Vector2(7, -half_depth), Vector2(-7, half_depth), Vector2(7, half_depth)]:
+		var sole: Vector2 = point + offset
+		if not cells.has(cell_at(sole)):
 			return false
+		# A stair rises one pixel per horizontal pixel. Its feet can straddle
+		# either entrance and adjoining slopes, but never a vertical cliff.
+		var slope_margin := 14.0 if low_corner and cells.get(cell_at(sole)) == "stairs" else absf(offset.x)
+		if absf(surface_height(sole) - height) > slope_margin + 0.01:
+			return false
+	return true
+
+# Older saves checked only anchors. Keep valid contacts untouched and settle
+# protruding contacts on the same owning tile; conserve inventory if no fit exists.
+func settle_terrain_contacts() -> void:
+	for cell in trees.keys():
+		var kind: String = tree_types.get(cell, "tree")
+		var original := tree_offset(cell)
+		if terrain_supports_contact(tree_footprint(tree_position(cell), kind), height_at(cell)):
+			continue
+		var best := Vector2.INF
+		var distance := INF
+		for y in range(0, 29, 2):
+			for x in range(ceili(TREE_OFFSET_X_MIN), floori(TREE_OFFSET_X_MAX) + 1, 2):
+				var candidate := Vector2(x, y)
+				if candidate.distance_squared_to(original) >= distance or not tree_house_space_free(center(cell) + candidate, kind):
+					continue
+				best = candidate
+				distance = candidate.distance_squared_to(original)
+		if best.is_finite():
+			trees[cell] = best
+		else:
+			trees.erase(cell)
+			tree_types.erase(cell)
+			tree_stumps.erase(cell)
+			tree_cut_remaining.erase(cell)
+			stock.tree += 1
+	for kind in ["sheep", "chicken"]:
+		var animals: Array[Vector2] = sheep if kind == "sheep" else chickens
+		for index in range(animals.size() - 1, -1, -1):
+			var original := animals[index]
+			if terrain_feet_free(original, true):
+				continue
+			var best := Vector2.INF
+			var distance := INF
+			var origin := ORIGIN + Vector2(cell_at(original)) * SIZE
+			for y in range(4, SIZE, 4):
+				for x in range(8, SIZE - 7, 4):
+					var candidate := origin + Vector2(x, y)
+					if candidate.distance_squared_to(original) >= distance or not walkable_point(candidate, true):
+						continue
+					best = candidate
+					distance = candidate.distance_squared_to(original)
+			if best.is_finite():
+				animals[index] = best
+			else:
+				animals.remove_at(index)
+				stock[kind] += 1
+
+func walkable_point(point: Vector2, moving_sheep: bool = false) -> bool:
+	if not terrain_feet_free(point, moving_sheep):
+		return false
 	for cell in trees:
 		if tree_blocks_point(tree_position(cell), point, tree_types.get(cell, "tree")):
 			return false
@@ -760,6 +901,7 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 # moved decoration, merged footprint, normalized terrace and stair join.
 func terrain_edit_preview(cell: Vector2i, tool: String, ground_height: float = -1):
 	var proposed = get_script().new()
+	proposed.skip_terrain_contact_validation = true
 	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build"]:
 		proposed.set(field, get(field).duplicate(true))
 	proposed.chickens = chickens.duplicate()
@@ -916,6 +1058,8 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			add_flora(cell)
 		stock[tool] -= 1
 	normalize_cliff_terraces()
+	if not skip_terrain_contact_validation:
+		settle_terrain_contacts()
 	prune_decorations()
 	if not bridges_enabled and not bridges.is_empty():
 		# Inactive placements must not restrict normal terrain edits. Reclaim
@@ -1478,6 +1622,7 @@ func restore(data: Dictionary) -> bool:
 			else:
 				cells[landing] = "high_gold"
 	normalize_cliff_terraces()
+	settle_terrain_contacts()
 	return true
 
 func can_pick_log(cell: Vector2i) -> bool:
@@ -1497,7 +1642,9 @@ func clear_generated_scenery(cell: Vector2i) -> void:
 	decorations.erase(cell)
 
 func can_drop_logs(cell: Vector2i) -> bool:
-	return carried_wood > 0 and cells.has(cell) and cells[cell] != "stairs" and not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and not (chicken_at(cell) >= 0) and sheep_at(cell) < 0 and not flora.has(cell) and not decorations.has(cell) and not BridgeRules.touches(self, cell) and int(log_piles.get(cell, 0)) < 6
+	var amount := mini(6, int(log_piles.get(cell, 0)) + carried_wood)
+	var supported := terrain_supports_contact(log_footprint(cell, amount), height_at(cell))
+	return supported and carried_wood > 0 and cells.has(cell) and cells[cell] != "stairs" and not trees.has(cell) and house_owner(cell) == Vector2i(999, 999) and not (chicken_at(cell) >= 0) and sheep_at(cell) < 0 and not flora.has(cell) and not decorations.has(cell) and not BridgeRules.touches(self, cell) and int(log_piles.get(cell, 0)) < 6
 
 func drop_logs(cell: Vector2i) -> bool:
 	if not can_drop_logs(cell):
@@ -1749,6 +1896,8 @@ func house_space_free(cell: Vector2i, occupied: Vector2i, facing: int = 0, occup
 			if square in [stair - stair_direction(stair), stair + stair_direction(stair)]:
 				return false
 	var patch := house_footprint(cell, facing, offset)
+	if not terrain_supports_contact(patch, height_at(cell), true):
+		return false
 	var pawn_point := center(occupied) if occupied_position == Vector2.INF else occupied_position
 	if house_blocks_contact(cell, pawn_point, pawn_point, false, facing, offset):
 		return false

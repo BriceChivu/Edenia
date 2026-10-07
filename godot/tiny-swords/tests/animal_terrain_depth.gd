@@ -16,7 +16,7 @@ func _initialize() -> void:
 func capture() -> Image:
 	await process_frame
 	await process_frame
-	await RenderingServer.frame_post_draw
+	RenderingServer.force_draw()
 	return root.get_texture().get_image()
 
 func differences(a: Image, b: Image, mask: Image) -> int:
@@ -47,6 +47,10 @@ func probe(animal, occluder, mask: Image, point: Vector2, expected_front: bool, 
 		var evidence := OS.get_environment("TINY_SWORDS_DEPTH_EVIDENCE")
 		if not evidence.is_empty():
 			rendered.save_png(evidence + "/" + label.get_slice("/", 0) + "-" + label.get_slice("/", 5) + ".png")
+	if label.ends_with("dir=1/height=0/pawn=0/lower_behind_landing"):
+		var evidence := OS.get_environment("TINY_SWORDS_LANDING_EVIDENCE")
+		if not evidence.is_empty():
+			rendered.save_png(evidence + "/" + label.get_slice("/", 0) + "-behind-landing.png")
 	var visible := differences(baseline, rendered, mask)
 	# Prove that this pose overlaps opaque terrain, so zero changes cannot
 	# accidentally pass an occlusion check with no overlapping animal pixels.
@@ -115,50 +119,52 @@ func run() -> void:
 	l.decorations.clear()
 	for species in ["sheep", "chicken"]:
 		for direction in [Vector2i.RIGHT, Vector2i.LEFT]:
-			for height in [0, 64]:
-				l.cells = {Vector2i.ZERO: "stairs", -direction: "meadow", direction: "high_gold"}
-				l.elevations = {Vector2i.ZERO: height, -direction: height, direction: height + 64}
-				for x in range(-2, 3):
-					if x not in [0, direction.x]:
-						l.cells[Vector2i(x,0)] = "meadow"
-						l.elevations[Vector2i(x,0)] = height
-					for y in [-1, 1]:
-						l.cells[Vector2i(x,y)] = "meadow"
-						l.elevations[Vector2i(x,y)] = height
-				for cell in l.cells:
-					if l.cells[cell] != "stairs" and l.height_at(cell) > 0:
-						l.cells[cell] = "high_gold"
-				l.sheep.clear()
-				l.chickens.clear()
-				(l.sheep if species == "sheep" else l.chickens).append(l.center(-direction))
-				world.rebuild_decorations()
-				await process_frame
-				var animal = world.get_node("World").get_children().filter(func(n): return not n.is_queued_for_deletion() and n.has_method("animal_positions"))[0]
-				animal.set_process(false)
-				animal.frame = 0
-				animal.hide()
-				var surfaces: Array = world.get_node("World").get_children().filter(func(n): return not n.is_queued_for_deletion() and n.has_meta("terrain_occluder"))
-				var ramp = surfaces.filter(func(n): return n.piece == Vector2i.ZERO)[0]
-				var cliff = surfaces.filter(func(n): return n.piece == direction)[0]
-				var ramp_mask: Image = await terrain_mask(Vector2i.ZERO)
-				var cliff_mask: Image = await terrain_mask(direction)
-				var pawn_points := [l.center(-direction), l.center(Vector2i(-1,1)), l.center(Vector2i(1,1)), l.center(direction)]
-				for pawn_index in pawn_points.size():
-					set_pawn(pawn_points[pawn_index])
-					var prefix := "%s/%%s/dir=%s/height=%d/pawn=%d/" % [species,direction.x,height,pawn_index]
-					for situation in ["slope_behind", "slope_front", "beside", "ramp", "front"]:
-						var point: Vector2 = l.center(Vector2i.ZERO)
-						if situation.begins_with("slope_"):
-							point.y = l.ORIGIN.y - (34 if situation == "slope_behind" else 20)
-						if situation == "beside":
-							point.x = l.ORIGIN.x + (-12 if direction.x > 0 else 76)
-						if situation == "front":
-							point.y = l.ORIGIN.y + 68
-						await probe(animal, ramp, ramp_mask, point, situation != "slope_behind", (prefix % "ramp") + situation)
-					var side: Vector2 = l.center(direction) + Vector2(direction.x * 36, 0)
-					await probe(animal, cliff, cliff_mask, side, false, (prefix % "cliff") + "lower_side")
-					await probe(animal, cliff, cliff_mask, l.center(direction), true, (prefix % "cliff") + "upper_surface")
-					await probe(animal, cliff, cliff_mask, l.center(direction + Vector2i.DOWN) - Vector2(0,20), true, (prefix % "cliff") + "lower_front")
+			for landing_first in [false, true]:
+				for height in [0, 64]:
+					l.cells = {Vector2i.ZERO: "stairs", -direction: "meadow", direction: "high_gold"} if not landing_first else {direction: "high_gold", -direction: "meadow", Vector2i.ZERO: "stairs"}
+					l.elevations = {Vector2i.ZERO: height, -direction: height, direction: height + 64}
+					for x in range(-2, 3):
+						if x not in [0, direction.x]:
+							l.cells[Vector2i(x,0)] = "meadow"
+							l.elevations[Vector2i(x,0)] = height
+						for y in [-1, 1]:
+							l.cells[Vector2i(x,y)] = "meadow"
+							l.elevations[Vector2i(x,y)] = height
+					for cell in l.cells:
+						if l.cells[cell] != "stairs" and l.height_at(cell) > 0:
+							l.cells[cell] = "high_gold"
+					l.sheep.clear()
+					l.chickens.clear()
+					(l.sheep if species == "sheep" else l.chickens).append(l.center(-direction))
+					world.rebuild_decorations()
+					await process_frame
+					var animal = world.get_node("World").get_children().filter(func(n): return not n.is_queued_for_deletion() and n.has_method("animal_positions"))[0]
+					animal.set_process(false)
+					animal.frame = 0
+					animal.hide()
+					var surfaces: Array = world.get_node("World").get_children().filter(func(n): return not n.is_queued_for_deletion() and n.has_meta("terrain_occluder"))
+					var ramp = surfaces.filter(func(n): return n.piece == Vector2i.ZERO)[0]
+					var cliff = surfaces.filter(func(n): return n.piece == direction)[0]
+					var ramp_mask: Image = await terrain_mask(Vector2i.ZERO)
+					var cliff_mask: Image = await terrain_mask(direction)
+					var pawn_points := [l.center(-direction), l.center(Vector2i(-1,1)), l.center(Vector2i(1,1)), l.center(direction)]
+					for pawn_index in pawn_points.size():
+						set_pawn(pawn_points[pawn_index])
+						var prefix := "%s/%%s/dir=%s/height=%d/pawn=%d/" % [species,direction.x,height,pawn_index]
+						for situation in ["slope_behind", "slope_front", "beside", "ramp", "front"]:
+							var point: Vector2 = l.center(Vector2i.ZERO)
+							if situation.begins_with("slope_"):
+								point.y = l.ORIGIN.y - (34 if situation == "slope_behind" else 20)
+							if situation == "beside":
+								point.x = l.ORIGIN.x + (-12 if direction.x > 0 else 76)
+							if situation == "front":
+								point.y = l.ORIGIN.y + 68
+							await probe(animal, ramp, ramp_mask, point, situation != "slope_behind", (prefix % "ramp") + situation)
+						await probe(animal, cliff, cliff_mask, l.center(direction + Vector2i.UP) + Vector2(0, 20), false, (prefix % "cliff") + "lower_behind_landing")
+						var side: Vector2 = l.center(direction) + Vector2(direction.x * 36, 0)
+						await probe(animal, cliff, cliff_mask, side, false, (prefix % "cliff") + "lower_side")
+						await probe(animal, cliff, cliff_mask, l.center(direction), true, (prefix % "cliff") + "upper_surface")
+						await probe(animal, cliff, cliff_mask, l.center(direction + Vector2i.DOWN) - Vector2(0,20), true, (prefix % "cliff") + "lower_front")
 	# Two actors must be able to straddle one slope independently.
 	l.sheep.clear()
 	l.chickens.clear()

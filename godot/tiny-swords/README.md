@@ -119,6 +119,18 @@ placement, decoration and the pawn position. There is no island reset. Undo
 history starts a new editing session after an upgrade so it cannot revoke rewards.
 The progression level is independent of terrain height: terrain floors are created by stairs.
 
+Solid terrain reserves its ground contact on every floor. Movement checks the
+feet against neighbouring floor heights, including stair slopes; an actor's
+anchor staying on grass does not let its feet penetrate a cliff. Trees, logs,
+and house foundations use the same terrain-contact boundary for their roots
+and bases. Terrain edits preserve neighbouring contacts, and animals recheck
+terrain while executing routes, including house displacement. Older saved
+contacts that protrude into a cliff settle within the same owning tile; an
+item with no safe fit returns to inventory. Existing valid contacts stay fixed.
+Focused check: `res://tests/terrain_solid_contacts.gd` (both directions, three
+receiving elevations, movement, placement in both orders, and save/load).
+
+
 The inventory has only Ground, Stairs, and Pine: grass starts at water level and art follows elevation.
 Ground uses all five palettes by elevation: atlas colors 3, 1, 2, 4, 5, then repeats.
 The base is green, followed by gold and teal. Stairs use their upper landing’s palette. A stair placed next to
@@ -746,6 +758,13 @@ lower-floor pawn approaching an adjacent tree stays behind the cliff rather than
 appearing on its upper grass. The real tree-cutting route is covered by
 `res://tests/tree_approach_cliff_depth.gd`. Pixel regression: `res://tests/stair_edge_depth.gd` (run with a renderer).
 The build grid and placement highlight render separately above both surfaces.
+TerrainDepth orders each pawn, sheep and chicken against every overlapping ramp
+and raised ground piece. Ramp ordering preserves the adjoining cliff relation,
+including after restoration or edits change tile insertion order. This prevents
+lower-floor animals behind a landing from appearing on its upper surface.
+Checks: `res://tests/terrain_depth_order.gd` and
+`res://tests/stair_floor_routes.gd` run headless; `res://tests/animal_terrain_depth.gd`
+runs with a renderer and covers both ramp/landing insertion orders.
 
 ## Confirmed water-fall reference
 

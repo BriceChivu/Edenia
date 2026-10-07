@@ -1306,6 +1306,9 @@ func clear_segment(start: Vector2, end: Vector2, moving_sheep: bool = false) -> 
 	for cell in layout.houses:
 		if layout.house_blocks_contact(cell, start, end, moving_sheep):
 			return false
+	return terrain_clear_segment(start, end, moving_sheep)
+
+func terrain_clear_segment(start: Vector2, end: Vector2, moving_animal: bool = false) -> bool:
 	var samples := maxi(1, ceili(start.distance_to(end) / 4.0))
 	var previous: Vector2i = layout.cell_at(start)
 	for i in range(samples + 1):
@@ -1314,7 +1317,7 @@ func clear_segment(start: Vector2, end: Vector2, moving_sheep: bool = false) -> 
 		if current != previous and not layout.can_cross(previous, current):
 			return false
 		previous = current
-		if not layout.walkable_point(point, moving_sheep):
+		if not layout.terrain_feet_free(point, moving_animal):
 			return false
 	return true
 
@@ -1323,11 +1326,7 @@ func ground_height(point: Vector2) -> float:
 	for bridge in walking_bridges:
 		if layout.bridges_enabled and layout.bridges.has(bridge) and cell in [bridge, bridge + Vector2i.RIGHT] and absf(point.y - layout.center(bridge).y) <= 7:
 			return Layout.BridgeRules.height(layout, bridge, point.x)
-	if layout.cells.get(cell) == "stairs":
-		var direction: Vector2i = layout.stair_direction(cell)
-		var progress: float = (point.x - layout.ORIGIN.x - cell.x * 64) / 64.0
-		return layout.height_at(cell) + clampf(progress if direction.x > 0 else 1.0 - progress, 0.0, 1.0) * 64.0
-	return layout.height_at(cell)
+	return layout.surface_height(point)
 
 func fall_into_water(point: Vector2) -> void:
 	harvesting.cancel()
