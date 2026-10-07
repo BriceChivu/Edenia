@@ -1,3 +1,4 @@
+import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
@@ -3527,12 +3528,12 @@ function syncIntroIslandPlayback() {
   const video = document.getElementById('introIslandVideo')
   if (!video) return
   video.pause()
-  const phone = window.matchMedia('(max-width: 640px)').matches
+  const phone = usesPhoneComposition()
   const poster = `images/tiny-swords-trailer/island${phone ? '-phone' : ''}-poster.png`
   video.poster = poster
   if (!introTrailerState.active || introTrailerState.sceneIndex !== 0) return
   // Reduced motion keeps a complete, static island with the same slide copy.
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (prefersReducedMotion()) {
     video.removeAttribute('src')
     video.load()
     return
@@ -3543,8 +3544,7 @@ function syncIntroIslandPlayback() {
   video.play().catch(() => {})
 }
 
-window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', syncIntroIslandPlayback)
-window.matchMedia('(max-width: 640px)').addEventListener('change', syncIntroIslandPlayback)
+bindIntroIslandMediaChanges(syncIntroIslandPlayback)
 
 function navigateIntroTrailer(direction) {
   if (!introTrailerState.active) return
