@@ -327,7 +327,7 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 		if not houses.has(owner) and cell in house_free_tiles[owner]:
 			return false
 	if tool == "chicken":
-		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell) and cell != occupied
+		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell, false, true) and cell != occupied
 	if tool == "sheep":
 		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell, false, true) and cell != occupied
 	if tool != "tree" and not (tool == "remove" and trees.has(cell)) and house_owner(cell) != Vector2i(999, 999):
@@ -1518,7 +1518,7 @@ func asset_ground_free(cell: Vector2i, moving_sheep: bool = false, allow_stair_c
 		return true
 	if cells[cell] == "stairs" or trees.has(cell) or house_owner(cell) != Vector2i(999, 999) or (chicken_at(cell) >= 0) or sheep_at(cell) >= 0 or log_piles.has(cell) or BridgeRules.touches(self, cell):
 		return false
-	# Sheep may be placed on the grass at either end of a ramp.
+	# Animals may be placed on the grass at either end of a ramp.
 	if not allow_stair_connections:
 		for stair in stair_directions:
 			if cell in [stair - stair_direction(stair), stair + stair_direction(stair)]:
