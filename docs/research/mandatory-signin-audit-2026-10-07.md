@@ -1,0 +1,311 @@
+# Mandatory sign-in continuation audit — 2026-10-07
+
+## Conclusion
+
+Mandatory sign-in is substantially implemented, but paused and not ready to resume on the current Tiny Swords experience. The main obstacle is integration drift: the current client exports island and XP fields that both the repository SQL and deployed Supabase validator reject. Retained conflict, reset, import, recovery and offline mechanisms are useful foundations; their historical completion does not establish acceptance of today's product.
+
+The next milestone is a limited mandatory-sign-in tester trial on the existing Supabase backend, using the current mode-2 experience. Repair schema compatibility, stale-generation opening and island conflict visibility, then verify the combined product behind explicit tester admission. Keep public production and mode 2 accountless throughout that work. A tester URL alone cannot enforce backend audience or protect a browser's other namespaces.
+
+This report includes live read-only observations, owning source inspection, GitHub specification/history, executable offline findings, a complete ramifications inventory, and an implementation/acceptance plan. Findings marked P1 block auth resumption; P2 denotes missing integration proof or a needed policy decision. Prior receipts and issue closure are treated as leads, never proof.
+
+In plain terms: **mode 2 is the current accountless Tiny Swords tester experience**. **Old mode 1 was the paused account experiment being removed**. A new mode 1 would be a separate auth trial using the same Tiny Swords experience as mode 2, with mandatory sign-in and cloud sync added; it would not change mode 2 or the normal public site.
+
+## Accepted continuation scope
+
+Following the critical review, the user confirmed on 2026-10-07:
+
+- The next implementation milestone is the tester trial, rather than public rollout readiness.
+- Use the existing Supabase backend, with profile access restricted to specific tester accounts.
+
+This is a narrow amendment to #177's original single-developer testing scope. Implement explicit admission for the selected verified Supabase UUIDs while retaining owner-scoped authorization; it does not call for a second backend, generalized tester infrastructure or a tester-management UI. The trial does not authorize public mandatory-entry or migration cutover. Full #196 readiness and #197 approval remain a later release stage. These decisions update the continuation plan, not the historical observations or validation receipts below. No runtime or backend change has been made by this document revision.
+
+## Scope, isolation and pinned identity
+
+- Separate branch: `codex/mandatory-signin-audit`.
+- Separate managed worktree: `/Users/brice/.codex/worktrees/mandatory-signin-audit/Edenia`.
+- Audited remote/source baseline and observed deployed commit: `88a41995d1f22d3764cbca35a41e529849aaa291`.
+- Observed deployed asset version: `88a41995d1f2`; runtime SHA-256 reported by `release.json`: `553b51bbcba0f30d28c688dffa38aac7682c9b99d40a12bdf63aefd0d1a6a4ff`.
+- Live catalog observations: 2026-10-07, approximately 04:05–04:17 UTC / 12:05–12:17 Asia/Taipei. These are point-in-time observations, not monitoring guarantees.
+- Shared checkout had unrelated uncommitted Tiny Swords/UI work. Another active chat was removing mode 1 in its own worktree. Neither checkout was edited by this audit.
+- Audit writes are documentation only. No Pages deployment, provider change, real sign-in, profile RPC, migration, server gate change, monitor enablement, cleanup, storage deletion, issue update or PR was performed.
+- Supabase queries were explicit read-only transactions against catalogs, public schema definitions, non-secret gate/config values and aggregate operational status. No learner envelopes, identities or sessions were read. No mutation RPC was exercised against the live project.
+
+Sources for release identity: [observed successful Pages run](https://github.com/BriceChivu/Edenia/actions/runs/37562539700), public `release.json` and `config.local.js`. Production delivery and audience ownership: [site-entry.js](../../scripts/site-entry.js), [compatibility resolver](../../scripts/build-production-experience.mjs), [compatibility manifest](../../compat/production/manifest.json), [Pages workflow](../../.github/workflows/deploy-pages.yml).
+
+## Current release and experiment state
+
+| Surface/control | Observed behavior or value | Consequence |
+| --- | --- | --- |
+| Ordinary public root | Selects compatibility production HTML/app; account rollout `off`, lifecycle `false` | Existing public study remains accountless. |
+| `internal_test=2` | Selects current Tiny Swords HTML/app; `tinySwordsEnabled=true`; account audience explicitly excluded | Tiny Swords testing remains independent of mandatory sign-in. |
+| Old `internal_test=1` | Auth experiment retired/paused; removal is concurrently underway | Do not reuse its old storage, provider assumptions or acceptance receipts as a new auth test. |
+| Pages account controls | Hard-coded `EDENIA_ACCOUNT_FEATURES_ROLLOUT='off'` and `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED='false'` | Changing GitHub variable values alone cannot resume accounts. |
+| Live server profile gate | `off`; no developer owner configured | Profile protocol remains disabled independently of browser flags. |
+| Auth experiment operator flag | GitHub `EDENIA_AUTH_EXPERIMENT_ENABLED=false` | Auth watchdog, restore rehearsal and guarded maintenance are paused. |
+| IndexedDB profile/backups/cleanup flags | All three true in served config | This newer persistence path must participate in auth acceptance. |
+| Legacy-origin transfer | Served legacy migration flag true; mode 2 explicitly excludes it | Keep origin migration distinct from accountless-to-owned profile attachment. |
+| Final accountless cutover | Empty timestamp; emergency accountless rollback false | No mandatory final date is active. |
+| Other stale variables | Google One Tap variable remains true; implementation does not support One Tap | A variable's existence/value is not runtime authority. |
+
+**Chronology caveat:** the pinned master/live release still contains source recognition of mode 1 and its paused-profile notice. The removal chat had not yet delivered a merged deployment when these observations were made. Accordingly “mode 1 is gone” describes the retired Auth experiment and intended removal; this report does not falsely claim its physical selector had already vanished from that pinned release. Rebase the continuation on the removal's merged result before recreating any mode-1 entry.
+
+The compatibility manifest overrides not just presentation but `src/app.js`, portable profile serialization, profile lifecycle, cloud adapter, first-profile builder, IndexedDB profile repository and scoring. Therefore root/mode-1 synthetic Auth tests can run the retained compatibility implementation while mode 2 runs newer source. Passing one says little about the other's full owned-profile behavior. Shared modules and global runtime config can still affect both bundles, so separate branches alone are not a deployed isolation mechanism. [Runtime selectors](../../src/core/runtime-environment.js), [account audience policy](../../src/core/account-feature-rollout.js), [storage namespaces](../../src/core/storage-keys.js), [manifest](../../compat/production/manifest.json).
+
+## Authentication and profile-opening inventory
+
+| Area | Retained implementation | Continuation requirement |
+| --- | --- | --- |
+| Public entry and onboarding | Landing/trailer and bounded locale/language/level/channel draft; account step appears when audience is enabled; no durable study before owned activation for new learners | Exercise this with current Tiny Swords HTML, five locales, keyboard focus and both storage modes. Keep draft recovery after provider/server failure. |
+| Mandatory requirement | `ACCOUNT_ENTRY_REQUIRED` depends on account audience and emergency rollback; lifecycle additionally requires its own flag | Treat account rollout and lifecycle as a pair. Account UI enabled without lifecycle is not the required ownership model. |
+| Google | Official GIS rendered button, 32-byte raw nonce plus SHA-256 nonce to GIS, `signInWithIdToken`, stale/duplicate callback guards; silent provider-owned popup cancellation | Recheck exact hosted/local client origins, nonce enforcement and live same-address UUID continuity. No One Tap or automatic selection. |
+| Email | Six-digit same-device OTP request and verification; 60-second resend cooldown, pending address only in memory, five localized templates, no redirect in OTP request | Verify both signup and existing-user email templates actually deployed, SMTP delivery, expiry, rate limits and resend/reload. Repository templates/config are not live provider proof. |
+| Turnstile | Explicit interaction-only widget, bounded single-use token and fail-closed configured/unavailable state; form remount handling retained | Live Supabase CAPTCHA enforcement must reject missing/replayed/expired tokens. A site key or invisible widget does not prove it. |
+| Session transport | Persistent Supabase SDK session; initial `getSession`, online `refreshSession` recheck; transient availability classified separately from definitive rejection | Test current SDK/provider behavior with real Chrome/Safari. Do not equate cached session availability with accepted owner/profile resolution. |
+| Profile authority | Sole lifecycle authority controls resolving, active, locked, waiting, account change, migration, conflict and recovery; inactive UI hidden and autosave fenced | Include game iframe, XP claim, async Anki/video completions, storage events and delayed game acknowledgments in ownership transitions. |
+| First creation | Owner derived server-side, verified non-anonymous Auth UUID, onboarding validation and history/new-account evidence; existing head takes precedence | Verify creation from current app draft and return routing without creating a blank profile over existing history. |
+| Trusted recovery | Current-generation trusted predecessor recovery, local/protected candidates, explicit restoration; empty verified-owner onboarding for no trusted state | Keep ADR-0001's terminal outcomes. Resolve stale multi-generation client branch; preserve valuable progress during any real-owner verification. |
+| Offline continuity | Exact UUID/time verification record; up to and including 30 days; transient unavailability may open verified local copy; definitive sign-out/rejection locks | Test 30-day boundary, clock changes, reconnect/focus coalescing and global revocation. This is local continuity, not a complete offline asset-loading/PWA promise. |
+| Sign-out | Local/global Supabase scopes; identity removed immediately and owner-bound copy retained locked; global failure is surfaced | Access JWTs can remain valid until expiry: test provider-supported revocation/refresh boundaries and describe timing accurately. |
+| Shared browser | One usable owner; synchronize/export/explicit discard protects pending prior progress before replacement; old activation callbacks become inert | Exercise whole storage mix plus game restore/save/claim cancellation and quota failure. Do not infer owners from email strings. |
+| Export/import | Owner-neutral portable export, 8-MiB recovery-file bound; online owned import with explicit replacement and verified protected server backup | Keep island/XP provenance and old exports compatible, exclude auth/cache/device material, prove download and failed import recovery. |
+| Sync and Plus | Owned-profile synchronization, recovery/export/import flow is independent of Plus; legacy Plus state backups/reminder snapshots are distinct services | Preserve free data-safety access. Do not repurpose legacy `state_backups` as the new profile head or change Plus scope. |
+| Analytics | UUID identification and allowed email person property; sign-out reset, secret-bearing URL sanitizer, masked auth inputs and `ph-no-capture` forms | Both HTML/bundle variants need privacy/leakage tests during locked game and account-switch states. |
+
+Owning sources: [app controls:614](../../src/app.js#L614), [lifecycle initialization:1031](../../src/app.js#L1031), [draft store](../../src/state/onboarding-profile-draft.js), [Auth controller](../../src/integrations/account-auth-controller.js), [GIS controller](../../src/integrations/google-identity-services-controller.js), [Turnstile controller](../../src/integrations/turnstile-controller.js), [authentication adapter](../../src/integrations/learner-profile-authentication-adapter.js), [reverification](../../src/integrations/learner-profile-reverification.js), [owner verification](../../src/state/learner-profile-owner-verification.js), [local adapter](../../src/state/learner-profile-local-adapter.js), [profile lifecycle](../../src/state/learner-profile-lifecycle.js), [first-profile SQL](../../supabase/migrations/20260820220116_create_first_signed_in_profile.sql), [trusted recovery SQL](../../supabase/migrations/20260901090000_automatic_trusted_predecessor_recovery.sql), [fresh-owner onboarding SQL](../../supabase/migrations/20260901110000_allow_empty_verified_owner_onboarding.sql), [analytics](../../analytics.js).
+
+Supabase's current documentation confirms that OTP versus magic-link delivery depends on the email template and `verifyOtp` uses `type:'email'`; deployment verification must include that template boundary. Its session documentation also makes clear that sign-out does not immediately invalidate already-issued access JWTs. [Email passwordless docs](https://supabase.com/docs/guides/auth/auth-email-passwordless), [session docs](https://supabase.com/docs/guides/auth/sessions). The changelog index was fetched and scanned for relevant Auth/breaking entries; it does not substitute for verification of actual deployed settings.
+
+## Database and operational audit
+
+### Read-only live security results
+
+The deployed migration inventory includes the full profile creation/sync/conflict/reset/recovery/import/migration/monitoring chain, trusted predecessor and empty-owner onboarding changes, and the September town-economy extension. Its latest listed migration is `20260928110239`; there is no island/XP schema extension.
+
+- `learner_profile_heads`, `learner_profile_versions` and write receipts have RLS enabled.
+- Browser `authenticated` has only SELECT on heads/versions, no direct write grants; no matching browser grants on write receipts were observed.
+- Heads/versions SELECT policies require `(select auth.uid()) = user_id` and no account lock.
+- All 13 public learner-profile RPCs inspected were invoker wrappers, executable by `authenticated`, denied to `anon`.
+- No private security-definer function with `learner_profile` in its name was executable by `anon` in the catalog query. This check is scoped to that inventory, not an exhaustive whole-project privilege audit.
+- Browser flags are release controls. Owner derivation and off/developer/public admission belong to the server protocol. Owner-read SELECT policies themselves do not include the rollout gate; gate off does not revoke an owner's existing authenticated read access.
+- Current live schema has strict profile, city-progress, Anki-day and watch-progress keys, missing the five fields documented below.
+
+These catalog observations support the intended isolation design. They are not a fresh two-owner RLS exercise or corrupt/stale/duplicate RPC acceptance test. pgTAP transactions can write fixtures; none was run on production during this audit. Validate them in an isolated local database and then perform approved bounded deployed-schema canaries.
+
+### Operational readiness is paused
+
+At 04:13 UTC the private aggregate monitor record was last checked on **2026-09-27 03:09:35 UTC**, despite its stored `healthy` label. It was approximately ten days old and cannot satisfy freshness or the 24-hour soak. GitHub's Auth-experiment flag is false and scheduled watchdog jobs are gated off. Pulsetic's current dashboard state and real alert delivery were not independently inspected; the repository says it was paused. Do not label this intentional lack of observations a new provider outage. [Pause runbook](../auth-operations.md#internal-experiment-pause-2026-09-27), [monitor workflow](../../.github/workflows/auth-health-monitor.yml).
+
+Weekly external disaster dumps remain scheduled; the latest observed run on October 4 succeeded. Its artifact retention is 35 days. Restore rehearsals and guarded retention are gated separately by the paused experiment flag, so workflow success proves neither current restoration nor profile cleanup. [Observed backup run](https://github.com/BriceChivu/Edenia/actions/runs/37195798588), [backup workflow](../../.github/workflows/learner-profile-disaster-backup.yml), [retention runbook](../learner-profile-operations.md).
+
+Live maintenance configuration: cleanup disabled, eight ordinary versions, 30 protected days. Capacity-plan review dates were August 28; last capacity measurement September 13. Current read-only `pg_database_size` observation was **23,121,043 bytes**; the recorded policy limit was 524,288,000 bytes. Low current size does not refresh the expired plan/restore evidence or prove present subscription terms. Renew those records and rehearse restoration before enabling cleanup; keep current heads, unexpired protected copies and idempotency receipts intact.
+
+### GitHub claims and documentation reconciliation
+
+[Spec #177](https://github.com/BriceChivu/Edenia/issues/177) is the mandatory-account destination. [Map #157](https://github.com/BriceChivu/Edenia/issues/157) is inherited historical planning. Implementation issues #180–195 are closed, but the new integration gaps below remain. [#286](https://github.com/BriceChivu/Edenia/issues/286) remains open for actual returning-owner opening/reload and preservation; [#196](https://github.com/BriceChivu/Edenia/issues/196) remains open for broader deployment-bound readiness; [#197](https://github.com/BriceChivu/Edenia/issues/197) remains the explicitly approved promotion gate.
+
+[#315](https://github.com/BriceChivu/Edenia/issues/315) is parked tooling debt according to its newer September 23 direction. It is not the prerequisite organizing the learner outcome. Preserve consumed native attempts/journals; use supported real-browser authentication with a bounded human sign-in handoff if needed, rather than reviving proxy/certificate work.
+
+Specific stale claims to reconcile:
+
+1. #177's “current-state constraints” still claim no complete generation model, owner-verification expiry or conflict coordinator. The current source has those mechanisms; preserve the required behavior, replace that historical baseline description.
+2. #177's original browser list mentions mandatory real iPhone/paired hardware. Its approved v4 execution amendment and #196 explicitly make those optional. Actual current macOS Chrome/Safari, isolated Chrome context and applicable private browsing remain required.
+3. #157/#164 and `CONTEXT.md`'s profile-combination wording describe automatic combination. #177 expressly supersedes it; current conflict choices match no-Combine. Anki maxima still require the narrower decision below.
+4. Auth docs mix retained defaults, early guarded candidate recovery and later automatic trusted predecessor/onboarding behavior. Reconcile with ADR-0001 and the latest resolver source before the next run.
+5. The old runner pins `internal_test=1`, internal rollout, and `app.js`; the pinned site entry now serves compatibility `production-app.js` to the old mode-1 path. Rebind new evidence to the actually selected client and runtime, not merely a deployed SHA or an asset fetched independently. [Runner:38–50](../../scripts/run-live-profile-opening.mjs#L38), [entry](../../scripts/site-entry.js).
+6. #177 requests a discoverable Privacy link, while [PR #335](https://github.com/BriceChivu/Edenia/pull/335) deliberately removed the footer Privacy button; no current ordinary Privacy link was found in the two main HTML documents. Reconcile the accepted product direction rather than restoring it from an old checklist automatically.
+
+## Safe continuation plan
+
+### 1. Repair the owned-profile contract in isolation
+
+Start from current origin/master after the mode-1 removal lands. Preserve the current report baseline as evidence, recheck subsequent diffs, and keep task work isolated. Add a migration that accepts the current island/XP fields without changing legacy envelope hashes or stripping durable state. Review initial profile, ordinary sync, choice/import/reset/Undo/recovery, canonical digest/byte count and reset-generation identity together. Respect Godot ownership: Edenia validates bounded opaque transport, Godot validates snapshot gameplay/version.
+
+Acceptance: actual client-generated new, legacy, XP-bearing and island-bearing envelopes through local SQL validators/RPCs; invalid/oversize/corrupt rejects; no partial head/version/receipt changes; old clients/exports get a deliberate compatible or guarded outcome. Test the 512-KiB island and 2-MiB cloud limits separately from 8-MiB recovery export.
+
+### 2. Repair opening and island conflict visibility
+
+Separate clean stale devices from devices with unsynchronized progress. A clean stale device should open the verified current cloud head with fenced local bookkeeping updates, including after multiple resets or receipt expiry. Preserve unsynced stale contents for explicit choice/export and require explicit intent to restore an older generation. Evaluate the existing conflict/recovery operations before introducing retained generation-transition history. ADR-0001 requires trusted ancestry for predecessor restoration when the current head is invalid; the reproduced failure already has a valid current head.
+
+For island comparison, require a clear “island differs” row based on opaque snapshot equality and retain export-both. Detailed terrain, inventory and construction summaries are optional follow-up product work. Record the Anki maxima ambiguity separately; do not add cross-profile field merging while fixing island comparison.
+
+Acceptance: clean and unsynced stale devices after two resets and after receipt expiry; island-only divergence; choose each side across two isolated contexts; and actual Godot restore acknowledgment before new island writes. Reuse existing choice/reload/export, stale confirmation, wrong-owner, import/reset/Undo and failed-install coverage, extending it only where current island/XP data or the changed handoff exposes a missing behavior.
+
+### 3. Create a new auth tester mode from current mode 2
+
+The confirmed tester-trial milestone uses a fresh `internal_test=1` based on the current mode-2 product. No route was recreated during this audit; schema and lifecycle integration repairs are required before it can establish functioning signed-in gameplay.
+
+Proposed implementation contract:
+
+- Share the current Tiny Swords HTML/app/assets with mode 2. Mode 1 adds only the explicitly gated mandatory-account behavior; avoid a third frozen app fork or reviving pixel town.
+- Keep `/` and `internal_test=2` selectors, production compatibility manifest and account exclusion byte/behavior stable. New mode-1 availability must not implicitly promote Tiny Swords or sign-in publicly.
+- Give new mode 1 a fresh namespace, e.g. `edenia_v1_auth_trial_v1`, including Auth, owner/access/sync/migration/draft metadata, IndexedDB primary/backups, markers and config. Reusing `edenia_v1_internal_test` risks reopening retained historical signed-in data. Do not touch `edenia_v1` or `edenia_v1_internal_test_2`.
+- Copying the experience does not mean copying a tester's data automatically. Any mode-2 progress transfer must be explicit portable export/import with verified backup and ownership checks. Keep old mode-1 retained caches separately recoverable; do not delete them as “disposable”.
+- Use a separate default-off auth-test release flag/audience and paired lifecycle enablement. Never use global public account rollout to expose tester UI; mode 2's account exclusion stays in place.
+- Server `developer-canary` currently admits one exact owner only. Extend server admission narrowly for specific verified tester UUIDs on the existing backend, preserving default-deny behavior and per-owner isolation. Verify both admitted and non-admitted identities. A browser selector or `signed-in-public` is not an adequate tester-only gate. No second backend or reusable tester-management system is in this milestone.
+- Confirm Google exact origins and CAPTCHA/template settings for the existing backend. Existing OTP/GIS do not need redirect-based login, but their location policy/reminder deep links and retained callback config still need reconciliation after removal.
+- Bind trial evidence to route, selected app asset, actual runtime hash, database schema and tester admission. Adapt existing hosted-opening support where needed, preserving historical consumed journals; do not rebuild the full release-readiness tooling as a prerequisite for local integration work.
+
+Acceptance: both changed and existing browsers retain exact normal/mode-2 profile and backup bytes, fresh/authenticated/locked/new mode-1 cases use only the new namespace, provider scripts/account RPCs are absent from normal and mode 2, sandbox remains isolated, forced-off new flag preserves all trial data, and no mode can write another namespace. A query parameter is discoverable; it is not access control.
+
+### 4. Verify the actual combined product
+
+Extend existing browser suites for current Tiny Swords + lifecycle + IndexedDB. Existing old-mode-1 auth tests and accountless mode-2 island tests do not prove that combination. Add focused checks for actual Godot restore acknowledgment, no canvas or learner contents before ownership, locked/replaced iframe disposal, cancelled stale saves, XP claims, study mutations and reload. Reuse existing storage-failure and ownership tests; add a combined-product case only where they do not cover the changed behavior. See the coverage map below.
+
+Run focused checks in each slice, authenticated database tests for schema/admission changes, then the broad build/core-flow suite on the trial candidate. Cover all five locales and representative desktop/phone/tablet geometry for presentation, focus and readability; do not multiply every persistence scenario across those dimensions. Use current macOS Chrome/Safari and independent storage contexts for applicable live cases; physical iPhone/separate hardware remain optional supplemental coverage. Stubbed provider success establishes client behavior only.
+
+### 5. Verify the bounded hosted tester trial
+
+Before any valuable-profile hosted attempt, refresh the independent monitor, default-off canary containment/recovery rehearsal, backup restore/capacity evidence and two-owner deployed security proof. Begin with returning-owner read/open/reload under default-deny writes and pre/post preservation verification. Expand into test-data creation/sync/conflict/reset/import only after those contracts pass. Recheck signup/existing email OTP, valid/invalid CAPTCHA, same-address Google↔email UUID continuity, local/global sign-out, outage and switching.
+
+Complete trial acceptance against the actual selected client and configured tester audience: admitted testers can authenticate, open, save, reload and synchronize their own profiles; non-admitted identities cannot use protected profile operations; conflicts remain informed and recoverable; ordinary production and mode 2 retain their existing behavior. Report remaining gaps against this milestone. Keep applicable hosted-operation containment and recovery requirements; do not treat completion of the entire public-release checklist as a prerequisite for local implementation or disposable local database tests.
+
+### Later stage: public mandatory-sign-in readiness
+
+Resolve first-notice versus global-cutoff policy and record real notice dates; do not infer 30 days of actual notice from a backdated stored field. Keep legacy-origin recovery and accountless attachment distinct. Retain the migrator for its minimum 12-month/90-day quiet/approval gates and emergency rollback for 30 incident-free days after cutover plus approval. [Retirement policy](../../src/domain/legacy-profile-retirement.js).
+
+#196 requires a fresh uninterrupted 24-hour Auth observation with five-minute cadence, no unexplained gap over ten minutes, no provider/network failure, server gate off and bounded canary disabled before mandatory-account cutover. Historical soak does not transfer to today's candidate. Plan that observation separately from active tester sessions. Full public migration acceptance, notice policy, release-readiness tooling and #197's explicit final-cutover decision belong to this later stage. This audit does not grant or perform public promotion.
+
+## Verification boundaries
+
+Completed source/catalog/spec inspection and offline reproductions are recorded here and below. Live provider settings, actual mail delivery/CAPTCHA/UUID continuity, Pulsetic alert destination, physical devices, current backup restoration and full current-product hosted flows remain unverified. Read-only catalog security is distinguished from adversarial deployed RPC acceptance. Tests with mock transports do not exercise Supabase JSON validation.
+
+## Findings to repair before the signed-in tester trial
+
+### P1 — Current client profiles exceed the deployed backend portable schema
+
+The client serializes five newer durable fields which the SQL schema rejects through `additionalProperties:false`:
+
+| Client field | Owning client source | Rejecting SQL definition |
+| --- | --- | --- |
+| `tinySwordsIsland` when non-null | [portable-learner-profile.js:495](../../src/state/portable-learner-profile.js#L495) | [synchronize migration:328–365](../../supabase/migrations/20260821092005_synchronize_learner_profile_progress.sql#L328) |
+| `cityProgress.experienceVersion` when 1 | [portable-learner-profile.js:387–395](../../src/state/portable-learner-profile.js#L387) | [synchronize migration:348–355](../../supabase/migrations/20260821092005_synchronize_learner_profile_progress.sql#L348) |
+| `anki[day].experienceReviews` | [portable-learner-profile.js:358–363](../../src/state/portable-learner-profile.js#L358) | [synchronize migration:141–149](../../supabase/migrations/20260821092005_synchronize_learner_profile_progress.sql#L141) |
+| `anki[day].experienceWatermark` | [portable-learner-profile.js:358–363](../../src/state/portable-learner-profile.js#L358) | Same Anki definition |
+| `videos[id].watchProgress[].experienceSeconds` | [portable-learner-profile.js:210–240](../../src/state/portable-learner-profile.js#L210) | [synchronize migration:251–263](../../supabase/migrations/20260821092005_synchronize_learner_profile_progress.sql#L251) |
+
+The later town-economy migration only adds `townEconomy`; it does not change these five definitions ([town-economy migration:6–39](../../supabase/migrations/20260928110239_pixel_town_economy_profile.sql#L6)). Its current validator calls `jsonb_matches_schema` and raises SQLSTATE `22023` for incompatible envelopes ([same migration:285–292](../../supabase/migrations/20260928110239_pixel_town_economy_profile.sql#L285)). Searching all migrations found no definitions for the five new fields.
+
+The XP marker is not rare or contingent on island placement. `initializeExperience` installs `experienceVersion:1` ([experience.js:2–5](../../src/domain/experience.js#L2)), and current app normalization invokes it during load and save ([app.js:1910–1911](../../src/app.js#L1910), [app.js:1964–1965](../../src/app.js#L1964)). Signed-in Start over explicitly invokes it before submitting the blank replacement ([app.js:8220–8225](../../src/app.js#L8220)). Thus schema compatibility can fail with a blank island or before gameplay. The initial profile builder sets island to null and resets city progress; null islands are omitted by the portable serializer, so the first creation envelope itself need not include the rejected island field ([first-signed-in-profile.js:40–50](../../src/state/first-signed-in-profile.js#L40)). Later normalized saves and Start over still hit the XP field mismatch.
+
+**Demonstrated offline:** extracted the JSON schema from the owning SQL, generated a real current client envelope, and checked property membership under each strict definition. Output was `profile:tinySwordsIsland`, `cityProgress:experienceVersion`, `ankiDay:experienceReviews,experienceWatermark`, `watchProgress:experienceSeconds`. This proves repository incompatibility; no live commit RPC was attempted.
+
+**Impact:** cloud autosave, accountless migration, import, reset, conflict preservation/selection, and recovery can fail wherever they validate a current profile. Dropping the new fields would lose island or XP provenance. The continuation must add compatible bounded transport fields and matching canonical/initial/reset validation, plus database tests using actual client-generated envelopes. Godot must retain gameplay-version validation; Edenia checks transport size and exchanges snapshots ([ownership rule](../../godot/tiny-swords/README.md#game-ownership-and-edenia-integration), [tiny-swords-island.js:1–8](../../src/state/tiny-swords-island.js#L1)).
+
+### P1 — Island-only divergence is invisible in conflict comparison
+
+The comparison has eight groups, including legacy town progress and optional town economy, but never reads `tinySwordsIsland` ([conflict-comparison.js:3–12](../../src/features/profile-access/conflict-comparison.js#L3)). Its town group compares only claimed city level, study-fact count, and watched-video count ([same file:78–95](../../src/features/profile-access/conflict-comparison.js#L78)). The view shows an empty comparison message when no rows remain ([conflict-view.js:176–195](../../src/features/profile-access/conflict-view.js#L176)).
+
+**Demonstrated offline:** take the populated island fixture, clone the portable profile, change only island wood, and call `createLearnerProfileConflictComparison(device,cloud)`. It returns `[]`. The learner could be asked to replace different constructions/resources without being shown that the island differs. Equal summary totals can also conceal different video identities or settings, because the comparison deliberately uses totals; this broader summarization limit is a design concern, not a demonstrated data-loss event.
+
+**Continuation:** add a clear “island differs” comparison using opaque snapshot equality and preserve export-both. Verify that island-only changes are visible and that choosing either side restores the selected snapshot through Godot. Detailed Godot-produced summaries are optional follow-up work; Edenia must not interpret gameplay rules to generate them.
+
+### P1 — A device two or more reset generations behind cannot open a valid cloud head
+
+The client handles a changed generation only when cloud generation equals local generation plus one and a matching latest reset receipt exists. Every other generation mismatch returns `recovering` before it tries a conflict or trusted current-head handoff ([cloud adapter:2668–2679](../../src/integrations/learner-profile-cloud-persistence.js#L2668)).
+
+**Demonstrated offline:** seeded a normal owner sync record at generation 1/revision 6, supplied a valid owner-scoped `profile_ready` response at generation 3/revision 1, and invoked the real adapter with the same owner/profile. Result: `{status:'recovering'}`; RPC calls: only `resolve_my_learner_profile`; the generation-1 local sync record stayed intact. Authentication and envelope verification were mocked as in the existing adapter tests. No server or durable browser data was changed.
+
+This is a liveness defect after two deliberate resets on another device, not a silent overwrite. The lifecycle eventually changes repeated opening failures into reauthentication ([lifecycle:120–141](../../src/state/learner-profile-lifecycle.js#L120)); reauthentication does not fix the adapter's generation-mismatch branch.
+
+**Related retention risk, source-derived:** even a one-generation stale device relies on a reset receipt, while guarded maintenance deletes expired reset records ([maintenance migration:858–861](../../supabase/migrations/20260823164742_learner_profile_retention_capacity_maintenance.sql#L858)). Once cleanup is enabled, a long-absent device can lose the evidence needed by this client branch. Expired receipts currently remain usable while the record exists ([cloud adapter:1192–1196](../../src/integrations/learner-profile-cloud-persistence.js#L1192)). This demonstrates a dependency to remove or handle, not a requirement for permanent transition records. First evaluate valid-current-head opening and explicit preservation/choice for unsynced old-generation local progress. The existing conflict operation preserves a device envelope on generation mismatch ([conflict migration:269–305](../../supabase/migrations/20260821154351_resolve_divergent_learner_profiles.sql#L269)); verify whether that operation can support the handoff safely. Add retained transition evidence only if a concrete unresolved case requires it.
+
+## Retained behaviors worth keeping
+
+| Ramification | Current retained implementation | Important limit |
+| --- | --- | --- |
+| Local-first saves | Lifecycle marks required cloud work, performs fenced local save, waits for acknowledgment, then queues cloud work ([lifecycle:950–962](../../src/state/learner-profile-lifecycle.js#L950)). | Requires working dirty metadata. Failed marker creation blocks the save rather than falsely claiming protection. |
+| Conditional writes | Server derives `auth.uid()`, locks owner/head, validates integrity, checks generation/base revision, and stores a conflict candidate instead of overwriting a divergent head ([conflict migration:122–184](../../supabase/migrations/20260821154351_resolve_divergent_learner_profiles.sql#L122), [same:256–312](../../supabase/migrations/20260821154351_resolve_divergent_learner_profiles.sql#L256)). | Must fix current portable schema before relying on acceptance. |
+| Retry/idempotency | Durable operation identity, pending/queued work, exact accepted receipts and bounded automatic retry are implemented; the pump updates accepted revision and detects preserved conflicts ([cloud adapter:1954–2082](../../src/integrations/learner-profile-cloud-persistence.js#L1954)). | Five retries then visible attention; whole-profile writes, no Realtime collaboration. |
+| Device/cloud choice | Explicit confirmation; server locks conflict/current head and refreshes the comparison when the cloud changed; chosen state becomes a new revision ([choose migration:87–214](../../supabase/migrations/20260821154652_choose_divergent_learner_profile.sql#L87)). | Choice may explicitly select an older generation. This is user-directed recovery; old generations must never win automatically. |
+| No Combine | Only `device`/`cloud` sides are accepted by both coordinator and adapter ([lifecycle:1535–1550](../../src/state/learner-profile-lifecycle.js#L1535), [cloud adapter:1834–1851](../../src/integrations/learner-profile-cloud-persistence.js#L1834)). | Do not revive superseded #164 automatic field merges. |
+| Conflict recovery copies | Choice starts a 30-day protection deadline; unresolved conflicts have no expiry; post-choice versions remain downloadable ([choose migration:213–244](../../supabase/migrations/20260821154652_choose_divergent_learner_profile.sql#L213), [conflict-view:239–280](../../src/features/profile-access/conflict-view.js#L239)). | Protected IDs are tracked per local browser; new-device discovery merits explicit acceptance. |
+| Expiry handling | Server conflict read returns `expired` without envelopes after deadline; client removes expired IDs from retained list ([conflict migration:504–539](../../supabase/migrations/20260821154351_resolve_divergent_learner_profiles.sql#L504), [cloud adapter:1739–1766](../../src/integrations/learner-profile-cloud-persistence.js#L1739)). | Resolved pending-operation recovery rejects expired conflicts ([cloud adapter:1675–1698](../../src/integrations/learner-profile-cloud-persistence.js#L1675)); test a lost choice acknowledgment followed by a return after 30 days. This scenario was not reproduced here. |
+| Accountless attachment | Captures an exact migration envelope/operation; server evidence of existing heads/history/backups returns `profile_present`; meaningful divergence is preserved for ordinary choice ([cloud adapter:2085–2204](../../src/integrations/learner-profile-cloud-persistence.js#L2085), [migration SQL:153–176](../../supabase/migrations/20260822112113_offer_voluntary_accountless_profile_migration.sql#L153)). | Empty or identical states can be automatically chosen during migration; this is not a field merge ([cloud adapter:1770–1813](../../src/integrations/learner-profile-cloud-persistence.js#L1770)). |
+| Meaningful emptiness | Any non-null Tiny Swords snapshot counts as meaningful, and the XP version marker alone does not ([learner-profile-meaning.js:66–84](../../src/domain/learner-profile-meaning.js#L66)). | Does not infer gameplay emptiness; this avoids browser interpretation of Godot snapshots. |
+| Protected import | Requires signed-in active ownership, clean known sync head, explicit replacement, durable import identity, server backup verification, local install and confirmation; failed/stale install rolls back ([cloud adapter:3168–3349](../../src/integrations/learner-profile-cloud-persistence.js#L3168), [lifecycle:1011–1175](../../src/state/learner-profile-lifecycle.js#L1011)). | Offline/pending profiles cannot import; lost responses are recovered through the durable import marker. Current Tiny Swords schema rejection blocks this path. |
+| Start over and Undo | Start over requires a synchronized head, increments generation, sets revision 1; Undo restores prior contents as a newer revision in the reset generation, preserving the generation fence ([cloud adapter:928–1123](../../src/integrations/learner-profile-cloud-persistence.js#L928)). | Both need online server protection; reset receipt expiry does not make blank reset intent disappear ([lifecycle:1307–1340](../../src/state/learner-profile-lifecycle.js#L1307)). |
+| Sync after replacement | Reset/Undo commit the new accepted sync head, clear pending/queued work, then install and reactivate; import confirmation advances the accepted revision and clears its operation marker ([cloud adapter:881–909](../../src/integrations/learner-profile-cloud-persistence.js#L881), [same:3330–3348](../../src/integrations/learner-profile-cloud-persistence.js#L3330), [lifecycle:1343–1415](../../src/state/learner-profile-lifecycle.js#L1343)). | No confirmed stale-sync-marker defect found in these transitions. Failures retain recovery state rather than claiming a completed transition. |
+| Shared owner protection | Local reconciliation requires exact owner/profile and an inactive activation before replacement; failed persistence restores captured access metadata when its fence is still current ([local adapter:575–640](../../src/state/learner-profile-local-adapter.js#L575)). | Metadata remains in localStorage, not the IndexedDB transaction. |
+| Tiny Swords checkpoints | Public/accountless IndexedDB can use a small island checkpoint; signed-in lifecycle explicitly disables that shortcut and uses its ordinary fenced full-profile save ([app.js:18515–18525](../../src/app.js#L18515), [tiny-swords-island.js:27–48](../../src/state/tiny-swords-island.js#L27)). | Do not accidentally bypass dirty tracking/cloud queue when optimizing the signed-in path. |
+
+## Anki reconciliation and whole-profile semantics
+
+The portable helper takes the maximum reviewed and created counts independently for each study day, including multiple supplied observations ([portable-learner-profile.js:346–382](../../src/state/portable-learner-profile.js#L346)). Its production call passes only the current profile's Anki data ([same:498](../../src/state/portable-learner-profile.js#L498)); no production caller reconciles two device profiles. Choosing a conflict selects one whole profile rather than carrying larger Anki totals from the unchosen side.
+
+This leaves a specification ambiguity: #177 requires both whole-profile choice/no automatic field merge and “same-day Anki totals from devices” maxima. The retained implementation proves the normalization helper, but not automatic cross-device maxima across divergent profiles. Resolve whether maxima are a deliberate narrow exception or apply only to observations within the selected profile. Do not silently add Combine while implementing this requirement.
+
+## IndexedDB compensation and remaining transaction boundary
+
+`save` serializes the requested state, captures access metadata, checks revision ownership and access in a strict transaction, and verifies durable readback. If access changes after commit or readback fails, it compensates only when its exact just-written head is still current; it never rewinds a newer tab's head ([indexed-db-profile.js:287–307](../../src/state/indexed-db-profile.js#L287), [same:310–408](../../src/state/indexed-db-profile.js#L310)). Island checkpoints follow the same readback and compensation pattern ([same:410–464](../../src/state/indexed-db-profile.js#L410)). Same-session intervening saves may rebase local mutations; cross-tab intervening writes abort. This local mutation rebase is distinct from forbidden whole-profile cloud Combine.
+
+The compensation does not make localStorage access metadata and IndexedDB profile contents a single transaction. Another tab can change ownership in the last comparison/commit window; compensating writes can also fail. [ADR-0001](../adr/0001-signed-in-profile-opening-recovery.md) explicitly accepts a narrower best-effort fence pending a transactional metadata architecture. Existing async contracts cover acknowledgment-before-success effects and failed-install metadata restoration; browser IndexedDB tests cover commit readback, changed access, and cross-tab safety ([indexed-db-profile.spec.mjs:708](../../tests/e2e/indexed-db-profile.spec.mjs#L708), [same:762](../../tests/e2e/indexed-db-profile.spec.mjs#L762), [same:874](../../tests/e2e/indexed-db-profile.spec.mjs#L874)). These browser tests were inspected, not executed by this sub-audit.
+
+## Migration notice deadline requires a rollout policy decision
+
+The migrator uses a supplied global `finalCutoverAt` as the earlier of that deadline and a fresh 30-day window. On first eligibility, it stores `graceStartedAt = effectiveFinalGateAt - 30 days`, rather than the actual first notice time ([accountless-profile-migration.js:194–225](../../src/state/accountless-profile-migration.js#L194)). The parent audit demonstrated that a first visit with cutover seven days away receives seven days remaining while the stored notice start is backdated 23 days.
+
+This is an intentional global-cutoff mechanism, but the stored timestamp cannot prove the learner actually received 30 days' notice. #177 requires advance notice; implementation must decide whether a public rollout announcement satisfies that requirement or each existing browser must receive its own full window. Keep actual notice evidence separately from arithmetic deadline bookkeeping. This finding is a rollout-policy/specification concern, not evidence that a legacy copy was deleted or that an unauthorized cutover occurred.
+
+## Validation performed
+
+Executed offline:
+
+```sh
+node --test tests/contracts/learner-profile-cloud-persistence.test.mjs \
+  tests/contracts/learner-profile-lifecycle.test.mjs \
+  tests/contracts/portable-learner-profile.test.mjs \
+  tests/contracts/learner-profile-conflict-comparison.test.mjs \
+  tests/contracts/learner-profile-conflict-view.test.mjs \
+  tests/contracts/learner-profile-owner-replacement.test.mjs \
+  tests/contracts/accountless-profile-migration.test.mjs \
+  tests/contracts/async-profile-persistence.test.mjs \
+  tests/contracts/tiny-swords-profile-portability.test.mjs
+```
+
+Result: **241 passed, 0 failed, 0 skipped**. The initial sub-audit used host Node v24.10.0; root repeated the exact focused set with the repository-pinned **Node v24.18.0**, again 241/241 passed (22.4 seconds). These tests use mock cloud envelopes/transports and therefore do not establish database acceptance or release readiness. The populated-island portability test exercises browser-local/manual envelope round trips, not Supabase schema validation ([tiny-swords-profile-portability.test.mjs:22–38](../../tests/contracts/tiny-swords-profile-portability.test.mjs#L22)).
+
+The browser suites also exercise separate surfaces: profile import/migration fixtures still navigate to `internal_test=1` ([learner-profile-import.spec.mjs:359](../../tests/e2e/learner-profile-import.spec.mjs#L359), [accountless-profile-migration.spec.mjs:472](../../tests/e2e/accountless-profile-migration.spec.mjs#L472)), while the `internal_test=2` IndexedDB comparison explicitly disables both Tiny Swords and learner lifecycle ([indexed-db-profile.spec.mjs:118–120](../../tests/e2e/indexed-db-profile.spec.mjs#L118)). Passing either set does not demonstrate the combined current Tiny Swords + mandatory lifecycle + IndexedDB product. The release audit above distinguishes compatibility-app test selection from the concurrently retired/removing old mode-1 route.
+
+Additional one-off Node assertions (untracked shell stdin, no added test files): strict SQL schema membership for all five newer fields; zero comparison rows after an island-only change; real cloud adapter generation-1-to-3 result `recovering`. A minimal generation reproduction uses the existing test adapter pattern ([cloud persistence tests:116–165](../../tests/contracts/learner-profile-cloud-persistence.test.mjs#L116)) with these inputs:
+
+```js
+// Seed sync storage: owner/profile fixed, generation:1, acceptedRevision:6,
+// pending:null, queued:null, version:1.
+// Mock resolve_my_learner_profile: same profile, generation:3, revision:1,
+// status:'profile_ready', a verified valid envelope. Record requested RPC names.
+await adapter.resolve({
+  authentication:{userId:ownerId}, connectivity:{status:'online'},
+  localProfile:{status:'ready', ownerId, profileId, generation:1,
+    revision:6, profile:{marker:'stale-local'}},
+  purpose:'resolve-signed-in-profile'
+});
+// => {status:'recovering'}; calls => ['resolve_my_learner_profile'].
+```
+
+## Focused implementation coverage
+
+Use the single continuation plan above. Map each changed behavior to existing coverage before adding tests; passing counts alone do not identify a missing seam.
+
+| Changed behavior | Existing coverage to reuse | Missing evidence to add |
+| --- | --- | --- |
+| Island/XP portable schema | Portable-profile and Tiny Swords portability contracts; local authenticated SQL/RPC suites | Actual client-generated legacy/new/XP/island envelopes accepted by the database, bounded rejection, integrity and atomic preservation. Mock transport round trips cannot prove this. |
+| Multi-generation opening | Cloud-persistence, lifecycle, conflict and reset/Undo contracts | Clean and unsynced stale devices after multiple resets or receipt expiry, with observable opening/choice/export outcomes and preserved old contents. |
+| Island conflict visibility | Conflict comparison/view and choice/export suites | Island-only divergence produces a comparison row; choosing either side receives Godot restore acknowledgment before saving again. |
+| Tester admission and isolation | Existing owner/RLS/gate database tests; runtime audience and storage-namespace tests | Specific admitted UUIDs succeed, non-admitted identities fail protected operations, and the fresh route preserves ordinary/mode-2 data and behavior. |
+| Combined game/lifecycle/storage behavior | IndexedDB readback/compensation/cross-tab tests; localStorage and lifecycle fencing contracts; current island browser tests | Focused signed-in game save/reload, lock/account replacement, stale iframe callbacks and XP claims. Extend existing failure tests only where the combined path leaves a gap. |
+
+Reuse existing protection-boundary, import/reset/Undo and owner-switch tests as regressions for touched paths. Lost choice acknowledgment after protection expiry and new-device protected-copy discovery remain unproven scenarios; assess them through the existing recovery seam without creating a new history service. Anki reconciliation and actual-notice policy remain recorded specification decisions, not permission to introduce automatic merge or change public migration behavior during the trial.
+
+No runtime fixes, deployment, learner gate changes, tester route recreation, new test files or GitHub mutations were performed by this audit or its document revision.
+
+## Final validation receipt
+
+- Baseline `npm run build`: **passed**, including Godot export/integration checks and static site/migration-helper output. This was an isolated local build; no upload or deployment occurred. Initial build used the host Node v24.10.0, so it is not a claim of a complete pinned-toolchain CI reproduction.
+- Focused profile/conflict/portability execution and its **241-pass** pinned-Node result are detailed under Validation performed. Separate Auth/runtime/monitoring/reverification/analytics contracts on Node v24.18.0: **49 passed**. Root's first 237-test set overlaps these sets; do not add their counts as distinct coverage.
+- `npm run test:supabase`: **139 passed**. These are shared Edge-function unit tests, not live database/RLS or provider acceptance.
+- Full baseline contract run on host Node v24.10.0: **1,760 reported; 1,757 passed, 2 failed, 1 cancelled**. The two pixel-town files could not load the missing macOS `@napi-rs/canvas` native binding. The native IPC handoff case exceeded its ten-second timeout. A focused pinned-Node recheck also timed out in native handoff tests; therefore this harness is not verified green. Local attempts to supply the exact pinned macOS canvas package did not resolve the binding failure. No package manifests/lockfiles or runtime sources were changed.
+- Local browser probe on pinned Node, dedicated **localhost:8590**, isolated Playwright contexts, and the repository's stubbed external-request guard: **2 passed, 2 timed out, 1 interrupted, 17 not run**. Passing cases were neutral missing-head recovery and valid cloud profile opening/reload past malformed metadata. The two timeouts occurred while `page.goto` awaited the document `load` event; trace inspection showed no subsequent test action. Screenshots showed the retained onboarding or neutral ownership gate. These are unresolved navigation/test-environment results, not demonstrated authentication rejection. The remaining run was stopped after this evidence; no full browser acceptance is claimed.
+- The browser probe deliberately used the retained compatibility-app path. It does not validate current Tiny Swords + mandatory lifecycle + IndexedDB, actual Google/OTP/CAPTCHA, Safari, phone-device acceptance or the proposed new tester mode.
+- Source links were checked for existing repository targets. Live runtime bytes were hashed and matched the served release manifest's runtime digest. `git diff --check` passed. Only this report is a tracked change.
+
+The failed/partial broad checks are explicit confidence gaps. They do not establish an auth defect or justify expanding this trial into pixel-town/native-auth-tooling repairs; investigate further when a required trial scenario or candidate-caused regression depends on them. Do not turn the focused passing counts into a trial-ready or release-ready verdict. The concrete schema, invisible-island comparison and multi-generation opening findings are independently supported by owning source and offline reproductions, regardless of the broad harness results. All execution receipts above belong to the original audit; this document revision did not rerun application tests.
