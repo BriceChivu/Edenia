@@ -5,6 +5,13 @@ import { mapPersistenceResult } from './state/persistence-result.js'
 import { budgetObjectCache } from './state/storage-budget.js'
 import { budgetUndoState } from './state/action-history.js'
 import { budgetYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
+import {
+  initializeTownEconomy,
+  recordTownRewards,
+  getTownBalance,
+  purchaseFirstFlower,
+  FIRST_FLOWER_ID
+} from './state/town-economy.js'
 import { createYoutubeMetadataBudget } from './integrations/youtube-metadata-budget.js'
 import { resolveWindowAnchor } from './features/videos/window-anchor.js'
 import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
@@ -560,6 +567,11 @@ import {
   renderPlusUpgradeExperience
 } from './features/plus/upgrade-presenter.js'
 
+import {
+  shouldHoldPausedInternalProfile,
+  showPausedInternalProfile
+} from './features/profile-access/experiment-pause.js'
+
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
 const DEFAULT_CHANNELS_VERSION = 2
@@ -571,6 +583,7 @@ const DEFAULT_CHANNELS_VERSION = 2
 const RUNTIME_ENVIRONMENT = deriveRuntimeEnvironment(window.location)
 const {
   isSandbox: IS_SANDBOX,
+  isInternalTest: IS_INTERNAL_TEST,
   internalTestMode: INTERNAL_TEST_MODE,
   isTinySwordsTester: IS_TINY_SWORDS_TESTER,
   isLocalhost: IS_LOCALHOST,
@@ -581,12 +594,19 @@ window.edeniaTinySwordsEnabled = deriveTinySwordsEnabled(window.location, window
 window.edeniaTinySwordsLegacyPreview = IS_LOCALHOST && location.port === '8037'
   && !IS_TINY_SWORDS_TESTER
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
+  RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
 )
 const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
 )
+// Experiment: pixel-art-town. Gate: IS_INTERNAL_TEST with Auth rollout off.
+const INTERNAL_PROFILE_PAUSED = shouldHoldPausedInternalProfile({
+  location: window.location,
+  accountFeaturesEnabled: ACCOUNT_FEATURES_ENABLED,
+  readStorage: key => localStorage.getItem(key)
+})
 const EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED =
   getEmergencyAccountlessRollbackEnabled()
 const ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT =
@@ -673,6 +693,7 @@ const createBaseDefaultState = createDefaultStateFactory({
 })
 function defaultState(...args) {
   const state = createBaseDefaultState(...args)
+  if (window.EDENIA_PIXEL_TOWN?.enabled) initializeTownEconomy(state, { newProfile: true })
   return state
 }
 const onboardingProfileDraftStore = createOnboardingProfileDraftStore({
@@ -689,6 +710,8 @@ const readImportedState = createImportedStateReader({
 })
 const STATE_BACKUP_DATABASE = IS_TINY_SWORDS_TESTER && !IS_SANDBOX
   ? `${STATE_BACKUP_DATABASE_NAME}_internal_test_2`
+  : IS_INTERNAL_TEST
+  ? `${STATE_BACKUP_DATABASE_NAME}_internal_test`
   : STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
   `${STATE_BACKUP_KEY}_indexed_db_v1`
@@ -763,6 +786,7 @@ function pruneBackupForPrimaryQuota(...args) {
 }
 
 async function initializeStateBackupStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
   if (!LOCAL_BACKUPS_ENABLED) {
     try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
     stateBackupStore = createDisabledStateBackupStore()
@@ -972,6 +996,7 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
   translate: t
 })
 const learnerProfileConflictView = createLearnerProfileConflictView({
+  isTownEconomyEnabled: () => Boolean(window.EDENIA_PIXEL_TOWN?.enabled),
   clearTimer: timer => window.clearTimeout(timer),
   formatDateTime: value => formatLocaleDateTime(value, {
     dateStyle: 'medium',
@@ -1119,12 +1144,36 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
 }
 
 function loadState(options = {}) {
+  if (INTERNAL_PROFILE_PAUSED) return null
   return learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.readActiveProfile()
     : loadPersistedState(options)
 }
 
 const persistedPortableProfileSnapshots = new WeakMap()
+
+let townEconomyProfile = null
+function refreshTownEconomy(s) {
+  if (!window.EDENIA_PIXEL_TOWN?.enabled || !s) return
+  const town = window.EDENIA_PIXEL_TOWN
+  town.translate = t
+  town.economy = {
+    balance: getTownBalance(s.townEconomy),
+    owned: Boolean(s.townEconomy && Object.hasOwn(s.townEconomy.purchases, FIRST_FLOWER_ID)),
+    available: Boolean(s.townEconomy)
+  }
+  if (townEconomyProfile !== s) {
+    townEconomyProfile = s
+    town.buildFlower = async () => {
+      if (townEconomyProfile !== s || !isCurrentLearnerProfileOperation(s)) return 'unavailable'
+      const active = loadState()
+      const result = await purchaseFirstFlower(active, async value => await saveState(value))
+      if (active) renderCity(getCurrentCityScore(active), active)
+      return result
+    }
+  }
+  window.dispatchEvent(new Event('pixel-town-economy'))
+}
 
 function getPortableProfileSnapshot(state) {
   if (!state || typeof state !== 'object') return null
@@ -1143,6 +1192,7 @@ function rememberPersistedPortableProfile(state) {
 }
 
 function saveImportedState(state, options = {}) {
+  if (INTERNAL_PROFILE_PAUSED) return { persisted: false, error: null }
   const result = learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
     : saveImportedPersistedState(state, options)
@@ -1153,10 +1203,11 @@ function saveImportedState(state, options = {}) {
 }
 
 function saveState(state, options = {}) {
-  if (primaryProfileStorageUnavailable) return false
+  if (INTERNAL_PROFILE_PAUSED || primaryProfileStorageUnavailable) return false
   const complete = persisted => {
     if (persisted) {
       rememberPersistedPortableProfile(state)
+      refreshTownEconomy(state)
       return true
     }
     const saved = loadPersistedState({ persistCleanup: false })
@@ -1179,6 +1230,7 @@ function saveState(state, options = {}) {
     return false
   }
   try {
+    if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
     const portableSnapshot = getPortableProfileSnapshot(state)
     const persistenceOptions = options.syncCloud === undefined
         && portableSnapshot !== null
@@ -1458,7 +1510,7 @@ const walkthroughState = {
   lastTrackedStepKey: null
 }
 let levelUpGuidanceTimer = null
-const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
+const INTRO_TRAILER_SCENE_DURATIONS = [19000]
 const INTRO_TRAILER_REFERENCE = {
   viewportWidth: 1710,
   viewportHeight: 986,
@@ -1607,7 +1659,6 @@ function applyLocale(locale = getCurrentLocale()) {
   const nextLocale = setCurrentLocale(locale)
   document.documentElement.lang = nextLocale
   applyTranslations()
-  syncIntroIslandMedia()
   window.dispatchEvent(new Event('edenia-locale-changed'))
 }
 
@@ -1905,6 +1956,7 @@ function normalizeLoadedState(state) {
   normalizeSandboxState(state)
   normalizeCityProgress(state)
   delete state.nightVisuals
+  if (window.EDENIA_PIXEL_TOWN?.enabled && initializeTownEconomy(state)) shouldSave = true
   return shouldSave
 }
 
@@ -3294,6 +3346,10 @@ function resumeApplicationAfterMigration() {
 }
 
 async function init() {
+  if (INTERNAL_PROFILE_PAUSED) {
+    showPausedInternalProfile(document)
+    return
+  }
   reportMissingI18nKeys()
   applyPermanentChannelVideoFormatUi()
   if (!stateBackupStorageReady) {
@@ -3506,8 +3562,7 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
   introTrailerState.sceneIndex = Math.max(0, Math.min(sceneIndex, INTRO_TRAILER_SCENE_DURATIONS.length - 1))
   const duration = INTRO_TRAILER_SCENE_DURATIONS[introTrailerState.sceneIndex]
 
-  window.clearTimeout(introTrailerState.islandTimer)
-  if (introTrailerState.sceneIndex === 2) setIntroIslandStage(0)
+  syncIntroIslandPlayback()
   trailer.dataset.scene = String(introTrailerState.sceneIndex)
   trailer.style.setProperty('--intro-duration', `${duration}ms`)
   if (previousButton) previousButton.disabled = introTrailerState.sceneIndex === 0
@@ -3525,37 +3580,28 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
   }, duration)
 }
 
-function syncIntroIslandMedia() {
-  const image = document.querySelector('[data-intro-island-image="1"]')
-  const locale = getCurrentLocale()
-  const suffix = locale === 'en' ? '' : `-${locale}`
-  if (image) image.src = `images/tiny-swords-trailer/unlock${suffix}.png`
-  const source = document.querySelector('[data-intro-island-source="1"]')
-  if (source) source.srcset = `images/tiny-swords-trailer/unlock${suffix}-phone.png`
-}
-
-function setIntroIslandStage(index, { manual = false } = {}) {
-  window.clearTimeout(introTrailerState.islandTimer)
-  const selected = Math.max(0, Math.min(Number(index) || 0, 2))
-  document.querySelectorAll('[data-intro-island-image]').forEach(image => {
-    image.classList.toggle('is-selected', Number(image.dataset.introIslandImage) === selected)
-  })
-  document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
-    button.setAttribute('aria-pressed', String(Number(button.dataset.introIslandStage) === selected))
-  })
-  if (manual) {
-    // Manual selection keeps this scene visible until navigation or Skip.
-    window.clearTimeout(introTrailerState.sceneTimer)
-  } else if (selected < 2) {
-    introTrailerState.islandTimer = window.setTimeout(() => {
-      if (introTrailerState.active && introTrailerState.sceneIndex === 2) setIntroIslandStage(selected + 1)
-    }, INTRO_TRAILER_SCENE_DURATIONS[2] / 3)
+function syncIntroIslandPlayback() {
+  const video = document.getElementById('introIslandVideo')
+  if (!video) return
+  video.pause()
+  const phone = window.matchMedia('(max-width: 640px)').matches
+  const poster = `images/tiny-swords-trailer/island${phone ? '-phone' : ''}-poster.png`
+  video.poster = poster
+  if (!introTrailerState.active || introTrailerState.sceneIndex !== 0) return
+  // Reduced motion keeps a complete, static island with the same slide copy.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    video.removeAttribute('src')
+    video.load()
+    return
   }
+  const source = phone ? video.dataset.phoneSrc : video.dataset.desktopSrc
+  if (video.getAttribute('src') !== source) video.src = source
+  video.currentTime = 0
+  video.play().catch(() => {})
 }
 
-document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
-  button.addEventListener('click', () => setIntroIslandStage(button.dataset.introIslandStage, { manual: true }))
-})
+window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', syncIntroIslandPlayback)
+window.matchMedia('(max-width: 640px)').addEventListener('change', syncIntroIslandPlayback)
 
 function navigateIntroTrailer(direction) {
   if (!introTrailerState.active) return
@@ -3828,7 +3874,7 @@ function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {
   introTrailerState.replayMode = false
 
   const trailer = document.getElementById('introTrailer')
-  window.clearTimeout(introTrailerState.islandTimer)
+  syncIntroIslandPlayback()
   trailer?.classList.add('hidden')
   document.body.classList.remove('intro-active')
   if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')
@@ -14418,6 +14464,7 @@ async function setHistoryView(view) {
 }
 
 async function renderCity(score, s) {
+  refreshTownEconomy(s)
   if (await updatePersistentCityLevel(s, score) === false) {
     s = loadState({ persistCleanup: false })
     if (!s) return
@@ -18331,6 +18378,7 @@ bindUndoRedoActions(document, {
 
 bindImageFallbackActions(document)
 async function initializeBrowserStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
   // Retire only replaceable search metadata before opening a durable profile.
   // This also gives the small opening markers room in the localStorage pool.
   try {
@@ -18459,7 +18507,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     readDurable: () => loadPersistedState({ persistCleanup: false }),
     save: saveState,
     // Keep signed-in lifecycle/cloud persistence on its existing fenced path.
-    getCheckpointRepository: () => !primaryProfileStorageUnavailable
+    getCheckpointRepository: () => !INTERNAL_PROFILE_PAUSED && !primaryProfileStorageUnavailable
       && !learnerProfileLifecycleAuthority ? primaryProfileRepository : null,
     onCheckpoint: () => window.dispatchEvent(new CustomEvent('edenia-profile-persisted', {
       detail: { islandOnly: true }
