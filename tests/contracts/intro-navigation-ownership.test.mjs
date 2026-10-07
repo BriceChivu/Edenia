@@ -77,66 +77,10 @@ function createDirectControl(direction) {
   }
 }
 
-test('Previous and Next retain exact markup under direct navigation ownership', () => {
-  const expectedControls = [
-    {
-      analyticsAction: 'onboarding.back',
-      ariaLabelKey: 'onboarding.back',
-      className: 'intro-nav-btn intro-nav-previous',
-      content: '←',
-      direction: '-1',
-      eventName: 'onboarding_back_clicked',
-      id: 'introPreviousBtn',
-      titleKey: 'onboarding.back'
-    },
-    {
-      analyticsAction: 'onboarding.continue',
-      ariaLabelKey: 'onboarding.continue',
-      className: 'intro-nav-btn intro-nav-next',
-      content: '→',
-      direction: '1',
-      eventName: 'onboarding_continue_clicked',
-      id: 'introNextBtn',
-      titleKey: 'onboarding.continue'
-    }
-  ]
-
-  for (const expected of expectedControls) {
-    const control = findNavigationControl(expected.id)
-    assert.equal(getAttribute(control.tag, 'class'), expected.className)
-    assert.equal(getAttribute(control.tag, 'id'), expected.id)
-    assert.equal(getAttribute(control.tag, 'type'), 'button')
-    assert.equal(
-      getAttribute(control.tag, 'data-intro-navigation-direction'),
-      expected.direction
-    )
-    assert.equal(
-      getAttribute(control.tag, 'data-analytics-action'),
-      expected.analyticsAction
-    )
-    assert.equal(
-      normalizeClickEventName(
-        getAttribute(control.tag, 'data-analytics-action')
-      ),
-      expected.eventName
-    )
-    assert.equal(
-      getAttribute(control.tag, 'data-i18n-title'),
-      expected.titleKey
-    )
-    assert.equal(
-      getAttribute(control.tag, 'data-i18n-aria-label'),
-      expected.ariaLabelKey
-    )
-    assert.equal(getAttribute(control.tag, 'onclick'), null)
-    assert.equal(getAttribute(control.tag, 'disabled'), null)
-    assert.match(
-      control.content,
-      new RegExp(
-        `<span aria-hidden="true">${expected.content}</span>`
-      )
-    )
-  }
+test('single-slide trailer keeps navigation out of the interface', () => {
+  assert.doesNotMatch(indexSource, /id="introPreviousBtn"|id="introNextBtn"/)
+  assert.equal((indexSource.match(/data-intro-scene=/g) || []).length, 1)
+  assert.match(indexSource, /id="introTrailerTitle" data-i18n="island.introTitle"/)
 })
 
 test('navigation actions bind targets directly with numeric arguments and no cancellation', () => {

@@ -305,7 +305,7 @@
               </svg>
             </span>
           </button>
-          <button class="intro-skip" type="button" data-intro-finish-action="finish" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
+          <button class="btn-secondary intro-skip" type="button" data-intro-finish-action="finish" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
         </div>
         <div class="intro-language-picker" id="introLocalePicker">
           <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" data-intro-locale-menu-action="toggle-intro" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
@@ -318,134 +318,19 @@
     </div>
 
     <div class="intro-stage" aria-live="polite">
-      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" data-intro-navigation-direction="-1" data-analytics-action="onboarding.back" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
-        <span aria-hidden="true">←</span>
-      </button>
-      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" data-intro-navigation-direction="1" data-analytics-action="onboarding.continue" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
-        <span aria-hidden="true">→</span>
-      </button>
-
-      <article class="intro-scene intro-scene-opening" data-intro-scene="0">
-        <div class="intro-orbit intro-orbit-one" aria-hidden="true"></div>
-        <div class="intro-orbit intro-orbit-two" aria-hidden="true"></div>
-        <img class="intro-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
-        <p class="intro-kicker" data-i18n="intro.opening.kicker">Your language-learning world</p>
-        <h1 class="intro-logo" id="introTrailerTitle">EDENIA</h1>
-        <p class="intro-lede" data-i18n="intro.opening.title">Watch your progress grow.</p>
-      </article>
-
-      <article class="intro-scene intro-scene-purpose" data-intro-scene="1">
-        <div class="intro-copy">
-          <p class="intro-kicker" data-i18n="intro.purpose.kicker">Study your way</p>
-          <h2 data-i18n="intro.purpose.title">Turn YouTube and Anki into visible progress.</h2>
-          <p data-i18n="intro.purpose.body">Watch the channels you love, review your cards, and let Edenia connect the pieces.</p>
-        </div>
-        <div class="intro-source-flow" aria-hidden="true">
-          <span class="intro-source-aura"></span>
-          <svg class="intro-source-paths" viewBox="0 0 420 360" preserveAspectRatio="none">
-            <path d="M104 112 C122 196 174 202 210 278"></path>
-            <path d="M316 112 C298 196 246 202 210 278"></path>
-            <circle cx="104" cy="112" r="5"></circle>
-            <circle cx="316" cy="112" r="5"></circle>
-          </svg>
-          <div class="intro-source-card intro-source-youtube">
-            <span class="intro-source-card-top">
-              <span class="intro-brand-logo intro-brand-logo-youtube"><img src="images/brands/youtube.svg" alt=""></span>
-              <strong>YouTube</strong>
-              <span class="intro-source-check">✓</span>
-            </span>
-            <span class="intro-source-metric"><b>42 min</b><small data-i18n="intro.purpose.watched">watched</small></span>
-            <span class="intro-source-activity"><i></i><i></i><i></i><i></i><i></i></span>
-          </div>
-          <div class="intro-source-card intro-source-anki">
-            <span class="intro-source-card-top">
-              <span class="intro-brand-logo intro-brand-logo-anki"><img src="images/brands/anki.svg" alt=""></span>
-              <strong>Anki</strong>
-              <span class="intro-source-check">✓</span>
-            </span>
-            <span class="intro-source-metric"><b>60</b><small data-i18n="intro.purpose.reviews">reviews</small></span>
-            <span class="intro-source-activity intro-source-activity-anki"><i></i><i></i><i></i><i></i><i></i></span>
-          </div>
-          <div class="intro-progress-spark">
-            <span class="intro-progress-orbit"></span>
-            <img class="intro-progress-mark" src="Edenia_favicon_round.png" alt="">
-            <span class="intro-spark-ring">+102</span>
-            <strong data-i18n="intro.purpose.progress">Experience</strong>
-          </div>
-          <span class="intro-source-particle intro-source-particle-one"></span>
-          <span class="intro-source-particle intro-source-particle-two"></span>
-          <span class="intro-source-particle intro-source-particle-three"></span>
-        </div>
-      </article>
-
-      <article class="intro-scene intro-scene-city" data-intro-scene="2">
-        <div class="intro-city-copy">
-          <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
-          <h2 data-i18n="island.introTitle">Study. Earn experience. Build your island.</h2>
-          <p data-i18n="island.intro">Earn XP to unlock terrain, animals, tree cutting and houses. Build your own island through ten levels.</p>
+      <article class="intro-scene intro-scene-city" data-intro-scene="0">
+        <div class="onboarding-heading intro-island-heading">
+          <h2 class="onboarding-title" id="introTrailerTitle" data-i18n="island.introTitle">Study and build your own island</h2>
         </div>
         <figure class="intro-island-demo">
           <div class="intro-island-frames" aria-hidden="true">
-            <picture><source media="(max-width: 640px)" srcset="images/tiny-swords-trailer/study-phone.png" data-intro-island-source="0"><img src="images/tiny-swords-trailer/study.png" alt="" data-intro-island-image="0" class="is-selected" width="1152" height="496"></picture>
-            <picture><source media="(max-width: 640px)" srcset="images/tiny-swords-trailer/unlock-phone.png" data-intro-island-source="1"><img src="images/tiny-swords-trailer/unlock.png" alt="" data-intro-island-image="1" width="1152" height="496"></picture>
-            <picture><source media="(max-width: 640px)" srcset="images/tiny-swords-trailer/build-phone.png" data-intro-island-source="2"><img src="images/tiny-swords-trailer/build.png" alt="" data-intro-island-image="2" width="1152" height="496"></picture>
+            <video id="introIslandVideo" muted playsinline preload="none" poster="images/tiny-swords-trailer/island-poster.png" data-desktop-src="images/tiny-swords-trailer/island.mp4" data-phone-src="images/tiny-swords-trailer/island-phone.mp4"></video>
           </div>
-          <figcaption class="intro-island-stages">
-            <button type="button" data-intro-island-stage="0" aria-pressed="true" data-i18n="intro.island.study">Study → XP</button>
-            <button type="button" data-intro-island-stage="1" aria-pressed="false" data-i18n="intro.island.unlock">Level up → unlock</button>
-            <button type="button" data-intro-island-stage="2" aria-pressed="false" data-i18n="intro.island.build">Terrain → build</button>
-          </figcaption>
         </figure>
-      </article>
-
-      <article class="intro-scene intro-scene-features" data-intro-scene="3">
-        <div class="intro-feature-demo" aria-hidden="true">
-          <div class="intro-demo-head">
-            <span data-i18n="intro.features.history">Study history</span>
-            <span class="intro-demo-pill" data-i18n="intro.features.week">This week</span>
-          </div>
-          <div class="intro-demo-stats">
-            <div><b>6h 24m</b><span data-i18n="intro.features.studied">studied</span></div>
-            <div><b>7</b><span data-i18n="intro.features.streak">day streak</span></div>
-          </div>
-          <div class="intro-demo-heatmap">
-            <i></i><i class="level-1"></i><i></i><i class="level-2"></i><i class="level-3"></i><i></i><i class="level-1"></i>
-            <i class="level-1"></i><i class="level-2"></i><i class="level-2"></i><i></i><i class="level-4"></i><i class="level-3"></i><i></i>
-            <i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-1"></i><i class="level-3"></i>
-            <i class="level-2"></i><i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-4"></i>
-          </div>
-          <div class="intro-demo-insight">
-            <div class="intro-demo-insight-head">
-              <span class="intro-demo-insight-brand">
-                <img src="Edenia_favicon_round.png" alt="">
-                <span data-i18n="insights.eyebrow">Study insight</span>
-              </span>
-              <span class="intro-demo-insight-trend">↗ +18%</span>
-            </div>
-            <strong data-i18n="insights.title.momentum-up">Your momentum is building</strong>
-            <p data-i18n="intro.features.insightBody">Your recent rhythm is stronger. Repeat the routine that made it work.</p>
-          </div>
-          <div class="intro-demo-goal"><span></span><b>80%</b><small data-i18n="intro.features.goal">Goal</small></div>
-        </div>
-        <div class="intro-copy intro-feature-copy">
-          <p class="intro-kicker" data-i18n="intro.features.kicker">See the journey</p>
-          <h2 data-i18n="intro.features.title">Your rhythm, history,
-and momentum—at a glance</h2>
-          <p data-i18n="intro.features.body">Heatmaps, goals, streaks, and Study Insights turn your history into a clearer next step.</p>
+        <div class="onboarding-actions onboarding-actions-end">
+          <button class="btn-primary" id="introStartBtn" type="button" data-intro-finish-action="finish" data-i18n="intro.finale.cta" data-analytics-action="intro.finale.cta">Continue</button>
         </div>
       </article>
-
-      <article class="intro-scene intro-scene-finale" data-intro-scene="4">
-        <img class="intro-finale-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
-        <p class="intro-kicker" data-i18n="intro.finale.kicker">A little progress. A whole world.</p>
-        <h2 data-i18n="intro.finale.title">What will you build?</h2>
-        <p data-i18n="intro.finale.body">Create your study feed and begin your Edenia.</p>
-        <button class="btn-primary intro-start" id="introStartBtn" type="button" data-intro-finish-action="finish" data-i18n="intro.finale.cta" data-analytics-action="intro.finale.cta">Start my journey</button>
-      </article>
-    </div>
-
-    <div class="intro-timeline" id="introTimeline" aria-hidden="true">
-      <span></span><span></span><span></span><span></span><span></span>
     </div>
   </section>
 
@@ -809,7 +694,7 @@ and momentum—at a glance</h2>
           <p id="tinySwordsLoadMessage" data-i18n="island.unavailable">Island is currently unavailable. You can keep studying; your saved island is retained.</p>
           <div class="tiny-swords-load-progress" id="tinySwordsLoadProgress" aria-live="off" hidden>
             <div class="tiny-swords-load-track" id="tinySwordsLoadBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-labelledby="tinySwordsLoadProgressLabel"><span></span></div>
-            <span id="tinySwordsLoadProgressLabel"></span>
+            <span id="tinySwordsLoadProgressLabel" hidden></span>
           </div>
           <button type="button" id="tinySwordsRetry" class="btn-ghost" hidden data-i18n="island.retry">Retry island</button>
         </div>

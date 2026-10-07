@@ -1,0 +1,12 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+FAIL sheep/cliff/dir=1/height=0/pawn=0/lower_behind_landing visible=1524 overlap=1576 expected_front=false
+FAIL sheep/cliff/dir=1/height=64/pawn=0/lower_behind_landing visible=1524 overlap=1572 expected_front=false
+FAIL sheep/cliff/dir=-1/height=0/pawn=0/lower_behind_landing visible=1563 overlap=1584 expected_front=false
+FAIL sheep/cliff/dir=-1/height=64/pawn=0/lower_behind_landing visible=1563 overlap=1572 expected_front=false
+FAIL chicken/cliff/dir=1/height=0/pawn=0/lower_behind_landing visible=1054 overlap=1054 expected_front=false
+FAIL chicken/cliff/dir=1/height=64/pawn=0/lower_behind_landing visible=1126 overlap=1126 expected_front=false
+FAIL chicken/cliff/dir=-1/height=0/pawn=0/lower_behind_landing visible=1054 overlap=1054 expected_front=false
+FAIL chicken/cliff/dir=-1/height=64/pawn=0/lower_behind_landing visible=1126 overlap=1126 expected_front=false
+Landing occlusion regression: checked=32 failures=8

@@ -1,3 +1,4 @@
+import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
@@ -1458,7 +1459,7 @@ const walkthroughState = {
   lastTrackedStepKey: null
 }
 let levelUpGuidanceTimer = null
-const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
+const INTRO_TRAILER_SCENE_DURATIONS = [19000]
 const INTRO_TRAILER_REFERENCE = {
   viewportWidth: 1710,
   viewportHeight: 986,
@@ -1607,7 +1608,6 @@ function applyLocale(locale = getCurrentLocale()) {
   const nextLocale = setCurrentLocale(locale)
   document.documentElement.lang = nextLocale
   applyTranslations()
-  syncIntroIslandMedia()
   window.dispatchEvent(new Event('edenia-locale-changed'))
 }
 
@@ -3506,8 +3506,7 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
   introTrailerState.sceneIndex = Math.max(0, Math.min(sceneIndex, INTRO_TRAILER_SCENE_DURATIONS.length - 1))
   const duration = INTRO_TRAILER_SCENE_DURATIONS[introTrailerState.sceneIndex]
 
-  window.clearTimeout(introTrailerState.islandTimer)
-  if (introTrailerState.sceneIndex === 2) setIntroIslandStage(0)
+  syncIntroIslandPlayback()
   trailer.dataset.scene = String(introTrailerState.sceneIndex)
   trailer.style.setProperty('--intro-duration', `${duration}ms`)
   if (previousButton) previousButton.disabled = introTrailerState.sceneIndex === 0
@@ -3525,37 +3524,27 @@ function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
   }, duration)
 }
 
-function syncIntroIslandMedia() {
-  const image = document.querySelector('[data-intro-island-image="1"]')
-  const locale = getCurrentLocale()
-  const suffix = locale === 'en' ? '' : `-${locale}`
-  if (image) image.src = `images/tiny-swords-trailer/unlock${suffix}.png`
-  const source = document.querySelector('[data-intro-island-source="1"]')
-  if (source) source.srcset = `images/tiny-swords-trailer/unlock${suffix}-phone.png`
-}
-
-function setIntroIslandStage(index, { manual = false } = {}) {
-  window.clearTimeout(introTrailerState.islandTimer)
-  const selected = Math.max(0, Math.min(Number(index) || 0, 2))
-  document.querySelectorAll('[data-intro-island-image]').forEach(image => {
-    image.classList.toggle('is-selected', Number(image.dataset.introIslandImage) === selected)
-  })
-  document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
-    button.setAttribute('aria-pressed', String(Number(button.dataset.introIslandStage) === selected))
-  })
-  if (manual) {
-    // Manual selection keeps this scene visible until navigation or Skip.
-    window.clearTimeout(introTrailerState.sceneTimer)
-  } else if (selected < 2) {
-    introTrailerState.islandTimer = window.setTimeout(() => {
-      if (introTrailerState.active && introTrailerState.sceneIndex === 2) setIntroIslandStage(selected + 1)
-    }, INTRO_TRAILER_SCENE_DURATIONS[2] / 3)
+function syncIntroIslandPlayback() {
+  const video = document.getElementById('introIslandVideo')
+  if (!video) return
+  video.pause()
+  const phone = usesPhoneComposition()
+  const poster = `images/tiny-swords-trailer/island${phone ? '-phone' : ''}-poster.png`
+  video.poster = poster
+  if (!introTrailerState.active || introTrailerState.sceneIndex !== 0) return
+  // Reduced motion keeps a complete, static island with the same slide copy.
+  if (prefersReducedMotion()) {
+    video.removeAttribute('src')
+    video.load()
+    return
   }
+  const source = phone ? video.dataset.phoneSrc : video.dataset.desktopSrc
+  if (video.getAttribute('src') !== source) video.src = source
+  video.currentTime = 0
+  video.play().catch(() => {})
 }
 
-document.querySelectorAll('[data-intro-island-stage]').forEach(button => {
-  button.addEventListener('click', () => setIntroIslandStage(button.dataset.introIslandStage, { manual: true }))
-})
+bindIntroIslandMediaChanges(syncIntroIslandPlayback)
 
 function navigateIntroTrailer(direction) {
   if (!introTrailerState.active) return
@@ -3828,7 +3817,7 @@ function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {
   introTrailerState.replayMode = false
 
   const trailer = document.getElementById('introTrailer')
-  window.clearTimeout(introTrailerState.islandTimer)
+  syncIntroIslandPlayback()
   trailer?.classList.add('hidden')
   document.body.classList.remove('intro-active')
   if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')

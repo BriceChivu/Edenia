@@ -35,7 +35,7 @@ export const ES_LOCALIZED = {
   "city.zoom.controls": "Controles de cámara de la isla",
   "island.title": "Isla de estudio",
   "island.retry": "Reintentar isla",
-  "island.introTitle": "Estudia. Gana experiencia. Construye tu isla.",
+  "island.introTitle": "Estudia y construye tu propia isla",
 
 
   "townEconomy.coins": "{count} monedas",
@@ -76,7 +76,7 @@ export const ES_LOCALIZED = {
     'intro.finale.kicker': 'Un poco de progreso. Todo un mundo.',
     'intro.finale.title': '¿Qué vas a construir?',
     'intro.finale.body': 'Crea tu selección de estudio y comienza tu Edenia.',
-    'intro.finale.cta': 'Empezar mi viaje',
+    'intro.finale.cta': 'Continuar',
     'intro.finale.return': 'Volver a Edenia',
     'onboarding.progress': 'Paso {current} de {total}',
     'onboarding.promise': 'Convierte YouTube y Anki en un progreso visible en el aprendizaje de idiomas.',

@@ -1,0 +1,90 @@
+{
+  "cause": "Ramp-only ordering can defer a receiving-floor actor until after an adjoining upper landing when the landing is inserted first. The actor then appears on the upper surface although its ground coordinates remain on the receiving floor.",
+  "fix": "Preserve actor ordering against all overlapping terrain pieces while applying ramp slope ordering.",
+  "reported_layout": {
+    "ramp": [
+      1,
+      2,
+      "stairs",
+      0
+    ],
+    "ramp_direction": [
+      1,
+      0
+    ],
+    "upper_landing": [
+      2,
+      2,
+      "high_gold",
+      64
+    ],
+    "lower_behind": [
+      2,
+      1,
+      "meadow",
+      0
+    ],
+    "landing_precedes_ramp_in_saved_tiles": true
+  },
+  "before": {
+    "rendered_cases": 32,
+    "failures": 8
+  },
+  "after": {
+    "rendered_cases": 584,
+    "failures": 0,
+    "non_overlapping": 0,
+    "headless_order_checks": 108,
+    "order_failures": 0,
+    "route_orientations": 2,
+    "route_receiving_floors": [
+      0,
+      64,
+      128
+    ],
+    "route_failures": 0,
+    "pawn_edge_cases": 24,
+    "pawn_edge_pass": true,
+    "tree_approach_pass": true,
+    "stair_perspective_pass": true
+  },
+  "integrated_build": {
+    "command": "node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords",
+    "success": true,
+    "branch": "codex/chicken-stair-navigation",
+    "current_user_tab_updated": false,
+    "preview_url": "http://localhost:8047/?internal_test=2",
+    "browser_verification": "Browser connection detached; native rendering and movement tests completed."
+  },
+  "solid_contact": {
+    "requirement": "Every lower-floor ground contact must stay outside solid terrain; applies to pawn, both animal types and every placed object base, across stairs and ordinary cliffs.",
+    "before": {
+      "checks": 36,
+      "failures": 18
+    },
+    "after": {
+      "checks": 88,
+      "failures": 0
+    },
+    "coverage": [
+      "both horizontal stair directions",
+      "receiving heights 0/64/128",
+      "ordinary raised terrain",
+      "pawn and animal feet",
+      "tree roots and variant selection",
+      "log bases",
+      "house foundations",
+      "terrain placed next to existing roots",
+      "legacy save settling without dropping the island",
+      "stable subsequent save/load",
+      "actual sheep/chicken displacement movement against stale cliff routes"
+    ],
+    "boundary": "The solid ground-plane tile footprint projected onto the receiving floor; elevated grass is a separate usable surface. Object contacts must be supported by their own floor.",
+    "limits": "Physical contacts use navigation margins for actors and existing authored root/base polygons for props; shadows and overhead foliage do not enlarge ground contact.",
+    "baseline_failures": {
+      "tree_root_navigation": "18 failures also reproduced on the unchanged diagnostic snapshot",
+      "tree_cursor_placement": "Moved trunk assertion also failed on the unchanged diagnostic snapshot",
+      "house_occupants": "Autoload compile/fixture restore failures also reproduced on the unchanged diagnostic snapshot"
+    }
+  }
+}

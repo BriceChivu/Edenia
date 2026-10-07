@@ -1,0 +1,40 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+FAIL sheep/ramp/dir=1/height=0/pawn=0/slope_front visible=0 overlap=858 expected_front=true
+FAIL sheep/ramp/dir=1/height=0/pawn=1/slope_front visible=0 overlap=858 expected_front=true
+FAIL sheep/ramp/dir=1/height=0/pawn=2/slope_behind visible=401 overlap=428 expected_front=false
+FAIL sheep/ramp/dir=1/height=0/pawn=3/slope_front visible=0 overlap=858 expected_front=true
+FAIL sheep/ramp/dir=1/height=64/pawn=0/slope_front visible=0 overlap=858 expected_front=true
+FAIL sheep/ramp/dir=1/height=64/pawn=1/slope_front visible=0 overlap=858 expected_front=true
+FAIL sheep/ramp/dir=1/height=64/pawn=2/slope_behind visible=401 overlap=428 expected_front=false
+FAIL sheep/ramp/dir=1/height=64/pawn=3/slope_front visible=0 overlap=858 expected_front=true
+FAIL sheep/ramp/dir=-1/height=0/pawn=0/slope_front visible=0 overlap=887 expected_front=true
+FAIL sheep/ramp/dir=-1/height=0/pawn=1/slope_behind visible=438 overlap=455 expected_front=false
+FAIL sheep/ramp/dir=-1/height=0/pawn=2/slope_front visible=0 overlap=887 expected_front=true
+FAIL sheep/ramp/dir=-1/height=0/pawn=3/slope_front visible=0 overlap=887 expected_front=true
+FAIL sheep/ramp/dir=-1/height=64/pawn=0/slope_front visible=0 overlap=887 expected_front=true
+FAIL sheep/ramp/dir=-1/height=64/pawn=1/slope_behind visible=438 overlap=455 expected_front=false
+FAIL sheep/ramp/dir=-1/height=64/pawn=2/slope_front visible=0 overlap=887 expected_front=true
+FAIL sheep/ramp/dir=-1/height=64/pawn=3/slope_front visible=0 overlap=887 expected_front=true
+FAIL chicken/ramp/dir=1/height=0/pawn=0/slope_front visible=0 overlap=403 expected_front=true
+FAIL chicken/ramp/dir=1/height=0/pawn=1/slope_front visible=0 overlap=403 expected_front=true
+FAIL chicken/ramp/dir=1/height=0/pawn=2/slope_behind visible=103 overlap=103 expected_front=false
+FAIL chicken/ramp/dir=1/height=0/pawn=3/slope_front visible=0 overlap=403 expected_front=true
+FAIL chicken/ramp/dir=1/height=64/pawn=0/slope_front visible=0 overlap=498 expected_front=true
+FAIL chicken/ramp/dir=1/height=64/pawn=1/slope_front visible=0 overlap=498 expected_front=true
+FAIL chicken/ramp/dir=1/height=64/pawn=2/slope_behind visible=252 overlap=252 expected_front=false
+FAIL chicken/ramp/dir=1/height=64/pawn=3/slope_front visible=0 overlap=498 expected_front=true
+FAIL chicken/ramp/dir=-1/height=0/pawn=0/slope_front visible=0 overlap=442 expected_front=true
+FAIL chicken/ramp/dir=-1/height=0/pawn=1/slope_behind visible=118 overlap=118 expected_front=false
+FAIL chicken/ramp/dir=-1/height=0/pawn=2/slope_front visible=0 overlap=442 expected_front=true
+FAIL chicken/ramp/dir=-1/height=0/pawn=3/slope_front visible=0 overlap=442 expected_front=true
+FAIL chicken/ramp/dir=-1/height=64/pawn=0/slope_front visible=0 overlap=562 expected_front=true
+FAIL chicken/ramp/dir=-1/height=64/pawn=1/slope_behind visible=281 overlap=281 expected_front=false
+FAIL chicken/ramp/dir=-1/height=64/pawn=2/slope_front visible=0 overlap=562 expected_front=true
+FAIL chicken/ramp/dir=-1/height=64/pawn=3/slope_front visible=0 overlap=562 expected_front=true
+sheep/ramp: 80 overlapping cases, 16 failures
+sheep/cliff: 48 overlapping cases, 0 failures
+chicken/ramp: 80 overlapping cases, 16 failures
+chicken/cliff: 48 overlapping cases, 0 failures
+Animal terrain depth: FAIL; checked=256 failures=32 non-overlapping poses=0

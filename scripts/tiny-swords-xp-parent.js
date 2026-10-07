@@ -15,20 +15,19 @@ if (window.edeniaTinySwordsEnabled === true) {
     let startupTimer
     let failed = false
     let blocked = false
-    let statusKey = 'island.loading'
-    let progressPercent = null
+    let statusKey = 'island.preparing'
+    let progressPercent = 0
     let preparing = false
     const translate = key => window.edeniaTranslate?.(key) || key
     function renderProgress() {
       loadProgress.dataset.phase = preparing ? 'preparing' : 'download'
-      progressLabel.textContent = preparing ? translate('island.preparing')
-        : translate('island.downloading') + (progressPercent === null ? '' : ` ${progressPercent}%`)
-      if (preparing || progressPercent === null) loadBar.removeAttribute('aria-valuenow')
-      else loadBar.setAttribute('aria-valuenow', String(progressPercent))
-      loadBar.style.setProperty('--island-load-progress', `${progressPercent ?? 0}%`)
+      progressLabel.textContent = translate('island.preparing')
+      loadBar.setAttribute('aria-valuenow', String(progressPercent))
+      loadBar.style.setProperty('--island-load-progress', `${progressPercent}%`)
     }
     function prepareIsland() {
       if (restored || failed) return
+      progressPercent = Math.max(progressPercent, 99)
       preparing = true
       renderProgress()
     }
@@ -134,7 +133,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       session += 1
       restored = false
       failed = false
-      progressPercent = null
+      progressPercent = 0
       preparing = false
       legacy = false
       gameLevelCount = null
@@ -150,7 +149,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       if (previous) previous.replaceWith(frame)
       else surface.append(frame)
       visibilityObserver?.observe(frame)
-      setLoadState('loading', 'island.loading')
+      setLoadState('loading', 'island.preparing')
       syncInput()
       startupTimer = setTimeout(() => {
         if (!restored && !failed) setLoadState('slow', 'island.slow')
@@ -210,7 +209,7 @@ if (window.edeniaTinySwordsEnabled === true) {
           || data.total <= 0 || data.current < 0 || data.current > data.total) return
         if (data.current === data.total) prepareIsland()
         else {
-          progressPercent = Math.max(progressPercent ?? 0, Math.floor(data.current / data.total * 100))
+          progressPercent = Math.max(progressPercent, Math.min(99, Math.floor(data.current / data.total * 100)))
           renderProgress()
         }
         return
@@ -236,6 +235,7 @@ if (window.edeniaTinySwordsEnabled === true) {
         restored = data.accepted === true
         failed = !restored
         clearTimeout(startupTimer)
+        if (restored) progressPercent = 100
         setLoadState(restored ? 'ready' : 'failed', restored ? 'island.loading' : 'island.restoreFailed')
         controls.hidden = !restored
         syncInput()

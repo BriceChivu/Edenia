@@ -1,0 +1,4 @@
+Command: node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
+Exit status: 0
+Integrated preview rebuilt in isolated worktree and served on http://localhost:8047/?internal_test=2
+The existing localhost:8037 preview was not replaced.

@@ -1,0 +1,41 @@
+{
+  "test": "res://tests/animal_terrain_depth.gd",
+  "date": "2026-10-07",
+  "command": "/Applications/Godot.app/Contents/MacOS/Godot --path godot/tiny-swords --script res://tests/animal_terrain_depth.gd --quit-after 4000",
+  "cases": 256,
+  "failures": 32,
+  "non_overlapping_poses": 0,
+  "coverage": [
+    "sheep and chicken",
+    "left and right stairs",
+    "base floors 0 and 64",
+    "four pawn positions with the animal held fixed",
+    "behind and in front of slopes",
+    "on ramps",
+    "lower floor beside cliffs",
+    "upper landings",
+    "foreground lower floor"
+  ],
+  "results": {
+    "sheep/ramp": {
+      "cases": 80,
+      "passed": 64,
+      "failed": 16
+    },
+    "sheep/cliff": {
+      "cases": 48,
+      "passed": 48,
+      "failed": 0
+    },
+    "chicken/ramp": {
+      "cases": 80,
+      "passed": 64,
+      "failed": 16
+    },
+    "chicken/cliff": {
+      "cases": 48,
+      "passed": 48,
+      "failed": 0
+    }
+  }
+}

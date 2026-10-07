@@ -641,10 +641,8 @@
     width: 44px;
   }
   .intro-skip {
-    font-size: 0.7rem;
     max-width: 96px;
     min-height: 44px;
-    padding: 8px 12px;
   }
   .intro-language-picker {
     width: 132px;

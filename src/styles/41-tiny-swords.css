@@ -11,8 +11,6 @@
 .tiny-swords-load-progress[hidden] { display: none; }
 .tiny-swords-load-track { height: 8px; border: 1px solid currentColor; border-radius: 5px; overflow: hidden; background: var(--planet-white); }
 .tiny-swords-load-track span { display: block; height: 100%; width: var(--island-load-progress, 0%); background: var(--planet-lime); }
-.tiny-swords-load-track:not([aria-valuenow]) span { width: 35%; animation: island-load-pulse 1.4s ease-in-out infinite alternate; }
-@keyframes island-load-pulse { from { transform: translateX(0); } to { transform: translateX(185%); } }
 .tiny-swords-load-status[hidden], .tiny-swords-camera-controls[hidden] { display: none; }
 .tiny-swords-save-status {
   position: absolute; left: 8px; top: 8px; right: 8px; width: fit-content;
@@ -36,6 +34,5 @@
   .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn:hover { background: transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tiny-swords-load-track:not([aria-valuenow]) span { animation: none; transform: translateX(90%); }
   .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn { transition: none; }
 }

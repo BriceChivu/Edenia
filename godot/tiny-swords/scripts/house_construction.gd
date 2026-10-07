@@ -43,7 +43,7 @@ func cancel_placement() -> bool:
 			continue
 		var point: Vector2 = world.layout.center(cell)
 		var route: Array[Vector2] = world.land_route(world.pawn.position, cell, point)
-		if route.is_empty() or not route.back().is_equal_approx(point):
+		if route.is_empty() or not route.back().is_equal_approx(point) or not world.begin_pawn_action([cell]):
 			continue
 		source = cell
 		phase = Phase.RETURNING
@@ -62,11 +62,13 @@ func cancel_placement() -> bool:
 
 func pickup(cell: Vector2i) -> bool:
 	if world.layout.house_bundle > 0:
+		if not world.begin_pawn_action():
+			return false
 		open_placement()
 		return true
 	var point: Vector2 = world.layout.center(cell)
 	var route: Array[Vector2] = world.land_route(world.pawn.position, cell, point)
-	if route.is_empty() or not route.back().is_equal_approx(point):
+	if route.is_empty() or not route.back().is_equal_approx(point) or not world.begin_pawn_action():
 		return false
 	world.walk_on_land(cell, point)
 	source = cell
@@ -86,12 +88,16 @@ func open_placement() -> void:
 	world.refresh()
 
 func handle_click(cell: Vector2i, point: Vector2 = Vector2.INF) -> bool:
+	if world.pawn.carrying_chicken and world.layout.house_bundle == 0:
+		return false
 	if busy():
 		return not world.editing
 	if world.layout.house_bundle == 0:
 		phase = Phase.READY
 		return false
 	if not world.editing and not is_placing():
+		if not world.begin_pawn_action():
+			return true
 		open_placement()
 		return true
 	if world.editing and world.selected != "house":
@@ -191,6 +197,8 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 	if plan.is_empty():
 		world.ui.describe("houseUnavailable")
 		return false
+	if not world.begin_pawn_action(world.layout.house_cells(cell, placement_offset)):
+		return false
 	var original = world.layout
 	var planned = plan.layout
 	var route: Array[Vector2] = plan.route
@@ -213,6 +221,8 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 	return true
 
 func _process(_delta: float) -> void:
+	if world.pawn.carrying_chicken:
+		return
 	if phase == Phase.READY and not world.layout.house_build.is_empty():
 		resume_build()
 	if phase == Phase.HAMMERING:
@@ -277,7 +287,7 @@ func bind_house() -> void:
 			return
 
 func update_impact() -> void:
-	if phase != Phase.HAMMERING:
+	if world.pawn.carrying_chicken or phase != Phase.HAMMERING:
 		return
 	if not is_instance_valid(house_sprite) or house_sprite.is_queued_for_deletion():
 		bind_house()
@@ -294,7 +304,7 @@ func finish_swing() -> void:
 		advance_build(Time.get_unix_time_from_system())
 
 func advance_build(now: float) -> void:
-	if phase != Phase.HAMMERING:
+	if world.pawn.carrying_chicken or phase != Phase.HAMMERING:
 		return
 	if not is_instance_valid(house_sprite) or house_sprite.is_queued_for_deletion():
 		bind_house()

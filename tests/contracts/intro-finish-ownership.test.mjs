@@ -75,7 +75,7 @@ test('Skip and Start retain exact markup under direct finish ownership', () => {
   const expectedControls = [
     {
       analyticsAction: 'intro.skip',
-      className: 'intro-skip',
+      className: 'btn-secondary intro-skip',
       content: 'Skip intro',
       eventName: 'intro_skip_clicked',
       id: null,
@@ -83,8 +83,8 @@ test('Skip and Start retain exact markup under direct finish ownership', () => {
     },
     {
       analyticsAction: 'intro.finale.cta',
-      className: 'btn-primary intro-start',
-      content: 'Start my journey',
+      className: 'btn-primary',
+      content: 'Continue',
       eventName: 'intro_finale_cta_clicked',
       id: 'introStartBtn',
       translationKey: 'intro.finale.cta'
@@ -95,6 +95,7 @@ test('Skip and Start retain exact markup under direct finish ownership', () => {
     const control = findFinishControl(
       element => (
         getAttribute(element.tag, 'class') === expected.className
+        && getAttribute(element.tag, 'id') === expected.id
       ),
       expected.className
     )

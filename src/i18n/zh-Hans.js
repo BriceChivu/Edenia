@@ -35,7 +35,7 @@ export const ZH_HANS_LOCALIZED = {
   "city.zoom.controls": "小岛视角控制",
   "island.title": "学习岛屿",
   "island.retry": "重试加载岛屿",
-  "island.introTitle": "学习、获得经验、建造你的岛屿。",
+  "island.introTitle": "学习，建造属于你的岛屿",
 
 
   "townEconomy.coins": "{count} 枚金币",
@@ -76,7 +76,7 @@ export const ZH_HANS_LOCALIZED = {
     'intro.finale.kicker': '一点点进步，一整个世界。',
     'intro.finale.title': '你会建造出什么？',
     'intro.finale.body': '建立你的学习视频清单，开始属于你的 Edenia。',
-    'intro.finale.cta': '开始我的旅程',
+    'intro.finale.cta': '继续',
     'intro.finale.return': '返回 Edenia',
     'onboarding.progress': '第 {current} 步，共 {total} 步',
     'onboarding.promise': '把 YouTube 和 Anki 转化为看得见的语言学习进步。',
