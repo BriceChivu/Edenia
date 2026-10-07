@@ -107,6 +107,120 @@ test('verified opening retires duplicate local copies and preserves reload, prog
   expect(await page.evaluate(() => window.loadState().videos.fixture0000.watchLater)).toBe(true)
 })
 
+test('tester import escapes the shared localStorage quota and regular migration frees its allocation', async ({ page, context, baseURL }) => {
+  test.setTimeout(60_000)
+  const testerKey = 'edenia_v1_internal_test_2'
+  const testerDatabase = `${testerKey}_profiles_indexed_db_v1`
+  let enabled = false
+  await context.route('**/config.local.js*', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: `window.EDENIA_CONFIG=${JSON.stringify({
+      tinySwordsEnabled: false, accountFeaturesRollout: 'off',
+      learnerProfileLifecycleEnabled: false, indexedDbProfileEnabled: enabled,
+      indexedDbBackupsEnabled: true, indexedDbBackupCleanupEnabled: true
+    })}`
+  }))
+  const testerUrl = new URL('?internal_test=2', baseURL).href
+  await page.goto(testerUrl)
+  await page.waitForFunction(() => typeof defaultState === 'function')
+  const fixture = await page.evaluate(async testerKey => {
+    const at = new Date().toISOString()
+    const ready = () => {
+      const state = defaultState(4, [], 'light', [], 'en')
+      state.config.ankiEnabled = false
+      Object.assign(state.onboarding, { introSeenAt: at, setupCompleted: true,
+        setupCompletedAt: at, walkthroughCompleted: true, walkthroughCompletedAt: at })
+      return state
+    }
+    const imported = ready()
+    imported.videos = Object.fromEntries(Array.from({ length: 1612 }, (_, index) => {
+      const id = `portable${String(index).padStart(4, '0')}`
+      return [id, { id, title: `Portable lesson ${index} ${'metadata '.repeat(40)}`,
+        metadataFetchedAt: at, duration: 600, status: 'partial',
+        favorite: !index, watchLater: !index, resumeAtSeconds: 90,
+        watchProgress: [{ seconds: 90, watchedAt: at, studyDay: '2026-10-03', experienceSeconds: 90 }],
+        watchProgressTracked: true }]
+    }))
+    imported.anki['2026-10-01'] = { reviewed: 12, created: 3, loggedAt: at }
+    imported.tinySwordsIsland = { version: 23, level: 4, resources: { wood: 8 } }
+    const { serialized } = await createPortableLearnerProfileEnvelope(imported)
+    const regular = ready()
+    regular.videos = Object.fromEntries(Array.from({ length: 7717 }, (_, index) => {
+      const id = `regular${String(index).padStart(4, '0')}`
+      return [id, { id, title: `Regular lesson ${index}`, metadataFetchedAt: at,
+        duration: 600, status: index ? 'unwatched' : 'partial',
+        watchProgress: index ? [] : [{ seconds: 60, watchedAt: at, studyDay: '2026-10-03' }] }]
+    }))
+    // Match the observed regular-profile allocation without retaining personal data.
+    regular.config.quotaFixturePadding = ''
+    regular.config.quotaFixturePadding = ' '.repeat(4141239 - JSON.stringify(regular).length)
+    const regularRaw = JSON.stringify(regular)
+    localStorage.setItem('edenia_v1', regularRaw)
+    localStorage.setItem(testerKey, JSON.stringify(ready()))
+    const paddingKey = 'edenia_shared_quota_fixture'
+    const occupied = Object.keys(localStorage).reduce((n, key) => n + key.length + localStorage.getItem(key).length, 0)
+    localStorage.setItem(paddingKey, ' '.repeat(4628820 - occupied - paddingKey.length))
+    return { serialized, regularRaw, testerRaw: localStorage.getItem(testerKey) }
+  }, testerKey)
+  expect(JSON.stringify(JSON.parse(fixture.serialized).profile).length).toBeGreaterThan(800_000)
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  // Startup can normalize the seeded profile before any import begins.
+  fixture.testerRaw = await page.evaluate(key => localStorage.getItem(key), testerKey)
+  const importFixture = async target => {
+    await target.evaluate(() => {
+      openSettings()
+      beginSettingsSyncImportInteraction(document.getElementById('syncFileInput'))
+    })
+    await target.locator('#syncFileInput').setInputFiles({
+      name: 'shared-quota-profile.json', mimeType: 'application/json',
+      buffer: Buffer.from(fixture.serialized)
+    })
+  }
+  await importFixture(page)
+  await expect(page.locator('#toast')).toContainText('Not enough browser storage')
+  expect(await page.evaluate(key => localStorage.getItem(key), testerKey)).toBe(fixture.testerRaw)
+  expect(await page.evaluate(() => getStateBackupEntries().some(entry => entry.reason === 'before sync import'))).toBe(true)
+
+  enabled = true
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  expect((await head(page, 'legacy-recovery', testerDatabase)).raw).toBe(fixture.testerRaw)
+  await importFixture(page)
+  await expect(page.locator('#toast')).toContainText(/imported/i)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(fixture.regularRaw)
+  expect(await page.evaluate(key => localStorage.getItem(key), testerKey)).toBeNull()
+
+  // A new page simulates reopening the application; disabled rollout must still read migrated data.
+  enabled = false
+  const reopened = await context.newPage()
+  await reopened.goto(testerUrl)
+  await expect(reopened.locator('#mainApp')).toBeVisible()
+  const restored = await reopened.evaluate(() => {
+    const state = loadState()
+    return { count: Object.keys(state.videos).length, lesson: state.videos.portable0000,
+      anki: state.anki['2026-10-01'], island: state.tinySwordsIsland }
+  })
+  expect(restored.count).toBe(1612)
+  expect(restored.lesson.watchProgress[0].seconds).toBe(90)
+  expect(restored.lesson.favorite).toBe(true)
+  expect(restored.lesson.watchLater).toBe(true)
+  expect(restored.anki.reviewed).toBe(12)
+  expect(restored.island.resources.wood).toBe(8)
+  const testerHead = await head(reopened, 'active', testerDatabase)
+
+  enabled = true
+  const normal = await context.newPage()
+  await normal.goto(baseURL)
+  await expect(normal.locator('#mainApp')).toBeVisible()
+  expect((await head(normal, 'legacy-recovery')).raw).toBe(fixture.regularRaw)
+  expect(await normal.evaluate(() => localStorage.getItem('edenia_v1'))).toBeNull()
+  expect(await normal.evaluate(() => Object.keys(loadState().videos).length)).toBe(7717)
+  expect(await normal.evaluate(() => loadState().videos.regular0000.watchProgress[0].seconds)).toBe(60)
+  expect(await head(reopened, 'active', testerDatabase)).toEqual(testerHead)
+  expect(await normal.evaluate(() => Object.keys(localStorage).reduce((n, key) => n + key.length + localStorage.getItem(key).length, 0))).toBeLessThan(600_000)
+})
+
 test('large-library additions save without localStorage profile writes and survive disabled rollout reload', async ({ page }) => {
   await seed(page, 2000)
   await page.reload()

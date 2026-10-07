@@ -50,6 +50,15 @@ Viewport size never rewrites product state or changes persistence domains.
 enables verified IndexedDB recovery backups and retirement of their verified
 localStorage copies. Account and Auth rollout settings remain independent.
 
+The Pages build passes `EDENIA_INDEXED_DB_PROFILE_ENABLED` from the repository
+variable of the same name. Validate tester-mode imports with a large regular
+profile sharing the origin before enabling the variable. Each mode migrates
+only its own active profile when opened: opening mode 2 does not retire the
+regular profile. Opening the regular experience later migrates that profile
+and frees its localStorage allocation. Disabling the variable stops new
+migrations; it does not revert migrated profiles to localStorage. Rollback
+releases must retain the IndexedDB reader and recovery behavior.
+
 The application opens the durable repository before starting. It retains a
 hydrated snapshot for existing synchronous reads; saves await a strict
 IndexedDB transaction and exact readback before rendering success, updating
