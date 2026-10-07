@@ -85,9 +85,11 @@ func run() -> void:
 		check(harvesting.phase == Harvesting.Phase.CUTTING and world.pawn.sprite.animation == "axe_interact", "Arrival starts axe interaction")
 		world.toggle_editing()
 		harvesting.advance(0, 1000)
-		check(harvesting.phase == Harvesting.Phase.CUTTING and world.pawn.chopping, "Opening terrain UI keeps tree cutting active: " + kind)
+		check(harvesting.phase == Harvesting.Phase.CUTTING and not world.pawn.sprite.is_playing(), "Opening terrain UI pauses tree cutting: " + kind)
 		world.toggle_editing()
-		check(harvesting.phase == Harvesting.Phase.CUTTING, "Closing terrain UI keeps tree cutting active: " + kind)
+		check(harvesting.phase == Harvesting.Phase.CUTTING, "Closing terrain UI resumes tree cutting: " + kind)
+		# Resume rebases to wall time; continue this test on its synthetic clock.
+		harvesting.cutting_updated_at = 1000
 		var trunk: Vector2 = layout.tree_position(cell)
 		var contact: Vector2 = world.pawn.position + Vector2(-44 if world.pawn.sprite.flip_h else 44, 0)
 		check(contact.is_equal_approx(trunk), "Fourth axe frame aligns with the trunk")

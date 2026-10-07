@@ -86,8 +86,9 @@ when the preview resumes. Clicking another standing tree queues it after the cur
 tree, in click order; repeated clicks do not add duplicates or restart cutting.
 The pawn cuts queued trees automatically and accumulates their logs. Removed or
 unreachable queued trees are skipped. Walking elsewhere cancels the queue and
-pauses cutting; clicking the tree resumes its saved progress. Opening Terrain
-keeps cutting active. The pending queue lasts for the current preview session. Partly cut standing trees can be picked up, discarding their cutting progress
+pauses cutting; clicking the tree resumes its saved progress. Opening Terrain pauses the current axe action and its countdown, preserving
+the target, queued trees and partial work. Closing Terrain resumes the same action;
+time spent in inventory does not count toward cutting. The pending queue lasts for the current preview session. Partly cut standing trees can be picked up, discarding their cutting progress
 without awarding wood. They cannot be cycled; stumps cannot be picked up or
 cycled until the tree completes regrowth. Save version 17 retains carried wood and deposited log piles, as well as cutting progress,
 regrowth deadlines and `resources.wood`, independently of the build inventory.

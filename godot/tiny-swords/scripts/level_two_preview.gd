@@ -227,8 +227,8 @@ func toggle_editing() -> void:
 		return
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
-	# Opening inventory changes input tools, not the pawn's current work.
 	editing = not editing
+	harvesting.set_inventory_open(editing)
 	if not editing:
 		house_log_source = Vector2i(999, 999)
 		if house_placement_active():

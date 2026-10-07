@@ -18,6 +18,7 @@ var equip_remaining := 0.0
 var save_elapsed := 0.0
 var cutting_updated_at := 0.0
 var swing_count := 0
+var inventory_paused := false
 
 func _ready() -> void:
 	world.pawn.sprite.animation_looped.connect(_on_axe_swing_finished)
@@ -87,6 +88,19 @@ func _begin(cell: Vector2i) -> bool:
 	world.pawn.sprite.play("axe_idle")
 	return true
 
+func set_inventory_open(open: bool) -> void:
+	inventory_paused = open and phase != Phase.READY
+	world.pawn.harvesting_paused = inventory_paused
+	if phase == Phase.READY:
+		return
+	if inventory_paused:
+		world.pawn.sprite.pause()
+		world.save_layout()
+	else:
+		# Rebase on resume so a suspended inventory never contributes cut time.
+		cutting_updated_at = Time.get_unix_time_from_system()
+		world.pawn.sprite.play()
+
 func cancel() -> void:
 	pending_trees.clear()
 	_stop()
@@ -95,6 +109,8 @@ func _stop() -> void:
 	if phase == Phase.READY:
 		return
 	phase = Phase.READY
+	inventory_paused = false
+	world.pawn.harvesting_paused = false
 	target = NO_TREE
 	route.clear()
 	world.waypoints.clear()
@@ -124,6 +140,8 @@ func advance(delta: float, now: float) -> void:
 		return
 	if not available(target) or world.water_phase != world.WaterPhase.READY:
 		cancel()
+		return
+	if inventory_paused:
 		return
 	if phase == Phase.EQUIPPING:
 		equip_remaining -= delta
@@ -162,7 +180,7 @@ func advance(delta: float, now: float) -> void:
 func _on_axe_swing_finished() -> void:
 	# The timer makes this swing the last one; only its animation boundary
 	# may remove the tree, grant wood, and put away the axe.
-	if phase != Phase.CUTTING or world.pawn.sprite.animation != "axe_interact":
+	if inventory_paused or phase != Phase.CUTTING or world.pawn.sprite.animation != "axe_interact":
 		return
 	swing_count += 1
 	if world.layout.tree_cut_remaining.get(target, 1.0) > 0.0:

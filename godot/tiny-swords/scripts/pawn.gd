@@ -5,6 +5,7 @@ extends Node2D
 var destination: Vector2
 var axe_equipped := false
 var chopping := false
+var harvesting_paused := false
 var carrying_wood := false
 var carrying_chicken := false
 var hammering := false
@@ -52,6 +53,8 @@ func tile_step_allowed(target: Vector2) -> bool:
 	return allowed
 
 func _physics_process(delta: float) -> void:
+	if harvesting_paused:
+		return
 	if hammering and not carrying_chicken:
 		sprite.play("hammer_interact")
 		return
