@@ -90,6 +90,12 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
 .goal-pace[data-state="on-track"],
 .goal-pace[data-state="complete"] { color: var(--green); }
 
+/* Keep the panel and its reopen control hidden across profile renders. */
+#studyInsightCard,
+#studyInsightReopen {
+  display: none !important;
+}
+
 .study-insight-card {
   align-items: start;
   background:

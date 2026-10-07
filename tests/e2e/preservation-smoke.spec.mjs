@@ -3302,7 +3302,7 @@ test('saved-video search shell listeners preserve analytics, focus, and responsi
   })
 })
 
-test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
+test('Hidden Study Insight listeners preserve tabs, persistence, and event ordering', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -3347,12 +3347,13 @@ test('Study Insight listeners preserve tabs, persistence, focus, and event order
   const previousTab = page.locator('#studyInsightPreviousTab')
   const historyPanel = page.locator('#studyInsightHistoryPanel')
   await expect(card).not.toHaveClass(/\bhidden\b/)
+  await expect(card).toBeHidden()
   await expect(previousTab).toBeEnabled()
 
-  await previousTab.locator('span').first().click()
+  await previousTab.locator('span').first().dispatchEvent('click')
   await expect(previousTab).toHaveAttribute('aria-selected', 'true')
   await expect(historyPanel).not.toHaveClass(/\bhidden\b/)
-  await currentTab.click()
+  await currentTab.dispatchEvent('click')
   await expect(currentTab).toHaveAttribute('aria-selected', 'true')
 
   await page.evaluate(() => {
@@ -3364,17 +3365,17 @@ test('Study Insight listeners preserve tabs, persistence, focus, and event order
         state.config.studyInsights.collapsed
     }, { once: true })
   })
-  await page.locator('.study-insight-collapse').click()
+  await page.locator('.study-insight-collapse').dispatchEvent('click')
   await expect(card).toHaveClass(/\bhidden\b/)
   await expect(page.locator('#studyInsightReopen')).not.toHaveClass(/\bhidden\b/)
-  await expect(page.locator('#studyInsightReopen')).toBeFocused()
+  await expect(page.locator('#studyInsightReopen')).toBeHidden()
   await expect.poll(() => page.evaluate(
     () => window.__studyInsightCollapsedAtDocumentBubble
   )).toBe(true)
 
-  await page.locator('#studyInsightReopen span[data-i18n="insights.reopen"]').click()
+  await page.locator('#studyInsightReopen span[data-i18n="insights.reopen"]').dispatchEvent('click')
   await expect(card).not.toHaveClass(/\bhidden\b/)
-  await expect(currentTab).toBeFocused()
+  await expect(card).toBeHidden()
   await expect.poll(() => page.evaluate(() => (
     JSON.parse(localStorage.getItem('edenia_v1')).config.studyInsights.collapsed
   ))).toBe(false)
