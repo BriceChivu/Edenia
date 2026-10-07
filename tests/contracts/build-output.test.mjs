@@ -225,6 +225,10 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   )
   assert.match(
     workflow,
+    /EDENIA_INDEXED_DB_PROFILE_ENABLED: \$\{\{ vars\.EDENIA_INDEXED_DB_PROFILE_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
     /EDENIA_INDEXED_DB_BACKUPS_ENABLED: \$\{\{ vars\.EDENIA_INDEXED_DB_BACKUPS_ENABLED \}\}/
   )
   assert.match(
