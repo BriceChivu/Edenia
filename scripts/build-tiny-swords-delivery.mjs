@@ -71,6 +71,9 @@ export async function prepareTinySwordsDelivery(staging, outputDir) {
   engineJs = engineJs.replace(errorHook, 'controller.close();\n\t\t\t\t}, function (error) { controller.error(error); });')
   await writeFile(resolve(staging, 'index.js'), engineJs)
   let html = await readFile(resolve(staging, 'index.html'), 'utf8')
+  const startupHook = 'engine.startGame({'
+  if (html.split(startupHook).length !== 2) throw new Error('Godot engine-startup hook changed')
+  html = html.replace(startupHook, `window.edeniaTrackGameStartup(engine);\n\t\t${startupHook}`)
   const progressHook = "'onProgress': function (current, total) {"
   if (html.split(progressHook).length !== 2) throw new Error('Godot loading-progress hook changed')
   // All configured assets count from the start, even if Godot registers their

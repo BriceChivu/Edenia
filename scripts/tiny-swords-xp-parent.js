@@ -18,6 +18,10 @@ if (window.edeniaTinySwordsEnabled === true) {
     let statusKey = 'island.preparing'
     let progressPercent = 0
     let preparing = false
+    let preparationFloor = 60
+    let preparationCeiling = 80
+    let preparationStartedAt = 0
+    let progressTimer
     const translate = key => window.edeniaTranslate?.(key) || key
     function renderProgress() {
       loadProgress.dataset.phase = preparing ? 'preparing' : 'download'
@@ -25,10 +29,26 @@ if (window.edeniaTinySwordsEnabled === true) {
       loadBar.setAttribute('aria-valuenow', String(progressPercent))
       loadBar.style.setProperty('--island-load-progress', `${progressPercent}%`)
     }
-    function prepareIsland() {
+    function prepareIsland(floor = 60, ceiling = 80) {
       if (restored || failed) return
-      progressPercent = Math.max(progressPercent, 99)
+      if (preparing && floor <= preparationFloor) return
+      preparationFloor = floor
+      preparationCeiling = ceiling
+      preparationStartedAt = performance.now()
+      progressPercent = Math.max(progressPercent, floor)
       preparing = true
+      renderProgress()
+    }
+    // Downloads are measurable; compilation and rendering are not. Reserve
+    // their share and ease forward within the current stage, never through its
+    // next real milestone. Only Godot's drawn-island acknowledgment reaches 100.
+    function advancePreparation() {
+      if (!preparing || restored || failed || document.visibilityState === 'hidden') return
+      const elapsed = performance.now() - preparationStartedAt
+      const value = preparationFloor + (preparationCeiling - preparationFloor) * (1 - Math.exp(-elapsed / 6000))
+      const next = Math.max(progressPercent, Math.min(preparationCeiling - 1, Math.floor(value)))
+      if (next === progressPercent) return
+      progressPercent = next
       renderProgress()
     }
     function setLoadState(state, key) {
@@ -46,6 +66,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       failed = true
       restored = false
       clearTimeout(startupTimer)
+      clearInterval(progressTimer)
       controls.hidden = true
       setLoadState('failed', key)
       syncInput()
@@ -121,6 +142,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     document.addEventListener?.('visibilitychange', sendVisibility)
     function mountFrame() {
       clearTimeout(startupTimer)
+      clearInterval(progressTimer)
       const previous = frame
       if (previous) {
         cameraObserver.unobserve(previous)
@@ -135,6 +157,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       failed = false
       progressPercent = 0
       preparing = false
+      preparationFloor = 0
       legacy = false
       gameLevelCount = null
       intersects = true
@@ -151,6 +174,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       visibilityObserver?.observe(frame)
       setLoadState('loading', 'island.preparing')
       syncInput()
+      progressTimer = setInterval(advancePreparation, 100)
       startupTimer = setTimeout(() => {
         if (!restored && !failed) setLoadState('slow', 'island.slow')
       }, 20000)
@@ -209,13 +233,17 @@ if (window.edeniaTinySwordsEnabled === true) {
           || data.total <= 0 || data.current < 0 || data.current > data.total) return
         if (data.current === data.total) prepareIsland()
         else {
-          progressPercent = Math.max(progressPercent, Math.min(99, Math.floor(data.current / data.total * 100)))
+          progressPercent = Math.max(progressPercent, Math.floor(data.current / data.total * 60))
           renderProgress()
         }
         return
       }
+      if (data?.type === 'edenia-game-engine-initialized') {
+        prepareIsland(80, 89)
+        return
+      }
       if (data?.type === 'edenia-game-progression' && Array.isArray(data.thresholds)) {
-        prepareIsland()
+        prepareIsland(90, 97)
         gameLevelCount = data.thresholds.length
         sendStudyLevel()
       }
@@ -235,6 +263,7 @@ if (window.edeniaTinySwordsEnabled === true) {
         restored = data.accepted === true
         failed = !restored
         clearTimeout(startupTimer)
+        clearInterval(progressTimer)
         if (restored) progressPercent = 100
         setLoadState(restored ? 'ready' : 'failed', restored ? 'island.loading' : 'island.restoreFailed')
         controls.hidden = !restored

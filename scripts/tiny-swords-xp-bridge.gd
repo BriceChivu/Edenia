@@ -15,6 +15,8 @@ var study_presented := true
 var study_bridge_ready := false
 var study_layout_restored := false
 var study_restore_attempted := false
+var study_startup_finishing := false
+var study_presentation_ready := false
 var study_poll_elapsed := 0.0
 var study_celebrating := false
 var study_editing := false
@@ -124,10 +126,9 @@ func _process(delta: float) -> void:
 		# Local testing can continue even when Edenia retains a rejected save.
 		# Durable writes remain gated by study_layout_restored in save_layout().
 		playground_ready = true
-		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-restored',session:window.edeniaStudySession,accepted:%s},location.origin)" % str(study_layout_restored))
 		JavaScriptBridge.eval("window.edeniaStudyReady=false")
-		if study_layout_restored:
-			save_layout()
+		if not study_layout_restored:
+			JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-restored',session:window.edeniaStudySession,accepted:false},location.origin)")
 	if not study_layout_restored:
 		if study_restore_attempted:
 			island_presentation.set_presented(self, study_presented)
@@ -139,6 +140,18 @@ func _process(delta: float) -> void:
 		ui.launch.hide()
 	JavaScriptBridge.eval("window.edeniaGameLevel = %s" % (playground.current_level() if playground != null else layout.level))
 	island_presentation.set_presented(self, study_presented)
+	if not study_startup_finishing:
+		finish_study_startup()
+
+func finish_study_startup() -> void:
+	study_startup_finishing = true
+	# Restoration and claimed-level application must be visible before Edenia
+	# removes its loading cover and enables input. Shader/texture preparation can
+	# make this first draw much slower than restoring the layout itself.
+	await RenderingServer.frame_post_draw
+	study_presentation_ready = true
+	JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-restored',session:window.edeniaStudySession,accepted:true},location.origin)")
+	save_layout()
 
 func restore_study_layout(data: Variant) -> bool:
 	if data == null:
@@ -146,5 +159,5 @@ func restore_study_layout(data: Variant) -> bool:
 	return data is Dictionary and restore_saved_layout(data)
 
 func save_layout() -> void:
-	if study_bridge_ready and study_layout_restored and OS.has_feature("web"):
+	if study_bridge_ready and study_layout_restored and study_presentation_ready and OS.has_feature("web"):
 		JavaScriptBridge.eval("window.edeniaQueueLayout(%s)" % JSON.stringify(saved_snapshot()))

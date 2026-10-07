@@ -18,6 +18,7 @@ async function seed(page) {
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, island)
   await page.reload()
+  await expect.poll(() => page.frames().some(frame => frame.url().includes('/tiny-swords-game/'))).toBe(true)
 }
 const durable = page => page.evaluate(() => {
   const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test_2'))
@@ -47,6 +48,60 @@ async function accept(game) {
   await game.evaluate(() => parent.postMessage({ type: 'edenia-tiny-restored', session: window.session, accepted: true }, location.origin))
 }
 
+test('completed downloads leave visible progress for engine startup and restoration', async ({ page }) => {
+  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await seed(page)
+  const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  await game.evaluate(() => parent.postMessage({ type: 'edenia-game-loading-progress', current: 100, total: 100 }, location.origin))
+  await expect(page.locator('#tinySwordsLoadProgress')).toHaveAttribute('data-phase', 'preparing')
+  const value = Number(await page.locator('#tinySwordsLoadBar').getAttribute('aria-valuenow'))
+  expect(value).toBeLessThanOrEqual(70)
+  await expect(page.locator('.tiny-swords-frame')).toHaveAttribute('inert', '')
+  await expect(page.locator('#tinySwordsLoadProgress')).toBeVisible()
+})
+
+test('real Godot startup advances milestones and completes with a rendered saved island', async ({ page }) => {
+  test.setTimeout(120000)
+  await page.addInitScript(() => {
+    window.islandStartupEvents = []
+    window.addEventListener('message', event => {
+      if (event.origin !== location.origin || event.source !== document.querySelector('.tiny-swords-frame')?.contentWindow) return
+      if (!['edenia-game-engine-initialized', 'edenia-game-progression', 'edenia-tiny-restored'].includes(event.data?.type)) return
+      // This listener is registered before the host adapter, so record the
+      // displayed state immediately before each real milestone is handled.
+      window.islandStartupEvents.push({
+        type: event.data.type,
+        progress: Number(document.getElementById('tinySwordsLoadBar').getAttribute('aria-valuenow')),
+        ready: document.getElementById('tinySwordsSurface').dataset.gameState === 'ready'
+      })
+    })
+  })
+  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await seed(page)
+  // Keep claimed study progress at the saved level so this startup check does
+  // not also exercise the separate sequential level-unlock/save handshake.
+  await page.evaluate(level => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test_2'))
+    state.cityProgress.maxLevelIndex = level - 1
+    localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
+  }, island.level)
+  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.reload()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 90000 })
+  const events = await page.evaluate(() => window.islandStartupEvents)
+  expect(events.map(event => event.type)).toEqual(['edenia-game-engine-initialized', 'edenia-game-progression', 'edenia-tiny-restored'])
+  expect(events[0].progress).toBeLessThan(80)
+  expect(events[1].progress).toBeGreaterThanOrEqual(80)
+  expect(events[1].progress).toBeLessThan(90)
+  expect(events[2].progress).toBeGreaterThanOrEqual(90)
+  expect(events[2].progress).toBeLessThan(97)
+  expect(events.every(event => !event.ready)).toBe(true)
+  await expect(page.locator('#tinySwordsLoadBar')).toHaveAttribute('aria-valuenow', '100')
+  await expect(page.locator('.tiny-swords-frame')).not.toHaveAttribute('inert', '')
+  await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath('island-ready.png') })
+  await expect.poll(async () => (await durable(page)).island.level).toBe(island.level)
+})
+
 test('loading progress follows downloads, preparation, retry and live locale changes', async ({ page }) => {
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await seed(page)
@@ -65,14 +120,14 @@ test('loading progress follows downloads, preparation, retry and live locale cha
   await report(1, 0)
   await expect(bar).toHaveAttribute('aria-valuenow', '0')
   await report(50, 100)
-  await expect(bar).toHaveAttribute('aria-valuenow', '50')
+  await expect(bar).toHaveAttribute('aria-valuenow', '30')
   await report(20, 100)
-  await expect(bar).toHaveAttribute('aria-valuenow', '50')
+  await expect(bar).toHaveAttribute('aria-valuenow', '30')
   for (const locale of SUPPORTED_LOCALES) {
     await page.evaluate(locale => saveLocaleFromSettings(locale), locale)
     await expect(label).toHaveText(I18N[locale]['island.preparing'])
     await expect(page.locator('#tinySwordsLoadMessage')).toHaveText(I18N[locale]['island.preparing'])
-    await expect(bar).toHaveAttribute('aria-valuenow', '50')
+    await expect(bar).toHaveAttribute('aria-valuenow', '30')
   }
   await page.evaluate(() => saveLocaleFromSettings('zh-Hant'))
   for (const theme of ['light', 'dark']) {
@@ -84,13 +139,13 @@ test('loading progress follows downloads, preparation, retry and live locale cha
     expect(bounds.x).toBeGreaterThanOrEqual(0)
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(await page.evaluate(() => innerWidth))
     const fill = await bar.locator('span').boundingBox()
-    expect(fill.width / (bounds.width - 2)).toBeCloseTo(0.5, 2)
+    expect(fill.width / (bounds.width - 2)).toBeCloseTo(0.3, 2)
     await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath(`loading-zh-Hant-${theme}.png`) })
   }
   await report(100, 100)
   await expect(progress).toHaveAttribute('data-phase', 'preparing')
   await expect(label).toHaveText(I18N['zh-Hant']['island.preparing'])
-  await expect(bar).toHaveAttribute('aria-valuenow', '99')
+  await expect(bar).toHaveAttribute('aria-valuenow', '60')
   await page.emulateMedia({ reducedMotion: 'reduce' })
   expect(await bar.locator('span').evaluate(node => getComputedStyle(node).animationName)).toBe('none')
   await game().evaluate(() => parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin))
@@ -100,13 +155,14 @@ test('loading progress follows downloads, preparation, retry and live locale cha
   await expect(progress).toHaveAttribute('data-phase', 'download')
   await expect(bar).toHaveAttribute('aria-valuenow', '0')
   await expect(label).toHaveText(I18N['zh-Hant']['island.preparing'])
+  await expect.poll(() => Boolean(game())).toBe(true)
   await accept(game())
   await expect(progress).toBeHidden()
   await report(50, 100)
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready')
 })
 
-test('loading fill stays anchored left, holds during preparation and has no time text', async ({ page }) => {
+test('loading fill advances through startup stages, stays anchored left and has no time text', async ({ page }) => {
   await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await page.clock.install()
   await page.clock.pauseAt(new Date())
@@ -118,16 +174,27 @@ test('loading fill stays anchored left, holds during preparation and has no time
   await expect(page.locator('#tinySwordsLoadMessage')).toHaveText('Preparing your island...')
   for (const current of [0, 25, 50, 75, 100]) {
     await game.evaluate(current => parent.postMessage({ type: 'edenia-game-loading-progress', current, total: 100 }, location.origin), current)
-    await expect(bar).toHaveAttribute('aria-valuenow', String(Math.min(99, current)))
+    await expect(bar).toHaveAttribute('aria-valuenow', String(Math.floor(current * 0.6)))
     await expect(fill).toHaveCSS('animation-name', 'none')
     await expect(fill).toHaveCSS('transform', 'none')
     const bounds = await bar.boundingBox()
     const filled = await fill.boundingBox()
     expect(filled.x).toBeCloseTo(bounds.x + 1, 1)
-    expect(filled.width / (bounds.width - 2)).toBeCloseTo(Math.min(99, current) / 100, 2)
+    expect(filled.width / (bounds.width - 2)).toBeCloseTo(current * 0.6 / 100, 2)
   }
   await page.clock.fastForward(9000)
-  await expect(bar).toHaveAttribute('aria-valuenow', '99')
+  await expect(bar).toHaveAttribute('aria-valuenow', '75')
+  await game.evaluate(() => parent.postMessage({ type: 'edenia-game-engine-initialized' }, location.origin))
+  await expect(bar).toHaveAttribute('aria-valuenow', '80')
+  await page.clock.fastForward(6000)
+  await expect(bar).toHaveAttribute('aria-valuenow', '85')
+  await game.evaluate(() => window.ready())
+  await expect(bar).toHaveAttribute('aria-valuenow', '90')
+  await page.clock.fastForward(9000)
+  await expect(bar).toHaveAttribute('aria-valuenow', '95')
+  await expect(page.locator('.tiny-swords-frame')).toHaveAttribute('inert', '')
+  await page.clock.fastForward(120000)
+  await expect(bar).toHaveAttribute('aria-valuenow', '96')
   await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath('loading-bar.png') })
   await accept(game)
   await expect(bar).toHaveAttribute('aria-valuenow', '100')
