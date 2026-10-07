@@ -114,14 +114,14 @@ async function seedGuidanceState(page, { guidanceEnabled }) {
   return storageKey
 }
 
-test('Released study guidance is simple, actionable, and not archived', async ({
+test('Study guidance remains hidden and does not alter the saved archive', async ({
   page
 }, testInfo) => {
   test.skip(!guidanceProjects.has(testInfo.project.name))
   const storageKey = await seedGuidanceState(page, { guidanceEnabled: true })
   const insight = page.locator('#studyInsightCard')
 
-  await expect(insight).toBeVisible()
+  await expect(insight).toBeHidden()
   await expect(insight).toHaveAttribute(
     'data-guidance-key',
     '2026-08-03:extra-day:3'
@@ -147,12 +147,8 @@ test('Released study guidance is simple, actionable, and not archived', async ({
   })
 
   const guidanceAction = page.locator('#studyGuidanceNextAction')
-  await expect(guidanceAction).toBeVisible()
+  await expect(guidanceAction).toBeHidden()
   await expect(guidanceAction).toHaveText('Choose a video')
-  await guidanceAction.click()
-  await expect(page.locator(
-    '#nextStudyCard [data-next-study-action="open"]:visible'
-  )).toBeFocused()
   const width = await page.evaluate(() => ({
     document: document.documentElement.scrollWidth,
     viewport: document.documentElement.clientWidth
