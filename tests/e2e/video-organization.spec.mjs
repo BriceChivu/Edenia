@@ -503,7 +503,7 @@ test('normal visitors use the permanent organization flow', async ({ page }, tes
     video: JSON.parse(localStorage.getItem(normalKey)).videos['menu-anchor-video']
   }), {
     normalKey: normalStorageKey,
-    internalKey: normalStorageKey
+    internalKey: 'edenia_v1_internal_test'
   })
   expect(persisted.video.status).toBe('partial')
   expect(persisted.video.setAside).toBeUndefined()
@@ -511,13 +511,13 @@ test('normal visitors use the permanent organization flow', async ({ page }, tes
   expect(persisted.internal).toBeNull()
 })
 
-test('released organization actions stay in isolated test storage', async ({ page }, testInfo) => {
+test('released organization actions preserve retired test storage', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await page.goto('/')
   await waitForApplication(page)
   await page.evaluate(key => {
-    localStorage.setItem(key, JSON.stringify({ sentinel: 'normal-state' }))
-  }, normalStorageKey)
+    localStorage.setItem(key, JSON.stringify({ sentinel: 'retired-state' }))
+  }, 'edenia_v1_internal_test')
   await seedVideoOrganizationState(page)
 
   const card = page.locator(
@@ -536,10 +536,10 @@ test('released organization actions stay in isolated test storage', async ({ pag
     normal: JSON.parse(localStorage.getItem(normalKey))
   }), {
     normalKey: normalStorageKey,
-    internalKey: normalStorageKey
+    internalKey: 'edenia_v1_internal_test'
   })
-  expect(persisted.internal.videos['menu-anchor-video'].removedFromFeedAt).toBeTruthy()
-  expect(persisted.normal).toEqual({ sentinel: 'normal-state' })
+  expect(persisted.normal.videos['menu-anchor-video'].removedFromFeedAt).toBeTruthy()
+  expect(persisted.internal).toEqual({ sentinel: 'retired-state' })
 })
 
 test('enabled organization migrates legacy state and history idempotently', async ({
