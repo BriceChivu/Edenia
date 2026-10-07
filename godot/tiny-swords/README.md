@@ -1123,3 +1123,5 @@ Locale changes never replace the iframe or modify an island save. Chinese UI use
 bundled subset fonts; update their glyph subsets when changing the Godot catalogs.
 See `fonts/README.md` for provenance and regeneration. Validate with the integrated
 export contract and `tiny-swords-copy.spec.mjs`, then rebuild the integrated preview.
+
+Chicken placement uses the same grass rules as sheep, including grass at both ends of stairs. The ramp itself and occupied tiles remain unavailable. Focused check: `res://tests/chicken_stair_placement.gd`.
