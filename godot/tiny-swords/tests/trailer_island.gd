@@ -16,6 +16,7 @@ func run() -> void:
 	trailer.set_process(false)
 	var game = trailer.game
 	game.pawn.set_physics_process(false)
+	check(not game.shark.visible and not game.shark.is_processing(), "No gameplay shark in the trailer")
 	var layout = game.layout
 	check(layout.cells.size() == 2, "Start with only the two permanent grass tiles")
 	check(not game.preview_save_enabled and not game.camera_save_enabled, "Never load or save learner worlds")

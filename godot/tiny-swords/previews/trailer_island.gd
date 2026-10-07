@@ -31,6 +31,9 @@ func _ready() -> void:
 	game.ui.hide()
 	game.harvesting.set_process(false)
 	game.get_node("WaterRocks").hide()
+	# The gameplay shark is excluded from the source-rendered trailer.
+	game.shark.hide()
+	game.shark.set_process(false)
 	# Keep the existing cloud scripts on their ordinary clocks, across layouts.
 	game.game_camera.position = game.layout.center(Vector2i(0, 0))
 	var viewport_size := get_viewport_rect().size
