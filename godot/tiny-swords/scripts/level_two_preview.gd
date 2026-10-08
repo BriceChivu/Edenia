@@ -1464,7 +1464,7 @@ func saved_snapshot() -> Dictionary:
 		data["playground_checkpoint"] = saved
 	return data
 
-func save_layout() -> void:
+func save_layout(_animal_checkpoint: bool = false) -> void:
 	if not preview_save_enabled:
 		return
 	var json := JSON.stringify(saved_snapshot())

@@ -6,6 +6,7 @@ import {
   LEARNER_PROFILE_RECOVERY_SOURCES,
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../domain/learner-profile-resolution.js'
+import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
@@ -355,6 +356,54 @@ export function createLearnerProfileCloudPersistenceAdapter({
   const accountlessMigrationStorageKey = `${syncStorageKey}_accountless_migration`
   const importStorageKey = `${syncStorageKey}_import_v1`
   const recoveryStorageKey = `${syncStorageKey}_recovery`
+  const localIslandCheckpointStorageKey = `${syncStorageKey}_local_island_checkpoint`
+
+  function profileDigest(profile) {
+    // Envelope integrity also covers export time. A local checkpoint must
+    // identify just the canonical content across separate preparations.
+    return sha256Base64UrlSync(canonicalizeJson(prepareEnvelope(profile).profile))
+  }
+
+  function studyProfileDigest(profile) {
+    try { return profileDigest({ ...profile, tinySwordsIsland: null }) }
+    catch { return null }
+  }
+
+  function matchesLocalIslandCheckpoint(localProfile, identity) {
+    try {
+      const checkpoint = JSON.parse(storage.getItem(localIslandCheckpointStorageKey))
+      return hasExactKeys(checkpoint, ['version', 'ownerId', 'profileId', 'generation', 'revision', 'payloadSha256'])
+        && checkpoint.version === 1
+        && checkpoint.ownerId === identity.ownerId
+        && checkpoint.profileId === identity.profileId
+        && checkpoint.generation === identity.generation
+        && checkpoint.revision === identity.revision
+        && checkpoint.payloadSha256 === profileDigest(localProfile.profile)
+    } catch { return false }
+  }
+
+  function markLocalIslandCheckpoint(profile, { activation, isCurrent } = {}) {
+    const binding = activeBinding
+    if (!binding || binding.activation !== activation || typeof isCurrent !== 'function'
+      || !isCurrent() || !binding.isCurrent()) return false
+    const record = readSyncRecord()
+    if (!record || record.ownerId !== activation.ownerId || record.profileId !== activation.profileId
+      || record.generation !== binding.generation || record.pending || record.queued
+      || readDirtyRecord().present) return false
+    try {
+      // The native cause cannot suppress unsaved study/config changes. Only an
+      // island difference from this activation's clean profile can be marked.
+      if (!binding.checkpointStudyDigest
+        || studyProfileDigest(profile) !== binding.checkpointStudyDigest) return false
+      const serialized = JSON.stringify({ version: 1, ownerId: record.ownerId,
+        profileId: record.profileId, generation: record.generation,
+        revision: record.acceptedRevision,
+        payloadSha256: profileDigest(profile) })
+      if (!isCurrent() || !binding.isCurrent()) return false
+      storage.setItem(localIslandCheckpointStorageKey, serialized)
+      return storage.getItem(localIslandCheckpointStorageKey) === serialized
+    } catch { return false }
+  }
 
   function hasExplicitOnboardingProfileDraft() {
     try {
@@ -2121,6 +2170,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
             publish('needs-attention')
           } else {
             binding.revision = current.acceptedRevision
+            binding.checkpointStudyDigest = studyProfileDigest(envelope.profile)
             if (
               current.pending === null
               && !clearDirtyRecord(current)
@@ -3015,12 +3065,21 @@ export function createLearnerProfileCloudPersistenceAdapter({
           prepareEnvelope
         )
       ) {
+        const currentCheckpoint = matchesLocalIslandCheckpoint(localProfile, {
+          ownerId: authentication.userId, profileId, generation, revision
+        })
+        if (currentCheckpoint) {
+          // A receipt can advance the sync revision before local identity
+          // metadata is updated. The exact clean checkpoint still proves its
+          // content belongs to this accepted head.
+          profile = localProfile.profile
+        }
         // An earlier opening may advance the sync marker without activating
         // its result. Only the local profile's own revision proves this is an
         // unqueued change to the current cloud head rather than an older copy.
-        if (localProfile.revision === revision) {
-          backupRequired = true
+        else if (localProfile.revision === revision) {
           profile = localProfile.profile
+          backupRequired = true
         }
       } else {
         profile = retainLocalFeedCache(cloudProfile, localProfile.profile)
@@ -3091,6 +3150,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       generation,
       isCurrent,
       profile: isRecord(profile) ? profile : null,
+      checkpointStudyDigest: isRecord(profile) ? studyProfileDigest(profile) : null,
       revision
     }
     const record = readSyncRecord()
@@ -3616,6 +3676,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     getReplacementProtection,
     importProfile,
     markDirty,
+    markLocalIslandCheckpoint,
     readProtectedReset,
     readResetState,
     readRecoveryCandidate,

@@ -5,7 +5,7 @@ import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
 function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false } = {}) {
-  const handlers = {}; const sent = []; const frames = []; const storage = new Map()
+  const handlers = {}; const sent = []; const frames = []; const storage = new Map(); const saves = []
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
   if (inactive) state = null
@@ -15,6 +15,7 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
   const persistence = createTinySwordsPersistence({
     read: () => state, readAccessIdentity: () => access, readDurable: () => structuredClone(durable),
     save(next, options) {
+      saves.push(options)
       assert.equal(options.backup, false); assert.equal(options.syncAnalytics, false)
       if (denied) return false
       durable = structuredClone(next); writes++
@@ -44,7 +45,7 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
     await emit({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]})
     await emit({type:'edenia-tiny-restored', session:sent.findLast(x=>x.type==='edenia-study-level').session, accepted:true})
   }
-  return { ready, emit, sent, storage, frames, handlers, persistence, document:context.document,
+  return { ready, emit, sent, storage, frames, handlers, persistence, saves, document:context.document,
     attemptClaim(index, persisted) {
       state.cityProgress.maxLevelIndex = index
       if (persisted) { durable = structuredClone(state); handlers['edenia-profile-persisted']({detail:{}}) }
@@ -256,4 +257,46 @@ test('ownership loss fences a delayed acknowledgment and reopening is not blocke
   assert.equal(retired.removed,true)
   assert.equal(h.frames.length,2)
   assert.equal(h.sent.find(x=>x.type==='edenia-tiny-saved').persisted,false)
+})
+
+test('ambient checkpoint is durable locally without requesting a cloud revision',async()=>{
+  let state={config:{},videos:{},anki:{},tinySwordsIsland:{version:32,chickens:[[608,208]]}}
+  let durable=structuredClone(state);const saves=[]
+  const adapter=createTinySwordsPersistence({read:()=>state,readDurable:()=>durable,save:async (next,options)=>{saves.push(options);durable=structuredClone(next);return true}})
+  const moved={version:32,chickens:[[608,272]]}
+  assert.equal(await adapter.save(moved,islandIdentity(state),{syncCloud:false}),true)
+  assert.deepEqual(durable.tinySwordsIsland,moved)
+  assert.equal(saves[0].syncCloud,false)
+  assert.equal(await adapter.save({...moved,resources:{wood:1}},islandIdentity(state)),true)
+  assert.notEqual(saves[1].syncCloud,false)
+})
+
+test('queued learner edit remains cloud eligible when ambient checkpoints coalesce',()=>{
+  const handlers={},sent=[];const parent={postMessage(data){sent.push(data)}}
+  const context={parent,location:{origin:'http://localhost:8037'},document:{addEventListener(){}},window:{addEventListener(type,fn){handlers[type]=fn}}}
+  vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-messages.js','utf8'),context)
+  const emit=data=>handlers.message({origin:context.location.origin,source:parent,data})
+  emit({type:'edenia-study-level',session:1,level:3,layout:null})
+  context.window.edeniaQueueLayout({level:3,chickens:[[608,208]]},true)
+  assert.equal(sent.at(-1).checkpoint,true)
+  context.window.edeniaQueueLayout({level:3,resources:{wood:1}},false)
+  context.window.edeniaQueueLayout({level:3,resources:{wood:1},chickens:[[608,272]]},true)
+  emit({type:'edenia-tiny-saved',session:1,id:1,persisted:true})
+  assert.equal(sent.at(-1).checkpoint,false)
+  assert.equal(sent.at(-1).layout.resources.wood,1)
+  assert.deepEqual(JSON.parse(JSON.stringify(sent.at(-1).layout.chickens)),[[608,272]])
+})
+
+
+test('current frame animal checkpoints skip cloud writes while ordinary saves keep them', async () => {
+  const h = harness({ island })
+  await h.ready()
+  await h.emit({ type: 'edenia-tiny-layout', session: 1, id: 1,
+    layout: { ...island, chickens: [[32, 32]] }, checkpoint: true })
+  assert.equal(h.saves.at(-1).syncCloud, false)
+  assert.deepEqual(h.durable.tinySwordsIsland.chickens, [[32, 32]])
+  await h.emit({ type: 'edenia-tiny-layout', session: 1, id: 2,
+    layout: { ...h.durable.tinySwordsIsland, resources: { wood: 7 } } })
+  assert.equal(h.saves.at(-1).syncCloud, undefined)
+  assert.equal(h.sent.findLast(message => message.type === 'edenia-tiny-saved').persisted, true)
 })

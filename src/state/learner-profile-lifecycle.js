@@ -948,7 +948,7 @@ export function createLearnerProfileLifecycleAuthority({
   function saveActiveProfile(profile, options = {}) {
     const activation = getCurrentActivationFor(profile)
     if (!activation) return false
-    const { syncCloud = true, ...persistenceOptions } = options
+    const { syncCloud = true, localIslandCheckpoint = false, ...persistenceOptions } = options
     if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
     const persisted = localPersistence.save(
       profile,
@@ -957,6 +957,11 @@ export function createLearnerProfileLifecycleAuthority({
     )
     return mapPersistenceResult(persisted, saved => {
       if (!saved || !getCurrentActivationFor(profile)) return false
+      if (!syncCloud && localIslandCheckpoint) {
+        cloudPersistence.markLocalIslandCheckpoint?.(profile, {
+          activation, isCurrent: () => getCurrentActivationFor(profile) === activation
+        })
+      }
       if (options.syncAnalytics !== false) analytics.profileSaved(profile, { activation })
       if (syncCloud) enqueueCloudSave(profile, activation)
       return true

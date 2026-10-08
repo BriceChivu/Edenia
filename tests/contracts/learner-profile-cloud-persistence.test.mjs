@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { preparePortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
 import {
   createLearnerProfileCloudPersistenceAdapter
 } from '../../src/integrations/learner-profile-cloud-persistence.js'
@@ -6678,3 +6679,66 @@ test(`an active stale save preserves newer queued progress (activation lost ${lo
   assert.deepEqual(record.pending.envelope.profile, { marker: 'newest-offline-copy' })
 })
 }
+
+
+test('exact local animal checkpoint survives refresh without backing up and cannot suppress other progress', async () => {
+  const cloudProfile = emptyPortableProfile({ tinySwordsIsland: { chickens: [[32, 32]] } })
+  let preparedAt = Date.parse('2026-10-09T00:00:00Z')
+  const prepare = profile => preparePortableLearnerProfileEnvelope(profile, {
+    now: () => new Date(preparedAt += 1000)
+  })
+  let cloudRevision = 4
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: JSON.stringify({
+    acceptedRevision: 4, generation: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+    pending: null, queued: null, version: 1
+  }) })
+  const options = { storage, prepareEnvelope: prepare, rpc: async () => ({ data: [{
+    created: false, envelope: prepare(cloudProfile), generation: 1,
+    profile_id: PROFILE_ID, revision: cloudRevision,
+    status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+  }], error: null }) }
+  const adapter = createAdapter(options)
+  const profile = structuredClone(cloudProfile)
+  let localRevision = 4
+  const local = () => ({ status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+    generation: 1, revision: localRevision, profile })
+  const resolve = target => target.resolve({ authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' }, localProfile: local(), purpose: 'resolve-signed-in-profile' })
+  await resolve(adapter)
+  const activation = { id: 'activation', ownerId: OWNER_ID, profileId: PROFILE_ID }
+  assert.equal(adapter.activate({ activation, generation: 1, revision: 4, profile, isCurrent: () => true }), true)
+  profile.tinySwordsIsland.chickens = [[32, 96]]
+  assert.equal(adapter.markLocalIslandCheckpoint(profile, { activation, isCurrent: () => true }), true)
+  const reloadedAdapter = createAdapter(options)
+  const checkpoint = await resolve(reloadedAdapter)
+  assert.equal(checkpoint.backupRequired, false)
+  assert.equal(checkpoint.profile, profile)
+  localRevision = 2
+  const delayedLocalIdentity = await resolve(reloadedAdapter)
+  assert.equal(delayedLocalIdentity.backupRequired, false)
+  assert.equal(delayedLocalIdentity.profile, profile)
+  localRevision = 4
+  const checkpointKey = SYNC_STORAGE_KEY + '_local_island_checkpoint'
+  const savedMarker = storage.getItem(checkpointKey)
+  for (const patch of [{ ownerId: SECOND_OWNER_ID }, { profileId: SECOND_PROFILE_ID },
+    { generation: 2 }, { revision: 3 }, { payloadSha256: 'bad-digest' }]) {
+    storage.setItem(checkpointKey, JSON.stringify({ ...JSON.parse(savedMarker), ...patch }))
+    assert.equal((await resolve(reloadedAdapter)).backupRequired, true)
+  }
+  storage.setItem(checkpointKey, '{broken')
+  assert.equal((await resolve(reloadedAdapter)).backupRequired, true)
+  storage.setItem(checkpointKey, savedMarker)
+  profile.config.weeklyGoalHours = 9
+  assert.equal(adapter.markLocalIslandCheckpoint(profile, { activation, isCurrent: () => true }), false)
+  assert.equal((await resolve(reloadedAdapter)).backupRequired, true)
+  profile.config.weeklyGoalHours = 4
+  assert.equal(adapter.markLocalIslandCheckpoint(profile, { activation, isCurrent: () => false }), false)
+  storage.setItem(DIRTY_STORAGE_KEY, JSON.stringify({ version: 1,
+    ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1 }))
+  assert.equal(adapter.markLocalIslandCheckpoint(profile, { activation, isCurrent: () => true }), false)
+  storage.removeItem(DIRTY_STORAGE_KEY)
+  cloudRevision = 5
+  const newer = await resolve(reloadedAdapter)
+  assert.equal(newer.backupRequired, false)
+  assert.deepEqual(newer.profile.tinySwordsIsland, cloudProfile.tinySwordsIsland)
+})

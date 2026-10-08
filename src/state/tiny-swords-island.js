@@ -25,7 +25,7 @@ export function createTinySwordsPersistence({ read, readDurable, save,
       const state = repository ? repository.readIslandState() : read() ? readDurable() : null
       return state ? Math.max(1, (state.cityProgress?.maxLevelIndex || 0) + 1) : null
     },
-    async save(layout, expected) {
+    async save(layout, expected, { syncCloud } = {}) {
       const repository = getCheckpointRepository()
       if (repository) {
         try {
@@ -43,7 +43,8 @@ export function createTinySwordsPersistence({ read, readDurable, save,
       try {
         state.tinySwordsIsland = copyTinySwordsIsland(layout)
         const persisted = await save(state, {
-          backup: false, syncAnalytics: false, pruneBackups: false
+          backup: false, syncAnalytics: false, pruneBackups: false, syncCloud,
+          localIslandCheckpoint: syncCloud === false
         })
         if (persisted && islandIdentity(read()) === islandIdentity(state)
           && islandIdentity(readDurable()) === islandIdentity(state)) return true
