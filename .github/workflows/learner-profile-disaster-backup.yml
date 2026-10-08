@@ -26,7 +26,7 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: 2.116.0
+          version: 2.120.0
 
       - name: Check database URL secret
         shell: bash
@@ -76,9 +76,10 @@ jobs:
 
           restore_project="$RUNNER_TEMP/edenia-restore-project"
           supabase init --workdir "$restore_project" > /dev/null
+          restore_project="$(cd "$restore_project" && pwd -P)"
           supabase start \
             --workdir "$restore_project" \
-            --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \
+            --exclude realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \
             > /dev/null 2>&1
 
       - name: Restore dump into isolated database
@@ -90,6 +91,7 @@ jobs:
           archive="${{ steps.dump.outputs.archive }}"
           restore_dir="$RUNNER_TEMP/edenia-database-restore"
           restore_project="$RUNNER_TEMP/edenia-restore-project"
+          restore_project="$(cd "$restore_project" && pwd -P)"
           mkdir -p "$restore_dir"
           tar -xzf "$archive" -C "$restore_dir"
           (
@@ -103,6 +105,15 @@ jobs:
                 | select(test("^postgres(?:ql)?://postgres:"))
                 | sub("://postgres:"; "://supabase_admin:")'
           )"
+          # Auth must apply its managed migrations, then stay stopped while real
+          # identities and sessions are loaded into the disposable database.
+          restore_auth_container="$(docker ps \
+            --filter "label=com.supabase.cli.workdir=$restore_project" \
+            --filter 'name=supabase_auth_' --format '{{.ID}}')"
+          [[ "$restore_auth_container" =~ ^[a-f0-9]+$ ]]
+          docker stop "$restore_auth_container" > /dev/null
+          test "$(psql "$restore_db_url" -At --variable ON_ERROR_STOP=1 \
+            --command "select to_regclass('auth.mfa_recovery_code_sets') is not null;")" = 't'
           psql "$restore_db_url" \
             --single-transaction \
             --variable ON_ERROR_STOP=1 \
