@@ -1,4 +1,6 @@
 export const EN_CORE = {
+  "authTrial.unavailable.title": "Sign-in trial unavailable",
+  "authTrial.unavailable.body": "This sign-in trial is currently paused. Your saved progress is preserved.",
   "islandAnnouncement.eyebrow": "A new chapter for Edenia",
   "islandAnnouncement.title": "You can now interact\nwith your island!",
   "islandAnnouncement.body": "Study to unlock new items. Plant trees, build homes, and make your island your own.",

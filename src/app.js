@@ -137,6 +137,7 @@ import {
 } from './integrations/youtube-parsing.js'
 import {
   getAccountFeaturesRollout,
+  getAuthTrialEnabled,
   getAccountlessProfileFinalCutoverAt,
   getEmergencyAccountlessRollbackEnabled,
   getFreePlusEnabled,
@@ -575,6 +576,7 @@ const {
   isSandbox: IS_SANDBOX,
   internalTestMode: INTERNAL_TEST_MODE,
   isTinySwordsTester: IS_TINY_SWORDS_TESTER,
+  isAuthTrial: IS_AUTH_TRIAL,
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
@@ -587,12 +589,13 @@ const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
 )
 const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
-  getAccountFeaturesRollout()
+  getAccountFeaturesRollout(),
+  getAuthTrialEnabled()
 )
 const EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED =
-  getEmergencyAccountlessRollbackEnabled()
+  !IS_AUTH_TRIAL && getEmergencyAccountlessRollbackEnabled()
 const ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT =
-  getAccountlessProfileFinalCutoverAt()
+  IS_AUTH_TRIAL ? null : getAccountlessProfileFinalCutoverAt()
 const ACCOUNT_ENTRY_REQUIRED = ACCOUNT_FEATURES_ENABLED
   && !EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED
 const GOOGLE_IDENTITY_CLIENT_ID = getGoogleIdentityClientId()
@@ -606,9 +609,9 @@ const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled() || INDEXED_DB_PR
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
   INDEXED_DB_PROFILE_ENABLED || (INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled())
 const LEGACY_PROGRESS_MIGRATION_ENABLED =
-  !IS_TINY_SWORDS_TESTER && getLegacyProgressMigrationEnabled()
+  !IS_AUTH_TRIAL && !IS_TINY_SWORDS_TESTER && getLegacyProgressMigrationEnabled()
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
-  getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
+  (IS_AUTH_TRIAL || getLearnerProfileLifecycleEnabled()) && ACCOUNT_FEATURES_ENABLED
 const LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE =
   deriveLearnerProfileAccessVisualTest(window.location)
 let learnerProfileAccessVisualTestActive =
@@ -689,7 +692,9 @@ const readImportedState = createImportedStateReader({
   createDefaultState: defaultState,
   removeLegacyVideoWatchReminderState
 })
-const STATE_BACKUP_DATABASE = IS_TINY_SWORDS_TESTER && !IS_SANDBOX
+const STATE_BACKUP_DATABASE = IS_AUTH_TRIAL && !IS_SANDBOX
+  ? `${STATE_BACKUP_DATABASE_NAME}_auth_trial_v1`
+  : IS_TINY_SWORDS_TESTER && !IS_SANDBOX
   ? `${STATE_BACKUP_DATABASE_NAME}_internal_test_2`
   : STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
@@ -18087,7 +18092,7 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 const islandAnnouncement = createIslandAnnouncement({
   root: document,
-  enabled: !IS_SANDBOX && !IS_TINY_SWORDS_TESTER && window.EDENIA_CONFIG?.tinySwordsPublicEnabled === true,
+  enabled: !IS_SANDBOX && !IS_AUTH_TRIAL && !IS_TINY_SWORDS_TESTER && window.EDENIA_CONFIG?.tinySwordsPublicEnabled === true,
   read: loadState,
   save: saveState
 })
@@ -18363,7 +18368,11 @@ async function initializeBrowserStorage() {
 }
 stateBackupStorageInitialization = initializeBrowserStorage()
   .finally(() => { stateBackupStorageReady = true })
-document.addEventListener('DOMContentLoaded', init)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init)
+} else {
+  init()
+}
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
 window.addEventListener('scroll', closeVideoOrganizationMenuOnViewportChange, {
@@ -18442,6 +18451,11 @@ window.edeniaTranslate = t
 if (window.edeniaTinySwordsEnabled === true) {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
+    readAccessIdentity: () => {
+      const activation = learnerProfileLifecycleAuthority?.getState()?.activation
+      return activation ? JSON.stringify([activation.ownerId, activation.profileId,
+        activation.generation, activation.id]) : null
+    },
     readDurable: () => loadPersistedState({ persistCleanup: false }),
     save: saveState,
     // Keep signed-in lifecycle/cloud persistence on its existing fenced path.

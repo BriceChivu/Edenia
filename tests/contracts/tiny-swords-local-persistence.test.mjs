@@ -4,14 +4,16 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
-function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true } = {}) {
+function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false } = {}) {
   const handlers = {}; const sent = []; const frames = []; const storage = new Map()
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
+  if (inactive) state = null
+  let access = 'owner-a'
   let durable = structuredClone(state); let writes = 0
   let finishPending
   const persistence = createTinySwordsPersistence({
-    read: () => state, readDurable: () => structuredClone(durable),
+    read: () => state, readAccessIdentity: () => access, readDurable: () => structuredClone(durable),
     save(next, options) {
       assert.equal(options.backup, false); assert.equal(options.syncAnalytics, false)
       if (denied) return false
@@ -20,7 +22,7 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
       return true
     }
   })
-  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},append(){} }
+  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},remove(){this.removed=true},append(){} }
   const context = {
     location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},
     URL,
@@ -47,6 +49,8 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
       state.cityProgress.maxLevelIndex = index
       if (persisted) { durable = structuredClone(state); handlers['edenia-profile-persisted']({detail:{}}) }
     },
+    lock(){state=null;durable=null;handlers['edenia-profile-access']()},
+    activate(next,identity){state=next;durable=structuredClone(next);access=identity;handlers['edenia-profile-access']()},
     finishPending(){finishPending()},get writes(){return writes},get durable(){return durable},replace(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{replacement:true}})} }
 }
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
@@ -221,4 +225,35 @@ test('tester profiles never inherit or retire a developer island', async () => {
   assert.equal(h.sent.findLast(message => message.type === 'edenia-study-level').layout, null)
   await h.emit({ type: 'edenia-tiny-layout', session: 1, id: 1, layout: island })
   assert.equal(h.storage.get('edenia_tiny_swords_xp_layout_v1'), raw)
+})
+
+
+test('inactive ownership never mounts a game and a replaced owner gets a new session for the same island', async () => {
+  const h = harness({inactive:true})
+  assert.equal(h.frames.length,0)
+  h.activate({cityProgress:{maxLevelIndex:2},tinySwordsIsland:island},'owner-a')
+  await h.ready()
+  const retired = h.frames[0]
+  h.lock()
+  assert.equal(retired.removed,true)
+  await h.handlers.message({origin:'http://localhost:8037',source:retired.contentWindow,data:{type:'edenia-tiny-layout',session:1,id:1,layout:island}})
+  assert.equal(h.writes,0)
+  h.activate({cityProgress:{maxLevelIndex:2},tinySwordsIsland:island},'owner-b')
+  assert.equal(h.frames.length,2)
+  await h.ready()
+  assert.ok(h.sent.findLast(x=>x.type==='edenia-study-level').session>1)
+})
+
+test('ownership loss fences a delayed acknowledgment and reopening is not blocked by the retired save', async () => {
+  const h=harness({island,delayed:true})
+  await h.ready()
+  const retired=h.frames[0]
+  const saving=h.emit({type:'edenia-tiny-layout',session:1,id:1,layout:island})
+  h.lock()
+  h.activate({cityProgress:{maxLevelIndex:2},tinySwordsIsland:island},'owner-b')
+  h.finishPending()
+  await saving
+  assert.equal(retired.removed,true)
+  assert.equal(h.frames.length,2)
+  assert.equal(h.sent.find(x=>x.type==='edenia-tiny-saved').persisted,false)
 })

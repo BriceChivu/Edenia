@@ -16,7 +16,7 @@ const suites = [
   'learner_profile_recovery', 'learner_profile_import', 'learner_profile_start_over',
   'learner_profile_retention', 'auth_operations', 'auth_monitoring_freshness',
   'account_owner_policies', 'legacy_progress_transfer_relay',
-  'current-experience-owned-profile', 'stale-generation-island-conflict'
+  'current-experience-owned-profile', 'stale-generation-island-conflict', 'auth-trial-admission'
 ]
 if (process.argv.length !== 2) throw new Error('This local-only rehearsal accepts no target arguments')
 const root = join(repository, '.cache', 'canary-database')
@@ -105,6 +105,8 @@ try {
     if (!tests || !text.includes('Result: PASS') || /(?:not ok|# SKIP|# TODO)/iu.test(text)) throw new Error('Missing or skipped required local database assertions')
     results.push({ suite, tests: Number(tests[1]), result: 'pass', sourceSha256: createHash('sha256').update(await readFile(file)).digest('hex') })
   }
+  await run('supabase', ['db', 'advisors', '--local', '--type', 'security', '--workdir', workdir])
+  await run('supabase', ['db', 'lint', '--local', '--schema', 'private,learner_profile_rpc', '--fail-on', 'error', '--workdir', workdir])
   const localQuery = sql => run('docker', ['exec', container, 'psql', '-XAt', '--username', 'postgres', '--dbname', 'postgres', '--set', 'ON_ERROR_STOP=1', '-c', sql])
   profileVerifier = await rehearseCanaryProfileVerifier(localQuery, async owner => {
     containment = await rehearseCanaryContainment({ workdir, project, query: localQuery, owner })

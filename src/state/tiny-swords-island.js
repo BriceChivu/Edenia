@@ -13,9 +13,10 @@ export function islandIdentity(state) {
 }
 
 export function createTinySwordsPersistence({ read, readDurable, save,
-  getCheckpointRepository = () => null, onCheckpoint = () => {} }) {
+  getCheckpointRepository = () => null, onCheckpoint = () => {}, readAccessIdentity = () => null }) {
   return {
     read,
+    readAccessIdentity,
     readIsland: () => getCheckpointRepository()?.readIslandState() ?? read(),
     // Active state can contain an in-flight claim. Publish only the durable
     // revision, using the small IndexedDB head when available.

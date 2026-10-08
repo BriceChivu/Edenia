@@ -115,9 +115,11 @@ export function getAccountAuthReturnUrl(locationLike) {
     && url.pathname === '/'
   ) {
     return ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION
+      + (url.searchParams.get('internal_test') === '1' ? '&internal_test=1' : '')
   }
   if (url.origin === 'http://localhost:8000' && url.pathname === '/') {
     return ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
+      + (url.searchParams.get('internal_test') === '1' ? '&internal_test=1' : '')
   }
   return null
 }

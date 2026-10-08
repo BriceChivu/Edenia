@@ -111,4 +111,6 @@ const suite = await readFile(new URL('../tests/fixtures/current-experience-owned
 await writeFile(output, suite.replace('-- CLIENT_ENVELOPE_INPUTS', () => inputs))
 const handoffSuite = await readFile(new URL('../tests/fixtures/stale-generation-island-conflict.sql', import.meta.url), 'utf8')
 await writeFile(new URL('../.cache/stale-generation-island-conflict.test.sql', import.meta.url), handoffSuite.replace('-- CLIENT_ENVELOPE_INPUTS', () => inputs))
+const trialSuite = await readFile(new URL('../tests/fixtures/auth-trial-admission.sql', import.meta.url), 'utf8')
+await writeFile(new URL('../.cache/auth-trial-admission.test.sql', import.meta.url), trialSuite.replace('-- CLIENT_ENVELOPE_INPUTS', () => inputs))
 console.log(`Generated ${cases.size} client envelope inputs for local SQL tests`)

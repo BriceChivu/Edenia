@@ -1,6 +1,8 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANT_LOCALIZED = {
+  "authTrial.unavailable.title": "登入測試暫不可用",
+  "authTrial.unavailable.body": "此登入測試已暫停。你儲存的進度仍會保留。",
   "islandAnnouncement.eyebrow": "Edenia 的新篇章",
   "islandAnnouncement.title": "現在，你可以和自己的島嶼互動了！",
   "islandAnnouncement.body": "透過學習解鎖新物品。種樹、蓋房子，打造專屬於你的島嶼。",

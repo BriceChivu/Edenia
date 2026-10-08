@@ -2,7 +2,7 @@
 const tinySwordsReleaseUrl = new URL('.', document.currentScript.src)
 if (window.edeniaTinySwordsEnabled === true) {
   document.documentElement.classList.add('tiny-swords-integrated')
-  window.addEventListener('DOMContentLoaded', () => {
+  const initializeIsland = () => {
     const surface = document.getElementById('tinySwordsSurface')
     const loadStatus = document.getElementById('tinySwordsLoadStatus')
     const loadMessage = document.getElementById('tinySwordsLoadMessage')
@@ -101,6 +101,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     let session = 0
     let gameLevelCount = null
     let expected = 'absent'
+    let expectedAccess = null
     let restored = false
     let saving = false
     let replacementPending = false
@@ -109,6 +110,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     let reportedVisibility = null
     const layoutKey = 'edenia_tiny_swords_xp_layout_v1'
     const persistence = () => window.edeniaTinySwordsPersistence
+    const accessIdentity = () => persistence()?.readAccessIdentity?.() ?? null
     const readIsland = () => {
       const adapter = persistence()
       return adapter?.readIsland ? adapter.readIsland() : adapter?.read()
@@ -129,7 +131,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       const visible = intersects && !blocked && !failed && document.visibilityState !== 'hidden'
       if (visible === reportedVisibility) return
       reportedVisibility = visible
-      frame.contentWindow?.postMessage({ type: 'edenia-host-visibility', session, visible }, location.origin)
+      frame?.contentWindow?.postMessage({ type: 'edenia-host-visibility', session, visible }, location.origin)
     }
     const visibilityObserver = typeof IntersectionObserver === 'function'
       ? new IntersectionObserver(entries => {
@@ -163,6 +165,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       intersects = true
       reportedVisibility = null
       expected = identity(readIsland())
+      expectedAccess = accessIdentity()
       reportFailure('')
       controls.hidden = true
       controls.classList.remove('tiny-swords-editing')
@@ -212,19 +215,37 @@ if (window.edeniaTinySwordsEnabled === true) {
       }
       // Godot restores the saved game level itself. Only claimed study progress
       // is a progression floor; test levels must not turn into study claims.
-      frame.contentWindow?.postMessage({ type: 'edenia-study-level', session, level, layout: saved ?? null }, location.origin)
+      frame?.contentWindow?.postMessage({ type: 'edenia-study-level', session, level, layout: saved ?? null }, location.origin)
       sendVisibility()
     }
+    function disposeFrame() {
+      clearTimeout(startupTimer)
+      clearInterval(progressTimer)
+      if (frame) {
+        cameraObserver.unobserve(frame)
+        visibilityObserver?.unobserve(frame)
+        frame.remove()
+      }
+      frame = null
+      session += 1
+      restored = false
+      preparing = false
+      controls.hidden = true
+    }
     function checkReplacement(force = false) {
-      if (saving) { replacementPending ||= force; return }
-      if (force || identity(readIsland()) !== expected) mountFrame()
+      // Ownership loss retires the iframe immediately, including while a save
+      // is awaiting acknowledgment. A new owner gets a fresh restore session.
+      if (!readIsland()) { disposeFrame(); return }
+      if (frame && accessIdentity() !== expectedAccess) disposeFrame()
+      if (saving) { replacementPending ||= force || !frame; return }
+      if (!frame || force || identity(readIsland()) !== expected) mountFrame()
       else sendStudyLevel()
     }
     window.addEventListener('edenia-profile-persisted', event => checkReplacement(event.detail?.replacement))
     window.addEventListener('edenia-profile-access', () => checkReplacement())
     window.addEventListener('storage', () => checkReplacement())
     window.addEventListener('message', async event => {
-      if (event.origin !== location.origin || event.source !== frame.contentWindow) return
+      if (event.origin !== location.origin || (!frame || event.source !== frame.contentWindow)) return
       const data = event.data
       if (data?.type === 'edenia-game-startup-failed') { failStartup(); return }
       if (failed && data?.type !== 'edenia-tiny-layout') return
@@ -277,6 +298,8 @@ if (window.edeniaTinySwordsEnabled === true) {
           saving = true
           try { persisted = await persistence().save(data.layout, expected) } catch {}
           saving = false
+          persisted = persisted && target === frame && targetSession === session
+            && Boolean(readIsland()) && accessIdentity() === expectedAccess
           if (persisted) {
             expected = identity({ tinySwordsIsland: data.layout })
             if (legacy) { try { localStorage.removeItem(layoutKey) } catch {} }
@@ -284,7 +307,7 @@ if (window.edeniaTinySwordsEnabled === true) {
           }
         }
         target.contentWindow?.postMessage({ type: 'edenia-tiny-saved', session: targetSession, id: data.id, persisted }, location.origin)
-        if (target !== frame) return
+        if (target !== frame) { checkReplacement(); return }
         reportFailure(persisted ? '' : 'island.saveFailed')
         if (replacementPending) {
           replacementPending = false
@@ -298,9 +321,9 @@ if (window.edeniaTinySwordsEnabled === true) {
     cursorImage.src = new URL('Cursor_02.png', tinySwordsReleaseUrl).href
     let cursorSize = 0
     function matchCameraCursor() {
-      const viewport = frame.contentWindow?.edeniaCamera
+      const viewport = frame?.contentWindow?.edeniaCamera
       if (!cursorImage.complete || !cursorImage.naturalWidth || !viewport?.width) return
-      const scale = frame.getBoundingClientRect().width / viewport.width
+      const scale = frame?.getBoundingClientRect().width / viewport.width
       const size = Math.max(1, Math.round(cursorImage.naturalWidth * scale))
       if (size === cursorSize) return
       cursorSize = size
@@ -317,10 +340,15 @@ if (window.edeniaTinySwordsEnabled === true) {
     for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
       button.addEventListener('click', event => {
         if (blocked || !restored || failed) return
-        frame.contentWindow?.postMessage({ type: 'edenia-camera', command: button.dataset.cityZoomAction }, location.origin)
+        frame?.contentWindow?.postMessage({ type: 'edenia-camera', command: button.dataset.cityZoomAction }, location.origin)
       })
     }
     surface.append(status)
-    mountFrame()
-  }, { once: true })
+    checkReplacement()
+  }
+  if (document.readyState === 'loading' || !document.readyState) {
+    window.addEventListener('DOMContentLoaded', initializeIsland, { once: true })
+  } else {
+    initializeIsland()
+  }
 }

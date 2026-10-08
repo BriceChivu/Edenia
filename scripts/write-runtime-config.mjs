@@ -56,6 +56,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_PLUS_CHECKOUT_ENABLED,
     'EDENIA_PLUS_CHECKOUT_ENABLED'
   ),
+  authTrialEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_AUTH_TRIAL_ENABLED,
+    'EDENIA_AUTH_TRIAL_ENABLED'
+  ),
   accountFeaturesRollout: parseRuntimeConfigRollout(
     process.env.EDENIA_ACCOUNT_FEATURES_ROLLOUT,
     'EDENIA_ACCOUNT_FEATURES_ROLLOUT'

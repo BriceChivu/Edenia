@@ -1,6 +1,8 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "authTrial.unavailable.title": "Prueba de inicio de sesión no disponible",
+  "authTrial.unavailable.body": "Esta prueba está en pausa. Tu progreso guardado se conserva.",
   "islandAnnouncement.eyebrow": "Un nuevo capítulo para Edenia",
   "islandAnnouncement.title": "¡Ya puedes interactuar con tu isla!",
   "islandAnnouncement.body": "Estudia para desbloquear nuevos objetos. Planta árboles, construye casas y dale tu toque personal a tu isla.",

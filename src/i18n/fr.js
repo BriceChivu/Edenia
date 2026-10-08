@@ -1,6 +1,8 @@
 import { EN_CORE } from './en.js'
 
 export const FR_LOCALIZED = {
+  "authTrial.unavailable.title": "Essai de connexion indisponible",
+  "authTrial.unavailable.body": "Cet essai de connexion est en pause. Votre progression enregistrée est conservée.",
   "islandAnnouncement.eyebrow": "Un nouveau chapitre pour Edenia",
   "islandAnnouncement.title": "Vous pouvez maintenant interagir avec votre île !",
   "islandAnnouncement.body": "Étudiez pour débloquer de nouveaux objets. Plantez des arbres, construisez des maisons et créez une île à votre image.",

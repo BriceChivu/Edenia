@@ -24,13 +24,13 @@ const retained = page => page.evaluate(() => ({
   cookies: document.cookie.split('; ').filter(cookie => !cookie.startsWith('edenia_config_internal_test_2=')).sort()
 }))
 
-test('ordinary, mode 1, unsupported values and sandbox never request game runtime assets', async ({ page }) => {
+test('ordinary, unsupported values and sandbox never request game runtime assets', async ({ page }) => {
   await config(page)
   const gameRequests = []
   page.on('request', request => {
     if (request.url().includes('/tiny-swords-game/')) gameRequests.push(request.url())
   })
-  for (const query of ['', '?internal_test=1', '?internal_test=3', '?internal_test=02', '?internal_test=true']) {
+  for (const query of ['', '?internal_test=3', '?internal_test=02', '?internal_test=true']) {
     await page.goto(`./${query}`)
     await waitForApp(page)
     await expect(page.locator('#cityMilestoneImage')).toHaveCount(1)
@@ -146,7 +146,7 @@ for (const indexedDb of [false, true]) {
       expect(names).toContain('edenia_v1_internal_test_2_profiles_indexed_db_v1')
       expect(names).toContain('edenia_state_backups_v1_internal_test_2')
     }
-    for (const [query, title] of [['', 'Source lesson'], ['?internal_test=1', 'Source lesson']]) {
+    for (const [query, title] of [['', 'Source lesson']]) {
       await page.goto(`./${query}`)
       await expect(page.locator('#mainApp')).toBeVisible()
       expect(await page.evaluate(() => loadState().videos.lesson.title)).toBe(title)

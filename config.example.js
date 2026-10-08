@@ -6,6 +6,9 @@ window.EDENIA_CONFIG = {
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
   accountFeaturesRollout: 'off',
+  // Fresh internal_test=1: pairs mandatory entry with profile lifecycle.
+  // Backend tester-trial admission is separately required.
+  authTrialEnabled: false,
   accountlessProfileFinalCutoverAt: '',
   emergencyAccountlessRollbackEnabled: false,
   googleSignInMode: 'id_token',

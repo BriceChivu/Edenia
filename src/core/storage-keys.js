@@ -1,11 +1,13 @@
 const NORMAL_STORAGE_KEY = 'edenia_v1'
 
-export function deriveStorageKeys({ isSandbox, isTinySwordsTester }) {
+export function deriveStorageKeys({ isSandbox, isTinySwordsTester, isAuthTrial }) {
   const storageKey = isSandbox
     ? 'edenia_v1_sandbox'
-    : isTinySwordsTester
-      ? 'edenia_v1_internal_test_2'
-      : NORMAL_STORAGE_KEY
+    : isAuthTrial
+      ? 'edenia_v1_auth_trial_v1'
+      : isTinySwordsTester
+        ? 'edenia_v1_internal_test_2'
+        : NORMAL_STORAGE_KEY
   const accountAuthStorageKey = `${storageKey}_plus_auth_v1`
 
   return {
@@ -33,13 +35,17 @@ export function deriveStorageKeys({ isSandbox, isTinySwordsTester }) {
     plusEntitlementCacheKey: `${storageKey}_plus_entitlement_cache_v1`,
     sandboxWalkthroughAfterResetKey:
       `${storageKey}_walkthrough_after_reset`,
-    onboardingNoticeKey: !isSandbox && isTinySwordsTester
-      ? 'edenia_onboarding_notice_internal_test_2'
-      : 'edenia_onboarding_notice',
+    onboardingNoticeKey: !isSandbox && isAuthTrial
+      ? 'edenia_onboarding_notice_auth_trial_v1'
+      : !isSandbox && isTinySwordsTester
+        ? 'edenia_onboarding_notice_internal_test_2'
+        : 'edenia_onboarding_notice',
     configCookieKey: isSandbox
       ? 'edenia_config_sandbox'
-      : isTinySwordsTester
-        ? 'edenia_config_internal_test_2'
-        : 'edenia_config'
+      : isAuthTrial
+        ? 'edenia_config_auth_trial_v1'
+        : isTinySwordsTester
+          ? 'edenia_config_internal_test_2'
+          : 'edenia_config'
   }
 }
