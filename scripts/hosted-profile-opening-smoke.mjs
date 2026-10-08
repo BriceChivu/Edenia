@@ -1,6 +1,13 @@
 import { createCanaryOperationGuard } from './canary-operation-guard.mjs'
 
 export const OPENING_URL = 'https://www.edenia.study/'
+export function openingTarget(applicationOrigin, surface = 'public') {
+  const origin = new URL(applicationOrigin)
+  if (origin.origin !== applicationOrigin || !['https:', 'http:'].includes(origin.protocol)
+    || !['public', 'trial'].includes(surface)) throw new Error('Invalid opening surface')
+  return { url: applicationOrigin + (surface === 'trial' ? '/?internal_test=1' : '/'),
+    storagePrefix: surface === 'trial' ? 'edenia_v1_auth_trial_v1' : 'edenia_v1' }
+}
 const PHASES = new Set(['activation', 'reload', 'injected-failure', 'retry'])
 // These application reads do not choose, restore, or commit learner state.
 const READS = new Set(['read_my_latest_learner_profile_reset'])
@@ -76,9 +83,10 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
 // verify the same owner's valid head using canary-profile-verifier.mjs.
 export async function installOpeningGuard(context, {
   serviceWorkers, providerOrigin, applicationOrigin = 'https://www.edenia.study',
-  synthetic = null, canDispatch = () => false, expectedRuntimeHash = null, assetIdentity = null, onResolutionComplete = () => {}
+  surface = 'public', synthetic = null, canDispatch = () => false, expectedRuntimeHash = null, assetIdentity = null, onResolutionComplete = () => {}
 }) {
   if (serviceWorkers !== 'block') throw new Error('Opening requires blocked service workers')
+  const targetSurface = openingTarget(applicationOrigin, surface)
   const policy = createOpeningPolicy({ providerOrigin })
   let stopped = false
   let injectFailure = false
@@ -117,6 +125,9 @@ export async function installOpeningGuard(context, {
         return await route.fulfill({ response })
       }
       if (target.origin === applicationOrigin && target.pathname === '/config.local.js' && expectedRuntimeHash) {
+        if (request.method() !== 'GET' || (assetIdentity && target.search !== '?v=' + assetIdentity.version)) {
+          policy.fail(); return await route.abort('blockedbyclient')
+        }
         const response = await route.fetch({ maxRedirects: 0, maxRetries: 0 })
         const body = await response.body()
         const { createHash } = await import('node:crypto')
@@ -125,19 +136,24 @@ export async function installOpeningGuard(context, {
         }
         return await route.fulfill({ response, body })
       }
-      if (target.origin === applicationOrigin && target.pathname === '/app.js' && assetIdentity) {
+      if (target.origin === applicationOrigin && assetIdentity && (target.pathname === '/app.js'
+        || ['/auth-trial-entry.js', '/site-entry.js'].includes(target.pathname) && (surface === 'trial' || assetIdentity.entryHashes))) {
+        const expectedHash = target.pathname === '/app.js' ? assetIdentity.sha256 : assetIdentity.entryHashes?.[target.pathname]
+        if (request.method() !== 'GET' || target.search !== '?v=' + assetIdentity.version || !expectedHash) {
+          policy.fail(); return await route.abort('blockedbyclient')
+        }
         const response = await route.fetch({ maxRedirects: 0, maxRetries: 0 })
         const body = await response.body()
         const { createHash } = await import('node:crypto')
-        if (target.search !== '?v=' + assetIdentity.version || response.status() !== 200
-          || createHash('sha256').update(body).digest('hex') !== assetIdentity.sha256) {
+        if (response.status() !== 200 || createHash('sha256').update(body).digest('hex') !== expectedHash) {
           policy.fail(); return await route.abort('blockedbyclient')
         }
         return await route.fulfill({ response, body })
       }
-      // Only static application reads; no public root document navigation.
+      // Only the selected host document and static reads. Game iframe documents
+      // stay blocked during this bounded profile-opening procedure.
       if (request.method() === 'GET' && target.origin === applicationOrigin
-        && (request.resourceType() !== 'document' || target.href === applicationOrigin + '/')) {
+        && (request.resourceType() !== 'document' || target.href === targetSurface.url)) {
         return await route.continue()
       }
       if (target.pathname.startsWith('/rest/v1/') || target.pathname.startsWith('/auth/v1/')) policy.fail()
@@ -153,9 +169,12 @@ export async function installOpeningGuard(context, {
 }
 
 export async function runOpeningCase({ browser, applicationOrigin, providerOrigin,
-  synthetic, session, bookkeeping, canDispatch, verifyBefore, verifyAfter, testRuntime, expectedRuntimeHash, assetIdentity, onResolutionComplete }) {
+  synthetic, session, bookkeeping, surface = 'public', canDispatch, verifyBefore, verifyAfter, testRuntime, expectedRuntimeHash, assetIdentity, onResolutionComplete }) {
   if (applicationOrigin === 'https://www.edenia.study' && !/^[a-f0-9]{64}$/u.test(expectedRuntimeHash || '')) throw new Error('Hosted runtime hash is required')
-  if (applicationOrigin === 'https://www.edenia.study' && (!/^[a-f0-9]{12}$/u.test(assetIdentity?.version || '') || !/^[a-f0-9]{64}$/u.test(assetIdentity?.sha256 || ''))) throw new Error('Hosted asset identity is required')
+  const targetSurface = openingTarget(applicationOrigin, surface)
+  if (applicationOrigin === 'https://www.edenia.study' && (!/^[a-f0-9]{12}(?:-p[01]-g[01])?$/u.test(assetIdentity?.version || '') || !/^[a-f0-9]{64}$/u.test(assetIdentity?.sha256 || ''))) throw new Error('Hosted asset identity is required')
+  if (applicationOrigin === 'https://www.edenia.study' && surface === 'trial'
+    && ['/site-entry.js', '/auth-trial-entry.js'].some(path => !/^[a-f0-9]{64}$/u.test(assetIdentity?.entryHashes?.[path] || ''))) throw new Error('Hosted trial entry identities are required')
   if (!['clean', 'malformed', 'stale', 'retry'].includes(bookkeeping)) throw new Error('Unknown opening case')
   if (!synthetic && (typeof verifyBefore !== 'function' || typeof verifyAfter !== 'function')) throw new Error('Live opening requires private invariant verifiers')
   if (testRuntime && (!synthetic || !['localhost', '127.0.0.1'].includes(new URL(applicationOrigin).hostname))) throw new Error('Runtime fixture is local-only')
@@ -178,17 +197,17 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
     }
     if (bookkeeping === 'stale' && (!Number.isSafeInteger(identity?.revision) || identity.revision < 2)) throw new Error('No older same-generation revision is available for this fixture')
     guard = await installOpeningGuard(context, { ...contextOptions, applicationOrigin,
-      providerOrigin, synthetic, canDispatch, expectedRuntimeHash, assetIdentity, onResolutionComplete })
+      providerOrigin, surface, synthetic, canDispatch, expectedRuntimeHash, assetIdentity, onResolutionComplete })
     if (testRuntime) await context.route('**/config.local.js*', route => route.fulfill({
       contentType: 'text/javascript', body: 'window.EDENIA_CONFIG = ' + JSON.stringify(testRuntime)
     }))
-    await context.addInitScript(({ session, bookkeeping, identity, applicationOrigin }) => {
-      if (location.origin !== applicationOrigin || location.search !== '') return
+    await context.addInitScript(({ session, bookkeeping, identity, targetSurface }) => {
+      if (location.href !== targetSurface.url) return
       if (sessionStorage.getItem('edenia-opening-smoke-seeded')) return
       sessionStorage.setItem('edenia-opening-smoke-seeded', '1')
       // This new context owns no pre-existing learner data. Never clear a user profile.
-      localStorage.setItem('edenia_v1_plus_auth_v1', JSON.stringify(session))
-      const key = 'edenia_v1_learner_profile_sync_v1'
+      localStorage.setItem(targetSurface.storagePrefix + '_plus_auth_v1', JSON.stringify(session))
+      const key = targetSurface.storagePrefix + '_learner_profile_sync_v1'
       if (bookkeeping === 'malformed') {
         localStorage.setItem(key, '{synthetic-malformed-sync')
         localStorage.setItem(key + '_import_v1', '{synthetic-malformed-import')
@@ -196,7 +215,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
       if (bookkeeping === 'stale') localStorage.setItem(key, JSON.stringify({version:1,
         ownerId:session.user.id,profileId:identity.profile_id,generation:identity.generation,
         acceptedRevision:identity.revision - 1,pending:null,queued:null}))
-    }, { session: synthetic?.session || session, bookkeeping, identity, applicationOrigin })
+    }, { session: synthetic?.session || session, bookkeeping, identity, targetSurface })
     const page = await context.newPage()
     page.setDefaultTimeout(15000)
     const startPhase = async name => {
@@ -218,7 +237,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
     if (bookkeeping === 'retry') {
       await startPhase('injected-failure')
       guard.injectTransportFailure()
-      await page.goto(applicationOrigin + '/', { waitUntil: 'domcontentloaded' })
+      await page.goto(targetSurface.url, { waitUntil: 'domcontentloaded' })
       await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'waiting-cloud')
       await finishPhase()
       await startPhase('retry')
@@ -227,7 +246,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
       await finishPhase()
     } else {
       await startPhase('activation')
-      await page.goto(applicationOrigin + '/', { waitUntil: 'domcontentloaded' })
+      await page.goto(targetSurface.url, { waitUntil: 'domcontentloaded' })
       await assertActive()
       await finishPhase()
     }
@@ -249,7 +268,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
   }
   // No exception text, browser traces, rendered content, auth, URLs or envelopes
   // enter this result. Source evidence is a separate private reviewed artifact.
-  return { complete: !failed && cleanup, synthetic: Boolean(synthetic), bookkeeping,
+  return { complete: !failed && cleanup, synthetic: Boolean(synthetic), surface, bookkeeping,
     phases, cleanup, headUnchanged: unchanged }
 }
 
@@ -266,8 +285,9 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   const { chromium } = await import('@playwright/test')
   const { linkedContainmentOperator, READ_GATE_SQL } = await import('./canary-containment-operator.mjs')
   const [mode, candidate] = process.argv.slice(2)
-  if (mode !== '--synthetic' || !/^[a-f0-9]{40}$/u.test(candidate || '') || process.argv.length !== 4) {
-    throw new Error('Usage: node scripts/hosted-profile-opening-smoke.mjs --synthetic REVIEWED_DEPLOYED_SHA')
+  const surface = mode === '--synthetic-trial' ? 'trial' : 'public'
+  if (!['--synthetic', '--synthetic-trial'].includes(mode) || !/^[a-f0-9]{40}$/u.test(candidate || '') || process.argv.length !== 4) {
+    throw new Error('Usage: node scripts/hosted-profile-opening-smoke.mjs --synthetic|--synthetic-trial REVIEWED_DEPLOYED_SHA')
   }
   const workdir = process.env.EDENIA_CANARY_OPERATOR_WORKDIR
   if (!workdir) throw new Error('Approved linked operator workdir is required')
@@ -286,17 +306,24 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
     const match = runtime.match(/^window\.EDENIA_CONFIG\s*=\s*([\s\S]*?)\s*;?\s*$/u)
     const config = match ? JSON.parse(match[1]) : null
     if (release.deployedCommit !== candidate || release.runtimeConfigSha256 !== hash
-      || config?.accountFeaturesRollout !== 'public' || config?.learnerProfileLifecycleEnabled !== true
+      || (surface === 'trial' ? config?.authTrialEnabled !== true
+        : config?.accountFeaturesRollout !== 'public' || config?.learnerProfileLifecycleEnabled !== true)
       || new URL(config.supabaseUrl).hostname !== projectRef + '.supabase.co') throw new Error('Deployed opening identity mismatch')
-    if (release.assetVersion !== candidate.slice(0, 12)) throw new Error('Asset version mismatch')
+    if (!new RegExp('^' + candidate.slice(0, 12) + '(?:-p[01]-g[01])?$').test(release.assetVersion)) throw new Error('Asset version mismatch')
     const asset = await fetch(base + '/app.js?v=' + release.assetVersion)
     if (!asset.ok) throw new Error('Asset missing')
     const assetIdentity = { version: release.assetVersion, sha256: createHash('sha256').update(Buffer.from(await asset.arrayBuffer())).digest('hex') }
+    assetIdentity.entryHashes = {}
+    for (const path of surface === 'trial' ? ['/site-entry.js', '/auth-trial-entry.js'] : ['/site-entry.js']) {
+      const entry = await fetch(base + path + '?v=' + release.assetVersion)
+      if (!entry.ok) throw new Error('Entry asset missing')
+      assetIdentity.entryHashes[path] = createHash('sha256').update(Buffer.from(await entry.arrayBuffer())).digest('hex')
+    }
     return { assetIdentity, hash, providerOrigin: new URL(config.supabaseUrl).origin }
   }
   await verifyGate()
   const deployment = await readDeployment()
-  const synthetic = JSON.parse(await readFile(new URL('../tests/fixtures/learner-profile/profile-ready-smoke.json', import.meta.url), 'utf8'))
+  const synthetic = JSON.parse(await readFile(new URL(surface === 'trial' ? '../tests/fixtures/learner-profile/profile-ready-trial-smoke.json' : '../tests/fixtures/learner-profile/profile-ready-smoke.json', import.meta.url), 'utf8'))
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   const results = []
   const sources = []
@@ -305,7 +332,7 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
     for (const bookkeeping of ['clean', 'malformed', 'stale', 'retry']) {
       const startedUtc = new Date().toISOString()
       const result = await runOpeningCase({ browser, applicationOrigin: 'https://www.edenia.study',
-        providerOrigin: deployment.providerOrigin, synthetic, bookkeeping, expectedRuntimeHash: deployment.hash, assetIdentity: deployment.assetIdentity })
+        providerOrigin: deployment.providerOrigin, surface, synthetic, bookkeeping, expectedRuntimeHash: deployment.hash, assetIdentity: deployment.assetIdentity })
       const finishedUtc = new Date().toISOString()
       results.push(result)
       sources.push({ startedUtc, finishedUtc })
@@ -315,10 +342,10 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   await verifyGate()
   const postDeployment = await readDeployment()
   const complete = results.length === 4 && results.every(result => result.complete)
-    && deployment.hash === postDeployment.hash && deployment.assetIdentity.sha256 === postDeployment.assetIdentity.sha256
+    && deployment.hash === postDeployment.hash && JSON.stringify(deployment.assetIdentity) === JSON.stringify(postDeployment.assetIdentity)
   const directory = new URL('../.cache/issue-286/', import.meta.url)
   await mkdir(directory, { recursive: true, mode: 0o700 })
-  const receipt = { candidate, runtimeConfigSha256: deployment.hash, assetIdentity: deployment.assetIdentity,
+  const receipt = { candidate, surface, runtimeConfigSha256: deployment.hash, assetIdentity: deployment.assetIdentity,
     sourceKind: 'synthetic-deployed-client', complete, results }
   await writeFile(new URL('synthetic-' + randomUUID() + '.json', directory), JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600 })
   for (const [index, result] of results.entries()) {
@@ -390,10 +417,11 @@ export function createOpeningEmailAuthenticationPolicy({ providerOrigin, expecte
 // The caller drives the visible UI through native controls. Session material
 // remains in memory and is used only in fresh contexts at the same app origin.
 export async function prepareOpeningAuthentication({ browser, providerOrigin, expectedOwner,
-  verifyGateOff, onReady = () => {}, timeoutMs = 300000, method = 'google', expectedEmail }) {
+  verifyGateOff, onReady = () => {}, timeoutMs = 300000, method = 'google', expectedEmail, surface = 'public' }) {
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(expectedOwner)
     || typeof verifyGateOff !== 'function' || timeoutMs < 1000 || timeoutMs > 300000
     || !['google', 'email-code'].includes(method)) throw new Error('Invalid private authentication preflight')
+  const targetSurface = openingTarget('https://www.edenia.study', surface)
   const emailPolicy = method === 'email-code' ? createOpeningEmailAuthenticationPolicy({ providerOrigin, expectedEmail }) : null
   await verifyGateOff()
   const context = await browser.newContext({ serviceWorkers: 'block' })
@@ -429,7 +457,7 @@ export async function prepareOpeningAuthentication({ browser, providerOrigin, ex
         return route.fulfill({ response })
       }
       if (target.pathname.startsWith('/rest/v1/') || target.pathname.startsWith('/auth/v1/')) return route.abort()
-      if (target.origin === 'https://www.edenia.study' && request.resourceType() === 'document' && target.href !== OPENING_URL) return route.abort('blockedbyclient')
+      if (target.origin === 'https://www.edenia.study' && request.resourceType() === 'document' && target.href !== targetSurface.url) return route.abort('blockedbyclient')
       if (emailPolicy && target.origin === 'https://challenges.cloudflare.com'
         && ['GET', 'POST'].includes(request.method())
         && ['/turnstile/', '/cdn-cgi/challenge-platform/'].some(prefix => target.pathname.startsWith(prefix))) {
@@ -446,13 +474,13 @@ export async function prepareOpeningAuthentication({ browser, providerOrigin, ex
     const page = await context.newPage()
     // CAPTCHA and other subresources can remain unsettled after the document
     // is usable. Authentication readiness must not depend on the load event.
-    await page.goto(OPENING_URL, { waitUntil: 'domcontentloaded' })
+    await page.goto(targetSurface.url, { waitUntil: 'domcontentloaded' })
     await onReady()
     const deadline = Date.now() + timeoutMs
     while (!stopped && Date.now() < deadline) {
-      const session = await page.evaluate(() => {
-        try { return JSON.parse(localStorage.getItem('edenia_v1_plus_auth_v1')) } catch { return null }
-      })
+      const session = await page.evaluate(prefix => {
+        try { return JSON.parse(localStorage.getItem(prefix + '_plus_auth_v1')) } catch { return null }
+      }, targetSurface.storagePrefix)
       if (session?.user?.id) {
         if (session.user.id !== expectedOwner) throw new Error('Authentication owner mismatch')
         await verifyGateOff()

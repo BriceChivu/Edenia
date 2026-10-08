@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createOpeningPolicy, installOpeningGuard } from '../../scripts/hosted-profile-opening-smoke.mjs'
+import { createOpeningPolicy, installOpeningGuard, openingTarget } from '../../scripts/hosted-profile-opening-smoke.mjs'
 
 const origin = 'https://synthetic.supabase.co'
 const resolveUrl = origin + '/rest/v1/rpc/resolve_my_learner_profile'
@@ -107,10 +107,12 @@ test('synthetic resolver never dispatches and live default has zero provider aut
 test('versioned synthetic profile fixture has a valid portable integrity envelope', async () => {
   const { readFile } = await import('node:fs/promises')
   const { verifyPortableLearnerProfileEnvelope } = await import('../../src/state/portable-learner-profile.js')
-  const fixture = JSON.parse(await readFile(new URL('../fixtures/learner-profile/profile-ready-smoke.json', import.meta.url), 'utf8'))
-  assert.ok(await verifyPortableLearnerProfileEnvelope(fixture.resolution.envelope))
-  assert.equal(fixture.resolution.status, 'profile_ready')
-  assert.equal(fixture.session.user.email, 'synthetic@example.invalid')
+  for (const name of ['profile-ready-smoke.json', 'profile-ready-trial-smoke.json']) {
+    const fixture = JSON.parse(await readFile(new URL('../fixtures/learner-profile/' + name, import.meta.url), 'utf8'))
+    assert.ok(await verifyPortableLearnerProfileEnvelope(fixture.resolution.envelope))
+    assert.equal(fixture.resolution.status, 'profile_ready')
+    assert.equal(fixture.session.user.email, 'synthetic@example.invalid')
+  }
 })
 
 test('private authentication blocks undeclared documents and provider redirects', async () => {
@@ -159,4 +161,78 @@ test('blocked ancillary reads return a local denial without triggering SDK netwo
   assert.ok(results.every(result => result.error?.code === 'CANARY_ANCILLARY_BLOCKED'))
   assert.equal(guard.policy.classify(request()), 'resolve')
   assert.equal(guard.policy.finishPhase().complete, true)
+})
+
+test('trial target has an exact route and fresh storage namespace', () => {
+  assert.deepEqual(openingTarget('https://www.edenia.study', 'trial'), {
+    url: 'https://www.edenia.study/?internal_test=1', storagePrefix: 'edenia_v1_auth_trial_v1'
+  })
+  assert.throws(() => openingTarget('https://www.edenia.study/', 'trial'))
+  assert.throws(() => openingTarget('https://www.edenia.study', 'retired'))
+})
+test('trial guard rejects public, mode-2, extra-query and iframe document navigation', async () => {
+  for (const path of ['/', '/?internal_test=2', '/?internal_test=1&extra=1', '/experience/tiny-swords/index.html']) {
+    let intercept, aborted = false
+    const context = { routeWebSocket: async () => {}, route: async (_, handler) => { intercept = handler } }
+    await installOpeningGuard(context, { serviceWorkers: 'block', providerOrigin: origin, surface: 'trial' })
+    await intercept({ request: () => ({ url: () => 'https://www.edenia.study' + path,
+      method: () => 'GET', resourceType: () => 'document' }), abort: async () => { aborted = true },
+      continue: () => assert.fail('Undeclared document forwarded') })
+    assert.equal(aborted, true)
+  }
+})
+test('trial guard pins runtime, app and both entry assets including release suffixes', async () => {
+  const { createHash } = await import('node:crypto')
+  const body = Buffer.from('synthetic versioned asset')
+  const sha256 = createHash('sha256').update(body).digest('hex')
+  const version = 'abcdef012345-p1-g1'
+  for (const path of ['/config.local.js', '/app.js', '/site-entry.js', '/auth-trial-entry.js']) {
+    for (const valid of [true, false]) {
+      let intercept, fulfilled = false, aborted = false
+      const context = { routeWebSocket: async () => {}, route: async (_, handler) => { intercept = handler } }
+      const guard = await installOpeningGuard(context, { serviceWorkers: 'block', providerOrigin: origin, surface: 'trial',
+        expectedRuntimeHash: sha256, assetIdentity: { version, sha256,
+          entryHashes: { '/site-entry.js': sha256, '/auth-trial-entry.js': sha256 } } })
+      guard.policy.beginPhase('activation')
+      await intercept({ request: () => ({ url: () => 'https://www.edenia.study' + path + '?v=' + (valid ? version : 'wrong'), method: () => 'GET' }),
+        fetch: async () => ({ body: async () => body, status: () => 200 }),
+        fulfill: async () => { fulfilled = true }, abort: async () => { aborted = true },
+        continue: () => assert.fail('Identity check bypassed') })
+      assert.equal(fulfilled, valid)
+      assert.equal(aborted, !valid)
+      if (!valid) assert.equal(guard.policy.finishPhase().complete, false)
+    }
+  }
+})
+
+test('trial authentication navigates and reads only its selected namespace', async () => {
+  const { prepareOpeningAuthentication } = await import('../../scripts/hosted-profile-opening-smoke.mjs')
+  const owner = '11111111-1111-1111-1111-111111111111'
+  let closed = false
+  const context = { routeWebSocket: async () => {}, route: async () => {}, close: async () => { closed = true },
+    newPage: async () => ({ goto: async url => assert.equal(url, 'https://www.edenia.study/?internal_test=1'),
+      evaluate: async (_fn, prefix) => { assert.equal(prefix, 'edenia_v1_auth_trial_v1'); return { user: { id: owner } } } }) }
+  await prepareOpeningAuthentication({ browser: { newContext: async () => context }, providerOrigin: origin,
+    expectedOwner: owner, verifyGateOff: async () => {}, surface: 'trial' })
+  assert.equal(closed, true)
+})
+
+test('trial identity mismatch and non-read asset requests never bypass containment', async () => {
+  for (const path of ['/config.local.js', '/app.js', '/site-entry.js', '/auth-trial-entry.js']) {
+    for (const method of ['GET', 'POST']) {
+      let intercept, aborted = false, fetched = false
+      const context = { routeWebSocket: async () => {}, route: async (_, handler) => { intercept = handler } }
+      const sha256 = 'a'.repeat(64)
+      const guard = await installOpeningGuard(context, { serviceWorkers: 'block', providerOrigin: origin, surface: 'trial',
+        expectedRuntimeHash: sha256, assetIdentity: { version: 'abcdef012345-p0-g1', sha256,
+          entryHashes: { '/site-entry.js': sha256, '/auth-trial-entry.js': sha256 } } })
+      guard.policy.beginPhase('activation')
+      await intercept({ request: () => ({ url: () => 'https://www.edenia.study' + path + '?v=abcdef012345-p0-g1', method: () => method }),
+        fetch: async () => { fetched = true; return { body: async () => Buffer.from('wrong bytes'), status: () => 200 } },
+        fulfill: () => assert.fail('Wrong identity fulfilled'), abort: async () => { aborted = true } })
+      assert.equal(aborted, true)
+      assert.equal(fetched, method === 'GET')
+      assert.equal(guard.policy.finishPhase().complete, false)
+    }
+  }
 })

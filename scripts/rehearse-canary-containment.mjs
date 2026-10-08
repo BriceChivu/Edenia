@@ -1,4 +1,4 @@
-import { containCanary, enableCanarySql } from './canary-containment-operator.mjs'
+import { containCanary, enableCanarySql, containTrial, enableTrialSql } from './canary-containment-operator.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
@@ -88,6 +88,22 @@ export async function rehearseCanaryContainment({ workdir, project, query, owner
     assert.equal((await query("select rollout_state = 'off' and developer_user_id is null from private.learner_profile_access_control where singleton;")).trim(), 't')
     assert.equal(await invariant(), before)
     results.push({ scenario, gateOff: true, profileCountsPreserved: true, fenced: true })
+  }
+  for (const scenario of ['trial-containment-before-delayed-enable', 'trial-enable-before-containment']) {
+    await containTrial(operator, [owner])
+    const token = (await query('select updated_at::text from private.learner_profile_access_control where singleton;')).trim()
+    const delayedEnable = enableTrialSql([owner], token)
+    if (scenario === 'trial-containment-before-delayed-enable') {
+      await containTrial(operator, [owner])
+      assert.equal((await operator.query(delayedEnable)).length, 0)
+    } else {
+      assert.equal((await operator.query(delayedEnable)).length, 1)
+      await assert.rejects(containTrial(operator, ['22222222-2222-2222-2222-222222222222']), /does not match/)
+      await containTrial(operator, [owner])
+    }
+    assert.equal((await query("select rollout_state = 'off' and developer_user_id is null and cardinality(tester_user_ids) = 0 from private.learner_profile_access_control where singleton;")).trim(), 't')
+    assert.equal(await invariant(), before)
+    results.push({ scenario, gateOff: true, audienceRemoved: true, profileCountsPreserved: true, fenced: true })
   }
   return results
 }
