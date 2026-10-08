@@ -1537,6 +1537,20 @@ export function createLearnerProfileLifecycleAuthority({
     }) === true
   }
 
+  async function exportConflictVersions() {
+    const conflict = currentState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+      ? currentState.conflict : null
+    if (!conflict?.device?.profile || !conflict?.cloud?.profile
+      || typeof exportDownload.downloadBoth !== 'function') return false
+    return await exportDownload.downloadBoth({
+      device: conflict.device.profile, cloud: conflict.cloud.profile
+    }, {
+      exportedAt: clock.now(),
+      isCurrent: () => currentState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+        && currentState.conflict === conflict
+    }) === true
+  }
+
   async function chooseConflictVersion(side, { confirmed = false } = {}) {
     if (
       confirmed !== true
@@ -1855,6 +1869,7 @@ export function createLearnerProfileLifecycleAuthority({
     destroy,
     exportActiveProfile,
     exportConflictVersion,
+    exportConflictVersions,
     exportRecoveryCandidate,
     getState: () => currentState,
     importActiveProfile,

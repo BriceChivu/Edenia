@@ -72,6 +72,7 @@ function createHarness({
   cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
   exportDownload = () => true,
+  exportBothDownload = () => true,
   freshLocalProfileReads = false,
   accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
@@ -215,6 +216,10 @@ function createHarness({
       },
       connectivity: connectivityAdapter,
       exportDownload: {
+        downloadBoth(profiles, context) {
+          calls.push(['download-both', profiles, context])
+          return exportBothDownload(profiles, context)
+        },
         download(profile, context) {
           calls.push([
             'download',
@@ -2294,6 +2299,14 @@ test('a conditional-write conflict locks the active candidate without replacing 
   assert.equal(await harness.authority.exportConflictVersion('device'), true)
   assert.equal(await harness.authority.exportConflictVersion('cloud'), true)
   assert.equal(await harness.authority.exportConflictVersion('newest'), false)
+  assert.equal(await harness.authority.exportConflictVersions(), true)
+  const archives = harness.calls.filter(([name]) => name === 'download-both')
+  assert.equal(archives.length, 1)
+  assert.deepEqual(archives[0][1], { device: conflict.device.profile, cloud: conflict.cloud.profile })
+  assert.equal(archives[0][2].isCurrent(), true)
+  harness.authentication.publish({ status: 'signed-out' })
+  assert.equal(archives[0][2].isCurrent(), false)
+  assert.equal(await harness.authority.exportConflictVersions(), false)
   assert.equal(
     harness.calls.filter(([name]) => name === 'local-save').length,
     0

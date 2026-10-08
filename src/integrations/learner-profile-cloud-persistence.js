@@ -2059,6 +2059,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       conflict.id
     ]
     current.queued = null
+    if (!clearDirtyRecord(record)) return { status: 'recovering' }
     if (!writeSyncRecord(current)) return { status: 'recovering' }
     const protectedResult = await readStoredProtectedConflicts(
       current,
