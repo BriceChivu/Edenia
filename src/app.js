@@ -170,6 +170,7 @@ import {
   createLegacyProgressMigrationController
 } from './state/legacy-progress-migration.js'
 import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
+import { prepareLocalAuthSessionRetirement } from './integrations/local-auth-session-retirement.js'
 import {
   ACCOUNT_AUTH_ERRORS,
   ACCOUNT_AUTH_NOTICES,
@@ -1166,6 +1167,9 @@ function saveState(state, options = {}) {
       rememberPersistedPortableProfile(state)
       return true
     }
+    // Retired profile work was cancelled by its activation fence. Its late
+    // completion must not report a storage failure against the current profile.
+    if (!isCurrentLearnerProfileOperation(state)) return false
     const saved = loadPersistedState({ persistCleanup: false })
     if (saved && state && isCurrentLearnerProfileOperation(state)) {
       for (const key of Object.keys(state)) delete state[key]
@@ -1380,6 +1384,7 @@ let onboardingFlowEvaluated = false
 let accountExportController = null
 let accountStudySnapshotController = null
 let accountSettingsWasSignedIn = false
+let accountLogoutFailureNotified = false
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
   getPersistedAnalyticsUserId,
   identify: identifyEdeniaAuthenticatedUser,
@@ -6449,6 +6454,9 @@ function initializeAccountAuth() {
       client,
       history: window.history,
       location: window.location,
+      prepareLocalSignOut: () => prepareLocalAuthSessionRetirement({
+        storage: localStorage, storageKey: ACCOUNT_AUTH_STORAGE_KEY
+      }),
       onStateChange(state) {
         applyAccountAuthenticationState(state)
         accountAnalyticsIdentity.synchronize(state)
@@ -6465,6 +6473,10 @@ function initializeAccountAuth() {
             : learnerProfileLifecycleAuthority ? null : loadState()
         )
         renderAccountSettings(state)
+        if (state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED && !accountLogoutFailureNotified) {
+          showToast(t('settings.account.feedback.signOutError'), 'error')
+        }
+        accountLogoutFailureNotified = state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED
         if (personalizedOnboardingState.step === 'account') {
           renderPersonalizedOnboarding()
         }

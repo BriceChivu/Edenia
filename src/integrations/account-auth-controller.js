@@ -219,6 +219,7 @@ export function createAccountAuthController({
   isOnline = () => globalThis.navigator?.onLine !== false,
   location: locationLike,
   onStateChange,
+  prepareLocalSignOut = () => null,
   now = () => Date.now(),
   schedule = callback => setTimeout(callback, 0)
 }) {
@@ -237,6 +238,7 @@ export function createAccountAuthController({
     || typeof isOnline !== 'function'
     || typeof now !== 'function'
     || typeof schedule !== 'function'
+    || typeof prepareLocalSignOut !== 'function'
   ) {
     throw new TypeError('Account auth controller requires state callbacks')
   }
@@ -257,6 +259,7 @@ export function createAccountAuthController({
   let authSubscription = null
   let sessionRequestId = 0
   let destroyed = false
+  let signingOutRequestId = null
   let emailCodeAvailableAt = 0
   let emailVerificationAddress = ''
 
@@ -297,6 +300,8 @@ export function createAccountAuthController({
     verifyOnline = false
   } = {}) {
     const requestId = ++sessionRequestId
+    let retireLocalSession = null
+    try { retireLocalSession = prepareLocalSignOut() } catch {}
     if (busyAction) publish({ busyAction, error: null, notice: null })
     try {
       const { data, error: authError } = verifyOnline
@@ -320,6 +325,14 @@ export function createAccountAuthController({
     } catch (error) {
       if (destroyed || requestId !== sessionRequestId) return currentState
       if (!isTransientSessionError(error, isOnline)) {
+        if (typeof retireLocalSession === 'function') {
+          try {
+            if (retireLocalSession(() => !destroyed && requestId === sessionRequestId)) {
+              await client.auth.signOut({ scope: 'local' })
+            }
+          } catch {}
+        }
+        if (destroyed || requestId !== sessionRequestId) return currentState
         return synchronizeSession(null)
       }
       return publish({
@@ -341,9 +354,15 @@ export function createAccountAuthController({
       schedule(() => {
         if (destroyed) return
         if (event === 'SIGNED_OUT') {
-          synchronizeSession(null)
+          synchronizeSession(null, {
+            error: currentState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_OUT
+              ? currentState.error : null
+          })
           return
         }
+        if (signingOutRequestId !== null && !(
+          event === 'SIGNED_IN' && currentState.busyAction === 'google-sign-in'
+        )) return
         // Confirm the session after the auth callback so dependent data reads
         // cannot race the client's token installation.
         void refreshSession()
@@ -531,6 +550,9 @@ export function createAccountAuthController({
 
   async function signOutWithScope(scope, busyAction) {
     const requestId = ++sessionRequestId
+    let retireLocalSession = null
+    try { retireLocalSession = prepareLocalSignOut() } catch {}
+    signingOutRequestId = requestId
     emailVerificationAddress = ''
     publish({
       sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
@@ -547,10 +569,22 @@ export function createAccountAuthController({
     } catch {}
     if (destroyed) return false
     if (!result || result.error) {
-      if (scope === 'global') {
+      let retired = false
+      if (requestId === sessionRequestId && typeof retireLocalSession === 'function') {
+        try {
+          retired = retireLocalSession(() => !destroyed && requestId === sessionRequestId)
+        } catch {}
+      }
+      if ((retired || (
+        scope === 'global' && typeof retireLocalSession !== 'function'
+      )) && requestId === sessionRequestId) {
         try { await client.auth.signOut({ scope: 'local' }) } catch {}
       }
-      if (requestId === sessionRequestId) {
+      const reportFailure = (requestId === sessionRequestId || signingOutRequestId === requestId)
+        && currentState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_OUT
+        && (currentState.busyAction === null || currentState.busyAction === busyAction)
+      if (signingOutRequestId === requestId) signingOutRequestId = null
+      if (reportFailure) {
         publish({
           busyAction: null,
           error: ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED,
@@ -559,6 +593,7 @@ export function createAccountAuthController({
       }
       return false
     }
+    if (signingOutRequestId === requestId) signingOutRequestId = null
     if (requestId === sessionRequestId) {
       publish({ busyAction: null, error: null, notice: null })
     }

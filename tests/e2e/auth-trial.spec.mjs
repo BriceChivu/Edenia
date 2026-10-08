@@ -219,6 +219,42 @@ for(const indexedDb of [false,true]) {
 }
 
 
+for (const everywhere of [false, true]) {
+  test(`expired trial session logout stays locked through Auth outage and reload (${everywhere ? 'global' : 'local'})`, async ({ page, pageDiagnostics }) => {
+    test.setTimeout(120000)
+    await seedRetained(page)
+    const engine = process.env.EDENIA_TEST_TINY_SWORDS === 'true'
+    const { commits } = await owned(page, { indexedDb: true, engine })
+    await page.goto('./?internal_test=1')
+    await expect(page.locator('#mainApp')).toBeVisible()
+    if (engine) await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
+    await page.route(origin + '/auth/v1/token*', route => route.fulfill({
+      status: 503, json: { msg: 'temporary Auth outage' }
+    }))
+    await page.evaluate(trial => {
+      const key = trial + '_plus_auth_v1'
+      const auth = JSON.parse(localStorage.getItem(key))
+      auth.expires_at = Math.floor(Date.now() / 1000) - 1
+      localStorage.setItem(key, JSON.stringify(auth))
+    }, trial)
+    await page.evaluate(everywhere => everywhere ? signOutAccountEverywhere() : signOutAccount(), everywhere)
+    await expect(page.locator('#mainApp')).toBeHidden()
+    await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+    await expect(page.locator('#toast')).toHaveText('Edenia could not sign out. Please try again.')
+    expect(await page.evaluate(trial => localStorage.getItem(trial + '_plus_auth_v1'), trial)).toBeNull()
+    const count = commits.length
+    await page.reload()
+    await expect(page.locator('#mainApp')).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+    await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+    expect(commits.length).toBe(count)
+    expect(await retainedBytes(page)).toEqual(retained)
+    expect(pageDiagnostics.length).toBeGreaterThan(0)
+    expect(pageDiagnostics.every(message => message === 'console: Failed to load resource: the server responded with a status of 503 (Service Unavailable)')).toBe(true)
+    pageDiagnostics.length = 0
+  })
+}
+
 for (const locale of ['en','fr','es','zh-Hant','zh-Hans']) {
   test(`trial pause and mandatory account surfaces are readable in ${locale}`, async ({page},testInfo) => {
     await page.addInitScript(locale=>Object.defineProperty(navigator,'language',{get:()=>locale}),locale)
@@ -384,6 +420,51 @@ for(const indexedDb of [false,true]) {
   })
 }
 
+test('retired trial save completion stays quiet while an active storage failure remains visible',async ({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-standard')
+  await seedRetained(page)
+  const fixture=await owned(page,{indexedDb:true,engine:false})
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const before=await page.evaluate(()=>loadState().config.weeklyGoalHours)
+  await page.evaluate(()=>{
+    const repository=primaryProfileRepository
+    const originalSave=repository.save
+    repository.save=(state,options)=>{
+      repository.save=originalSave
+      return new Promise(resolve=>{
+        window.finishRetiredSave=()=>resolve(originalSave(state,options))
+      })
+    }
+    const state=loadState();state.config.weeklyGoalHours=19
+    window.retiredSave=saveState(state)
+  })
+  await expect.poll(()=>page.evaluate(()=>typeof window.finishRetiredSave)).toBe('function')
+  await page.evaluate(()=>signOutAccount())
+  await expect(page.locator('#mainApp')).toBeHidden()
+  expect(await page.evaluate(async ()=>{window.finishRetiredSave();return await window.retiredSave})).toBe(false)
+  expect(await page.getByText('Could not save this change. Your existing progress was not changed.',{exact:true}).count()).toBe(0)
+  expect(fixture.commits.some(commit=>commit.p_envelope.profile.config.weeklyGoalHours===19)).toBe(false)
+  expect(await retainedBytes(page)).toEqual(retained)
+  await page.evaluate(async authenticated=>{await getSupabaseClient().auth.setSession(authenticated)},session())
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(before)
+  expect(await page.evaluate(async ()=>{
+    const repository=primaryProfileRepository,originalSave=repository.save
+    repository.save=async ()=>false
+    const state=loadState();state.config.weeklyGoalHours=21
+    const result=await saveState(state)
+    repository.save=originalSave
+    return result
+  })).toBe(false)
+  await expect(page.getByText('Could not save this change. Your existing progress was not changed.',{exact:true})).toBeVisible()
+  expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(before)
+  expect(fixture.commits.some(commit=>[19,21].includes(commit.p_envelope.profile.config.weeklyGoalHours))).toBe(false)
+  expect(await retainedBytes(page)).toEqual(retained)
+})
+
 test('offline verified trial retains study changes until reconnect, then definitive session rejection retires Godot',async ({page,pageDiagnostics},testInfo)=>{
   test.skip(testInfo.project.name!=='desktop-standard')
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
@@ -427,6 +508,12 @@ test('offline verified trial retains study changes until reconnect, then definit
   await expect.poll(()=>pageDiagnostics).toEqual(['console: Failed to load resource: the server responded with a status of 400 (Bad Request)'])
   pageDiagnostics.splice(0,1)
   expect(rejectedRefreshes).toBe(1)
+  expect(await page.evaluate(key=>localStorage.getItem(key+'_plus_auth_v1'),trial)).toBeNull()
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+  expect(fixture.commits.length).toBe(count)
 })
 
 test('expired offline ownership keeps the cached trial island hidden and prevents cloud writes',async ({page},testInfo)=>{
