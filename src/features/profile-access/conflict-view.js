@@ -197,6 +197,7 @@ export function createLearnerProfileConflictView({
     })
     rows.replaceChildren(...fragments)
     empty.hidden = visibleComparison.length > 0
+    empty.classList.remove('hidden')
     feedback.textContent = ''
     confirmation.hidden = true
     confirmation.classList.add('hidden')
