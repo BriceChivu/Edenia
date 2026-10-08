@@ -491,9 +491,9 @@ async function repositoryFixture(page) {
   await expect(page.locator('#mainApp')).toBeVisible()
   await page.evaluate(async databaseName => {
     const { openIndexedDbProfile } = await import('/profile-repository-fixture.js')
-    window.openEdgeRepository = (onChange = () => {}) => openIndexedDbProfile({
+    window.openEdgeRepository = (onChange = () => {}, eventTarget = null) => openIndexedDbProfile({
       storage: localStorage, storageKey: 'synthetic-profile', accessKey: 'synthetic-access',
-      databaseName, eventTarget: null, onChange, isValidState: state => Boolean(state?.config)
+      databaseName, eventTarget, onChange, isValidState: state => Boolean(state?.config)
     })
     window.edgeState = { config: { theme: 'light' }, videos: {}, anki: {} }
   }, edgeDatabaseName)
@@ -941,3 +941,77 @@ test('stale backup adapters preserve each other’s recovery copies and a failed
   expect(result).toEqual({ both: ['first', 'legacy', 'second'], pruned: ['first', 'second'],
     failed: false, durable: ['first', 'second'], legacyRaw: null })
 })
+
+for (const [islandOnly, externalWinner] of [[false, false], [true, false], [false, true]]) {
+  test(`focus during committed ${islandOnly ? 'island' : 'profile'} readback ${externalWinner ? 'preserves a newer external winner' : 'does not retire its own activation'}`, async ({ page }) => {
+    await repositoryFixture(page)
+    const result = await page.evaluate(async ([islandOnly, externalWinner]) => {
+      localStorage.setItem('synthetic-profile', JSON.stringify({ ...window.edgeState,
+        cityProgress: { maxLevelIndex: 3 }, tinySwordsIsland: { version: 23, level: 4, resources: { wood: 6 } } }))
+      let active = true
+      let notices = 0
+      const repository = await window.openEdgeRepository(() => { notices += 1; active = false }, window)
+      const state = repository.snapshot()
+      const originalTransaction = IDBDatabase.prototype.transaction
+      let intercepted = false
+      let releaseReadback
+      let readbackReady
+      const ready = new Promise(resolve => { readbackReady = resolve })
+      IDBDatabase.prototype.transaction = function (...args) {
+        const transaction = originalTransaction.apply(this, args)
+        if (this.name === 'synthetic_profile_edge_cases' && args[1] === 'readonly' && !intercepted) {
+          intercepted = true
+          transaction.addEventListener('complete', event => {
+            event.stopImmediatePropagation()
+            releaseReadback = () => transaction.oncomplete.call(transaction, event)
+            readbackReady()
+          }, { once: true })
+        }
+        return transaction
+      }
+      const saving = islandOnly
+        ? repository.saveIsland({ ...state.tinySwordsIsland, resources: { wood: 7 } }, JSON.stringify(state.tinySwordsIsland), { canPersist: () => active })
+        : repository.save(Object.assign(state, { config: { theme: 'dark' } }), { canPersist: () => active })
+      await ready
+      if (externalWinner) {
+        const other = await window.openEdgeRepository()
+        const winner = other.snapshot()
+        winner.config.theme = 'external winner'
+        await other.save(winner)
+        other.close()
+      }
+      let focusReadReady
+      const focusRead = new Promise(resolve => { focusReadReady = resolve })
+      let focusIntercepted = false
+      IDBDatabase.prototype.transaction = function (...args) {
+        const transaction = originalTransaction.apply(this, args)
+        if (this.name === 'synthetic_profile_edge_cases' && args[1] === 'readonly' && !focusIntercepted) {
+          focusIntercepted = true
+          // Finish the focus transaction and its promise callbacks before
+          // observing notifications, while the writer's readback stays held.
+          transaction.addEventListener('complete', () => setTimeout(focusReadReady, 0), { once: true })
+        }
+        return transaction
+      }
+      window.dispatchEvent(new Event('focus'))
+      await focusRead
+      IDBDatabase.prototype.transaction = originalTransaction
+      const noticesBeforeRelease = notices
+      releaseReadback()
+      const accepted = await saving
+      const saved = JSON.parse(repository.readRaw())
+      repository.close()
+      const reopened = await window.openEdgeRepository()
+      const restored = JSON.parse(reopened.readRaw())
+      reopened.close()
+      return { intercepted, noticesBeforeRelease, notices, accepted, saved, restored }
+    }, [islandOnly, externalWinner])
+    expect(result.intercepted).toBe(true)
+    expect(result.noticesBeforeRelease).toBe(externalWinner ? 1 : 0)
+    expect(result.notices).toBe(externalWinner ? 1 : 0)
+    expect(result.accepted).toBe(!externalWinner)
+    expect(result.restored).toEqual(result.saved)
+    expect(result.saved.config.theme).toBe(externalWinner ? 'external winner' : islandOnly ? 'light' : 'dark')
+    expect(result.saved.tinySwordsIsland.resources.wood).toBe(islandOnly ? 7 : 6)
+  })
+}
