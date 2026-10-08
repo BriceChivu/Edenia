@@ -86,6 +86,16 @@ const expectedVariants = {
       pressed: '${option.id === selectedLanguageId}'
     },
     {
+      action: 'setPersonalizedOnboardingStep',
+      className: 'btn-ghost',
+      content: ["${escHtml(t('onboarding.back'))}"],
+      disabled: null,
+      handler: null,
+      onboardingStep: 'intro',
+      ownershipAction: 'set-step',
+      pressed: null
+    },
+    {
       action: 'continuePersonalizedOnboardingFromLanguage',
       className: 'btn-primary',
       content: ["${escHtml(t('onboarding.continue'))}"],

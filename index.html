@@ -271,52 +271,33 @@
   <!-- ═══════════════════════════════════════════════════════ -->
   <!-- FIRST-RUN INTRO TRAILER                               -->
   <!-- ═══════════════════════════════════════════════════════ -->
-  <section class="intro-trailer hidden" id="introTrailer" data-scene="0" role="dialog" aria-modal="true" aria-labelledby="introTrailerTitle">
-    <div class="intro-top-bar">
-      <aside class="intro-creator" aria-label="Created by BriceLearnStuff">
-        <img class="intro-creator-logo" src="images/planet.png" alt="">
-        <p class="intro-creator-name">
-          <span>Created by</span>
-          <strong>Brice<span>Learn</span>Stuff</strong>
-        </p>
-        <nav class="intro-creator-links" aria-label="BriceLearnStuff links">
-          <a class="intro-social-link intro-social-youtube" href="https://www.youtube.com/@BriceLearnStuff" target="_blank" rel="noopener noreferrer">YouTube</a>
-          <a class="intro-social-link intro-social-twitch" href="https://www.twitch.tv/bricelearnstuff" target="_blank" rel="noopener noreferrer">Twitch</a>
-          <a class="intro-social-link intro-social-support" href="https://ko-fi.com/bricelearnstuff" target="_blank" rel="noopener noreferrer" data-analytics-action="support.kofi">
-            <svg class="intro-social-support-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z"></path>
-            </svg>
-            <span class="sr-only" data-i18n="support.button">Buy me a coffee</span>
-          </a>
-        </nav>
-      </aside>
-
-      <div class="intro-top-controls">
-        <div class="intro-top-actions">
-          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle data-analytics-action="introSoundBtn" type="button" aria-pressed="false">
-            <span class="intro-sound-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
-                <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
-                <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
-              </svg>
-            </span>
-          </button>
-          <button class="btn-secondary intro-skip" type="button" data-intro-finish-action="finish" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
-        </div>
-        <div class="intro-language-picker" id="introLocalePicker">
-          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" data-intro-locale-menu-action="toggle-intro" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
-            <span class="settings-locale-label" id="introLocaleLabel">English</span>
-            <span class="settings-locale-caret" aria-hidden="true"></span>
-          </button>
-          <div class="settings-locale-menu intro-locale-menu hidden" id="introLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
-        </div>
+  <section class="onboarding-panel hidden is-trailer-step" id="introTrailer" data-scene="0" role="dialog" aria-modal="true" aria-labelledby="introTrailerTitle">
+    <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle data-analytics-action="introSoundBtn" type="button" aria-pressed="false">
+      <span class="intro-sound-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
+          <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
+          <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
+        </svg>
+      </span>
+    </button>
+    <div class="onboarding-card">
+      <div class="onboarding-language-picker" id="introLocalePicker">
+        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" data-intro-locale-menu-action="toggle-intro" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="settings-locale-label" id="introLocaleLabel">English</span>
+          <span class="settings-locale-caret" aria-hidden="true"></span>
+        </button>
+        <div class="settings-locale-menu intro-locale-menu hidden" id="introLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
       </div>
-    </div>
-
-    <div class="intro-stage" aria-live="polite">
-      <article class="intro-scene intro-scene-city" data-intro-scene="0">
-        <div class="onboarding-heading intro-island-heading">
+      <div class="onboarding-brand" aria-hidden="true">EDENIA</div>
+      <p class="onboarding-promise" data-i18n="onboarding.promise">Turn YouTube and Anki into visible language-learning progress.</p>
+      <div class="onboarding-progress" id="introOnboardingProgress" aria-hidden="true">
+        <span class="onboarding-progress-label" id="introOnboardingProgressLabel"></span>
+        <span class="onboarding-progress-track"><span class="onboarding-progress-fill" id="introOnboardingProgressFill"></span></span>
+      </div>
+      <article class="onboarding-content" data-intro-scene="0">
+        <div class="onboarding-heading">
+          <span class="onboarding-eyebrow" data-i18n="onboarding.eyebrow">Make your study visible</span>
           <h2 class="onboarding-title" id="introTrailerTitle" data-i18n="island.introTitle">Study and build your own island</h2>
         </div>
         <figure class="intro-island-demo">

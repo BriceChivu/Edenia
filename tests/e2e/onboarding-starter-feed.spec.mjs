@@ -110,7 +110,7 @@ test(`onboarding enters Edenia before incrementally revealing the starter feed (
 
   await page.goto('/')
   await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('[data-intro-finish-action="finish"]:visible').first().click()
   await expect(page.locator('#onboardingPanel')).not.toHaveClass(/\bhidden\b/)
   await page.locator('[data-language-id="mandarin"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()

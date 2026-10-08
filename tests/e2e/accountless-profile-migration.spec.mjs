@@ -260,7 +260,7 @@ test('the emergency route marks a newly completed profile as legacy', async ({
   ))
 
   await page.goto(ACCOUNT_RETURN_URL)
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('[data-intro-finish-action="finish"]:visible').first().click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator(
     '[data-personalized-onboarding-action="continue-language"]'

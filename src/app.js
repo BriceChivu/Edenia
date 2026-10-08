@@ -1475,6 +1475,7 @@ const INTRO_TRAILER_REFERENCE = {
 const introTrailerState = {
   active: false,
   replayMode: false,
+  returnToLanguage: false,
   state: null,
   sceneIndex: 0,
   sceneTimer: null,
@@ -3495,9 +3496,22 @@ function startIntroTrailer({ replay = false, state = null } = {}) {
     startButton.textContent = t(labelKey)
   }
 
+  syncIntroOnboardingProgress()
   setIntroTrailerScene(0)
   startIntroMusic().catch(() => {})
   return true
+}
+
+function syncIntroOnboardingProgress() {
+  const progress = document.getElementById('introOnboardingProgress')
+  const label = document.getElementById('introOnboardingProgressLabel')
+  const fill = document.getElementById('introOnboardingProgressFill')
+  progress?.classList.toggle('hidden', introTrailerState.replayMode)
+  const state = loadOnboardingWorkingState() || introTrailerState.state
+  const profileSteps = state?.learnerProfile?.languages?.[0] === 'other' ? 2 : 3
+  const total = 1 + profileSteps + (ACCOUNT_ENTRY_REQUIRED ? 1 : 0)
+  if (label) label.textContent = t('onboarding.progress', { current: 1, total })
+  if (fill) fill.style.width = `${100 / total}%`
 }
 
 function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
@@ -3617,6 +3631,7 @@ async function changeIntroLocale(locale) {
   state.config.locale = nextLocale
   if (!await saveOnboardingWorkingState(state, { backup: false })) return false
   applyLocale(nextLocale)
+  syncIntroOnboardingProgress()
   updateIntroSoundButton()
   updateDocumentTitle(state)
 
@@ -3821,6 +3836,7 @@ function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {
   window.clearTimeout(introTrailerState.sceneTimer)
   introTrailerState.active = false
   introTrailerState.replayMode = false
+  introTrailerState.returnToLanguage = false
 
   const trailer = document.getElementById('introTrailer')
   syncIntroIslandPlayback()
@@ -3894,7 +3910,9 @@ function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
     onboardingRecoveryState.active = false
     onboardingRecoveryState.state = null
     personalizedOnboardingState.active = true
-    personalizedOnboardingState.step = getInitialPersonalizedOnboardingStep(state)
+    personalizedOnboardingState.step = introTrailerState.returnToLanguage
+      ? 'language'
+      : getInitialPersonalizedOnboardingStep(state)
     personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
     personalizedOnboardingState.levelId = state.learnerProfile.level || null
     personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(
@@ -4063,8 +4081,8 @@ async function renderPersonalizedOnboarding() {
     ? ['language', 'other']
     : ['language', 'level', 'channels']
   const stepOrder = ACCOUNT_ENTRY_REQUIRED
-    ? [...profileStepOrder, 'account']
-    : profileStepOrder
+    ? ['intro', ...profileStepOrder, 'account']
+    : ['intro', ...profileStepOrder]
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
@@ -4309,7 +4327,8 @@ function renderOnboardingLanguageStep(content) {
         </button>
       `).join('')}
     </div>
-    <div class="onboarding-actions onboarding-actions-end">
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="intro" data-analytics-action="setPersonalizedOnboardingStep">${escHtml(t('onboarding.back'))}</button>
       <button type="button" class="btn-primary" data-personalized-onboarding-action="continue-language" data-analytics-action="continuePersonalizedOnboardingFromLanguage" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
   `
@@ -4478,6 +4497,19 @@ async function clearOnboardingAccountDraftMarker() {
 }
 
 async function setPersonalizedOnboardingStep(step) {
+  if (step === 'intro' && personalizedOnboardingState.active) {
+    if (!await persistPersonalizedOnboardingDraft()) return
+    const state = loadOnboardingWorkingState()
+    if (!state) return
+    personalizedOnboardingState.active = false
+    document.getElementById('onboardingPanel')?.classList.add('hidden')
+    document.body.classList.remove('onboarding-active')
+    introTrailerState.returnToLanguage = true
+    if (!startIntroTrailer({ state })) {
+      showOnboardingRecovery('setup', { state, resume: 'intro' })
+    }
+    return
+  }
   const allowedSteps = ['language', 'level', 'channels', 'other']
   if (ACCOUNT_ENTRY_REQUIRED) allowedSteps.push('account')
   if (!allowedSteps.includes(step)) return
@@ -4501,8 +4533,8 @@ async function setPersonalizedOnboardingStep(step) {
     ? ['language', 'other']
     : ['language', 'level', 'channels']
   const stepOrder = ACCOUNT_ENTRY_REQUIRED
-    ? [...profileStepOrder, 'account']
-    : profileStepOrder
+    ? ['intro', ...profileStepOrder, 'account']
+    : ['intro', ...profileStepOrder]
   const previousIndex = stepOrder.indexOf(previousStep)
   const nextIndex = stepOrder.indexOf(step)
   personalizedOnboardingState.step = step
