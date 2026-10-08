@@ -315,12 +315,22 @@ if (window.edeniaTinySwordsEnabled === true) {
         } else checkReplacement()
       }
     })
+    // Parent-owned controls reflect device capabilities; Godot owns pinch zoom.
+    const touchDevice = (window.navigator?.maxTouchPoints || 0) > 0
+    if (touchDevice) {
+      controls.style.setProperty('--tiny-swords-camera-cursor', 'none')
+      for (const button of controls.querySelectorAll('[data-city-zoom-action="in"], [data-city-zoom-action="out"]')) {
+        button.disabled = true
+        button.hidden = true
+      }
+    }
     // Godot draws its 64px cursor in viewport units; match that rendered size
     // when the pointer crosses from the game into the parent camera controls.
     const cursorImage = new Image()
     cursorImage.src = new URL('Cursor_02.png', tinySwordsReleaseUrl).href
     let cursorSize = 0
     function matchCameraCursor() {
+      if (touchDevice) return
       const viewport = frame?.contentWindow?.edeniaCamera
       if (!cursorImage.complete || !cursorImage.naturalWidth || !viewport?.width) return
       const scale = frame?.getBoundingClientRect().width / viewport.width

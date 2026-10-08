@@ -128,8 +128,10 @@ test('tester import escapes the shared localStorage quota and regular migration 
     const ready = () => {
       const state = defaultState(4, [], 'light', [], 'en')
       state.config.ankiEnabled = false
+      // Keep delayed guidance writes out of this storage-isolation comparison.
       Object.assign(state.onboarding, { introSeenAt: at, setupCompleted: true,
-        setupCompletedAt: at, walkthroughCompleted: true, walkthroughCompletedAt: at })
+        setupCompletedAt: at, walkthroughCompleted: true, walkthroughCompletedAt: at,
+        levelUpGuidanceShownAt: at })
       return state
     }
     const imported = ready()

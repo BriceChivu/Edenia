@@ -12,6 +12,7 @@ func run() -> void:
 	var cloud = level.get_node("Clouds/WestCloud")
 	cloud.set_process(false)
 	cloud.set_variant(0)
+	cloud.set_mirrored(false)
 	cloud.set_altitude(0.0)
 	cloud.position = Vector2(576, 240)
 	if not cloud.has_method("shadow_ground_position"):
@@ -81,21 +82,23 @@ func run() -> void:
 	tree.texture = ImageTexture.create_from_image(marker_image)
 	tree.hframes = 1
 	var sample := Vector2(576, 210)
-	for viewport_size in [Vector2i(1152, 496), Vector2i(864, 372), Vector2i(1536, 662), Vector2i(600, 600)]:
-		root.size = viewport_size
-		for difference in [-10, 10]:
-			tree.position = Vector2(sample.x, cloud.shadow_ground_position().y + difference)
-			tree.offset = sample - tree.position
-			for frame in range(3):
-				await process_frame
-			await RenderingServer.frame_post_draw
-			var picture := root.get_texture().get_image()
-			if not picture.is_empty():
-				var color := picture.get_pixelv(Vector2i(root.get_final_transform() * level.get_global_transform_with_canvas() * sample))
-				var red: bool = color.r > 0.9 and color.g < 0.1
-				if red != (difference > 0):
-					failures += 1
-					push_error("Rendered cloud/tree overlap disagrees with shadow Y: %s" % color)
-				picture.save_png("/tmp/edenia-cloud-depth-%s.png" % difference)
+	for mirrored in [false, true]:
+		cloud.set_mirrored(mirrored)
+		for viewport_size in [Vector2i(1152, 496), Vector2i(864, 372), Vector2i(1536, 662), Vector2i(600, 600)]:
+			root.size = viewport_size
+			for difference in [-10, 10]:
+				tree.position = Vector2(sample.x, cloud.shadow_ground_position().y + difference)
+				tree.offset = sample - tree.position
+				for frame in range(3):
+					await process_frame
+				await RenderingServer.frame_post_draw
+				var picture := root.get_texture().get_image()
+				if not picture.is_empty():
+					var color := picture.get_pixelv(Vector2i(root.get_final_transform() * level.get_global_transform_with_canvas() * sample))
+					var red: bool = color.r > 0.9 and color.g < 0.1
+					if red != (difference > 0):
+						failures += 1
+						push_error("Rendered cloud/tree overlap disagrees with shadow Y: %s" % color)
+					picture.save_png("/tmp/edenia-cloud-depth-%s.png" % difference)
 	print("Cloud shadow depth: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

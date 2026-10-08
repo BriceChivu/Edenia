@@ -32,7 +32,34 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   const camera = () => gameFrame().evaluate(() => { const {x,y,zoom,width,height} = window.edeniaCamera || {}; return {x,y,zoom,width,height} })
   await expect.poll(async () => (await camera())?.zoom).toBeCloseTo(0.8)
   const initialCamera = await camera()
+  const touchDevice = await page.evaluate(() => navigator.maxTouchPoints > 0)
   const controls = page.locator('.tiny-swords-camera-controls')
+  if (touchDevice) {
+    await expect(controls.locator('[data-city-zoom-action="in"]')).toBeHidden()
+    await expect(controls.locator('[data-city-zoom-action="out"]')).toBeDisabled()
+  }
+  async function changeZoom(target) {
+    if (!touchDevice) {
+      await page.getByRole('button', { name: target < (await camera()).zoom ? 'Zoom out' : 'Zoom in', exact: true }).click()
+    } else {
+      await frame.locator('#canvas').scrollIntoViewIfNeeded()
+      const bounds = await frame.locator('#canvas').boundingBox()
+      const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+      const current = (await camera()).zoom
+      const session = await page.context().newCDPSession(page)
+      const points = distance => [
+        { id: 1, x: center.x - distance / 2, y: center.y },
+        { id: 2, x: center.x + distance / 2, y: center.y }
+      ]
+      await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(60) })
+      for (let step = 1; step <= 8; step++) {
+        await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(60 * (1 + (target / current - 1) * step / 8)) })
+      }
+      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await session.detach()
+    }
+    await expect.poll(async () => (await camera()).zoom).toBeCloseTo(target)
+  }
   await expect(controls.locator('button')).toHaveCount(3)
   await expect(page.getByRole('button', { name: /^Pan / })).toHaveCount(0)
   await expect(controls.locator('button.city-image-btn svg.city-image-icon')).toHaveCount(3)
@@ -40,18 +67,20 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   const controlBounds = await controls.boundingBox()
   expect(controlBounds.x - wrapBounds.x).toBeLessThan(15)
   expect(wrapBounds.y + wrapBounds.height - controlBounds.y - controlBounds.height).toBeLessThan(15)
-  const buttonOpacities = () => controls.locator('button').evaluateAll(buttons => buttons.map(button => getComputedStyle(button).opacity))
+  const buttonOpacities = () => controls.locator('button:not([hidden])').evaluateAll(buttons => buttons.map(button => getComputedStyle(button).opacity))
   await page.mouse.move(wrapBounds.x + wrapBounds.width / 2, wrapBounds.y + wrapBounds.height / 2)
-  await expect.poll(buttonOpacities).toEqual(['0.38', '0.38', '0.38'])
-  await controls.locator('[data-city-zoom-action="in"]').hover()
-  await expect.poll(buttonOpacities).toEqual(['0.38', '0.38', '1'])
-  for (const button of await controls.locator('button').all()) {
+  await expect.poll(buttonOpacities).toEqual(touchDevice ? ['0.38'] : ['0.38', '0.38', '0.38'])
+  if (!touchDevice) {
+    await controls.locator('[data-city-zoom-action="in"]').hover()
+    await expect.poll(buttonOpacities).toEqual(['0.38', '0.38', '1'])
+  }
+  for (const button of await controls.locator('button:not([hidden])').all()) {
     await button.hover()
-    await expect(button).toHaveCSS('cursor', /data:image\/png;base64/)
+    await expect(button).toHaveCSS('cursor', touchDevice ? 'none' : /data:image\/png;base64/)
     await page.mouse.down()
-    await expect(button).toHaveCSS('cursor', /data:image\/png;base64/)
+    await expect(button).toHaveCSS('cursor', touchDevice ? 'none' : /data:image\/png;base64/)
     await page.mouse.up()
-    await expect(button).toHaveCSS('cursor', /data:image\/png;base64/)
+    await expect(button).toHaveCSS('cursor', touchDevice ? 'none' : /data:image\/png;base64/)
   }
   const backgrounds = await controls.locator('button').evaluateAll(buttons => buttons.map(button => getComputedStyle(button, innerWidth <= 480 ? '::before' : null).backgroundColor))
   expect(backgrounds).toEqual(['rgba(255, 255, 255, 0.64)', 'rgba(255, 255, 255, 0.64)', 'rgba(255, 255, 255, 0.64)'])
@@ -95,10 +124,8 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect.poll(async () => (await camera()).x).toBeLessThan(initialCamera.x)
   await expect.poll(async () => (await camera()).y).toBeLessThan(initialCamera.y)
   expect(await pawn()).toEqual(initialPawn)
-  await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
-  await expect.poll(async () => (await camera()).zoom).toBeCloseTo(0.7)
-  await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
-  await expect.poll(async () => (await camera()).zoom).toBeCloseTo(0.8)
+  await changeZoom(0.7)
+  await changeZoom(0.8)
   await page.getByRole('button', { name: 'Reset view', exact: true }).click()
   await expect.poll(camera).toEqual(initialCamera)
   const walkBounds = await frame.locator('#canvas').boundingBox()
@@ -133,8 +160,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   // Existing build launcher and placement still use transformed world coordinates.
   await dragCamera(-40, -15)
   await expect.poll(async () => (await camera()).x).toBeGreaterThan(initialCamera.x)
-  await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
-  await expect.poll(async () => (await camera()).zoom).toBeCloseTo(0.7)
+  await changeZoom(0.7)
   const canvas = frame.locator('#canvas')
   const bounds = await canvas.boundingBox()
   await canvas.click({ position: { x: bounds.width - 36, y: bounds.height - 32 } })
