@@ -1647,3 +1647,11 @@ body[data-theme="dark"] .activity-log-panel {
 ) {
   display: none;
 }
+
+/* The source-rendered trailer is the opening onboarding step. */
+.is-trailer-step #introSoundBtn {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  top: max(18px, env(safe-area-inset-top));
+  z-index: 5;
+}

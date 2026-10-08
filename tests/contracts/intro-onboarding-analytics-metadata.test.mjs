@@ -109,19 +109,6 @@ const staticControls = [
     stopsPropagation: false
   },
   {
-    label: 'Skip intro',
-    tag: () => findButtonByClass('intro-skip'),
-    className: 'btn-secondary intro-skip',
-    id: null,
-    handler: null,
-    introFinishAction: 'finish',
-    analyticsAction: 'intro.skip',
-    eventName: 'intro_skip_clicked',
-    dataI18n: 'intro.skip',
-    ariaPressed: null,
-    stopsPropagation: false
-  },
-  {
     label: 'Start or return from trailer',
     tag: () => findButtonById('introStartBtn'),
     className: 'btn-primary',

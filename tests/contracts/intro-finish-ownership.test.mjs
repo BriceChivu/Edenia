@@ -71,16 +71,8 @@ function createDirectControl() {
   }
 }
 
-test('Skip and Start retain exact markup under direct finish ownership', () => {
+test('Continue retains exact markup under direct finish ownership', () => {
   const expectedControls = [
-    {
-      analyticsAction: 'intro.skip',
-      className: 'btn-secondary intro-skip',
-      content: 'Skip intro',
-      eventName: 'intro_skip_clicked',
-      id: null,
-      translationKey: 'intro.skip'
-    },
     {
       analyticsAction: 'intro.finale.cta',
       className: 'btn-primary',

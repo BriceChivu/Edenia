@@ -16,7 +16,7 @@ const styleSource = await readFile(
 test('Account onboarding is appended only when account entry is required', () => {
   assert.match(
     appSource,
-    /const stepOrder = ACCOUNT_ENTRY_REQUIRED\s*\? \[\.\.\.profileStepOrder, 'account'\]\s*: profileStepOrder/
+    /const stepOrder = ACCOUNT_ENTRY_REQUIRED\s*\? \['intro', \.\.\.profileStepOrder, 'account'\]\s*: \['intro', \.\.\.profileStepOrder\]/
   )
   assert.match(
     appSource,

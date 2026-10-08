@@ -1169,7 +1169,11 @@ Ten levels use the Godot progression table above. From level two, Terrain opens 
 inventory; select an item and place it, then close the panel to return to walking.
 The old town snapshot timeline is retired; Study History remains available.
 
-The entire trailer is one island slide saying “Study and build your own island”. Its
+The trailer is the first onboarding step, sharing the EDENIA brand, promise,
+progress bar and title style with the following setup steps. Continue opens
+language selection; Back returns to the trailer and retains the language choice.
+Settings replay hides setup progress and returns to the app without changing
+completed onboarding. The entire trailer is one island slide saying “Study and build your own island”. Its
 19-second animation is rendered by `previews/trailer_island.tscn` using the
 canonical game terrain, pawn, tree-harvesting and cloud scripts. The pawn crosses
 a fixed grass strip to a fixed tree at normal speed. Surrounding randomly generated
