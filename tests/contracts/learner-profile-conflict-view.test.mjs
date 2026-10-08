@@ -126,6 +126,26 @@ test('conflict view renders only meaningful rows and a focused confirmation', ()
   assert.equal(elements.get('learnerProfileConflictConfirm').focused, true)
 })
 
+test('conflicts without compared differences show an explanation and hide it when differences return', () => {
+  const { elements, view } = createHarness()
+  const shared = { learnerProfile: { languages: ['french'] } }
+  const empty = elements.get('learnerProfileConflictEmpty')
+  view.renderConflict({
+    cloud: { profile: structuredClone(shared) },
+    device: { profile: shared },
+    status: 'open'
+  })
+  assert.equal(empty.hidden, false)
+  assert.equal(empty.classList.contains('hidden'), false)
+
+  view.renderConflict({
+    cloud: { profile: { learnerProfile: { languages: ['mandarin'] } } },
+    device: { profile: shared },
+    status: 'open'
+  })
+  assert.equal(empty.hidden, true)
+})
+
 test('resolved conflict view keeps every unchosen version downloadable', () => {
   const { elements, view } = createHarness()
 

@@ -18,8 +18,10 @@ global profile lifecycle stays `false`, and public migration cutover remains off
 
 The trial has a fresh storage namespace; retained ordinary, mode-2 and retired
 mode-1 data is not automatically copied into it. The user completed real
-email-code sign-in in regular Chrome. Google popup opening and full hosted
-app/write/reload acceptance are still being investigated; consult the
+email-code and Google sign-in. Hosted island opening/reload, both protected
+conflict choices, stale-choice rejection and pre-test snapshot restoration were
+verified for this one account. Startup retries/save warnings and unintended
+video playback during action tests remain recorded limitations; consult the
 [dated continuation audit](research/mandatory-signin-audit-2026-10-07.md#hosted-continuation-checkpoint--2026-10-08)
 for the precise evidence and remaining gates.
 

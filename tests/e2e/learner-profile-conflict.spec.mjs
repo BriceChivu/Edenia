@@ -159,6 +159,7 @@ async function prepareConflictPage(page, {
   acceptPostChoiceCommits = false,
   cloudSetupCompleted = true,
   failChoice = false,
+  identicalProfiles = false,
   preserveStateOnReload = false
 } = {}) {
   // Keep the mocked protected-copy deadline valid regardless of the CI date.
@@ -173,7 +174,7 @@ async function prepareConflictPage(page, {
     reviewed: 24,
     updatedAt: '2026-08-21T09:15:00.000Z'
   })
-  const cloudEnvelope = await createConflictEnvelope({
+  const cloudEnvelope = identicalProfiles ? structuredClone(deviceEnvelope) : await createConflictEnvelope({
     channelId: 'cloud-channel',
     channelName: 'Cloud channel',
     language: 'french',
@@ -395,6 +396,15 @@ async function prepareConflictPage(page, {
     resolutionRequests
   }
 }
+
+test('equal conflict profiles explain the empty comparison', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await prepareConflictPage(page, { identicalProfiles: true })
+  await expect(page.locator('#learnerProfileConflictEmpty')).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictRows tr')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Use Cloud', exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('equal-conflict-explanation.png') })
+})
 
 test('divergent profiles require exportable, confirmed choices at every width', async ({
   page
