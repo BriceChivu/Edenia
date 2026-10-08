@@ -393,6 +393,7 @@ test('offline verified trial retains study changes until reconnect, then definit
   const fixture=await owned(page,{indexedDb:true,engine:true})
   await page.goto('./?internal_test=1')
   await readyGame(page)
+  await expect.poll(()=>fixture.commits.length).toBeGreaterThan(0)
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
   const commitCount=fixture.commits.length
   await page.evaluate(async trial=>{
@@ -412,9 +413,9 @@ test('offline verified trial retains study changes until reconnect, then definit
   await page.evaluate(()=>{window.trialOnline=true;sessionStorage.removeItem('trial-offline');window.dispatchEvent(new Event('online'))})
   await expect.poll(()=>fixture.commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===11)).toBe(true)
   await readyGame(page)
-  await page.route(origin+'/auth/v1/token*',route=>route.fulfill({status:400,json:{code:'refresh_token_not_found',msg:'Synthetic revoked session'}}))
+  let rejectedRefreshes=0
+  await page.route(origin+'/auth/v1/token*',route=>{rejectedRefreshes+=1;return route.fulfill({status:400,json:{code:'refresh_token_not_found',msg:'Synthetic revoked session'}})})
   await retainFrame(page)
-  const authRequestCount=fixture.requests.filter(path=>path==='/auth/v1/token').length
   await page.evaluate(()=>{window.dispatchEvent(new Event('offline'));window.dispatchEvent(new Event('online'));window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('focus'))})
   await expect(page.locator('#mainApp')).toBeHidden()
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
@@ -425,7 +426,7 @@ test('offline verified trial retains study changes until reconnect, then definit
   expect(await retainedBytes(page)).toEqual(retained)
   await expect.poll(()=>pageDiagnostics).toEqual(['console: Failed to load resource: the server responded with a status of 400 (Bad Request)'])
   pageDiagnostics.splice(0,1)
-  expect(fixture.requests.filter(path=>path==='/auth/v1/token').length-authRequestCount).toBe(1)
+  expect(rejectedRefreshes).toBe(1)
 })
 
 test('expired offline ownership keeps the cached trial island hidden and prevents cloud writes',async ({page},testInfo)=>{
