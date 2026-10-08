@@ -6,15 +6,19 @@ import { createHash, randomUUID } from 'node:crypto'
 import { chromium } from '@playwright/test'
 import { encodeCanaryEvidence } from './canary-evidence.mjs'
 import { CanaryExecutionStore } from './canary-execution-store.mjs'
-import { containCanary, enableCanarySql, linkedContainmentOperator, READ_GATE_SQL } from './canary-containment-operator.mjs'
+import { linkedContainmentOperator } from './canary-containment-operator.mjs'
 import { observeCanaryProfile, compareCanaryProfiles } from './canary-profile-verifier.mjs'
 import { prepareOpeningAuthentication, runOpeningCase } from './hosted-profile-opening-smoke.mjs'
 import { createNativePreparationVerifier } from './native-opening-preparation-verifier.mjs'
 import { prepareNativeOpeningAuthentication } from './native-opening-authentication.mjs'
 
+import { openingGateBinding } from './opening-gate-binding.mjs'
+
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function executeOpeningWorkflow({ candidate, reviewed, config }, dependencies = {}) {
+  const binding = openingGateBinding(config)
   const authTransport = config.authTransport || 'playwright'
+  if (binding.surface === 'trial' && authTransport === 'native-inspected') throw new Error('Trial requires supported browser authentication')
   if (!['playwright', 'native-inspected'].includes(authTransport)
     || (authTransport === 'native-inspected' && config.authMethod !== 'email-code')) throw new Error('Unsupported authentication transport')
   const startedUtc = new Date().toISOString()
@@ -22,9 +26,9 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(config.expectedOwner || '')) throw new Error('Approved private owner is required')
   const operator = dependencies.operator || linkedContainmentOperator(config)
   const readGate = async () => {
-    const rows = await operator.query(READ_GATE_SQL)
-    if (rows.length !== 1 || !(rows[0].rollout_state === 'off' && rows[0].owner === null)
-      && !(rows[0].rollout_state === 'developer-canary' && rows[0].owner === config.expectedOwner)) throw new Error('Unexpected gate ownership')
+    const rows = await operator.query(binding.readSql)
+    if (rows.length !== 1) throw new Error('Unexpected gate ownership')
+    binding.assertState(rows[0])
     if (!await operator.monitorDisabled()) throw new Error('Bounded monitor must already be disabled')
     return rows[0]
   }
@@ -34,29 +38,40 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     if (!snapshot.validHead || snapshot.headCount !== 1) throw new Error('Head preflight is ambiguous')
     return snapshot
   })
+  const fetchDeployment = dependencies.fetchDeployment || fetch
   const readDeployment = dependencies.readDeployment || (async () => {
-    const release = await (await fetch('https://www.edenia.study/release.json?opening=' + Date.now())).json()
-    const source = await (await fetch('https://www.edenia.study/config.local.js?opening=' + Date.now())).text()
+    const release = await (await fetchDeployment('https://www.edenia.study/release.json?opening=' + Date.now())).json()
+    const source = await (await fetchDeployment('https://www.edenia.study/config.local.js?opening=' + Date.now())).text()
     const runtimeHash = createHash('sha256').update(source).digest('hex')
     const match = source.match(/^window\.EDENIA_CONFIG\s*=\s*([\s\S]*?)\s*;?\s*$/u)
     const runtime = match ? JSON.parse(match[1]) : null
     if (release.deployedCommit !== candidate || release.runtimeConfigSha256 !== runtimeHash
-      || runtime?.accountFeaturesRollout !== 'public' || runtime?.learnerProfileLifecycleEnabled !== true
+      || (binding.surface === 'trial'
+        ? runtime?.authTrialEnabled !== true || runtime?.accountFeaturesRollout !== 'off' || runtime?.learnerProfileLifecycleEnabled !== false
+        : runtime?.accountFeaturesRollout !== 'public' || runtime?.learnerProfileLifecycleEnabled !== true)
       || new URL(runtime.supabaseUrl).hostname !== config.projectRef + '.supabase.co') throw new Error('Candidate runtime mismatch')
-    if (release.assetVersion !== candidate.slice(0, 12)) throw new Error('Asset version mismatch')
-    const asset = await fetch('https://www.edenia.study/app.js?v=' + release.assetVersion)
+    if (!new RegExp('^' + candidate.slice(0, 12) + '(?:-p[01]-g[01])?$').test(release.assetVersion)) throw new Error('Asset version mismatch')
+    const asset = await fetchDeployment('https://www.edenia.study/app.js?v=' + release.assetVersion)
     if (!asset.ok) throw new Error('Asset missing')
     const assetIdentity = { version: release.assetVersion, sha256: createHash('sha256').update(Buffer.from(await asset.arrayBuffer())).digest('hex') }
+    assetIdentity.entryHashes = {}
+    for (const path of binding.surface === 'trial' ? ['/site-entry.js', '/auth-trial-entry.js'] : ['/site-entry.js']) {
+      const entry = await fetchDeployment('https://www.edenia.study' + path + '?v=' + release.assetVersion)
+      if (!entry.ok) throw new Error('Entry asset missing')
+      assetIdentity.entryHashes[path] = createHash('sha256').update(Buffer.from(await entry.arrayBuffer())).digest('hex')
+    }
     return { assetIdentity, runtimeHash, providerOrigin: new URL(runtime.supabaseUrl).origin }
   })
   const rehearsal = JSON.parse(await readFile(config.rehearsalReceipt, 'utf8'))
   if (!rehearsal.complete || !rehearsal.cleanupVerified || rehearsal.hostedOperations !== 0
     || !['executor-killed', 'hard-deadline', 'execution-store-unavailable', 'containment-before-delayed-enable', 'enable-before-containment']
-      .every(name => rehearsal.containment?.some(row => row.scenario === name && row.gateOff))) throw new Error('Reviewed recovery rehearsal is required')
-  for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs']) {
+      .every(name => rehearsal.containment?.some(row => row.scenario === (binding.surface === 'trial' ? 'trial-' + name : name)
+        && row.gateOff && (binding.surface !== 'trial' || row.audienceRemoved)))) throw new Error('Reviewed recovery rehearsal is required')
+  for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs', 'opening-gate-binding.mjs', 'run-live-profile-opening.mjs', 'rehearse-canary-containment.mjs']) {
     const digest = createHash('sha256').update(await readFile(new URL('./' + name, import.meta.url))).digest('hex')
     if (rehearsal.scriptSources?.[name] !== digest) throw new Error('Recovery rehearsal source changed')
   }
+  await binding.verifyAudience(operator)
   const initialGate = (await readGate()).rollout_state
   const initialHead = await observe()
   const verifyInitialHead = async () => {
@@ -65,7 +80,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     return current
   }
   const deployment = await readDeployment()
-  const sharedDirectory = join(config.workdir, '.cache', 'canary-execution')
+  const sharedDirectory = join(config.workdir, '.cache', binding.directory)
   await mkdir(sharedDirectory, { recursive: true, mode: 0o700 })
   const storePath = join(sharedDirectory, 'packet-1.sqlite')
   const store = new CanaryExecutionStore(storePath)
@@ -77,7 +92,8 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     && existing.execution.gate === 'off' && existing.execution.candidate === candidate
     && existing.execution.phase === 'preflight' && existing.execution.owner === null
     && existing.execution.pending.length === 0 && existing.watchdog?.state === 'completed'
-    && existing.metadata?.topLevelIssue === 286 && existing.metadata.invocationUtc === config.invocationUtc
+    && existing.metadata?.topLevelIssue === binding.issue
+    && (binding.surface !== 'trial' || existing.metadata?.artifactHashes?.includes(binding.identityHash)) && existing.metadata.invocationUtc === config.invocationUtc
     && lastRepair?.state === 'closed')) {
     store.close(); throw new Error('Existing execution requires reconciliation; do not replay')
   }
@@ -96,7 +112,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
   let acknowledged = false
   let failed = false
   const results = []
-  const receipt = { candidate, reviewed, startedUtc, procedure: 'packet-1-profile-opening-v1', rehearsalSha256: hash(rehearsal), runtimeConfigSha256: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, sourceKind: 'packet-1-workflow', complete: false, results, cleanup: null }
+  const receipt = { candidate, reviewed, startedUtc, procedure: binding.surface === 'trial' ? 'trial-profile-opening-v1' : 'packet-1-profile-opening-v1', surface: binding.surface, rehearsalSha256: hash(rehearsal), runtimeConfigSha256: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, sourceKind: 'packet-1-workflow', complete: false, results, cleanup: null }
   const requireLease = () => { if (renewalFailed) throw new Error('Lease lost'); store.requireLease(executor, Date.now()) }
   // A losing executor owns no cleanup authority. Only successful acquisition
   // enters the block that can contain the hosted gate on exit.
@@ -113,8 +129,8 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     }, 5000)
     const invocationUtc = config.invocationUtc
     store.writeCheckpoint(executor, Date.now(), { planId: 'internal-canary-codex-autonomous-2026-09-05-v4',
-      topLevelIssue: 286, invocationUtc, manifestSha256: hash(await readFile(new URL('../docs/internal-canary-execution-manifest.md', import.meta.url), 'utf8')),
-      reviewSha: reviewed, baseSha: config.baseSha, deploymentSha: candidate, artifactHashes: [],
+      topLevelIssue: binding.issue, invocationUtc, manifestSha256: hash(await readFile(new URL('../docs/internal-canary-execution-manifest.md', import.meta.url), 'utf8')),
+      reviewSha: reviewed, baseSha: config.baseSha, deploymentSha: candidate, artifactHashes: binding.surface === 'trial' ? [binding.identityHash] : [],
       soakStartUtc: null, soakEndUtc: null, sourceCursor: null, recoveryState: 'prepared', heartbeatReference: config.heartbeatReference })
     const watchdogConfig = join(directory, 'packet-1-watchdog.json')
     await writeFile(watchdogConfig, JSON.stringify({ ...config, mode: 'linked', candidate,
@@ -129,16 +145,16 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     const armedDeadline = Date.now() + 10000
     while (!watchdogOutput.includes('"state":"armed"') && Date.now() < armedDeadline) await new Promise(resolve => setTimeout(resolve, 100))
     if (!watchdogOutput.includes('"state":"armed"')) throw new Error('Independent containment did not arm')
-    if (initialGate === 'developer-canary') {
+    if (initialGate === binding.stage) {
       store.beginOperation(executor, Date.now(), { id: 'gate-' + attempt + '-entry-off', candidate, gate: initialGate })
-      const contained = await containCanary(operator, config.expectedOwner)
+      const contained = await binding.contain(operator)
       if (!Object.values(compareCanaryProfiles(initialHead, await observe())).every(Boolean)) throw new Error('Entry head changed')
       store.finishGateTransition(executor, Date.now(), { id: 'gate-' + attempt + '-entry-off', from: initialGate, to: 'off', evidenceHash: hash(contained) })
     }
     await verifyGateOff()
     // Synthetic deployed-client verification always precedes real account entry.
     const runSynthetic = dependencies.runSynthetic || (async () => {
-      const child = spawn(process.execPath, [new URL('./hosted-profile-opening-smoke.mjs', import.meta.url).pathname, '--synthetic', candidate], {
+      const child = spawn(process.execPath, [new URL('./hosted-profile-opening-smoke.mjs', import.meta.url).pathname, binding.surface === 'trial' ? '--synthetic-trial' : '--synthetic', candidate], {
         env: { ...process.env, EDENIA_CANARY_OPERATOR_WORKDIR: config.workdir }, stdio: ['ignore', 'pipe', 'pipe'] })
       let output = ''
       child.stdout.on('data', data => { output += data.toString() })
@@ -166,7 +182,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       expectedEmail = accounts[0].email.trim().toLowerCase()
     }
     receipt.authenticationSetup = { method: authMethod, accountCreationSuppressed: authMethod === 'email-code', evidenceClass: 'constrained-authentication-setup' }
-    const authOptions = { providerOrigin: deployment.providerOrigin, expectedEmail,
+    const authOptions = { surface: binding.surface, providerOrigin: deployment.providerOrigin, expectedEmail,
       expectedOwner: config.expectedOwner, verifyGateOff: async () => { requireLease(); await verifyGateOff() },
       onReady: () => notify({ state: 'private-authentication-ui-ready', gate: 'off' }) }
     let session
@@ -202,30 +218,33 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     } else {
       session = await (dependencies.authenticate || prepareOpeningAuthentication)({ ...authOptions, browser, method: authMethod })
     }
+    if (session?.user?.id !== config.expectedOwner) throw new Error('Authentication owner mismatch')
     requireLease()
     await verifyInitialHead()
+    if (hash(await readDeployment()) !== hash(deployment)) throw new Error('Deployment changed before admission')
+    await binding.verifyAudience(operator)
     const offGate = await readGate()
     requireLease()
     store.beginOperation(executor, Date.now(), { id: 'gate-' + attempt + '-real-enable', candidate, gate: 'off' })
     if (offGate.rollout_state !== 'off') throw new Error('Canary entry requires off gate')
-    const enabled = await operator.query(enableCanarySql(config.expectedOwner, offGate.version))
-    if (enabled.length !== 1 || (await readGate()).rollout_state !== 'developer-canary') throw new Error('Canary entry did not verify')
-    store.finishGateTransition(executor, Date.now(), { id: 'gate-' + attempt + '-real-enable', from: 'off', to: 'developer-canary', evidenceHash: hash({ gate: 'developer-canary', ownerMatches: true }) })
+    const enabled = await operator.query(binding.enableSql(offGate.version))
+    if (enabled.length !== 1 || (await readGate()).rollout_state !== binding.stage) throw new Error('Canary entry did not verify')
+    store.finishGateTransition(executor, Date.now(), { id: 'gate-' + attempt + '-real-enable', from: 'off', to: binding.stage, evidenceHash: hash({ gate: binding.stage, ownerMatches: true, bindingHash: binding.identityHash }) })
     store.advancePhase(executor, Date.now(), { phase: 'live-scenario', skipSoak: true, evidenceHash: hash({ packet: 1, soakRequired: false, syntheticPassed: true }) })
     for (const bookkeeping of ['clean', 'malformed', 'stale', 'retry']) {
       const phaseStartedUtc = new Date().toISOString()
       const result = await (dependencies.runCase || runOpeningCase)({ browser, applicationOrigin: 'https://www.edenia.study',
-        providerOrigin: deployment.providerOrigin, expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, session, bookkeeping,
+        providerOrigin: deployment.providerOrigin, surface: binding.surface, expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, session, bookkeeping,
         verifyBefore: verifyInitialHead,
         canDispatch: async classification => {
           requireLease()
           await verifyInitialHead()
-          if ((await readGate()).rollout_state !== 'developer-canary') return false
+          if ((await readGate()).rollout_state !== binding.stage) return false
           requireLease()
           if (classification === 'resolve') {
             acknowledged = false
             pending = 'resolve-' + attempt + '-' + (++sequence)
-            store.beginOperation(executor, Date.now(), { id: pending, candidate, gate: 'developer-canary' })
+            store.beginOperation(executor, Date.now(), { id: pending, candidate, gate: binding.stage })
           }
           return true
         },
@@ -256,18 +275,18 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     // Also contain after all executor requests have settled. The database fence
     // protects runner loss; this path handles setup failures before watchdog arm.
     let fallbackContained = false
-    try { await containCanary(operator, config.expectedOwner); fallbackContained = true } catch { failed = true }
+    try { await binding.contain(operator); fallbackContained = true } catch { failed = true }
     await writeFile(join(directory, 'packet-1-watchdog-result.txt'), watchdogOutput + watchdogError, { mode: 0o600 })
     try {
       await verifyGateOff()
       const equality = compareCanaryProfiles(initialHead, await observe())
       if (!fallbackContained || !Object.values(equality).every(Boolean)) throw new Error('Cleanup is not verified')
-      receipt.cleanup = { gateOff: true, ownerRemoved: true, monitorDisabled: true, watchdogStopped: !watchdog || exit !== null, independentContainmentVerified: exit === 0 && watchdogOutput.includes('"state":"contained"'), ...equality }
+      receipt.cleanup = { gateOff: true, ownerRemoved: true, ...(binding.surface === 'trial' ? { audienceRemoved: true } : {}), monitorDisabled: true, watchdogStopped: !watchdog || exit !== null, independentContainmentVerified: exit === 0 && watchdogOutput.includes('"state":"contained"'), ...equality }
       if (store.state().pending.length !== 0) throw new Error('Pending remote outcome requires reconciliation')
       if (!failed && results.length === 4 && receipt.cleanup.independentContainmentVerified) {
         const evidenceHash = hash({ cleanup: receipt.cleanup, results })
         await writeFile(join(directory, evidenceHash + '.json'), JSON.stringify({ cleanup: receipt.cleanup, results }), { mode: 0o600 })
-        store.reconcilePacketOneCleanup(Date.now(), { previousExecutorStopped: true, candidate, gate: 'off',
+        store.reconcilePacketOneCleanup(Date.now(), { activeGate: binding.stage, previousExecutorStopped: true, candidate, gate: 'off',
           ownerRemoved: true, monitorDisabled: true, headUnchanged: true,
           caseEvidenceHashes: results.map(result => result.sourceSha256), evidenceHash })
       } else store.reconcileExpired(Date.now(), { previousExecutorStopped: true, candidate, gate: 'off', pendingOutcome: null, evidenceHash: hash(receipt.cleanup) })
@@ -277,7 +296,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     for (const [index, result] of results.entries()) {
       const evidence = encodeCanaryEvidence({ schemaVersion: 1, runId: randomUUID(),
         scenario: 'packet-1-profile-opening', subcase: index + 1, procedureSha256: receipt.procedureSha256,
-        runnerSha: reviewed, candidateSha: candidate, gate: 'developer-canary', target: 'macos-chrome',
+        runnerSha: reviewed, candidateSha: candidate, gate: binding.stage, target: 'macos-chrome',
         browserVersion: receipt.browserVersion, osVersion: receipt.osVersion, sourceKind: 'live-browser',
         startedUtc: result.startedUtc, finishedUtc: result.finishedUtc,
         assertions: [{ id: 'ui-correct', passed: result.complete },

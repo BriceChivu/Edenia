@@ -131,7 +131,7 @@ try {
   process.off('SIGTERM', onSignal)
 }
 const scriptSources = {}
-for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs']) {
+for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs', 'opening-gate-binding.mjs', 'run-live-profile-opening.mjs', 'rehearse-canary-containment.mjs']) {
   scriptSources[name] = createHash('sha256').update(await readFile(new URL('./' + name, import.meta.url))).digest('hex')
 }
 const receipt = {

@@ -4,13 +4,16 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { CanaryExecutionStore, isUnavailableExecutionStore } from './canary-execution-store.mjs'
-import { containCanary, linkedContainmentOperator, READ_GATE_SQL } from './canary-containment-operator.mjs'
+import { linkedContainmentOperator, READ_GATE_SQL, READ_TRIAL_GATE_SQL } from './canary-containment-operator.mjs'
+
+import { openingGateBinding } from './opening-gate-binding.mjs'
 
 const execute = promisify(execFile)
 if (process.argv.length !== 3) throw new Error('A private reviewed watchdog configuration is required')
 const config = JSON.parse(await readFile(process.argv[2], 'utf8'))
 if (!['local-rehearsal', 'linked'].includes(config.mode)) throw new Error('Invalid watchdog operator mode')
 if (typeof config.candidate !== 'string' || !/^[a-f0-9]{40}$/u.test(config.candidate)) throw new Error('Invalid watchdog candidate')
+const binding = openingGateBinding(config)
 let operator
 if (config.mode === 'linked') {
   // Invoke only under the selected later packet's reviewed live authority.
@@ -22,7 +25,7 @@ if (config.mode === 'linked') {
   operator = {
     async query(sql) {
       const statement = sql.replace(/;$/u, '')
-      const wrapped = sql === READ_GATE_SQL
+      const wrapped = sql === READ_GATE_SQL || sql === READ_TRIAL_GATE_SQL
         ? `select coalesce(json_agg(row_to_json(value)), '[]'::json) from (${statement}) value;`
         : `with changed as (${statement}) select coalesce(json_agg(row_to_json(changed)), '[]'::json) from changed;`
       const { stdout } = await execute('docker', ['exec', `supabase_db_${config.projectRef}`, 'psql', '-XAt', '--username', 'postgres', '--dbname', 'postgres', '--set', 'ON_ERROR_STOP=1', '-c', wrapped], { timeout: 20000 })
@@ -44,6 +47,15 @@ let interrupted = false
 process.on('SIGINT', () => { interrupted = true })
 process.on('SIGTERM', () => { interrupted = true })
 try {
+  if (binding.surface === 'trial') {
+    const checkpoint = store.checkpoint()
+    if (checkpoint.execution.candidate !== config.candidate || checkpoint.metadata?.topLevelIssue !== 177
+      || checkpoint.metadata.deploymentSha !== config.candidate
+      || !checkpoint.metadata.artifactHashes.includes(binding.identityHash)) throw new Error('Trial watchdog binding changed')
+    const rows = await operator.query(binding.readSql)
+    if (rows.length !== 1) throw new Error('Ambiguous trial gate')
+    binding.assertState(rows[0])
+  }
   store.claimWatchdog(reference, config.executor, Date.now(), config.deadline)
   armed = true
   console.log(JSON.stringify({ state: 'armed' }))
@@ -67,7 +79,7 @@ try {
     if (!isUnavailableExecutionStore(error)) throw error
     journalAvailable = false
   }
-  const result = await containCanary(operator, config.expectedOwner)
+  const result = await binding.contain(operator)
   let json = JSON.stringify({ state: 'contained', ...result })
   if (journalAvailable) {
     try { store.finishContainment(reference, createHash('sha256').update(json).digest('hex'), true) }

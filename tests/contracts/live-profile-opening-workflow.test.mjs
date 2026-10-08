@@ -6,29 +6,34 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { executeOpeningWorkflow } from '../../scripts/run-live-profile-opening.mjs'
-import { containCanary, READ_GATE_SQL } from '../../scripts/canary-containment-operator.mjs'
+import { containCanary, containTrial, READ_GATE_SQL, READ_TRIAL_GATE_SQL } from '../../scripts/canary-containment-operator.mjs'
 import { CanaryExecutionStore } from '../../scripts/canary-execution-store.mjs'
 
 const candidate = 'a'.repeat(40)
 const owner = '11111111-1111-1111-1111-111111111111'
 async function fixture(t, options = {}) {
+  const trial = options.trial === true
+  const stage = trial ? 'tester-trial' : 'developer-canary'
+  const testers = [owner, '22222222-2222-2222-2222-222222222222']
   const workdir = await mkdtemp(join(tmpdir(), 'opening-workflow-'))
   t.after(() => rm(workdir, { recursive: true, force: true }))
   const scriptSources = {}
-  for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs']) {
+  for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs', 'opening-gate-binding.mjs', 'run-live-profile-opening.mjs', 'rehearse-canary-containment.mjs']) {
     scriptSources[name] = createHash('sha256').update(await readFile(new URL('../../scripts/' + name, import.meta.url))).digest('hex')
   }
   const rehearsalReceipt = join(workdir, 'rehearsal.json')
   await writeFile(rehearsalReceipt, JSON.stringify({ complete: true, cleanupVerified: true, hostedOperations: 0, scriptSources,
-    containment: ['executor-killed', 'hard-deadline', 'execution-store-unavailable', 'containment-before-delayed-enable', 'enable-before-containment'].map(scenario => ({ scenario, gateOff: true })) }))
-  const config = { expectedOwner: owner, workdir, rehearsalReceipt, invocationUtc: '2026-09-07T00:00:00.000Z', baseSha: 'b'.repeat(40), heartbeatReference: 'synthetic-heartbeat' }
+    containment: ['executor-killed', 'hard-deadline', 'execution-store-unavailable', 'containment-before-delayed-enable', 'enable-before-containment'].map(scenario => ({ scenario: trial ? 'trial-' + scenario : scenario, gateOff: true, ...(trial ? { audienceRemoved: true } : {}) })) }))
+  const config = { ...(trial ? { surface: 'trial', expectedTesters: testers } : {}), expectedOwner: owner, workdir, rehearsalReceipt, invocationUtc: '2026-09-07T00:00:00.000Z', baseSha: 'b'.repeat(40), heartbeatReference: 'synthetic-heartbeat' }
   let gate = 'off', version = '2026-09-07 00:00:00+00', enabled = 0, calls = 0, containments = 0, head = 'original', closed = false
   const operator = {
     async query(sql) {
+      if (sql.startsWith('select count(*)::integer as admitted')) return [{ admitted: testers.length }]
+      if (sql === READ_TRIAL_GATE_SQL) return [{ rollout_state: gate, owner: null, testers: gate === 'off' ? [] : testers, version }]
       if (sql === READ_GATE_SQL) return [{ rollout_state: gate, owner: gate === 'off' ? null : owner, version }]
-      if (sql.includes("set rollout_state = 'developer-canary'")) {
+      if (sql.includes("set rollout_state = '" + stage + "'")) {
         if (options.rejectEnable) return []
-        gate = 'developer-canary'; enabled++; return [{ rollout_state: gate }]
+        gate = stage; enabled++; return [{ rollout_state: gate }]
       }
       containments++; gate = 'off'; version = '2026-09-07 00:00:01+00'; return [{ rollout_state: gate }]
     },
@@ -49,7 +54,7 @@ async function fixture(t, options = {}) {
       setImmediate(() => child.stdout.emit('data', '{"state":"armed"}'))
       child.kill = () => { setImmediate(async () => {
         store.beginContainment('synthetic-watchdog', Date.now())
-        await containCanary(operator, owner)
+        await (trial ? containTrial(operator, testers) : containCanary(operator, owner))
         store.finishContainment('synthetic-watchdog', 'e'.repeat(64), true)
         child.stdout.emit('data', '{"state":"contained"}')
         child.emit('close', 0)
@@ -57,6 +62,7 @@ async function fixture(t, options = {}) {
       return child
     },
     async runCase(args) {
+      assert.equal(args.surface, trial ? 'trial' : 'public')
       calls++
       if (options.driftAtPhase) head = 'changed'
       await args.verifyBefore()
@@ -68,7 +74,7 @@ async function fixture(t, options = {}) {
   return { input: { candidate, reviewed: candidate, config }, dependencies,
     inspect: () => ({ gate, enabled, calls, closed }),
     containmentCount: () => containments,
-    state: () => { const store = new CanaryExecutionStore(join(workdir, '.cache/canary-execution/packet-1.sqlite')); try { return store.state() } finally { store.close() } } }
+    state: () => { const store = new CanaryExecutionStore(join(workdir, trial ? '.cache/auth-trial-opening/packet-1.sqlite' : '.cache/canary-execution/packet-1.sqlite')); try { return store.state() } finally { store.close() } } }
 }
 
 test('workflow completes four phases with original head, receipt and independent gate cleanup', async t => {
@@ -269,4 +275,142 @@ test('later case failure does not mislabel completed native authentication', asy
   assert.equal(result.complete, false)
   assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: true, failure: null, connectionFailure: null, applicationTransport: { connectAccepted: false, tlsEstablished: false, connectionFailure: null } })
   assert.equal(f.inspect().gate, 'off')
+})
+
+
+test('trial workflow binds authentication, entry, journal and cleanup to the exact audience', async t => {
+  const f = await fixture(t, { trial: true })
+  f.dependencies.authenticate = async args => {
+    assert.equal(args.surface, 'trial')
+    await args.verifyGateOff()
+    return { user: { id: owner } }
+  }
+  const result = await executeOpeningWorkflow(f.input, f.dependencies)
+  assert.equal(result.complete, true)
+  assert.equal(result.surface, 'trial')
+  assert.equal(result.cleanup.audienceRemoved, true)
+  assert.equal(f.state().phase, 'cleanup')
+  assert.equal(JSON.stringify(result).includes(owner), false)
+  const { readdir } = await import('node:fs/promises')
+  const dir = join(f.input.config.workdir, '.cache/auth-trial-opening')
+  const attempt = (await readdir(dir)).find(name => name.startsWith('attempt-'))
+  const config = JSON.parse(await readFile(join(dir, attempt, 'packet-1-watchdog.json'), 'utf8'))
+  assert.equal(config.surface, 'trial')
+  assert.deepEqual(config.expectedTesters, f.input.config.expectedTesters)
+  await assert.rejects(readFile(join(f.input.config.workdir, '.cache/canary-execution/packet-1.sqlite')), /ENOENT/)
+})
+
+for (const option of ['setupFailure', 'driftAtAuth', 'ambiguousResolver', 'rejectEnable']) {
+  test(`trial ${option} remains incomplete and clears admission`, async t => {
+    const f = await fixture(t, { trial: true, [option]: true })
+    const result = await executeOpeningWorkflow(f.input, f.dependencies)
+    assert.equal(result.complete, false)
+    assert.equal(f.inspect().gate, 'off')
+    if (option === 'driftAtAuth') assert.equal(result.cleanup, null)
+    else assert.equal(result.cleanup.audienceRemoved, true)
+  })
+}
+
+test('trial rejects changed admission, missing owner and legacy rehearsal before authority', async t => {
+  for (const failure of ['audience', 'owner', 'legacy-rehearsal', 'native']) {
+    const f = await fixture(t, { trial: true })
+    if (failure === 'audience') {
+      const query = f.dependencies.operator.query
+      f.dependencies.operator.query = async sql => sql === READ_TRIAL_GATE_SQL
+        ? [{ rollout_state: 'tester-trial', owner: null, testers: [owner], version: '2026-09-07 00:00:00+00' }] : query(sql)
+    }
+    if (failure === 'owner') f.input.config.expectedTesters = ['22222222-2222-2222-2222-222222222222']
+    if (failure === 'native') { f.input.config.authTransport = 'native-inspected'; f.input.config.authMethod = 'email-code' }
+    if (failure === 'legacy-rehearsal') {
+      const receipt = JSON.parse(await readFile(f.input.config.rehearsalReceipt, 'utf8'))
+      receipt.containment = receipt.containment.map(row => ({ ...row, scenario: row.scenario.slice(6) }))
+      await writeFile(f.input.config.rehearsalReceipt, JSON.stringify(receipt))
+    }
+    await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies))
+    assert.equal(f.containmentCount(), 0)
+    assert.equal(f.inspect().enabled, 0)
+  }
+})
+
+test('trial repaired execution cannot resume with another exact audience', async t => {
+  const f = await fixture(t, { trial: true })
+  f.dependencies.runSynthetic = async () => ({ code: 1, output: '{}' })
+  await executeOpeningWorkflow(f.input, f.dependencies)
+  const store = new CanaryExecutionStore(join(f.input.config.workdir, '.cache/auth-trial-opening/packet-1.sqlite'))
+  try {
+    store.acquire('repair-owner', Date.now(), 10000)
+    store.suspendForRepair('repair-owner', Date.now(), { issue: 305, evidenceHash: 'f'.repeat(64) })
+    store.resumeAfterRepair('repair-owner', Date.now(), { issue: 305, closureEvidenceHash: 'e'.repeat(64), candidate, gate: 'off' })
+    store.release('repair-owner', Date.now())
+  } finally { store.close() }
+  const resumed = { ...f.input, config: { ...f.input.config, resumeAfterRepair: true, expectedTesters: [owner] } }
+  const before = f.containmentCount()
+  const query = f.dependencies.operator.query
+  f.dependencies.operator.query = async sql => sql.startsWith('select count(*)::integer as admitted') ? [{ admitted: 1 }] : query(sql)
+  await assert.rejects(executeOpeningWorkflow(resumed, f.dependencies), /Existing execution requires reconciliation/)
+  assert.equal(f.containmentCount(), before)
+  f.dependencies.operator.query = query
+  resumed.config.expectedTesters = [...f.input.config.expectedTesters].reverse()
+  f.dependencies.runSynthetic = async () => ({ code: 0, output: '{}' })
+  assert.equal((await executeOpeningWorkflow(resumed, f.dependencies)).complete, true)
+})
+
+
+test('trial rejects authentication owner mismatch before admission', async t => {
+  const f = await fixture(t, { trial: true })
+  f.dependencies.authenticate = async () => ({ user: { id: '22222222-2222-2222-2222-222222222222' } })
+  const result = await executeOpeningWorkflow(f.input, f.dependencies)
+  assert.equal(result.complete, false)
+  assert.equal(f.inspect().enabled, 0)
+  assert.equal(result.cleanup.audienceRemoved, true)
+})
+
+for (const mismatch of ['none', 'trial-disabled', 'public-accounts', 'wrong-project', 'wrong-version', 'entry-missing', 'drift-at-auth']) {
+  test(`trial delivery preflight handles ${mismatch} without widening audience`, async t => {
+    const f = await fixture(t, { trial: true })
+    delete f.dependencies.readDeployment
+    f.input.config.projectRef = 'abcdefghijklmnopqrst'
+    const runtime = { authTrialEnabled: mismatch !== 'trial-disabled', accountFeaturesRollout: mismatch === 'public-accounts' ? 'public' : 'off',
+      learnerProfileLifecycleEnabled: false, supabaseUrl: 'https://' + (mismatch === 'wrong-project' ? 'different' : f.input.config.projectRef) + '.supabase.co' }
+    const source = 'window.EDENIA_CONFIG = ' + JSON.stringify(runtime) + ';'
+    const sha = createHash('sha256').update(source).digest('hex')
+    let assetDrift = false
+    const requested = []
+    f.dependencies.fetchDeployment = async url => {
+      const path = new URL(url).pathname
+      requested.push(path)
+      if (path === '/release.json') return { json: async () => ({ deployedCommit: candidate, runtimeConfigSha256: sha,
+        assetVersion: (mismatch === 'wrong-version' ? 'b'.repeat(12) : candidate.slice(0, 12)) + '-p1-g1' }) }
+      if (path === '/config.local.js') return { text: async () => source }
+      return { ok: !(mismatch === 'entry-missing' && path === '/auth-trial-entry.js'), arrayBuffer: async () => Buffer.from(assetDrift ? 'changed' : path) }
+    }
+    if (mismatch === 'drift-at-auth') f.dependencies.authenticate = async () => { assetDrift = true; return { user: { id: owner } } }
+    if (['none', 'drift-at-auth'].includes(mismatch)) {
+      const result = await executeOpeningWorkflow(f.input, f.dependencies)
+      assert.equal(result.complete, mismatch === 'none')
+      assert.equal(f.inspect().enabled, mismatch === 'none' ? 1 : 0)
+      assert.ok(requested.includes('/site-entry.js'))
+      assert.ok(requested.includes('/auth-trial-entry.js'))
+    } else {
+      await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies))
+      assert.equal(f.containmentCount(), 0)
+      assert.equal(f.inspect().enabled, 0)
+    }
+  })
+}
+
+
+test('trial requires every selected account to be verified and unlocked, including after authentication', async t => {
+  for (const moment of ['preflight', 'after-authentication']) {
+    const f = await fixture(t, { trial: true })
+    const query = f.dependencies.operator.query
+    let eligible = moment !== 'preflight'
+    f.dependencies.operator.query = async sql => sql.startsWith('select count(*)::integer as admitted')
+      ? [{ admitted: eligible ? f.input.config.expectedTesters.length : 1 }] : query(sql)
+    f.dependencies.authenticate = async () => { eligible = false; return { user: { id: owner } } }
+    if (moment === 'preflight') await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies), /not all eligible/)
+    else assert.equal((await executeOpeningWorkflow(f.input, f.dependencies)).complete, false)
+    assert.equal(f.inspect().enabled, 0)
+    assert.equal(f.inspect().gate, 'off')
+  }
 })

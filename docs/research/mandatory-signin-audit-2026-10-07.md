@@ -90,6 +90,25 @@ Local validation:
 
 The default site/Godot export rebuilt successfully. No hosted migration, sign-in, gate/provider change or deployment was performed. Selected tester identities, trial watchdog/workflow binding and recovery/monitor evidence, and real Google/email OTP/CAPTCHA plus macOS Chrome/Safari acceptance remain outstanding.
 
+### Trial executor and independent watchdog checkpoint — 2026-10-08
+
+The local execution workflow now supports the current trial as an explicit `surface: "trial"` operation. A shared gate binding drives both the executor and its independent watchdog: it requires the complete reviewed `expectedTesters` UUID list, requires `expectedOwner` to be in that list, and accepts only an empty off gate or that exact trial audience. Every selected account must be verified, permanent, present and unlocked at preflight and again before admission opens. Another audience, public/developer stage, wrong authenticated owner, or changed deployment stops the procedure.
+
+Trial authentication and profile cases use the fresh mode-1 route and namespace. The runner pins current runtime/app/site-entry/auth-trial-entry assets, checks them again before admission and at completion, and requires public account rollout off with the global lifecycle flag false. Synthetic preflight additionally verifies empty tester admission. Profile cases retain their read-only request guard: writes and game iframe documents remain denied. This bounded opening procedure is not full game/provider acceptance.
+
+Trial journals are created under `.cache/auth-trial-opening`, separately from consumed historical `.cache/canary-execution` journals. Their private checkpoint binds the owner and sorted complete audience by digest. A repaired invocation cannot resume under a changed audience; reordered equivalent UUIDs remain equivalent. The watchdog verifies that binding and candidate before arming, then closes the trial gate, clears admission, advances the fence and disables the bounded monitor on interruption. Missing/corrupt execution bookkeeping still requires explicit reconciliation and never produces a successful complete receipt. Existing canary defaults remain supported; trial execution rejects the historical native-inspected transport and uses the supported browser authentication path.
+
+The user supplied one tester account by email during this continuation. A narrowly scoped read-only lookup on the existing Edenia backend found exactly one verified, permanent, present, unlocked UUID. Its selection is saved only in the private ignored `.cache/auth-trial-selected-account.json` (mode 0600); neither email nor UUID is committed or included in public evidence. This records selection, not hosted admission or sign-in. Future operator configuration must explicitly supply the trial surface, full selected UUID list, current owner, pinned candidate/review/invocation and fresh rehearsal receipt; do not reuse a historical consumed journal or run from the selection fragment alone.
+
+Validation:
+
+- **1,823 client contracts passed**. The focused opening/gate/evidence/store suite passed **85 cases**, including stale audience, owner mismatch, deployment drift before admission, unverified/locked audience, rejected enable and failed resolver handling.
+- **Four guarded current-trial browser cases passed**, with fixture Auth/RPC responses and no hosted provider requests.
+- Fresh disposable database receipt `.cache/canary-database/run-HOFIgh/receipt.json`: **466 assertions across 16 suites**, plus **11 containment scenarios**. Independent processes cleared admission after trial executor kill, hard deadline and corrupted store; a mismatched watchdog audience was refused before arming without touching the gate. Both trial enable/containment orderings preserved profile counts and fenced delayed enable. Container/volume cleanup verified; hosted mutation operations zero.
+- The site and integrated Godot export rebuilt successfully. Initial fresh-worktree validation hit missing macOS esbuild/canvas binaries from the retained optional-dependency lock inventory; installing those local binaries resolved the failures without changing dependency manifests. The first disposable run stopped before assertions and verified cleanup. The first browser invocation had a temporary config working-directory error; correcting its server working directory produced the passing four-case run. These are setup failures, not provider acceptance.
+
+This completes local workflow/watchdog binding and executor-failure rehearsal from the preceding checkpoint. Hosted schema/admission application, fresh restore/monitor evidence, real Google/email OTP/CAPTCHA and current macOS Chrome/Safari acceptance remain outstanding. Lost-choice acknowledgment/protection-expiry and new-device protected-copy discovery acceptance also remain explicit. No hosted migration, gate/provider/monitor change, deployment or sign-in was performed; the only hosted action was the user-authorized read-only account lookup.
+
 ## Original audit scope, isolation and pinned identity
 
 - Separate branch: `codex/mandatory-signin-audit`.

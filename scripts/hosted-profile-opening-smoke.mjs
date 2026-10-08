@@ -283,7 +283,7 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   const osVersion = execFileSync('sw_vers', ['-productVersion'], { encoding: 'utf8' }).trim()
   const procedureSha256 = createHash('sha256').update(await readFile(new URL('./hosted-profile-opening-smoke.mjs', import.meta.url))).digest('hex')
   const { chromium } = await import('@playwright/test')
-  const { linkedContainmentOperator, READ_GATE_SQL } = await import('./canary-containment-operator.mjs')
+  const { linkedContainmentOperator, READ_GATE_SQL, READ_TRIAL_GATE_SQL } = await import('./canary-containment-operator.mjs')
   const [mode, candidate] = process.argv.slice(2)
   const surface = mode === '--synthetic-trial' ? 'trial' : 'public'
   if (!['--synthetic', '--synthetic-trial'].includes(mode) || !/^[a-f0-9]{40}$/u.test(candidate || '') || process.argv.length !== 4) {
@@ -294,8 +294,9 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   const projectRef = (await readFile(workdir + '/supabase/.temp/project-ref', 'utf8')).trim()
   const operator = linkedContainmentOperator({ workdir, projectRef })
   const verifyGate = async () => {
-    const rows = await operator.query(READ_GATE_SQL)
+    const rows = await operator.query(surface === 'trial' ? READ_TRIAL_GATE_SQL : READ_GATE_SQL)
     if (rows.length !== 1 || rows[0].rollout_state !== 'off' || rows[0].owner !== null
+      || (surface === 'trial' && (!Array.isArray(rows[0].testers) || rows[0].testers.length !== 0))
       || !await operator.monitorDisabled()) throw new Error('Synthetic smoke requires verified gate off and monitor disabled')
   }
   const readDeployment = async () => {
@@ -306,7 +307,7 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
     const match = runtime.match(/^window\.EDENIA_CONFIG\s*=\s*([\s\S]*?)\s*;?\s*$/u)
     const config = match ? JSON.parse(match[1]) : null
     if (release.deployedCommit !== candidate || release.runtimeConfigSha256 !== hash
-      || (surface === 'trial' ? config?.authTrialEnabled !== true
+      || (surface === 'trial' ? config?.authTrialEnabled !== true || config?.accountFeaturesRollout !== 'off' || config?.learnerProfileLifecycleEnabled !== false
         : config?.accountFeaturesRollout !== 'public' || config?.learnerProfileLifecycleEnabled !== true)
       || new URL(config.supabaseUrl).hostname !== projectRef + '.supabase.co') throw new Error('Deployed opening identity mismatch')
     if (!new RegExp('^' + candidate.slice(0, 12) + '(?:-p[01]-g[01])?$').test(release.assetVersion)) throw new Error('Asset version mismatch')
