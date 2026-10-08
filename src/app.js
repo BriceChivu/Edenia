@@ -8742,6 +8742,9 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
     if (!IS_SANDBOX && hasYoutubeApiKey()) {
       youtubeMetadataBudget ||= createYoutubeMetadataBudget({ namespace: `${STORAGE_KEY}_youtube_metadata_recovery` })
       const recover = youtubeMetadataBudget.createRun()
+      const keepUnchangedMetadataLocal = Boolean(learnerProfileLifecycleAuthority)
+      let metadataBaseline = keepUnchangedMetadataLocal ? getPortableProfileSnapshot(s) : null
+      let metadataChanged = false
       const changed = await refreshSavedYoutubeMetadata({
         state: s,
         priorityIds: visibleYoutubeMetadataIds(),
@@ -8760,22 +8763,34 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
         readCurrent: () => {
           const latest = loadState()
           primaryProfileRepository?.inheritRevision(s, latest)
+          if (keepUnchangedMetadataLocal) metadataBaseline = getPortableProfileSnapshot(latest)
           return latest
         },
         // Persist each batch without rebuilding the feed during an active card reveal.
         onChange: async current => {
-          if (!isCurrentLearnerProfileOperation(s) || !await saveState(current)) return false
+          if (!isCurrentLearnerProfileOperation(s)) return false
+          const snapshot = keepUnchangedMetadataLocal ? getPortableProfileSnapshot(current) : null
+          const unchanged = keepUnchangedMetadataLocal && snapshot !== null && snapshot === metadataBaseline
+          if (!await saveState(current, unchanged ? { cloud: false } : {})) return false
+          if (keepUnchangedMetadataLocal) {
+            metadataChanged ||= !unchanged
+            metadataBaseline = snapshot
+          }
           return true
         },
-        onOutcome: (current, outcome) => appendActivityLog(current, {
-          actor: 'auto', type: 'youtube-metadata',
-          status: outcome.status === 'complete' ? 'success' : outcome.status === 'partial' ? 'warn' : 'error',
-          title: t(`log.youtubeMetadata.${outcome.status}`),
-          detail: t('log.youtubeMetadata.counts', { videos: outcome.videos, channels: outcome.channels })
-            + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : '')
-            + (outcome.deferred ? ` ${t('log.youtubeMetadata.budgetPaused')}` : ''),
-          meta: outcome
-        })
+        onOutcome: (current, outcome) => {
+          if (keepUnchangedMetadataLocal && metadataBaseline !== null && !metadataChanged
+            && getPortableProfileSnapshot(current) === metadataBaseline) return
+          appendActivityLog(current, {
+            actor: 'auto', type: 'youtube-metadata',
+            status: outcome.status === 'complete' ? 'success' : outcome.status === 'partial' ? 'warn' : 'error',
+            title: t(`log.youtubeMetadata.${outcome.status}`),
+            detail: t('log.youtubeMetadata.counts', { videos: outcome.videos, channels: outcome.channels })
+              + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : '')
+              + (outcome.deferred ? ` ${t('log.youtubeMetadata.budgetPaused')}` : ''),
+            meta: outcome
+          })
+        }
       })
       if (!isCurrentLearnerProfileOperation(s)) return
       if (changed) renderAll(s)
