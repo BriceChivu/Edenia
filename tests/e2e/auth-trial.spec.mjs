@@ -38,11 +38,11 @@ async function configure(page, { enabled = true, indexedDb = false, engine = fal
     googleSignInMode:'off',supabaseUrl:origin,supabasePublishableKey:'test-key'
   })}`}))
 }
-function session() {
+function session(userId = owner) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
-  return {access_token:`${encode({alg:'HS256',typ:'JWT'})}.${encode({aud:'authenticated',role:'authenticated',sub:owner,exp:1893456000})}.fixture`,
+  return {access_token:`${encode({alg:'HS256',typ:'JWT'})}.${encode({aud:'authenticated',role:'authenticated',sub:userId,exp:1893456000})}.fixture`,
     refresh_token:'trial-refresh',expires_at:1893456000,expires_in:31536000,token_type:'bearer',
-    user:{id:owner,email:'trial@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
+    user:{id:userId,email:'trial@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
 }
 async function owned(page,{indexedDb,engine}) {
   await configure(page,{indexedDb,engine})
@@ -55,7 +55,16 @@ async function owned(page,{indexedDb,engine}) {
     cityProgress:{maxLevelIndex:6,experienceVersion:1},tinySwordsIsland:island
   })).envelope
   let revision=1
+  let generation=1
+  let authenticated=session()
+  let reset=null
+  let imported=null
   const commits=[]
+  const receipts=new Map()
+  const requests=[]
+  const protectedUntil='2099-10-01T00:00:00.000Z'
+  const resetId='523e4567-e89b-42d3-a456-426614174004'
+  const identity=()=>({profile_id:profileId,generation,revision})
   await page.addInitScript(({trial,owner,profileId,envelope,authenticated}) => {
     if(sessionStorage.getItem('owned-trial-installed'))return
     localStorage.setItem(trial,JSON.stringify(envelope.profile))
@@ -66,17 +75,59 @@ async function owned(page,{indexedDb,engine}) {
   },{trial,owner,profileId,envelope,authenticated:session()})
   await page.route(origin+'/**',async route => {
     const path=new URL(route.request().url()).pathname
+    requests.push(path)
     if(path==='/auth/v1/logout'){await route.fulfill({status:204});return}
-    if(path==='/auth/v1/token'){await route.fulfill({json:session()});return}
-    if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await route.fulfill({json:[{status:'profile_ready',created:false,profile_id:profileId,generation:1,revision,envelope}]});return}
-    if(path==='/rest/v1/rpc/read_my_latest_learner_profile_reset'){await route.fulfill({json:[{status:'none'}]});return}
+    if(path==='/auth/v1/token'){await route.fulfill({json:authenticated});return}
+    if(path==='/auth/v1/user'){await route.fulfill({json:authenticated.user});return}
+    if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await route.fulfill({json:[{status:'profile_ready',created:false,...identity(),envelope}]});return}
+    if(path==='/rest/v1/rpc/read_my_latest_learner_profile_reset'){
+      await route.fulfill({json:[reset ? {status:reset.status,reset_id:resetId,profile_id:profileId,
+        prior_generation:reset.generation,prior_revision:reset.revision,prior_envelope:reset.envelope,
+        reset_generation:generation,protected_until:protectedUntil} : {status:'none'}]});return
+    }
+    if(path==='/rest/v1/rpc/start_over_my_learner_profile'){
+      const args=route.request().postDataJSON()
+      reset={envelope,generation,revision,status:'available'}
+      envelope=args.p_envelope;generation+=1;revision=1
+      await route.fulfill({json:[{status:'started_over',...identity(),reset_id:resetId,envelope,protected_until:protectedUntil}]});return
+    }
+    if(path==='/rest/v1/rpc/undo_my_learner_profile_start_over'){
+      envelope=reset.envelope;revision+=1;reset.status='undone'
+      await route.fulfill({json:[{status:'undone',...identity(),reset_id:resetId,envelope}]});return
+    }
+    if(path==='/rest/v1/rpc/import_my_learner_profile'){
+      const args=route.request().postDataJSON()
+      imported={args,previous:envelope};envelope=args.p_envelope;revision=args.p_base_revision+1
+      await route.fulfill({json:[{status:'replaced',...identity(),base_revision:args.p_base_revision,
+        payload_sha256:envelope.integrity.payloadSha256,protected_until:protectedUntil}]});return
+    }
+    if(path==='/rest/v1/rpc/read_my_learner_profile_import_backup'){
+      await route.fulfill({json:[{status:'protected',...identity(),base_revision:imported.args.p_base_revision,
+        imported_envelope:imported.args.p_envelope,imported_revision:imported.args.p_base_revision+1,
+        operation_id:imported.args.p_operation_id,previous_envelope:imported.previous,protected_until:protectedUntil}]});return
+    }
+    if(path==='/rest/v1/rpc/rollback_my_learner_profile_import'){
+      envelope=imported.previous;revision=imported.args.p_base_revision+2
+      await route.fulfill({json:[{status:'rolled_back',...identity(),base_revision:imported.args.p_base_revision}]});return
+    }
     if(path==='/rest/v1/rpc/commit_my_learner_profile'){
-      const args=route.request().postDataJSON();commits.push(args);envelope=args.p_envelope;revision=args.p_base_revision+1
-      await route.fulfill({json:[{status:'accepted',profile_id:profileId,generation:1,revision,base_revision:args.p_base_revision,payload_sha256:envelope.integrity.payloadSha256}]});return
+      const args=route.request().postDataJSON();commits.push(args)
+      const receipt=receipts.get(args.p_operation_id)
+      if(receipt){await route.fulfill({json:[{...receipt,status:'already_accepted'}]});return}
+      expect(args.p_base_revision).toBe(revision)
+      expect(args.p_generation).toBe(generation)
+      envelope=args.p_envelope;revision=args.p_base_revision+1
+      const accepted={status:'accepted',...identity(),base_revision:args.p_base_revision,payload_sha256:envelope.integrity.payloadSha256}
+      receipts.set(args.p_operation_id,accepted)
+      await route.fulfill({json:[accepted]});return
     }
     await route.fulfill({json:[]})
   })
-  return {commits,island}
+  return {commits,island,requests,
+    head:()=>({envelope:structuredClone(envelope),generation,revision}),
+    replaceIdentity:(userId,nextEnvelope)=>{authenticated=session(userId);envelope=nextEnvelope;revision=1;generation=1;return authenticated},
+    protectedImport:()=>imported
+  }
 }
 
 test('disabled fresh trial preserves all namespaces and loads no app, provider, or profile RPC',async ({page})=>{
@@ -264,4 +315,162 @@ test('backend admission denial keeps a cached owned island hidden and performs n
   const expectedDenial='console: Failed to load resource: the server responded with a status of 403 (Forbidden)'
   await expect.poll(()=>pageDiagnostics).toEqual([expectedDenial])
   pageDiagnostics.splice(0,1)
+})
+
+async function readyGame(page) {
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state','ready',{timeout:60000})
+}
+async function retainFrame(page) {
+  await page.evaluate(()=>{window.previousTrialFrame=document.querySelector('.tiny-swords-frame');window.previousTrialWindow=window.previousTrialFrame.contentWindow})
+}
+async function expectNewFrame(page) {
+  await expect.poll(()=>page.evaluate(()=>window.previousTrialFrame.isConnected)).toBe(false)
+  await readyGame(page)
+  expect(await page.evaluate(()=>document.querySelector('.tiny-swords-frame').contentWindow===window.previousTrialWindow)).toBe(false)
+}
+
+for(const indexedDb of [false,true]) {
+  test(`protected island import, reset and Undo restore through the trial lifecycle (${indexedDb?'IndexedDB':'localStorage'})`,async ({page},testInfo)=>{
+    test.skip(testInfo.project.name!=='desktop-standard')
+    test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
+    test.setTimeout(90000)
+    await seedRetained(page)
+    const fixture=await owned(page,{indexedDb,engine:true})
+    await page.goto('./?internal_test=1')
+    await readyGame(page)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await expect.poll(()=>fixture.commits.length).toBeGreaterThan(0)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    const before=fixture.head().envelope
+    const importedState=structuredClone(before.profile)
+    importedState.tinySwordsIsland.resources.wood+=17
+    importedState.config.weeklyGoalHours=13
+    const imported=(await createPortableLearnerProfileEnvelope(importedState)).envelope
+    await retainFrame(page)
+    await page.locator('.gear-btn').click()
+    const chooserPromise=page.waitForEvent('filechooser')
+    await page.locator('[data-settings-sync-action="choose-file"]').click()
+    await (await chooserPromise).setFiles({name:'mode-2-island.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(imported))})
+    await expect(page.locator('#syncImportConfirm')).toBeVisible()
+    expect(fixture.protectedImport()).toBeNull()
+    await page.locator('[data-settings-sync-action="confirm-import"]').click()
+    await expectNewFrame(page)
+    expect(fixture.protectedImport().previous.profile).toEqual(before.profile)
+    expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(imported.profile.tinySwordsIsland)
+    expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(13)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    expect(await page.evaluate(key=>localStorage.getItem(key+'_learner_profile_sync_v1_import_v1'),trial)).toBeNull()
+    const beforeReset=fixture.head().envelope.profile.tinySwordsIsland
+    await retainFrame(page)
+    await page.evaluate(()=>resetApp())
+    await expect.poll(()=>page.evaluate(()=>learnerProfileLifecycleAuthority.getState().protectedReset?.status)).toBe('available')
+    expect(fixture.head().generation).toBe(2)
+    await expectNewFrame(page)
+    await expect.poll(()=>page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaGameLevel)).toBe(1)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await retainFrame(page)
+    // The reset keeps its protected copy available; Undo must remount the exact
+    // chosen island through Godot, even though the profile identity is unchanged.
+    await page.evaluate(()=>undoStartOver())
+    await expectNewFrame(page)
+    expect(fixture.head().generation).toBe(2)
+    expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(beforeReset)
+    expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(13)
+    await page.reload()
+    await readyGame(page)
+    expect(await page.evaluate(()=>loadState().tinySwordsIsland.resources.wood)).toBe(beforeReset.resources.wood)
+    expect(await retainedBytes(page)).toEqual(retained)
+  })
+}
+
+test('offline verified trial retains study changes until reconnect, then definitive session rejection retires Godot',async ({page,pageDiagnostics},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-standard')
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
+  test.setTimeout(90000)
+  await seedRetained(page)
+  await page.addInitScript(()=>{window.trialOnline=sessionStorage.getItem("trial-offline")!=="1";Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>window.trialOnline})})
+  const fixture=await owned(page,{indexedDb:true,engine:true})
+  await page.goto('./?internal_test=1')
+  await readyGame(page)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const commitCount=fixture.commits.length
+  await page.evaluate(async trial=>{
+    const key=trial+'_learner_profile_owner_verification_v1'
+    const verification=JSON.parse(localStorage.getItem(key));verification.verifiedAt-=29*86400000
+    localStorage.setItem(key,JSON.stringify(verification))
+    window.trialOnline=false;sessionStorage.setItem('trial-offline','1');window.dispatchEvent(new Event('offline'))
+    const state=loadState();state.config.weeklyGoalHours=11;await saveState(state)
+  },trial)
+  expect(fixture.commits.length).toBe(commitCount)
+  await page.reload()
+  // The runtime override survives reload independently of browser asset fetches.
+  // These checks cover unavailable profile transport, not offline asset delivery.
+  await readyGame(page)
+  expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(11)
+  expect(fixture.commits.length).toBe(commitCount)
+  await page.evaluate(()=>{window.trialOnline=true;sessionStorage.removeItem('trial-offline');window.dispatchEvent(new Event('online'))})
+  await expect.poll(()=>fixture.commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===11)).toBe(true)
+  await readyGame(page)
+  await page.route(origin+'/auth/v1/token*',route=>route.fulfill({status:400,json:{code:'refresh_token_not_found',msg:'Synthetic revoked session'}}))
+  await retainFrame(page)
+  const authRequestCount=fixture.requests.filter(path=>path==='/auth/v1/token').length
+  await page.evaluate(()=>{window.dispatchEvent(new Event('offline'));window.dispatchEvent(new Event('online'));window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('focus'))})
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+  expect(await page.evaluate(key=>localStorage.getItem(key+'_learner_profile_owner_verification_v1'),trial)).toBeNull()
+  const count=fixture.commits.length
+  expect(await page.evaluate(()=>claimCityLevelUp())).toBeFalsy()
+  expect(fixture.commits.length).toBe(count)
+  expect(await retainedBytes(page)).toEqual(retained)
+  await expect.poll(()=>pageDiagnostics).toEqual(['console: Failed to load resource: the server responded with a status of 400 (Bad Request)'])
+  pageDiagnostics.splice(0,1)
+  expect(fixture.requests.filter(path=>path==='/auth/v1/token').length-authRequestCount).toBe(1)
+})
+
+test('expired offline ownership keeps the cached trial island hidden and prevents cloud writes',async ({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-standard')
+  const fixture=await owned(page,{indexedDb:true,engine:true})
+  await page.addInitScript(({trial,owner})=>{
+    Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false})
+    localStorage.setItem(trial+'_learner_profile_owner_verification_v1',JSON.stringify({ownerId:owner,verifiedAt:Date.now()-31*86400000}))
+  },{trial,owner})
+  // Prevent a synthetic server success from renewing the deliberately expired
+  // verification; no real network or provider session participates in this case.
+  await page.route(origin+'/rest/v1/rpc/**',route=>route.fulfill({json:[]}))
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+  expect(fixture.commits).toEqual([])
+})
+
+test('switching verified trial owners requires explicit replacement and remounts identical island bytes',async ({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-standard')
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
+  test.setTimeout(90000)
+  await seedRetained(page)
+  const fixture=await owned(page,{indexedDb:true,engine:true})
+  await page.goto('./?internal_test=1')
+  await readyGame(page)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const previous=await page.evaluate(()=>JSON.stringify(loadState()))
+  const nextOwner='923e4567-e89b-42d3-a456-426614174009'
+  const nextState=structuredClone(fixture.head().envelope.profile)
+  nextState.config.weeklyGoalHours=17
+  const nextEnvelope=(await createPortableLearnerProfileEnvelope(nextState)).envelope
+  const nextSession=fixture.replaceIdentity(nextOwner,nextEnvelope)
+  await retainFrame(page)
+  await page.evaluate(async session=>{await getSupabaseClient().auth.setSession(session)},nextSession)
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state','account-change')
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+  expect(await page.evaluate(()=>JSON.stringify(learnerProfileLocalPersistence.read().profile))).toBe(previous)
+  expect(await page.evaluate(()=>window.previousTrialFrame.isConnected)).toBe(false)
+  await Promise.all([page.waitForEvent('domcontentloaded'),page.getByRole('button',{name:'Continue with this account'}).click()])
+  await readyGame(page)
+  expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(17)
+  expect(await page.evaluate(()=>learnerProfileLifecycleAuthority.getState().ownerId)).toBe(nextOwner)
+  expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(nextEnvelope.profile.tinySwordsIsland)
+  expect(await retainedBytes(page)).toEqual(retained)
 })
