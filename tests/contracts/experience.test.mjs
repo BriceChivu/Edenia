@@ -73,7 +73,7 @@ test('Anki first cumulative observation is a baseline; resync, old days, and cou
   assert.equal(observeAnkiExperience({ reviewed: 1000 }, 1000).experienceReviews, 0)
 })
 
-test('history keeps old activity as unmarked, combines new XP without changing streak facts', () => {
+test('history keeps old activity as unmarked, combines new XP while retaining old study facts', () => {
   const state = { videos: { v: { id: 'v', duration: 1000, watchProgress: [
     { watchedAt: '2026-09-29T01:00:00Z', seconds: 600 },
     { watchedAt: '2026-09-30T01:00:00Z', seconds: 900, experienceSeconds: 900 }
@@ -86,7 +86,7 @@ test('history keeps old activity as unmarked, combines new XP without changing s
   assert.equal(rows[1].secondsWatched, 600)
   assert.equal(rows[1].ankiReviewed, 60)
   assert.equal(historyExperience(rows[1]), 0)
-  assert.match(source, /filter\(row => getHistoryDayRawPoints\(row\) >= MIN_DAILY_STREAK_POINTS\)/)
+  assert.match(source, /filter\(row => getHistoryDayPoints\(row\) >= MIN_DAILY_STREAK_XP\)/)
 })
 
 test('portable profiles retain XP provenance and cumulative Anki watermark without awarding old imports', () => {
@@ -106,4 +106,30 @@ test('XP migration accepts the host scoring version and is stable on reload', ()
   assert.equal(initializeExperience(state, 7), true)
   assert.equal(state.cityProgress.scoringVersion, 7)
   assert.equal(initializeExperience(state, 7), false)
+})
+
+
+test('daily streak uses the same 10 XP boundary as watched minutes and new Anki reviews', () => {
+  let rows = []
+  const today = '2026-10-08'
+  const previous = key => new Date(Date.parse(`${key}T12:00:00Z`) - 86400000).toISOString().slice(0, 10)
+  const sync = appFunction('syncStreak', 'isStreakAlive', {
+    getCurrentAppDateKey: () => today,
+    getCurrentAppDate: () => new Date(`${today}T12:00:00Z`),
+    getStudyHistoryBetween: () => ({ rows }),
+    getHistoryDayPoints: historyExperience,
+    MIN_DAILY_STREAK_XP: 10,
+    getDaysBetweenDateKeys: (a, b) => (Date.parse(b) - Date.parse(a)) / 86400000,
+    getPreviousDateKey: previous
+  })
+  for (const [seconds, reviews, expected] of [
+    [540, 0, 0], [600, 0, 1], [0, 9, 0], [0, 10, 1], [300, 5, 1]
+  ]) {
+    // Retained activity is deliberately large: the boundary must use credited XP.
+    rows = [{ dateKey: today, secondsWatched: 7200, ankiReviewed: 100, experienceSeconds: seconds, experienceReviews: reviews }]
+    const state = {}
+    sync(state)
+    assert.equal(state.streak.current, expected, `${seconds} seconds + ${reviews} reviews`)
+    assert.equal(state.streak.longest, expected)
+  }
 })

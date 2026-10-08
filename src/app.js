@@ -1342,7 +1342,7 @@ const BACKGROUND_PHYSICS_RADIUS = 130
 const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
-const MIN_DAILY_STREAK_POINTS = 10
+const MIN_DAILY_STREAK_XP = 10
 const HEATMAP_STREAK_RUN_MIN_DAYS = 5
 const VIDEO_HOUR_POINTS = 30
 const SHORT_VIDEO_DETECTION_VERSION = 1
@@ -1984,7 +1984,7 @@ function getEdeniaAnalyticsSnapshot(state) {
         ankiCreated: Math.max(0, Math.round(Number(row.ankiCreated) || 0)),
         rawPoints: roundAnalyticsNumber(rawPoints),
         points: Math.floor(rawPoints),
-        qualifiesForStreak: rawPoints >= MIN_DAILY_STREAK_POINTS
+        qualifiesForStreak: getHistoryDayPoints(row) >= MIN_DAILY_STREAK_XP
       }
     })
     .sort((left, right) => left.date.localeCompare(right.date))
@@ -11518,7 +11518,7 @@ function formatChannelRemoveActionToast(direction, channel, snapshot) {
 
 function getHistoricalStreakDayCounts(s, end) {
   const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
-    .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .filter(row => getHistoryDayPoints(row) >= MIN_DAILY_STREAK_XP)
     .map(row => row.dateKey)
     .sort()
   const streakDayCounts = new Map()
@@ -11547,7 +11547,7 @@ function syncStreak(s) {
   end.setHours(23, 59, 59, 999)
 
   const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
-    .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .filter(row => getHistoryDayPoints(row) >= MIN_DAILY_STREAK_XP)
     .map(row => row.dateKey)
     .sort()
 
