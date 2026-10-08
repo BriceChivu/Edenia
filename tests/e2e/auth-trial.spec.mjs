@@ -131,7 +131,7 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={}}) {
   }
 }
 
-test('unchanged automatic Anki polls do not commit against an advanced cloud head', async ({page}) => {
+test('automatic Anki refresh preserves unchanged progress and syncs supported new reviews', async ({page}) => {
   await seedRetained(page)
   await page.clock.install({ time: new Date('2026-10-08T12:00:00.000Z') })
   const dateKey='2026-10-08'
@@ -149,6 +149,21 @@ test('unchanged automatic Anki polls do not commit against an advanced cloud hea
   })
   await page.goto('./?internal_test=1')
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  if (!await page.evaluate(()=>isAnkiAvailableOnDevice())) {
+    // Touch/phone devices deliberately do not contact desktop AnkiConnect.
+    // Their imported Study facts must remain intact even on explicit refresh.
+    const unchanged=mock.head()
+    await page.evaluate(()=>refreshAnkiStats({silent:true}))
+    await page.reload()
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await page.evaluate(()=>refreshAnkiStats({silent:true}))
+    expect(polls).toBe(0)
+    expect(mock.commits).toHaveLength(0)
+    expect(mock.head()).toEqual(unchanged)
+    expect(await page.evaluate(dateKey=>loadState().anki[dateKey].reviewed,dateKey)).toBe(3)
+    expect(await retainedBytes(page)).toEqual(retained)
+    return
+  }
   await expect.poll(()=>polls).toBeGreaterThan(0)
   await page.evaluate(()=>refreshAnkiStats({silent:true}))
   expect(mock.commits).toHaveLength(0)

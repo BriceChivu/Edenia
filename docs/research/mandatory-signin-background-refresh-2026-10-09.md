@@ -54,6 +54,14 @@ was added. Existing protected choices and activation fences remain in force.
 - The browser regression passes: unchanged network Anki polls do not commit
   against an advanced cloud head; a new review syncs once with XP, survives reload,
   and repeated polls do not change the accepted head. Other namespaces survive.
+- The initial CI exposed an incorrect new test expectation on touch/phone
+  devices, where AnkiConnect is deliberately unavailable. The case now verifies
+  no requests/writes and retained imported progress on those devices, while
+  desktop input still exercises real review synchronization.
+- Two existing IndexedDB cases captured their baseline before startup's scoring
+  migration finished. The failure traces differ only in scoring version (1 to 7),
+  not Study facts. They now await that durable opening boundary before injecting
+  write failures; strict durable equality after the failed action is retained.
 - All 1,898 client contracts pass. Final CI is pending. Hosted acceptance follows
   deployment; this checkpoint does not claim that the continuation is complete.
 
