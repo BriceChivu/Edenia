@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
+import { preparePortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
 
 const appSource = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
 
@@ -33,6 +34,7 @@ function createRefreshHarness() {
   }
   const context = vm.createContext({
     Date: FixedDate,
+    preparePortableLearnerProfileEnvelope,
     youtubeRequestGate: null,
     STORAGE_KEY: 'test',
     createYoutubeMetadataBudget: () => ({ createRun: () => {}, retryAt: () => 0 }),
@@ -61,6 +63,7 @@ function createRefreshHarness() {
   })
   vm.runInContext([
     sourceBetween('function loadState(', '\nconst persistedPortableProfileSnapshots'),
+    sourceBetween('function getPortableProfileSnapshot(', '\nfunction rememberPersistedPortableProfile('),
     sourceBetween('function getChannelRefreshes(', '\nfunction dedupeVideos(')
   ].join('\n'), context)
   // Observe the promises the real event handlers intentionally do not return.

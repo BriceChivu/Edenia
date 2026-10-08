@@ -30,9 +30,9 @@ async function seedRetained(page) {
     sessionStorage.setItem('trial-sentinel-installed','1')
   },retained)
 }
-async function configure(page, { enabled = true, indexedDb = false, engine = false } = {}) {
+async function configure(page, { enabled = true, indexedDb = false, engine = false, youtubeApiKey = '' } = {}) {
   await page.route('**/config.local.js*', route => route.fulfill({contentType:'text/javascript',body:`window.EDENIA_CONFIG=${JSON.stringify({
-    authTrialEnabled: enabled, accountFeaturesRollout:'off',learnerProfileLifecycleEnabled:false,
+    youtubeApiKey, authTrialEnabled: enabled, accountFeaturesRollout:'off',learnerProfileLifecycleEnabled:false,
     emergencyAccountlessRollbackEnabled:true,legacyProgressMigrationEnabled:true,
     tinySwordsEnabled:engine,tinySwordsPublicEnabled:false,indexedDbProfileEnabled:indexedDb,indexedDbBackupsEnabled:indexedDb,
     googleSignInMode:'off',supabaseUrl:origin,supabasePublishableKey:'test-key'
@@ -44,12 +44,12 @@ function session(userId = owner) {
     refresh_token:'trial-refresh',expires_at:1893456000,expires_in:31536000,token_type:'bearer',
     user:{id:userId,email:'trial@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
 }
-async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={}}) {
-  await configure(page,{indexedDb,engine})
+async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},youtubeApiKey=''}) {
+  await configure(page,{indexedDb,engine,youtubeApiKey})
   const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json',import.meta.url)))
   const at='2026-10-08T00:00:00.000Z'
   let envelope=(await createPortableLearnerProfileEnvelope({
-    config:{locale:'en',ankiEnabled,channels:[],weeklyGoalHours:4},anki,videos:{},
+    config:{locale:'en',ankiEnabled,channels:[],weeklyGoalHours:4},anki,videos,
     learnerProfile:{languages:['french'],level:'beginner',createdAt:at,updatedAt:at},
     onboarding:{introSeenAt:at,setupCompleted:true,setupCompletedAt:at,walkthroughCompleted:true,walkthroughCompletedAt:at},
     cityProgress:{maxLevelIndex:6,experienceVersion:1},tinySwordsIsland:island
@@ -185,6 +185,59 @@ test('automatic Anki refresh preserves unchanged progress and syncs supported ne
   await page.evaluate(()=>refreshAnkiStats({silent:true}))
   expect(mock.commits).toHaveLength(1)
   expect(mock.head()).toEqual(committed)
+  expect(await retainedBytes(page)).toEqual(retained)
+})
+
+test('unchanged cached YouTube metadata stays local across an advanced cloud head', async ({page}) => {
+  await seedRetained(page)
+  const at='2026-10-08T12:00:00.000Z'
+  await page.clock.setFixedTime(new Date(at))
+  const id='fixture0001'
+  let title='Saved lesson'
+  let requests=0
+  const video={id,channelId:'manual-youtube',title,channelTitle:'Saved channel',
+    thumbnail:'https://i.ytimg.com/fixture.jpg',publishedAt:at,duration:600,aspectRatio:16/9,
+    isShort:false,status:'partial',favorite:true,watchLater:true,resumeAtSeconds:42,
+    watchProgress:[{seconds:42,watchedAt:at}],watchProgressTracked:true}
+  const mock=await owned(page,{indexedDb:true,engine:false,youtubeApiKey:'fixture-key',videos:{[id]:video}})
+  await page.route('**/youtube/v3/videos?**', async route=>{
+    requests+=1
+    await route.fulfill({json:{items:[{id,
+      snippet:{title,channelId:'manual-youtube',channelTitle:'Saved channel',publishedAt:at,
+        thumbnails:{high:{url:video.thumbnail}}},contentDetails:{duration:'PT10M'},
+      player:{embedWidth:'1280',embedHeight:'720'}
+    }]}})
+  })
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await page.evaluate(()=>maybeRefreshFeed())
+  await expect.poll(()=>requests).toBeGreaterThan(0)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const openingCommits=mock.commits.length
+  const unchanged=mock.head()
+  mock.advanceRevision()
+  const renew=async()=>page.evaluate(async id=>{
+    const state=loadState()
+    state.videos[id].metadataFetchedAt=new Date(Date.now()-29.5*86400000).toISOString()
+    await saveState(state,{cloud:false})
+    await maybeRefreshFeed()
+  },id)
+  await renew()
+  expect(mock.commits).toHaveLength(openingCommits)
+  expect(mock.head().envelope).toEqual(unchanged.envelope)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await page.evaluate(()=>learnerProfileLifecycleAuthority.refresh())
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  title='Changed lesson'
+  await page.clock.setFixedTime(new Date(Date.parse(at)+86400000))
+  await renew()
+  await expect.poll(()=>mock.commits.length).toBeGreaterThan(openingCommits)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(mock.head().envelope.profile.videos[id]).toMatchObject({title,favorite:true,watchLater:true,resumeAtSeconds:42})
+  expect(mock.head().envelope.profile.tinySwordsIsland).toEqual(unchanged.envelope.profile.tinySwordsIsland)
+  await page.reload()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(await page.evaluate(id=>loadState().videos[id].title,id)).toBe(title)
   expect(await retainedBytes(page)).toEqual(retained)
 })
 
