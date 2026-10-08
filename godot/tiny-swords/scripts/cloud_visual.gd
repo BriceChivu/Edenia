@@ -67,6 +67,7 @@ func _ready() -> void:
 	shadow_sprite.material = shadow_material
 	add_child(shadow_sprite)
 	set_variant(get_index() % VARIANTS.size())
+	set_mirrored(randf() < 0.5)
 	set_altitude(0.0)
 	setup_depth_mask()
 
@@ -102,6 +103,16 @@ func next_variant(large_only: bool = false) -> void:
 	while large_only and VARIANTS[next].get_image().get_used_rect().size.x < 400:
 		next = (next + 1) % VARIANTS.size()
 	set_variant(next)
+	set_mirrored(randf() < 0.5)
+
+func set_mirrored(value: bool) -> void:
+	flip_h = value
+	if shadow_sprite != null:
+		shadow_sprite.flip_h = value
+	set_altitude(altitude)
+
+func mirrored_point(point: Vector2) -> Vector2:
+	return Vector2(-point.x if flip_h else point.x, point.y)
 
 func set_altitude(value: float) -> void:
 	var painted_width := float(texture.get_image().get_used_rect().size.x)
@@ -116,12 +127,12 @@ func set_altitude(value: float) -> void:
 		# fixed while increasing separation makes the projection flatter and fainter.
 		var projection := sqrt(altitude)
 		shadow_sprite.scale = Vector2(1.0, lerpf(0.72, 0.12, projection))
-		shadow_sprite.position = baked_shadow_offset + shadow_center * (Vector2.ONE - shadow_sprite.scale) + Vector2(0.0, altitude * 110.0) / scale
+		shadow_sprite.position = mirrored_point(baked_shadow_offset) + mirrored_point(shadow_center) * (Vector2.ONE - shadow_sprite.scale) + Vector2(0.0, altitude * 110.0) / scale
 		shadow_sprite.material.set_shader_parameter("opacity", lerpf(0.48, 0.18, projection))
 
 func shadow_ground_position() -> Vector2:
 	var anchor := Vector2(shadow_center.x, SHADOW_DEPTH_Y[variant_index] - texture.get_height() / 2.0)
-	return shadow_sprite.to_global(anchor)
+	return shadow_sprite.to_global(mirrored_point(anchor))
 
 func setup_depth_mask() -> void:
 	depth_viewport = SubViewport.new()

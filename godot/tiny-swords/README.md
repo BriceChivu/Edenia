@@ -718,6 +718,9 @@ A new movement click cancels a water approach until the actual step-off begins.
 Font weight is slightly strengthened to match the reference lettering. Cloud
 variants retain their native relative sizes, with no common minimum width. All
 eight original Clouds_01–08 images cycle through the regular cloud lanes off-screen.
+Regular and rare clouds have a 50% chance of mirroring left to right at startup
+and before each new pass. Bodies, shadows, and ground-depth anchors mirror together;
+orientation stays fixed throughout a visible pass.
 Small and medium artwork stays at exactly native 1× scale and low altitude; only
 the two large source images can become high foreground clouds, ranging from 1×
 to 1.35×. Native means one source pixel per Godot scene unit; fitting the complete
