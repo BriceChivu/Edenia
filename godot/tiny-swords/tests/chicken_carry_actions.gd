@@ -21,6 +21,7 @@ func click(world, point: Vector2) -> void:
 	event.position = world.get_global_transform_with_canvas() * point
 	world.handle_world_click(event)
 func run() -> void:
+	ProjectSettings.set_setting("gameplay/chicken_carry_enabled", true)
 	var world = load("res://previews/level_five.tscn").instantiate()
 	world.camera_save_enabled = false
 	root.add_child(world)

@@ -19,6 +19,10 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 GameCopy="*res://scripts/game_copy.gd"
 GamePresentation="*res://scripts/game_presentation.gd"
 
+[gameplay]
+
+chicken_carry_enabled=false
+
 [display]
 
 window/size/viewport_height=496
