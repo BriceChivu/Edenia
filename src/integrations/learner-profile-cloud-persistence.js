@@ -1672,7 +1672,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
       : { status: 'recovering' }
   }
 
-  async function readPreservedConflict(receipt, operation, activation) {
+  async function readPreservedConflict(
+    receipt, operation, activation, { includeExpired = false } = {}
+  ) {
     if (
       !UUID_PATTERN.test(String(receipt?.conflict_id || ''))
       || !isRecord(operation)
@@ -1683,10 +1685,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
       activation
     )
     if (
-      !['open', 'resolved'].includes(conflict?.status)
+      !['open', 'resolved', 'expired'].includes(conflict?.status)
       || conflict.operationId !== operation.operationId
       || conflict.profileId !== operation.profileId
-      || conflict.device.generation !== operation.generation
+    ) return null
+    // Expired protection hides the old envelopes, but the owner-scoped record
+    // still identifies this exact request. Never infer a selected profile from
+    // it; the retained local candidate must be preserved for a new comparison.
+    if (conflict.status === 'expired') return includeExpired ? conflict : null
+    if (
+      conflict.device.generation !== operation.generation
       || conflict.device.revision !== operation.revision
       || conflict.cloud.generation
         !== normalizePositiveInteger(receipt.generation)
@@ -1771,10 +1779,58 @@ export function createLearnerProfileCloudPersistenceAdapter({
   async function resolvePreservedConflict(
     receipt,
     operation,
-    { chooseWhenEmpty = false } = {}
+    { chooseWhenEmpty = false, retryExpired = true } = {}
   ) {
-    const conflict = await readPreservedConflict(receipt, operation, null)
+    const conflict = await readPreservedConflict(
+      receipt, operation, null, { includeExpired: true }
+    )
     if (!conflict) return { status: 'recovering' }
+    if (conflict.status === 'expired') {
+      if (!retryExpired) return { status: 'recovering' }
+      let candidate
+      try {
+        candidate = await finalizeDurableOperation(operation)
+      } catch {
+        return { status: 'recovering' }
+      }
+      const record = readSyncRecord()
+      if (
+        record?.ownerId !== operation.ownerId
+        || record.profileId !== operation.profileId
+        || record.generation !== operation.generation
+        || record.pending?.operationId !== operation.operationId
+        || record.pending.integrity.payloadSha256 !== operation.integrity.payloadSha256
+      ) return { status: 'recovering' }
+      const operationId = createOperationId()
+      if (!UUID_PATTERN.test(String(operationId || ''))
+        || operationId === operation.operationId) return { status: 'recovering' }
+      const fresh = {
+        ...record.pending,
+        envelope: candidate,
+        nextRetryAt: 0,
+        operationId,
+        prepared: null,
+        retryCount: 0
+      }
+      record.pending = fresh
+      if (!writeSyncRecord(record)) return { status: 'recovering' }
+      let response
+      try {
+        response = await getClient().rpc(
+          'commit_my_learner_profile', operationParameters(fresh, candidate)
+        )
+      } catch {
+        return { status: 'waiting-cloud' }
+      }
+      const freshReceipt = readSingleRpcRow(response?.data)
+      if (!response?.error && freshReceipt?.status === 'conflict') {
+        return resolvePreservedConflict(freshReceipt, fresh, {
+          chooseWhenEmpty: false, retryExpired: false
+        })
+      }
+      return { status: response?.error && isTransientCloudStatus(response.status)
+        ? 'waiting-cloud' : 'recovering' }
+    }
     if (conflict.status === 'open') {
       if (!chooseWhenEmpty) return { conflict, status: 'conflicting' }
       const deviceIsEmpty = isMeaningfullyEmptyLearnerProfile(

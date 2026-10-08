@@ -6502,3 +6502,80 @@ test(`a lost pre-reset acknowledgment (${prepared ? 'prepared' : 'finalized'}) o
   assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).generation, 3)
 })
 }
+
+for (const prepared of [true, false]) {
+for (const freshExpired of [false, true]) {
+for (const interruption of ['none', 'owner-changed', 'storage-rejected']) {
+  test(`lost conflict-choice acknowledgment after protection expiry preserves the candidate (${prepared ? 'prepared' : 'finalized'}, fresh comparison ${freshExpired ? 'expired' : 'open'}, ${interruption})`, async () => {
+    const expiredId = '323e4567-e89b-42d3-a456-426614174002'
+    const freshId = '423e4567-e89b-42d3-a456-426614174003'
+    const oldOperationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const newOperationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    const device = preparedEnvelope({ marker: 'retained-local-progress' })
+    const cloud = preparedEnvelope({ marker: 'chosen-and-later-studied' }, 'C'.repeat(43))
+    const storage = createMemoryStorage({
+      [SYNC_STORAGE_KEY]: JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+        generation: 1, acceptedRevision: 1, queued: null,
+        pending: { activationId: 'before-crash', baseRevision: 1, generation: 1,
+          integrity: device.integrity, nextRetryAt: 0, operationId: oldOperationId,
+          ownerId: OWNER_ID, profileId: PROFILE_ID, retryCount: 0, revision: 2,
+          prepared: prepared ? device : null, envelope: prepared ? null : device }
+      })
+    })
+    const calls = []
+    let fencedValue
+    const adapter = createAdapter({ storage, createOperationId: () => newOperationId,
+      rpc: async (name, args) => {
+        calls.push([name, args])
+        if (name === 'resolve_my_learner_profile') return { data: [{ status: 'profile_ready', created: false,
+          profile_id: PROFILE_ID, generation: 1, revision: 5, envelope: cloud }], error: null }
+        if (name === 'commit_my_learner_profile') {
+          const fresh = args.p_operation_id === newOperationId
+          return { data: [{ status: 'conflict', base_revision: 1, conflict_id: fresh ? freshId : expiredId,
+            profile_id: PROFILE_ID, generation: 1, revision: fresh ? 5 : 3,
+            payload_sha256: cloud.integrity.payloadSha256 }], error: null }
+        }
+        assert.equal(name, 'read_my_learner_profile_conflict')
+        if (args.p_conflict_id === expiredId) {
+          if (interruption === 'owner-changed') {
+            const otherOwner = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+            otherOwner.ownerId = SECOND_OWNER_ID
+            otherOwner.profileId = SECOND_PROFILE_ID
+            otherOwner.pending.ownerId = SECOND_OWNER_ID
+            otherOwner.pending.profileId = SECOND_PROFILE_ID
+            storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(otherOwner))
+          } else if (interruption === 'storage-rejected') {
+            storage.setItem = () => { throw new Error('quota exceeded') }
+          }
+          fencedValue = storage.getItem(SYNC_STORAGE_KEY)
+          return { data: [{ status: 'expired', conflict_id: expiredId,
+            profile_id: PROFILE_ID, operation_id: oldOperationId }], error: null }
+        }
+        if (freshExpired) return { data: [{ status: 'expired', conflict_id: freshId,
+          profile_id: PROFILE_ID, operation_id: newOperationId }], error: null }
+        return { data: [{ status: 'open', conflict_id: freshId, operation_id: newOperationId,
+          profile_id: PROFILE_ID, device_generation: 1, device_revision: 2, device_envelope: device,
+          cloud_generation: 1, cloud_revision: 5, cloud_envelope: cloud,
+          selected_side: null, protected_until: null }], error: null }
+      }
+    })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+      localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1, revision: 1, profile: device.profile },
+      purpose: 'resolve-signed-in-profile' })
+    assert.equal(result.status, freshExpired || interruption !== 'none' ? 'recovering' : 'conflicting')
+    if (!freshExpired && interruption === 'none') {
+      assert.equal(result.conflict.id, freshId)
+      assert.deepEqual(result.conflict.device.profile, device.profile)
+      assert.deepEqual(result.conflict.cloud.profile, cloud.profile)
+    }
+    const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+    assert.equal(record.acceptedRevision, 1)
+    assert.equal(record.pending.operationId, interruption === 'none' ? newOperationId : oldOperationId)
+    assert.deepEqual(record.pending.envelope, device)
+    if (interruption !== 'none') assert.equal(storage.getItem(SYNC_STORAGE_KEY), fencedValue)
+    assert.equal(calls.filter(([name]) => name === 'commit_my_learner_profile').length, interruption === 'none' ? 2 : 1)
+    assert.equal(calls.some(([name]) => name === 'choose_my_learner_profile_conflict'), false)
+  })
+}
+}
+}

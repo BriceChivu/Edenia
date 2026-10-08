@@ -51,9 +51,10 @@ function authenticatedSession() {
   }
 }
 
-function runtimeConfig() {
+function runtimeConfig(trial = false) {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
     accountFeaturesRollout: 'public',
+    authTrialEnabled: trial,
     freePlusEnabled: false,
     googleSignInMode: 'off',
     indexedDbBackupCleanupEnabled: false,
@@ -160,7 +161,9 @@ async function prepareConflictPage(page, {
   cloudSetupCompleted = true,
   failChoice = false,
   identicalProfiles = false,
-  preserveStateOnReload = false
+  preserveStateOnReload = false,
+  trial = false,
+  expiredChoice = false
 } = {}) {
   // Keep the mocked protected-copy deadline valid regardless of the CI date.
   await page.clock.setFixedTime(new Date('2026-08-25T12:00:00.000Z'))
@@ -202,6 +205,10 @@ async function prepareConflictPage(page, {
   let resolvedEnvelope = cloudEnvelope
   let resolvedRevision = 14
   let selectedSide = null
+  let activeConflictId = CONFLICT_ID
+  let activeOperationId = OPERATION_ID
+  const freshConflictId = '423e4567-e89b-42d3-a456-426614174003'
+  const storageKey = trial ? 'edenia_v1_auth_trial_v1' : STATE_KEY
 
   await page.addInitScript(({
     accessKey,
@@ -248,18 +255,18 @@ async function prepareConflictPage(page, {
       version: 1
     }))
   }, {
-    accessKey: ACCESS_KEY,
-    authKey: AUTH_KEY,
+    accessKey: trial ? `${storageKey}_learner_profile_access_v1` : ACCESS_KEY,
+    authKey: trial ? `${storageKey}_plus_auth_v1` : AUTH_KEY,
     authenticated: authenticatedSession(),
     device: deviceEnvelope,
     preserveReloadState: preserveStateOnReload,
-    stateKey: STATE_KEY,
-    syncKey: SYNC_KEY
+    stateKey: storageKey,
+    syncKey: trial ? `${storageKey}_learner_profile_sync_v1` : SYNC_KEY
   })
 
   await useAccountReturnOrigin(page)
   await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(),
+    body: runtimeConfig(trial),
     contentType: 'text/javascript',
     status: 200
   }))
@@ -292,6 +299,10 @@ async function prepareConflictPage(page, {
     if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
       const body = request.postDataJSON()
       commitRequests.push(body)
+      if (expiredChoice && body.p_operation_id !== OPERATION_ID) {
+        activeConflictId = freshConflictId
+        activeOperationId = body.p_operation_id
+      }
       if (selectedSide && acceptPostChoiceCommits) {
         const acceptedOperation = acceptedCommitOperations.get(
           body.p_operation_id
@@ -325,7 +336,7 @@ async function prepareConflictPage(page, {
       await route.fulfill({
         json: [{
           base_revision: 12,
-          conflict_id: CONFLICT_ID,
+          conflict_id: activeConflictId,
           generation: 4,
           payload_sha256: cloudEnvelope.integrity.payloadSha256,
           profile_id: PROFILE_ID,
@@ -337,6 +348,11 @@ async function prepareConflictPage(page, {
       return
     }
     if (pathname === '/rest/v1/rpc/read_my_learner_profile_conflict') {
+      if (expiredChoice && request.postDataJSON().p_conflict_id === CONFLICT_ID) {
+        await route.fulfill({ json: [{ status: 'expired', conflict_id: CONFLICT_ID,
+          operation_id: OPERATION_ID, profile_id: PROFILE_ID }], status: 200 })
+        return
+      }
       if (failChoice && selectedSide && !failedResolvedRead) {
         failedResolvedRead = true
         await route.fulfill({ json: [], status: 200 })
@@ -347,11 +363,11 @@ async function prepareConflictPage(page, {
           cloud_envelope: cloudEnvelope,
           cloud_generation: 4,
           cloud_revision: 14,
-          conflict_id: CONFLICT_ID,
+          conflict_id: activeConflictId,
           device_envelope: deviceEnvelope,
           device_generation: 4,
           device_revision: 13,
-          operation_id: OPERATION_ID,
+          operation_id: activeOperationId,
           profile_id: PROFILE_ID,
           protected_until: selectedSide ? PROTECTED_UNTIL : null,
           selected_side: selectedSide,
@@ -372,7 +388,7 @@ async function prepareConflictPage(page, {
       resolvedRevision = 15
       await route.fulfill({
         json: [{
-          conflict_id: CONFLICT_ID,
+          conflict_id: activeConflictId,
           envelope: selectedEnvelope,
           generation: 4,
           profile_id: PROFILE_ID,
@@ -387,7 +403,7 @@ async function prepareConflictPage(page, {
     }
     await route.fulfill({ json: {}, status: 200 })
   })
-  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/${trial ? '?internal_test=1' : ''}`)
   return {
     choiceRequests,
     cloudEnvelope,
@@ -694,4 +710,22 @@ test('reloading an unchanged unfinished Cloud profile creates no cloud revision'
     'up-to-date'
   )
   expect(commitRequests).toHaveLength(0)
+})
+
+test('trial reopens an expired lost-choice acknowledgment as an exportable fresh comparison', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const { commitRequests, choiceRequests, deviceEnvelope } = await prepareConflictPage(page, {
+    trial: true, expiredChoice: true
+  })
+  await expect(page.getByRole('heading', { name: 'Compare your profiles' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Export both', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Use Cloud', exact: true })).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  expect(choiceRequests).toEqual([])
+  expect(commitRequests).toHaveLength(2)
+  expect(commitRequests[1].p_operation_id).not.toBe(OPERATION_ID)
+  expect(commitRequests[1].p_envelope).toEqual(deviceEnvelope)
+  const sync = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1')))
+  expect(sync.acceptedRevision).toBe(12)
+  expect(sync.pending.operationId).toBe(commitRequests[1].p_operation_id)
 })
