@@ -17,6 +17,8 @@ const Harvesting = preload("res://scripts/tree_harvesting.gd")
 const AXE_CURSOR := preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Tools/Tool_02.png")
 const SAVE_KEY := "edenia_tiny_swords_builder_preview_v1"
 const DEFAULT_ZOOM := 0.8
+const MAX_MOUSE_ZOOM := 1.5
+const MAX_TOUCH_ZOOM := 3.0
 const CAMERA_SAVE_KEY := "edenia_tiny_swords_camera_v1"
 
 var game_camera: Camera2D
@@ -62,6 +64,10 @@ var cursor_mode := ""
 var pointer: Sprite2D
 var cursor_press_material: ShaderMaterial
 var cursor_press_tween: Tween
+var touch_device := DisplayServer.is_touchscreen_available()
+var camera_touches: Dictionary = {}
+var pinch_distance := 0.0
+var pinch_gesture := false
 var pointer_inside := false
 var pointer_focused := true
 var pointer_position := Vector2.ZERO
@@ -455,6 +461,12 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 signal page_focus_requested
 
 func _input(event: InputEvent) -> void:
+	if handle_camera_touch(event):
+		get_viewport().set_input_as_handled()
+		return
+	if pinch_gesture and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and ui.celebration == null:
 		if construction.cancel_placement():
 			get_viewport().set_input_as_handled()
@@ -496,6 +508,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if pinch_gesture and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	if arrival != null and arrival.blocks_gameplay():
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and ui.celebration == null:
@@ -512,12 +526,51 @@ func _unhandled_input(event: InputEvent) -> void:
 	handle_world_click(event)
 
 
+# Keep pinch interpretation in Godot so native and embedded games share it.
+# A completed pinch suppresses its emulated mouse release until a new touch.
+func handle_camera_touch(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		touch_device = true
+		pointer.hide()
+		if event.pressed:
+			if camera_touches.is_empty():
+				pinch_gesture = false
+			camera_touches[event.index] = event.position
+		else:
+			camera_touches.erase(event.index)
+			if pinch_gesture and camera_touches.is_empty():
+				save_camera_view()
+	elif event is InputEventScreenDrag:
+		if not camera_touches.has(event.index):
+			return false
+		camera_touches[event.index] = event.position
+	else:
+		return false
+	if camera_touches.size() == 2:
+		var points := camera_touches.values()
+		var distance: float = points[0].distance_to(points[1])
+		if pinch_distance > 0.0 and event is InputEventScreenDrag:
+			game_camera.zoom = Vector2.ONE * clampf(game_camera.zoom.x * distance / pinch_distance, preload("res://scripts/cloud_visual.gd").MIN_VIEW_ZOOM, max_camera_zoom())
+		pinch_distance = distance
+		pinch_gesture = true
+		world_pointer_down = null
+		world_dragging = false
+		set_cursor_pressed(false, true)
+	else:
+		pinch_distance = 0.0
+	return pinch_gesture
+
 func pawn_view_center() -> Vector2:
 	return pawn.position + Vector2(0, -32.0 - ground_height(pawn.position))
 
+func max_camera_zoom() -> float:
+	return MAX_TOUCH_ZOOM if touch_device else MAX_MOUSE_ZOOM
+
 func camera_command(command: String) -> void:
+	if touch_device and command in ["in", "out"]:
+		return
 	match command:
-		"in": game_camera.zoom = Vector2.ONE * minf(1.5, game_camera.zoom.x + 0.1)
+		"in": game_camera.zoom = Vector2.ONE * minf(max_camera_zoom(), game_camera.zoom.x + 0.1)
 		"out": game_camera.zoom = Vector2.ONE * maxf(preload("res://scripts/cloud_visual.gd").MIN_VIEW_ZOOM, game_camera.zoom.x - 0.1)
 		"reset":
 			game_camera.position = pawn_view_center()
@@ -556,7 +609,7 @@ func load_camera_view() -> void:
 		if not is_finite(float(data[field])):
 			return
 	game_camera.position = Vector2(data.x, data.y)
-	game_camera.zoom = Vector2.ONE * clampf(float(data.zoom), preload("res://scripts/cloud_visual.gd").MIN_VIEW_ZOOM, 1.5)
+	game_camera.zoom = Vector2.ONE * clampf(float(data.zoom), preload("res://scripts/cloud_visual.gd").MIN_VIEW_ZOOM, max_camera_zoom())
 
 func fit_build_cursor() -> void:
 	# Assemble one grid square at 1x; camera zoom scales the whole pickup cursor.
@@ -626,7 +679,7 @@ func update_cursor() -> void:
 			# The hammer artwork fills twice the span of the white hand.
 			pointer.scale *= 0.5
 	pointer.position = pointer_position - hotspot * pointer.scale
-	pointer.visible = pointer_inside and pointer_focused
+	pointer.visible = pointer_inside and pointer_focused and not touch_device
 
 func set_cursor_pressed(pressed: bool, immediate: bool = false) -> void:
 	if cursor_press_material == null or (pressed and cursor_mode != "walk"):

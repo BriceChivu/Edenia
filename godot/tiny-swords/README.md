@@ -707,6 +707,12 @@ so its corners match the visible grid square corners. All cursors use scene
 coordinates with no browser-specific enlargement, matching native Godot.
 The pointer moves freely rather than snapping, and remains visible during placement
 alongside the grid-aligned terrain preview.
+Touch-capable devices never draw a cursor, even with an attached mouse.
+Use two fingers to pinch the camera in or out. Touch devices can zoom in to 3×;
+mouse-only devices keep the 1.5× limit. Saved camera views use the device’s limit.
+The Edenia zoom-in/out buttons are disabled and hidden on touch devices; Reset view
+remains available. Pinching cancels pending world clicks so releasing fingers
+cannot move the pawn or place an item.
 Leaving the game window or losing focus immediately hides the drawn cursor.
 Inactive native windows leave the pointer to macOS; returning focus restores
 the hidden system pointer and the game cursor. Web canvases still support
