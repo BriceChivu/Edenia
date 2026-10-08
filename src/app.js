@@ -1381,6 +1381,7 @@ let onboardingFlowEvaluated = false
 let accountExportController = null
 let accountStudySnapshotController = null
 let accountSettingsWasSignedIn = false
+let accountLogoutFailureNotified = false
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
   getPersistedAnalyticsUserId,
   identify: identifyEdeniaAuthenticatedUser,
@@ -6454,11 +6455,7 @@ function initializeAccountAuth() {
         storage: localStorage, storageKey: ACCOUNT_AUTH_STORAGE_KEY
       }),
       onStateChange(state) {
-        const previousError = accountAuthViewState.error
         applyAccountAuthenticationState(state)
-        if (state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED && previousError !== state.error) {
-          showToast(t('settings.account.feedback.signOutError'), 'error')
-        }
         accountAnalyticsIdentity.synchronize(state)
         accountExportController.synchronizeAccount(state)
         void reminderPreferencesController.synchronizeAccount(
@@ -6473,6 +6470,10 @@ function initializeAccountAuth() {
             : learnerProfileLifecycleAuthority ? null : loadState()
         )
         renderAccountSettings(state)
+        if (state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED && !accountLogoutFailureNotified) {
+          showToast(t('settings.account.feedback.signOutError'), 'error')
+        }
+        accountLogoutFailureNotified = state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED
         if (personalizedOnboardingState.step === 'account') {
           renderPersonalizedOnboarding()
         }
