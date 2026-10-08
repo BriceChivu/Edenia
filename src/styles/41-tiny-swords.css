@@ -63,3 +63,5 @@ body[data-theme="dark"] #islandAnnouncementBody { color: var(--text); }
   #islandAnnouncementBody { font-size: 15px; }
   .island-announcement-body .btn-primary { width: 100%; }
 }
+
+.tiny-swords-surface .tiny-swords-camera-controls button[hidden] { display: none; }

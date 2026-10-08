@@ -18,7 +18,7 @@ test('legacy study remains visible and live watching reaches the first three XP 
   await expect(page.locator('#historySummaryView')).toContainText('—')
   const baseline = await page.evaluate(() => ({ streak: loadState().streak.current, seconds: getTotalVideoWatchProgressSeconds(loadState().videos.lesson) }))
   expect(baseline.seconds).toBe(600)
-  expect(baseline.streak).toBe(1)
+  expect(baseline.streak).toBe(0)
   await page.locator('[data-history-view="heatmap"]').click()
   const day = page.locator('[data-history-heatmap-action="tooltip"]').last()
   await expect(day).toHaveAttribute('data-points', '')
@@ -27,16 +27,23 @@ test('legacy study remains visible and live watching reaches the first three XP 
   await page.locator('[data-history-view="summary"]').click()
 
   async function watch(seconds) {
-    await page.evaluate(seconds => {
+    await page.evaluate(async seconds => {
       const state = loadState()
       addVideoShelfSessionProgress(state.videos.lesson, seconds, {}, new Date().toISOString())
-      saveState(state)
+      await saveState(state)
     }, seconds)
     await page.reload()
   }
   await watch(420)
   await expect(page.locator('#cityScore')).toHaveText('7')
-  await watch(480)
+  await expect(page.locator('#streakCount')).toHaveText('0')
+  await watch(120)
+  await expect(page.locator('#cityScore')).toHaveText('9')
+  await expect(page.locator('#streakCount')).toHaveText('0')
+  await watch(60)
+  await expect(page.locator('#cityScore')).toHaveText('10')
+  await expect(page.locator('#streakCount')).toHaveText('1')
+  await watch(300)
   await expect(page.locator('#cityScore')).toHaveText('15')
   await page.locator('#levelUpButton').press('Enter')
   await expect(page.locator('#cityCurrentLevel')).toHaveText('Level 2')

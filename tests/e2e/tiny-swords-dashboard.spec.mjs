@@ -224,8 +224,14 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready')
   await expect(frame).not.toHaveAttribute('inert', '')
   await expect.poll(() => game.evaluate(() => window.hostVisible)).toBe(true)
-  await page.locator('[data-city-zoom-action="in"]').press('Enter')
-  await expect.poll(() => game.evaluate(() => window.commands)).toEqual(['in'])
+  const touchDevice = await page.evaluate(() => navigator.maxTouchPoints > 0)
+  const command = touchDevice ? 'reset' : 'in'
+  if (touchDevice) {
+    await expect(page.locator('[data-city-zoom-action="in"]')).toBeHidden()
+    await expect(page.locator('[data-city-zoom-action="out"]')).toBeDisabled()
+  }
+  await page.locator(`[data-city-zoom-action="${command}"]`).press('Enter')
+  await expect.poll(() => game.evaluate(() => window.commands)).toEqual([command])
   await game.locator('#gameInput').focus()
   await page.evaluate(() => openSettings())
   await expect(frame).toHaveAttribute('inert', '')
@@ -235,7 +241,7 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await page.keyboard.press('ArrowLeft')
   expect(await game.evaluate(() => window.keys)).toBe(keys)
   await page.evaluate(() => document.querySelector('[data-city-zoom-action="out"]').click())
-  expect(await game.evaluate(() => window.commands)).toEqual(['in'])
+  expect(await game.evaluate(() => window.commands)).toEqual([command])
   await page.locator('#settingsCloseBtn').click()
   await expect(frame).not.toHaveAttribute('inert', '')
   await page.evaluate(() => startWalkthrough())

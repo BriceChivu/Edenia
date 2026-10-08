@@ -45,7 +45,7 @@ func run() -> void:
 			moving_cloud.set_altitude(height)
 			check(moving_cloud.baked_shadow_offset.y > 0 and moving_cloud.shadow_sprite.position.y >= 0, "Shadow always stays below cloud with at least original PNG spacing")
 			if height == 0.0:
-				check(moving_cloud.shadow_sprite.position.is_equal_approx(moving_cloud.baked_shadow_offset + moving_cloud.shadow_center * (Vector2.ONE - moving_cloud.shadow_sprite.scale)), "Minimum cloud height preserves original PNG shadow placement exactly")
+				check(moving_cloud.shadow_sprite.position.is_equal_approx(moving_cloud.mirrored_point(moving_cloud.baked_shadow_offset) + moving_cloud.mirrored_point(moving_cloud.shadow_center) * (Vector2.ONE - moving_cloud.shadow_sprite.scale)), "Minimum cloud height preserves original PNG shadow placement exactly")
 	var seen := {}
 	for variant in range(8):
 		cloud.set_variant(variant)
@@ -55,6 +55,7 @@ func run() -> void:
 			check(cloud.scale == Vector2.ONE and cloud.altitude <= 0.3 and cloud.z_index == 100, "Small source art stays small and low")
 	# Both regular and rare paths use the same source-pixel sizing contract.
 	for subject in [cloud, level.get_node("PassingCloud")]:
+		subject.set_mirrored(false)
 		for variant in range(8):
 			subject.set_variant(variant)
 			for height in [0.0, 0.3, 0.7, 1.0]:
@@ -68,6 +69,20 @@ func run() -> void:
 				var local_anchor := Vector2(subject.shadow_center.x, reference_y - 128.0)
 				var expected_anchor: Vector2 = subject.to_global(local_anchor * subject.shadow_sprite.scale + subject.shadow_sprite.position)
 				check(subject.shadow_ground_position().is_equal_approx(expected_anchor), "Cloud depth follows the annotated line on each transformed shadow")
+	# Mirroring reflects both painted layers and their ground anchor together.
+	for subject in [cloud, level.get_node("PassingCloud")]:
+		for variant in range(8):
+			subject.set_variant(variant)
+			for height in [0.0, 1.0]:
+				subject.set_mirrored(false)
+				subject.set_altitude(height)
+				var normal_shadow: Vector2 = subject.shadow_sprite.position
+				var normal_anchor: Vector2 = subject.to_local(subject.shadow_ground_position())
+				subject.set_mirrored(true)
+				check(subject.flip_h and subject.shadow_sprite.flip_h, "Cloud and matching shadow mirror together")
+				check(subject.shadow_sprite.position.is_equal_approx(Vector2(-normal_shadow.x, normal_shadow.y)), "Mirrored shadow retains its vertical spacing and reflected horizontal offset")
+				check(subject.to_local(subject.shadow_ground_position()).is_equal_approx(Vector2(-normal_anchor.x, normal_anchor.y)), "Mirrored cloud depth follows its reflected shadow anchor")
+			subject.set_mirrored(false)
 	# Objects on opposite sides of the annotated ground line must switch occlusion.
 	var depth_probe := Sprite2D.new()
 	depth_probe.texture = cloud.VARIANTS[0]
