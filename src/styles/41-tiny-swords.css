@@ -36,3 +36,30 @@
 @media (prefers-reduced-motion: reduce) {
   .tiny-swords-surface .tiny-swords-camera-controls .city-image-btn { transition: none; }
 }
+
+/* Approved #396 announcement; page overlays use the shared modal backdrop. */
+.island-announcement-card {
+  position: relative; width: 100%; max-width: 550px; max-height: calc(100dvh - 48px);
+  overflow: auto; border-radius: 24px; background: #fffefa; color: #203735;
+  box-shadow: 0 18px 60px #263d3340; font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.island-announcement-art { display: block; width: 100%; height: 228px; object-fit: cover; object-position: center; background: #4ba9aa; }
+.island-announcement-body { padding: 30px 34px 28px; }
+.island-announcement-eyebrow { margin: 0 0 12px; color: #54645e; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.island-announcement-card h2 { white-space: pre-line; margin: 0; font-size: 35px; line-height: 1.13; font-weight: 650; letter-spacing: -1.1px; color: inherit; }
+#islandAnnouncementBody { margin: 16px 0 22px; font-size: 16px; line-height: 1.55; color: #54645e; }
+.island-announcement-body .btn-primary { font-family: 'Space Grotesk', sans-serif; }
+.island-announcement-body .onboarding-actions { padding-top: 2px; margin-top: 0; }
+body.island-announcement-open { overflow: hidden; }
+body[data-theme="dark"] .island-announcement-card { background: var(--surface); color: var(--text); }
+body[data-theme="dark"] .island-announcement-eyebrow,
+body[data-theme="dark"] #islandAnnouncementBody { color: var(--text); }
+@media (max-width: 450px) {
+  #islandAnnouncement { padding: 16px 10px; align-items: center; }
+  .island-announcement-card { max-height: calc(100dvh - 32px); }
+  .island-announcement-body { padding: 26px 22px 24px; }
+  .island-announcement-card h2 { font-size: 30px; }
+  .island-announcement-art { height: 190px; }
+  #islandAnnouncementBody { font-size: 15px; }
+  .island-announcement-body .btn-primary { width: 100%; }
+}

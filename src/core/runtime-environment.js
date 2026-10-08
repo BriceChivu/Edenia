@@ -19,18 +19,18 @@ export function deriveRuntimeEnvironment(locationLike) {
   }
 }
 
-// The localhost preview remains an explicit developer environment. Mode 2
-// selects the new page even while mounting is disabled, retaining tester data.
-export function deriveTinySwordsExperience(locationLike) {
+// Page selection and engine availability are separate. Disabling the engine
+// must retain the island dashboard and its profile semantics after release.
+export function deriveTinySwordsExperience(locationLike, publicEnabled = false) {
   const environment = deriveRuntimeEnvironment(locationLike)
-  return !environment.isSandbox && (environment.isTinySwordsTester
+  return !environment.isSandbox && (publicEnabled === true || environment.isTinySwordsTester
     || (environment.isLocalhost && locationLike.port === '8037'
       && environment.internalTestMode === null
       && !new URLSearchParams(locationLike.search).has('internal_test')))
 }
 
 export function deriveTinySwordsEnabled(locationLike, config) {
-  return deriveTinySwordsExperience(locationLike) && config?.tinySwordsEnabled === true
+  return deriveTinySwordsExperience(locationLike, config?.tinySwordsPublicEnabled) && config?.tinySwordsEnabled === true
 }
 
 export function deriveLearnerProfileAccessVisualTest(locationLike) {

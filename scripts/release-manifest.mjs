@@ -1,3 +1,4 @@
+import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -55,6 +56,8 @@ export function getReleaseAssetVersion({
   const configured = environment.EDENIA_ASSET_VERSION
   return normalizeAssetVersion(
     configured || normalizeReleaseCommit(releaseCommit).slice(0, 12)
+      + `-p${parseRuntimeConfigFlag(environment.EDENIA_TINY_SWORDS_PUBLIC_ENABLED, 'EDENIA_TINY_SWORDS_PUBLIC_ENABLED') ? 1 : 0}`
+      + `-g${parseRuntimeConfigFlag(environment.EDENIA_TINY_SWORDS_ENABLED, 'EDENIA_TINY_SWORDS_ENABLED') ? 1 : 0}`
   )
 }
 

@@ -1,6 +1,9 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "islandAnnouncement.eyebrow": "Un nuevo capítulo para Edenia",
+  "islandAnnouncement.title": "¡Ya puedes interactuar con tu isla!",
+  "islandAnnouncement.body": "Estudia para desbloquear nuevos objetos. Planta árboles, construye casas y dale tu toque personal a tu isla.",
   "intro.city.title": "Estudia. Gana experiencia. Construye tu isla.",
   "intro.city.level": "Nivel de la isla",
   "walkthrough.town": "Estudia para ganar XP y pulsa Subir de nivel debajo de la isla para recibir recompensas. Desde el nivel 2, Terreno abre la construcción: selecciona un objeto para colocarlo y usa el botón de cierre para volver a caminar. Arrastra la cámara; los controles amplían o restablecen la vista.",

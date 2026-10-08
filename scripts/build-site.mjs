@@ -67,6 +67,7 @@ const releaseCommit = getReleaseCommit({
 })
 const assetVersion = getReleaseAssetVersion({ releaseCommit })
 const tinySwordsEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_ENABLED, 'EDENIA_TINY_SWORDS_ENABLED')
+const tinySwordsPublicEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_PUBLIC_ENABLED, 'EDENIA_TINY_SWORDS_PUBLIC_ENABLED')
 const gameParent = await buildTinySwords(outputDir)
 let html = await readFile(resolve(projectRoot, 'index.html'), 'utf8')
 html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}" defer></script>`)
@@ -81,6 +82,7 @@ const entry = await build({
   bundle: true, format: 'iife', platform: 'browser', target: 'es2022',
   minify: true, write: false,
   define: {
+    __EDENIA_TINY_SWORDS_PUBLIC_ENABLED__: JSON.stringify(tinySwordsPublicEnabled),
     __EDENIA_TESTER_HTML__: JSON.stringify(html),
     __EDENIA_PRODUCTION_HTML__: JSON.stringify(productionHtml)
   }
@@ -248,6 +250,7 @@ await copyPath('data/channel-catalog.discovered.json')
 // Keep compatibility markers true until cached pre-retirement assets expire.
 const runtimeConfigSource = 'window.EDENIA_CONFIG = {\n'
     + `  "tinySwordsEnabled": ${JSON.stringify(tinySwordsEnabled)},\n`
+    + `  "tinySwordsPublicEnabled": ${JSON.stringify(tinySwordsPublicEnabled)},\n`
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'

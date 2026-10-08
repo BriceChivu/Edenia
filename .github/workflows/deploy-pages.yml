@@ -43,7 +43,8 @@ jobs:
 
       - name: Build static site
         env:
-          # Optional tester release only; ordinary visits always retain production.
+          # Public page release is explicit; the engine can be disabled separately.
+          EDENIA_TINY_SWORDS_PUBLIC_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_PUBLIC_ENABLED || 'false' }}
           EDENIA_TINY_SWORDS_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_ENABLED || 'false' }}
           EDENIA_FREE_PLUS_ENABLED: ${{ vars.EDENIA_FREE_PLUS_ENABLED }}
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}

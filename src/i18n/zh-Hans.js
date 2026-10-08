@@ -1,6 +1,9 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANS_LOCALIZED = {
+  "islandAnnouncement.eyebrow": "Edenia 的新篇章",
+  "islandAnnouncement.title": "现在，你可以和自己的岛屿互动了！",
+  "islandAnnouncement.body": "通过学习解锁新物品。种树、盖房子，打造专属于你的岛屿。",
   "intro.city.title": "学习。积累经验。打造你的小岛。",
   "intro.city.level": "小岛等级",
   "walkthrough.town": "学习可获得 XP，再按小岛下方的「升级」领取奖励。第 2 级起，「地形」可开启建造；选择物品放置，再按关闭按钮返回行走。拖动可移动镜头；视角按钮可缩放或重置。",
