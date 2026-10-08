@@ -66,7 +66,7 @@ const languageSource = appSource.slice(languageStart, languageEnd)
 
 test('language controls retain exact hooks and metadata without inline ownership', () => {
   const controls = getElements(languageSource, 'button')
-  assert.equal(controls.length, 2)
+  assert.equal(controls.length, 3)
 
   const languageChoice = controls[0]
   assert.equal(getAttribute(languageChoice.tag, 'type'), 'button')
@@ -92,7 +92,10 @@ test('language controls retain exact hooks and metadata without inline ownership
   )
   assert.equal(getAttribute(languageChoice.tag, 'onclick'), null)
 
-  const continueControl = controls[1]
+  const backControl = controls[1]
+  assert.equal(getAttribute(backControl.tag, 'data-personalized-onboarding-step'), 'intro')
+  assert.equal(getAttribute(backControl.tag, 'data-personalized-onboarding-action'), 'set-step')
+  const continueControl = controls[2]
   assert.equal(getAttribute(continueControl.tag, 'type'), 'button')
   assert.equal(getAttribute(continueControl.tag, 'class'), 'btn-primary')
   assert.equal(

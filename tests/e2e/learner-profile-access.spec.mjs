@@ -316,7 +316,7 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
     return route.fulfill({ json: {}, status: 200 })
   })
   await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
   await page.locator('[data-personalized-onboarding-step="account"]').click()
@@ -2462,7 +2462,7 @@ test('a different new account starts onboarding without exposing or replacing th
   })
   expect(resolutionCount).toBe(1)
 
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await page.locator('[data-language-id="mandarin"]').click()
   await page.locator(
     '[data-personalized-onboarding-action="continue-language"]'
@@ -2613,7 +2613,7 @@ test('an owner with no trusted cloud predecessor is routed through fresh onboard
   expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
     .toBe(storedState)
 
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await expect(page.locator('[data-language-id="mandarin"]')).toBeVisible()
   await page.locator('[data-language-id="mandarin"]').click()
   await page.locator(

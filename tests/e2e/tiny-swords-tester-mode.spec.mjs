@@ -49,7 +49,7 @@ test('fresh tester onboarding, URL cleanup, navigation and reload retain mode 2'
   await config(page, false, false, 'public')
   await page.goto('./?internal_test=2&account=1&extra=cleanup')
   await expect(page.locator('#introTrailer')).toBeVisible()
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
   await page.locator('[data-personalized-onboarding-action="finish"]').click()

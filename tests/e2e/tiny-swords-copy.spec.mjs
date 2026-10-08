@@ -43,6 +43,40 @@ test('trailer has no video bars and Continue matches the next onboarding screen'
   expect(Math.abs(before.height - after.height)).toBeLessThan(1)
 })
 
+test('trailer is onboarding step one with matching titles and reversible navigation', async ({ page }, testInfo) => {
+  await openTrailer(page)
+  await page.evaluate(() => document.fonts.ready)
+  await expect(page.locator('#introTrailer .onboarding-brand')).toHaveText('EDENIA')
+  await expect(page.locator('#introOnboardingProgressLabel')).toHaveText('Step 1 of 4')
+  const titleStyle = node => {
+    const style = getComputedStyle(node)
+    return ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textAlign']
+      .map(property => style[property])
+  }
+  const firstTitle = await page.locator('#introTrailerTitle').evaluate(titleStyle)
+  const card = await page.locator('#introTrailer .onboarding-card').boundingBox()
+  const video = await page.locator('#introIslandVideo').boundingBox()
+  const viewport = page.viewportSize()
+  expect(card.x).toBeGreaterThanOrEqual(0)
+  expect(card.x + card.width).toBeLessThanOrEqual(viewport.width + 1)
+  expect(video.x + video.width).toBeLessThanOrEqual(viewport.width + 1)
+  await page.screenshot({ path: testInfo.outputPath('onboarding-trailer.png') })
+  await page.locator('#introStartBtn').click()
+  await expect(page.locator('#onboardingProgressLabel')).toHaveText('Step 2 of 4')
+  expect(await page.locator('#onboardingTitle').evaluate(titleStyle)).toEqual(firstTitle)
+  await page.locator('[data-language-id="japanese"]').click()
+  await page.locator('[data-personalized-onboarding-step="intro"]').click()
+  await expect(page.locator('#introTrailer')).toBeVisible()
+  await expect(page.locator('#introOnboardingProgressLabel')).toHaveText('Step 1 of 4')
+  await page.locator('#introStartBtn').click()
+  await expect(page.locator('[data-language-id="japanese"]')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('#onboardingProgressLabel')).toHaveText('Step 2 of 4')
+  await page.locator('[data-language-id="other"]').click()
+  await expect(page.locator('#onboardingProgressLabel')).toHaveText('Step 2 of 3')
+  await page.locator('[data-personalized-onboarding-step="intro"]').click()
+  await expect(page.locator('#introOnboardingProgressLabel')).toHaveText('Step 1 of 3')
+})
+
 test.describe('Retina trailer scaling', () => {
   test.use({ deviceScaleFactor: 2 })
 
@@ -61,7 +95,7 @@ test.describe('Retina trailer scaling', () => {
   })
 })
 
-test('island trailer plays one continuous sequence, restarts on return and stops on Skip', async ({ page }) => {
+test('island trailer plays one continuous sequence, restarts on return and stops on Continue', async ({ page }) => {
   await openTrailer(page)
   const trailer = page.locator('#introTrailer')
   const video = page.locator('#introIslandVideo')
@@ -121,6 +155,7 @@ test('live locale and trailer/walkthrough replay preserve completed onboarding a
     await expect(page.locator('.tiny-swords-frame')).toHaveAttribute('title', I18N[locale]['island.frameTitle'])
     await page.evaluate(() => showTrailerAgain())
     await expect(page.locator('[data-intro-scene="0"] h2')).toHaveText(I18N[locale]['island.introTitle'])
+    await expect(page.locator('#introOnboardingProgress')).toBeHidden()
     await expect.poll(() => page.locator('#introIslandVideo').evaluate(node => node.currentTime)).toBeGreaterThan(0.1)
     expect(await page.locator('.intro-island-demo').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true)
     await page.screenshot({ path: testInfo.outputPath(`trailer-${locale}.png`) })

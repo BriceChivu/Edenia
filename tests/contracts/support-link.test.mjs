@@ -39,8 +39,8 @@ test('Ko-fi overlay JavaScript is not loaded', () => {
   assert.doesNotMatch(source, /overlay-widget\.js|kofiWidgetOverlay/)
 })
 
-test('trailer and Settings expose icon-only Ko-fi support links instead of Kick', () => {
-  assert.equal(creatorLinks.length, 2)
+test('Settings exposes icon-only Ko-fi support links instead of Kick', () => {
+  assert.equal(creatorLinks.length, 1)
 
   for (const links of creatorLinks) {
     const support = links.match(

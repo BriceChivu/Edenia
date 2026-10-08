@@ -127,7 +127,7 @@ for (const dismissImmediately of [false, true]) {
 test('localized announcement and fresh onboarding do not collide', async ({ page }) => {
   await configure(page)
   await page.goto('./')
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
   await Promise.all([page.waitForNavigation(), page.locator('[data-personalized-onboarding-action="finish"]').click()])

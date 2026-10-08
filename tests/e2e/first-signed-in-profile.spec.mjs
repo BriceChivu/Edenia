@@ -197,7 +197,7 @@ async function fulfillEmailAuthentication(route) {
 
 async function reachAccountStep(page) {
   await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await page.locator('[data-language-id="mandarin"]').click()
   await page.locator(
     '[data-personalized-onboarding-action="continue-language"]'
@@ -882,7 +882,7 @@ test('pre-authentication choices survive reload before authentication', async ({
   await installEmptySupabase(page)
 
   await page.goto('/')
-  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('#introStartBtn').click()
   await page.locator('[data-language-id="mandarin"]').click()
   await page.reload()
 
