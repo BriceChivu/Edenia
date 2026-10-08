@@ -38,7 +38,7 @@ async function main() {
   const runtimeConfig = await readLocalRuntimeConfig(localConfigPath)
 
   await run(process.execPath, [buildScriptPath], {
-    env: { ...process.env, EDENIA_TINY_SWORDS_ENABLED: String(runtimeConfig.tinySwordsEnabled) }
+    env: { ...process.env, EDENIA_TINY_SWORDS_ENABLED: String(runtimeConfig.tinySwordsEnabled), EDENIA_TINY_SWORDS_PUBLIC_ENABLED: String(runtimeConfig.tinySwordsPublicEnabled) }
   })
   await writeLocalRuntimeConfig(outputConfigPath, runtimeConfig)
 

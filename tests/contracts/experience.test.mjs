@@ -22,11 +22,12 @@ const history = appFunction('getStudyHistoryBetween', 'renderHistoryWatchedCell'
   getHistoryDayPoints: historyExperience, t: value => value
 })
 
-test('XP migration resets earned town levels once and preserves all historical study facts', () => {
+test('XP initialization retains town claims and study facts while starting island levels once', () => {
   const state = { cityProgress: { maxLevelIndex: 11 }, videos: { legacy: { status: 'watched', duration: 3600 } }, anki: { '2026-09-29': { reviewed: 90 } } }
   const facts = JSON.stringify({ videos: state.videos, anki: state.anki })
   assert.equal(initializeExperience(state), true)
   assert.equal(state.cityProgress.maxLevelIndex, 0)
+  assert.deepEqual(state.legacyCityProgress, { maxLevelIndex: 11 })
   assert.equal(JSON.stringify({ videos: state.videos, anki: state.anki }), facts)
   state.cityProgress.maxLevelIndex = 1
   assert.equal(initializeExperience(state), false)

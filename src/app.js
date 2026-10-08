@@ -1,3 +1,4 @@
+import { createIslandAnnouncement } from './features/onboarding/island-announcement.js'
 import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
@@ -580,7 +581,7 @@ const {
 } = RUNTIME_ENVIRONMENT
 window.edeniaTinySwordsEnabled = deriveTinySwordsEnabled(window.location, window.EDENIA_CONFIG)
 window.edeniaTinySwordsLegacyPreview = IS_LOCALHOST && location.port === '8037'
-  && !IS_TINY_SWORDS_TESTER
+  && !IS_TINY_SWORDS_TESTER && window.EDENIA_CONFIG?.tinySwordsPublicEnabled !== true
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   getStudyGuidanceEnabled()
 )
@@ -1904,7 +1905,6 @@ function normalizeLoadedState(state) {
   if (!IS_SANDBOX && expireYoutubeMetadata(state)) shouldSave = true
   normalizeSandboxState(state)
   normalizeCityProgress(state)
-  delete state.nightVisuals
   return shouldSave
 }
 
@@ -2863,7 +2863,8 @@ async function startApplicationWithState(initialState, {
       })
   onboardingFlowEvaluated = true
   synchronizeGoogleIdentityServices()
-  const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
+  const announcementShown = !onboardingExperienceStarted && islandAnnouncement.show(state)
+  const noAnkiPromptScheduled = !onboardingExperienceStarted && !announcementShown && maybeStartNoAnkiFrequentUserPrompt(state)
   const starterFeedRequest = startPendingStarterFeedPreparation(state, {
     deferAnki: noAnkiPromptScheduled,
     deferUntilProfileActivation: deferStarterFeedUntilProfileActivation
@@ -4883,6 +4884,7 @@ async function finishPersonalizedOnboarding() {
   state.onboarding.accountStepReachedAt = null
   state.onboarding.setupCompleted = true
   state.onboarding.setupCompletedAt = now
+  state.onboarding.islandAnnouncementSeenAt = now
   state.onboarding.recommendationsAppliedAt = null
   state.onboarding.starterFeed = createPendingStarterFeed(selectedChannelCatalogIds, now)
   const onboardingDetail = personalizedOnboardingState.levelId
@@ -18080,6 +18082,13 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 // ════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════
+
+const islandAnnouncement = createIslandAnnouncement({
+  root: document,
+  enabled: !IS_SANDBOX && !IS_TINY_SWORDS_TESTER && window.EDENIA_CONFIG?.tinySwordsPublicEnabled === true,
+  read: loadState,
+  save: saveState
+})
 
 bindStudyInsightActions(document, {
   setView: setStudyInsightView,

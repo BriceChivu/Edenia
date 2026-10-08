@@ -1,4 +1,8 @@
 export const EN_CORE = {
+  "islandAnnouncement.eyebrow": "A new chapter for Edenia",
+  "islandAnnouncement.title": "You can now interact\nwith your island!",
+  "islandAnnouncement.body": "Study to unlock new items. Plant trees, build homes, and make your island your own.",
+
   "intro.city.title": "Study. Earn experience. Build your island.",
   "intro.city.level": "Island level",
   "walkthrough.town": "Study to earn XP, then use Level up below the island to claim rewards. From level 2, Terrain opens building; select an item to place it, then use the close button to return to walking. Drag to move the camera; the view controls zoom or reset.",

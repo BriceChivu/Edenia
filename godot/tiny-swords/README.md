@@ -1188,3 +1188,14 @@ See `fonts/README.md` for provenance and regeneration. Validate with the integra
 export contract and `tiny-swords-copy.spec.mjs`, then rebuild the integrated preview.
 
 Chicken placement uses the same grass rules as sheep, including grass at both ends of stairs. The ramp itself and occupied tiles remain unavailable. Focused check: `res://tests/chicken_stair_placement.gd`.
+
+## Prepared public page release
+
+See [the accountless public rollout procedure](../../docs/experiments/tiny-swords/public-rollout.md)
+for #397 and the #396 announcement. Public page selection is an explicit
+`EDENIA_TINY_SWORDS_PUBLIC_ENABLED` release; engine mounting uses the existing
+`EDENIA_TINY_SWORDS_ENABLED` control. Disabling the engine keeps the island
+dashboard and production profile semantics. Keep the public page selected
+after release when mitigating game failures; selecting an older town bundle
+can reinterpret island claims. Existing production town claims are archived
+as `legacyCityProgress` without granting island XP or resources.

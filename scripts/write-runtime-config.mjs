@@ -39,6 +39,10 @@ assertLegacyProgressRuntimeConfig({
 })
 
 const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
+  tinySwordsPublicEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_TINY_SWORDS_PUBLIC_ENABLED,
+    'EDENIA_TINY_SWORDS_PUBLIC_ENABLED'
+  ),
   tinySwordsEnabled: parseRuntimeConfigFlag(
     process.env.EDENIA_TINY_SWORDS_ENABLED,
     'EDENIA_TINY_SWORDS_ENABLED'

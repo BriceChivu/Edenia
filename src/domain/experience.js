@@ -1,6 +1,13 @@
 // Only live activity writers attach XP provenance. Legacy facts remain unmarked.
 export function initializeExperience(state, scoringVersion = state.cityProgress?.scoringVersion || 1) {
   if (state.cityProgress?.experienceVersion === 1) return false
+  // Town indexes use a different curve. Retain the exact old record without
+  // treating it as claimed island rewards or altering the underlying facts.
+  if (state.cityProgress && state.legacyCityProgress === undefined
+    && (state.onboarding?.setupCompleted || state.onboarding?.completed || state.cityProgress.maxLevelIndex > 0
+      || state.cityProgress.pendingLevelIndex != null)) {
+    state.legacyCityProgress = structuredClone(state.cityProgress)
+  }
   state.cityProgress = { maxLevelIndex: 0, pendingLevelIndex: null, scoringVersion, experienceVersion: 1 }
   return true
 }

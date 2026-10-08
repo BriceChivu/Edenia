@@ -357,6 +357,16 @@ jobs:
           EDENIA_TEST_TINY_SWORDS: 'true'
           EDENIA_TEST_NORMAL_PORT: '4174'
           EDENIA_TEST_BASE_PATH: '/Edenia/'
+      - name: Build the explicit public island release
+        run: node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
+        env:
+          EDENIA_TINY_SWORDS_PUBLIC_ENABLED: 'true'
+      - name: Verify production profile transition and public island controls
+        run: npx playwright test public-island.spec.mjs --project=desktop-standard --project=phone-standard
+        env:
+          EDENIA_TEST_PUBLIC_ISLAND: 'true'
+          EDENIA_TEST_NORMAL_PORT: '4174'
+          EDENIA_TEST_BASE_PATH: '/Edenia/'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

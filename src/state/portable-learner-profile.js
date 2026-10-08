@@ -399,6 +399,8 @@ function normalizeOnboarding(value) {
   const onboardingState = isPlainRecord(value) ? value : {}
   return {
     introSeenAt: normalizeTimestamp(onboardingState.introSeenAt),
+    ...(normalizeTimestamp(onboardingState.islandAnnouncementSeenAt)
+      ? { islandAnnouncementSeenAt: normalizeTimestamp(onboardingState.islandAnnouncementSeenAt) } : {}),
     levelUpGuidanceShownAt: normalizeTimestamp(
       onboardingState.levelUpGuidanceShownAt
     ),
@@ -493,6 +495,7 @@ function createPortableProfile(state) {
   }
   return {
     ...(state.tinySwordsIsland == null ? {} : { tinySwordsIsland: copyTinySwordsIsland(state.tinySwordsIsland) }),
+    ...(state.legacyCityProgress === undefined ? {} : { legacyCityProgress: cloneJson(state.legacyCityProgress) }),
     ...(state.townEconomy === undefined ? {} : { townEconomy: cloneJson(validateTownEconomy(state.townEconomy)) }),
     activityLog: normalizeActivityLog(state.activityLog),
     anki: reconcilePortableAnkiDays(state.anki),
