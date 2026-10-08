@@ -64,5 +64,26 @@ create temporary table started_over as select * from public.start_over_my_learne
 select is((select status from started_over),'started_over','XP-aware blank reset starts a new generation');
 select is((select generation from started_over),2::bigint,'reset generation identity is unchanged');
 select is((select envelope from public.undo_my_learner_profile_start_over((select reset_id from started_over),'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9',true)),pg_temp.profile_input('island'),'Undo restores exact protected island/XP/legacy claims');
+
+-- Use the browser RPC budget for a many-record library. A giant string alone
+-- does not detect recursive SQL startup at every scalar. No timeout exemption.
+reset role;
+insert into auth.users (id,email,email_confirmed_at) values
+ ('22222222-2222-4222-8222-222222222222','large-library@example.test',statement_timestamp());
+set local role authenticated;
+set local request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
+create temporary table large_library_opened as select * from public.resolve_my_learner_profile(pg_temp.profile_input('initial'));
+set local statement_timeout='8s';
+select is((select status from public.import_my_learner_profile('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+ (select profile_id from large_library_opened),1,1,pg_temp.profile_input('large-library'),true)),
+ 'replaced','a client-generated large library imports within the browser RPC budget');
+select is((select imported_envelope from public.read_my_learner_profile_import_backup('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1')),
+ pg_temp.profile_input('large-library'),'large-library backup verification preserves exact client bytes');
+select is((select status from public.rollback_my_learner_profile_import('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1')),
+ 'rolled_back','large-library import remains protected and reversible');
+set local statement_timeout=default;
+reset role;
+select ok(not has_function_privilege('authenticated','private.canonical_jsonb_text(jsonb)','execute'),
+ 'optimized canonical serialization remains private');
 select * from finish();
 rollback;
