@@ -42,6 +42,7 @@ export async function buildTinySwords(outputDir) {
     ['--script', resolve('tests/godot/tiny-swords-export-contract.gd')],
     ['--script', 'res://tests/inventory_outline_assets.gd'],
     ['--script', 'res://tests/gameplay.gd'],
+    ['--script', 'res://tests/animal_checkpoint_saves.gd'],
     ['--script', 'res://tests/progression.gd'],
     ['--export-release', 'Web', resolve(staging, 'index.html')]]) {
     const result = spawnSync(godot, ['--headless', '--path', project, ...args], { stdio: 'inherit' })

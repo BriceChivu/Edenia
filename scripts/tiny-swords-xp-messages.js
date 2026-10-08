@@ -34,14 +34,20 @@ window.edeniaLocale = 'en'
 window.edeniaSaveId = 0
 window.edeniaSaveInFlight = null
 window.edeniaPendingLayout = null
-window.edeniaQueueLayout = layout => {
+window.edeniaPendingCheckpoint = null
+window.edeniaQueueLayout = (layout, checkpoint = false) => {
+  // The newest snapshot includes earlier queued edits. Ambient movement must
+  // not downgrade a learner edit that still needs its cloud save.
+  window.edeniaPendingCheckpoint = checkpoint === true && window.edeniaPendingCheckpoint !== false
   window.edeniaPendingLayout = layout
   if (window.edeniaSaveInFlight !== null) return
   const next = window.edeniaPendingLayout
+  const nextCheckpoint = window.edeniaPendingCheckpoint
   window.edeniaPendingLayout = null
+  window.edeniaPendingCheckpoint = null
   const id = ++window.edeniaSaveId
   window.edeniaSaveInFlight = { id, level: next.level }
-  parent.postMessage({ type: 'edenia-tiny-layout', session: window.edeniaStudySession, id, layout: next }, location.origin)
+  parent.postMessage({ type: 'edenia-tiny-layout', session: window.edeniaStudySession, id, layout: next, checkpoint: nextCheckpoint }, location.origin)
 }
 window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== parent) return
@@ -63,6 +69,6 @@ window.addEventListener('message', event => {
   window.edeniaLastSavePersisted = data.persisted === true
   window.edeniaSaveInFlight = null
   window.edeniaReceiveLayoutSaved?.(level, window.edeniaLastSavePersisted)
-  if (window.edeniaPendingLayout !== null) window.edeniaQueueLayout(window.edeniaPendingLayout)
+  if (window.edeniaPendingLayout !== null) window.edeniaQueueLayout(window.edeniaPendingLayout, window.edeniaPendingCheckpoint)
 })
 parent.postMessage({ type: 'edenia-tiny-ready' }, location.origin)

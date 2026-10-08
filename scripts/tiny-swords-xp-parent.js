@@ -296,7 +296,7 @@ if (window.edeniaTinySwordsEnabled === true) {
         let persisted = false
         if (restored && !saving && persistence()) {
           saving = true
-          try { persisted = await persistence().save(data.layout, expected) } catch {}
+          try { persisted = await persistence().save(data.layout, expected, { syncCloud: data.checkpoint === true ? false : undefined }) } catch {}
           saving = false
           persisted = persisted && target === frame && targetSession === session
             && Boolean(readIsland()) && accessIdentity() === expectedAccess

@@ -562,3 +562,68 @@ test('switching verified trial owners requires explicit replacement and remounts
   expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(nextEnvelope.profile.tinySwordsIsland)
   expect(await retainedBytes(page)).toEqual(retained)
 })
+
+
+test('signed-in animal checkpoints stay local and the next gameplay save uploads their whole island', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
+  test.setTimeout(120000)
+  await seedRetained(page)
+  const fixture = await owned(page, { indexedDb: true, engine: true })
+  await page.goto('./?internal_test=1')
+  await readyGame(page)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')
+  await page.evaluate(() => {
+    const frame = document.querySelector('.tiny-swords-frame')
+    frame.contentWindow.postMessage({ type: 'edenia-host-visibility',
+      session: frame.contentWindow.edeniaStudySession, visible: false }, location.origin)
+  })
+  await expect.poll(() => canvas.evaluate(() => window.edeniaHostVisible)).toBe(false)
+  await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
+  const before = fixture.head()
+  const commitCount = fixture.commits.length
+  const moved = structuredClone(await page.evaluate(() => loadState().tinySwordsIsland))
+  // Use another already valid ground position; Godot still owns restore validity.
+  moved.chickens[0] = [544, 272]
+  await canvas.evaluate((_, layout) => window.edeniaQueueLayout(layout, true), moved)
+  await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
+  expect(await canvas.evaluate(() => window.edeniaLastSavePersisted)).toBe(true)
+  expect(await page.evaluate(() => loadPersistedState({ persistCleanup: false }).tinySwordsIsland)).toEqual(moved)
+  expect(fixture.commits.length).toBe(commitCount)
+  expect(fixture.head().revision).toBe(before.revision)
+  const sync = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1')), trial)
+  expect(sync.pending).toBeNull()
+  expect(sync.queued).toBeNull()
+  const checkpointMarker = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1_local_island_checkpoint')), trial)
+  expect(checkpointMarker).toMatchObject({ version: 1, revision: before.revision })
+  await page.evaluate(() => learnerProfileLifecycleAuthority.refresh())
+  await readyGame(page)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(fixture.head().revision).toBe(before.revision)
+  expect(await canvas.evaluate(() => window.edeniaStudyLayout)).toEqual(moved)
+  await page.evaluate(() => {
+    const frame = document.querySelector('.tiny-swords-frame')
+    frame.contentWindow.postMessage({ type: 'edenia-host-visibility',
+      session: frame.contentWindow.edeniaStudySession, visible: false }, location.origin)
+  })
+  await expect.poll(() => canvas.evaluate(() => window.edeniaHostVisible)).toBe(false)
+  await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
+  const latestMoved = await page.evaluate(() => loadState().tinySwordsIsland)
+  const downloadPromise = page.waitForEvent('download')
+  await page.evaluate(() => learnerProfileLifecycleAuthority.exportActiveProfile())
+  const exported = JSON.parse(await readFile(await (await downloadPromise).path(), 'utf8'))
+  expect(exported.profile.tinySwordsIsland).toEqual(latestMoved)
+  Object.assign(moved, latestMoved)
+  moved.resources.wood += 1
+  await canvas.evaluate((_, layout) => window.edeniaQueueLayout(layout), moved)
+  await expect.poll(() => fixture.commits.some(commit =>
+    commit.p_envelope.profile.tinySwordsIsland.resources.wood === moved.resources.wood)).toBe(true)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(fixture.head().envelope.profile.tinySwordsIsland).toEqual(moved)
+  await page.reload()
+  await readyGame(page)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(await page.evaluate(() => loadState().tinySwordsIsland.resources.wood)).toBe(moved.resources.wood)
+  expect(await retainedBytes(page)).toEqual(retained)
+})

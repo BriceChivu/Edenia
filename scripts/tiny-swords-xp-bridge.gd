@@ -158,6 +158,6 @@ func restore_study_layout(data: Variant) -> bool:
 		return true
 	return data is Dictionary and restore_saved_layout(data)
 
-func save_layout() -> void:
+func save_layout(animal_checkpoint: bool = false) -> void:
 	if study_bridge_ready and study_layout_restored and study_presentation_ready and OS.has_feature("web"):
-		JavaScriptBridge.eval("window.edeniaQueueLayout(%s)" % JSON.stringify(saved_snapshot()))
+		JavaScriptBridge.eval("window.edeniaQueueLayout(%s, %s)" % [JSON.stringify(saved_snapshot()), JSON.stringify(animal_checkpoint)])

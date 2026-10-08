@@ -4176,3 +4176,32 @@ test('signed-in island checkpoints honor analytics suppression without changing 
   harness.authentication.publish({ status: 'signed-out', userId: null })
   assert.equal(harness.authority.saveActiveProfile(profile, { syncAnalytics: false }), false)
 })
+
+
+test('local animal checkpoint remains guarded and the next study save sends its whole island', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { tinySwordsIsland: { version: 32, level: 7, chickens: [[32, 32]] } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: { generation: 2, ownerId, profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001', revision: 7, status: 'activate' },
+    local: { status: 'empty' }, markDirtyResult: true
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const before = harness.calls.length
+  profile.tinySwordsIsland.chickens = [[32, 96]]
+  assert.equal(harness.authority.saveActiveProfile(profile, {
+    syncCloud: false, backup: false, syncAnalytics: false
+  }), true)
+  const checkpointCalls = harness.calls.slice(before)
+  assert.ok(checkpointCalls.some(([name]) => name === 'local-save'))
+  assert.equal(checkpointCalls.some(([name]) => name === 'cloud-mark-dirty' || name === 'cloud-save'), false)
+  profile.config = { weeklyGoalHours: 9 }
+  assert.equal(harness.authority.saveActiveProfile(profile), true)
+  assert.ok(harness.calls.slice(before).some(([name]) => name === 'cloud-mark-dirty'))
+  const cloudSave = harness.calls.findLast(([name]) => name === 'cloud-save')
+  assert.deepEqual(cloudSave[1].tinySwordsIsland.chickens, [[32, 96]])
+  harness.authentication.publish({ status: 'signed-out', userId: null })
+  assert.equal(harness.authority.saveActiveProfile(profile, { syncCloud: false }), false)
+})

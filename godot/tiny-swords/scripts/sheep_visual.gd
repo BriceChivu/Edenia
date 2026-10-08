@@ -225,7 +225,7 @@ func advance(delta: float, now: float) -> void:
 		escape_route.clear()
 		tile_destinations.clear()
 		reset_grazing()
-		world.save_layout()
+		world.save_layout(true)
 	# Advance to animation/movement boundaries so a suspended frame counts every
 	# complete eating loop and can cross several grazing destinations.
 	while elapsed > 0.0:
@@ -257,7 +257,7 @@ func advance(delta: float, now: float) -> void:
 					face_destination()
 				else:
 					reset_grazing()
-					world.save_layout()
+					world.save_layout(true)
 		else:
 			var cycle_seconds := idle_seconds + GRASS_SECONDS
 			var remaining := cycle_seconds - resting_time

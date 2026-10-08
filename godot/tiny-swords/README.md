@@ -437,7 +437,17 @@ Edenia is the only durable writer for this integration. Godot acknowledges resto
 acceptance; Edenia acknowledges each save only after profile persistence succeeds.
 A rejected restore blocks island saves and retains the original input. Edenia bounds
 transport to 512 KiB and leaves gameplay validation and save migrations to Godot.
-Animal checkpoints skip whole-profile backups and analytics. Camera settings remain
+Animal checkpoints skip whole-profile backups and analytics. Godot marks these
+ambient movement saves so the signed-in host stores them locally without advancing
+the cloud revision. The next study or gameplay save includes the latest complete
+island, and portable exports include the locally saved animal positions. Queued
+gameplay edits remain eligible for cloud saving when animal checkpoints coalesce.
+A bounded local marker binds an exact checkpoint to its accepted cloud revision,
+so focus refresh and reopening do not turn unchanged animal movement into an
+upload. The marker cannot suppress changed study facts, pending work or a newer
+cloud head. Edenia treats the island as an opaque snapshot throughout.
+Explicit island differences still require the existing protected conflict choice.
+Camera settings remain
 local to the device; selection, action queues and game undo history are transient.
 
 Accountless profiles already using Edenia's opt-in IndexedDB repository write
@@ -448,7 +458,7 @@ update both atomically. Full reads, portable exports and recovery backups compos
 the latest island into the profile. Checkpoints share the profile revision queue,
 durable readback and access fences; failed acknowledgments restore only their exact
 head and retain newer writers. The legacy localStorage and signed-in lifecycle
-paths retain their existing behavior and costs; storage rollout flags are unchanged.
+paths retain full-profile local writes; storage rollout flags are unchanged.
 
 Import, backup restore and reset replace the iframe, clearing transient actions.
 Study-history Undo can lower current XP, but never revokes an already claimed
