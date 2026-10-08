@@ -59,21 +59,25 @@ real acceptance result.
 ### Expired lost-choice acknowledgment
 
 When the exact owner-scoped request resolves to an expired comparison, the client
-keeps its verified durable device candidate, records one new operation ID before
+keeps its latest verified durable device candidate, records one new operation ID before
 the RPC, and asks for a fresh comparison with the current cloud profile. It does
 not reactivate an old selection or choose a side automatically. Both profiles
 remain exportable and the app remains behind the comparison gate until an
 explicit choice. A second expiry is bounded; storage rejection or owner/profile
 change leaves the retained request intact and performs no fresh cloud write.
+Newer queued offline work is rebased onto the original stale revision for that
+comparison; offering the older pending request would discard newer progress on
+an explicit choice. The queue is cleared only after its complete candidate has
+been durably promoted to the new pending request, under a storage-value fence.
 
-Twelve contract regressions cover prepared/finalized requests, fresh open/expired
-responses, ownership replacement and rejected local writes. The new browser case
+Twenty-four contract regressions cover prepared/finalized requests, fresh open/expired
+responses, ownership replacement, rejected local writes and newer queued work. The two new browser cases
 uses the current mode-1 client and verifies the comparison, Export both, hidden
 learner content, unchanged accepted revision and absence of any choice RPC.
 
 ## Validation receipts
 
-- All **1,837 client contracts** passed after both repairs.
+- All **1,849 client contracts** passed after both repairs.
 - All **139 shared Edge-function tests** and the retained Deno function checks
   passed during the audit.
 - **79 desktop Chrome browser cases** passed across auth methods, first signed-in
@@ -83,8 +87,8 @@ learner content, unchanged accepted revision and absence of any choice RPC.
   Godot scenarios, not passing mobile-device evidence.
 - **41 desktop storage/migration cases** passed, including IndexedDB quota and
   readback failures, concurrent changes and local/profile backup migration.
-- After the client repair, **31 focused desktop cases** passed, including the
-  new expired-acknowledgment regression and both Godot choice paths. This run
+- After the client repair, **32 focused desktop cases** passed, including the
+  new expired-acknowledgment/queued-work regressions and both Godot choice paths. This run
   overlaps the earlier matrix; the counts above must not be summed as distinct
   scenarios.
 - The SQL-only candidate `7d5d77d2e844daae2cf7d606da861156c289c346`

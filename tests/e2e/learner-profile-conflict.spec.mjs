@@ -163,7 +163,8 @@ async function prepareConflictPage(page, {
   identicalProfiles = false,
   preserveStateOnReload = false,
   trial = false,
-  expiredChoice = false
+  expiredChoice = false,
+  queuedLatest = false
 } = {}) {
   // Keep the mocked protected-copy deadline valid regardless of the CI date.
   await page.clock.setFixedTime(new Date('2026-08-25T12:00:00.000Z'))
@@ -209,13 +210,20 @@ async function prepareConflictPage(page, {
   let activeOperationId = OPERATION_ID
   const freshConflictId = '423e4567-e89b-42d3-a456-426614174003'
   const storageKey = trial ? 'edenia_v1_auth_trial_v1' : STATE_KEY
+  const pendingEnvelope = queuedLatest
+    ? (await createPortableLearnerProfileEnvelope({ ...deviceEnvelope.profile,
+        anki: { '2026-08-21': { created: 0, reviewed: 1, observedAt: deviceEnvelope.exportedAt } }
+      }, { now: () => new Date(deviceEnvelope.exportedAt) })).envelope
+    : deviceEnvelope
 
   await page.addInitScript(({
     accessKey,
     authKey,
     authenticated,
     device,
+    pending,
     preserveReloadState,
+    queuedLatest,
     stateKey,
     syncKey
   }) => {
@@ -241,17 +249,23 @@ async function prepareConflictPage(page, {
         baseRevision: 12,
         envelope: null,
         generation: 4,
-        integrity: device.integrity,
+        integrity: pending.integrity,
         nextRetryAt: 0,
         operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         ownerId: authenticated.user.id,
-        prepared: device,
+        prepared: pending,
         profileId: '223e4567-e89b-42d3-a456-426614174001',
         retryCount: 0,
         revision: 13
       },
       profileId: '223e4567-e89b-42d3-a456-426614174001',
-      queued: null,
+      queued: queuedLatest ? {
+        activationId: 'activation-after-lost-request', baseRevision: 13,
+        envelope: null, generation: 4, integrity: device.integrity,
+        nextRetryAt: 0, operationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        ownerId: authenticated.user.id, prepared: device,
+        profileId: '223e4567-e89b-42d3-a456-426614174001', retryCount: 0, revision: 14
+      } : null,
       version: 1
     }))
   }, {
@@ -259,7 +273,9 @@ async function prepareConflictPage(page, {
     authKey: trial ? `${storageKey}_plus_auth_v1` : AUTH_KEY,
     authenticated: authenticatedSession(),
     device: deviceEnvelope,
+    pending: pendingEnvelope,
     preserveReloadState: preserveStateOnReload,
+    queuedLatest,
     stateKey: storageKey,
     syncKey: trial ? `${storageKey}_learner_profile_sync_v1` : SYNC_KEY
   })
@@ -712,10 +728,11 @@ test('reloading an unchanged unfinished Cloud profile creates no cloud revision'
   expect(commitRequests).toHaveLength(0)
 })
 
-test('trial reopens an expired lost-choice acknowledgment as an exportable fresh comparison', async ({ page }, testInfo) => {
+for (const queuedLatest of [false, true]) {
+test(`trial reopens an expired lost-choice acknowledgment as an exportable fresh comparison (queued ${queuedLatest})`, async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   const { commitRequests, choiceRequests, deviceEnvelope } = await prepareConflictPage(page, {
-    trial: true, expiredChoice: true
+    trial: true, expiredChoice: true, queuedLatest
   })
   await expect(page.getByRole('heading', { name: 'Compare your profiles' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Export both', exact: true })).toBeEnabled()
@@ -725,7 +742,10 @@ test('trial reopens an expired lost-choice acknowledgment as an exportable fresh
   expect(commitRequests).toHaveLength(2)
   expect(commitRequests[1].p_operation_id).not.toBe(OPERATION_ID)
   expect(commitRequests[1].p_envelope).toEqual(deviceEnvelope)
+  if (queuedLatest) expect(commitRequests[0].p_envelope).not.toEqual(deviceEnvelope)
   const sync = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1')))
   expect(sync.acceptedRevision).toBe(12)
   expect(sync.pending.operationId).toBe(commitRequests[1].p_operation_id)
+  expect(sync.queued).toBeNull()
 })
+}

@@ -1793,7 +1793,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       } catch {
         return { status: 'recovering' }
       }
-      const record = readSyncRecord()
+      const stored = readStoredSyncRecord()
+      const record = stored.record
       if (
         record?.ownerId !== operation.ownerId
         || record.profileId !== operation.profileId
@@ -1801,18 +1802,39 @@ export function createLearnerProfileCloudPersistenceAdapter({
         || record.pending?.operationId !== operation.operationId
         || record.pending.integrity.payloadSha256 !== operation.integrity.payloadSha256
       ) return { status: 'recovering' }
+      const latest = record.queued || record.pending
+      if (record.queued) {
+        // A queued operation is a complete newer snapshot. Rebase it onto the
+        // original stale revision so it too requires an explicit comparison.
+        try {
+          candidate = latest.envelope
+            ? await verifyEnvelope(latest.envelope)
+            : (await finalizeEnvelope(latest.prepared))?.envelope
+        } catch {
+          return { status: 'recovering' }
+        }
+        if (
+          candidate?.integrity?.algorithm !== latest.integrity.algorithm
+          || candidate?.integrity?.byteLength !== latest.integrity.byteLength
+          || candidate?.integrity?.payloadSha256 !== latest.integrity.payloadSha256
+          || readStoredSyncRecord().serialized !== stored.serialized
+        ) return { status: 'recovering' }
+      }
       const operationId = createOperationId()
       if (!UUID_PATTERN.test(String(operationId || ''))
         || operationId === operation.operationId) return { status: 'recovering' }
       const fresh = {
-        ...record.pending,
+        ...latest,
+        baseRevision: operation.baseRevision,
         envelope: candidate,
         nextRetryAt: 0,
         operationId,
         prepared: null,
-        retryCount: 0
+        retryCount: 0,
+        revision: operation.revision
       }
       record.pending = fresh
+      record.queued = null
       if (!writeSyncRecord(record)) return { status: 'recovering' }
       let response
       try {
