@@ -44,12 +44,12 @@ function session(userId = owner) {
     refresh_token:'trial-refresh',expires_at:1893456000,expires_in:31536000,token_type:'bearer',
     user:{id:userId,email:'trial@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
 }
-async function owned(page,{indexedDb,engine}) {
+async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={}}) {
   await configure(page,{indexedDb,engine})
   const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json',import.meta.url)))
   const at='2026-10-08T00:00:00.000Z'
   let envelope=(await createPortableLearnerProfileEnvelope({
-    config:{locale:'en',ankiEnabled:false,channels:[],weeklyGoalHours:4},anki:{},videos:{},
+    config:{locale:'en',ankiEnabled,channels:[],weeklyGoalHours:4},anki,videos:{},
     learnerProfile:{languages:['french'],level:'beginner',createdAt:at,updatedAt:at},
     onboarding:{introSeenAt:at,setupCompleted:true,setupCompletedAt:at,walkthroughCompleted:true,walkthroughCompletedAt:at},
     cityProgress:{maxLevelIndex:6,experienceVersion:1},tinySwordsIsland:island
@@ -125,10 +125,53 @@ async function owned(page,{indexedDb,engine}) {
   })
   return {commits,island,requests,
     head:()=>({envelope:structuredClone(envelope),generation,revision}),
+    advanceRevision:()=>{revision+=1},
     replaceIdentity:(userId,nextEnvelope)=>{authenticated=session(userId);envelope=nextEnvelope;revision=1;generation=1;return authenticated},
     protectedImport:()=>imported
   }
 }
+
+test('unchanged automatic Anki polls do not commit against an advanced cloud head', async ({page}) => {
+  await seedRetained(page)
+  await page.clock.install({ time: new Date('2026-10-08T12:00:00.000Z') })
+  const dateKey='2026-10-08'
+  const observedAt='2026-10-08T11:55:00.000Z'
+  const mock=await owned(page,{indexedDb:true,engine:false,ankiEnabled:true,anki:{[dateKey]:{
+    reviewed:3,created:2,experienceReviews:3,experienceWatermark:3,loggedAt:observedAt
+  }}})
+  let reviews=3
+  let polls=0
+  await page.route('http://127.0.0.1:8765/**', async route => {
+    polls+=1
+    await route.fulfill({json:{result:[
+      {result:reviews,error:null},{result:[101,102],error:null},{result:[201],error:null}
+    ],error:null}})
+  })
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await expect.poll(()=>polls).toBeGreaterThan(0)
+  await page.evaluate(()=>refreshAnkiStats({silent:true}))
+  expect(mock.commits).toHaveLength(0)
+  mock.advanceRevision()
+  await page.evaluate(()=>refreshAnkiStats({silent:true}))
+  expect(mock.commits).toHaveLength(0)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await page.evaluate(()=>learnerProfileLifecycleAuthority.refresh())
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(mock.head().revision).toBe(2)
+  reviews=4
+  await page.evaluate(()=>refreshAnkiStats({silent:true}))
+  await expect.poll(()=>mock.commits.length).toBe(1)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(mock.head().envelope.profile.anki[dateKey]).toMatchObject({reviewed:4,created:2,experienceReviews:4})
+  const committed=mock.head()
+  await page.reload()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await page.evaluate(()=>refreshAnkiStats({silent:true}))
+  expect(mock.commits).toHaveLength(1)
+  expect(mock.head()).toEqual(committed)
+  expect(await retainedBytes(page)).toEqual(retained)
+})
 
 test('disabled fresh trial preserves all namespaces and loads no app, provider, or profile RPC',async ({page})=>{
   await seedRetained(page)
