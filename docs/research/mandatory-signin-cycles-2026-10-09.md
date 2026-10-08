@@ -29,6 +29,9 @@ Transient reverification failures retain their session and verified offline
 profile. Refresh callbacks cannot reopen the profile during logout; a new
 explicit Google login can supersede an older logout, whose failed global request
 must not revoke that replacement through a local fallback.
+The SDK's signed-out notification also erased failure feedback. The controller
+now retains that failure through its own notification and presents the existing
+localized error toast when the remote logout did not succeed.
 
 `tests/contracts/account-auth-session-persistence.test.mjs` exercises the real
 SDK with synthetic responses/storage and no hosted credentials. The retained
@@ -58,8 +61,11 @@ declare trial acceptance complete while the independent Safari cycle is open.
 
 ## Validation checkpoint
 
-The focused Auth contracts currently pass (43 tests). A new full-site build and
-browser matrix are in progress. An initial broad contract run raced the empty
+The focused Auth contracts currently pass (43 tests), as do 295 profile/cloud
+contracts and the bounded focus/reconnect reverification contract. The full-site
+build passed after repairing the local native dependencies and reusing a
+decompression-verified, unchanged engine compression cache. Browser and CI
+verification are in progress. An initial broad contract run raced the empty
 build directory and also exposed the local npm optional-native-binding issue;
 it is not a passing receipt. The official pinned macOS canvas package was
 installed in this worktree only, without changing manifests or the lockfile.

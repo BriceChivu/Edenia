@@ -6454,7 +6454,11 @@ function initializeAccountAuth() {
         storage: localStorage, storageKey: ACCOUNT_AUTH_STORAGE_KEY
       }),
       onStateChange(state) {
+        const previousError = accountAuthViewState.error
         applyAccountAuthenticationState(state)
+        if (state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED && previousError !== state.error) {
+          showToast(t('settings.account.feedback.signOutError'), 'error')
+        }
         accountAnalyticsIdentity.synchronize(state)
         accountExportController.synchronizeAccount(state)
         void reminderPreferencesController.synchronizeAccount(

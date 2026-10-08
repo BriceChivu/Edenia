@@ -240,6 +240,7 @@ for (const everywhere of [false, true]) {
     await page.evaluate(everywhere => everywhere ? signOutAccountEverywhere() : signOutAccount(), everywhere)
     await expect(page.locator('#mainApp')).toBeHidden()
     await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+    await expect(page.locator('#toast')).toHaveText('Edenia could not sign out. Please try again.')
     expect(await page.evaluate(trial => localStorage.getItem(trial + '_plus_auth_v1'), trial)).toBeNull()
     const count = commits.length
     await page.reload()

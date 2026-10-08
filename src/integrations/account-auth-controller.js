@@ -354,7 +354,10 @@ export function createAccountAuthController({
       schedule(() => {
         if (destroyed) return
         if (event === 'SIGNED_OUT') {
-          synchronizeSession(null)
+          synchronizeSession(null, {
+            error: currentState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_OUT
+              ? currentState.error : null
+          })
           return
         }
         if (signingOutRequestId !== null && !(
@@ -577,8 +580,11 @@ export function createAccountAuthController({
       )) && requestId === sessionRequestId) {
         try { await client.auth.signOut({ scope: 'local' }) } catch {}
       }
+      const reportFailure = (requestId === sessionRequestId || signingOutRequestId === requestId)
+        && currentState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_OUT
+        && (currentState.busyAction === null || currentState.busyAction === busyAction)
       if (signingOutRequestId === requestId) signingOutRequestId = null
-      if (requestId === sessionRequestId) {
+      if (reportFailure) {
         publish({
           busyAction: null,
           error: ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED,

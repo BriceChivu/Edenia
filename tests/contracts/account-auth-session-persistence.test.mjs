@@ -49,6 +49,7 @@ for (const scope of ['local', 'global']) {
       ? controller.signOutEverywhere() : controller.signOut()), false)
     assert.equal(controller.getState().sessionState, 'signed-out')
     assert.equal(values.has(key), false, 'logout must survive reload and reconnection')
+    assert.equal(controller.getState().error, 'sign-out-failed', 'remote logout failure must remain visible')
     await controller.refresh()
     assert.equal(controller.getState().sessionState, 'signed-out')
   })
