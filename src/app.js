@@ -14457,6 +14457,14 @@ function renderCityProgress(snapshot, s) {
   document.getElementById('cityNextMilestonePoints').textContent = nextLevel
     ? `${progressEnd} ${t('points.short')}`
     : ''
+  const currentPoints = document.getElementById('cityCurrentPoints')
+  if (currentPoints) {
+    currentPoints.textContent = `${formatHistoryPointNumber(snapshot.score)} ${t('points.short')}`
+    // Reserve space for all three labels when the fill reaches either end.
+    progress?.style.setProperty('--city-current-xp-half-width', `${currentPoints.textContent.length / 2}ch`)
+    progress?.style.setProperty('--city-start-xp-width', `${document.getElementById('cityCurrentMilestonePoints').textContent.length}ch`)
+    progress?.style.setProperty('--city-end-xp-width', `${document.getElementById('cityNextMilestonePoints').textContent.length}ch`)
+  }
   const pointsToNextLevel = nextLevel ? Math.max(0, nextLevel.threshold - snapshot.score) : 0
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel

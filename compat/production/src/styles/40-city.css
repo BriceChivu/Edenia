@@ -539,3 +539,14 @@
   right: 0;
   top: calc(100% + 8px);
 }
+
+.city-current-xp {
+  left: clamp(
+    calc(var(--city-start-xp-width) + var(--city-current-xp-half-width) + 0.5rem),
+    var(--city-level-progress),
+    calc(100% - var(--city-end-xp-width) - var(--city-current-xp-half-width) - 0.5rem)
+  );
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
