@@ -81,3 +81,14 @@ test('first signed-in economy is a fresh starter, never copied rewards or purcha
   assert.deepEqual(result.profile.townEconomy, { version: 1, mode: 'starter', rewards: {}, purchases: {} })
   assert.equal(state.townEconomy.mode, 'legacy')
 })
+
+test('fresh signed-in creation excludes retained town claims from the onboarding draft', async () => {
+  const state = onboardingState()
+  state.legacyCityProgress = { maxLevelIndex: 11, pendingLevelIndex: 12, scoringVersion: 7 }
+  const result = await createInitialSignedInProfileEnvelope(state, {
+    createEnvelope: async profile => ({ envelope: { profile } }),
+    normalizeLearnerProfile: () => false
+  })
+  assert.equal(result.profile.legacyCityProgress, undefined)
+  assert.equal(state.legacyCityProgress.maxLevelIndex, 11)
+})

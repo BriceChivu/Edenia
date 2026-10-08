@@ -40,6 +40,7 @@ export async function createInitialSignedInProfileEnvelope(
   const completedAt = new Date(now()).toISOString()
   const hadEconomy = initialState.townEconomy !== undefined
   initialState.tinySwordsIsland = null
+  delete initialState.legacyCityProgress
   delete initialState.townEconomy
   initialState.activityLog = []
   initialState.anki = {}
