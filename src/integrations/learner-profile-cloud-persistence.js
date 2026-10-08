@@ -1779,14 +1779,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
   async function resolvePreservedConflict(
     receipt,
     operation,
-    { chooseWhenEmpty = false, retryExpired = true } = {}
+    { activation = null, chooseWhenEmpty = false, isCurrent = () => true,
+      retryComparison = true } = {}
   ) {
     const conflict = await readPreservedConflict(
-      receipt, operation, null, { includeExpired: true }
+      receipt, operation, activation, { includeExpired: true }
     )
-    if (!conflict) return { status: 'recovering' }
-    if (conflict.status === 'expired') {
-      if (!retryExpired) return { status: 'recovering' }
+    if (!conflict || !isCurrent()) return { status: 'recovering' }
+    if (conflict.status === 'expired' || readSyncRecord()?.queued) {
+      if (!retryComparison) return { status: 'recovering' }
       let candidate
       try {
         candidate = await finalizeDurableOperation(operation)
@@ -1796,7 +1797,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       const stored = readStoredSyncRecord()
       const record = stored.record
       if (
-        record?.ownerId !== operation.ownerId
+        !isCurrent()
+        || record?.ownerId !== operation.ownerId
         || record.profileId !== operation.profileId
         || record.generation !== operation.generation
         || record.pending?.operationId !== operation.operationId
@@ -1814,7 +1816,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
           return { status: 'recovering' }
         }
         if (
-          candidate?.integrity?.algorithm !== latest.integrity.algorithm
+          !isCurrent()
+          || candidate?.integrity?.algorithm !== latest.integrity.algorithm
           || candidate?.integrity?.byteLength !== latest.integrity.byteLength
           || candidate?.integrity?.payloadSha256 !== latest.integrity.payloadSha256
           || readStoredSyncRecord().serialized !== stored.serialized
@@ -1847,7 +1850,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       const freshReceipt = readSingleRpcRow(response?.data)
       if (!response?.error && freshReceipt?.status === 'conflict') {
         return resolvePreservedConflict(freshReceipt, fresh, {
-          chooseWhenEmpty: false, retryExpired: false
+          activation, chooseWhenEmpty: false, isCurrent, retryComparison: false
         })
       }
       return { status: response?.error && isTransientCloudStatus(response.status)
@@ -2061,6 +2064,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     inFlight = true
+    let comparisonPending = false
     publish('syncing')
     let envelope
     try {
@@ -2139,11 +2143,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
           }
         }
       } else if (!response?.error && row?.status === 'conflict') {
-        const conflict = await readPreservedConflict(
+        comparisonPending = true
+        let conflict = await readPreservedConflict(
           row,
           operation,
-          binding.activation
+          binding.activation,
+          { includeExpired: true }
         )
+        if (conflict?.status === 'expired' || (conflict && readSyncRecord()?.queued)) {
+          const refreshed = await resolvePreservedConflict(row, operation, {
+            activation: binding.activation,
+            isCurrent: () => activeBinding === binding && binding.isCurrent()
+          })
+          conflict = refreshed.status === 'conflicting' ? refreshed.conflict : null
+        }
         if (activeBinding === binding && binding.isCurrent()) {
           if (conflict) publish('conflicting', { conflict })
           else publish('needs-attention')
@@ -2156,7 +2169,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     inFlight = false
     const next = readSyncRecord()
-    if (next?.pending && next.pending.operationId !== operation.operationId) {
+    if (!comparisonPending && next?.pending && next.pending.operationId !== operation.operationId) {
       void pump()
     }
   }

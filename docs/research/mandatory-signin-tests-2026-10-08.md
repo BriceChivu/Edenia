@@ -6,7 +6,8 @@ The selected-account mode-1 trial was audited from `origin/master` at
 `d8047e3e`. Two defects were reproduced and repaired in
 [PR #406](https://github.com/BriceChivu/Edenia/pull/406): valid large-library
 imports exceeded the database RPC timeout, and a lost conflict-choice
-acknowledgment could leave opening stuck after the protected comparison expired.
+acknowledgment could leave opening stuck after the protected comparison expired,
+while newer queued progress could be overlooked by a whole-profile choice.
 Public mandatory-entry and migration cutover remain outside this trial.
 
 The supplied private sync file successfully imported in the user's existing
@@ -56,7 +57,7 @@ not Supabase latency promises or evidence for the schema extension. The full
 Supabase CI database job and successful actual-file hosted import establish the
 real acceptance result.
 
-### Expired lost-choice acknowledgment
+### Conflict recovery and queued progress
 
 When the exact owner-scoped request resolves to an expired comparison, the client
 keeps its latest verified durable device candidate, records one new operation ID before
@@ -66,18 +67,23 @@ remain exportable and the app remains behind the comparison gate until an
 explicit choice. A second expiry is bounded; storage rejection or owner/profile
 change leaves the retained request intact and performs no fresh cloud write.
 Newer queued offline work is rebased onto the original stale revision for that
-comparison; offering the older pending request would discard newer progress on
-an explicit choice. The queue is cleared only after its complete candidate has
-been durably promoted to the new pending request, under a storage-value fence.
+comparison, whether the prior comparison is open, resolved or expired. Offering
+the older pending request would discard newer progress on an explicit choice.
+The same rule covers newer changes arriving while an active save is in flight.
+The queue is cleared only after its complete candidate has been durably promoted
+to the new pending request, under storage-value and activation fences. Losing
+activation while checking the old comparison performs no fresh write and
+publishes no conflict over the new activation.
 
-Twenty-four contract regressions cover prepared/finalized requests, fresh open/expired
-responses, ownership replacement, rejected local writes and newer queued work. The two new browser cases
+Fifty contract regressions cover prepared/finalized requests, open/resolved/expired
+prior comparisons, fresh open/expired responses, ownership replacement, rejected
+local writes, newer queued work and in-flight saves. The four new browser cases
 uses the current mode-1 client and verifies the comparison, Export both, hidden
 learner content, unchanged accepted revision and absence of any choice RPC.
 
 ## Validation receipts
 
-- All **1,849 client contracts** passed after both repairs.
+- All **1,875 client contracts** passed after both repairs.
 - All **139 shared Edge-function tests** and the retained Deno function checks
   passed during the audit.
 - **79 desktop Chrome browser cases** passed across auth methods, first signed-in
@@ -87,7 +93,7 @@ learner content, unchanged accepted revision and absence of any choice RPC.
   Godot scenarios, not passing mobile-device evidence.
 - **41 desktop storage/migration cases** passed, including IndexedDB quota and
   readback failures, concurrent changes and local/profile backup migration.
-- After the client repair, **32 focused desktop cases** passed, including the
+- After the client repair, **34 focused desktop cases** passed, including the
   new expired-acknowledgment/queued-work regressions and both Godot choice paths. This run
   overlaps the earlier matrix; the counts above must not be summed as distinct
   scenarios.

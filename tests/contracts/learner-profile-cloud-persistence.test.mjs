@@ -6507,7 +6507,8 @@ for (const prepared of [true, false]) {
 for (const freshExpired of [false, true]) {
 for (const interruption of ['none', 'owner-changed', 'storage-rejected']) {
 for (const queued of [false, true]) {
-  test(`lost conflict-choice acknowledgment after protection expiry preserves the candidate (${prepared ? 'prepared' : 'finalized'}, fresh comparison ${freshExpired ? 'expired' : 'open'}, ${interruption}, queued ${queued})`, async () => {
+for (const previousStatus of queued ? ['expired', 'open', 'resolved'] : ['expired']) {
+  test(`lost conflict-choice acknowledgment preserves the candidate (${previousStatus}, ${prepared ? 'prepared' : 'finalized'}, fresh comparison ${freshExpired ? 'expired' : 'open'}, ${interruption}, queued ${queued})`, async () => {
     const expiredId = '323e4567-e89b-42d3-a456-426614174002'
     const freshId = '423e4567-e89b-42d3-a456-426614174003'
     const oldOperationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -6558,8 +6559,13 @@ for (const queued of [false, true]) {
             storage.setItem = () => { throw new Error('quota exceeded') }
           }
           fencedValue = storage.getItem(SYNC_STORAGE_KEY)
-          return { data: [{ status: 'expired', conflict_id: expiredId,
-            profile_id: PROFILE_ID, operation_id: oldOperationId }], error: null }
+          return { data: [{ status: previousStatus, conflict_id: expiredId,
+            profile_id: PROFILE_ID, operation_id: oldOperationId,
+            ...(previousStatus !== 'expired' ? { device_generation: 1, device_revision: 2,
+              device_envelope: device, cloud_generation: 1, cloud_revision: 3,
+              cloud_envelope: cloud, selected_side: previousStatus === 'resolved' ? 'cloud' : null,
+              protected_until: previousStatus === 'resolved' ? '2030-01-01T00:00:00.000Z' : null } : {})
+          }], error: null }
         }
         if (freshExpired) return { data: [{ status: 'expired', conflict_id: freshId,
           profile_id: PROFILE_ID, operation_id: newOperationId }], error: null }
@@ -6593,4 +6599,82 @@ for (const queued of [false, true]) {
 }
 }
 }
+}
+}
+
+for (const loseActivation of [false, true]) {
+test(`an active stale save preserves newer queued progress (activation lost ${loseActivation})`, async () => {
+  const firstResponse = deferred()
+  const firstStarted = deferred()
+  const comparison = deferred()
+  const fencedRead = deferred()
+  const commits = []
+  const states = []
+  let departed = false
+  let oldReads = 0
+  const oldConflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const freshConflictId = '423e4567-e89b-42d3-a456-426614174003'
+  const storage = createMemoryStorage()
+  const cloud = preparedEnvelope({ marker: 'newer-cloud' }, 'C'.repeat(43))
+  const adapter = createAdapter({ storage, rpc: async (name, args) => {
+    if (name === 'resolve_my_learner_profile') return { data: [{ status: 'profile_ready',
+      created: false, profile_id: PROFILE_ID, generation: 1, revision: 1,
+      envelope: preparedEnvelope({ marker: 'base' }) }], error: null }
+    if (name === 'commit_my_learner_profile') {
+      commits.push(args)
+      if (commits.length === 1) {
+        firstStarted.resolve()
+        await firstResponse.promise
+      }
+      return { data: [{ status: 'conflict', base_revision: 1,
+        conflict_id: commits.length === 1 ? oldConflictId : freshConflictId,
+        profile_id: PROFILE_ID, generation: 1, revision: 3,
+        payload_sha256: cloud.integrity.payloadSha256 }], error: null }
+    }
+    assert.equal(name, 'read_my_learner_profile_conflict')
+    if (args.p_conflict_id === oldConflictId && ++oldReads === 2 && loseActivation) {
+      departed = true
+      fencedRead.resolve()
+    }
+    const request = args.p_conflict_id === oldConflictId ? commits[0] : commits[1]
+    return { data: [{ status: 'open', conflict_id: args.p_conflict_id,
+      operation_id: request.p_operation_id, profile_id: PROFILE_ID,
+      device_generation: 1, device_revision: 2, device_envelope: request.p_envelope,
+      cloud_generation: 1, cloud_revision: 3, cloud_envelope: cloud,
+      selected_side: null, protected_until: null }], error: null }
+  } })
+  adapter.subscribe(state => {
+    states.push(state)
+    if (state.status === 'conflicting') comparison.resolve(state.conflict)
+  })
+  const resolved = await adapter.resolve({ authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' }, localProfile: { status: 'ready', ownerId: OWNER_ID,
+      profileId: PROFILE_ID, profile: { marker: 'base' } }, purpose: 'resolve-signed-in-profile' })
+  const activation = { activatedAt: 1, id: 'current', ownerId: OWNER_ID, profileId: PROFILE_ID }
+  const isCurrent = () => !departed
+  adapter.activate({ activation, generation: resolved.generation, revision: resolved.revision, isCurrent })
+  adapter.save({ marker: 'in-flight' }, { activation, isCurrent })
+  await firstStarted.promise
+  adapter.save({ marker: 'newest-offline-copy' }, { activation, isCurrent })
+  const before = storage.getItem(SYNC_STORAGE_KEY)
+  firstResponse.resolve()
+  if (loseActivation) {
+    await fencedRead.promise
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(commits.length, 1)
+    assert.equal(storage.getItem(SYNC_STORAGE_KEY), before)
+    assert.equal(states.some(state => state.status === 'conflicting'), false)
+    return
+  }
+  const conflict = await comparison.promise
+  assert.deepEqual(conflict.device.profile, { marker: 'newest-offline-copy' })
+  assert.equal(conflict.id, freshConflictId)
+  assert.equal(conflict.activation.id, activation.id)
+  assert.equal(commits.length, 2)
+  assert.equal(commits[1].p_base_revision, 1)
+  assert.notEqual(commits[0].p_operation_id, commits[1].p_operation_id)
+  const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(record.queued, null)
+  assert.deepEqual(record.pending.envelope.profile, { marker: 'newest-offline-copy' })
+})
 }

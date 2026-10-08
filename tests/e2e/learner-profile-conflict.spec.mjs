@@ -164,7 +164,9 @@ async function prepareConflictPage(page, {
   preserveStateOnReload = false,
   trial = false,
   expiredChoice = false,
-  queuedLatest = false
+  queuedLatest = false,
+  previousExpired = true,
+  previousResolved = false
 } = {}) {
   // Keep the mocked protected-copy deadline valid regardless of the CI date.
   await page.clock.setFixedTime(new Date('2026-08-25T12:00:00.000Z'))
@@ -364,7 +366,7 @@ async function prepareConflictPage(page, {
       return
     }
     if (pathname === '/rest/v1/rpc/read_my_learner_profile_conflict') {
-      if (expiredChoice && request.postDataJSON().p_conflict_id === CONFLICT_ID) {
+      if (expiredChoice && previousExpired && request.postDataJSON().p_conflict_id === CONFLICT_ID) {
         await route.fulfill({ json: [{ status: 'expired', conflict_id: CONFLICT_ID,
           operation_id: OPERATION_ID, profile_id: PROFILE_ID }], status: 200 })
         return
@@ -380,14 +382,15 @@ async function prepareConflictPage(page, {
           cloud_generation: 4,
           cloud_revision: 14,
           conflict_id: activeConflictId,
-          device_envelope: deviceEnvelope,
+          device_envelope: expiredChoice && activeConflictId === CONFLICT_ID
+            ? pendingEnvelope : deviceEnvelope,
           device_generation: 4,
           device_revision: 13,
           operation_id: activeOperationId,
           profile_id: PROFILE_ID,
-          protected_until: selectedSide ? PROTECTED_UNTIL : null,
-          selected_side: selectedSide,
-          status: selectedSide ? 'resolved' : 'open'
+          protected_until: selectedSide || (previousResolved && activeConflictId === CONFLICT_ID) ? PROTECTED_UNTIL : null,
+          selected_side: previousResolved && activeConflictId === CONFLICT_ID ? 'cloud' : selectedSide,
+          status: selectedSide || (previousResolved && activeConflictId === CONFLICT_ID) ? 'resolved' : 'open'
         }],
         status: 200
       })
@@ -728,11 +731,16 @@ test('reloading an unchanged unfinished Cloud profile creates no cloud revision'
   expect(commitRequests).toHaveLength(0)
 })
 
-for (const queuedLatest of [false, true]) {
-test(`trial reopens an expired lost-choice acknowledgment as an exportable fresh comparison (queued ${queuedLatest})`, async ({ page }, testInfo) => {
+for (const { queuedLatest, previousExpired, previousResolved = false } of [
+  { queuedLatest: false, previousExpired: true },
+  { queuedLatest: true, previousExpired: true },
+  { queuedLatest: true, previousExpired: false },
+  { queuedLatest: true, previousExpired: false, previousResolved: true }
+]) {
+test(`trial reopens a lost-choice acknowledgment as an exportable fresh comparison (queued ${queuedLatest}, expired ${previousExpired}, resolved ${previousResolved})`, async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   const { commitRequests, choiceRequests, deviceEnvelope } = await prepareConflictPage(page, {
-    trial: true, expiredChoice: true, queuedLatest
+    trial: true, expiredChoice: true, queuedLatest, previousExpired, previousResolved
   })
   await expect(page.getByRole('heading', { name: 'Compare your profiles' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Export both', exact: true })).toBeEnabled()
