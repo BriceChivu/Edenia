@@ -236,6 +236,7 @@ export async function openIndexedDbProfile({
   const baselines = new WeakMap()
   const pendingByState = new WeakMap()
   const localRevisions = new Set()
+  const unacknowledgedHeads = new Set()
   const listeners = new Set()
   const islandStates = new WeakMap()
   const channel = typeof eventTarget?.BroadcastChannel === 'function'
@@ -262,6 +263,11 @@ export async function openIndexedDbProfile({
     refreshQueue = refreshQueue.catch(() => {}).then(async () => {
       const next = await read(database, HEAD, current)
       if (next?.revision === current?.revision) return
+      // Focus can observe our commit before its readback. The writer owns
+      // acknowledgment and rollback; this is not another writer's update.
+      for (const pendingHead of unacknowledgedHeads) {
+        if (equal(durableHead(next), durableHead(pendingHead))) return
+      }
       const islandOnly = splitHead(next) && next.bodyRevision === current?.bodyRevision
       const replacement = (next?.replacementRevision || 0) !== (current?.replacementRevision || 0)
       if (!islandOnly) validate(next)
@@ -315,7 +321,7 @@ export async function openIndexedDbProfile({
     const capturedAccess = storage.getItem(accessKey)
     const previousOperation = pendingByState.get(state)
     const predecessor = previousOperation?.pending ? previousOperation : null
-    const token = { pending: true, revision: null, raw }
+    const token = { pending: true, revision: null, raw, head: null }
     pendingByState.set(state, token)
     const operation = writeQueue.catch(() => {}).then(async () => {
       let next
@@ -354,6 +360,8 @@ export async function openIndexedDbProfile({
             store.put({ key: BODY, revision: next.bodyRevision, raw: nextRaw })
           } else next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1,
             ...replacementFields(previous, latestRevision + 1, replace) }
+          token.head = next
+          unacknowledgedHeads.add(next)
           store.put(durableHead(next))
         } catch { transaction.abort() }
       }
@@ -403,7 +411,11 @@ export async function openIndexedDbProfile({
       try { await refresh() } catch {}
       return false
     })
-    void operation.finally(() => { token.pending = false })
+    void operation.finally(() => {
+      token.pending = false
+      unacknowledgedHeads.delete(token.head)
+      token.head = null
+    })
     writeQueue = operation
     return operation
   }
@@ -411,6 +423,7 @@ export async function openIndexedDbProfile({
     const islandRaw = JSON.stringify(layout)
     const expectedRevision = current?.revision
     const capturedAccess = storage.getItem(accessKey)
+    const token = { head: null }
     const operation = writeQueue.catch(() => {}).then(async () => {
       if (expectedRevision === undefined || islandRaw === undefined || !canPersist()) return false
       let previous
@@ -439,6 +452,8 @@ export async function openIndexedDbProfile({
             bodyRevision: splitHead(latest) ? latest.bodyRevision : latest.revision,
             islandRaw, cityProgress: fields.cityProgress, ...replacementFields(latest) }, bodyRaw)
           if (!splitHead(previous)) store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
+          token.head = next
+          unacknowledgedHeads.add(next)
           store.put(durableHead(next))
         } catch { transaction.abort() }
       }
@@ -461,6 +476,10 @@ export async function openIndexedDbProfile({
     }).catch(async () => {
       try { await refresh() } catch {}
       return false
+    })
+    void operation.finally(() => {
+      unacknowledgedHeads.delete(token.head)
+      token.head = null
     })
     writeQueue = operation
     return operation
