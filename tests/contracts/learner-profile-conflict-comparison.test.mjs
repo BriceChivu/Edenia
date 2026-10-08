@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import {
   createLearnerProfileConflictComparison
 } from '../../src/features/profile-access/conflict-comparison.js'
@@ -20,6 +21,21 @@ function profile(overrides = {}) {
     ...overrides
   }
 }
+
+test('island-only divergence is visible without interpreting the snapshot', () => {
+  const island = JSON.parse(readFileSync(new URL('../fixtures/tiny-swords-populated-island.json', import.meta.url)))
+  const device = profile({ tinySwordsIsland: island })
+  const cloud = structuredClone(device)
+  cloud.tinySwordsIsland.resources.wood += 1
+  assert.deepEqual(createLearnerProfileConflictComparison(device, cloud), [
+    { key: 'island', device: { present: true }, cloud: { present: true } }
+  ])
+  const reordered = { ...device, tinySwordsIsland: Object.fromEntries(Object.entries(island).reverse()) }
+  assert.deepEqual(createLearnerProfileConflictComparison(device, reordered), [])
+  assert.deepEqual(createLearnerProfileConflictComparison(device, profile()), [
+    { key: 'island', device: { present: true }, cloud: { present: false } }
+  ])
+})
 
 test('identical profiles produce no comparison rows', () => {
   const shared = profile()

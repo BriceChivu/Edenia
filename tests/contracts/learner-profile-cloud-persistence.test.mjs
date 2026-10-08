@@ -5433,18 +5433,12 @@ test('another device accepts only the owner reset whose protected envelope verif
   })
 })
 
-test('a stale device accepts the verified Start over generation and drops its old sync work', async () => {
+test('a clean stale device defers the verified Start over generation until activation', async () => {
   const resetId = '523e4567-e89b-42d3-a456-426614174004'
   const protectedUntil = '2026-09-21T00:00:00.000Z'
   const priorEnvelope = preparedEnvelope({ marker: 'protected-progress' })
   const blankEnvelope = preparedEnvelope({ marker: 'blank-profile' })
   const storage = createMemoryStorage({
-    [`${SYNC_STORAGE_KEY}_dirty`]: JSON.stringify({
-      generation: 4,
-      ownerId: OWNER_ID,
-      profileId: PROFILE_ID,
-      version: 1
-    }),
     [SYNC_STORAGE_KEY]: JSON.stringify({
       acceptedRevision: 6,
       generation: 4,
@@ -5510,6 +5504,7 @@ test('a stale device accepts the verified Start over generation and drops its ol
   assert.equal(result.revision, 1)
   assert.deepEqual(result.profile, blankEnvelope.profile)
   assert.equal(result.protectedReset?.id, resetId)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
   assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
     acceptedRevision: 1,
     generation: 5,
@@ -5590,6 +5585,7 @@ test('a device offline through Undo accepts the restored head without exposing U
   assert.equal(result.status, 'activate')
   assert.deepEqual(result.profile, restoredEnvelope.profile)
   assert.equal(result.protectedReset, null)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
   assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
     acceptedRevision: 2,
     generation: 5,
@@ -5671,6 +5667,7 @@ test('a verified restored head repairs stale reset bookkeeping automatically', a
   assert.equal(result.status, 'activate')
   assert.deepEqual(result.profile, restoredEnvelope.profile)
   assert.equal(result.protectedReset, null)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
   assert.equal(storage.getItem(DIRTY_STORAGE_KEY), null)
   assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
     acceptedRevision: 18,
@@ -6320,3 +6317,188 @@ test('town purchase and reward receipts travel together through an exact cloud r
   assert.equal(calls.length, 2)
   assert.deepEqual(calls[0], calls[1])
 })
+
+for (const [localGeneration, generation] of [[1, 2], [1, 3], [3, 1]]) {
+  test(`clean stale generation ${localGeneration} opens generation ${generation} without a retained reset receipt`, async () => {
+    const record = JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: localGeneration, acceptedRevision: 6, pending: null, queued: null })
+    const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: record })
+    const calls = []
+    const adapter = createAdapter({ storage, rpc: async name => {
+      calls.push(name)
+      return name === 'resolve_my_learner_profile'
+        ? { data: [{ status: 'profile_ready', created: false, profile_id: PROFILE_ID,
+          generation, revision: 1, envelope: preparedEnvelope({ marker: 'current-island' }) }], error: null }
+        : { data: [{ status: 'none' }], error: null }
+    } })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' }, purpose: 'resolve-signed-in-profile',
+      localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+        generation: localGeneration, revision: 6, profile: { marker: 'old-island' } } })
+    assert.equal(result.status, 'activate')
+    assert.deepEqual(result.profile, { marker: 'current-island' })
+    assert.equal(storage.getItem(SYNC_STORAGE_KEY), record, 'opening must defer bookkeeping until local installation')
+    assert.equal(result.commitSyncRepair({ isCurrent: () => false }), false)
+    assert.equal(storage.getItem(SYNC_STORAGE_KEY), record)
+    assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
+    assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).generation, generation)
+    assert.equal(calls.includes('commit_my_learner_profile'), false)
+  })
+}
+
+for (const [generation, work] of [[2, 'dirty'], [3, 'dirty'], [3, 'pending'], [3, 'queued']]) {
+  test(`${work}: unsynced stale island is preserved for explicit choice against generation ${generation}`, async () => {
+    const dirty = JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1 })
+    const storage = createMemoryStorage({ [DIRTY_STORAGE_KEY]: dirty,
+      [SYNC_STORAGE_KEY]: JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+        generation: 1, acceptedRevision: 1, pending: null, queued: null }) })
+    const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const conflictId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    const deviceEnvelope = preparedEnvelope({ tinySwordsIsland: { opaque: 'unsynced-island' } })
+    const cloudEnvelope = preparedEnvelope({ tinySwordsIsland: { opaque: 'current-island' } }, 'B'.repeat(43))
+    const operation = (id, state = deviceEnvelope.profile) => ({ activationId: 'old-activation',
+      baseRevision: 1, generation: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+      operationId: id, integrity: deviceEnvelope.integrity, prepared: preparedEnvelope(state),
+      envelope: null, nextRetryAt: 0, retryCount: 0, revision: 2 })
+    if (work !== 'dirty') {
+      storage.removeItem(DIRTY_STORAGE_KEY)
+      const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+      record.pending = operation(work === 'queued' ? 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' : operationId,
+        work === 'queued' ? { tinySwordsIsland: { opaque: 'earlier-local-island' } } : deviceEnvelope.profile)
+      if (work === 'queued') record.queued = { ...operation(operationId), baseRevision: 2, revision: 3 }
+      storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(record))
+    }
+    const calls = []
+    const adapter = createAdapter({ storage, createOperationId: () => operationId, rpc: async (name, args) => {
+      calls.push(name)
+      if (name === 'resolve_my_learner_profile') return { data: [{ status: 'profile_ready',
+        created: false, profile_id: PROFILE_ID, generation, revision: 1, envelope: cloudEnvelope }], error: null }
+      if (name === 'read_my_latest_learner_profile_reset') return { data: [{ status: 'none' }], error: null }
+      if (name === 'commit_my_learner_profile') {
+        assert.equal(args.p_generation, 1)
+        assert.deepEqual(args.p_envelope.profile, deviceEnvelope.profile)
+        return { data: [{ status: 'conflict', conflict_id: conflictId, generation, revision: 1,
+          base_revision: 1, profile_id: PROFILE_ID, payload_sha256: cloudEnvelope.integrity.payloadSha256 }], error: null }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      return { data: [{ status: 'open', conflict_id: conflictId, operation_id: operationId,
+        profile_id: PROFILE_ID, device_generation: 1, device_revision: 2, device_envelope: deviceEnvelope,
+        cloud_generation: generation, cloud_revision: 1, cloud_envelope: cloudEnvelope,
+        selected_side: null, protected_until: null }], error: null }
+    } })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' }, purpose: 'resolve-signed-in-profile',
+      localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+        generation: 1, revision: 1, profile: deviceEnvelope.profile } })
+    assert.equal(result.status, 'conflicting')
+    assert.deepEqual(result.conflict.device.profile, deviceEnvelope.profile)
+    assert.deepEqual(result.conflict.cloud.profile, cloudEnvelope.profile)
+    assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).generation, 1)
+    assert.equal(calls.includes('choose_my_learner_profile_conflict'), false)
+  })
+}
+
+for (const change of ['sync', 'dirty', 'owner', 'generation', 'storage-failure']) {
+  test(`stale-generation handoff preserves bookkeeping on ${change}`, async () => {
+    const record = JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: 1, acceptedRevision: 6, pending: null, queued: null })
+    const memory = createMemoryStorage({ [SYNC_STORAGE_KEY]: record })
+    const storage = { ...memory, setItem(key, value) {
+      if (change === 'storage-failure') throw new Error('Synthetic quota failure')
+      memory.setItem(key, value)
+    } }
+    const adapter = createAdapter({ storage, rpc: async name => name === 'resolve_my_learner_profile'
+      ? { data: [{ status: 'profile_ready', created: false, profile_id: PROFILE_ID,
+        generation: 3, revision: 1, envelope: preparedEnvelope({ marker: 'current' }) }], error: null }
+      : { data: [{ status: 'none' }], error: null } })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' }, purpose: 'resolve-signed-in-profile',
+      localProfile: { status: 'ready', ownerId: change === 'owner' ? SECOND_OWNER_ID : OWNER_ID,
+        profileId: PROFILE_ID, generation: change === 'generation' ? 4 : 1,
+        revision: 6, profile: { marker: 'old' } } })
+    if (['owner', 'generation'].includes(change)) assert.equal(result.status, 'recovering')
+    else {
+      assert.equal(result.status, 'activate')
+      if (change === 'sync') memory.setItem(SYNC_STORAGE_KEY, 'concurrent-sync')
+      if (change === 'dirty') memory.setItem(DIRTY_STORAGE_KEY, 'concurrent-dirty')
+      const before = storage.getItem(SYNC_STORAGE_KEY)
+      assert.equal(result.commitSyncRepair({ isCurrent: () => true }), false)
+      assert.equal(storage.getItem(SYNC_STORAGE_KEY), before)
+    }
+    if (change !== 'sync') assert.equal(storage.getItem(SYNC_STORAGE_KEY), record)
+    if (change === 'dirty') assert.equal(storage.getItem(DIRTY_STORAGE_KEY), 'concurrent-dirty')
+  })
+}
+
+test('stale-generation opening defers pruning expired protected-copy metadata', async () => {
+  const id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const before = JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+    generation: 1, acceptedRevision: 6, pending: null, queued: null, protectedConflictIds: [id] })
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: before })
+  const adapter = createAdapter({ storage, rpc: async name => name === 'resolve_my_learner_profile'
+    ? { data: [{ status: 'profile_ready', created: false, profile_id: PROFILE_ID,
+      generation: 3, revision: 1, envelope: preparedEnvelope({ marker: 'current' }) }], error: null }
+    : { data: [{ status: 'expired', conflict_id: id, profile_id: PROFILE_ID, operation_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }], error: null } })
+  const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' }, purpose: 'resolve-signed-in-profile',
+    localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: 1, revision: 6, profile: { marker: 'old' } } })
+  assert.equal(result.status, 'activate')
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), before)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).protectedConflictIds, undefined)
+})
+
+for (const failure of ['network', 'invalid-envelope', 'wrong-owner-dirty']) {
+  test(`unsynced stale profile remains recoverable after ${failure}`, async () => {
+    const candidate = { tinySwordsIsland: { opaque: 'valuable-progress' } }
+    const dirty = JSON.stringify({ version: 1, ownerId: failure === 'wrong-owner-dirty' ? SECOND_OWNER_ID : OWNER_ID,
+      profileId: PROFILE_ID, generation: 1 })
+    const record = JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: 1, acceptedRevision: 6, pending: null, queued: null })
+    const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: record, [DIRTY_STORAGE_KEY]: dirty })
+    const adapter = createAdapter({ storage, rpc: async name => {
+      if (name === 'resolve_my_learner_profile') return { data: [{ status: 'profile_ready', created: false,
+        profile_id: PROFILE_ID, generation: 3, revision: 1, envelope: preparedEnvelope({ marker: 'current' }) }], error: null }
+      assert.equal(name, 'commit_my_learner_profile')
+      if (failure === 'network') throw new Error('Synthetic connection failure')
+      return { error: { code: '22023' }, status: 400 }
+    } })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+      purpose: 'resolve-signed-in-profile', localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+        generation: 1, revision: 6, profile: candidate } })
+    assert.equal(result.status, failure === 'network' ? 'waiting-cloud' : 'recovering')
+    const retained = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+    assert.equal(retained.generation, 1)
+    if (failure === 'wrong-owner-dirty') {
+      assert.equal(storage.getItem(SYNC_STORAGE_KEY), record)
+      assert.equal(storage.getItem(DIRTY_STORAGE_KEY), dirty)
+    } else assert.deepEqual((retained.pending.envelope || retained.pending.prepared).profile, candidate)
+  })
+}
+
+for (const prepared of [false, true]) {
+test(`a lost pre-reset acknowledgment (${prepared ? 'prepared' : 'finalized'}) opens the valid current head after verifying the exact receipt`, async () => {
+  const envelope = preparedEnvelope({ marker: 'accepted-before-reset' })
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const before = JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+    generation: 1, acceptedRevision: 6, queued: null, pending: { activationId: 'old', baseRevision: 6,
+      envelope: prepared ? null : envelope, generation: 1, integrity: envelope.integrity, nextRetryAt: 0, operationId,
+      ownerId: OWNER_ID, prepared: prepared ? envelope : null, profileId: PROFILE_ID, retryCount: 0, revision: 7 } })
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: before })
+  const adapter = createAdapter({ storage, rpc: async name => name === 'resolve_my_learner_profile'
+    ? { data: [{ status: 'profile_ready', created: false, profile_id: PROFILE_ID, generation: 3,
+      revision: 1, envelope: preparedEnvelope({ marker: 'current' }) }], error: null }
+    : { data: [{ status: 'already_accepted', profile_id: PROFILE_ID, generation: 1, base_revision: 6,
+      revision: 7, payload_sha256: envelope.integrity.payloadSha256 }], error: null } })
+  const result = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+    purpose: 'resolve-signed-in-profile', localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: 1, revision: 6, profile: envelope.profile } })
+  assert.equal(result.status, 'activate')
+  assert.deepEqual(result.profile, { marker: 'current' })
+  if (!prepared) assert.equal(storage.getItem(SYNC_STORAGE_KEY), before)
+  else assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending.envelope, envelope)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).generation, 3)
+})
+}

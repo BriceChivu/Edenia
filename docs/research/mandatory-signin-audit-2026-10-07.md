@@ -19,6 +19,23 @@ Following the critical review, the user confirmed on 2026-10-07:
 
 This is a narrow amendment to #177's original single-developer testing scope. Implement explicit admission for the selected verified Supabase UUIDs while retaining owner-scoped authorization; it does not call for a second backend, generalized tester infrastructure or a tester-management UI. The trial does not authorize public mandatory-entry or migration cutover. Full #196 readiness and #197 approval remain a later release stage. These decisions update the continuation plan, not the historical observations or validation receipts below. No runtime or backend change has been made by this document revision.
 
+## Local continuation checkpoints — 2026-10-08
+
+Step 1 was implemented locally in `6616ef3436673e07967c9e9f894f09858a8525e6` on `codex/177-owned-profile-contract`. The additive SQL contract accepts current island/XP, retained town claims and announcement receipt fields, keeps legacy hashes compatible, and bounds opaque island transport independently of cloud-envelope size. That migration has not been applied to the hosted backend.
+
+Step 2 continues from that commit in `/Users/brice/.codex/worktrees/signin-opening-conflicts/Edenia`, branch `codex/177-signin-opening-conflicts`. Clean stale devices can open a valid current owner-scoped head after multiple resets or reset-receipt removal. The lifecycle commits prepared sync/dirty/protected-copy metadata repairs only after local installation under its activation/request fence and an exact durable-value comparison. A lost pre-reset acknowledgment must verify against the exact candidate receipt before the old copy counts as clean. The valid current head can also reflect an explicit older-generation recovery performed in another context; this is current-head opening, not automatic predecessor restoration across a reset.
+
+Dirty, pending and queued stale progress is preserved through the existing authenticated conflict operation. Only the latest complete local candidate is presented; neither side wins automatically. Island-only divergence now produces a localized “Island differs” row in all five locales, based solely on canonical opaque snapshot equality. Export-both, explicit confirmation and protected unchosen-version downloads remain intact. No field merge was added. The Anki maxima ambiguity remains a separate specification decision.
+
+Local evidence:
+
+- The retained client contracts and new regressions cover clean/unsynced multi-generation handoff, missing reset receipts, queued candidates, exact lost acknowledgments, stale ownership/request/storage fences, rejected writes and expired protected-copy metadata. All 1,792 client contracts passed against the completed stable build.
+- `node scripts/rehearse-canary-database.mjs` now generates and executes the current-profile and stale-island SQL fixtures against a unique disposable database. All 426 assertions passed across 15 suites; container and volume cleanup was verified. The new SQL cases remove reset receipts only inside a rolled-back local fixture transaction, exercise two resets, preserve both exact islands, deny unconfirmed old-generation restoration, and verify each explicit choice. Receipt: `.cache/canary-database/run-ivlN0d/receipt.json`.
+- The desktop browser matrix passed ten distinct cases: four existing conflict/export/protection/onboarding cases, both new island-choice cases, and four ordinary/mode-2 routing, onboarding and storage-isolation cases (including localStorage and IndexedDB). `tests/e2e/signin-island-handoff.spec.mjs` uses the real adapter, serializer, browser storage and integrated Godot build in two independent contexts with **fixture RPC/provider responses**. It verifies the exact chosen snapshot at the Godot input boundary, real accepted-restore acknowledgment before new saves, and opening the selected head in the second context. Godot performs its own old-snapshot upgrade; Edenia does not interpret that migration.
+- The integrated preview is rebuilt with `node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords`. Database fixtures and real-game browser cases are included in CI.
+
+These are local implementation results, not hosted Auth acceptance. No live learner data, backend gate/provider setting, production site, or deployment was changed. The next implementation milestone is step 3: the fresh default-off auth tester mode and narrowly scoped tester admission. Steps 4–5 and public release readiness remain outstanding.
+
 ## Scope, isolation and pinned identity
 
 - Separate branch: `codex/mandatory-signin-audit`.

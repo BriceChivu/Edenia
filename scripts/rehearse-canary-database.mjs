@@ -15,7 +15,8 @@ const suites = [
   'learner_profile_conflict_resolution', 'voluntary_accountless_profile_migration',
   'learner_profile_recovery', 'learner_profile_import', 'learner_profile_start_over',
   'learner_profile_retention', 'auth_operations', 'auth_monitoring_freshness',
-  'account_owner_policies', 'legacy_progress_transfer_relay'
+  'account_owner_policies', 'legacy_progress_transfer_relay',
+  'current-experience-owned-profile', 'stale-generation-island-conflict'
 ]
 if (process.argv.length !== 2) throw new Error('This local-only rehearsal accepts no target arguments')
 const root = join(repository, '.cache', 'canary-database')
@@ -94,8 +95,11 @@ try {
     await run('docker', ['exec', '-i', container, 'psql', '-X', '--username', 'postgres', '--dbname', 'postgres', '--set', 'ON_ERROR_STOP=1', '--single-transaction'], { input: sql })
     migrationSources.push({ file: name, sha256: createHash('sha256').update(sql).digest('hex') })
   }
+  await run(process.execPath, [join(repository, 'scripts/generate-owned-profile-contract-fixtures.mjs')])
   for (const suite of suites) {
-    const file = join(repository, 'supabase', 'tests', `${suite}.test.sql`)
+    const file = suite.includes('-')
+      ? join(repository, '.cache', `${suite}.test.sql`)
+      : join(repository, 'supabase', 'tests', `${suite}.test.sql`)
     const text = await run('supabase', ['test', 'db', file, '--local', '--workdir', workdir])
     const tests = text.match(/Files=1, Tests=(\d+)/u)
     if (!tests || !text.includes('Result: PASS') || /(?:not ok|# SKIP|# TODO)/iu.test(text)) throw new Error('Missing or skipped required local database assertions')

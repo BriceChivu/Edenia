@@ -82,6 +82,11 @@ export function createLearnerProfileConflictView({
   }
 
   function formatValue(key, value) {
+    if (key === 'island') {
+      return translate(value.present
+        ? 'profileConflict.value.islandDifferent'
+        : 'profileConflict.value.islandAbsent')
+    }
     if (key === 'update-study-time') {
       return translate('profileConflict.value.updateStudy', {
         days: number(value.studyDays),

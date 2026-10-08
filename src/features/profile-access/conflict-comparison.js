@@ -1,9 +1,11 @@
 import { getTownBalance, FIRST_FLOWER_ID } from '../../state/town-economy.js'
+import { canonicalizeJson } from '../../state/portable-state.js'
 
 const COMPARISON_GROUPS = Object.freeze([
   ['update-study-time', summarizeUpdateAndStudyTime],
   ['language-level', summarizeLanguageAndLevel],
   ['town-study-progress', summarizeTownAndStudyProgress],
+  ['island', profile => profile?.tinySwordsIsland ?? null],
   ['town-economy', profile => profile?.townEconomy ? { coins: getTownBalance(profile.townEconomy), flowers: Object.hasOwn(profile.townEconomy.purchases, FIRST_FLOWER_ID) } : null],
   ['recent-activity', summarizeRecentActivity],
   ['video-organization', summarizeVideoOrganization],
@@ -164,6 +166,15 @@ export function createLearnerProfileConflictComparison(
   for (const [key, summarize] of COMPARISON_GROUPS) {
     const device = summarize(deviceProfile)
     const cloud = summarize(cloudProfile)
+    if (key === 'island') {
+      if (canonicalizeJson(device) === canonicalizeJson(cloud)) continue
+      rows.push(Object.freeze({
+        cloud: { present: cloud !== null },
+        device: { present: device !== null },
+        key
+      }))
+      continue
+    }
     if (JSON.stringify(device) === JSON.stringify(cloud)) continue
     rows.push(Object.freeze({ cloud, device, key }))
   }

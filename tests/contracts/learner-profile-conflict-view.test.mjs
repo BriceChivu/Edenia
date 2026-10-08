@@ -255,3 +255,16 @@ test('economy comparisons remain hidden publicly even when cloud contains intern
     assert.equal(elements.get('learnerProfileConflictRows').children.length, enabled ? 1 : 0)
   }
 })
+
+test('island differences remain visible when study totals are identical', () => {
+  const { elements, view } = createHarness()
+  assert.equal(view.renderConflict({ status: 'open',
+    device: { profile: { tinySwordsIsland: { opaque: 1 } } },
+    cloud: { profile: { tinySwordsIsland: { opaque: 2 } } } }), true)
+  const rows = elements.get('learnerProfileConflictRows').children
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].children[0].textContent, 'profileConflict.category.island')
+  assert.equal(rows[0].children[1].children[1].textContent, 'profileConflict.value.islandDifferent')
+  assert.equal(rows[0].children[2].children[1].textContent, 'profileConflict.value.islandDifferent')
+  assert.equal(elements.get('learnerProfileConflictEmpty').hidden, true)
+})
