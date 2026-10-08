@@ -51,7 +51,7 @@ function complete(transaction) {
   })
 }
 
-function open(indexedDb, name) {
+function openProfileDatabase(indexedDb, name) {
   return new Promise((resolve, reject) => {
     const request = indexedDb.open(name, 1)
     let settled = false
@@ -90,7 +90,7 @@ export async function openIndexedDbProfile({
   if (!indexedDb) throw new Error('IndexedDB is unavailable')
   const markerKey = `${storageKey}_indexed_db_v1`
   const signalKey = `${markerKey}_revision`
-  let database = await open(indexedDb, databaseName)
+  let database = await openProfileDatabase(indexedDb, databaseName)
   let head
   let capturedLegacy
   const validate = record => {
@@ -137,7 +137,7 @@ export async function openIndexedDbProfile({
     }
     // Reopening verifies the migration through the same boundary used on reload.
     database.close()
-    database = await open(indexedDb, databaseName)
+    database = await openProfileDatabase(indexedDb, databaseName)
     head = await read(database)
     validate(head)
     if (!migrated && capturedLegacy !== null) {
