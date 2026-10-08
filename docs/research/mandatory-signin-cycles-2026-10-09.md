@@ -33,6 +33,14 @@ The SDK's signed-out notification also erased failure feedback. The controller
 now retains that failure through its own notification and presents the existing
 localized error toast when the remote logout did not succeed.
 
+An additional trial browser regression reproduced a misleading save-failure
+notification after an in-flight IndexedDB save lost its activation through
+logout. Cancelled work now returns failure quietly, while a genuine storage
+failure in the active profile still restores the durable snapshot and displays
+the existing error. No retired write reaches the cloud. A live Safari startup
+warning remains causally unconfirmed; this cancellation regression does not
+establish its cause.
+
 `tests/contracts/account-auth-session-persistence.test.mjs` exercises the real
 SDK with synthetic responses/storage and no hosted credentials. The retained
 controller contracts cover delayed events and replacement-login races. Trial
@@ -45,7 +53,7 @@ through reload; the offline/rejection case also checks reload after a definitive
 | Trial behavior | Evidence and current boundary |
 | --- | --- |
 | Fresh mandatory entry, ownership before island content | `auth-trial.spec.mjs`, first-profile/access/onboarding suites; previous candidate's full CI passed. |
-| Google and email identity continuity | Previous hosted audit verified both methods for the admitted owner. Current deployed Chrome local logout/reload/Google return succeeded without Try again; Safari email CAPTCHA confirmation is pending. |
+| Google and email identity continuity | Previous hosted audit verified both methods for the admitted owner. Current deployed Chrome local logout/reload/Google return succeeded without Try again; Safari Google also opened the same town and reached Up to date; normal reload succeeded. Its initial save warning is retained, and email CAPTCHA confirmation is pending. |
 | Cloud save/open/reload and portable import/export | Exact supplied file imported on the hosted candidate and passed a semantic round trip with all video records, Anki totals and opaque island preserved; see the October 8 report. |
 | Offline progress, retry, rejection, pending/queued work | Cloud-persistence/reverification contracts and trial browser suite; current continuation adds durable rejection/logout reload checks. |
 | Explicit conflicts, both choices, island restoration and exports | Conflict browser/contracts and both real-Godot handoff cases; prior full CI passed. Queued/expired-acknowledgment regressions are included in #406. |
@@ -53,7 +61,7 @@ through reload; the offline/rejection case also checks reload after a definitive
 | Owner switches, stale callbacks, local storage failures | Lifecycle, IndexedDB and Godot activation suites; prior browser preservation matrix passed. This continuation adds replacement-session logout fencing. |
 | Anonymous/non-admitted denial and per-owner isolation | Authenticated SQL/RLS suites and backend-denied cached-island browser case; no new admission or schema change. |
 | Ordinary/mode-2 behavior and retained namespaces | Trial flag and byte-preservation browser suites; public account rollout remains off. |
-| Local/global logout and independent browser return | New real-SDK regressions plus deployed Chrome cycle; live Safari/global-session continuation still pending. |
+| Local/global logout and independent browser return | New real-SDK regressions plus deployed Chrome cycle; Safari Google opening/reload verified; global-session and Safari email continuation still pending. |
 
 This map distinguishes existing evidence from work still pending. It does not
 assert that every possible future device/network state has been tested, or

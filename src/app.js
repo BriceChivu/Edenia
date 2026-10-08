@@ -1167,6 +1167,9 @@ function saveState(state, options = {}) {
       rememberPersistedPortableProfile(state)
       return true
     }
+    // Retired profile work was cancelled by its activation fence. Its late
+    // completion must not report a storage failure against the current profile.
+    if (!isCurrentLearnerProfileOperation(state)) return false
     const saved = loadPersistedState({ persistCleanup: false })
     if (saved && state && isCurrentLearnerProfileOperation(state)) {
       for (const key of Object.keys(state)) delete state[key]

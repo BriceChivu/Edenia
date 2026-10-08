@@ -420,6 +420,51 @@ for(const indexedDb of [false,true]) {
   })
 }
 
+test('retired trial save completion stays quiet while an active storage failure remains visible',async ({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop-standard')
+  await seedRetained(page)
+  const fixture=await owned(page,{indexedDb:true,engine:false})
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const before=await page.evaluate(()=>loadState().config.weeklyGoalHours)
+  await page.evaluate(()=>{
+    const repository=primaryProfileRepository
+    const originalSave=repository.save
+    repository.save=(state,options)=>{
+      repository.save=originalSave
+      return new Promise(resolve=>{
+        window.finishRetiredSave=()=>resolve(originalSave(state,options))
+      })
+    }
+    const state=loadState();state.config.weeklyGoalHours=19
+    window.retiredSave=saveState(state)
+  })
+  await expect.poll(()=>page.evaluate(()=>typeof window.finishRetiredSave)).toBe('function')
+  await page.evaluate(()=>signOutAccount())
+  await expect(page.locator('#mainApp')).toBeHidden()
+  expect(await page.evaluate(async ()=>{window.finishRetiredSave();return await window.retiredSave})).toBe(false)
+  expect(await page.getByText('Could not save this change. Your existing progress was not changed.',{exact:true}).count()).toBe(0)
+  expect(fixture.commits.some(commit=>commit.p_envelope.profile.config.weeklyGoalHours===19)).toBe(false)
+  expect(await retainedBytes(page)).toEqual(retained)
+  await page.evaluate(async authenticated=>{await getSupabaseClient().auth.setSession(authenticated)},session())
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(before)
+  expect(await page.evaluate(async ()=>{
+    const repository=primaryProfileRepository,originalSave=repository.save
+    repository.save=async ()=>false
+    const state=loadState();state.config.weeklyGoalHours=21
+    const result=await saveState(state)
+    repository.save=originalSave
+    return result
+  })).toBe(false)
+  await expect(page.getByText('Could not save this change. Your existing progress was not changed.',{exact:true})).toBeVisible()
+  expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(before)
+  expect(fixture.commits.some(commit=>[19,21].includes(commit.p_envelope.profile.config.weeklyGoalHours))).toBe(false)
+  expect(await retainedBytes(page)).toEqual(retained)
+})
+
 test('offline verified trial retains study changes until reconnect, then definitive session rejection retires Godot',async ({page,pageDiagnostics},testInfo)=>{
   test.skip(testInfo.project.name!=='desktop-standard')
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
