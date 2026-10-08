@@ -3669,7 +3669,8 @@ test('sync-record write failures preserve the durable unsynchronized marker', ()
   }), 'pending')
 })
 
-test('a stale commit exposes both server-preserved conflict versions without choosing', async () => {
+for (const dirtyMode of ['matching', 'replacement', 'storage-rejected']) {
+test(`a stale commit exposes both protected alternatives and safely clears the chosen marker (${dirtyMode})`, async () => {
   const conflictId = '323e4567-e89b-42d3-a456-426614174002'
   const protectedUntil = '2026-09-20T00:00:00.000Z'
   const rpcCalls = []
@@ -3791,6 +3792,12 @@ test('a stale commit exposes both server-preserved conflict versions without cho
   await flush()
 
   const conflict = states.at(-1)
+  storage.setItem(DIRTY_STORAGE_KEY, JSON.stringify({
+    version: 1, ownerId: dirtyMode === 'replacement' ? SECOND_OWNER_ID : OWNER_ID,
+    profileId: PROFILE_ID, generation: 1
+  }))
+  const retainedDirty = storage.getItem(DIRTY_STORAGE_KEY)
+  if (dirtyMode === 'storage-rejected') storage.removeItem = () => {}
   assert.equal(conflict.status, 'conflicting')
   assert.equal(conflict.conflict.id, conflictId)
   assert.equal(conflict.conflict.ownerId, OWNER_ID)
@@ -3829,7 +3836,18 @@ test('a stale commit exposes both server-preserved conflict versions without cho
     conflict: conflict.conflict,
     selectedSide: 'device'
   })
+  if (dirtyMode !== 'matching') {
+    assert.equal(choice.status, 'recovering')
+    assert.equal(storage.getItem(DIRTY_STORAGE_KEY), retainedDirty)
+    const retained = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+    assert.equal(retained.acceptedRevision, 1)
+    assert.equal(retained.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+    return
+  }
   assert.equal(choice.status, 'chosen')
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), null)
+  adapter.activate({ activation, generation: choice.generation, revision: choice.revision, isCurrent: () => true })
+  assert.equal(states.at(-1).status, 'up-to-date')
   assert.equal(adapter.requiresCloudHeadResolution(), false)
   assert.equal(choice.selectedSide, 'device')
   assert.deepEqual(choice.profile, { marker: 'this-device' })
@@ -3853,6 +3871,8 @@ test('a stale commit exposes both server-preserved conflict versions without cho
     1
   )
 })
+
+}
 
 test('a changed cloud head refreshes an open conflict instead of stranding it', async () => {
   const conflictId = '323e4567-e89b-42d3-a456-426614174002'

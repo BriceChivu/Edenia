@@ -1,3 +1,4 @@
+import { createPortableLearnerProfileConflictArchive } from './state/portable-learner-profile-archive.js'
 import { createIslandAnnouncement } from './features/onboarding/island-announcement.js'
 import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
@@ -1115,7 +1116,8 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       cloudPersistence,
       connectivity: createLearnerProfileConnectivityAdapter(window),
       exportDownload: {
-        download: downloadLearnerProfileSyncFile
+        download: downloadLearnerProfileSyncFile,
+        downloadBoth: downloadLearnerProfileConflictArchive
       },
       accountlessProfileMigration: accountlessProfileMigrationController,
       localPersistence: learnerProfileLocalPersistence,
@@ -7116,6 +7118,29 @@ function downloadLearnerProfileSyncFile(state, {
     if (isCurrent() && side === null) showToast(t('toast.invalidSync'), 'error')
     return false
   })
+}
+
+async function downloadLearnerProfileConflictArchive(profiles, {
+  exportedAt = Date.now(), isCurrent = () => true
+} = {}) {
+  try {
+    const archive = await createPortableLearnerProfileConflictArchive(profiles, {
+      dateKey: toDateKey(), now: () => new Date(exportedAt),
+      maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
+    })
+    if (!isCurrent()) return false
+    const url = URL.createObjectURL(new Blob([archive.bytes], { type: 'application/zip' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = archive.filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function exportSyncFile() {
@@ -18317,11 +18342,8 @@ bindLearnerProfileConflictActions(document, {
     if (!chosen) showToast(t('profileConflict.choiceFailed'), 'error')
   },
   async exportBoth() {
-    const [device, cloud] = await Promise.all([
-      learnerProfileLifecycleAuthority?.exportConflictVersion('device'),
-      learnerProfileLifecycleAuthority?.exportConflictVersion('cloud')
-    ])
-    if (!device || !cloud) {
+    const exported = await learnerProfileLifecycleAuthority?.exportConflictVersions()
+    if (!exported) {
       showToast(t('profileConflict.exportFailed'), 'error')
       return
     }

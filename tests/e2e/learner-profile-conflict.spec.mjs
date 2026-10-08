@@ -1,9 +1,13 @@
+import { readFile } from 'node:fs/promises'
+import { strFromU8, unzipSync } from 'fflate'
 import { expect, test } from '../support/network-fixture.mjs'
 import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../../src/domain/learner-profile-resolution.js'
 import {
-  createPortableLearnerProfileEnvelope
+  createPortableLearnerProfileEnvelope,
+  preparePortableLearnerProfileEnvelope,
+  verifyPortableLearnerProfileEnvelope
 } from '../../src/state/portable-learner-profile.js'
 
 const SUPABASE_ORIGIN = 'https://profile-conflict-test.supabase.co'
@@ -757,3 +761,62 @@ test(`trial reopens a lost-choice acknowledgment as an exportable fresh comparis
   expect(sync.queued).toBeNull()
 })
 }
+
+
+test('trial comparison exports one complete archive and retains individual protected downloads', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'tablet-portrait', 'phone-small'].includes(testInfo.project.name))
+  const { choiceRequests } = await prepareConflictPage(page, { trial: true, acceptPostChoiceCommits: true, preserveStateOnReload: true })
+  const gate = page.locator('#learnerProfileAccessGate')
+  await expect(page.getByRole('heading', { name: 'Compare your profiles', exact: true })).toBeVisible()
+  const candidates = await page.evaluate(() => {
+    const conflict = learnerProfileLifecycleAuthority.getState().conflict
+    return { device: conflict.device.profile, cloud: conflict.cloud.profile }
+  })
+  const deviceProfile = preparePortableLearnerProfileEnvelope(candidates.device).profile
+  const cloudProfile = preparePortableLearnerProfileEnvelope(candidates.cloud).profile
+  const syncBefore = await page.evaluate(() => {
+    const key = 'edenia_v1_auth_trial_v1_learner_profile_sync_v1'
+    const raw = localStorage.getItem(key)
+    const { ownerId, profileId, generation } = JSON.parse(raw)
+    localStorage.setItem(key + '_dirty', JSON.stringify({ ownerId, profileId, generation, version: 1 }))
+    return raw
+  })
+  const downloads = []
+  page.on('download', download => downloads.push(download.suggestedFilename()))
+  const archiveDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export both' }).click()
+  const archive = await archiveDownload
+  await expect.poll(() => downloads.length).toBe(1)
+  expect(archive.suggestedFilename()).toMatch(/^edenia-sync-both-.*\.zip$/)
+  const files = unzipSync(new Uint8Array(await readFile(await archive.path())))
+  expect(Object.keys(files)).toHaveLength(2)
+  for (const [side, expected] of [['this-device', deviceProfile], ['cloud', cloudProfile]]) {
+    const filename = Object.keys(files).find(name => name.includes(side))
+    const envelope = await verifyPortableLearnerProfileEnvelope(strFromU8(files[filename]))
+    expect(envelope?.profile).toEqual(expected)
+  }
+  expect(choiceRequests).toHaveLength(0)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'))).toBe(syncBefore)
+  await expect(gate).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  const deviceDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export This device', exact: true }).click()
+  const device = await deviceDownload
+  expect(device.suggestedFilename()).toMatch(/this-device.*\.json$/)
+  expect((await verifyPortableLearnerProfileEnvelope(await readFile(await device.path(), 'utf8')))?.profile).toEqual(deviceProfile)
+  await page.getByRole('button', { name: 'Use Cloud', exact: true }).click()
+  await page.getByRole('button', { name: 'Confirm this choice' }).click()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  expect(choiceRequests).toHaveLength(1)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveAttribute('data-sync-status', 'up-to-date')
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1_dirty'))).toBeNull()
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
+  const protectedDownload = page.waitForEvent('download')
+  await page.locator('[data-profile-conflict-action="export-protected"]').click()
+  const retainedDevice = await protectedDownload
+  expect(retainedDevice.suggestedFilename()).toMatch(/this-device.*\.json$/)
+  expect((await verifyPortableLearnerProfileEnvelope(await readFile(await retainedDevice.path(), 'utf8')))?.profile).toEqual(deviceProfile)
+  expect(choiceRequests).toHaveLength(1)
+})
