@@ -60,6 +60,17 @@ initializeExperience(blank)
 await add('reset', blank)
 await add('island-limit', { ...current, tinySwordsIsland: 'x'.repeat(512 * 1024 - 2) })
 
+// Exercise recursive work across many ordinary records, rather than only a
+// large string. Large real video libraries exposed an import RPC timeout.
+const largeLibrary = structuredClone(current)
+largeLibrary.videos = Object.fromEntries(Array.from({ length: 1600 }, (_, index) => {
+  const id = `library-${String(index).padStart(5, '0')}`
+  return [id, { ...current.videos.lesson, id, title: `Lesson ${index}: ` + 'Language study 日本語 français '.repeat(12) }]
+}))
+await add('large-library', largeLibrary)
+assert.ok(cases.get('large-library').integrity.byteLength > 1024 * 1024)
+assert.ok(cases.get('large-library').integrity.byteLength < 2 * 1024 * 1024)
+
 async function cloudBoundary(name, targetBytes) {
   const state = { ...current, activityLog: [{ id: 'boundary', type: 'study', createdAt: at, detail: '' }] }
   const first = await createPortableLearnerProfileEnvelope(state, options)

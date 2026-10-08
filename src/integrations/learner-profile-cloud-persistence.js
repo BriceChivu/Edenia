@@ -1672,7 +1672,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
       : { status: 'recovering' }
   }
 
-  async function readPreservedConflict(receipt, operation, activation) {
+  async function readPreservedConflict(
+    receipt, operation, activation, { includeExpired = false } = {}
+  ) {
     if (
       !UUID_PATTERN.test(String(receipt?.conflict_id || ''))
       || !isRecord(operation)
@@ -1683,10 +1685,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
       activation
     )
     if (
-      !['open', 'resolved'].includes(conflict?.status)
+      !['open', 'resolved', 'expired'].includes(conflict?.status)
       || conflict.operationId !== operation.operationId
       || conflict.profileId !== operation.profileId
-      || conflict.device.generation !== operation.generation
+    ) return null
+    // Expired protection hides the old envelopes, but the owner-scoped record
+    // still identifies this exact request. Never infer a selected profile from
+    // it; the retained local candidate must be preserved for a new comparison.
+    if (conflict.status === 'expired') return includeExpired ? conflict : null
+    if (
+      conflict.device.generation !== operation.generation
       || conflict.device.revision !== operation.revision
       || conflict.cloud.generation
         !== normalizePositiveInteger(receipt.generation)
@@ -1771,10 +1779,83 @@ export function createLearnerProfileCloudPersistenceAdapter({
   async function resolvePreservedConflict(
     receipt,
     operation,
-    { chooseWhenEmpty = false } = {}
+    { activation = null, chooseWhenEmpty = false, isCurrent = () => true,
+      retryComparison = true } = {}
   ) {
-    const conflict = await readPreservedConflict(receipt, operation, null)
-    if (!conflict) return { status: 'recovering' }
+    const conflict = await readPreservedConflict(
+      receipt, operation, activation, { includeExpired: true }
+    )
+    if (!conflict || !isCurrent()) return { status: 'recovering' }
+    if (conflict.status === 'expired' || readSyncRecord()?.queued) {
+      if (!retryComparison) return { status: 'recovering' }
+      let candidate
+      try {
+        candidate = await finalizeDurableOperation(operation)
+      } catch {
+        return { status: 'recovering' }
+      }
+      const stored = readStoredSyncRecord()
+      const record = stored.record
+      if (
+        !isCurrent()
+        || record?.ownerId !== operation.ownerId
+        || record.profileId !== operation.profileId
+        || record.generation !== operation.generation
+        || record.pending?.operationId !== operation.operationId
+        || record.pending.integrity.payloadSha256 !== operation.integrity.payloadSha256
+      ) return { status: 'recovering' }
+      const latest = record.queued || record.pending
+      if (record.queued) {
+        // A queued operation is a complete newer snapshot. Rebase it onto the
+        // original stale revision so it too requires an explicit comparison.
+        try {
+          candidate = latest.envelope
+            ? await verifyEnvelope(latest.envelope)
+            : (await finalizeEnvelope(latest.prepared))?.envelope
+        } catch {
+          return { status: 'recovering' }
+        }
+        if (
+          !isCurrent()
+          || candidate?.integrity?.algorithm !== latest.integrity.algorithm
+          || candidate?.integrity?.byteLength !== latest.integrity.byteLength
+          || candidate?.integrity?.payloadSha256 !== latest.integrity.payloadSha256
+          || readStoredSyncRecord().serialized !== stored.serialized
+        ) return { status: 'recovering' }
+      }
+      const operationId = createOperationId()
+      if (!UUID_PATTERN.test(String(operationId || ''))
+        || operationId === operation.operationId) return { status: 'recovering' }
+      const fresh = {
+        ...latest,
+        baseRevision: operation.baseRevision,
+        envelope: candidate,
+        nextRetryAt: 0,
+        operationId,
+        prepared: null,
+        retryCount: 0,
+        revision: operation.revision
+      }
+      record.pending = fresh
+      record.queued = null
+      if (!writeSyncRecord(record)) return { status: 'recovering' }
+      let response
+      try {
+        response = await getClient().rpc(
+          'commit_my_learner_profile', operationParameters(fresh, candidate)
+        )
+      } catch {
+        return { status: 'waiting-cloud' }
+      }
+      const freshReceipt = readSingleRpcRow(response?.data)
+      if (!response?.error && freshReceipt?.status === 'conflict') {
+        return resolvePreservedConflict(freshReceipt, fresh, {
+          activation, chooseWhenEmpty: false, isCurrent, retryComparison: false
+        })
+      }
+      return { status: response?.error && isTransientCloudStatus(response.status)
+        ? 'waiting-cloud' : 'recovering' }
+    }
     if (conflict.status === 'open') {
       if (!chooseWhenEmpty) return { conflict, status: 'conflicting' }
       const deviceIsEmpty = isMeaningfullyEmptyLearnerProfile(
@@ -1983,6 +2064,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     inFlight = true
+    let comparisonPending = false
     publish('syncing')
     let envelope
     try {
@@ -2061,11 +2143,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
           }
         }
       } else if (!response?.error && row?.status === 'conflict') {
-        const conflict = await readPreservedConflict(
+        comparisonPending = true
+        let conflict = await readPreservedConflict(
           row,
           operation,
-          binding.activation
+          binding.activation,
+          { includeExpired: true }
         )
+        if (conflict?.status === 'expired' || (conflict && readSyncRecord()?.queued)) {
+          const refreshed = await resolvePreservedConflict(row, operation, {
+            activation: binding.activation,
+            isCurrent: () => activeBinding === binding && binding.isCurrent()
+          })
+          conflict = refreshed.status === 'conflicting' ? refreshed.conflict : null
+        }
         if (activeBinding === binding && binding.isCurrent()) {
           if (conflict) publish('conflicting', { conflict })
           else publish('needs-attention')
@@ -2078,7 +2169,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     inFlight = false
     const next = readSyncRecord()
-    if (next?.pending && next.pending.operationId !== operation.operationId) {
+    if (!comparisonPending && next?.pending && next.pending.operationId !== operation.operationId) {
       void pump()
     }
   }
