@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
+import { createContext, Script } from 'node:vm'
 
 import { readBuiltExperience } from '../support/built-experience.mjs'
 
@@ -44,6 +45,26 @@ test('build emits the stable public entrypoint contract', async () => {
     'channel-catalog.discovered.json',
     'channel-catalog.json'
   ])
+})
+
+test('classic app declarations preserve the browser popup API', async () => {
+  for (const filename of ['app.js', 'production-app.js']) {
+    const source = await readFile(new URL(filename, siteRoot), 'utf8')
+    const popup = Object.freeze({ name: 'google-sign-in' })
+    const browserOpen = () => popup
+    const browser = createContext({ open: browserOpen })
+    browser.window = browser
+    // Classic-script global declarations run before initialization. Stop at
+    // the first missing browser dependency; no DOM or Auth is needed to catch
+    // an imported helper replacing the browser's window.open.
+    try {
+      new Script(source, { filename }).runInContext(browser, { timeout: 1000 })
+    } catch (error) {
+      assert.equal(error.name, 'ReferenceError')
+    }
+    assert.equal(browser.open, browserOpen, `${filename} replaced window.open`)
+    assert.equal(browser.open('about:blank', 'google-sign-in'), popup)
+  }
 })
 
 test('build has no dedicated email-auth confirmation route', async () => {
