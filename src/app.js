@@ -14524,6 +14524,7 @@ function renderLevelUpButton(snapshot) {
 function maybeStartLevelUpGuidance(s) {
   if (
     levelUpGuidanceTimer ||
+    islandAnnouncement.wasShown ||
     s?.onboarding?.levelUpGuidanceShownAt ||
     s?.cityProgress?.maxLevelIndex !== 0 ||
     s?.cityProgress?.pendingLevelIndex !== 1
@@ -14536,6 +14537,7 @@ function maybeStartLevelUpGuidance(s) {
     normalizeOnboardingState(currentState)
     normalizeCityProgress(currentState)
     if (
+      islandAnnouncement.wasShown ||
       currentState.onboarding.levelUpGuidanceShownAt ||
       currentState.cityProgress.maxLevelIndex !== 0 ||
       currentState.cityProgress.pendingLevelIndex !== 1

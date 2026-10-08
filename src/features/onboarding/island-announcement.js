@@ -4,6 +4,7 @@ export function createIslandAnnouncement({ root, enabled, read, save }) {
   const modal = root.getElementById('islandAnnouncement')
   const button = root.getElementById('islandAnnouncementContinue')
   const main = root.getElementById('mainApp')
+  let shown = false
   let previousFocus = null
   let dismissing = false
 
@@ -35,12 +36,14 @@ export function createIslandAnnouncement({ root, enabled, read, save }) {
     }
   }, true)
   return {
+    get wasShown() { return shown },
     show(state) {
       if (!enabled || !modal || !state?.onboarding?.setupCompleted
         || !state.onboarding.walkthroughCompleted || state.onboarding.islandAnnouncementSeenAt
         || root.body.classList.contains('walkthrough-active')) return false
       // Nested dialogs can live under a hidden overlay, so check actual visibility.
       if ([...root.querySelectorAll('[aria-modal="true"]')].some(node => node.getClientRects().length)) return false
+      shown = true
       previousFocus = root.activeElement
       modal.classList.remove('hidden')
       root.body.classList.add('island-announcement-open')

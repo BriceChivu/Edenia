@@ -96,6 +96,34 @@ for (const indexedDb of [false, true]) {
   })
 }
 
+for (const dismissImmediately of [false, true]) {
+  test(`announcement takes priority over queued level-up guidance (${dismissImmediately ? 'quick Continue' : 'keep open'})`, async ({ page }) => {
+    await configure(page)
+    await page.goto('./')
+    await seed(page)
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      state.cityProgress = { maxLevelIndex: 0, experienceVersion: 1 }
+      state.onboarding.levelUpGuidanceShownAt = null
+      state.videos.lesson.watchProgress[0].experienceSeconds = 900
+      localStorage.setItem('edenia_v1', JSON.stringify(state))
+    })
+    await page.reload()
+    await expect(page.locator('#islandAnnouncement')).toBeVisible()
+    if (dismissImmediately) await page.locator('#islandAnnouncementContinue').click()
+    // Allow the existing delayed hint to run; Continue must not add a tutorial.
+    await page.waitForTimeout(650)
+    await expect(page.locator('.walkthrough-layer:not(.hidden)')).toHaveCount(0)
+    if (!dismissImmediately) {
+      await expect(page.locator('#islandAnnouncementContinue')).toBeFocused()
+      await page.locator('#islandAnnouncementContinue').click()
+    }
+    await expect(page.locator('#islandAnnouncement')).toBeHidden()
+    await expect(page.locator('.walkthrough-layer:not(.hidden)')).toHaveCount(0)
+    await expect(page.locator('#cityScore')).toHaveText('15')
+  })
+}
+
 test('localized announcement and fresh onboarding do not collide', async ({ page }) => {
   await configure(page)
   await page.goto('./')
