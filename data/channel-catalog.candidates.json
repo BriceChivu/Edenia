@@ -987,7 +987,9 @@
       "name": "雷堤娜 Tyna",
       "thumbnailUrl": "https://yt3.ggpht.com/JXWtyVlSy8lf9fwb5fKxNSK5x-J4hPFaBHreeM3vfeHaA8P8KpzwGTEx0HDRhpxkCwlOfiMJdw=s800-c-k-c0x00ffffff-no-rj",
       "languages": [],
-      "levels": [],
+      "levels": [
+        "advanced"
+      ],
       "style": "",
       "description": "",
       "aliases": [],
@@ -995,16 +997,17 @@
       "privacyStatus": "public",
       "publishedAt": "2016-08-22T22:54:57Z",
       "metadataRefreshedAt": "2026-10-06T09:26:02.025Z",
-      "addCount": 1,
-      "distinctUserCount": 1,
+      "addCount": 2,
+      "distinctUserCount": 2,
       "firstSeenAt": "2026-08-06T06:16:08.001Z",
-      "lastSeenAt": "2026-08-06T06:16:08.001Z",
+      "lastSeenAt": "2026-10-08T09:23:30.951Z",
       "sources": [
-        "direct_input"
+        "direct_input",
+        "youtube_search"
       ],
       "reviewReasons": [],
-      "searchText": "雷堤娜 tyna krysjensen86"
+      "searchText": "雷堤娜 tyna krysjensen86 advanced"
     }
   ],
-  "generatedAt": "2026-10-07T09:18:45.818Z"
+  "generatedAt": "2026-10-08T09:29:37.986Z"
 }
