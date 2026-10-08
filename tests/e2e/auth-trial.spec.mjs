@@ -151,7 +151,7 @@ test('fresh trial pairs mandatory entry and lifecycle without global rollout and
   await page.goto('./?internal_test=1')
   await expect(page.locator('#introTrailer')).toBeVisible()
   expect(await page.evaluate(()=>({accounts:ACCOUNT_FEATURES_ENABLED,lifecycle:LEARNER_PROFILE_LIFECYCLE_ENABLED,required:ACCOUNT_ENTRY_REQUIRED,migration:LEGACY_PROGRESS_MIGRATION_ENABLED}))).toEqual({accounts:true,lifecycle:true,required:true,migration:false})
-  await page.getByRole('button',{name:'Skip intro'}).click()
+  await page.locator('#introTrailer').getByRole('button',{name:'Continue',exact:true}).click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
   await page.locator('[data-personalized-onboarding-step="account"]').click()
