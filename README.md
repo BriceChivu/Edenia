@@ -488,7 +488,8 @@ The supported public runtime variables are:
 
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
-| `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off` or `public`. Sandbox and Tiny Swords tester remain excluded. |
+| `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off` or `public`. Sandbox, mode 2 and the separate auth trial remain excluded. |
+| `EDENIA_AUTH_TRIAL_ENABLED` | `authTrialEnabled` | Default-off fresh `internal_test=1`, sharing current Tiny Swords and pairing mandatory entry with profile lifecycle. Uses `edenia_v1_auth_trial_v1` and private server `tester-trial` UUID admission. Pages reads this explicit variable with a false default; enabling it requires the approved tester audience and hosted verification, while public accounts remain off. |
 | `EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT` | `accountlessProfileFinalCutoverAt` | Sets the authoritative UTC cutoff for legacy profile entry. Once elapsed, clearing local grace bookkeeping cannot restore accountless study. |
 | `EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED` | `emergencyAccountlessRollbackEnabled` | Temporarily restores legacy accountless entry during an approved serious incident. It does not change profile-data authorization. |
 | `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` | `learnerProfileLifecycleEnabled` | Routes profile loading, activation, rendering, saving, import, export, analytics sync, and future cloud work through the fenced lifecycle authority. Keep off until signed-in profile resolution is connected. |

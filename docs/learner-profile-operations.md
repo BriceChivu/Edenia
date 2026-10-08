@@ -109,11 +109,11 @@ credentials.
 ## Restore rehearsal
 
 The scheduled workflow extracts the artifact, verifies `SHA256SUMS`, initializes
-a temporary Supabase project with no Edenia migrations, starts only its Postgres
-service, applies `schema.sql` and `data.sql`, and checks only aggregate
+a temporary Supabase project with no Edenia migrations, starts Postgres and Auth
+to apply managed Auth migrations, stops Auth, applies `schema.sql` and `data.sql`, and checks only aggregate
 profile-head and profile-version counts. A failed rehearsal fails the workflow
 while the uploaded artifact remains available for the operator. The workflow
-pins Supabase CLI `2.116.0` so the isolated Auth and Storage schemas match the
+pins Supabase CLI `2.120.0` so the isolated Auth and Storage schemas match the
 hosted dump format exercised by this rehearsal.
 
 For a manual rehearsal, install that Supabase CLI version plus `psql` and `jq`,
@@ -136,9 +136,10 @@ tar -xzf edenia-database-backup.tar.gz -C "$restore_dir"
   sha256sum -c SHA256SUMS
 )
 supabase init --workdir "$restore_project" > /dev/null
+restore_project="$(cd "$restore_project" && pwd -P)"
 supabase start \
   --workdir "$restore_project" \
-  --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \
+  --exclude realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \
   > /dev/null 2>&1
 restore_db_url="$(
   supabase status --workdir "$restore_project" -o json 2>/dev/null |
@@ -146,6 +147,13 @@ restore_db_url="$(
       | select(test("^postgres(?:ql)?://postgres:"))
       | sub("://postgres:"; "://supabase_admin:")'
 )"
+restore_auth_container="$(docker ps \
+  --filter "label=com.supabase.cli.workdir=$restore_project" \
+  --filter 'name=supabase_auth_' --format '{{.ID}}')"
+[[ "$restore_auth_container" =~ ^[a-f0-9]+$ ]]
+docker stop "$restore_auth_container" > /dev/null
+test "$(psql "$restore_db_url" -At --variable ON_ERROR_STOP=1 \
+  --command "select to_regclass('auth.mfa_recovery_code_sets') is not null;")" = 't'
 psql "$restore_db_url" \
   --single-transaction \
   --variable ON_ERROR_STOP=1 \
@@ -170,5 +178,9 @@ Supabase project. The derived URL selects the isolated database's local
 `supabase_admin` role because a complete data dump contains managed Auth and
 Storage tables that the ordinary local `postgres` role cannot restore. The URL
 is held only in a shell variable and must never be printed. Starting only
-Postgres avoids making the database rehearsal depend on unrelated local API,
-Studio, Auth, or Storage services.
+Postgres and briefly Auth avoids depending on unrelated local API, Studio or
+Storage services. Auth performs its own managed schema migrations before it is
+stopped; it must not run against restored identities and sessions. The explicit
+recovery-code-table check catches the schema gap that prevented the October 4
+archive from restoring with CLI 2.116.0. This is a local rehearsal, not a provider
+sign-in or a production restore.

@@ -25,6 +25,10 @@ export function getPlusCheckoutEnabled(target = window) {
   return publicConfig(target).plusCheckoutEnabled === true
 }
 
+export function getAuthTrialEnabled(target = window) {
+  return publicConfig(target).authTrialEnabled === true
+}
+
 export function getAccountFeaturesRollout(target = window) {
   return normalizeAccountFeaturesRollout(
     publicConfig(target).accountFeaturesRollout

@@ -1,4 +1,4 @@
-import { containCanary, enableCanarySql } from './canary-containment-operator.mjs'
+import { containCanary, enableCanarySql, containTrial, enableTrialSql } from './canary-containment-operator.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
@@ -10,20 +10,31 @@ import { fileURLToPath } from 'node:url'
 export async function rehearseCanaryContainment({ workdir, project, query, owner }) {
   if (typeof owner !== 'string' || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(owner)) throw new Error('Invalid synthetic owner')
   const storeModule = new URL('./canary-execution-store.mjs', import.meta.url).href
+  const bindingModule = new URL('./opening-gate-binding.mjs', import.meta.url).href
   const watchdogFile = fileURLToPath(new URL('./watch-canary-execution.mjs', import.meta.url))
   const results = []
   const invariant = async () => (await query("select json_build_object('heads', (select count(*) from public.learner_profile_heads), 'versions', (select count(*) from public.learner_profile_versions))::text;")).trim()
   const before = await invariant()
-  for (const scenario of ['executor-killed', 'hard-deadline', 'execution-store-unavailable']) {
-    await query(`update private.learner_profile_access_control set rollout_state = 'developer-canary', developer_user_id = '${owner}'::uuid where singleton = true;`)
+  for (const surface of ['public', 'trial']) for (const scenario of ['executor-killed', 'hard-deadline', 'execution-store-unavailable', ...(surface === 'trial' ? ['watchdog-binding-mismatch'] : [])]) {
+    const trial = surface === 'trial'
+    const stage = trial ? 'tester-trial' : 'developer-canary'
+    const label = trial ? 'trial-' + scenario : scenario
+    await query(`update private.learner_profile_access_control set rollout_state = '${stage}', developer_user_id = ${trial ? 'null' : "'" + owner + "'::uuid"}, tester_user_ids = ${trial ? "array['" + owner + "'::uuid]" : "'{}'::uuid[]"} where singleton = true;`)
     await writeFile(join(workdir, 'monitor-fixture'), 'true', { mode: 0o600 })
-    const store = join(workdir, `${scenario}.sqlite`)
+    const store = join(workdir, `${label}.sqlite`)
     const code = `
       import { CanaryExecutionStore } from ${JSON.stringify(storeModule)};
+      import { openingGateBinding } from ${JSON.stringify(bindingModule)};
       const store = new CanaryExecutionStore(process.argv[1]);
-      store.initialize({ candidate: 'a'.repeat(40), gate: 'developer-canary' });
+      store.initialize({ candidate: 'a'.repeat(40), gate: '${stage}' });
       store.acquire('fixture-executor', Date.now(), 2000);
-      store.beginOperation('fixture-executor', Date.now(), { id: 'pending-fixture', candidate: 'a'.repeat(40), gate: 'developer-canary' });
+      if (${trial}) {
+        const binding = openingGateBinding({ surface: 'trial', expectedOwner: ${JSON.stringify(owner)}, expectedTesters: [${JSON.stringify(owner)}] });
+        store.writeCheckpoint('fixture-executor', Date.now(), { planId: 'internal-canary-codex-autonomous-2026-09-05-v4', topLevelIssue: 177, invocationUtc: '2026-10-08T00:00:00.000Z',
+          manifestSha256: 'b'.repeat(64), reviewSha: 'a'.repeat(40), baseSha: 'a'.repeat(40), deploymentSha: 'a'.repeat(40), artifactHashes: [binding.identityHash],
+          soakStartUtc: null, soakEndUtc: null, sourceCursor: null, recoveryState: 'prepared', heartbeatReference: null });
+      }
+      store.beginOperation('fixture-executor', Date.now(), { id: 'pending-fixture', candidate: 'a'.repeat(40), gate: '${stage}' });
       console.log('ready');
       const timer = setInterval(() => {
         try { store.renew('fixture-executor', Date.now(), 2000); }
@@ -36,14 +47,23 @@ export async function rehearseCanaryContainment({ workdir, project, query, owner
     let watchdogDone
     try {
       await waitForText(executor, 'ready')
-      const configFile = join(workdir, `${scenario}-watchdog.json`)
+      const configFile = join(workdir, `${label}-watchdog.json`)
       await writeFile(configFile, JSON.stringify({ mode: 'local-rehearsal', workdir, projectRef: project,
-        expectedOwner: owner, candidate: 'a'.repeat(40), executor: 'fixture-executor', store,
+        surface, expectedOwner: owner, ...(trial ? { expectedTesters: scenario === 'watchdog-binding-mismatch' ? [owner, '22222222-2222-2222-2222-222222222222'] : [owner] } : {}), candidate: 'a'.repeat(40), executor: 'fixture-executor', store,
         deadline: Date.now() + (scenario === 'hard-deadline' ? 2000 : 30000) }), { mode: 0o600 })
       watchdog = spawn(process.execPath, [watchdogFile, configFile], { stdio: ['ignore', 'pipe', 'pipe'] })
       let output = ''
       watchdog.stdout.on('data', chunk => { output += chunk })
+      watchdog.stderr.on('data', chunk => { output += chunk })
       watchdogDone = new Promise(resolve => watchdog.once('close', code => resolve(code)))
+      if (scenario === 'watchdog-binding-mismatch') {
+        assert.equal(await watchdogDone, 1)
+        assert.equal(output.trim(), JSON.stringify({ state: 'not-armed' }))
+        assert.equal((await query("select rollout_state = 'tester-trial' and cardinality(tester_user_ids) = 1 from private.learner_profile_access_control where singleton;")).trim(), 't')
+        assert.equal(await invariant(), before)
+        results.push({ scenario: label, refusedBeforeArming: true, gateUntouched: true, profileCountsPreserved: true, independentProcess: true })
+        continue
+      }
       await waitForText(watchdog, '"state":"armed"')
       if (scenario !== 'hard-deadline') { executor.kill('SIGKILL'); await executorDone }
       if (scenario === 'execution-store-unavailable') await writeFile(store, 'corrupt synthetic checkpoint')
@@ -52,14 +72,16 @@ export async function rehearseCanaryContainment({ workdir, project, query, owner
       const receipt = output.trim().split('\n').map(line => JSON.parse(line)).find(row => row.state === (scenario === 'execution-store-unavailable' ? 'contained-checkpoint-unavailable' : 'contained'))
       assert.equal(receipt?.gateOff, true)
       assert.equal(receipt?.monitorDisabled, true)
+      assert.equal((await query("select rollout_state = 'off' and developer_user_id is null and cardinality(tester_user_ids) = 0 from private.learner_profile_access_control where singleton;")).trim(), 't')
+      assert.equal(receipt?.[trial ? 'audienceRemoved' : 'ownerRemoved'], true)
       assert.equal(await invariant(), before)
-      results.push({ scenario, gateOff: true, monitorDisabled: true, profileCountsPreserved: true, independentProcess: true })
+      results.push({ scenario: label, ...(trial ? { audienceRemoved: true } : {}), gateOff: true, monitorDisabled: true, profileCountsPreserved: true, independentProcess: true })
     } finally {
       if (executor.exitCode === null && executor.signalCode === null) executor.kill('SIGKILL')
       if (watchdog && watchdog.exitCode === null && watchdog.signalCode === null) watchdog.kill('SIGKILL')
       await executorDone
       await watchdogDone
-      await query("update private.learner_profile_access_control set rollout_state = 'off', developer_user_id = null where singleton = true;")
+      await query("update private.learner_profile_access_control set rollout_state = 'off', developer_user_id = null, tester_user_ids = '{}'::uuid[] where singleton = true;")
       await writeFile(join(workdir, 'monitor-fixture'), 'false', { mode: 0o600 })
     }
   }
@@ -88,6 +110,22 @@ export async function rehearseCanaryContainment({ workdir, project, query, owner
     assert.equal((await query("select rollout_state = 'off' and developer_user_id is null from private.learner_profile_access_control where singleton;")).trim(), 't')
     assert.equal(await invariant(), before)
     results.push({ scenario, gateOff: true, profileCountsPreserved: true, fenced: true })
+  }
+  for (const scenario of ['trial-containment-before-delayed-enable', 'trial-enable-before-containment']) {
+    await containTrial(operator, [owner])
+    const token = (await query('select updated_at::text from private.learner_profile_access_control where singleton;')).trim()
+    const delayedEnable = enableTrialSql([owner], token)
+    if (scenario === 'trial-containment-before-delayed-enable') {
+      await containTrial(operator, [owner])
+      assert.equal((await operator.query(delayedEnable)).length, 0)
+    } else {
+      assert.equal((await operator.query(delayedEnable)).length, 1)
+      await assert.rejects(containTrial(operator, ['22222222-2222-2222-2222-222222222222']), /does not match/)
+      await containTrial(operator, [owner])
+    }
+    assert.equal((await query("select rollout_state = 'off' and developer_user_id is null and cardinality(tester_user_ids) = 0 from private.learner_profile_access_control where singleton;")).trim(), 't')
+    assert.equal(await invariant(), before)
+    results.push({ scenario, gateOff: true, audienceRemoved: true, profileCountsPreserved: true, fenced: true })
   }
   return results
 }

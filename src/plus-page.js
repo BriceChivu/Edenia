@@ -48,11 +48,6 @@ const policy = createPlusAccessPolicy({
   entitlementState: PLUS_ENTITLEMENT_STATES.LOADING
 })
 const params = new URLSearchParams(window.location.search)
-if (params.get('internal_test') === '1') {
-  params.delete('internal_test')
-  const query = params.toString()
-  history.replaceState(history.state, '', location.pathname + (query ? '?' + query : '') + location.hash)
-}
 const appReturnUrl = new URL('../', window.location.href)
 if (runtimeEnvironment.internalTestMode && !runtimeEnvironment.isSandbox) {
   appReturnUrl.searchParams.set('internal_test', runtimeEnvironment.internalTestMode)
@@ -185,7 +180,7 @@ function initializeControllers() {
   })
 }
 
-if (!accountFeaturesEnabled) {
+if (!accountFeaturesEnabled || runtimeEnvironment.isAuthTrial) {
   window.location.replace(appReturnUrl.href)
 } else {
   root.hidden = false

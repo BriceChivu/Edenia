@@ -921,3 +921,11 @@ test('account auth rejects incomplete integration boundaries', () => {
     /state callbacks/
   )
 })
+
+
+test('exact allowed auth return origins preserve the fresh trial without carrying secret parameters', () => {
+  for (const origin of ['https://www.edenia.study', 'http://localhost:8000']) {
+    assert.equal(getAccountAuthReturnUrl({href: origin + '/?internal_test=1&token=secret'}), origin + '/?account=1&internal_test=1')
+  }
+  assert.equal(getAccountAuthReturnUrl({href: 'https://evil.test/?internal_test=1'}), null)
+})

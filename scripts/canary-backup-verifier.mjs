@@ -39,10 +39,11 @@ export function inspectCanaryBackupArchive(file) {
       else counts[current] += 1
       continue
     }
-    const match = line.match(/^COPY public\.(learner_profile_heads|learner_profile_versions) \([^]*\) FROM stdin;$/u)
+    const match = line.match(/^COPY (?:public|"public")\.(learner_profile_heads|learner_profile_versions|"learner_profile_heads"|"learner_profile_versions") \([^]*\) FROM stdin;$/u)
     if (match) {
-      if (Object.hasOwn(counts, match[1])) throw new Error('Duplicate profile COPY section')
-      current = match[1]
+      const table = match[1].replaceAll('"', '')
+      if (Object.hasOwn(counts, table)) throw new Error('Duplicate profile COPY section')
+      current = table
       counts[current] = 0
     }
   }

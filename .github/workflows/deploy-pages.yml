@@ -50,6 +50,8 @@ jobs:
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}
           # Account features are paused; resumption requires a reviewed change.
           EDENIA_ACCOUNT_FEATURES_ROLLOUT: 'off'
+          # The trial flag applies only to the isolated internal_test=1 route.
+          EDENIA_AUTH_TRIAL_ENABLED: ${{ vars.EDENIA_AUTH_TRIAL_ENABLED || 'false' }}
           EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT: ${{ vars.EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT }}
           EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED: ${{ vars.EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED }}
           EDENIA_GOOGLE_SIGN_IN_MODE: ${{ vars.EDENIA_GOOGLE_SIGN_IN_MODE }}

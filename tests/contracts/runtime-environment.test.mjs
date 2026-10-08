@@ -8,6 +8,7 @@ import {
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
   getAccountFeaturesRollout,
+  getAuthTrialEnabled,
   getAccountlessProfileFinalCutoverAt,
   getEmergencyAccountlessRollbackEnabled,
   getFreePlusEnabled,
@@ -40,6 +41,7 @@ test('runtime environment preserves exact origins, hosts, and first query values
     isSandbox: true,
     internalTestMode: null,
     isTinySwordsTester: false,
+    isAuthTrial: false,
     isLocalhost: true,
     isLocalFeedbackTest: false,
     isLegacyMigrationTest: false
@@ -60,7 +62,7 @@ test('runtime environment preserves exact origins, hosts, and first query values
     false
   )
 
-  assert.equal(environment('https://example.com/?internal_test=1').internalTestMode, null)
+  assert.equal(environment('https://example.com/?internal_test=1').internalTestMode, '1')
   assert.equal(environment('https://example.com/?internal_test=true').internalTestMode, null)
   assert.equal(environment('http://localhost:8000/').isLocalFeedbackTest, true)
   assert.equal(
@@ -308,4 +310,10 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     }
   })
   assert.throws(() => publicConfig(throwingTarget), /config getter failed/)
+})
+
+
+test('auth trial runtime flag defaults off and accepts only a boolean', () => {
+  for (const value of [undefined,false,'true',1]) assert.equal(getAuthTrialEnabled({EDENIA_CONFIG:{authTrialEnabled:value}}),false)
+  assert.equal(getAuthTrialEnabled({EDENIA_CONFIG:{authTrialEnabled:true}}),true)
 })

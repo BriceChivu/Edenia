@@ -1,11 +1,15 @@
 (function initializeAnalytics() {
-  const ANALYTICS_STATE_KEY = window.EDENIA_INTERNAL_TEST
+  const ANALYTICS_STATE_KEY = window.EDENIA_AUTH_TRIAL
+    ? 'edenia_posthog_state_auth_trial_v1'
+    : window.EDENIA_INTERNAL_TEST
     ? 'edenia_posthog_state_internal_test_v2'
     : 'edenia_posthog_state_v2';
   const ANALYTICS_SCHEMA_VERSION = 3;
   const SUPABASE_USER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const ACCOUNT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const AUTHENTICATED_USER_ID_KEY = 'edenia_posthog_authenticated_user_v1';
+  const AUTHENTICATED_USER_ID_KEY = window.EDENIA_AUTH_TRIAL
+    ? 'edenia_posthog_authenticated_user_auth_trial_v1'
+    : 'edenia_posthog_authenticated_user_v1';
 
   function analyticsAvailable() {
     return Boolean(

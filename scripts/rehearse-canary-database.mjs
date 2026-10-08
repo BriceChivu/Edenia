@@ -15,7 +15,8 @@ const suites = [
   'learner_profile_conflict_resolution', 'voluntary_accountless_profile_migration',
   'learner_profile_recovery', 'learner_profile_import', 'learner_profile_start_over',
   'learner_profile_retention', 'auth_operations', 'auth_monitoring_freshness',
-  'account_owner_policies', 'legacy_progress_transfer_relay'
+  'account_owner_policies', 'legacy_progress_transfer_relay',
+  'current-experience-owned-profile', 'stale-generation-island-conflict', 'auth-trial-admission'
 ]
 if (process.argv.length !== 2) throw new Error('This local-only rehearsal accepts no target arguments')
 const root = join(repository, '.cache', 'canary-database')
@@ -94,13 +95,18 @@ try {
     await run('docker', ['exec', '-i', container, 'psql', '-X', '--username', 'postgres', '--dbname', 'postgres', '--set', 'ON_ERROR_STOP=1', '--single-transaction'], { input: sql })
     migrationSources.push({ file: name, sha256: createHash('sha256').update(sql).digest('hex') })
   }
+  await run(process.execPath, [join(repository, 'scripts/generate-owned-profile-contract-fixtures.mjs')])
   for (const suite of suites) {
-    const file = join(repository, 'supabase', 'tests', `${suite}.test.sql`)
+    const file = suite.includes('-')
+      ? join(repository, '.cache', `${suite}.test.sql`)
+      : join(repository, 'supabase', 'tests', `${suite}.test.sql`)
     const text = await run('supabase', ['test', 'db', file, '--local', '--workdir', workdir])
     const tests = text.match(/Files=1, Tests=(\d+)/u)
     if (!tests || !text.includes('Result: PASS') || /(?:not ok|# SKIP|# TODO)/iu.test(text)) throw new Error('Missing or skipped required local database assertions')
     results.push({ suite, tests: Number(tests[1]), result: 'pass', sourceSha256: createHash('sha256').update(await readFile(file)).digest('hex') })
   }
+  await run('supabase', ['db', 'advisors', '--local', '--type', 'security', '--workdir', workdir])
+  await run('supabase', ['db', 'lint', '--local', '--schema', 'private,learner_profile_rpc', '--fail-on', 'error', '--workdir', workdir])
   const localQuery = sql => run('docker', ['exec', container, 'psql', '-XAt', '--username', 'postgres', '--dbname', 'postgres', '--set', 'ON_ERROR_STOP=1', '-c', sql])
   profileVerifier = await rehearseCanaryProfileVerifier(localQuery, async owner => {
     containment = await rehearseCanaryContainment({ workdir, project, query: localQuery, owner })
@@ -125,7 +131,7 @@ try {
   process.off('SIGTERM', onSignal)
 }
 const scriptSources = {}
-for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs']) {
+for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs', 'opening-gate-binding.mjs', 'run-live-profile-opening.mjs', 'rehearse-canary-containment.mjs']) {
   scriptSources[name] = createHash('sha256').update(await readFile(new URL('./' + name, import.meta.url))).digest('hex')
 }
 const receipt = {

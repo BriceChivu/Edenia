@@ -594,7 +594,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function readDirtyRecord() {
     try {
       const serialized = storage.getItem(dirtyStorageKey)
-      if (serialized === null) return { present: false, record: null }
+      if (serialized === null) return { present: false, record: null, serialized }
       const record = JSON.parse(serialized)
       if (
         !hasExactKeys(record, [
@@ -608,7 +608,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         || !UUID_PATTERN.test(record.profileId)
         || !normalizePositiveInteger(record.generation)
       ) return { present: true, record: null }
-      return { present: true, record }
+      return { present: true, record, serialized }
     } catch {
       return { present: true, record: null }
     }
@@ -1738,7 +1738,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   async function readStoredProtectedConflicts(
     record,
-    verifiedConflicts = new Map()
+    verifiedConflicts = new Map(),
+    { deferPruning = false } = {}
   ) {
     const conflictIds = record?.protectedConflictIds || []
     const conflicts = []
@@ -1753,7 +1754,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         return null
       }
     }
-    if (retainedIds.length !== conflictIds.length) {
+    if (!deferPruning && retainedIds.length !== conflictIds.length) {
       const current = readSyncRecord()
       if (
         !current
@@ -1764,7 +1765,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       else delete current.protectedConflictIds
       if (!writeSyncRecord(current)) return null
     }
-    return { conflicts: Object.freeze(conflicts) }
+    return { conflicts: Object.freeze(conflicts), retainedIds }
   }
 
   async function resolvePreservedConflict(
@@ -2464,6 +2465,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     const localWasEmptyBeforeRequest = localProfile?.status === 'empty'
     const storedSyncBeforeRequest = readStoredSyncRecord()
+    const dirtyBeforeRequest = readDirtyRecord()
 
     let onboardingEnvelope = null
     if (
@@ -2601,6 +2603,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const storedSync = readStoredSyncRecord()
     let currentRecord = storedSync.record
     let syncRecordRepair = null
+    let dirtyRecordRepair = null
     const staleEmptyBinding = localWasEmptyBeforeRequest
       && localProfile?.status === 'empty'
       && currentRecord
@@ -2666,38 +2669,105 @@ export function createLearnerProfileCloudPersistenceAdapter({
         || currentRecord.profileId !== profileId
       ) return { status: 'recovering' }
       if (currentRecord.generation !== generation) {
-        const resetReceipt = generation === currentRecord.generation + 1
-          ? await readResetReceipt({
-              generation,
-              ownerId: authentication.userId,
-              profileId
-            })
-          : null
-        if (
-          !resetReceipt
-          || resetReceipt.priorGeneration !== currentRecord.generation
-        ) return { status: 'recovering' }
+        // A valid current head is authoritative even after several resets or
+        // reset-receipt retention expiry. Older unsynced work needs an explicit
+        // whole-profile choice; it must never disappear during this handoff.
         const dirty = readDirtyRecord()
-        const dirtyIdentity = dirty.present
-          && dirtyRecordMatches(cloudIdentity, dirty)
-          && isVerifiedCurrentLocalCopy(
-            localProfile,
-            cloudIdentity,
-            envelope,
-            prepareEnvelope
-          )
-          ? cloudIdentity
-          : currentRecord
-        if (!clearDirtyRecord(dirtyIdentity)) return { status: 'recovering' }
-        if (!commitCloudHead(cloudIdentity, currentRecord)) {
-          return { status: 'recovering' }
+        const localIsCurrent = isVerifiedCurrentLocalCopy(
+          localProfile, cloudIdentity, envelope, prepareEnvelope
+        )
+        const localIsStale = localProfile?.status === 'ready'
+          && localProfile.ownerId === authentication.userId
+          && localProfile.profileId === profileId
+          && localProfile.generation === currentRecord.generation
+          && normalizePositiveInteger(localProfile.revision)
+          && localProfile.revision <= currentRecord.acceptedRevision
+        if (
+          !storedSyncBeforeRequest.readable
+          || storedSyncBeforeRequest.serialized !== storedSync.serialized
+          || dirtyBeforeRequest.serialized !== dirty.serialized
+          || (localIsCurrent && (currentRecord.pending || currentRecord.queued))
+          || (!localIsCurrent && !localIsStale && localProfile?.status !== 'empty')
+        ) return { status: 'recovering' }
+
+        const hasUnsyncedWork = dirty.present || currentRecord.pending || currentRecord.queued
+        if (hasUnsyncedWork && !localIsCurrent) {
+          if (!localIsStale || !dirtyRecordMatches(currentRecord, dirty)) {
+            return { status: 'recovering' }
+          }
+          if (dirty.present && !queueProfile(
+            localProfile.profile, currentRecord, `dirty-recovery-${createOperationId()}`
+          )) return { status: 'recovering' }
+          if (currentRecord.queued) {
+            // Only the latest complete local snapshot goes to cross-generation
+            // choice. The older request cannot advance this newer cloud head.
+            currentRecord.pending = currentRecord.queued
+            currentRecord.pending.baseRevision = currentRecord.acceptedRevision
+            currentRecord.pending.revision = currentRecord.acceptedRevision + 1
+            currentRecord.queued = null
+            if (!writeSyncRecord(currentRecord)) return { status: 'recovering' }
+          }
+          const operation = currentRecord.pending
+          if (!operation) return { status: 'recovering' }
+          let preserved
+          let candidate
+          let candidateSync
+          try {
+            candidate = await finalizeDurableOperation(operation)
+            candidateSync = readStoredSyncRecord()
+            if (candidateSync.record?.pending?.operationId !== operation.operationId) {
+              return { status: 'recovering' }
+            }
+            preserved = await getClient().rpc(
+              'commit_my_learner_profile', operationParameters(operation, candidate)
+            )
+          } catch {
+            return waitForCloudHead()
+          }
+          const receipt = readSingleRpcRow(preserved?.data)
+          if (!preserved?.error && receipt?.status === 'conflict') {
+            return resolvePreservedConflict(receipt, operation)
+          }
+          if (preserved?.error && isTransientCloudStatus(preserved.status)) {
+            return waitForCloudHead()
+          }
+          // A lost acknowledgment can leave work pending although that exact
+          // local snapshot was already accepted before the reset. That receipt
+          // proves it is a clean stale copy; opening the current head is safe.
+          if (
+            preserved?.error
+            || !isAcceptedOperationReceipt(receipt, operation, candidate, ['already_accepted'])
+            || !canonicalProfilesMatch(localProfile.profile, candidate, prepareEnvelope)
+            || readStoredSyncRecord().serialized !== candidateSync.serialized
+          ) return { status: 'recovering' }
+          storedSync.serialized = candidateSync.serialized
         }
-        currentRecord = readSyncRecord()
-        if (!currentRecord) return { status: 'recovering' }
-        protectedReset = resetReceipt.protectedReset
+        if (dirty.present) {
+          if (!dirtyRecordMatches(cloudIdentity, dirty)) return { status: 'recovering' }
+          // Exact current-head equality makes this stale marker redundant.
+          dirtyRecordRepair = {
+            expectedSerialized: dirty.serialized,
+            key: dirtyStorageKey,
+            nextSerialized: null
+          }
+        }
+        const nextRecord = createSyncRecord(cloudIdentity)
+        if (currentRecord.protectedConflictIds?.length) {
+          nextRecord.protectedConflictIds = [...currentRecord.protectedConflictIds]
+        }
+        syncRecordRepair = {
+          expectedSerialized: storedSync.serialized,
+          key: syncStorageKey,
+          nextSerialized: JSON.stringify(nextRecord)
+        }
+        currentRecord = nextRecord
+        if (generation === storedSync.record.generation + 1) {
+          const resetReceipt = await readResetReceipt(cloudIdentity)
+          protectedReset = resetReceipt?.protectedReset || null
+        }
       }
       const dirty = readDirtyRecord()
-      if (dirty.present) {
+      if (dirty.present && !dirtyRecordRepair) {
         if (
           !dirtyRecordMatches(currentRecord, dirty)
           || localProfile?.status !== 'ready'
@@ -2824,8 +2894,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
 
     if (!syncRecordRepair) currentRecord = readSyncRecord()
-    const protectedResult = await readStoredProtectedConflicts(currentRecord)
+    const protectedResult = await readStoredProtectedConflicts(
+      currentRecord, new Map(), { deferPruning: Boolean(syncRecordRepair) }
+    )
     if (!protectedResult) return { status: 'recovering' }
+    if (syncRecordRepair) {
+      if (protectedResult.retainedIds.length) {
+        currentRecord.protectedConflictIds = protectedResult.retainedIds
+      } else delete currentRecord.protectedConflictIds
+      syncRecordRepair.nextSerialized = JSON.stringify(currentRecord)
+    }
 
     if (
       !backupRequired
@@ -2860,6 +2938,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     const syncRepairs = [
       ...(malformedImportRepair ? [malformedImportRepair] : []),
+      ...(dirtyRecordRepair ? [dirtyRecordRepair] : []),
       ...(syncRecordRepair ? [syncRecordRepair] : [])
     ]
     cloudHeadKnown = true
@@ -2870,7 +2949,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           if (
             typeof isCurrent !== 'function'
             || !isCurrent()
-            || readDirtyRecord().present
+            || (readDirtyRecord().present && !dirtyRecordRepair)
             || !syncRepairs.every(storedRepairMatches)
             || !isCurrent()
           ) return false

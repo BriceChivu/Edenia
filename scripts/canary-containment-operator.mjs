@@ -49,6 +49,56 @@ export function enableCanarySql(expectedOwner, version) {
   return `update private.learner_profile_access_control set rollout_state = 'developer-canary', developer_user_id = '${expectedOwner}'::uuid, updated_at = greatest(clock_timestamp(), updated_at + interval '1 microsecond') where singleton = true and rollout_state = 'off' and developer_user_id is null and updated_at = '${version}'::timestamptz returning rollout_state;`
 }
 
+export const READ_TRIAL_GATE_SQL = 'select rollout_state, developer_user_id::text as owner, tester_user_ids::text[] as testers, updated_at::text as version from private.learner_profile_access_control where singleton = true;'
+
+function trialAudience(testers) {
+  if (!Array.isArray(testers) || testers.length === 0 || testers.some(id => typeof id !== 'string' || !UUID.test(id))
+    || new Set(testers).size !== testers.length) throw new Error('Invalid trial audience')
+  return [...testers].sort()
+}
+function trialArray(testers) {
+  return `array[${testers.map(id => `'${id}'::uuid`).join(',')}]`
+}
+
+// Trial containment is separate from historical developer-canary execution.
+// Match the complete reviewed audience; never take over a broader trial/public
+// gate. Clear admission and advance the fence, including repeated containment.
+export async function containTrial(operator, expectedTesters) {
+  const testers = trialAudience(expectedTesters)
+  const read = async () => {
+    const rows = await operator.query(READ_TRIAL_GATE_SQL)
+    if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Ambiguous trial gate')
+    const state = rows[0]
+    if (state.owner !== null || !Array.isArray(state.testers)
+      || !(state.rollout_state === 'off' && state.testers.length === 0
+        || state.rollout_state === 'tester-trial' && JSON.stringify([...state.testers].sort()) === JSON.stringify(testers))) {
+      throw new Error('Trial containment target does not match')
+    }
+    return state
+  }
+  await read()
+  const audience = trialArray(testers)
+  const changed = await operator.query(`update private.learner_profile_access_control set rollout_state = 'off', developer_user_id = null, tester_user_ids = '{}'::uuid[], updated_at = greatest(clock_timestamp(), updated_at + interval '1 microsecond') where singleton = true and developer_user_id is null and ((rollout_state = 'off' and cardinality(tester_user_ids) = 0) or (rollout_state = 'tester-trial' and tester_user_ids @> ${audience} and tester_user_ids <@ ${audience} and cardinality(tester_user_ids) = ${testers.length})) returning rollout_state;`)
+  if (!Array.isArray(changed) || changed.length !== 1) throw new Error('Trial containment not verified')
+  let state = await read()
+  if (state.rollout_state !== 'off') throw new Error('Trial containment not verified')
+  let monitorWriteAttempted = false
+  if (!await operator.monitorDisabled()) {
+    monitorWriteAttempted = true
+    await operator.disableMonitor()
+  }
+  state = await read()
+  if (state.rollout_state !== 'off' || !await operator.monitorDisabled()) throw new Error('Trial containment postcondition not verified')
+  return { gateOff: true, audienceRemoved: true, monitorDisabled: true, gateWriteAttempted: true, monitorWriteAttempted }
+}
+
+export function enableTrialSql(expectedTesters, version) {
+  const testers = trialAudience(expectedTesters)
+  // Reuse the strict timestamp validation without invoking the legacy gate.
+  enableCanarySql(testers[0], version)
+  return `update private.learner_profile_access_control set rollout_state = 'tester-trial', tester_user_ids = ${trialArray(testers)}, updated_at = greatest(clock_timestamp(), updated_at + interval '1 microsecond') where singleton = true and rollout_state = 'off' and developer_user_id is null and cardinality(tester_user_ids) = 0 and updated_at = '${version}'::timestamptz returning rollout_state;`
+}
+
 // The linked adapter is prepared for later packet authority. Packet 0 must not
 // invoke its mutating methods against a hosted project. Tokens stay in the
 // existing Supabase CLI capability; no credentials are read or exported here.

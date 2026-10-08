@@ -1,6 +1,8 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "authTrial.unavailable.title": "Prueba de inicio de sesión no disponible",
+  "authTrial.unavailable.body": "Esta prueba está en pausa. Tu progreso guardado se conserva.",
   "islandAnnouncement.eyebrow": "Un nuevo capítulo para Edenia",
   "islandAnnouncement.title": "¡Ya puedes interactuar con tu isla!",
   "islandAnnouncement.body": "Estudia para desbloquear nuevos objetos. Planta árboles, construye casas y dale tu toque personal a tu isla.",
@@ -482,6 +484,9 @@ export const ES_LOCALIZED = {
   'profileConflict.category.update-study-time': 'Actualización y tiempo de estudio',
   'profileConflict.category.language-level': 'Idioma y nivel',
   'profileConflict.category.town-study-progress': 'Progreso de la ciudad y del estudio',
+  'profileConflict.category.island': 'La isla es diferente',
+  'profileConflict.value.islandDifferent': 'La isla guardada difiere de la del otro perfil',
+  'profileConflict.value.islandAbsent': 'No hay isla guardada',
   'profileConflict.category.recent-activity': 'Actividad reciente',
   'profileConflict.category.video-organization': 'Organización de vídeos',
   'profileConflict.category.anki-totals': 'Totales de Anki',

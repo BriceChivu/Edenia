@@ -32,7 +32,7 @@ export function encodeCanaryEvidence(record) {
   check(record.schemaVersion === 1 && matches(UUID, record.runId) && SCENARIOS.has(record.scenario))
   check(Number.isSafeInteger(record.subcase) && record.subcase >= 1 && record.subcase <= 1000)
   check(matches(HASH, record.procedureSha256) && matches(SHA, record.runnerSha) && matches(SHA, record.candidateSha))
-  check(['off', 'developer-canary'].includes(record.gate) && TARGETS.has(record.target))
+  check(['off', 'developer-canary', 'tester-trial'].includes(record.gate) && TARGETS.has(record.target))
   check(['local-synthetic', 'deployed-synthetic', 'live-browser', 'deployed-schema', 'operator-metadata'].includes(record.sourceKind))
   for (const version of [record.browserVersion, record.osVersion]) check(version === null || matches(/^\d+(?:\.\d+){0,4}$/u, version))
   if (['live-browser', 'deployed-synthetic'].includes(record.sourceKind)) check(record.browserVersion !== null && record.osVersion !== null && !['operator-cli', 'local-node'].includes(record.target))

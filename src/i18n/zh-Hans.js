@@ -1,6 +1,8 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANS_LOCALIZED = {
+  "authTrial.unavailable.title": "登录测试暂不可用",
+  "authTrial.unavailable.body": "此登录测试已暂停。你保存的进度仍会保留。",
   "islandAnnouncement.eyebrow": "Edenia 的新篇章",
   "islandAnnouncement.title": "现在，你可以和自己的岛屿互动了！",
   "islandAnnouncement.body": "通过学习解锁新物品。种树、盖房子，打造专属于你的岛屿。",
@@ -482,6 +484,9 @@ export const ZH_HANS_LOCALIZED = {
     'profileConflict.category.update-study-time': '更新时间和学习时间',
     'profileConflict.category.language-level': '语言和级别',
     'profileConflict.category.town-study-progress': '城镇和学习进度',
+    'profileConflict.category.island': '岛屿不同',
+    'profileConflict.value.islandDifferent': '保存的岛屿与另一份档案不同',
+    'profileConflict.value.islandAbsent': '没有保存的岛屿',
     'profileConflict.category.recent-activity': '近期活动',
     'profileConflict.category.video-organization': '视频整理',
     'profileConflict.category.anki-totals': 'Anki 总计',

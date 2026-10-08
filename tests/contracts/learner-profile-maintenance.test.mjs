@@ -22,7 +22,7 @@ const concurrencyProbe = await readFile(
 test('learner profile disaster backup workflow keeps weekly dumps while independently gating experiment rehearsals', () => {
   assert.match(workflow, /schedule:\s*[\s\S]*cron:/)
   assert.match(workflow, /SUPABASE_DB_URL:/)
-  assert.match(workflow, /version:\s*2\.116\.0/)
+  assert.match(workflow, /version:\s*2\.120\.0/)
   assert.match(workflow, /supabase db dump[\s\S]*--file/)
   assert.match(workflow, /--data-only[\s\S]*--use-copy/)
   assert.match(
@@ -42,6 +42,12 @@ test('learner profile disaster backup workflow keeps weekly dumps while independ
     /supabase start[\s\S]*--workdir "\$restore_project"[\s\S]*--exclude/
   )
   assert.match(workflow, /supabase status[\s\S]*--workdir "\$restore_project"[\s\S]*-o json/)
+  const exclusions = workflow.match(/--exclude ([^\n]+)/)?.[1].split(',')
+  assert.ok(exclusions && !exclusions.includes('gotrue'), 'Auth must migrate the managed schema before restoring its data')
+  assert.match(workflow, /docker stop "\$restore_auth_container"/)
+  assert.match(workflow, /--filter "label=com\.supabase\.cli\.workdir=\$restore_project"/)
+  assert.ok(workflow.indexOf('docker stop "$restore_auth_container"') < workflow.indexOf('--file "$restore_dir/schema.sql"'), 'Auth must stop before real backup data is installed')
+  assert.match(workflow, /to_regclass\('auth\.mfa_recovery_code_sets'\)/)
   assert.match(workflow, /supabase stop[\s\S]*--workdir "\$RUNNER_TEMP\/edenia-restore-project"/)
   assert.match(workflow, /sub\(":\/\/postgres:"; ":\/\/supabase_admin:"\)/)
   assert.match(

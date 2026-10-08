@@ -5,7 +5,7 @@ import { dirname } from 'node:path'
 const SHA = /^[a-f0-9]{40}$/u
 const HASH = /^[a-f0-9]{64}$/u
 const ID = /^[a-z0-9][a-z0-9-]{0,79}$/u
-const GATES = new Set(['off', 'developer-canary'])
+const GATES = new Set(['off', 'developer-canary', 'tester-trial'])
 const PHASE_ORDER = [
   'preflight', 'local-work', 'reviewed', 'delivered', 'waiting-soak',
   'live-scenario', 'cleanup', 'acceptance-audit', 'closed'
@@ -328,10 +328,10 @@ export class CanaryExecutionStore {
   // Packet 1 requires a planned gate-off exit after its unchanged-head matrix.
   // This narrow cleanup transition does not relax candidate/gate invalidation
   // for failed executions or any later packet's evidence.
-  reconcilePacketOneCleanup(now, { previousExecutorStopped, candidate, gate,
+  reconcilePacketOneCleanup(now, { activeGate = 'developer-canary', previousExecutorStopped, candidate, gate,
     ownerRemoved, monitorDisabled, headUnchanged, caseEvidenceHashes, evidenceHash }) {
     requireTime(now)
-    requireCondition(previousExecutorStopped === true && SHA.test(candidate)
+    requireCondition(previousExecutorStopped === true && SHA.test(candidate) && ['developer-canary', 'tester-trial'].includes(activeGate)
       && gate === 'off' && ownerRemoved === true && monitorDisabled === true && headUnchanged === true
       && HASH.test(evidenceHash) && Array.isArray(caseEvidenceHashes) && caseEvidenceHashes.length === 4
       && new Set(caseEvidenceHashes).size === 4 && caseEvidenceHashes.every(value => HASH.test(value)), 'Verified Packet 1 cleanup evidence is required')
@@ -339,8 +339,8 @@ export class CanaryExecutionStore {
       const state = this.state()
       const checkpoint = this.checkpoint().metadata
       const watchdog = this.db.prepare('SELECT * FROM watchdog').get()
-      requireCondition(checkpoint?.topLevelIssue === 286 && checkpoint.deploymentSha === candidate
-        && state.candidate === candidate && state.phase === 'live-scenario' && state.gate === 'developer-canary'
+      requireCondition(checkpoint?.topLevelIssue === (activeGate === 'tester-trial' ? 177 : 286) && checkpoint.deploymentSha === candidate
+        && state.candidate === candidate && state.phase === 'live-scenario' && state.gate === activeGate
         && state.owner && state.expires <= now && state.pending.length === 0
         && watchdog?.executor === state.owner && watchdog.state === 'completed', 'Packet 1 cleanup is not current')
       this.db.prepare('INSERT INTO phase_receipts (phase, evidence_hash) VALUES (?, ?)').run('cleanup', evidenceHash)

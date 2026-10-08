@@ -11,7 +11,7 @@ test('general account auth starts only behind the rollout and public config gate
 
   assert.match(
     source,
-    /const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled\(\s*RUNTIME_ENVIRONMENT,\s*getAccountFeaturesRollout\(\)\s*\)/
+    /const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled\(\s*RUNTIME_ENVIRONMENT,\s*getAccountFeaturesRollout\(\),\s*getAuthTrialEnabled\(\)\s*\)/
   )
   assert.match(
     source,
@@ -93,7 +93,7 @@ test('legacy Plus routes and dialogs share the internal account rollout', async 
   )
   assert.match(
     plusPageSource,
-    /if \(!accountFeaturesEnabled\) \{\s*window\.location\.replace\(appReturnUrl\.href\)/
+    /if \(!accountFeaturesEnabled \|\| runtimeEnvironment\.isAuthTrial\) \{\s*window\.location\.replace\(appReturnUrl\.href\)/
   )
   assert.match(plusPageHtml, /id="plusPage" data-plus-upgrade-root hidden/)
 })

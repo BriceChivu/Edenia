@@ -51,3 +51,33 @@ test('ordinary page packaging retains released town markup without game referenc
   assert.match(tester, /id="tinySwordsSurface"/)
   assert.doesNotMatch(tester, /id="cityMilestoneImage"/)
 })
+
+
+test('auth trial shares the current experience with separate, default-off account and storage controls', () => {
+  const trial = environment('?internal_test=1')
+  assert.equal(trial.isAuthTrial, true)
+  assert.equal(deriveTinySwordsExperience(new URL('https://www.edenia.study/?internal_test=1')), true)
+  for (const rollout of ['off', 'public', 'internal']) {
+    for (const flag of [undefined, false, 'true', 1]) assert.equal(deriveAccountFeaturesEnabled(trial, rollout, flag), false)
+    assert.equal(deriveAccountFeaturesEnabled(trial, rollout, true), true)
+    assert.equal(deriveAccountFeaturesEnabled(environment('?internal_test=2'), rollout, true), false)
+    assert.equal(deriveAccountFeaturesEnabled(environment(''), 'off', true), false)
+  }
+  const trialKeys = deriveStorageKeys(trial)
+  assert.equal(trialKeys.storageKey, 'edenia_v1_auth_trial_v1')
+  assert.equal(trialKeys.configCookieKey, 'edenia_config_auth_trial_v1')
+  for (const query of ['', '?internal_test=2']) {
+    const keys = deriveStorageKeys(environment(query))
+    for (const key of Object.keys(trialKeys)) assert.notEqual(trialKeys[key], keys[key], key)
+  }
+  const sandbox = deriveRuntimeEnvironment(new URL('http://localhost:8001/?sandbox=1&internal_test=1'))
+  assert.equal(deriveAccountFeaturesEnabled(sandbox, 'public', true), false)
+  assert.equal(deriveStorageKeys(sandbox).storageKey, 'edenia_v1_sandbox')
+})
+
+test('mode 1 packaging shares app/assets but uses its runtime admission entry', async () => {
+  const html = await readBuiltExperience('https://www.edenia.study/?internal_test=1')
+  assert.match(html, /src="auth-trial-entry\.js\?v=/)
+  assert.match(html, /id="tinySwordsSurface"/)
+  assert.doesNotMatch(html, /production-app\.js|cityMilestoneImage/)
+})

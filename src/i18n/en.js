@@ -1,4 +1,6 @@
 export const EN_CORE = {
+  "authTrial.unavailable.title": "Sign-in trial unavailable",
+  "authTrial.unavailable.body": "This sign-in trial is currently paused. Your saved progress is preserved.",
   "islandAnnouncement.eyebrow": "A new chapter for Edenia",
   "islandAnnouncement.title": "You can now interact\nwith your island!",
   "islandAnnouncement.body": "Study to unlock new items. Plant trees, build homes, and make your island your own.",
@@ -478,6 +480,9 @@ export const EN_CORE = {
   'profileConflict.category.update-study-time': 'Update and study time',
   'profileConflict.category.language-level': 'Language and level',
   'profileConflict.category.town-study-progress': 'Town and study progress',
+  'profileConflict.category.island': 'Island differs',
+  'profileConflict.value.islandDifferent': 'Saved island differs from the other profile',
+  'profileConflict.value.islandAbsent': 'No saved island',
   'profileConflict.category.recent-activity': 'Recent activity',
   'profileConflict.category.video-organization': 'Video organization',
   'profileConflict.category.anki-totals': 'Anki totals',

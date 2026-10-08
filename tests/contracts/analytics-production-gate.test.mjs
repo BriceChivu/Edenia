@@ -62,8 +62,7 @@ function runAnalyticsBootstrap(href, { escrowedOutcome } = {}) {
 
 test('PostHog initializes only on the canonical application root', () => {
   for (const href of [
-    'https://www.edenia.study/',
-    'https://www.edenia.study/?internal_test=1'
+    'https://www.edenia.study/'
   ]) {
     const result = runAnalyticsBootstrap(href)
     assert.equal(result.enabled, true, href)
@@ -72,6 +71,7 @@ test('PostHog initializes only on the canonical application root', () => {
 
   for (const href of [
     'https://edenia.study/',
+    'https://www.edenia.study/?internal_test=1',
     'https://www.edenia.study/plus/',
     'https://www.edenia.study/?sandbox=1',
     'https://bricechivu.github.io/Edenia/',
@@ -203,10 +203,12 @@ test('production replay starts immediately when the live URL has no auth secret'
   assert.deepEqual(result.dispatchedEvents, ['edenia:analytics-ready'])
 })
 
-test('retired mode 1 is removed from history and uses ordinary analytics', () => {
+test('fresh mode 1 keeps its route and disables shared production replay', () => {
   const result = runAnalyticsBootstrap('https://www.edenia.study/?internal_test=1&source=retained#study')
-  assert.equal(result.browserUrl, 'https://www.edenia.study/?source=retained#study')
-  assert.equal(result.context.EDENIA_INTERNAL_TEST, false)
+  assert.equal(result.browserUrl, 'https://www.edenia.study/?internal_test=1&source=retained#study')
+  assert.equal(result.context.EDENIA_INTERNAL_TEST, true)
+  assert.equal(result.context.EDENIA_AUTH_TRIAL, true)
+  assert.equal(result.enabled, false)
   const tester = runAnalyticsBootstrap('https://www.edenia.study/?internal_test=2')
   assert.equal(tester.context.EDENIA_INTERNAL_TEST, true)
 })

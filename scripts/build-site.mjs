@@ -88,6 +88,12 @@ const entry = await build({
   }
 })
 await writeFile(resolve(outputDir, 'site-entry.js'), entry.outputFiles[0].text)
+const authTrialEntry = await build({
+  entryPoints: [resolve(projectRoot, 'scripts/auth-trial-entry.js')],
+  bundle: true, format: 'iife', platform: 'browser', target: 'es2022',
+  minify: true, write: false
+})
+await writeFile(resolve(outputDir, 'auth-trial-entry.js'), authTrialEntry.outputFiles[0].text)
 await writeFile(resolve(outputDir, 'index.html'), `<!doctype html>
 <script src="site-entry.js?v=${assetVersion}"></script>
 <noscript>Edenia needs JavaScript to open your learner profile.</noscript>\n`)
@@ -255,6 +261,7 @@ const runtimeConfigSource = 'window.EDENIA_CONFIG = {\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
     + '  "accountFeaturesRollout": "off",\n'
+    + '  "authTrialEnabled": false,\n'
     + '  "accountlessProfileFinalCutoverAt": "",\n'
     + '  "emergencyAccountlessRollbackEnabled": false,\n'
     + '  "googleSignInMode": "id_token",\n'

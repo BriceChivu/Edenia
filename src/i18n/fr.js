@@ -1,6 +1,8 @@
 import { EN_CORE } from './en.js'
 
 export const FR_LOCALIZED = {
+  "authTrial.unavailable.title": "Essai de connexion indisponible",
+  "authTrial.unavailable.body": "Cet essai de connexion est en pause. Votre progression enregistrée est conservée.",
   "islandAnnouncement.eyebrow": "Un nouveau chapitre pour Edenia",
   "islandAnnouncement.title": "Vous pouvez maintenant interagir avec votre île !",
   "islandAnnouncement.body": "Étudiez pour débloquer de nouveaux objets. Plantez des arbres, construisez des maisons et créez une île à votre image.",
@@ -482,6 +484,9 @@ export const FR_LOCALIZED = {
   'profileConflict.category.update-study-time': 'Mise à jour et temps d’étude',
   'profileConflict.category.language-level': 'Langue et niveau',
   'profileConflict.category.town-study-progress': 'Progression de la ville et de l’étude',
+  'profileConflict.category.island': 'L’île est différente',
+  'profileConflict.value.islandDifferent': 'L’île enregistrée diffère de celle de l’autre profil',
+  'profileConflict.value.islandAbsent': 'Aucune île enregistrée',
   'profileConflict.category.recent-activity': 'Activité récente',
   'profileConflict.category.video-organization': 'Organisation des vidéos',
   'profileConflict.category.anki-totals': 'Totaux Anki',

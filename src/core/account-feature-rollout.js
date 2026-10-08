@@ -16,11 +16,14 @@ export function normalizeAccountFeaturesRollout(value) {
 
 export function deriveAccountFeaturesEnabled(
   runtimeEnvironment,
-  rollout = ACCOUNT_FEATURE_ROLLOUTS.OFF
+  rollout = ACCOUNT_FEATURE_ROLLOUTS.OFF,
+  authTrialEnabled = false
 ) {
   if (!runtimeEnvironment || runtimeEnvironment.isSandbox === true
     || runtimeEnvironment.isTinySwordsTester === true) return false
 
+  // Trial admission is enforced by the server. Public rollout cannot enable it.
+  if (runtimeEnvironment.isAuthTrial === true) return authTrialEnabled === true
   const normalizedRollout = normalizeAccountFeaturesRollout(rollout)
   return normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.PUBLIC
 }
