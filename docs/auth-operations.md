@@ -6,38 +6,43 @@ under 13. It is an operator procedure, not a browser feature. Never paste a
 database URL, publishable key, session value, email address, or profile
 envelope into a command, issue, chat, or log.
 
-## Internal experiment pause (2026-09-27)
+## Selected-account trial resumption (2026-10-08)
 
-Authentication testing remains paused after retirement of the internal pixel-town trial. The Pages
-workflow pins account rollout to `off` and profile lifecycle to `false`.
-The server profile gate is off with no developer owner; containment advances
-its timestamp fence so a previously captured enable request cannot reopen it.
-The bounded monitor canary remains disabled.
+The user authorized the isolated `https://www.edenia.study/?internal_test=1`
+trial. [PR #401](https://github.com/BriceChivu/Edenia/pull/401) is deployed,
+and both current-experience/admission migrations are applied. The server stage
+is `tester-trial`, with exactly one privately verified permanent tester UUID.
+All protected operations still derive the owner from the authenticated identity
+and require both admission and ownership. Public account rollout stays `off`,
+global profile lifecycle stays `false`, and public migration cutover remains off.
 
-Pulsetic's **Edenia production Auth** monitor and the GitHub Auth watchdog are
-paused. `EDENIA_AUTH_EXPERIMENT_ENABLED` must be exactly `true` for watchdog or
-manual-probe jobs, restore rehearsals, and profile maintenance to run. It is
-currently `false`. Existing Auth/soak/Packet 1 Codex reminders remain paused.
-Do not interpret an intentionally stale probe as an active Auth incident.
+The trial has a fresh storage namespace; retained ordinary, mode-2 and retired
+mode-1 data is not automatically copied into it. The user completed real
+email-code sign-in in regular Chrome. Google popup opening and full hosted
+app/write/reload acceptance are still being investigated; consult the
+[dated continuation audit](research/mandatory-signin-audit-2026-10-07.md#hosted-continuation-checkpoint--2026-10-08)
+for the precise evidence and remaining gates.
 
-The mode-1 browser experiment and its pause notice were retired on 2026-10-07.
-Saved mode-1 data remains untouched and unopened. Account features accept only
-`off` or `public`; sandbox and Tiny Swords tester modes remain excluded.
+Pulsetic's **Edenia production Auth** monitor and the GitHub secondary watchdog
+are resumed. `EDENIA_AUTH_EXPERIMENT_ENABLED=true`; fresh recorded probes are
+healthy and current. The bounded outage canary remains disabled. No new
+24-hour soak or outage notification-delivery proof is claimed. Existing
+Auth/soak/Packet 1 Codex reminders have not been resumed.
 
 Keep the shared Supabase project online: legacy transfer creation/consumption
 and its five-minute cleanup, unsubscribe handling, provider webhook suppression,
 and recovery data remain available. Weekly external disaster dumps and their
-35-day artifact retention continue. Profile cleanup is disabled, and automated
-restore rehearsals/maintenance are gated separately from the backup.
+35-day artifact retention continue. Cloud profile cleanup remains disabled.
+The experiment variable also gates restore-rehearsal/maintenance jobs; it does
+not authorize enabling cleanup or public profile access.
 
-Pip was local experiment-branch work, never part of the deployed master tree.
-Its local runtime entry, town takeover, stylesheet bundle, and illustration
-were retired; story documents and prototypes remain historical material.
-
-Resuming Auth requires a new authorized, reviewed change: reconcile the canary
-journal and provider state, restore the needed monitoring and fresh safety
-proof, then review browser rollout/lifecycle and server gate changes together.
-Do not resume merely by changing the visual trial selector.
+The retired pixel-town/Pip experiment remains historical material. Its browser
+namespace is retained and unopened. Trial resumption does not authorize public
+mandatory sign-in, migration cutover, a broader tester list or public rollout.
+For containment, use the reviewed exact-audience operator procedure to turn
+the profile gate off, clear admission and advance the timestamp fence; retain
+profile/version/protection rows and verify the resulting state. Do not change
+the trial selector alone and assume server access has been revoked.
 
 ## Auth health monitoring
 
