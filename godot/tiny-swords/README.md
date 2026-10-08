@@ -1073,6 +1073,11 @@ Unreachable actions and ordinary walking retain the bird. Water falls use the
 same chicken-carrying frames, so it shares the pawn's fall, fade and respawn.
 An expired carry deadline waits until the pawn returns to land before put-down.
 Focused action/water check: `res://tests/chicken_carry_actions.gd`.
+Chicken carrying is currently disabled by `gameplay/chicken_carry_enabled=false`
+in `project.godot`. Cornered birds stay on the ground. Existing carried birds are
+put down on the first safe landing, preserving them across reloads and falls.
+To reactivate carrying, set that setting to `true` and rebuild the integrated
+preview. The carry scripts, animations and enabled-mode checks remain intact.
 Regenerate the composite sheets with `tools/generate_chicken_carry.py` (Pillow).
 
 When a sheep enters its grass tile, the chicken moves one reachable adjacent grass
