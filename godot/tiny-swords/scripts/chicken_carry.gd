@@ -14,6 +14,8 @@ func contact_allowed(point: Vector2) -> bool:
 	return world.layout.chicken_release_at == 0.0 and (world.layout.cell_at(point) != released_cell or absf(world.ground_height(point) - released_height) > 1.0)
 
 func pickup(index: int, now: float) -> bool:
+	if not ProjectSettings.get_setting("gameplay/chicken_carry_enabled", false):
+		return false
 	if index < 0 or index >= world.layout.chickens.size() or not contact_allowed(world.layout.chickens[index]):
 		return false
 	if world.harvesting.phase != world.harvesting.Phase.READY:
@@ -58,7 +60,11 @@ func drop_target(excluded_cells: Array = []) -> Vector2:
 
 func advance(now: float) -> void:
 	world.pawn.carrying_chicken = world.layout.chicken_release_at > 0.0
-	if not world.pawn.carrying_chicken or now < world.layout.chicken_release_at:
+	if not world.pawn.carrying_chicken:
+		return
+	# Disabled releases also recover birds already carried in saved islands.
+	# Keep the normal safe-landing checks so a bird is never lost on a ramp/fall.
+	if ProjectSettings.get_setting("gameplay/chicken_carry_enabled", false) and now < world.layout.chicken_release_at:
 		return
 	if world.water_phase == world.WaterPhase.READY:
 		put_down()
