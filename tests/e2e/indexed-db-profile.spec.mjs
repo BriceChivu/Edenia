@@ -61,6 +61,13 @@ async function rejectWrites(page) {
     }
   })
 }
+async function waitForOpeningMaintenance(page) {
+  const scoringVersion = await page.evaluate(() => SCORING_RULES_VERSION)
+  await expect.poll(async () => {
+    const saved = await head(page)
+    return saved?.raw ? JSON.parse(saved.raw).cityProgress.scoringVersion : null
+  }).toBe(scoringVersion)
+}
 async function add(page) {
   return page.evaluate(id => window.addChannel({
     input: { value: id, focus() {} }, resolvedChannel: { id, name: 'Added fixture' }
@@ -249,6 +256,7 @@ test('failed additions, settings and video actions retain durable data and rende
   await seed(page)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
+  await waitForOpeningMaintenance(page)
   const before = await head(page)
   await rejectWrites(page)
   await add(page)
@@ -427,6 +435,7 @@ test('an existing durable profile still opens when startup maintenance cannot sa
   await seed(page)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
+  await waitForOpeningMaintenance(page)
   const before = await head(page)
   await page.addInitScript(() => {
     const put = IDBObjectStore.prototype.put

@@ -25,12 +25,12 @@ function createRefreshHarness(options = {}) {
   const { status = 'partial', loseActivation = false } = options
   const watchLater = Object.hasOwn(options, 'watchLater') ? options.watchLater : true
   const profile = {
-    anki: {},
+    anki: {}, activityLog: [],
     config: { channels: [{ id: 'test-channel', name: 'Test channel' }] },
     videos: {
       'study-video': {
         id: 'study-video', channelId: 'test-channel', title: 'Original title',
-        duration: 120, status, watchLater, favorite: true,
+        duration: 120, isShort: true, status, watchLater, favorite: true,
         resumeAtSeconds: 20, pausedAt: '2026-09-13T09:00:00.000Z',
         watchProgress: [{ seconds: 20, watchedAt: '2026-09-13T09:00:00.000Z' }],
         watchProgressTracked: true
@@ -39,9 +39,12 @@ function createRefreshHarness(options = {}) {
   }
   let active = true
   const savedEnvelopes = []
+  const saveOptions = []
   const renders = []
   const context = vm.createContext({
     IS_SANDBOX: false,
+    learnerProfileLifecycleAuthority: options.signedIn ? {} : null,
+    getPortableProfileSnapshot: state => JSON.stringify(preparePortableLearnerProfileEnvelope(state).profile),
     isYoutubeMetadataFresh: () => true,
     starterFeedPreparationPromise: null,
     document: { getElementById: () => null },
@@ -50,9 +53,13 @@ function createRefreshHarness(options = {}) {
     hasYoutubeApiKey: () => true,
     getDueYoutubeChannels: state => state.config.channels,
     getEffectiveIncludeShorts: () => true,
-    hydrateYoutubeChannelProfiles: async () => {},
+    hydrateYoutubeChannelProfiles: async channels => {
+      if (options.newChannelImage) channels[0].imageUrl = 'https://example.com/new-image.png'
+    },
     isCurrentLearnerProfileOperation: state => active && state === profile,
-    fetchChannelVideos: async () => ({ videos: [
+    fetchChannelVideos: async () => ({ videos: options.noChanges ? [
+      { id: 'study-video', channelId: 'test-channel', title: 'Original title', duration: 120 }
+    ] : [
       { id: 'study-video', channelId: 'test-channel', title: 'Refreshed title', duration: 120 },
       { id: 'new-video', channelId: 'test-channel', title: 'New title', duration: 150 }
     ], filteredShorts: 0 }),
@@ -71,11 +78,12 @@ function createRefreshHarness(options = {}) {
     normalizeVideoWatchProgress,
     markChannelRefreshSuccess() {},
     markChannelRefreshError(state, id) { state.channelRefreshes = { [id]: { lastFailedAt: new Date().toISOString() } } },
-    appendActivityLog() {},
-    saveState(state) {
+    appendActivityLog: (state, entry) => state.activityLog.push(entry),
+    saveState(state, options = {}) {
       assert.equal(active, true)
       assert.equal(state, profile)
       savedEnvelopes.push(preparePortableLearnerProfileEnvelope(state))
+      saveOptions.push(options)
       return true
     },
     renderAll: state => renders.push(state),
@@ -91,7 +99,8 @@ function createRefreshHarness(options = {}) {
     sourceBetween('function mergeFetchedVideos(', '\nfunction formatSkippedShortsMessage('),
     sourceBetween('async function refreshFeed(', '\nasync function refreshAddedChannel(')
   ].join('\n'), context)
-  return { profile, savedEnvelopes, renders, refresh: () => context.refreshFeed({ silent: true }) }
+  return { profile, savedEnvelopes, saveOptions, renders,
+    refresh: options => context.refreshFeed({ silent: true, ...options }) }
 }
 
 for (const input of [
@@ -134,4 +143,39 @@ test('a refresh finishing after profile deactivation cannot save its captured pr
   assert.equal(result.ok, false)
   assert.deepEqual(h.profile.videos, before)
   assert.ok(h.profile.channelRefreshes['test-channel'].lastFailedAt)
+})
+
+test('an unchanged signed-in automatic feed refresh keeps cooldown local without cloud diagnostics', async () => {
+  const h = createRefreshHarness({ signedIn: true, noChanges: true })
+  const before = preparePortableLearnerProfileEnvelope(h.profile).profile
+  const result = await h.refresh({ silent: false })
+  assert.equal(result.ok, true)
+  assert.deepEqual(h.savedEnvelopes[0].profile, before)
+  assert.equal(h.saveOptions[0].syncCloud, false)
+  assert.equal(h.profile.activityLog.length, 0)
+})
+
+test('new videos and channel images remain cloud eligible during automatic refresh', async () => {
+  for (const options of [{}, { noChanges: true, newChannelImage: true }]) {
+    const h = createRefreshHarness({ signedIn: true, ...options })
+    await h.refresh()
+    assert.notEqual(h.saveOptions[0].syncCloud, false)
+    assert.equal(h.profile.activityLog.length, 1)
+  }
+})
+
+test('a failed signed-in automatic feed refresh persists backoff without a phantom cloud change', async () => {
+  const h = createRefreshHarness({ signedIn: true, failMetadata: true })
+  const before = preparePortableLearnerProfileEnvelope(h.profile).profile
+  await h.refresh()
+  assert.deepEqual(h.savedEnvelopes[0].profile, before)
+  assert.equal(h.saveOptions[0].syncCloud, false)
+  assert.ok(h.profile.channelRefreshes['test-channel'].lastFailedAt)
+})
+
+test('manual unchanged feed refreshes retain their explicit diagnostic history', async () => {
+  const h = createRefreshHarness({ signedIn: true, noChanges: true })
+  await h.refresh({ trigger: 'manual' })
+  assert.notEqual(h.saveOptions[0].syncCloud, false)
+  assert.equal(h.profile.activityLog.length, 1)
 })

@@ -8998,6 +8998,10 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     let filteredShortsDuringFetch = 0
     const includeShorts = getEffectiveIncludeShorts(s)
 
+    const channelMetadataBefore = new Map(channelsToRefresh.map(channel => [
+      channel.id, JSON.stringify([channel.name || channel.id, channel.imageUrl || ''])
+    ]))
+
     try {
       await hydrateYoutubeChannelProfiles(channelsToRefresh)
     } catch (err) {
@@ -9051,17 +9055,26 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     // Apply fetched metadata to the latest library, never the request snapshot.
     s = loadState()
     if (!s) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    const fetchedChannelMetadataChanged = channelsToRefresh.some(channel =>
+      channelMetadataBefore.get(channel.id)
+        !== JSON.stringify([channel.name || channel.id, channel.imageUrl || ''])
+    )
+    const backgroundSnapshot = learnerProfileLifecycleAuthority && trigger === 'automatic'
+        && !fetchedChannelMetadataChanged
+      ? getPortableProfileSnapshot(s) : null
     channelsToRefresh.forEach(channel => {
       const current = s.config.channels.find(entry => entry.id === channel.id)
       if (current) Object.assign(current, {
         name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
       })
     })
-    pendingActivity.forEach(event => appendActivityLog(s, event))
     errors.forEach(error => markChannelRefreshError(s, error.channelId, error))
 
     if (successfulChannels === 0) {
-      if (!await saveState(s)) {
+      const unchanged = backgroundSnapshot !== null
+        && backgroundSnapshot === getPortableProfileSnapshot(s)
+      if (!unchanged) pendingActivity.forEach(event => appendActivityLog(s, event))
+      if (!await saveState(s, { syncCloud: unchanged ? false : undefined })) {
         return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
       }
       if (errors.some(error => error.kind !== 'daily-quota')) showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
@@ -9083,7 +9096,10 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     completedCoverage.forEach((coverage, channelId) => markChannelRefreshSuccess(s, channelId, undefined, coverage))
     const mergedCount = mergeResult.mergedCount
     const skippedShorts = filteredShortsDuringFetch + mergeResult.skippedShorts
-    if (skippedShorts) {
+    const unchanged = backgroundSnapshot !== null
+      && backgroundSnapshot === getPortableProfileSnapshot(s)
+    if (!unchanged) pendingActivity.forEach(event => appendActivityLog(s, event))
+    if (skippedShorts && !unchanged) {
       appendActivityLog(s, {
         actor: 'auto',
         type: 'short-videos',
@@ -9094,7 +9110,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       })
     }
 
-    if (!await saveState(s)) {
+    if (!await saveState(s, { syncCloud: unchanged ? false : undefined })) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
     renderAll(s)
@@ -11713,12 +11729,16 @@ function formatAnkiConnectError(err) {
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
-  if (ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(loadState())) return
+  const originatingState = loadState()
+  if (!originatingState || ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(originatingState)) return
   try {
-    ankiStatsCache = await fetchAnkiStats()
-    if (await syncAnkiStatsToState(ankiStatsCache) === false) return false
+    const stats = await fetchAnkiStats()
+    if (!isCurrentLearnerProfileOperation(originatingState)) return false
+    ankiStatsCache = stats
+    if (await syncAnkiStatsToState(ankiStatsCache, { silent }) === false) return false
     renderAnkiStatus(loadState())
   } catch (err) {
+    if (!isCurrentLearnerProfileOperation(originatingState)) return false
     ankiStatsCache = null
     const s = loadState()
     // Failed automatic refreshes contain no Study fact. Keep their status
@@ -11764,12 +11784,26 @@ function refreshAnkiStatsOnVisible() {
   if (!IS_SANDBOX && !ankiRefreshDeferredForPrompt && !document.hidden && isAnkiTrackingActive(loadState())) refreshAnkiStats({ silent: true })
 }
 
-async function syncAnkiStatsToState(stats) {
+async function syncAnkiStatsToState(stats, { silent = false } = {}) {
   const s = loadState()
   if (!s || !stats) return
 
-  applyAnkiStatsToState(s, stats)
   const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
+  const previousDay = s.anki?.[ankiDateKey]
+  const backgroundSnapshot = silent && learnerProfileLifecycleAuthority && previousDay
+    ? getPortableProfileSnapshot(s) : null
+  applyAnkiStatsToState(s, stats)
+  if (backgroundSnapshot !== null) {
+    const observedDay = s.anki[ankiDateKey]
+    const observedAt = observedDay.loggedAt
+    observedDay.loggedAt = previousDay.observedAt || previousDay.loggedAt || null
+    if (getPortableProfileSnapshot(s) === backgroundSnapshot) {
+      // Identical polls update local status/baselines without a new Study
+      // observation or diagnostic history that would create a cloud conflict.
+      return await saveState(s, { syncCloud: false })
+    }
+    observedDay.loggedAt = observedAt
+  }
   const tracked = getTrackedAnkiCounts(s, ankiDateKey)
   appendActivityLog(s, {
     actor: 'auto',

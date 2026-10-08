@@ -9,16 +9,22 @@ const start = source.indexOf('async function refreshAnkiStats(')
 const end = indexOfFunction(source, 'startAnkiAutoRefresh', start)
 assert.ok(start > 0 && end > start)
 
-function harness({ signedIn, fails }) {
+function harness({ signedIn, fails, retireDuringFetch = false }) {
   const state = { activityLog: [{ title: 'existing history' }] }
   const calls = { saved: 0, rendered: 0, synchronized: 0 }
+  let active = true
   const context = vm.createContext({
     ankiRefreshDeferredForPrompt: false,
     learnerProfileLifecycleAuthority: signedIn ? {} : null,
     ankiStatsCache: null,
     loadState: () => state,
     isAnkiTrackingActive: () => true,
-    fetchAnkiStats: async () => { if (fails) throw new Error('unavailable'); return { study: 1 } },
+    isCurrentLearnerProfileOperation: value => active && value === state,
+    fetchAnkiStats: async () => {
+      if (retireDuringFetch) active = false
+      if (fails) throw new Error('unavailable')
+      return { study: 1 }
+    },
     syncAnkiStatsToState: () => { calls.synchronized += 1 },
     renderAnkiStatus: () => { calls.rendered += 1 },
     formatAnkiConnectError: () => 'unavailable',
@@ -49,4 +55,13 @@ test('successful signed-in Anki refresh still synchronizes Study facts', async (
   const h = harness({ signedIn: true, fails: false })
   await h.refresh({ silent: true })
   assert.deepEqual(h.calls, { saved: 0, rendered: 1, synchronized: 1 })
+})
+
+test('Anki responses after profile retirement cannot synchronize or replace current status', async () => {
+  for (const fails of [false, true]) {
+    const h = harness({ signedIn: true, fails, retireDuringFetch: true })
+    assert.equal(await h.refresh({ silent: true }), false)
+    assert.deepEqual(h.calls, { saved: 0, rendered: 0, synchronized: 0 })
+    assert.deepEqual(h.state.activityLog, [{ title: 'existing history' }])
+  }
 })
