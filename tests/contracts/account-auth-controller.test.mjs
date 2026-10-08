@@ -24,13 +24,15 @@ function createClient({
   emailRequestError = null,
   emailVerificationError = null,
   emailVerificationSession = null,
-  signOutError = null
+  signOutError = null,
+  signOutResponses = []
 } = {}) {
   const calls = []
   let authListener = null
   let unsubscribed = false
   const responses = [...sessionResponses]
   const refreshResponses = [...refreshSessionResponses]
+  const logoutResponses = [...signOutResponses]
   const auth = {
     async getSession() {
       calls.push(['getSession'])
@@ -72,6 +74,7 @@ function createClient({
     },
     async signOut(options) {
       calls.push(['signOut', options])
+      if (logoutResponses.length) return logoutResponses.shift()
       return { error: signOutError }
     }
   }
@@ -858,6 +861,71 @@ test('sign out everywhere uses Supabase global session revocation', async () => 
     harness.controller.getState().sessionState,
     ACCOUNT_SESSION_STATES.SIGNED_OUT
   )
+})
+
+test('a session refresh event cannot unlock the profile while logout is in flight', async () => {
+  const logout = createDeferred()
+  const clientHarness = createClient({
+    session: { user: { id: 'owner', email: 'learner@example.com' } },
+    signOutResponses: [logout.promise]
+  })
+  const harness = createHarness(clientHarness)
+  await harness.controller.initialize()
+  const result = harness.controller.signOut()
+  clientHarness.emit('TOKEN_REFRESHED', { user: { id: 'owner' } })
+  harness.runScheduled()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(harness.controller.getState().sessionState, 'signed-out')
+  logout.resolve({ error: new Error('outage') })
+  assert.equal(await result, false)
+})
+
+test('an older failed global logout cannot sign out an explicit replacement Google login', async () => {
+  const logout = createDeferred()
+  const replacement = { user: { id: 'replacement', email: 'next@example.com' } }
+  const clientHarness = createClient({
+    sessionResponses: [{ data: { session: { user: { id: 'owner' } } }, error: null },
+      { data: { session: replacement }, error: null }],
+    signOutResponses: [logout.promise]
+  })
+  const harness = createHarness(clientHarness)
+  await harness.controller.initialize()
+  const result = harness.controller.signOutEverywhere()
+  await harness.controller.signInWithGoogleIdToken({ token: 'synthetic', nonce: 'synthetic' })
+  clientHarness.emit('SIGNED_IN', replacement)
+  harness.runScheduled()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(harness.controller.getState().userId, 'replacement')
+  logout.resolve({ error: new Error('outage') })
+  assert.equal(await result, false)
+  assert.equal(harness.controller.getState().userId, 'replacement')
+  assert.equal(clientHarness.calls.filter(call => call[0] === 'signOut').length, 1)
+})
+
+test('a changed durable session stops failed global logout fallback before another SDK sign-out', async () => {
+  const logout = createDeferred()
+  const clientHarness = createClient({
+    session: { user: { id: 'original' } }, signOutResponses: [logout.promise]
+  })
+  let captured = 'original-session'
+  let durable = captured
+  const controller = createAccountAuthController({
+    client: clientHarness.client,
+    location: { href: ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION },
+    history: { replaceState() {} }, onStateChange() {},
+    prepareLocalSignOut: () => {
+      captured = durable
+      return () => durable === captured
+    }
+  })
+  await controller.initialize()
+  const result = controller.signOutEverywhere()
+  durable = 'replacement-session'
+  logout.resolve({ error: new Error('outage') })
+  assert.equal(await result, false)
+  assert.equal(durable, 'replacement-session')
+  assert.equal(clientHarness.calls.filter(call => call[0] === 'signOut').length, 1)
+  controller.destroy()
 })
 
 test('a stale refresh cannot restore a session after a newer auth event', async () => {

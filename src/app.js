@@ -170,6 +170,7 @@ import {
   createLegacyProgressMigrationController
 } from './state/legacy-progress-migration.js'
 import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
+import { prepareLocalAuthSessionRetirement } from './integrations/local-auth-session-retirement.js'
 import {
   ACCOUNT_AUTH_ERRORS,
   ACCOUNT_AUTH_NOTICES,
@@ -6449,6 +6450,9 @@ function initializeAccountAuth() {
       client,
       history: window.history,
       location: window.location,
+      prepareLocalSignOut: () => prepareLocalAuthSessionRetirement({
+        storage: localStorage, storageKey: ACCOUNT_AUTH_STORAGE_KEY
+      }),
       onStateChange(state) {
         applyAccountAuthenticationState(state)
         accountAnalyticsIdentity.synchronize(state)
