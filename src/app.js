@@ -1025,6 +1025,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     eventTarget: window,
     hasProfile: hasPersistedLearnerProfile,
     loadProfile: () => loadPersistedState({ persistCleanup: false }),
+    readProfileRaw: () => primaryStorage.getItem(STORAGE_KEY),
     inheritProfileRevision: (state, source) => primaryProfileRepository?.inheritRevision(state, source),
     replaceProfile: saveImportedPersistedState,
     saveProfile: savePersistedState,
