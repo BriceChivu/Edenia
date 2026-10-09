@@ -3,16 +3,21 @@
 Question: do images of the two saved Tiny Swords islands make a whole-profile
 conflict easier to recognize without obscuring the study differences?
 
-Provisional verdict: yes. Prefer **Visual first**, with two equally sized images
-above the existing difference table. **Island row** preserves the current table
-hierarchy; **On demand** reduces the initial cost and height. No design has been
-selected by the user yet. This branch contains only a draft, not a release.
+Verdict: yes. The user selected **Visual first**, with two equally sized images
+above the difference table. The earlier three-layout draft is preserved in commit
+`85a0804a`. This branch contains only a draft, not a release.
 
 Run `npm run prototype:island-conflict`, then open
-`http://localhost:4173/prototype/island-conflict/?variant=visual`.
-Other variants are `row` and `demand`. Arrow buttons and keyboard arrows change
-the layout. All actions are local demonstrations; no profile or account is read
+`http://localhost:4173/prototype/island-conflict/`.
+All actions are local demonstrations; no profile or account is read
 or changed. The example statistics follow the supplied screenshot.
+
+The selected draft uses the user's replacement opening sentence and removes the
+previous introduction, paused-state text, still-image note, whole-profile note,
+export/retry buttons, and newer-version disclaimer. Study progress includes total
+current XP, with illustrative values of 112 and 134; those totals cannot be
+reconstructed from the screenshot's study minutes because XP tracks eligible
+experience facts. Production would need each profile's actual XP total.
 
 The images are **synthetic level-four islands**, rendered by the canonical Godot
 scenes using seeds 41 and 93. They are not the learner's actual device/cloud saves.

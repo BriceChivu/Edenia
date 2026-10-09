@@ -11,12 +11,8 @@ html{color-scheme:light dark;background:light-dark(#edf7f1,#101e23)}body{margin:
 </style></head><body>
 <script>globalThis.draftBindings=[];globalThis.Tweak=class{constructor(options){this.options=options}addSelect(state,key,options){draftBindings.push({state,key,options,render:this.options.onChange})}};</script>
 <main>${fragment}</main>
-<nav id="draft-controls" aria-label="Draft design controls" hidden><button id="previous" type="button" aria-label="Previous layout">←</button><span id="variant-name" aria-live="polite"></span><button id="next" type="button" aria-label="Next layout">→</button><label>Preview<select id="preview-state"><option>Both available</option><option>Cloud unavailable</option><option>No device island</option><option>Same appearance</option></select></label></nav>
+<nav id="draft-controls" aria-label="Draft preview controls" hidden><label>Preview<select id="preview-state"><option>Both available</option><option>Cloud unavailable</option><option>No device island</option><option>Same appearance</option></select></label></nav>
 <script>
-const keys=['visual','row','demand'];
-const panels=[...document.querySelectorAll('[data-variant]')];
-let current=Math.max(0,keys.indexOf(new URL(location.href).searchParams.get('variant')));
-function show(index){current=(index+panels.length)%panels.length;panels.forEach((panel,i)=>panel.hidden=i!==current);document.getElementById('variant-name').textContent=panels[current].dataset.variant;const url=new URL(location.href);url.searchParams.set('variant',keys[current]);history.replaceState(null,'',url);}
-if(location.protocol==='file:'||['localhost','127.0.0.1','[::1]'].includes(location.hostname)){document.getElementById('draft-controls').hidden=false;show(current);document.getElementById('previous').onclick=()=>show(current-1);document.getElementById('next').onclick=()=>show(current+1);document.addEventListener('keydown',event=>{if(event.target.matches('input,textarea,select,[contenteditable]'))return;if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();show(current+(event.key==='ArrowRight'?1:-1));}});document.getElementById('preview-state').onchange=event=>draftBindings.forEach(binding=>{binding.state[binding.key]=event.target.value;binding.render();});}
+if(location.protocol==='file:'||['localhost','127.0.0.1','[::1]'].includes(location.hostname)){document.getElementById('draft-controls').hidden=false;document.getElementById('preview-state').onchange=event=>draftBindings.forEach(binding=>{binding.state[binding.key]=event.target.value;binding.render();});}
 </script></body></html>`
 await writeFile(new URL('index.html', import.meta.url), wrapper)
