@@ -186,7 +186,7 @@ jobs:
           assert delimiter not in migration
           sql = 'begin;\n' + migration
           sql += "\ninsert into supabase_migrations.schema_migrations (version, name, statements) values ('20261009152958', 'tune_free_retention_batch_size', array[" + delimiter + migration + delimiter + "]::text[]) on conflict (version) do nothing;\n"
-          sql += "update cron.job set active = false where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
+          sql += "select cron.alter_job(jobid, active := false) from cron.job where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
           source = Path('supabase/migrations/20261009150230_reduce_write_amplification_and_restore_retention.sql').read_text()
           start = source.index('  protected_version_ids as (')
           end = source.index('  version_metrics as (', start)
@@ -224,7 +224,7 @@ jobs:
           \else
           do $$ begin raise exception 'Capacity recovery check failed'; end $$;
           \endif
-          update cron.job set active = true where jobname = 'edenia-learner-profile-retention';
+          select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';
           select capacity_status, database_size_bytes, version_count,
             protected_version_count, ordinary_prunable_version_count
           from private.record_learner_profile_capacity_check();
