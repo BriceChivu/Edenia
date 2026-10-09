@@ -10,6 +10,11 @@ on:
         type: boolean
         default: false
 
+      diagnose_capacity:
+        description: 'Inspect the retention query without retaining database changes'
+        type: boolean
+        default: false
+
 permissions:
   contents: read
   actions: write
@@ -20,7 +25,7 @@ concurrency:
 
 jobs:
   backup:
-    if: ${{ !inputs.recover_capacity }}
+    if: ${{ !inputs.recover_capacity && !inputs.diagnose_capacity }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -233,3 +238,39 @@ jobs:
           PY
           psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
             --file "$RUNNER_TEMP/edenia-capacity-recovery.sql"
+
+  capacity-diagnostics:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_capacity }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGCONNECT_TIMEOUT: '15'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect retention execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYDIAG'
+          import os
+          from pathlib import Path
+          source = Path('supabase/migrations/20261009152958_tune_free_retention_batch_size.sql').read_text()
+          start = source.index('    with protected_version_ids as (')
+          end = source.index('    select count(*)::bigint into deleted_ordinary', start)
+          query = source[start:end].replace('p_owner_id', 'null::uuid') + 'select count(*) from deleted;'
+          sql = r"""
+          \timing on
+          set statement_timeout = '10s';
+          set lock_timeout = '2s';
+          select current_user, current_setting('statement_timeout'), current_setting('jit'), current_setting('transaction_read_only');
+          select state, wait_event_type, wait_event, count(*) from pg_stat_activity where datname = current_database() group by 1,2,3;
+          select conrelid::regclass as child, conname, pg_get_constraintdef(oid) from pg_constraint where confrelid = 'public.learner_profile_versions'::regclass;
+          select schemaname, tablename, indexdef from pg_indexes where tablename like 'learner_profile%';
+          select relname, n_live_tup, n_dead_tup, last_analyze, last_autoanalyze from pg_stat_user_tables where relname like 'learner_profile%';
+          """
+          sql += 'explain (costs true) ' + query
+          sql += '\nBEGIN;\nexplain (analyze, buffers, timing) ' + query.replace('limit 100', 'limit 1') + '\nROLLBACK;\n'
+          Path(os.environ['RUNNER_TEMP'], 'diagnose.sql').write_text(sql)
+          PYDIAG
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --file "$RUNNER_TEMP/diagnose.sql"
