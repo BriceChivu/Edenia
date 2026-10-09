@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(35);
+select plan(40);
 
 select has_table(
   'private',
@@ -200,7 +200,7 @@ select results_eq(
     from private.learner_profile_capacity_report(null)
   $query$,
   $$values ('pause'::text)$$,
-  'database usage at the pause boundary blocks cleanup'
+  'database usage at the pause boundary reports capacity pressure'
 );
 
 update private.learner_profile_maintenance_config
@@ -882,13 +882,24 @@ set database_limit_bytes = 1,
     updated_at = statement_timestamp()
 where singleton;
 
+select * from private.record_learner_profile_capacity_check();
+
+update private.learner_profile_maintenance_config
+set database_limit_verified_at = now() - interval '8 days',
+    pause_restore_constraints_verified_at = now() - interval '8 days'
+where singleton;
+select results_eq(
+  $$select capacity_policy_current, cleanup_allowed from private.learner_profile_capacity_report(null)$$,
+  $$values (false, true)$$,
+  'expired plan review remains visible without stranding approved retention');
+
 select results_eq(
   $query$
     select capacity_status, cleanup_allowed
     from private.learner_profile_capacity_report(null)
   $query$,
-  $$values ('pause'::text, false)$$,
-  'capacity at or above the pause threshold blocks cleanup'
+  $$values ('pause'::text, true)$$,
+  'capacity pressure permits approved retention with current measurements'
 );
 
 select results_eq(
@@ -899,9 +910,46 @@ select results_eq(
       true
     )
   $query$,
-  $$values ('capacity_pause'::text, 0::bigint)$$,
-  'a paused capacity state leaves profile history unchanged'
+  $$values ('applied'::text, 0::bigint)$$,
+  'retention still runs under capacity pressure without removing retained history'
 );
+
+-- A backlog must drain in small transactions even for a single large profile.
+set local edenia.retention_batch_limit = '500';
+insert into public.learner_profile_versions (
+  id, user_id, profile_id, generation, revision, base_revision,
+  envelope, payload_sha256, payload_bytes, created_at
+)
+select extensions.gen_random_uuid(), '11111111-1111-4111-8111-111111111111',
+  fixture.profile_id, 99, added.revision, added.revision - 1,
+  fixture.envelope, fixture.payload_sha256, fixture.payload_bytes,
+  now() - interval '2 days' + added.revision * interval '1 second'
+from generate_series(1, 210) as added(revision)
+cross join retention_versions as fixture;
+
+select results_eq(
+  $$select deleted_ordinary_versions, ordinary_prunable_version_count
+    from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
+  $$values (100::bigint, 110::bigint)$$,
+  'a session cannot raise the one-hundred-version transaction cap');
+reset edenia.retention_batch_limit;
+select results_eq(
+  $$select deleted_ordinary_versions, ordinary_prunable_version_count
+    from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
+  $$values (100::bigint, 10::bigint)$$,
+  'a second bounded batch makes progress without exceeding the batch limit');
+set local edenia.retention_batch_limit = '5';
+select results_eq(
+  $$select deleted_ordinary_versions, ordinary_prunable_version_count
+    from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
+  $$values (5::bigint, 5::bigint)$$,
+  'a recovery session can lower the batch size without changing normal retention');
+reset edenia.retention_batch_limit;
+select results_eq(
+  $$select deleted_ordinary_versions, ordinary_prunable_version_count
+    from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
+  $$values (5::bigint, 0::bigint)$$,
+  'the final partial batch drains the backlog while preserving retained history');
 
 select * from finish();
 rollback;

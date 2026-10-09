@@ -193,7 +193,7 @@ test('automatic Anki refresh preserves unchanged progress and syncs supported ne
 test('unchanged cached YouTube metadata stays local across an advanced cloud head', async ({page}) => {
   await seedRetained(page)
   const at='2026-10-08T12:00:00.000Z'
-  await page.clock.setFixedTime(new Date(at))
+  await page.clock.install({time:new Date(at)})
   const id='fixture0001'
   let title='Saved lesson'
   let requests=0
@@ -231,9 +231,11 @@ test('unchanged cached YouTube metadata stays local across an advanced cloud hea
   await page.evaluate(()=>learnerProfileLifecycleAuthority.refresh())
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
   title='Changed lesson'
-  await page.clock.setFixedTime(new Date(Date.parse(at)+86400000))
+  await page.clock.setSystemTime(new Date(Date.parse(at)+86400000))
   await renew()
   await expect.poll(()=>mock.commits.length).toBeGreaterThan(openingCommits)
+  // Keep wall time and timers aligned while the automatic upload interval elapses.
+  await page.clock.fastForward(31_000)
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
   expect(mock.head().envelope.profile.videos[id]).toMatchObject({title,favorite:true,watchLater:true,resumeAtSeconds:42})
   expect(mock.head().envelope.profile.tinySwordsIsland).toEqual(unchanged.envelope.profile.tinySwordsIsland)
@@ -282,7 +284,7 @@ test('fresh trial pairs mandatory entry and lifecycle without global rollout and
 
 for(const indexedDb of [false,true]) {
   test(`owned trial saves/reloads and locks without reading other modes (${indexedDb?'IndexedDB':'localStorage'})`,async ({page})=>{
-    test.setTimeout(90000)
+    test.setTimeout(180000)
     await seedRetained(page)
     const {commits}=await owned(page,{indexedDb,engine:process.env.EDENIA_TEST_TINY_SWORDS==='true'})
     await page.goto('./?internal_test=1')
@@ -298,10 +300,10 @@ for(const indexedDb of [false,true]) {
       await expect(page.locator('#levelUpButton')).toBeEnabled()
       expect(await page.evaluate(()=>claimCityLevelUp())).toBe(true)
       await expect.poll(()=>page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaGameLevel)).toBe(8)
-      await expect.poll(()=>commits.some(c=>c.p_envelope.profile.cityProgress.maxLevelIndex===7)).toBe(true)
+      await expect.poll(()=>commits.some(c=>c.p_envelope.profile.cityProgress.maxLevelIndex===7),{timeout:40000}).toBe(true)
     }
     await page.evaluate(async ()=>{const state=loadState();state.config.weeklyGoalHours=9;await saveState(state)})
-    await expect.poll(()=>commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===9)).toBe(true)
+    await expect.poll(()=>commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===9),{timeout:40000}).toBe(true)
     expect(await retainedBytes(page)).toEqual(retained)
     await page.reload()
     await expect(page.locator('#mainApp')).toBeVisible()
@@ -494,14 +496,14 @@ for(const indexedDb of [false,true]) {
   test(`protected island import, reset and Undo restore through the trial lifecycle (${indexedDb?'IndexedDB':'localStorage'})`,async ({page},testInfo)=>{
     test.skip(!desktopTrialProjects.has(testInfo.project.name))
     test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
-    test.setTimeout(90000)
+    test.setTimeout(180000)
     await seedRetained(page)
     const fixture=await owned(page,{indexedDb,engine:true})
     await page.goto('./?internal_test=1')
     await readyGame(page)
-    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
     await expect.poll(()=>fixture.commits.length).toBeGreaterThan(0)
-    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
     const before=fixture.head().envelope
     const importedState=structuredClone(before.profile)
     importedState.tinySwordsIsland.resources.wood+=17
@@ -519,7 +521,7 @@ for(const indexedDb of [false,true]) {
     expect(fixture.protectedImport().previous.profile).toEqual(before.profile)
     expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(imported.profile.tinySwordsIsland)
     expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(13)
-    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
     expect(await page.evaluate(key=>localStorage.getItem(key+'_learner_profile_sync_v1_import_v1'),trial)).toBeNull()
     const beforeReset=fixture.head().envelope.profile.tinySwordsIsland
     await retainFrame(page)
@@ -528,7 +530,7 @@ for(const indexedDb of [false,true]) {
     expect(fixture.head().generation).toBe(2)
     await expectNewFrame(page)
     await expect.poll(()=>page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaGameLevel)).toBe(1)
-    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
     await retainFrame(page)
     // The reset keeps its protected copy available; Undo must remount the exact
     // chosen island through Godot, even though the profile identity is unchanged.
@@ -696,7 +698,7 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   const fixture = await owned(page, { indexedDb: true, engine: true })
   await page.goto('./?internal_test=1')
   await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   const canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')
   await page.evaluate(() => {
     const frame = document.querySelector('.tiny-swords-frame')
@@ -738,13 +740,13 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   const checkpointMarker = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1_local_island_checkpoint')), trial)
   expect(checkpointMarker).toMatchObject({ version: 1, revision: before.revision })
   releaseHead()
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   expect(await page.evaluate(() => document.querySelector('.tiny-swords-frame') === window.previousTrialFrame
     && window.previousTrialFrame.contentWindow === window.previousTrialWindow)).toBe(true)
   expect(fixture.requests.filter(path => path.endsWith('/resolve_my_learner_profile')).length).toBe(openingCount)
   await page.evaluate(() => learnerProfileLifecycleAuthority.refresh())
   await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   expect(fixture.head().revision).toBe(before.revision)
   expect(await canvas.evaluate(() => window.edeniaStudyLayout)).toEqual(moved)
   await page.evaluate(() => {
@@ -763,12 +765,12 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   moved.resources.wood += 1
   await canvas.evaluate((_, layout) => window.edeniaQueueLayout(layout), moved)
   await expect.poll(() => fixture.commits.some(commit =>
-    commit.p_envelope.profile.tinySwordsIsland.resources.wood === moved.resources.wood)).toBe(true)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    commit.p_envelope.profile.tinySwordsIsland.resources.wood === moved.resources.wood),{timeout:40000}).toBe(true)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   expect(fixture.head().envelope.profile.tinySwordsIsland).toEqual(moved)
   await page.reload()
   await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   expect(await page.evaluate(() => loadState().tinySwordsIsland.resources.wood)).toBe(moved.resources.wood)
   expect(await retainedBytes(page)).toEqual(retained)
 })

@@ -4,17 +4,27 @@ on:
   schedule:
     - cron: '17 4 * * 0'
   workflow_dispatch:
+    inputs:
+      recover_capacity:
+        description: 'Apply the reviewed 100-version batch migration and reclaim profile table space for the October 9 capacity incident'
+        type: boolean
+        default: false
+      inspect_rewrite:
+        description: 'Inspect physical rewrite progress without changing data or retention configuration'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   actions: write
 
 concurrency:
-  group: learner-profile-disaster-backup
+  group: ${{ inputs.inspect_rewrite && 'learner-profile-rewrite-inspection' || 'learner-profile-disaster-backup' }}
   cancel-in-progress: false
 
 jobs:
   backup:
+    if: ${{ !inputs.recover_capacity && !inputs.inspect_rewrite }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -151,7 +161,130 @@ jobs:
               echo '::warning::Learner profile database usage reached the configured warning threshold.'
               ;;
             pause)
-              echo '::error::Learner profile maintenance paused at the configured capacity threshold.'
+              echo '::error::Learner profile database usage remains above the configured capacity threshold; inspect allocated disk space after retention.'
               exit 1
               ;;
           esac
+
+  capacity-recovery:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.recover_capacity && !inputs.inspect_rewrite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGCONNECT_TIMEOUT: '15'
+      PGOPTIONS: '-c lock_timeout=5s -c statement_timeout=180s'
+    steps:
+      - name: Checkout reviewed recovery source
+        uses: actions/checkout@v4
+      - name: Drain the Free backlog through one direct database session
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          migration = Path('supabase/migrations/20261009152958_tune_free_retention_batch_size.sql').read_text()
+          delimiter = '$edenia_retention_migration$'
+          assert delimiter not in migration
+          sql = 'begin;\n' + migration
+          sql += "\ninsert into supabase_migrations.schema_migrations (version, name, statements) values ('20261009152958', 'tune_free_retention_batch_size', array[" + delimiter + migration + delimiter + "]::text[]) on conflict (version) do nothing;\n"
+          sql += "select cron.alter_job(jobid, active := false) from cron.job where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
+          recovery_migration = Path('supabase/migrations/20261009172000_bound_free_recovery_batches.sql').read_text()
+          sql += 'begin;\n' + recovery_migration
+          sql += "\ninsert into supabase_migrations.schema_migrations (version, name, statements) values ('20261009172000', 'bound_free_recovery_batches', array[" + delimiter + recovery_migration + delimiter + " ]::text[]) on conflict (version) do nothing;\ncommit;\n"
+          source = Path('supabase/migrations/20261009150230_reduce_write_amplification_and_restore_retention.sql').read_text()
+          start = source.index('  protected_version_ids as (')
+          end = source.index('  version_metrics as (', start)
+          protected = source[start:end].strip().rstrip(',').replace('p_owner_id', 'null::uuid')
+          sql += 'create temporary table retention_protected_before as with ' + protected
+          sql += ' select version.id, version.payload_sha256 from protected_version_ids protected join public.learner_profile_versions version on version.id = protected.version_id and version.user_id = protected.user_id;\n'
+          sql += "select private.record_learner_profile_capacity_check();\nset edenia.retention_batch_limit = '5';\n"
+          sql += r'\set has_backlog true' + '\n'
+          for _ in range(400):
+              sql += r"""
+          \if :has_backlog
+          select status = 'applied' as applied, deleted_ordinary_versions as deleted,
+            ordinary_prunable_version_count as remaining,
+            ordinary_prunable_version_count > 0 as has_backlog
+          from private.run_learner_profile_maintenance(null, true)
+          \gset
+          \if :applied
+          \echo Retention deleted=:deleted remaining=:remaining
+          \else
+          do $$ begin raise exception 'Capacity recovery check failed'; end $$;
+          \endif
+          \endif
+          """
+          sql += r"""
+          \if :has_backlog
+          do $$ begin raise exception 'Capacity recovery check failed'; end $$;
+          \endif
+          -- Copy only the retained set after draining; copying the backlog itself
+          -- exhausted the Free project's memory and compaction time budget.
+          select pid, usename, state, backend_xmin, clock_timestamp() - xact_start as transaction_age
+          from pg_stat_activity where backend_xmin is not null and pid <> pg_backend_pid();
+          select slot_name, slot_type, active, xmin, catalog_xmin,
+            pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) as retained_wal_bytes
+          from pg_replication_slots;
+          set statement_timeout = '1800s';
+          VACUUM (FULL, ANALYZE) public.learner_profile_versions;
+          set statement_timeout = '180s';
+          select count(*) = count(version.id)
+            and bool_and(version.payload_sha256 = baseline.payload_sha256) as protected_intact
+          from retention_protected_before baseline
+          left join public.learner_profile_versions version on version.id = baseline.id
+          \gset
+          \if :protected_intact
+          \echo Protected versions retained with unchanged hashes
+          \else
+          do $$ begin raise exception 'Capacity recovery check failed'; end $$;
+          \endif
+          select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';
+          select capacity_status, database_size_bytes, version_count,
+            protected_version_count, ordinary_prunable_version_count
+          from private.record_learner_profile_capacity_check();
+          """
+          Path(os.environ['RUNNER_TEMP'], 'edenia-capacity-recovery.sql').write_text(sql)
+          PY
+          # Report physical rewrite progress without opening a management session
+          # that initializes table grants while VACUUM holds its exclusive lock.
+          (
+            while sleep 30; do
+              psql "$SUPABASE_DB_URL" --csv --variable ON_ERROR_STOP=1 \
+                --command "select command, phase, heap_blks_total, heap_blks_scanned, heap_tuples_scanned, heap_tuples_written from pg_stat_progress_cluster where datname = current_database();" \
+                || echo 'Rewrite progress temporarily unavailable'
+            done
+          ) &
+          progress_pid=$!
+          trap 'kill "$progress_pid" 2>/dev/null || true' EXIT
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
+            --file "$RUNNER_TEMP/edenia-capacity-recovery.sql"
+      - name: Restore scheduled retention after recovery
+        if: always()
+        shell: bash
+        run: |
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
+            --command "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';"
+
+  rewrite-inspection:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.inspect_rewrite && !inputs.recover_capacity }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGCONNECT_TIMEOUT: '60'
+      PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=60s'
+    steps:
+      - name: Inspect active rewrite and waits
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" --csv --variable ON_ERROR_STOP=1 \
+            --command "select progress.command, progress.phase, progress.heap_blks_total,
+              progress.heap_blks_scanned, progress.heap_tuples_scanned,
+              progress.heap_tuples_written, activity.wait_event_type, activity.wait_event
+              from pg_stat_progress_cluster progress
+              join pg_stat_activity activity using (pid)
+              where progress.datname = current_database();"

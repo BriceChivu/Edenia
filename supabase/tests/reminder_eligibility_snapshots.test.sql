@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(39);
+select plan(42);
 
 select has_table(
   'public',
@@ -155,6 +155,52 @@ select lives_ok(
   ),
   'user A can atomically sync their own derived snapshot'
 );
+reset role;
+create temporary table reminder_tuple_before as
+select 'snapshot'::text as kind, ctid::text as tuple_id from public.reminder_eligibility_snapshots
+where user_id = '11111111-1111-4111-8111-111111111111'
+union all
+select channel_id, ctid::text from public.reminder_channel_follows
+where user_id = '11111111-1111-4111-8111-111111111111';
+grant select on reminder_tuple_before to authenticated;
+set local role authenticated;
+select public.sync_my_reminder_eligibility_snapshot(jsonb_build_object(
+  'timezone', 'UTC', 'locale', 'en', 'learningLanguage', 'mandarin',
+  'studyDate', current_date::text, 'pointsToday', 4,
+  'lastQualifiedStudyDate', (current_date - 1)::text, 'currentStreakDays', 6,
+  'channels', jsonb_build_array(
+    jsonb_build_object('channelId', 'UCaaaaaaaaaaaaaaaaaaaaaa', 'channelName', 'Channel A',
+      'latestVideoId', 'aaaaaaaaaaa', 'latestVideoTitle', 'New lesson',
+      'latestVideoPublishedAt', (select latest_video_published_at::text from public.reminder_channel_follows where channel_id = 'UCaaaaaaaaaaaaaaaaaaaaaa'),
+      'streakVideoId', 'bbbbbbbbbbb', 'streakVideoTitle', 'Unwatched lesson',
+      'streakVideoPublishedAt', (select streak_video_published_at::text from public.reminder_channel_follows where channel_id = 'UCaaaaaaaaaaaaaaaaaaaaaa')),
+    jsonb_build_object('channelId', 'UCbbbbbbbbbbbbbbbbbbbbbb', 'channelName', 'Channel B',
+      'latestVideoId', null, 'latestVideoTitle', null, 'latestVideoPublishedAt', null))));
+select results_eq(
+  $$select ctid::text from public.reminder_eligibility_snapshots$$,
+  $$select tuple_id from reminder_tuple_before where kind = 'snapshot'$$,
+  'identical eligibility facts do not rewrite the snapshot tuple');
+select results_eq(
+  $$select channel_id, ctid::text from public.reminder_channel_follows order by channel_id$$,
+  $$select kind, tuple_id from reminder_tuple_before where kind <> 'snapshot' order by kind$$,
+  'identical channel facts do not delete or rewrite channel tuples');
+reset role;
+update public.reminder_eligibility_snapshots set updated_at = now() - interval '2 days'
+where user_id = '11111111-1111-4111-8111-111111111111';
+set local role authenticated;
+-- A fresh identical call still updates a stale owner's eligibility timestamp.
+select public.sync_my_reminder_eligibility_snapshot(jsonb_build_object(
+  'timezone', 'UTC', 'locale', 'en', 'learningLanguage', 'mandarin',
+  'studyDate', current_date::text, 'pointsToday', 4,
+  'lastQualifiedStudyDate', (current_date - 1)::text, 'currentStreakDays', 6,
+  'channels', (select jsonb_agg(jsonb_build_object(
+    'channelId', channel_id, 'channelName', channel_name,
+    'latestVideoId', latest_video_id, 'latestVideoTitle', latest_video_title,
+    'latestVideoPublishedAt', latest_video_published_at,
+    'streakVideoId', streak_video_id, 'streakVideoTitle', streak_video_title,
+    'streakVideoPublishedAt', streak_video_published_at)) from public.reminder_channel_follows)));
+select ok((select updated_at > now() - interval '1 day' from public.reminder_eligibility_snapshots),
+  'unchanged eligibility receives a bounded daily freshness refresh');
 select results_eq(
   $$select count(*) from public.reminder_eligibility_snapshots$$,
   array[1::bigint],
