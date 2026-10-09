@@ -138,7 +138,9 @@
       "name": "Crystal Celadelle",
       "thumbnailUrl": "https://yt3.ggpht.com/adQ5sOtuH7CCkCI_RdplfOISLhjCDIAG3p53z6YhLYfT-cFgmSLVvwm4vBQ2_Uj0iQQJMDRDBg=s800-c-k-c0x00ffffff-no-rj",
       "languages": [],
-      "levels": [],
+      "levels": [
+        "advanced"
+      ],
       "style": "",
       "description": "",
       "aliases": [],
@@ -146,15 +148,16 @@
       "privacyStatus": "public",
       "publishedAt": "2025-09-12T09:14:39.310284Z",
       "metadataRefreshedAt": "2026-09-13T07:39:48.330Z",
-      "addCount": 1,
-      "distinctUserCount": 1,
+      "addCount": 2,
+      "distinctUserCount": 2,
       "firstSeenAt": "2026-08-13T13:49:11.845Z",
-      "lastSeenAt": "2026-08-13T13:49:11.845Z",
+      "lastSeenAt": "2026-10-08T14:48:11.424Z",
       "sources": [
-        "direct_input"
+        "direct_input",
+        "youtube_search"
       ],
       "reviewReasons": [],
-      "searchText": "crystal celadelle celadelle"
+      "searchText": "crystal celadelle celadelle advanced"
     },
     {
       "catalogId": "community-UCcjhYlL1WRBjKaJsMH_h7Lg",
@@ -623,6 +626,33 @@
       "searchText": "montreux comedy montreuxcomedy advanced"
     },
     {
+      "catalogId": "community-UCCPYSMEnbeepGM7RU6qxyUA",
+      "channelId": "UCCPYSMEnbeepGM7RU6qxyUA",
+      "handle": "@muse_family",
+      "name": "Muse木棉花-闔家歡",
+      "thumbnailUrl": "https://yt3.ggpht.com/1ThkuXxJDb0At1IowPYh-wffQIzjnndkpgpDaJxClfLFkidfFeiXHuuadMKuzCseMqoLU6O5=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "advanced"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-04-15T06:56:16Z",
+      "metadataRefreshedAt": "2026-10-09T09:39:13.844Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-10-08T15:14:09.480Z",
+      "lastSeenAt": "2026-10-08T15:14:09.480Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "muse木棉花 闔家歡 muse family advanced"
+    },
+    {
       "catalogId": "community-UCIYAzXc6_EkPU6I9qmNSD0g",
       "channelId": "UCIYAzXc6_EkPU6I9qmNSD0g",
       "handle": "@stellatuan.chinese",
@@ -997,10 +1027,10 @@
       "privacyStatus": "public",
       "publishedAt": "2016-08-22T22:54:57Z",
       "metadataRefreshedAt": "2026-10-06T09:26:02.025Z",
-      "addCount": 2,
-      "distinctUserCount": 2,
+      "addCount": 3,
+      "distinctUserCount": 3,
       "firstSeenAt": "2026-08-06T06:16:08.001Z",
-      "lastSeenAt": "2026-10-08T09:23:30.951Z",
+      "lastSeenAt": "2026-10-08T14:48:24.089Z",
       "sources": [
         "direct_input",
         "youtube_search"
@@ -1009,5 +1039,5 @@
       "searchText": "雷堤娜 tyna krysjensen86 advanced"
     }
   ],
-  "generatedAt": "2026-10-08T09:29:37.986Z"
+  "generatedAt": "2026-10-09T09:39:13.844Z"
 }
