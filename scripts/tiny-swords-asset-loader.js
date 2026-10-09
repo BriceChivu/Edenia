@@ -35,7 +35,9 @@
       return await Promise.race([
         operation(),
         new Promise((_, reject) => {
-          timer = setTimeout(() => { abort(); reject(new AssetTimeout()) }, inactivityMs)
+          // Settle the deadline first: native fetch rejects synchronously on
+          // abort, and its generic AbortError must not hide a terminal timeout.
+          timer = setTimeout(() => { reject(new AssetTimeout()); abort() }, inactivityMs)
         })
       ])
     } finally { clearTimeout(timer) }

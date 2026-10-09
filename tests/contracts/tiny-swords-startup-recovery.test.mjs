@@ -56,7 +56,9 @@ async function loaderHarness(mode, { fallbackStalls = false, fetchStalls = false
     Worker, URL, ReadableStream, Response, Uint8Array, AbortController, ...clock,
     fetch: async (url, options) => {
       fetches.push(String(url)); options?.signal?.addEventListener('abort', () => aborted.push(true))
-      if (fetchStalls) return new Promise(() => {})
+      if (fetchStalls) return new Promise((_, reject) => {
+        options.signal.addEventListener('abort', () => reject(new Error('Synthetic browser abort')))
+      })
       if (fallbackStalls) return new Response(new ReadableStream({ pull() { return new Promise(() => {}) } }))
       return new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'application/wasm' } })
     } }
