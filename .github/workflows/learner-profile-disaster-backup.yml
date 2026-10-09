@@ -186,15 +186,19 @@ jobs:
           assert delimiter not in migration
           sql = 'begin;\n' + migration
           sql += "\ninsert into supabase_migrations.schema_migrations (version, name, statements) values ('20261009152958', 'tune_free_retention_batch_size', array[" + delimiter + migration + delimiter + "]::text[]) on conflict (version) do nothing;\n"
-          sql += "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
+          sql += "select cron.alter_job(jobid, active := false) from cron.job where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
+          recovery_migration = Path('supabase/migrations/20261009172000_bound_free_recovery_batches.sql').read_text()
+          sql += 'begin;\n' + recovery_migration
+          sql += "\ninsert into supabase_migrations.schema_migrations (version, name, statements) values ('20261009172000', 'bound_free_recovery_batches', array[" + delimiter + recovery_migration + delimiter + " ]::text[]) on conflict (version) do nothing;\ncommit;\n"
           source = Path('supabase/migrations/20261009150230_reduce_write_amplification_and_restore_retention.sql').read_text()
           start = source.index('  protected_version_ids as (')
           end = source.index('  version_metrics as (', start)
           protected = source[start:end].strip().rstrip(',').replace('p_owner_id', 'null::uuid')
           sql += 'create temporary table retention_protected_before as with ' + protected
           sql += ' select version.id, version.payload_sha256 from protected_version_ids protected join public.learner_profile_versions version on version.id = protected.version_id and version.user_id = protected.user_id;\n'
+          sql += "select private.record_learner_profile_capacity_check();\nset edenia.retention_batch_limit = '5';\n"
           sql += r'\set has_backlog true' + '\n'
-          for _ in range(20):
+          for _ in range(400):
               sql += r"""
           \if :has_backlog
           select status = 'applied' as applied, deleted_ordinary_versions as deleted,
@@ -237,3 +241,9 @@ jobs:
           PY
           psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
             --file "$RUNNER_TEMP/edenia-capacity-recovery.sql"
+      - name: Restore scheduled retention after recovery
+        if: always()
+        shell: bash
+        run: |
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
+            --command "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';"

@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(39);
+select plan(40);
 
 select has_table(
   'private',
@@ -915,6 +915,7 @@ select results_eq(
 );
 
 -- A backlog must drain in small transactions even for a single large profile.
+set local edenia.retention_batch_limit = '500';
 insert into public.learner_profile_versions (
   id, user_id, profile_id, generation, revision, base_revision,
   envelope, payload_sha256, payload_bytes, created_at
@@ -930,16 +931,24 @@ select results_eq(
   $$select deleted_ordinary_versions, ordinary_prunable_version_count
     from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
   $$values (100::bigint, 110::bigint)$$,
-  'a large backlog prunes at most one hundred ordinary versions per transaction');
+  'a session cannot raise the one-hundred-version transaction cap');
+reset edenia.retention_batch_limit;
 select results_eq(
   $$select deleted_ordinary_versions, ordinary_prunable_version_count
     from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
   $$values (100::bigint, 10::bigint)$$,
   'a second bounded batch makes progress without exceeding the batch limit');
+set local edenia.retention_batch_limit = '5';
 select results_eq(
   $$select deleted_ordinary_versions, ordinary_prunable_version_count
     from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
-  $$values (10::bigint, 0::bigint)$$,
+  $$values (5::bigint, 5::bigint)$$,
+  'a recovery session can lower the batch size without changing normal retention');
+reset edenia.retention_batch_limit;
+select results_eq(
+  $$select deleted_ordinary_versions, ordinary_prunable_version_count
+    from private.run_learner_profile_maintenance('11111111-1111-4111-8111-111111111111', true)$$,
+  $$values (5::bigint, 0::bigint)$$,
   'the final partial batch drains the backlog while preserving retained history');
 
 select * from finish();
