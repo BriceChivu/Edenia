@@ -753,9 +753,7 @@ async function expectQuietProfileOpening(page, expectedState, storedState) {
   await expect(page.locator('#onboardingPanel')).toBeHidden()
   await expect(page.locator('#learnerProfileOpeningNotice'))
     .not.toHaveClass(/hidden/)
-  await expect(page.locator('#learnerProfileOpeningProtection')).toHaveText(
-    'Private learner content stays hidden until the active profile is ready.'
-  )
+  await expect(page.locator('#learnerProfileOpeningProtection')).toHaveCount(0)
   await expect(page.locator('#learnerProfileOpeningStatus')).toHaveText(
     'Getting your progress ready…'
   )

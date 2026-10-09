@@ -321,9 +321,7 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
     )
     await expect(page.locator('#learnerProfileOpeningNotice'))
       .not.toHaveClass(/hidden/)
-    await expect(page.locator('#learnerProfileOpeningProtection')).toHaveText(
-      'Private learner content stays hidden until the active profile is ready.'
-    )
+    await expect(page.locator('#learnerProfileOpeningProtection')).toHaveCount(0)
     await expect(page.locator('#learnerProfileOpeningStatus')).toHaveText(
       'Getting your progress ready…'
     )

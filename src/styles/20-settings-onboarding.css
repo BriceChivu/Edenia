@@ -82,10 +82,6 @@ body[data-theme="dark"] .legacy-progress-migration {
   z-index: 310;
 }
 .learner-profile-opening-notice p { margin: 0; }
-.learner-profile-opening-protection {
-  font-size: 0.92rem;
-  line-height: 1.5;
-}
 .learner-profile-opening-status {
   align-items: center;
   display: flex;
