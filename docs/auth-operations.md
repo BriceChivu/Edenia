@@ -85,6 +85,8 @@ prints only aggregate capacity evidence and physical rewrite progress. The
 one-time compaction has a thirty-minute statement budget. It is disabled for scheduled runs and
 ordinary backup dispatches. Use it only with the incident's successful external
 dump and restore rehearsal already recorded.
+The independent `inspect_rewrite` input reports rewrite counters and wait events
+through a read-only direct connection while recovery holds its table lock.
 
 The retired pixel-town/Pip experiment remains historical material. Its browser
 namespace is retained and unopened. Trial resumption does not authorize public

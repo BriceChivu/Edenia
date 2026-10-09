@@ -9,18 +9,22 @@ on:
         description: 'Apply the reviewed 100-version batch migration and reclaim profile table space for the October 9 capacity incident'
         type: boolean
         default: false
+      inspect_rewrite:
+        description: 'Inspect physical rewrite progress without changing data or retention configuration'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   actions: write
 
 concurrency:
-  group: learner-profile-disaster-backup
+  group: ${{ inputs.inspect_rewrite && 'learner-profile-rewrite-inspection' || 'learner-profile-disaster-backup' }}
   cancel-in-progress: false
 
 jobs:
   backup:
-    if: ${{ !inputs.recover_capacity }}
+    if: ${{ !inputs.recover_capacity && !inputs.inspect_rewrite }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -163,7 +167,7 @@ jobs:
           esac
 
   capacity-recovery:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.recover_capacity }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.recover_capacity && !inputs.inspect_rewrite }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -249,7 +253,8 @@ jobs:
           (
             while sleep 30; do
               psql "$SUPABASE_DB_URL" --csv --variable ON_ERROR_STOP=1 \
-                --command "select command, phase, heap_blks_total, heap_blks_scanned, heap_tuples_scanned, heap_tuples_written from pg_stat_progress_cluster where datname = current_database();"
+                --command "select command, phase, heap_blks_total, heap_blks_scanned, heap_tuples_scanned, heap_tuples_written from pg_stat_progress_cluster where datname = current_database();" \
+                || echo 'Rewrite progress temporarily unavailable'
             done
           ) &
           progress_pid=$!
@@ -262,3 +267,24 @@ jobs:
         run: |
           psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
             --command "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';"
+
+  rewrite-inspection:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.inspect_rewrite && !inputs.recover_capacity }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGCONNECT_TIMEOUT: '60'
+      PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=60s'
+    steps:
+      - name: Inspect active rewrite and waits
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" --csv --variable ON_ERROR_STOP=1 \
+            --command "select progress.command, progress.phase, progress.heap_blks_total,
+              progress.heap_blks_scanned, progress.heap_tuples_scanned,
+              progress.heap_tuples_written, activity.wait_event_type, activity.wait_event
+              from pg_stat_progress_cluster progress
+              join pg_stat_activity activity using (pid)
+              where progress.datname = current_database();"
