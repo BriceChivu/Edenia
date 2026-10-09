@@ -225,7 +225,7 @@ async function signInWithEmailCode(page) {
 }
 
 test('public onboarding uses a temporary draft without creating a learner profile', async ({
-  page, pageDiagnostics
+  page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await installRuntimeConfig(page)
@@ -254,7 +254,7 @@ test('public onboarding uses a temporary draft without creating a learner profil
 
 for (const experienceQuery of ['', '?internal_test=1']) {
 test(`a returning owner activates online, rechecks within bounds, and can sign out everywhere ${experienceQuery || 'retained'}`, async ({
-  page
+  page, pageDiagnostics
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   const storagePrefix = experienceQuery ? 'edenia_v1_auth_trial_v1' : 'edenia_v1'

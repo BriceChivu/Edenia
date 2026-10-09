@@ -65,6 +65,7 @@ export function createLearnerProfileLifecycleAuthority({
   let offlineVerificationExpiresAt = null
   let offlineExpiryTimer = null
   let started = false
+  let pendingLocalSaves = 0
   let backgroundVerification = null
   let backgroundBoundaryTimer = null
   let resolutionId = 0
@@ -961,17 +962,24 @@ export function createLearnerProfileLifecycleAuthority({
     if (!activation) return false
     const { syncCloud = true, ...persistenceOptions } = options
     if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
-    const persisted = localPersistence.save(
-      profile,
-      persistenceOptions,
-      activation
-    )
-    return mapPersistenceResult(persisted, saved => {
-      if (!saved || !getCurrentActivationFor(profile)) return false
-      analytics.profileSaved(profile, { activation })
-      if (syncCloud) enqueueCloudSave(profile, activation)
-      return true
-    })
+    pendingLocalSaves += 1
+    try {
+      const persisted = localPersistence.save(profile, persistenceOptions, activation)
+      const completed = mapPersistenceResult(persisted, saved => {
+        if (!saved || !getCurrentActivationFor(profile)) return false
+        analytics.profileSaved(profile, { activation })
+        if (syncCloud) enqueueCloudSave(profile, activation)
+        return true
+      })
+      if (completed && typeof completed.then === 'function') {
+        return completed.finally(() => { pendingLocalSaves -= 1 })
+      }
+      pendingLocalSaves -= 1
+      return completed
+    } catch (error) {
+      pendingLocalSaves -= 1
+      throw error
+    }
   }
 
   function replaceActiveProfile(profile, options = {}) {
@@ -1893,22 +1901,44 @@ export function createLearnerProfileLifecycleAuthority({
         publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION)
         return false
       }
-      if (result?.status === 'changed') {
-        // Re-open from current durable data at an interaction boundary. Never
-        // install a snapshot captured before learning or an import/reset.
-        const applyAtBoundary = () => {
+      if (['changed', 'reopen'].includes(result?.status)) {
+        // Wait for local transactions (including checkpoints without a dirty
+        // marker) and recheck the head/bookkeeping at the interaction boundary.
+        const scheduleBoundary = () => {
+          backgroundBoundaryTimer = clock.setTimer?.(applyAtBoundary, 1000) ?? null
+        }
+        const applyAtBoundary = async () => {
           backgroundBoundaryTimer = null
           if (!current()) return
-          if (!canApplyRemote()) {
-            backgroundBoundaryTimer = clock.setTimer?.(applyAtBoundary, 1000) ?? null
+          if (pendingLocalSaves || !canApplyRemote()) {
+            scheduleBoundary()
             return
           }
-          evaluate()
+          try {
+            const latest = await cloudPersistence.checkActiveHead({ activation, isCurrent: current })
+            if (!current()) return
+            if (pendingLocalSaves || !canApplyRemote()) {
+              scheduleBoundary()
+              return
+            }
+            if (['changed', 'reopen'].includes(latest?.status)) evaluate()
+            else if (latest?.status === 'waiting-authentication') {
+              releaseActiveProfile()
+              ownerVerification?.clear?.()
+              publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION)
+            } else {
+              onVerificationStateChange(latest?.status === 'waiting' ? 'waiting-check' : 'idle')
+            }
+          } catch {
+            if (current()) onVerificationStateChange('waiting-check')
+          } finally {
+            if (backgroundVerification === request && backgroundBoundaryTimer === null) {
+              backgroundVerification = null
+            }
+          }
         }
-        applyAtBoundary()
-        if (backgroundBoundaryTimer !== null) return true
-      } else if (result?.status === 'reopen') {
-        evaluate()
+        await applyAtBoundary()
+        return true
       }
       if (current()) onVerificationStateChange('idle')
       return true

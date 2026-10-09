@@ -80,6 +80,7 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
     if(path==='/auth/v1/logout'){await route.fulfill({status:204});return}
     if(path==='/auth/v1/token'){await route.fulfill({json:authenticated});return}
     if(path==='/auth/v1/user'){await route.fulfill({json:authenticated.user});return}
+    if(path==='/rest/v1/learner_profile_heads'){await route.fulfill({json:{user_id:authenticated.user.id,...identity()}});return}
     if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await route.fulfill({json:[{status:'profile_ready',created:false,...identity(),envelope}]});return}
     if(path==='/rest/v1/rpc/read_my_latest_learner_profile_reset'){
       await route.fulfill({json:[reset ? {status:reset.status,reset_id:resetId,profile_id:profileId,
@@ -706,6 +707,22 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
   const before = fixture.head()
   const commitCount = fixture.commits.length
+  await retainFrame(page)
+  let releaseHead
+  const headBarrier = new Promise(resolve => { releaseHead = resolve })
+  let checks = 0
+  await page.route(origin + '/rest/v1/learner_profile_heads?**', async route => {
+    checks += 1
+    await headBarrier
+    const head = fixture.head()
+    await route.fulfill({ json: { user_id: owner, profile_id: profileId,
+      generation: head.generation, revision: head.revision } })
+  })
+  const openingCount = fixture.requests.filter(path => path.endsWith('/resolve_my_learner_profile')).length
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect.poll(() => checks).toBe(1)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Checking progress…')
+  await expect(page.locator('#mainApp')).toBeVisible()
   const moved = structuredClone(await page.evaluate(() => loadState().tinySwordsIsland))
   // Use another already valid ground position; Godot still owns restore validity.
   moved.chickens[0] = [544, 272]
@@ -720,6 +737,11 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   expect(sync.queued).toBeNull()
   const checkpointMarker = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1_local_island_checkpoint')), trial)
   expect(checkpointMarker).toMatchObject({ version: 1, revision: before.revision })
+  releaseHead()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(await page.evaluate(() => document.querySelector('.tiny-swords-frame') === window.previousTrialFrame
+    && window.previousTrialFrame.contentWindow === window.previousTrialWindow)).toBe(true)
+  expect(fixture.requests.filter(path => path.endsWith('/resolve_my_learner_profile')).length).toBe(openingCount)
   await page.evaluate(() => learnerProfileLifecycleAuthority.refresh())
   await readyGame(page)
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
@@ -848,3 +870,54 @@ for (const indexedDb of [false, true]) {
     expect(await retainedBytes(page)).toEqual(retained)
   })
 }
+
+test('a changed background head waits for a pending IndexedDB checkpoint at the interaction boundary', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.setTimeout(60000)
+  const fixture = await owned(page, { indexedDb: true, engine: false })
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  let reads = 0
+  await page.route(origin + '/rest/v1/learner_profile_heads?**', route => {
+    const head = fixture.head()
+    reads += 1
+    return route.fulfill({ json: { user_id: owner, profile_id: profileId, generation: head.generation,
+      revision: head.revision + (reads === 1 ? 1 : 0) } })
+  })
+  await page.evaluate(() => {
+    window.boundarySafe = false
+    window.boundaryMain = document.getElementById('mainApp')
+    window.boundaryCheck = learnerProfileLifecycleAuthority.reverify({ canApplyRemote: () => window.boundarySafe })
+  })
+  await expect.poll(() => reads).toBe(1)
+  await page.evaluate(() => {
+    const repository = primaryProfileRepository
+    const originalSave = repository.save
+    const pending = new Promise(resolve => { window.finishBoundarySave = resolve })
+    repository.save = async (state, options) => {
+      repository.save = originalSave
+      await pending
+      return originalSave(state, options)
+    }
+    const state = loadState()
+    state.tinySwordsIsland.chickens[0] = [544, 272]
+    window.boundaryIsland = structuredClone(state.tinySwordsIsland)
+    window.boundarySave = saveState(state, { syncCloud: false, localIslandCheckpoint: true,
+      syncAnalytics: false, backup: false })
+    window.boundarySafe = true
+  })
+  await page.waitForTimeout(1500)
+  expect(reads).toBe(1)
+  expect(await page.evaluate(() => document.getElementById('mainApp') === window.boundaryMain)).toBe(true)
+  await page.evaluate(() => window.finishBoundarySave())
+  expect(await page.evaluate(() => window.boundarySave)).toBe(true)
+  await expect.poll(() => reads).toBe(2)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  expect(await page.evaluate(() => document.getElementById('mainApp') === window.boundaryMain)).toBe(true)
+  const island = await page.evaluate(() => window.boundaryIsland)
+  expect(await page.evaluate(() => loadPersistedState({ persistCleanup: false }).tinySwordsIsland)).toEqual(island)
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  expect(await page.evaluate(() => loadState().tinySwordsIsland)).toEqual(island)
+})

@@ -81,6 +81,7 @@ function createHarness({
   freshLocalProfileReads = false,
   accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
+  localSave = null,
   markDirtyResult = null,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -365,7 +366,7 @@ function createHarness({
         },
         save(profile, options, fence) {
           calls.push(['local-save', profile, options, fence])
-          return true
+          return localSave ? localSave(profile, options, () => currentFence === fence) : true
         },
         subscribe() {
           return () => {}
@@ -4237,8 +4238,8 @@ for (const [experience, createAuthority] of [
   ['current', createLearnerProfileLifecycleAuthority],
   ['retained', (await loadRetainedModule('src/state/learner-profile-lifecycle.js')).createLearnerProfileLifecycleAuthority]
 ]) {
-  function backgroundHarness(check) {
-    return createHarness({ createAuthority,
+  function backgroundHarness(check, options = {}) {
+    return createHarness({ createAuthority, ...options,
       authentication: { status: 'signed-in', userId: 'owner-a' },
       local: { status: 'ready', ownerId: 'owner-a', profileId: 'profile-a', generation: 1, revision: 1,
         profile: { learnerProfile: { languages: ['french'] } } },
@@ -4329,9 +4330,44 @@ for (const [experience, createAuthority] of [
     assert.equal(h.authority.saveActiveProfile(profile), true)
     safe = true
     h.runScheduledTimer()
+    await new Promise(resolve => setImmediate(resolve))
     assert.equal(h.calls.filter(([name]) => name === 'cloud-resolve').length, 2)
     assert.equal(h.calls.filter(([name]) => name === 'cloud-resolve').at(-1)[1].localProfile.profile.videoProgress, 78)
   })
+  for (const syncCloud of [true, false]) {
+    test(`${experience}: a changed head waits for an asynchronous ${syncCloud ? 'study save' : 'island checkpoint'} before rechecking`, async () => {
+      const persistence = deferred()
+      let checks = 0
+      const h = backgroundHarness(() => ({ status: ++checks === 1 ? 'changed' : 'unchanged' }), {
+        localSave: async (_profile, _options, canPersist) => {
+          await persistence.promise
+          return canPersist()
+        }
+      })
+      h.authority.start()
+      await new Promise(resolve => setImmediate(resolve))
+      const state = h.authority.getState()
+      let safe = false
+      await h.authority.reverify({ canApplyRemote: () => safe })
+      const profile = h.authority.readActiveProfile()
+      profile.videoProgress = 81
+      profile.tinySwordsIsland = { checkpoint: 'concurrent' }
+      const save = h.authority.saveActiveProfile(profile, { syncCloud, localIslandCheckpoint: !syncCloud })
+      safe = true
+      h.runScheduledTimer()
+      await new Promise(resolve => setImmediate(resolve))
+      assert.equal(h.authority.getState(), state)
+      assert.equal(checks, 1, 'The pending local transaction keeps its activation fence')
+      persistence.resolve()
+      assert.equal(await save, true)
+      h.runScheduledTimer()
+      await new Promise(resolve => setImmediate(resolve))
+      assert.equal(checks, 2, 'A fresh read reevaluates bookkeeping after local persistence')
+      assert.equal(h.authority.getState(), state)
+      assert.equal(h.authority.readActiveProfile().videoProgress, 81)
+    })
+  }
+
 }
 
 async function loadRetainedModule(path) {
