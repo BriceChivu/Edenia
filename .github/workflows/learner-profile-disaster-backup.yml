@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '17 4 * * 0'
   workflow_dispatch:
+    inputs:
+      recover_capacity:
+        description: 'Apply the reviewed 100-version batch migration and reclaim profile table space for the October 9 capacity incident'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,6 +20,7 @@ concurrency:
 
 jobs:
   backup:
+    if: ${{ !inputs.recover_capacity }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -155,3 +161,46 @@ jobs:
               exit 1
               ;;
           esac
+
+  capacity-recovery:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.recover_capacity }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGCONNECT_TIMEOUT: '15'
+      PGOPTIONS: '-c lock_timeout=5s -c statement_timeout=180s'
+    steps:
+      - name: Checkout reviewed recovery source
+        uses: actions/checkout@v4
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Apply smaller retention batches through the direct database connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --single-transaction \
+            --file supabase/migrations/20261009152958_tune_free_retention_batch_size.sql > /dev/null
+          supabase migration repair 20261009152958 --status applied --db-url "$SUPABASE_DB_URL"
+      - name: Reclaim allocated profile space and drain eligible backlog
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
+            --command 'VACUUM (FULL, ANALYZE) public.learner_profile_versions;'
+          for batch in $(seq 1 20); do
+            result="$(psql "$SUPABASE_DB_URL" -At --variable ON_ERROR_STOP=1 \
+              --command "select status || '|' || deleted_ordinary_versions || '|' || ordinary_prunable_version_count from private.run_learner_profile_maintenance(null, true);")"
+            IFS='|' read -r status deleted remaining <<< "$result"
+            printf 'Retention: status=%s deleted=%s remaining=%s\n' "$status" "$deleted" "$remaining"
+            [[ "$status" == 'applied' && "$remaining" =~ ^[0-9]+$ ]]
+            if [[ "$remaining" == '0' ]]; then break; fi
+          done
+          [[ "$remaining" == '0' ]]
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
+            --command 'VACUUM (FULL, ANALYZE) public.learner_profile_versions;'
+          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --csv \
+            --command 'select capacity_status, database_size_bytes, version_count, protected_version_count, ordinary_prunable_version_count from private.record_learner_profile_capacity_check();'

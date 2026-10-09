@@ -75,7 +75,13 @@ Deletion makes space reusable but may leave allocated relation files large.
 Use normal vacuum first. A one-time `VACUUM FULL public.learner_profile_versions`
 can reclaim allocated space after a backlog, but requires an exclusive lock;
 use a short lock timeout and verify unchanged heads/protected records afterward.
-Recurring full vacuum is not part of the retention schedule.
+Recurring full vacuum is not part of the retention schedule. The disaster-backup
+workflow's explicit `recover_capacity` input is scoped to the October 9 incident:
+it applies the reviewed 100-version batch migration via the existing direct DB
+secret, reclaims allocated profile-table space, drains up to twenty batches and
+prints only aggregate capacity evidence. It is disabled for scheduled runs and
+ordinary backup dispatches. Use it only with the incident's successful external
+dump and restore rehearsal already recorded.
 
 The retired pixel-town/Pip experiment remains historical material. Its browser
 namespace is retained and unopened. Trial resumption does not authorize public
