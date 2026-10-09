@@ -1125,6 +1125,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       ownerVerification
     },
     createActivationId: createLearnerProfileActivationId,
+    onVerificationStateChange: status => learnerProfileSyncView.setVerification(status),
     onStateChange: handleLearnerProfileAccessStateChange
   })
 }
@@ -6392,19 +6393,25 @@ function startLearnerProfileReverification() {
       },
       now: () => Date.now(),
       async reverify() {
-        const access = learnerProfileLifecycleAuthority?.getState()
-        const auth = await accountAuthController?.reverify()
-        if (
-          auth?.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
-          && auth.userId === access?.ownerId
-          && learnerProfileLifecycleAuthority?.getState().status
-            === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
-        ) {
-          if (shouldDeferSettingsSyncRefresh(
-            learnerProfileLifecycleAuthority.getState()
-          )) settingsSyncRefreshDeferred = true
-          else learnerProfileLifecycleAuthority.refresh()
-        }
+        return learnerProfileLifecycleAuthority.reverify({
+          async verifyOwner() {
+            const access = learnerProfileLifecycleAuthority.getState()
+            const auth = await accountAuthController.reverify()
+            return auth?.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+              && auth.userId === access.ownerId
+          },
+          shouldCheckHead() {
+            const deferred = shouldDeferSettingsSyncRefresh(learnerProfileLifecycleAuthority.getState())
+            if (deferred) settingsSyncRefreshDeferred = true
+            return !deferred
+          },
+          canApplyRemote() {
+            const focused = document.activeElement
+            return !activeVideoShelfPlayer && !document.body.classList.contains('video-player-open')
+              && !shouldDeferSettingsSyncRefresh(learnerProfileLifecycleAuthority.getState())
+              && !focused?.matches('iframe, input, textarea, select, [contenteditable="true"]')
+          }
+        })
       }
     })
   learnerProfileReverificationController.start()
@@ -7212,7 +7219,7 @@ function finishSettingsSyncImportInteraction({ refresh = false } = {}) {
     input.value = ''
     input.disabled = false
   }
-  if (refresh && refreshDeferredProfile) learnerProfileLifecycleAuthority.refresh()
+  if (refresh && refreshDeferredProfile) learnerProfileLifecycleAuthority.reverify()
 }
 
 function importSyncFileFromInput(input) {

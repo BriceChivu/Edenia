@@ -76,3 +76,40 @@ test('sync status stays quiet when idle and exposes every pending or failed stat
   assert.equal(guidance.classList.contains('hidden'), true)
   assert.equal(actions.classList.contains('hidden'), true)
 })
+
+test('verification has one quiet delay, cancels stale timers and preserves save-failure guidance', () => {
+  const elements = Object.fromEntries(['learnerProfileSyncActions', 'learnerProfileSyncGuidance',
+    'learnerProfileSyncStatus', 'learnerProfileSyncSettingsStatus'].map(id => [id, element()]))
+  const timers = new Map()
+  let timerId = 0
+  const view = createLearnerProfileSyncView({ root: { getElementById: id => elements[id] },
+    translate: key => key, setTimer(callback, delay) {
+      assert.equal(delay, 2000)
+      timers.set(++timerId, callback)
+      return timerId
+    }, clearTimer: id => timers.delete(id) })
+  const header = elements.learnerProfileSyncStatus
+  view.render({ status: 'up-to-date' })
+  view.setVerification('checking')
+  assert.equal(header.textContent, 'progressSync.upToDate')
+  view.setVerification('checking')
+  view.render({ status: 'up-to-date' })
+  assert.equal(timerId, 1)
+  timers.get(1)()
+  assert.equal(header.textContent, 'progressSync.checking')
+  view.render({ status: 'not-backed-up' })
+  assert.equal(header.textContent, 'progressSync.notBackedUp')
+  assert.equal(elements.learnerProfileSyncActions.classList.contains('hidden'), false)
+  view.setVerification('idle')
+  assert.equal(header.textContent, 'progressSync.notBackedUp')
+  view.render({ status: 'up-to-date' })
+  view.setVerification('checking')
+  view.setVerification('idle')
+  assert.equal(timers.has(2), false)
+  assert.equal(header.textContent, 'progressSync.upToDate')
+  view.setVerification('waiting-check')
+  assert.equal(header.textContent, 'progressSync.checkWaiting')
+  view.setVerification('checking')
+  view.setVerification('idle')
+  assert.equal(header.textContent, 'progressSync.upToDate')
+})

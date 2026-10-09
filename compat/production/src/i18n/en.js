@@ -117,6 +117,8 @@ export const EN_CORE = {
   'onboarding.channelStyle.streetInterviews': 'Street interviews',
   'onboarding.channelStyle.structuredLessons': 'Structured lessons',
   'settings.title': 'Settings',
+  'progressSync.checking': 'Checking progress…',
+  'progressSync.checkWaiting': 'Progress check unavailable — will try again.',
   'progressSync.title': 'Progress sync',
   'progressSync.syncing': 'Syncing…',
   'progressSync.upToDate': 'Up to date',

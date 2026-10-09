@@ -159,6 +159,8 @@ export const FR_LOCALIZED = {
     'onboarding.channelStyle.streetInterviews': 'Interviews de rue',
     'onboarding.channelStyle.structuredLessons': 'Leçons structurées',
     'settings.title': 'Réglages',
+    'progressSync.checking': 'Vérification de la progression…',
+    'progressSync.checkWaiting': 'Vérification indisponible — nouvel essai à venir.',
     'progressSync.title': 'Synchronisation de la progression',
     'progressSync.syncing': 'Synchronisation…',
     'progressSync.upToDate': 'À jour',

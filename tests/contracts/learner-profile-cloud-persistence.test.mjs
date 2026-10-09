@@ -1,3 +1,6 @@
+import { build } from 'esbuild'
+import { resolve } from 'node:path'
+import { createProductionSourceResolver } from '../../scripts/build-production-experience.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { preparePortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
@@ -115,6 +118,8 @@ function emptyPortableProfile(overrides = {}) {
 }
 
 function createAdapter({
+  readHead,
+  createCloudAdapter = createLearnerProfileCloudPersistenceAdapter,
   clearOnboardingDraft,
   createOnboardingEnvelope,
   createOperationId,
@@ -130,7 +135,7 @@ function createAdapter({
   storage,
   verifyEnvelope
 } = {}) {
-  return createLearnerProfileCloudPersistenceAdapter({
+  return createCloudAdapter({
     clearOnboardingDraft: clearOnboardingDraft || (() => true),
     createOnboardingEnvelope: createOnboardingEnvelope || (async () => null),
     createOperationId: createOperationId || (() => crypto.randomUUID()),
@@ -141,6 +146,17 @@ function createAdapter({
       serialized: JSON.stringify(prepared)
     })),
     getClient: () => ({
+      from(table) {
+        assert.equal(table, 'learner_profile_heads')
+        return { select(columns) {
+          assert.equal(columns, 'user_id,profile_id,generation,revision')
+          return { eq(column, owner) {
+            assert.equal(column, 'user_id')
+            assert.equal(owner, OWNER_ID)
+            return { maybeSingle: readHead }
+          } }
+        } }
+      },
       rpc: rpc || (async () => ({
         data: [{
           created: false,
@@ -6911,4 +6927,71 @@ test('an unchanged readable sync record is recoverable regardless of JSON whites
   assert.equal(JSON.parse(f.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
   assert.deepEqual(f.counters(), { oversizeWrites: 0, createdOperations: 0 })
   assert.deepEqual(f.calls, ['resolve_my_learner_profile', 'commit_my_learner_profile'])
+})
+
+for (const [experience, createCloudAdapter] of [
+  ['current', createLearnerProfileCloudPersistenceAdapter],
+  ['retained', (await loadRetainedModule('src/integrations/learner-profile-cloud-persistence.js')).createLearnerProfileCloudPersistenceAdapter]
+]) {
+  for (const outcome of ['matching', 'advanced-local', 'remote-edit', 'remote-reset', 'missing', 'network', 'signout']) {
+    test(`${experience}: read-only background head check handles ${outcome} without opening side effects`, async () => {
+      const record = { acceptedRevision: 3, generation: 1, ownerId: OWNER_ID,
+        pending: null, profileId: PROFILE_ID, queued: null, version: 1 }
+      const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: JSON.stringify(record) })
+      let current = true
+      let finish
+      const barrier = new Promise(resolve => { finish = resolve })
+      const adapter = createAdapter({ storage, createCloudAdapter, readHead: () => barrier,
+        rpc: () => { throw new Error('Background checks must never call the opening RPC') } })
+      const activation = { id: 'active', ownerId: OWNER_ID, profileId: PROFILE_ID }
+      adapter.activate({ activation, generation: 1, revision: 3, profile: {}, isCurrent: () => current })
+      const before = storage.getItem(SYNC_STORAGE_KEY)
+      const pending = adapter.checkActiveHead({ activation, isCurrent: () => current })
+      let head = { user_id: OWNER_ID, profile_id: PROFILE_ID, generation: 1, revision: 3 }
+      if (outcome === 'remote-edit') head.revision = 4
+      if (outcome === 'remote-reset') { head.generation = 2; head.revision = 1 }
+      if (outcome === 'advanced-local') {
+        record.acceptedRevision = 4
+        storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(record))
+      }
+      if (outcome === 'signout') current = false
+      const atCompletion = storage.getItem(SYNC_STORAGE_KEY)
+      finish(outcome === 'network' ? { status: 503, error: {} }
+        : { data: outcome === 'missing' ? null : head, error: null })
+      const result = await pending
+      assert.equal(result.status, ['matching', 'advanced-local'].includes(outcome) ? 'unchanged'
+        : ['remote-edit', 'remote-reset'].includes(outcome) ? 'changed'
+        : outcome === 'missing' ? 'reopen' : outcome === 'network' ? 'waiting' : 'stale')
+      assert.equal(storage.getItem(SYNC_STORAGE_KEY), atCompletion)
+      if (outcome !== 'advanced-local') assert.equal(atCompletion, before)
+    })
+  }
+}
+
+async function loadRetainedModule(path) {
+  const { sourcePath, plugin } = await createProductionSourceResolver(resolve('.'))
+  const result = await build({ entryPoints: [sourcePath(path)], bundle: true, format: 'esm', write: false, plugins: [plugin] })
+  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`)
+}
+
+test('a remote reset seen during local persistence leaves the dirty marker for the existing save path', async () => {
+  const record = { acceptedRevision: 3, generation: 1, ownerId: OWNER_ID,
+    pending: null, profileId: PROFILE_ID, queued: null, version: 1 }
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: JSON.stringify(record) })
+  const profile = { marker: 'original' }
+  let finish
+  const response = new Promise(resolve => { finish = resolve })
+  const adapter = createAdapter({ storage, readHead: () => response,
+    rpc: () => { throw new Error('Local persistence has not finished; no cloud commit is authorized') } })
+  const activation = { id: 'active', ownerId: OWNER_ID, profileId: PROFILE_ID }
+  adapter.activate({ activation, generation: 1, revision: 3, profile, isCurrent: () => true })
+  const pending = adapter.checkActiveHead({ activation, isCurrent: () => true })
+  assert.equal(adapter.markDirty({ activation, isCurrent: () => true }), true)
+  profile.marker = 'new local fact still being persisted'
+  const dirty = storage.getItem(DIRTY_STORAGE_KEY)
+  finish({ data: { user_id: OWNER_ID, profile_id: PROFILE_ID, generation: 2, revision: 1 }, error: null })
+  assert.equal((await pending).status, 'reconciling')
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), dirty)
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+  assert.equal(profile.marker, 'new local fact still being persisted')
 })

@@ -159,6 +159,8 @@ export const ZH_HANS_LOCALIZED = {
     'onboarding.channelStyle.streetInterviews': '街头采访',
     'onboarding.channelStyle.structuredLessons': '系统化课程',
     'settings.title': '设置',
+    'progressSync.checking': '正在检查学习进度…',
+    'progressSync.checkWaiting': '暂时无法检查进度，稍后将重试。',
     'progressSync.title': '进度同步',
     'progressSync.syncing': '正在同步…',
     'progressSync.upToDate': '已是最新',

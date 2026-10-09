@@ -7,6 +7,8 @@ import {
   createPortableLearnerProfileEnvelope
 } from '../../src/state/portable-learner-profile.js'
 
+const backgroundIsland = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json', import.meta.url), 'utf8'))
+
 const SUPABASE_ORIGIN = 'https://first-profile-test.supabase.co'
 // playwright.config.mjs serves the same built site at the fixed Auth return port.
 const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
@@ -223,7 +225,7 @@ async function signInWithEmailCode(page) {
 }
 
 test('public onboarding uses a temporary draft without creating a learner profile', async ({
-  page
+  page, pageDiagnostics
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await installRuntimeConfig(page)
@@ -250,12 +252,19 @@ test('public onboarding uses a temporary draft without creating a learner profil
   })
 })
 
-test('a returning owner activates online, rechecks within bounds, and can sign out everywhere', async ({
+for (const experienceQuery of ['', '?internal_test=1']) {
+test(`a returning owner activates online, rechecks within bounds, and can sign out everywhere ${experienceQuery || 'retained'}`, async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  const storagePrefix = experienceQuery ? 'edenia_v1_auth_trial_v1' : 'edenia_v1'
+  const AUTH_STORAGE_KEY = `${storagePrefix}_plus_auth_v1`
+  const DRAFT_STORAGE_KEY = `${storagePrefix}_onboarding_draft_v1`
+  const STATE_STORAGE_KEY = storagePrefix
+  const PROFILE_ACCESS_STORAGE_KEY = `${storagePrefix}_learner_profile_access_v1`
+  const OWNER_VERIFICATION_STORAGE_KEY = `${storagePrefix}_learner_profile_owner_verification_v1`
   const session = authenticatedSession()
-  const returningEnvelope = await createReturningOwnerEnvelope()
+  let returningEnvelope = await createReturningOwnerEnvelope()
   await page.addInitScript(({
     authKey,
     authenticated,
@@ -278,10 +287,16 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
     authenticated: session,
     draftKey: DRAFT_STORAGE_KEY
   })
-  await installRuntimeConfig(page)
+  await installRuntimeConfig(page, { authTrialEnabled: true, tinySwordsEnabled: false })
   let releaseResolution
   let resolutionCount = 0
   let refreshCount = 0
+  let headCount = 0
+  let headRevision = 12
+  let releaseFocusCheck
+  let releaseSignoutCheck
+  const signoutBarrier = new Promise(resolve => { releaseSignoutCheck = resolve })
+  const focusBarrier = new Promise(resolve => { releaseFocusCheck = resolve })
   const signOutScopes = []
   const resolutionBarrier = new Promise(resolve => {
     releaseResolution = resolve
@@ -292,9 +307,30 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
       resolutionCount += 1
       if (resolutionCount === 1) await resolutionBarrier
       await route.fulfill({
-        json: [returningOwnerResolutionRow(returningEnvelope)],
+        json: [returningOwnerResolutionRow(returningEnvelope, headRevision)],
         status: 200
       })
+      return
+    }
+    if (url.pathname === '/rest/v1/learner_profile_heads') {
+      headCount += 1
+      if (headCount === 1) await focusBarrier
+      if (headCount === 4) await signoutBarrier
+      if (headCount === 2) {
+        await route.fulfill({ json: { message: 'Synthetic temporary outage' }, status: 500 })
+        return
+      }
+      await route.fulfill({ json: { user_id: AUTHENTICATED_USER_ID, profile_id: CREATED_PROFILE_ID,
+        generation: 4, revision: headRevision }, status: 200 })
+      return
+    }
+    if (url.pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+      const request = route.request().postDataJSON()
+      headRevision = request.p_base_revision + 1
+      returningEnvelope = request.p_envelope
+      await route.fulfill({ json: [{ status: 'accepted', profile_id: request.p_profile_id,
+        generation: request.p_generation, base_revision: request.p_base_revision, revision: headRevision,
+        payload_sha256: request.p_envelope.integrity.payloadSha256 }], status: 200 })
       return
     }
     if (url.pathname === '/auth/v1/token') {
@@ -311,7 +347,7 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
   })
 
   try {
-    await page.goto(`${ACCOUNT_RETURN_ORIGIN}/`)
+    await page.goto(`${ACCOUNT_RETURN_ORIGIN}/${experienceQuery}`)
     await expect.poll(() => resolutionCount).toBe(1)
 
     await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
@@ -377,15 +413,78 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
     ])
     expect(activated.verification.ownerId).toBe(AUTHENTICATED_USER_ID)
 
+    await expect.poll(() => page.evaluate(query => [...document.scripts].some(script =>
+      new URL(script.src || location.href).pathname.endsWith(query ? '/app.js' : '/production-app.js')
+    ), experienceQuery)).toBe(true)
+    await page.evaluate(() => {
+      const state = window.loadState()
+      state.videos['background-video'] = { id: 'background-video', channelId: 'returning-owner-channel',
+        title: 'Background lesson', duration: 600, status: 'partial', resumeAtSeconds: 10,
+        watchProgress: [], aspectRatio: 16 / 9 }
+      window.saveState(state)
+      window.renderAll(state)
+      window.playerBuilds = 0
+      window.playerDestroys = 0
+      window.YT = { PlayerState: { ENDED: 0, PLAYING: 1, PAUSED: 2 }, Player: class {
+        constructor(_iframe, options) {
+          window.playerBuilds += 1
+          this.currentTime = 10
+          this.options = options
+          window.syntheticPlayer = this
+          queueMicrotask(() => options.events.onReady?.({ target: this }))
+        }
+        getCurrentTime() { return this.currentTime }
+        getPlayerState() { return 1 }
+        getPlaybackRate() { return 1 }
+        playVideo() { this.options.events.onStateChange?.({ data: 1 }) }
+        seekTo(seconds) { this.currentTime = seconds }
+        destroy() { window.playerDestroys += 1 }
+      } }
+      window.openVideoPlayer('background-video')
+    })
+    await expect(page.locator('.video-player-overlay iframe')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => window.playerBuilds)).toBe(1)
+    await page.evaluate(accessKey => {
+      window.backgroundMain = document.getElementById('mainApp')
+      window.backgroundFocus = document.querySelector('.video-player-overlay')
+      window.backgroundIframe = document.querySelector('.video-player-overlay iframe')
+      window.backgroundFocus.focus()
+      window.backgroundScroll = window.scrollY
+      window.backgroundAccess = localStorage.getItem(accessKey)
+    }, PROFILE_ACCESS_STORAGE_KEY)
     const resolutionAfterActivation = resolutionCount
     await page.evaluate(() => {
       window.dispatchEvent(new Event('focus'))
       window.dispatchEvent(new Event('focus'))
     })
     await expect.poll(() => refreshCount).toBe(1)
-    await expect.poll(() => resolutionCount).toBe(
-      resolutionAfterActivation + 1
-    )
+    await expect.poll(() => headCount).toBe(1)
+    expect(resolutionCount).toBe(resolutionAfterActivation)
+    await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Checking progress…')
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Checking progress…')
+    await expect(page.locator('#learnerProfileOpeningNotice')).toHaveClass(/hidden/)
+    expect(await page.evaluate(accessKey => ({
+      main: window.backgroundMain === document.getElementById('mainApp'),
+      focus: document.activeElement === window.backgroundFocus,
+      scroll: window.scrollY === window.backgroundScroll,
+      activation: localStorage.getItem(accessKey) === window.backgroundAccess
+    }), PROFILE_ACCESS_STORAGE_KEY)).toEqual({ main: true, focus: true, scroll: true, activation: true })
+    if (experienceQuery) {
+      await page.evaluate(island => {
+        const state = window.loadState()
+        state.tinySwordsIsland = island
+        return window.saveState(state, { syncCloud: false, localIslandCheckpoint: true,
+          backup: false, syncAnalytics: false })
+      }, backgroundIsland)
+    }
+    await page.evaluate(() => { window.syntheticPlayer.currentTime = 42 })
+    await expect.poll(() => page.evaluate(() => window.loadState().videos['background-video'].resumeAtSeconds),
+      { timeout: 10000 }).toBe(42)
+    expect(await page.evaluate(() => ({ iframe: window.backgroundIframe === document.querySelector('.video-player-overlay iframe'),
+      builds: window.playerBuilds, destroys: window.playerDestroys }))).toEqual({ iframe: true, builds: 1, destroys: 0 })
+    releaseFocusCheck()
+    await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Checking progress…')
     await page.waitForTimeout(100)
     expect(refreshCount).toBe(1)
 
@@ -396,10 +495,27 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
       window.dispatchEvent(new Event('online'))
     })
     await expect.poll(() => refreshCount).toBe(2)
-    await expect.poll(() => resolutionCount).toBe(resolutionAfterFocus + 1)
+    await expect.poll(() => headCount).toBe(2)
+    expect(resolutionCount).toBe(resolutionAfterFocus)
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Progress check unavailable — will try again.')
+    await page.evaluate(() => { window.dispatchEvent(new Event('offline')); window.dispatchEvent(new Event('online')) })
+    await expect.poll(() => headCount).toBe(3)
+    await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Progress check unavailable — will try again.')
 
+    await page.evaluate(() => { window.syntheticPlayer.currentTime = 43 })
+    await page.waitForTimeout(1100)
+    await page.locator('.video-player-overlay').click({ position: { x: 2, y: 2 } })
+    await page.reload()
+    await expect(page.locator('#mainApp')).toBeVisible()
+    expect(await page.evaluate(() => window.loadState().videos['background-video'].resumeAtSeconds)).toBe(43)
+    expect(await page.evaluate(() => window.loadState().videos['background-video'].watchProgress.length)).toBe(1)
+    if (experienceQuery) expect(await page.evaluate(() => window.loadState().tinySwordsIsland)).toEqual(backgroundIsland)
     await page.locator('.gear-btn').click()
     await page.getByRole('button', { name: 'Account' }).click()
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect.poll(() => headCount).toBe(4)
+    const latestSerialized = await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY)
     await page.getByRole('button', { name: 'Sign out everywhere' }).click()
     await expect(page.locator('html')).toHaveAttribute(
       'data-learner-profile-access-state',
@@ -409,6 +525,8 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
       'Welcome back — sign in to continue your town.'
     )
     await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
+    releaseSignoutCheck()
+    await expect(page.locator('#mainApp')).toHaveCount(0)
     await expect.poll(() => signOutScopes).toEqual(['global'])
     const signedOutStorage = await page.evaluate(({
       stateKey,
@@ -420,14 +538,17 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
       stateKey: STATE_STORAGE_KEY,
       verificationKey: OWNER_VERIFICATION_STORAGE_KEY
     })
-    expect(signedOutStorage).toEqual({
-      state: activated.stateSerialized,
-      verification: null
-    })
+    expect(signedOutStorage).toEqual({ state: latestSerialized, verification: null })
+    expect(pageDiagnostics.length).toBeGreaterThan(0)
+    expect(pageDiagnostics.every(message => message === 'console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)')).toBe(true)
+    pageDiagnostics.length = 0
   } finally {
+    releaseSignoutCheck()
+    releaseFocusCheck()
     releaseResolution()
   }
 })
+}
 
 const startOverRestoreCases = [{
   name: 'an expired reset reopens an empty town without onboarding or Undo',

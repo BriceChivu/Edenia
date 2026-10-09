@@ -118,6 +118,8 @@ export const ES_LOCALIZED = {
     'onboarding.channelStyle.streetInterviews': 'Entrevistas callejeras',
     'onboarding.channelStyle.structuredLessons': 'Lecciones estructuradas',
     'settings.title': 'Ajustes',
+    'progressSync.checking': 'Comprobando el progreso…',
+    'progressSync.checkWaiting': 'Comprobación no disponible — se volverá a intentar.',
     'progressSync.title': 'Sincronización del progreso',
     'progressSync.syncing': 'Sincronizando…',
     'progressSync.upToDate': 'Actualizado',

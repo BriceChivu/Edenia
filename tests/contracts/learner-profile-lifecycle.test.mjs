@@ -1,3 +1,6 @@
+import { build } from 'esbuild'
+import { resolve } from 'node:path'
+import { createProductionSourceResolver } from '../../scripts/build-production-experience.mjs'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
@@ -53,6 +56,8 @@ function createHarness({
     ownerId: null
   },
   claimActivationResult = true,
+  cloudHeadCheck = { status: 'unchanged' },
+  createAuthority = createLearnerProfileLifecycleAuthority,
   cloudChoice = { status: 'recovering' },
   cloudProtectedReset = undefined,
   cloudResetState = undefined,
@@ -91,7 +96,8 @@ function createHarness({
   let currentLocal = local
   let currentOwnerVerification = ownerVerification
   let scheduledTimer = null
-  const authority = createLearnerProfileLifecycleAuthority({
+  const authority = createAuthority({
+    onVerificationStateChange: status => calls.push(['verification-status', status]),
     adapters: {
       analytics: {
         accessChanged(state) {
@@ -121,6 +127,10 @@ function createHarness({
         }
       },
       cloudPersistence: {
+        checkActiveHead(context) {
+          calls.push(['cloud-check-head', context])
+          return typeof cloudHeadCheck === 'function' ? cloudHeadCheck(context) : cloudHeadCheck
+        },
         activate(context) {
           calls.push(['cloud-activate', context])
           return true
@@ -4222,3 +4232,110 @@ test('local animal checkpoint remains guarded and the next study save sends its 
   harness.authentication.publish({ status: 'signed-out', userId: null })
   assert.equal(harness.authority.saveActiveProfile(profile, { syncCloud: false }), false)
 })
+
+for (const [experience, createAuthority] of [
+  ['current', createLearnerProfileLifecycleAuthority],
+  ['retained', (await loadRetainedModule('src/state/learner-profile-lifecycle.js')).createLearnerProfileLifecycleAuthority]
+]) {
+  function backgroundHarness(check) {
+    return createHarness({ createAuthority,
+      authentication: { status: 'signed-in', userId: 'owner-a' },
+      local: { status: 'ready', ownerId: 'owner-a', profileId: 'profile-a', generation: 1, revision: 1,
+        profile: { learnerProfile: { languages: ['french'] } } },
+      cloudResolution: { status: 'activate', ownerId: 'owner-a', profileId: 'profile-a', generation: 1, revision: 1,
+        profile: { learnerProfile: { languages: ['french'] } } },
+      cloudHeadCheck: check
+    })
+  }
+
+  test(`${experience}: a background check retains activation and live study/video/island saves`, async () => {
+    const pending = deferred()
+    const h = backgroundHarness(() => pending.promise)
+    h.authority.start()
+    await new Promise(resolve => setImmediate(resolve))
+    const state = h.authority.getState()
+    const profile = h.authority.readActiveProfile()
+    const check = h.authority.reverify({ verifyOwner: async () => true })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(h.authority.getState(), state)
+    assert.equal(h.authority.readActiveProfile(), profile)
+    assert.equal(await h.authority.reverify(), false)
+    profile.studyFacts = ['new study fact']
+    profile.videoProgress = 42
+    profile.tinySwordsIsland = { checkpoint: 'new' }
+    assert.equal(h.authority.saveActiveProfile(profile), true)
+    pending.resolve({ status: 'unchanged' })
+    await check
+    assert.equal(h.authority.getState(), state)
+    assert.equal(h.authority.readActiveProfile(), profile)
+    assert.equal(h.getLocal().profile.videoProgress, 42)
+    assert.equal(h.calls.filter(([name]) => name === 'cloud-activate').length, 1)
+    assert.equal(h.calls.filter(([name]) => name === 'cloud-resolve').length, 1)
+    assert.equal(h.calls.at(-1)[1], 'idle')
+  })
+
+  for (const interruption of ['sign-out', 'owner-change', 'fence-loss', 'verification-expiry', 'refresh', 'import', 'start-over']) {
+    test(`${experience}: ${interruption} invalidates delayed background results`, async () => {
+      const pending = deferred()
+      const h = backgroundHarness(() => pending.promise)
+      h.authority.start()
+      await new Promise(resolve => setImmediate(resolve))
+      const check = h.authority.reverify({ verifyOwner: async () => true })
+      await new Promise(resolve => setImmediate(resolve))
+      if (interruption === 'sign-out') h.authentication.publish({ status: 'signed-out' })
+      if (interruption === 'owner-change') h.authentication.publish({ status: 'signed-in', userId: 'owner-b' })
+      if (interruption === 'fence-loss') h.setCurrentFence(null)
+      if (interruption === 'verification-expiry') h.setNow(h.getOwnerVerification().verifiedAt + 30 * 86400000 + 1)
+      if (interruption === 'refresh') h.authority.refresh()
+      if (interruption === 'import') await h.authority.importActiveProfile({ learnerProfile: {} }, { confirmed: true })
+      if (interruption === 'start-over') await h.authority.startOverProfile({ learnerProfile: {} }, { confirmed: true })
+      const resolutions = h.calls.filter(([name]) => name === 'cloud-resolve').length
+      pending.resolve({ status: 'changed' })
+      await check
+      assert.equal(h.calls.filter(([name]) => name === 'cloud-resolve').length, resolutions)
+      if (!['refresh', 'import', 'start-over'].includes(interruption)) assert.equal(h.authority.readActiveProfile(), null)
+    })
+  }
+
+  test(`${experience}: auth transport failures retain trust without renewing it; recovery retains activation`, async () => {
+    const h = backgroundHarness({ status: 'unchanged' })
+    h.authority.start()
+    await new Promise(resolve => setImmediate(resolve))
+    const state = h.authority.getState()
+    const verifiedAt = h.getOwnerVerification().verifiedAt
+    h.setNow(verifiedAt + 1000)
+    h.authentication.publish({ status: 'unavailable', failure: 'network', userId: null })
+    await h.authority.reverify({ verifyOwner: async () => false })
+    assert.equal(h.authority.getState(), state)
+    assert.equal(h.getOwnerVerification().verifiedAt, verifiedAt)
+    assert.ok(h.calls.some(call => call[0] === 'verification-status' && call[1] === 'waiting-check'))
+    h.authentication.publish({ status: 'signed-in', userId: 'owner-a' })
+    assert.equal(h.authority.getState(), state)
+    await h.authority.reverify({ verifyOwner: async () => true })
+    assert.equal(h.authority.getState(), state)
+    assert.equal(h.getOwnerVerification().verifiedAt, verifiedAt + 1000)
+  })
+
+  test(`${experience}: changed heads wait for an interaction boundary and resolve from latest local state`, async () => {
+    const h = backgroundHarness({ status: 'changed' })
+    h.authority.start()
+    await new Promise(resolve => setImmediate(resolve))
+    const state = h.authority.getState()
+    let safe = false
+    await h.authority.reverify({ canApplyRemote: () => safe })
+    assert.equal(h.authority.getState(), state)
+    const profile = h.authority.readActiveProfile()
+    profile.videoProgress = 78
+    assert.equal(h.authority.saveActiveProfile(profile), true)
+    safe = true
+    h.runScheduledTimer()
+    assert.equal(h.calls.filter(([name]) => name === 'cloud-resolve').length, 2)
+    assert.equal(h.calls.filter(([name]) => name === 'cloud-resolve').at(-1)[1].localProfile.profile.videoProgress, 78)
+  })
+}
+
+async function loadRetainedModule(path) {
+  const { sourcePath, plugin } = await createProductionSourceResolver(resolve('.'))
+  const result = await build({ entryPoints: [sourcePath(path)], bundle: true, format: 'esm', write: false, plugins: [plugin] })
+  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`)
+}

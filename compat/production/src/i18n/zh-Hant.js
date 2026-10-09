@@ -118,6 +118,8 @@ export const ZH_HANT_LOCALIZED = {
     'onboarding.channelStyle.streetInterviews': '街頭訪談',
     'onboarding.channelStyle.structuredLessons': '系統化課程',
     'settings.title': '設定',
+    'progressSync.checking': '正在檢查學習進度…',
+    'progressSync.checkWaiting': '暫時無法檢查進度，稍後將重試。',
     'progressSync.title': '進度同步',
     'progressSync.syncing': '正在同步…',
     'progressSync.upToDate': '已是最新',
