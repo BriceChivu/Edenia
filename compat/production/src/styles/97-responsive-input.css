@@ -189,3 +189,9 @@
     height: 28px;
   }
 }
+
+@media (any-pointer: coarse) {
+  [data-city-zoom-action="reset"] {
+    display: none;
+  }
+}

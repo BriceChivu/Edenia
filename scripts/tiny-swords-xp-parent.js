@@ -278,7 +278,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       if (data?.type === 'edenia-tiny-ready') { prepareIsland(); sendStudyLevel() }
       if (data?.session !== session) return
       if (data.type === 'edenia-game-focus-exit' && !blocked && restored && !failed) {
-        controls.querySelector('[data-city-zoom-action="reset"]')?.focus()
+        (touchDevice ? document.querySelector('.gear-btn[data-settings-shell-action="open"]') : controls.querySelector('[data-city-zoom-action="reset"]'))?.focus()
       }
       if (data.type === 'edenia-tiny-restored') {
         restored = data.accepted === true
@@ -317,9 +317,10 @@ if (window.edeniaTinySwordsEnabled === true) {
     })
     // Parent-owned controls reflect device capabilities; Godot owns pinch zoom.
     const touchDevice = (window.navigator?.maxTouchPoints || 0) > 0
+      || window.matchMedia?.('(any-pointer: coarse)')?.matches === true
     if (touchDevice) {
       controls.style.setProperty('--tiny-swords-camera-cursor', 'none')
-      for (const button of controls.querySelectorAll('[data-city-zoom-action="in"], [data-city-zoom-action="out"]')) {
+      for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
         button.disabled = true
         button.hidden = true
       }
@@ -349,7 +350,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     const cameraObserver = new ResizeObserver(matchCameraCursor)
     for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
       button.addEventListener('click', event => {
-        if (blocked || !restored || failed) return
+        if (touchDevice || blocked || !restored || failed) return
         frame?.contentWindow?.postMessage({ type: 'edenia-camera', command: button.dataset.cityZoomAction }, location.origin)
       })
     }
