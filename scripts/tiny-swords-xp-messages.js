@@ -1,4 +1,11 @@
 // Script/engine download failures may happen before Godot can announce readiness.
+window.edeniaConflictPreviewMode = new URL(location.href).searchParams.get('conflict_preview') === '1'
+window.addEventListener('message', event => {
+  if (!window.edeniaConflictPreviewMode || event.origin !== location.origin || event.source !== parent) return
+  if (event.data?.type !== 'edenia-conflict-preview-render' || !Array.isArray(event.data.layouts) || event.data.layouts.length !== 2) return
+  window.edeniaConflictPreviewSession = event.data.session
+  window.edeniaConflictLayouts = event.data.layouts
+})
 window.addEventListener('error', event => {
   if (event.target?.tagName === 'SCRIPT') {
     parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin)
@@ -36,6 +43,7 @@ window.edeniaSaveInFlight = null
 window.edeniaPendingLayout = null
 window.edeniaPendingCheckpoint = null
 window.edeniaQueueLayout = (layout, checkpoint = false) => {
+  if (window.edeniaConflictPreviewMode) return
   // The newest snapshot includes earlier queued edits. Ambient movement must
   // not downgrade a learner edit that still needs its cloud save.
   window.edeniaPendingCheckpoint = checkpoint === true && window.edeniaPendingCheckpoint !== false

@@ -262,7 +262,48 @@ html[data-accountless-profile-migration-urgency="8"] .accountless-profile-migrat
   gap: 14px;
   min-width: 0;
 }
+.learner-profile-conflict-intro {
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+.learner-profile-conflict-islands {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 16px;
+}
+.learner-profile-conflict-islands figure {
+  margin: 0;
+  min-width: 0;
+}
+.learner-profile-conflict-islands figcaption {
+  margin-bottom: 8px;
+}
+.learner-profile-conflict-islands img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 3;
+  image-rendering: pixelated;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.learner-profile-conflict-islands p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+.learner-profile-conflict-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.learner-profile-conflict-islands.enlarged {
+  grid-template-columns: 1fr;
+}
+@media (max-width: 600px) {
+  .learner-profile-conflict-islands { grid-template-columns: 1fr; }
+}
 html[data-learner-profile-access-state="conflicting"] .learner-profile-access-card {
+  flex-shrink: 0;
   max-width: 980px;
   width: min(980px, calc(100vw - 36px));
 }

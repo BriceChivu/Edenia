@@ -188,8 +188,9 @@
         <p id="learnerProfileRecoveryFeedback" role="status" aria-live="polite"></p>
       </section>
       <div class="learner-profile-conflict hidden" id="learnerProfileConflict" aria-labelledby="learnerProfileConflictTitle">
-        <h2 id="learnerProfileConflictTitle" data-i18n="profileConflict.comparisonTitle">Compare your profiles</h2>
-        <p data-i18n="profileConflict.neutralNote">Choose the version you recognize. Edenia does not recommend one based on which was updated most recently.</p>
+        <p class="learner-profile-conflict-intro" id="learnerProfileConflictTitle" data-i18n="profileConflict.intro">Your device version differs from the Cloud version. Choose which one to use.</p>
+        <div class="learner-profile-conflict-islands" id="learnerProfileConflictIslands"></div>
+        <div class="learner-profile-conflict-preview-actions"><button class="btn-ghost" id="learnerProfileConflictEnlarge" type="button" data-i18n="profileConflict.preview.enlarge" aria-expanded="false" hidden>Enlarge both</button></div>
         <div class="learner-profile-conflict-table-wrap">
           <table class="learner-profile-conflict-table">
             <thead>
@@ -203,14 +204,9 @@
           </table>
         </div>
         <p class="learner-profile-conflict-empty hidden" id="learnerProfileConflictEmpty" data-i18n="profileConflict.noMeaningfulDifferences">These versions have no meaningful differences in the compared study details.</p>
-        <div class="learner-profile-conflict-export-actions">
-          <button class="btn-ghost" type="button" data-profile-conflict-action="export-device" data-i18n="profileConflict.exportDevice">Export This device</button>
-          <button class="btn-ghost" type="button" data-profile-conflict-action="export-cloud" data-i18n="profileConflict.exportCloud">Export Cloud</button>
-          <button class="btn-secondary" type="button" data-profile-conflict-action="export-both" data-i18n="profileConflict.exportBoth">Export both</button>
-        </div>
         <div class="learner-profile-conflict-choice-actions">
-          <button class="btn-primary" type="button" data-profile-conflict-action="choose-device" data-i18n="profileConflict.chooseDevice">Use This device</button>
-          <button class="btn-primary" type="button" data-profile-conflict-action="choose-cloud" data-i18n="profileConflict.chooseCloud">Use Cloud</button>
+          <button class="btn-primary" id="learnerProfileConflictChooseDevice" type="button" data-profile-conflict-action="choose-device" data-i18n="profileConflict.chooseDevice">Use This device</button>
+          <button class="btn-primary" id="learnerProfileConflictChooseCloud" type="button" data-profile-conflict-action="choose-cloud" data-i18n="profileConflict.chooseCloud">Use Cloud</button>
         </div>
         <div class="learner-profile-conflict-confirmation hidden" id="learnerProfileConflictConfirmation" role="group" aria-labelledby="learnerProfileConflictConfirmationText">
           <p id="learnerProfileConflictConfirmationText"></p>

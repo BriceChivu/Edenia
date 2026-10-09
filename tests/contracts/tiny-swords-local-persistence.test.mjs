@@ -179,7 +179,7 @@ test('failed and in-flight claims cannot publish through readiness, access, or D
 
 test('save acknowledgments identify the actual saved level and preserve queued checkpoints', () => {
   const handlers = {}; const sent = []; const acknowledgments = []; const parent = {postMessage(data){sent.push(data)}}
-  const context = {parent,location:{origin:'http://localhost:8037'},document:{addEventListener(){}},
+  const context = {parent,URL,location:{origin:'http://localhost:8037',href:'http://localhost:8037/'},document:{addEventListener(){}},
     window:{addEventListener(type,fn){handlers[type]=fn},edeniaReceiveLayoutSaved:(...args)=>acknowledgments.push(args)}}
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-messages.js','utf8'),context)
   const emit = data => handlers.message({origin:context.location.origin,source:parent,data})
@@ -273,7 +273,7 @@ test('ambient checkpoint is durable locally without requesting a cloud revision'
 
 test('queued learner edit remains cloud eligible when ambient checkpoints coalesce',()=>{
   const handlers={},sent=[];const parent={postMessage(data){sent.push(data)}}
-  const context={parent,location:{origin:'http://localhost:8037'},document:{addEventListener(){}},window:{addEventListener(type,fn){handlers[type]=fn}}}
+  const context={parent,URL,location:{origin:'http://localhost:8037',href:'http://localhost:8037/'},document:{addEventListener(){}},window:{addEventListener(type,fn){handlers[type]=fn}}}
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-messages.js','utf8'),context)
   const emit=data=>handlers.message({origin:context.location.origin,source:parent,data})
   emit({type:'edenia-study-level',session:1,level:3,layout:null})

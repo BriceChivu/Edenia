@@ -356,7 +356,7 @@ jobs:
         env:
           EDENIA_TINY_SWORDS_ENABLED: 'true'
       - name: Require hosted game, persistence and progression flows
-        run: npx playwright test auth-trial.spec.mjs signin-island-handoff.spec.mjs experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-delivery.spec.mjs tiny-swords-tester-mode.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-copy.spec.mjs tiny-swords-page-scroll.spec.mjs tiny-swords-acceptance.spec.mjs --project=desktop-standard --project=phone-standard
+        run: npx playwright test learner-profile-conflict.spec.mjs auth-trial.spec.mjs signin-island-handoff.spec.mjs experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-delivery.spec.mjs tiny-swords-tester-mode.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-copy.spec.mjs tiny-swords-page-scroll.spec.mjs tiny-swords-acceptance.spec.mjs --project=desktop-standard --project=phone-standard
         env:
           EDENIA_TEST_TINY_SWORDS: 'true'
           EDENIA_TEST_NORMAL_PORT: '4174'

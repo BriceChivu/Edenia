@@ -50,6 +50,10 @@ function createHarness(viewOptions = {}) {
   const elements = new Map([
     ['learnerProfileConflict', element(['hidden'])],
     ['learnerProfileConflictRows', element()],
+    ['learnerProfileConflictIslands', element()],
+    ['learnerProfileConflictEnlarge', element()],
+    ['learnerProfileConflictChooseDevice', element()],
+    ['learnerProfileConflictChooseCloud', element()],
     ['learnerProfileConflictEmpty', element(['hidden'])],
     ['learnerProfileConflictConfirmation', element(['hidden'])],
     ['learnerProfileConflictConfirmationText', element()],
@@ -261,7 +265,9 @@ test('conflict markup names both versions and offers no automatic merge action',
     /data-i18n="profileConflict\.thisDevice">This device</
   )
   assert.match(html, /data-i18n="profileConflict\.cloud">Cloud</)
-  assert.match(html, /data-profile-conflict-action="export-both"/)
+  assert.doesNotMatch(html, /data-profile-conflict-action="export-(both|device|cloud)"/)
+  assert.match(html, /id="learnerProfileConflictIslands"/)
+  assert.match(html, /Your device version differs from the Cloud version\. Choose which one to use\./)
   assert.match(html, /data-profile-conflict-action="confirm-choice"/)
   assert.doesNotMatch(html, />\s*Combine\s*</i)
   assert.doesNotMatch(html, /data-profile-conflict-action="merge/i)
@@ -287,4 +293,54 @@ test('island differences remain visible when study totals are identical', () => 
   assert.equal(rows[0].children[1].children[1].textContent, 'profileConflict.value.islandDifferent')
   assert.equal(rows[0].children[2].children[1].textContent, 'profileConflict.value.islandDifferent')
   assert.equal(elements.get('learnerProfileConflictEmpty').hidden, true)
+})
+
+
+test('previews receive isolated copies and stale captures cannot reveal a previous conflict', () => {
+  const calls = []
+  let disposed = 0
+  const { elements, view } = createHarness({ createIslandPreviews(options) {
+    calls.push(options)
+    return () => { disposed += 1 }
+  } })
+  const conflict = { status: 'open', device: { profile: { tinySwordsIsland: { version: 1 } } }, cloud: { profile: {} } }
+  const original = structuredClone(conflict)
+  view.renderConflict(conflict)
+  calls[0].layouts[0].version = 99
+  assert.deepEqual(conflict, original)
+  view.renderConflict(conflict)
+  assert.equal(calls.length, 1)
+  const oldImage = elements.get('learnerProfileConflictIslands').children[0].children[1]
+  view.hideConflict()
+  calls[0].onImage(0, 'data:image/png;base64,old')
+  assert.equal(oldImage.hidden, true)
+  assert.equal(disposed, 1)
+  view.renderConflict(conflict)
+  calls[1].onImage(0, 'data:image/png;base64,current')
+  assert.equal(elements.get('learnerProfileConflictIslands').children[0].children[1].hidden, false)
+  assert.equal(elements.get('learnerProfileConflictIslands').children[1].children[2].textContent, 'profileConflict.value.islandAbsent')
+  view.setBusy(true)
+  assert.equal(disposed, 2)
+  assert.equal(view.requestChoice('cloud'), true)
+})
+
+test('unavailable or oversized previews never block the choice', () => {
+  const { elements, view } = createHarness({ createIslandPreviews() { throw new Error('GPU unavailable') } })
+  view.renderConflict({ status: 'open', device: { profile: { tinySwordsIsland: {} } }, cloud: { profile: {} } })
+  assert.equal(elements.get('learnerProfileConflictIslands').children[0].children[2].textContent, 'profileConflict.preview.unavailable')
+  assert.equal(view.requestChoice('device'), true)
+  view.renderConflict({ status: 'open', device: { profile: { tinySwordsIsland: { huge: 'x'.repeat(524288) } } }, cloud: { profile: {} } })
+  assert.equal(view.requestChoice('cloud'), true)
+})
+
+test('lower progress uses the secondary outline while ambiguous evidence keeps both primary', () => {
+  const { elements, view } = createHarness()
+  const device = elements.get('learnerProfileConflictChooseDevice')
+  const cloud = elements.get('learnerProfileConflictChooseCloud')
+  view.renderConflict({ status: 'open', device: { profile: {} }, cloud: { profile: { anki: { day: { reviewed: 20 } } } } })
+  assert.equal(device.classList.contains('btn-secondary'), true)
+  assert.equal(cloud.classList.contains('btn-primary'), true)
+  view.renderConflict({ status: 'open', device: { profile: {} }, cloud: { profile: {} } })
+  assert.equal(device.classList.contains('btn-primary'), true)
+  assert.equal(cloud.classList.contains('btn-primary'), true)
 })

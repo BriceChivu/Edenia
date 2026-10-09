@@ -70,7 +70,7 @@ const tinySwordsEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_
 const tinySwordsPublicEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_PUBLIC_ENABLED, 'EDENIA_TINY_SWORDS_PUBLIC_ENABLED')
 const gameParent = await buildTinySwords(outputDir)
 let html = await readFile(resolve(projectRoot, 'index.html'), 'utf8')
-html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}" defer></script>`)
+html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}" defer></script><script src="${gameParent.replace('parent.js', 'conflict-previews.js')}" defer></script>`)
 html = versionAssetReference(html, 'style.css', assetVersion)
 html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)

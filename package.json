@@ -18,7 +18,6 @@
     "prototype:auth-surface": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",
     "prototype:locked-sign-in": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",
     "prototype:sync-experience": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",
-    "prototype:island-conflict": "node prototype/island-conflict/build.mjs && node scripts/serve-static.mjs --host localhost --port 4173 --root .",
     "test": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:auth-monitor-function && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function",
     "test:catalogs": "node scripts/validate-channel-catalog-json.mjs && node scripts/validate-reminder-discovery-channels.mjs",
     "test:catalogs:community": "node scripts/validate-community-channel-catalog.mjs",

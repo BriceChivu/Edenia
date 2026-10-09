@@ -43,6 +43,7 @@ export async function buildTinySwords(outputDir) {
     ['--script', 'res://tests/inventory_outline_assets.gd'],
     ['--script', 'res://tests/gameplay.gd'],
     ['--script', 'res://tests/animal_checkpoint_saves.gd'],
+    ['--script', 'res://tests/conflict_previews.gd'],
     ['--script', 'res://tests/progression.gd'],
     ['--export-release', 'Web', resolve(staging, 'index.html')]]) {
     const result = spawnSync(godot, ['--headless', '--path', project, ...args], { stdio: 'inherit' })
@@ -58,6 +59,7 @@ parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
   const visibility = await readFile('scripts/tiny-swords-xp-visibility.js', 'utf8')
   await writeFile(resolve(staging, 'index.html'), game.replace('</head>', `<script>${receiver}</script><script>${visibility}</script></head>`))
   await cp('scripts/tiny-swords-xp-parent.js', resolve(staging, 'parent.js'))
+  await cp('scripts/tiny-swords-conflict-previews.js', resolve(staging, 'conflict-previews.js'))
   await cp(resolve(source, 'Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_02.png'), resolve(staging, 'Cursor_02.png'))
   await cp(resolve(source, 'notices'), resolve(staging, 'notices'), { recursive: true })
   await cp('assets/tiny-swords/README.md', resolve(staging, 'notices/ASSET-PROVENANCE.md'))

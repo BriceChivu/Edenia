@@ -981,6 +981,7 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
   translate: t
 })
 const learnerProfileConflictView = createLearnerProfileConflictView({
+  createIslandPreviews: options => window.edeniaCreateConflictPreviews?.(options),
   clearTimer: timer => window.clearTimeout(timer),
   formatDateTime: value => formatLocaleDateTime(value, {
     dateStyle: 'medium',
