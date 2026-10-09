@@ -401,6 +401,8 @@ The worker also keeps one validated opaque compressed engine in its own
 `edenia-tiny-swords-engine-v1` Cache API cache (about 7 MB). Older engine entries
 are evicted after a successful replacement. Storage failures leave loading usable;
 learner profiles and backups never enter this disposable cache.
+Cache lookup and validated-cache commit/eviction each have a one-second deadline;
+unresolved storage operations are skipped so they cannot strand engine startup.
 
 Engine and pack have quality-11 Brotli artifacts. The integration requests their
 explicit `.br` URLs, so GitHub Pages does not need custom Content-Encoding headers.
@@ -412,6 +414,16 @@ startup failure through the existing retry surface; accepted restoration still
 gates writes. Learner-profile fields and their storage keys stay unchanged. The decoder's MIT
 notice is included in every release. Coverage: `tiny-swords-delivery.spec.mjs` and
 `tests/contracts/tiny-swords-delivery.test.mjs` at the repository root.
+
+Asset delivery has a 15-second inactivity watchdog while awaiting worker output;
+compressed-byte arrivals keep active downloads alive. A stalled worker is stopped
+and the same immutable asset is requested once through ordinary HTTP delivery.
+If decoded bytes have already reached Godot, the fallback skips that exact prefix
+before continuing the compilation stream. Ordinary fetches and body reads also
+have inactivity deadlines and validate the complete decoded byte count. Corrupt
+compressed streams still fail rather than mixing their bytes with a fallback.
+Regression coverage: `tests/contracts/tiny-swords-startup-recovery.test.mjs` and
+the real-game delivery browser suite, including stalls before and during streaming.
 
 The exported Godot download callback forwards byte progress to the first 60% of
 Edenia's loading bar. Engine initialization advances it to 80%; Godot scene

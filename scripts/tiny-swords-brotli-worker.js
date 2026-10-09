@@ -43,13 +43,28 @@ let decodedBytes = 0
 let engineCache
 let cacheCopy
 let assetUrl
+// Origin storage is disposable here. Bound the whole operation, including
+// eviction, so an unresolved browser storage request cannot gate the engine.
+async function cacheDeadline(operation) {
+  let timer
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Engine cache timed out')), 1000) })
+    ])
+  } finally { clearTimeout(timer) }
+}
 async function engineResponse(data) {
   assetUrl = data.url
   if (data.cacheEngine) {
     try {
-      engineCache = await caches.open('edenia-tiny-swords-engine-v1')
-      const cached = await engineCache.match(assetUrl)
-      if (cached) return cached
+      const cached = await cacheDeadline(async () => {
+        const cache = await caches.open('edenia-tiny-swords-engine-v1')
+        const response = await cache.match(assetUrl)
+        return { cache, response }
+      })
+      engineCache = cached.cache
+      if (cached.response) return cached.response
     } catch { engineCache = null }
   }
   const response = await fetch(assetUrl)
@@ -62,10 +77,12 @@ async function commitEngineCache() {
   if (!cacheCopy) return
   try {
     // Commit only after the complete decoded stream passes the size check.
-    await engineCache.put(assetUrl, cacheCopy)
-    for (const request of await engineCache.keys()) {
-      if (request.url !== assetUrl) await engineCache.delete(request)
-    }
+    await cacheDeadline(async () => {
+      await engineCache.put(assetUrl, cacheCopy)
+      for (const request of await engineCache.keys()) {
+        if (request.url !== assetUrl) await engineCache.delete(request)
+      }
+    })
   } catch { /* Disposable asset caching must never prevent island startup. */ }
   cacheCopy = null
 }
@@ -91,7 +108,14 @@ self.onmessage = async ({ data }) => {
       prepared = (async () => {
         const response = await engineResponse(data)
         if (!response.ok || !response.body) throw new Error('Brotli asset unavailable')
-        let body = response.body
+        // Byte arrivals keep the inactivity watchdog alive even when the
+        // decoder needs more input before it can emit its next decoded chunk.
+        let body = response.body.pipeThrough(new TransformStream({
+          transform(chunk, controller) {
+            postMessage({ type: 'progress' })
+            controller.enqueue(chunk)
+          }
+        }))
         // Some hosts already decode explicit .br URLs through HTTP headers.
         if (response.headers.get('content-encoding') !== 'br') {
           let transform
@@ -112,7 +136,7 @@ self.onmessage = async ({ data }) => {
     }
   } catch (error) {
     cacheCopy?.body?.cancel().catch(() => {})
-    if (engineCache) { try { await engineCache.delete(assetUrl) } catch {} }
+    if (engineCache) { try { await cacheDeadline(() => engineCache.delete(assetUrl)) } catch {} }
     postMessage({ type: 'error', message: error.message })
   }
 }
