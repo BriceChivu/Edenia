@@ -270,7 +270,18 @@ jobs:
           select relname, n_live_tup, n_dead_tup, last_analyze, last_autoanalyze from pg_stat_user_tables where relname like 'learner_profile%';
           """
           sql += 'explain (costs true) ' + query
-          sql += '\nBEGIN;\nexplain (analyze, buffers, timing) ' + query.replace('limit 100', 'limit 1') + '\nROLLBACK;\n'
+          sql += 'explain (analyze, buffers, timing) ' + query[:query.index('    deleted as (')].rstrip().rstrip(',') + ' select id from ranked_candidates where ordinary_rank > 8 order by ordinary_rank desc, id limit 1;\n'
+          sql += '\nset statement_timeout = '60s';\nBEGIN;\nexplain (analyze, buffers, timing) ' + query.replace('limit 100', 'limit 1') + '\nROLLBACK;\n'
           Path(os.environ['RUNNER_TEMP'], 'diagnose.sql').write_text(sql)
           PYDIAG
-          psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --file "$RUNNER_TEMP/diagnose.sql"
+          (
+            for attempt in {1..30}; do
+              printf '%s\n' "select clock_timestamp(), state, wait_event_type, wait_event, count(*) from pg_stat_activity where datname = current_database() and application_name = 'edenia-retention-probe' group by 1,2,3,4;" "select pg_sleep(1);"
+            done
+          ) > "$RUNNER_TEMP/observe.sql"
+          PGAPPNAME=edenia-retention-observer psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --file "$RUNNER_TEMP/observe.sql" > "$RUNNER_TEMP/observe.log" &
+          observer_pid=$!
+          PGAPPNAME=edenia-retention-probe psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --file "$RUNNER_TEMP/diagnose.sql" || probe_status=$?
+          wait "$observer_pid" || true
+          cat "$RUNNER_TEMP/observe.log"
+          exit "${probe_status:-0}"
