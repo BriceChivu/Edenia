@@ -3,6 +3,8 @@ extends Node
 # A separate main scene: the study bridge and its startup/save path never run.
 const Layout = preload("res://scripts/terrain_layout.gd")
 const Island = preload("res://scenes/conflict_island.tscn")
+const TreeArt = preload("res://scripts/tree_art.gd")
+const HouseArt = preload("res://scripts/level_five_art.gd")
 var started := false
 
 static func requested() -> bool:
@@ -44,6 +46,16 @@ func capture_pair(snapshots: Array) -> void:
 					first = false
 				else:
 					bounds = bounds.expand(point)
+		# Include the full canonical artwork, especially tall trees planted on
+		# the northern edge. Terrain-only framing could crop their canopies.
+		for cell in layout.trees:
+			var kind: String = layout.tree_types.get(cell, "tree")
+			var size := TreeArt.frame_size(kind) * TreeArt.SCALE
+			var anchor: Vector2 = layout.tree_position(cell) - Vector2(0, layout.height_at(cell))
+			var area := Rect2(anchor + TreeArt.art_offset(kind) * TreeArt.SCALE - size / 2, size)
+			bounds = bounds.merge(area)
+		for cell in layout.houses:
+			bounds = bounds.merge(HouseArt.house_rect(layout, cell))
 	var island = Island.instantiate()
 	add_child(island)
 	var zoom := minf(760.0 / maxf(1, bounds.size.x), 440.0 / maxf(1, bounds.size.y))
