@@ -16,6 +16,94 @@ engine frame rates unless explicitly normalized. Chromium's GPU-process CPU time
 is not GPU utilization, JS heap excludes WASM, and macOS RSS excludes compressed
 pages. These are investigation tools, not universal device benchmarks.
 
+## Native-resolution research — 2026-10-09
+
+The `research-*` suites retain the current default native pixel density. They
+disable per-WebGL-call timing and the JS CPU profiler. The diagnostic preparer
+also adapts the older inventory-cloud probe to the current rare-cloud property;
+run it before measuring the research suites. Do not compare an old generated
+export that imposed a DPR-2 cap with the native-density export.
+
+Rebuild the ordinary integration first:
+
+```sh
+node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
+python3 scripts/diagnostics/tiny-swords-performance/prepare-research.py
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --editor --import
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --script "$PWD/scripts/diagnostics/tiny-swords-performance/generate-fixtures.gd" -- "$PWD/.cache/tiny-swords-perf"
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --script "$PWD/scripts/diagnostics/tiny-swords-performance/bake-cloud-metadata.gd" -- "$PWD/.cache/tiny-swords-perf/cloud-metadata.json"
+python3 scripts/diagnostics/tiny-swords-performance/prepare-research.py
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --editor --import
+/Applications/Godot.app/Contents/MacOS/Godot --path .cache/tiny-swords-perf/project --script res://tests/research_cloud_depth.gd
+/Applications/Godot.app/Contents/MacOS/Godot --path .cache/tiny-swords-perf/project --script res://tests/research_cloud_metadata.gd
+/Applications/Godot.app/Contents/MacOS/Godot --path .cache/tiny-swords-perf/project --script res://tests/research_tree_shadow_clipping.gd
+/Applications/Godot.app/Contents/MacOS/Godot --path .cache/tiny-swords-perf/project --script res://tests/research_tree_texture_parity.gd
+mkdir -p .cache/tiny-swords-perf/export3
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/project --export-release Web "$PWD/.cache/tiny-swords-perf/export3/index.html"
+node scripts/diagnostics/tiny-swords-performance/patch-export.mjs
+```
+
+Check every import/export log for parser errors. The metadata bake is optional
+for static-cloud tests, required for `research-recycle`. Native depth checks need
+a real renderer; headless rendering cannot validate their pixels. Generated
+metadata is a diagnostic snapshot, not a shipped asset pipeline.
+
+```sh
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-baseline --seconds=8 --repeat=1 --assert-budgets
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-probes --seconds=10 --repeat=2
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-inventory --seconds=8 --repeat=3
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-probes --inventory --probes=static_original_clouds,preview_stop,outlines_stop,mask_copy_cache --seconds=12 --repeat=2
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-recycle --seconds=7 --repeat=2
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-inventory-actions --edit-probe=static_original_clouds --seconds=3 --repeat=4
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-inventory-actions --edit-probe=tree_texture_cache --seconds=3 --repeat=4
+```
+
+`research-inventory` records the first opening and subsequent warm openings on a
+100-tile stress island, then measures three bursts of 20 tree changes plus undo
+and checks terrain/stock/resource retention. A burst deliberately exceeds normal
+human input speed. `research-recycle` forces three single-cloud variant changes
+per window, alternating runtime/cached/runtime metadata; it isolates transition
+cost and does not estimate the natural rate of those events.
+
+`research-inventory-actions` compares individual tree changes plus undo (two
+operations in one frame) in before/on/after windows. `tree_texture_cache` retains
+at most 16 textures, keyed by exact kind/stump/offset/sorted receiving-ground
+cells, without changing clipping pixels. Run the generated
+`res://tests/research_tree_shadow_clipping.gd` in a real renderer first; it enables
+that probe in the existing grass-edge/elevation/stair clipping regression.
+The generated test adapts old ghost-equals-planted assertions to the current
+replacement-tree preview and compares those pixels with the uncached clipping
+path. Planted-body/shadow assertions remain intact.
+This entry-count bound is a diagnostic limit, not a production memory budget.
+
+For confirmation without aggregate GDScript timing wrappers:
+
+```sh
+python3 scripts/diagnostics/tiny-swords-performance/prepare-plain-research.py
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/plain-project --editor --import
+mkdir -p .cache/tiny-swords-perf/export4
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path .cache/tiny-swords-perf/plain-project --export-release Web "$PWD/.cache/tiny-swords-perf/export4/index.html"
+node scripts/diagnostics/tiny-swords-performance/patch-export.mjs --export-dir=export4
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-plain --plain-cloud-probe --instrument-dir=export4 --seconds=25 --repeat=3
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-plain --plain-cloud-probe --instrument-dir=export4 --inventory --seconds=12 --repeat=2
+node scripts/diagnostics/tiny-swords-performance/device.mjs --cloud-research --host=0.0.0.0 --port=8051
+```
+
+The plain export samples lightweight engine counters once a second and polls its
+cloud switch five times a second. Static mode uses the original pack cloud PNGs
+with painted shadows, four world-anchored sprites initially placed at left/right
+corners. It stops drift and disconnects/disables mask work, retaining mask nodes
+only so same-page animated/static/animated controls can restore the original.
+It changes cloud composition/depth and preserves all other visuals and resolution.
+The device page offers the same switch and downloads measurements. Enter device
+and power conditions; compare at least three 60-second alternating windows while
+idle and while editing. Mac phone-layout and CPU slowdown remain synthetic tests,
+not measurements of a physical Pixel.
+
+Use `summarize-research.mjs <result.json>...` for matched CPU/control summaries.
+Preserve each suite's JSON before running it again. See the [research report](../../../docs/experiments/tiny-swords/performance-2026-10-09/report.md)
+for measured outcomes and interpretation.
+
 For an uninstrumented repro and an explicit failure signal:
 
 ```sh

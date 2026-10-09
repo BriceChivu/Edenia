@@ -1,0 +1,25 @@
+Validation run on Godot 4.7.2 with the M3 graphical renderer. Successful final logs only.
+
+depth-cache-validation
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Cloud shadow depth: PASS
+
+metadata-validation
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Cloud metadata exact parity: PASS (48 variant/altitude/mirror cases)
+
+tree-cache-validation
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree shadow clipping: PASS (15 placements, all 8 frames)
+
+tree-cache-parity
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree texture exact parity: PASS (72 cases)

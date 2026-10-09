@@ -1,0 +1,6901 @@
+[
+  {
+    "label": "cold-open-0",
+    "seconds": 8.00710000000149,
+    "rafFrames": 480,
+    "p50": 16.69999999999891,
+    "p95": 18.5,
+    "p99": 18.600000000000364,
+    "parent": {
+      "timerP95": 17.600000001490116,
+      "timerP99": 18.700000002980232,
+      "timerMax": 62.19999999925494,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 63,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.8,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 3,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 164,
+        "objects": 1927,
+        "orphans": 0,
+        "outline_cache": 0,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0044,
+        "render_objects": 261,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 8100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 600,
+            "us": 51600
+          },
+          "cloud_visual.gd:visual_inputs": {
+            "calls": 6210,
+            "max_us": 100,
+            "us": 10400
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 600
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7900
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3400
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1000
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3200
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1200
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 2500
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 1800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138457831
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 46.2,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0007,
+        "process_s": 0.0437,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1.010044,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 11000,
+            "us": 18100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 200,
+            "us": 1200
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 300
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 11000,
+            "us": 17700
+          },
+          "level_two_preview.gd:build_inventory_changes": {
+            "calls": 1,
+            "max_us": 10700,
+            "us": 10700
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 10700,
+            "us": 10700
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 800
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 10900,
+            "us": 13500
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 2800
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1700
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 8400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3900
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 1500
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0022,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1500
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 500
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 6700
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 3200
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 400
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 2100
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1000
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3800
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 1100
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.3
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0023,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7400
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1300
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 700
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7300
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 900
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 3600
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 2900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 800
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7500
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3900
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2000
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0023,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 7900
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 900
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 200
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 200
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 7600
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 500
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 4000
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3000
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 8400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3800
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.2
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0028,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7800
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 900
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 900
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 200
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 7600
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 3500
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1000
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 1900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1600
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4000
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 1600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.6,
+          "p95": 18.1
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0021,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1100
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 900
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 5900
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 2300
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 1400
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 800
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3000
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 1800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0015,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6600
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 900
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 200
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 100
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6400
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 3100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 1600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1100
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6000
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2000
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 8.042,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 74949,
+        "cpuTime": 1.219015,
+        "cpuPercent": 1.0198582442178563
+      },
+      {
+        "type": "renderer",
+        "id": 74973,
+        "cpuTime": 0.120138,
+        "cpuPercent": 0.41743347426013416
+      },
+      {
+        "type": "renderer",
+        "id": 74974,
+        "cpuTime": 4.86766,
+        "cpuPercent": 15.329980104451629
+      },
+      {
+        "type": "GPU",
+        "id": 74961,
+        "cpuTime": 2.823367,
+        "cpuPercent": 14.26960954986322
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 74962,
+        "cpuTime": 0.178554,
+        "cpuPercent": 0.0822556577965678
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 74963,
+        "cpuTime": 0.039584,
+        "cpuPercent": 0
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 74979,
+        "cpuTime": 0.328856,
+        "cpuPercent": 0.6056204924148217
+      }
+    ]
+  },
+  {
+    "label": "cold-open-1",
+    "seconds": 8.007300000000745,
+    "rafFrames": 481,
+    "p50": 16.700000000000728,
+    "p95": 18.599999999998545,
+    "p99": 18.600000000002183,
+    "parent": {
+      "timerP95": 18.100000001490116,
+      "timerP99": 19.800000000745058,
+      "timerMax": 21.800000000745058,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 63,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 3,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 164,
+        "objects": 1931,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0007,
+        "process_s": 0.0081,
+        "render_objects": 261,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7400
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 1000,
+            "us": 46100
+          },
+          "cloud_visual.gd:visual_inputs": {
+            "calls": 6210,
+            "max_us": 300,
+            "us": 11200
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 400
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 200
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7400
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3400
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 800
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 2200
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 800
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3100
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 1100
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138719975
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.8,
+          "p95": 18
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0043,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 10300
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1700
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 700
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 10200
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1300
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 4100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 2000
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 10800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 5600
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2400
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0042,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 12800
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2000
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1200
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 700
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 12600
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 5700
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 700
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2500
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 13600
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 400,
+            "us": 7200
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 60,
+          "max": 19,
+          "p95": 18.4
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0042,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 11700
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1600
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 900
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 11300
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 900
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 5300
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1100
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4000
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 2000
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 11700
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 6600
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 19,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0042,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14800
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2300
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1100
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14400
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 900
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 7000
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1000
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2100
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 600,
+            "us": 14200
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 8700
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.8,
+          "p95": 18.7
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0004,
+        "process_s": 0.0049,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 16700
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2700
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1000
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 700
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 16300
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1500
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6700
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1300
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 500,
+            "us": 6300
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 17200
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 300,
+            "us": 10300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 19.1,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0048,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14700
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2700
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 800
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14100
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1200
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 6700
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 700
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2800
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14700
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 300,
+            "us": 10000
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.6,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0041,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 11600
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2600
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1100
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 11300
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 800
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 5300
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3400
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 11400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 7900
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3400
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 8.028,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 74949,
+        "cpuTime": 1.328653,
+        "cpuPercent": 1.2290483308420526
+      },
+      {
+        "type": "renderer",
+        "id": 74973,
+        "cpuTime": 0.162798,
+        "cpuPercent": 0.48753114100647726
+      },
+      {
+        "type": "renderer",
+        "id": 74974,
+        "cpuTime": 6.66586,
+        "cpuPercent": 20.95832087693075
+      },
+      {
+        "type": "GPU",
+        "id": 74961,
+        "cpuTime": 4.624341,
+        "cpuPercent": 21.122708021923273
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 74962,
+        "cpuTime": 0.190206,
+        "cpuPercent": 0.1359118086696559
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 74963,
+        "cpuTime": 0.039678,
+        "cpuPercent": 0.0011709018435475443
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 74979,
+        "cpuTime": 0.381742,
+        "cpuPercent": 0.599451918285999
+      }
+    ]
+  },
+  {
+    "label": "cold-open-2",
+    "seconds": 8.00539999999851,
+    "rafFrames": 480,
+    "p50": 16.69999999999709,
+    "p95": 18.599999999998545,
+    "p99": 18.600000000002183,
+    "parent": {
+      "timerP95": 18,
+      "timerP99": 19.5,
+      "timerMax": 44,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 63,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.6,
+          "p95": 18.1
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 3,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 164,
+        "objects": 1931,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0014,
+        "process_s": 0.01,
+        "render_objects": 261,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 8900
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 1500,
+            "us": 63200
+          },
+          "cloud_visual.gd:visual_inputs": {
+            "calls": 6210,
+            "max_us": 100,
+            "us": 16700
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 300
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 8700
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4500
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 100
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4000
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 2200
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 1,
+            "max_us": 100,
+            "us": 100
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 2700
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138719975
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 41,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.3
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0051,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2500
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1500
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 200
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 13700
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1000
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6500
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1100
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2100
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 13100
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 7100
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3100
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 42,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 35.6,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0039,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1.01448511111111,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 8800
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1200
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 100
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 200
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 8300
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 3400
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 900
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 2800
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1200
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 59,
+            "max_us": 400,
+            "us": 8000
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4500
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2400
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 42,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 19,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0048,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1.00138488888889,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 10200
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2400
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 300,
+            "us": 1000
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 900
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 9900
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 1000
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 4900
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 900
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1200
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 11000
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 7100
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 2700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 42,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0051,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 12600
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2400
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1500
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 12000
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1400
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 5800
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 900
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 2900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2800
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 12900
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 7200
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3000
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 42,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0004,
+        "process_s": 0.0041,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14500
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 2400
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1700
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 100
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 14100
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 1200
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6000
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 800
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 4600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 13200
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 7200
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 200,
+            "us": 4300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 42,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 19,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0004,
+        "process_s": 0.0045,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 12900
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 100,
+            "us": 1600
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1100
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 100
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 12800
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 4500
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3600
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 500,
+            "us": 13700
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 6800
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 42,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.9,
+          "p95": 18.9
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1870,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0042,
+        "render_objects": 318,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 12500
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 200,
+            "us": 2600
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 1400
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 700
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 12200
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1500
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 5100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 1100
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 5000
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 2900
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 13700
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 8700
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 630,
+            "max_us": 100,
+            "us": 3600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 8.037,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 74949,
+        "cpuTime": 1.476226,
+        "cpuPercent": 1.694475550578574
+      },
+      {
+        "type": "renderer",
+        "id": 74973,
+        "cpuTime": 0.181124,
+        "cpuPercent": 0.17125793206420303
+      },
+      {
+        "type": "renderer",
+        "id": 74974,
+        "cpuTime": 8.500973,
+        "cpuPercent": 20.86295881547841
+      },
+      {
+        "type": "GPU",
+        "id": 74961,
+        "cpuTime": 6.397965,
+        "cpuPercent": 20.096329476172706
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 74962,
+        "cpuTime": 0.202668,
+        "cpuPercent": 0.14255319148936163
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 74963,
+        "cpuTime": 0.039798,
+        "cpuPercent": 0.001493094438223243
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 74979,
+        "cpuTime": 0.429125,
+        "cpuPercent": 0.5160383227572471
+      }
+    ]
+  },
+  {
+    "label": "edit-undo-0",
+    "seconds": 8.002099999997764,
+    "rafFrames": 418,
+    "p50": 16.69999999999709,
+    "p95": 18.599999999998545,
+    "p99": 18.60000000000582,
+    "parent": {
+      "timerP95": 18.100000001490116,
+      "timerP99": 20.300000000745058,
+      "timerMax": 1082.4000000022352,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 63,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 60,
+          "max": 18.7,
+          "p95": 18.3
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 12,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 3,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 1,
+            "occluders": 6,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 644,
+        "objects": 2772,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0006,
+        "process_s": 0.0086,
+        "render_objects": 261,
+        "resources": 256,
+        "seconds": 1,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 9200
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 420,
+            "max_us": 1200,
+            "us": 79900
+          },
+          "cloud_visual.gd:visual_inputs": {
+            "calls": 6210,
+            "max_us": 100,
+            "us": 17100
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 540,
+            "max_us": 100,
+            "us": 300
+          },
+          "house_construction.gd:_process": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 500
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 60,
+            "max_us": 400,
+            "us": 9100
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:rebuild_decorations": {
+            "calls": 40,
+            "max_us": 62600,
+            "us": 979000
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 100,
+            "max_us": 200,
+            "us": 4400
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 1100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 120,
+            "max_us": 200,
+            "us": 3400
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 1900
+          },
+          "terrain_layout.gd:snapshot": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 6100
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "terrain_view.gd:_process": {
+            "calls": 120,
+            "max_us": 100,
+            "us": 3500
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 990,
+            "max_us": 100,
+            "us": 2600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138719975
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 33,
+        "game_pacing": {
+          "count": 53,
+          "max": 1070.9,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0042,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.01185266666667,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 53,
+            "max_us": 400,
+            "us": 12100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 371,
+            "max_us": 100,
+            "us": 2300
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 477,
+            "max_us": 100,
+            "us": 800
+          },
+          "house_construction.gd:_process": {
+            "calls": 53,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 53,
+            "max_us": 400,
+            "us": 12000
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 53,
+            "max_us": 100,
+            "us": 1300
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 53,
+            "max_us": 200,
+            "us": 4800
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 700
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 106,
+            "max_us": 200,
+            "us": 3900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 53,
+            "max_us": 200,
+            "us": 2600
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 53,
+            "max_us": 200,
+            "us": 4600
+          },
+          "terrain_view.gd:_process": {
+            "calls": 106,
+            "max_us": 200,
+            "us": 6100
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 936,
+            "max_us": 100,
+            "us": 3800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.8,
+          "p95": 18
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0043,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 300,
+            "us": 10300
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2000
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1400
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 300,
+            "us": 9700
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 700
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 0,
+            "us": 0
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4100
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4000
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 5000
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 1800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.9,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0041,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 500,
+            "us": 11300
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 1400
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1000
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 500,
+            "us": 10600
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1200
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4700
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 900
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 100,
+            "us": 3400
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 2500
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3700
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 5100
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 3800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.9,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0035,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 12500
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2200
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1200
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 500
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 12000
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5600
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 800
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4300
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 6200
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 3300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.9,
+          "p95": 18.7
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0043,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 11300
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 200,
+            "us": 2100
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 700
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 11100
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5900
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 800
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 3700
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1300
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4300
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 5300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 2700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.7,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0039,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 500,
+            "us": 14400
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2500
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 600
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 500
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 13800
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 6200
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1000
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 5200
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3100
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 7300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 3500
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 8.035,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 74949,
+        "cpuTime": 1.557361,
+        "cpuPercent": 0.8829993777224633
+      },
+      {
+        "type": "renderer",
+        "id": 74973,
+        "cpuTime": 0.181235,
+        "cpuPercent": 0.0013814561294337273
+      },
+      {
+        "type": "renderer",
+        "id": 74974,
+        "cpuTime": 11.163778,
+        "cpuPercent": 31.270491599253273
+      },
+      {
+        "type": "GPU",
+        "id": 74961,
+        "cpuTime": 7.926718,
+        "cpuPercent": 17.18043559427505
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 74962,
+        "cpuTime": 0.2035,
+        "cpuPercent": 0.010354698195395138
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 74963,
+        "cpuTime": 0.040299,
+        "cpuPercent": 0.00623522090852522
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 74979,
+        "cpuTime": 0.4309,
+        "cpuPercent": 0.02209085252022435
+      }
+    ]
+  },
+  {
+    "label": "edit-undo-1",
+    "seconds": 8.003400000002236,
+    "rafFrames": 419,
+    "p50": 16.69999999999709,
+    "p95": 18.5,
+    "p99": 18.599999999998545,
+    "parent": {
+      "timerP95": 18.100000001490116,
+      "timerP99": 20.899999998509884,
+      "timerMax": 1052.199999999255,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.6,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 584,
+        "objects": 2712,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0041,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 10200
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 1500
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1100
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 9400
+          },
+          "level_two_preview.gd:rebuild_decorations": {
+            "calls": 40,
+            "max_us": 27800,
+            "us": 952400
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 101,
+            "max_us": 100,
+            "us": 1500
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2900
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 3100
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2600
+          },
+          "terrain_layout.gd:snapshot": {
+            "calls": 60,
+            "max_us": 200,
+            "us": 6000
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4500
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 1008,
+            "max_us": 100,
+            "us": 2800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 33,
+        "game_pacing": {
+          "count": 52,
+          "max": 1040.8,
+          "p95": 17.4
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0019,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.00733266666667,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 52,
+            "max_us": 300,
+            "us": 7100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 364,
+            "max_us": 100,
+            "us": 1700
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 468,
+            "max_us": 100,
+            "us": 300
+          },
+          "house_construction.gd:_process": {
+            "calls": 52,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 52,
+            "max_us": 300,
+            "us": 6900
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 52,
+            "max_us": 100,
+            "us": 700
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 52,
+            "max_us": 200,
+            "us": 3100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 60,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 104,
+            "max_us": 100,
+            "us": 1900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 52,
+            "max_us": 100,
+            "us": 1300
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 52,
+            "max_us": 200,
+            "us": 2600
+          },
+          "terrain_view.gd:_process": {
+            "calls": 104,
+            "max_us": 200,
+            "us": 3900
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 558,
+            "max_us": 100,
+            "us": 1900
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 61,
+          "max": 19,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0043,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 600,
+            "us": 16600
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2000
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1600
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 500,
+            "us": 16000
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1600
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 300,
+            "us": 7200
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1600
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 6300
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 8300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 4000
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.7,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0041,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 14300
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2600
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1100
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 14200
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 1500
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 6100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5100
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 8200
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 300,
+            "us": 4800
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 19,
+          "p95": 18.7
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0048,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 13300
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2300
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1300
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 200
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 300,
+            "us": 12800
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1000
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5800
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 900
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4700
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2300
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5000
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 7600
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 2600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.6,
+          "p95": 18.4
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0043,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 14000
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2300
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 900
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 400
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 13700
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1200
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 300,
+            "us": 6100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 3900
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2500
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4900
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 7000
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 3300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.7,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0031,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 9000
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 200,
+            "us": 2200
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 600
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 8900
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 800
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3400
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 800
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 2700
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 2300
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3000
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4400
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 2700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 8.027,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 74949,
+        "cpuTime": 1.628305,
+        "cpuPercent": 0.8642082969976322
+      },
+      {
+        "type": "renderer",
+        "id": 74973,
+        "cpuTime": 0.181409,
+        "cpuPercent": 0.002167684066276065
+      },
+      {
+        "type": "renderer",
+        "id": 74974,
+        "cpuTime": 13.57857,
+        "cpuPercent": 30.072804285536307
+      },
+      {
+        "type": "GPU",
+        "id": 74961,
+        "cpuTime": 9.319962,
+        "cpuPercent": 17.35697022548898
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 74962,
+        "cpuTime": 0.204521,
+        "cpuPercent": 0.01271957144636878
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 74963,
+        "cpuTime": 0.041021,
+        "cpuPercent": 0.008994643079606335
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 74979,
+        "cpuTime": 0.430991,
+        "cpuPercent": 0.0011336738507538029
+      }
+    ]
+  },
+  {
+    "label": "edit-undo-2",
+    "seconds": 8.00179999999702,
+    "rafFrames": 420,
+    "p50": 16.69999999999709,
+    "p95": 18.5,
+    "p99": 18.599999999998545,
+    "parent": {
+      "timerP95": 18,
+      "timerP99": 19.800000000745058,
+      "timerMax": 1044.800000000745,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 21,
+          "p95": 18.4
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 584,
+        "objects": 2712,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0033,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 11100
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2200
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 800
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 10600
+          },
+          "level_two_preview.gd:rebuild_decorations": {
+            "calls": 40,
+            "max_us": 35800,
+            "us": 957400
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 101,
+            "max_us": 100,
+            "us": 1200
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3900
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 100,
+            "us": 2000
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 2300
+          },
+          "terrain_layout.gd:snapshot": {
+            "calls": 60,
+            "max_us": 300,
+            "us": 5600
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 3800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4500
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 1008,
+            "max_us": 100,
+            "us": 3300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 35,
+        "game_pacing": {
+          "count": 53,
+          "max": 1033.3,
+          "p95": 18
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0002,
+        "process_s": 0.0027,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.01649866666667,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 53,
+            "max_us": 400,
+            "us": 8700
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 371,
+            "max_us": 100,
+            "us": 1600
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 477,
+            "max_us": 100,
+            "us": 500
+          },
+          "house_construction.gd:_process": {
+            "calls": 53,
+            "max_us": 100,
+            "us": 500
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 53,
+            "max_us": 400,
+            "us": 8500
+          },
+          "level_two_preview.gd:inventory_changes": {
+            "calls": 1,
+            "max_us": 0,
+            "us": 0
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 53,
+            "max_us": 100,
+            "us": 1000
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 53,
+            "max_us": 300,
+            "us": 4000
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 700
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 106,
+            "max_us": 200,
+            "us": 2400
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 53,
+            "max_us": 200,
+            "us": 1400
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 45,
+            "max_us": 200,
+            "us": 2400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 106,
+            "max_us": 200,
+            "us": 3700
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 567,
+            "max_us": 100,
+            "us": 1900
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.6,
+          "p95": 18.6
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0045,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 12700
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2500
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1000
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 700
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 12500
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5400
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 400
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4300
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1900
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 51,
+            "max_us": 200,
+            "us": 3500
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 6100
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 3200
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 61,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.8,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0044,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 12200
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2300
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 600
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 11400
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 5400
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 900
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4400
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 2600
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 51,
+            "max_us": 200,
+            "us": 3200
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 5700
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 2700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 59,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.8,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0042,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 10700
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 1800
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1000
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 300
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 10100
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 800
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 4100
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 800
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 3700
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1600
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 50,
+            "max_us": 200,
+            "us": 2800
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 4300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 2700
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.8,
+          "p95": 18.4
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0041,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 14400
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 100,
+            "us": 2500
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1500
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 500
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 13600
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1100
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 6300
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 800
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 3700
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 2500
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 51,
+            "max_us": 200,
+            "us": 4100
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 300,
+            "us": 7500
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 639,
+            "max_us": 100,
+            "us": 2600
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      },
+      {
+        "chickens": 1,
+        "construction": 0,
+        "draw_calls": 33,
+        "editing": true,
+        "fps": 60,
+        "game_pacing": {
+          "count": 61,
+          "max": 18.8,
+          "p95": 18.5
+        },
+        "masks": [
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          },
+          {
+            "height": 496,
+            "mode": 0,
+            "occluders": 0,
+            "width": 1152
+          }
+        ],
+        "nodes": 104,
+        "objects": 1871,
+        "orphans": 0,
+        "outline_cache": 8,
+        "pawn": [
+          544,
+          208
+        ],
+        "physics_s": 0.0003,
+        "process_s": 0.0041,
+        "render_objects": 309,
+        "resources": 256,
+        "seconds": 1.016626,
+        "sheep": 1,
+        "static_bytes": 0,
+        "static_clouds": false,
+        "tiles": 100,
+        "timings": {
+          "bridge:super": {
+            "calls": 61,
+            "max_us": 500,
+            "us": 14800
+          },
+          "cloud_visual.gd:mask": {
+            "calls": 427,
+            "max_us": 200,
+            "us": 2700
+          },
+          "environment_sprite.gd:_process": {
+            "calls": 549,
+            "max_us": 100,
+            "us": 1500
+          },
+          "house_construction.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 600
+          },
+          "level_two_preview.gd:_process": {
+            "calls": 61,
+            "max_us": 400,
+            "us": 14300
+          },
+          "level_two_preview.gd:update_cursor": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 1200
+          },
+          "level_two_preview.gd:update_inventory_preview": {
+            "calls": 61,
+            "max_us": 200,
+            "us": 6500
+          },
+          "pawn.gd:tile_step_allowed": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 500
+          },
+          "sheep_visual.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 5000
+          },
+          "terrain_depth.gd:_process": {
+            "calls": 61,
+            "max_us": 100,
+            "us": 2200
+          },
+          "terrain_view.gd:_draw": {
+            "calls": 51,
+            "max_us": 200,
+            "us": 5400
+          },
+          "terrain_view.gd:_process": {
+            "calls": 122,
+            "max_us": 200,
+            "us": 7300
+          },
+          "tree_visual.gd:update_pose": {
+            "calls": 648,
+            "max_us": 100,
+            "us": 3300
+          }
+        },
+        "trees": 9,
+        "video_bytes": 138718283
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 8.013,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 74949,
+        "cpuTime": 1.716151,
+        "cpuPercent": 1.0698989142643205
+      },
+      {
+        "type": "renderer",
+        "id": 74973,
+        "cpuTime": 0.183564,
+        "cpuPercent": 0.026893797578934456
+      },
+      {
+        "type": "renderer",
+        "id": 74974,
+        "cpuTime": 15.918871,
+        "cpuPercent": 29.19286159990016
+      },
+      {
+        "type": "GPU",
+        "id": 74961,
+        "cpuTime": 10.695776,
+        "cpuPercent": 17.16962436041433
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 74962,
+        "cpuTime": 0.210775,
+        "cpuPercent": 0.07804817172095323
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 74963,
+        "cpuTime": 0.044461,
+        "cpuPercent": 0.04293023836266066
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 74979,
+        "cpuTime": 0.433181,
+        "cpuPercent": 0.02733058779483302
+      }
+    ]
+  }
+]

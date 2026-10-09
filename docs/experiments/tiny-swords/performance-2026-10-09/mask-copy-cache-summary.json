@@ -1,0 +1,247 @@
+[
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/mask-copy-cache-native.json",
+    "label": "probe-0-mask_copy_cache-enabled",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 23.72478919084142,
+    "cpuEnabled": 21.094470564863254,
+    "cpuPercentReduction": 11.086794511934205,
+    "controlP99": [
+      17.69999999999709,
+      17.60000000000582
+    ],
+    "enabledP99": 17.60000000000582,
+    "controlTimerMax": [
+      26.5,
+      36.600000001490116
+    ],
+    "enabledTimerMax": 20.699999999254942,
+    "fps": 60,
+    "drawCalls": 98,
+    "timings": {
+      "bridge:super": {
+        "msPerSecond": 8.04,
+        "callsPerSecond": 60
+      },
+      "cloud_visual.gd:mask": {
+        "msPerSecond": 54.68,
+        "callsPerSecond": 420
+      },
+      "cloud_visual.gd:visual_inputs": {
+        "msPerSecond": 17.866666666666667,
+        "callsPerSecond": 5357.2
+      },
+      "environment_sprite.gd:_process": {
+        "msPerSecond": 0.8133333333333332,
+        "callsPerSecond": 780
+      },
+      "house_construction.gd:_process": {
+        "msPerSecond": 0.23333333333333334,
+        "callsPerSecond": 60
+      },
+      "level_two_preview.gd:_process": {
+        "msPerSecond": 7.8133333333333335,
+        "callsPerSecond": 60
+      },
+      "level_two_preview.gd:update_cursor": {
+        "msPerSecond": 3.0733333333333333,
+        "callsPerSecond": 60
+      },
+      "level_two_preview.gd:update_inventory_preview": {
+        "msPerSecond": 0.8333333333333334,
+        "callsPerSecond": 60
+      },
+      "pawn.gd:tile_step_allowed": {
+        "msPerSecond": 0.38,
+        "callsPerSecond": 60
+      },
+      "sheep_visual.gd:_process": {
+        "msPerSecond": 5.746666666666667,
+        "callsPerSecond": 240
+      },
+      "terrain_depth.gd:_process": {
+        "msPerSecond": 8.826666666666666,
+        "callsPerSecond": 60
+      },
+      "terrain_view.gd:_process": {
+        "msPerSecond": 4.78,
+        "callsPerSecond": 420
+      },
+      "tree_visual.gd:update_pose": {
+        "msPerSecond": 1.2866666666666666,
+        "callsPerSecond": 280
+      }
+    }
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/mask-copy-cache-native.json",
+    "label": "probe-1-mask_copy_cache-enabled",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 22.07119466585121,
+    "cpuEnabled": 22.33315834939199,
+    "cpuPercentReduction": -1.1869030539887089,
+    "controlP99": [
+      17.60000000000582,
+      17.60000000000582
+    ],
+    "enabledP99": 17.60000000000582,
+    "controlTimerMax": [
+      24.800000000745058,
+      35.30000000074506
+    ],
+    "enabledTimerMax": 27.199999999254942,
+    "fps": 60,
+    "drawCalls": 98.26666666666667,
+    "timings": {
+      "bridge:super": {
+        "msPerSecond": 8.557719357954642,
+        "callsPerSecond": 60.00240009600382
+      },
+      "cloud_visual.gd:mask": {
+        "msPerSecond": 58.776121536664725,
+        "callsPerSecond": 420.01680067202676
+      },
+      "cloud_visual.gd:visual_inputs": {
+        "msPerSecond": 19.043384686207112,
+        "callsPerSecond": 5529.139198354817
+      },
+      "environment_sprite.gd:_process": {
+        "msPerSecond": 0.9311847883751412,
+        "callsPerSecond": 780.0312012480497
+      },
+      "house_construction.gd:_process": {
+        "msPerSecond": 0.4131312793495345,
+        "callsPerSecond": 60.00240009600382
+      },
+      "level_two_preview.gd:_process": {
+        "msPerSecond": 8.210164472152654,
+        "callsPerSecond": 60.00240009600382
+      },
+      "level_two_preview.gd:update_cursor": {
+        "msPerSecond": 3.534567612212684,
+        "callsPerSecond": 60.00240009600382
+      },
+      "level_two_preview.gd:update_inventory_preview": {
+        "msPerSecond": 0.8590507554728415,
+        "callsPerSecond": 60.00240009600382
+      },
+      "pawn.gd:tile_step_allowed": {
+        "msPerSecond": 0.6164180993469245,
+        "callsPerSecond": 60.00240009600382
+      },
+      "sheep_visual.gd:_process": {
+        "msPerSecond": 6.08548932121219,
+        "callsPerSecond": 240.00960038401527
+      },
+      "terrain_depth.gd:_process": {
+        "msPerSecond": 10.236475032771798,
+        "callsPerSecond": 60.00240009600382
+      },
+      "terrain_view.gd:_process": {
+        "msPerSecond": 4.505098236716353,
+        "callsPerSecond": 420.01680067202676
+      },
+      "tree_visual.gd:update_pose": {
+        "msPerSecond": 1.4689112154650115,
+        "callsPerSecond": 279.88004766092274
+      }
+    }
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/mask-copy-cache-native.json",
+    "label": "probe-2-mask_copy_cache-enabled",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 24.341043341292234,
+    "cpuEnabled": 22.146167664670678,
+    "cpuPercentReduction": 9.017179936975674,
+    "controlP99": [
+      17.60000000000582,
+      17.5
+    ],
+    "enabledP99": 17.599999999976717,
+    "controlTimerMax": [
+      25.199999999254942,
+      27.300000000745058
+    ],
+    "enabledTimerMax": 21.300000000745058,
+    "fps": 60,
+    "drawCalls": 96.33333333333333,
+    "timings": {
+      "bridge:super": {
+        "msPerSecond": 8.249510308281181,
+        "callsPerSecond": 60.00240009600382
+      },
+      "cloud_visual.gd:mask": {
+        "msPerSecond": 60.74997098244583,
+        "callsPerSecond": 420.01680067202676
+      },
+      "cloud_visual.gd:visual_inputs": {
+        "msPerSecond": 19.908993081034712,
+        "callsPerSecond": 5570.124444322033
+      },
+      "environment_sprite.gd:_process": {
+        "msPerSecond": 0.8983965916013686,
+        "callsPerSecond": 780.0312012480497
+      },
+      "house_construction.gd:_process": {
+        "msPerSecond": 0.31476668902821675,
+        "callsPerSecond": 60.00240009600382
+      },
+      "level_two_preview.gd:_process": {
+        "msPerSecond": 7.901955422479191,
+        "callsPerSecond": 60.00240009600382
+      },
+      "level_two_preview.gd:update_cursor": {
+        "msPerSecond": 3.462433579310384,
+        "callsPerSecond": 60.00240009600382
+      },
+      "level_two_preview.gd:update_inventory_preview": {
+        "msPerSecond": 0.7803590832157874,
+        "callsPerSecond": 60.00240009600382
+      },
+      "pawn.gd:tile_step_allowed": {
+        "msPerSecond": 0.44591947612330707,
+        "callsPerSecond": 60.00240009600382
+      },
+      "sheep_visual.gd:_process": {
+        "msPerSecond": 6.656003945075834,
+        "callsPerSecond": 240.00960038401527
+      },
+      "terrain_depth.gd:_process": {
+        "msPerSecond": 11.272582050823013,
+        "callsPerSecond": 60.00240009600382
+      },
+      "terrain_view.gd:_process": {
+        "msPerSecond": 4.885441319292115,
+        "callsPerSecond": 420.01680067202676
+      },
+      "tree_visual.gd:update_pose": {
+        "msPerSecond": 1.4426806580459934,
+        "callsPerSecond": 279.88004766092274
+      },
+      "level_two_preview.gd:clear_segment": {
+        "msPerSecond": 0.3344396070924803,
+        "callsPerSecond": 5.246111483803612
+      },
+      "terrain_layout.gd:snapshot": {
+        "msPerSecond": 0.013115278709509032,
+        "callsPerSecond": 0.13115278709509032
+      }
+    }
+  }
+]

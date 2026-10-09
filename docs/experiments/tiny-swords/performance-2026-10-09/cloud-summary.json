@@ -1,0 +1,184 @@
+[
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-long.json",
+    "label": "plain-idle-0-static",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 22.727981054747268,
+    "cpuEnabled": 18.474706164547847,
+    "cpuPercentReduction": 18.713826274116087,
+    "controlP99": [
+      17.700000000000728,
+      17.69999999999709
+    ],
+    "enabledP99": 17.700000000004366,
+    "controlTimerMax": [
+      22.800000000745058,
+      116.5
+    ],
+    "enabledTimerMax": 24.399999998509884,
+    "fps": 60,
+    "drawCalls": 36,
+    "timings": {}
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-long.json",
+    "label": "plain-idle-1-static",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 21.53352146938881,
+    "cpuEnabled": 15.69948198916163,
+    "cpuPercentReduction": 27.092825892507253,
+    "controlP99": [
+      17.69999999999709,
+      17.70000000001164
+    ],
+    "enabledP99": 17.70000000001164,
+    "controlTimerMax": [
+      43.19999999925494,
+      25.900000002235174
+    ],
+    "enabledTimerMax": 42,
+    "fps": 60,
+    "drawCalls": 36,
+    "timings": {}
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-long.json",
+    "label": "plain-idle-2-static",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 21.03848713684131,
+    "cpuEnabled": 14.906609195402304,
+    "cpuPercentReduction": 29.146002284076967,
+    "controlP99": [
+      17.70000000001164,
+      17.70000000001164
+    ],
+    "enabledP99": 17.70000000001164,
+    "controlTimerMax": [
+      36.19999999925494,
+      34
+    ],
+    "enabledTimerMax": 19.099999997764826,
+    "fps": 60,
+    "drawCalls": 36,
+    "timings": {}
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-inventory.json",
+    "label": "plain-inventory-0-static",
+    "scenario": "inventory-moving",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 21.323673137255696,
+    "cpuEnabled": 18.592025518341305,
+    "cpuPercentReduction": 12.810399040218767,
+    "controlP99": [
+      17.600000000002183,
+      17.599999999998545
+    ],
+    "enabledP99": 17.600000000002183,
+    "controlTimerMax": [
+      54.69999999925494,
+      37.399999998509884
+    ],
+    "enabledTimerMax": 27.899999998509884,
+    "fps": null,
+    "drawCalls": null,
+    "timings": {}
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-inventory.json",
+    "label": "plain-inventory-1-static",
+    "scenario": "inventory-moving",
+    "cpuThrottle": 1,
+    "canvas": [
+      2108,
+      908
+    ],
+    "cpuControl": 22.11113230670273,
+    "cpuEnabled": 19.771455614227353,
+    "cpuPercentReduction": 10.581442234715995,
+    "controlP99": [
+      17.69999999999709,
+      17.60000000000582
+    ],
+    "enabledP99": 17.60000000000582,
+    "controlTimerMax": [
+      21.600000001490116,
+      24.899999998509884
+    ],
+    "enabledTimerMax": 28.900000002235174,
+    "fps": null,
+    "drawCalls": null,
+    "timings": {}
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-phone-layout.json",
+    "label": "plain-idle-0-static",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      1041,
+      672
+    ],
+    "cpuControl": 17.707608591253653,
+    "cpuEnabled": 11.550512488804856,
+    "cpuPercentReduction": 34.770906928053414,
+    "controlP99": [
+      17.600000000002183,
+      17.60000000000582
+    ],
+    "enabledP99": 17.600000000002183,
+    "controlTimerMax": [
+      20.299999997019768,
+      18.399999998509884
+    ],
+    "enabledTimerMax": 40.399999998509884,
+    "fps": null,
+    "drawCalls": null,
+    "timings": {}
+  },
+  {
+    "file": "docs/experiments/tiny-swords/performance-2026-10-09/clouds-plain-phone-layout.json",
+    "label": "plain-idle-1-static",
+    "scenario": "idle",
+    "cpuThrottle": 1,
+    "canvas": [
+      1041,
+      672
+    ],
+    "cpuControl": 21.955434623477572,
+    "cpuEnabled": 16.6522429813168,
+    "cpuPercentReduction": 24.154345988167865,
+    "controlP99": [
+      17.599999999998545,
+      17.60000000000582
+    ],
+    "enabledP99": 17.599999999998545,
+    "controlTimerMax": [
+      32.30000000074506,
+      20.399999998509884
+    ],
+    "enabledTimerMax": 29.800000000745058,
+    "fps": null,
+    "drawCalls": null,
+    "timings": {}
+  }
+]
