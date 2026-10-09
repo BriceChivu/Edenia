@@ -6762,3 +6762,153 @@ test('exact local animal checkpoint survives refresh without backing up and cann
   assert.equal(newer.backupRequired, false)
   assert.deepEqual(newer.profile.tinySwordsIsland, cloudProfile.tinySwordsIsland)
 })
+
+async function duplicateRecoveryFixture({ queued = false, finalized = false, quota = true, verifyEnvelope, finalizeEnvelope, isCurrent = () => true } = {}) {
+  const { finalizePortableLearnerProfileEnvelope, verifyPortableLearnerProfileEnvelope } = await import('../../src/state/portable-learner-profile.js')
+  const prepare = (profile, date = '2026-10-08T00:00:00.000Z') => preparePortableLearnerProfileEnvelope(profile, { now: () => new Date(date) })
+  const state = emptyPortableProfile({ videos: Object.fromEntries(Array.from({ length: 1600 }, (_, i) => [String(i), {
+    id: String(i), title: 'a'.repeat(300), duration: 60, favorite: true, status: 'unwatched'
+  }])) })
+  const initial = prepare(state)
+  const local = queued ? { ...initial.profile, config: { ...initial.profile.config, locale: 'fr' } } : initial.profile
+  const candidate = prepare(local)
+  const operation = (envelope, id, baseRevision) => ({ activationId: 'retained-activation', baseRevision,
+    envelope: finalized ? envelope : null, generation: 1, integrity: envelope.integrity, nextRetryAt: 0,
+    operationId: id, ownerId: OWNER_ID, prepared: finalized ? null : envelope, profileId: PROFILE_ID,
+    retryCount: 0, revision: baseRevision + 1 })
+  const record = { acceptedRevision: 20, generation: 1, ownerId: OWNER_ID,
+    pending: operation(initial, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 20), profileId: PROFILE_ID,
+    queued: queued ? operation(candidate, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 21) : null, version: 1 }
+  const raw = JSON.stringify(record)
+  const dirty = JSON.stringify({ generation: 1, ownerId: OWNER_ID, profileId: PROFILE_ID, version: 1 })
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: raw, [DIRTY_STORAGE_KEY]: dirty })
+  const setItem = storage.setItem
+  let oversizeWrites = 0
+  let createdOperations = 0
+  storage.setItem = (key, value) => {
+    if (quota && key === SYNC_STORAGE_KEY && String(value).length > raw.length + 1000) {
+      oversizeWrites += 1
+      throw new DOMException('Insufficient remaining origin quota', 'QuotaExceededError')
+    }
+    return setItem(key, value)
+  }
+  const calls = []
+  const adapter = createAdapter({ storage, prepareEnvelope: prepare,
+    finalizeEnvelope: finalizeEnvelope || finalizePortableLearnerProfileEnvelope,
+    verifyEnvelope: verifyEnvelope || verifyPortableLearnerProfileEnvelope,
+    createOperationId: () => { createdOperations += 1; return crypto.randomUUID() },
+    rpc: async (name, parameters) => {
+      calls.push(name)
+      if (name === 'resolve_my_learner_profile') return { data: [{ created: false,
+        envelope: prepare(initial.profile, '2026-10-09T00:00:00.000Z'), generation: 1,
+        profile_id: PROFILE_ID, revision: 21, status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY }], error: null }
+      assert.equal(name, 'commit_my_learner_profile')
+      assert.equal(parameters.p_operation_id, record.pending.operationId)
+      return { data: [{ status: 'already_accepted', generation: 1, profile_id: PROFILE_ID,
+        base_revision: 20, revision: 21, payload_sha256: initial.integrity.payloadSha256 }], error: null }
+    }
+  })
+  const localProfile = { generation: 1, ownerId: OWNER_ID, profile: local, profileId: PROFILE_ID, revision: 19, status: 'ready' }
+  return { adapter, calls, candidate, dirty, initial, localProfile, raw, record, storage,
+    counters: () => ({ oversizeWrites, createdOperations }),
+    resolve: () => adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+      localProfile, purpose: 'resolve-signed-in-profile', isCurrent }) }
+}
+
+for (const queued of [false, true]) for (const finalized of [false, true]) {
+  test(`dirty recovery reuses the exact ${queued ? 'queued' : 'pending'} ${finalized ? 'finalized' : 'prepared'} large candidate without another payload`, async () => {
+    const f = await duplicateRecoveryFixture({ queued, finalized })
+    const result = await f.resolve()
+    assert.equal(result.status, 'activate')
+    assert.deepEqual(result.profile, f.localProfile.profile)
+    assert.deepEqual(f.counters(), { oversizeWrites: 0, createdOperations: 0 })
+    assert.equal(f.storage.getItem(DIRTY_STORAGE_KEY), null)
+    const durable = JSON.parse(f.storage.getItem(SYNC_STORAGE_KEY))
+    assert.equal(durable.acceptedRevision, 21)
+    assert.equal(durable.queued, null)
+    assert.deepEqual(durable.pending, f.record.queued)
+    assert.deepEqual(f.calls, ['resolve_my_learner_profile', 'commit_my_learner_profile'])
+  })
+}
+
+for (const queued of [false, true]) for (const finalized of [false, true]) {
+  test(`dirty recovery preserves an invalid matching ${queued ? 'queued' : 'pending'} ${finalized ? 'finalized' : 'prepared'} candidate and marker`, async () => {
+    const f = await duplicateRecoveryFixture({ queued, finalized })
+    const record = JSON.parse(f.raw)
+    const latest = record.queued || record.pending
+    latest.integrity.payloadSha256 = 'B'.repeat(43)
+    ;(latest.envelope || latest.prepared).integrity.payloadSha256 = 'B'.repeat(43)
+    const damaged = JSON.stringify(record)
+    f.storage.setItem(SYNC_STORAGE_KEY, damaged)
+    assert.equal((await f.resolve()).status, 'recovering')
+    assert.equal(f.storage.getItem(SYNC_STORAGE_KEY), damaged)
+    assert.equal(f.storage.getItem(DIRTY_STORAGE_KEY), f.dirty)
+    assert.deepEqual(f.counters(), { oversizeWrites: 0, createdOperations: 0 })
+    assert.deepEqual(f.calls, ['resolve_my_learner_profile'])
+  })
+}
+
+for (const finalized of [false, true]) for (const loss of ['opening', 'sync-record', 'dirty-marker', 'local-snapshot']) {
+  test(`dirty recovery preserves work if ${loss} changes while ${finalized ? 'finalized' : 'prepared'} verification waits`, async () => {
+    const { finalizePortableLearnerProfileEnvelope, verifyPortableLearnerProfileEnvelope } = await import('../../src/state/portable-learner-profile.js')
+    const verification = deferred()
+    const ready = deferred()
+    let held = false
+    const hold = async value => {
+      if (!held && value.exportedAt === '2026-10-08T00:00:00.000Z') {
+        held = true
+        ready.resolve()
+        await verification.promise
+      }
+    }
+    let current = true
+    const f = await duplicateRecoveryFixture({ finalized,
+      isCurrent: () => current,
+      finalizeEnvelope: async value => { await hold(value); return finalizePortableLearnerProfileEnvelope(value) },
+      verifyEnvelope: async value => { await hold(value); return verifyPortableLearnerProfileEnvelope(value) }
+    })
+    const resolving = f.resolve()
+    await ready.promise
+    let expectedSync = f.raw
+    let expectedDirty = f.dirty
+    if (loss === 'opening') current = false
+    if (loss === 'sync-record') {
+      const replacement = JSON.parse(f.raw)
+      replacement.pending.nextRetryAt = 1
+      expectedSync = JSON.stringify(replacement)
+      f.storage.setItem(SYNC_STORAGE_KEY, expectedSync)
+    }
+    if (loss === 'dirty-marker') {
+      expectedDirty = `${f.dirty} `
+      f.storage.setItem(DIRTY_STORAGE_KEY, expectedDirty)
+    }
+    if (loss === 'local-snapshot') f.localProfile.profile.config.weeklyGoalHours = 8
+    verification.resolve()
+    assert.equal((await resolving).status, 'recovering')
+    assert.equal(f.storage.getItem(SYNC_STORAGE_KEY), expectedSync)
+    assert.equal(f.storage.getItem(DIRTY_STORAGE_KEY), expectedDirty)
+    assert.deepEqual(f.counters(), { oversizeWrites: 0, createdOperations: 0 })
+    assert.deepEqual(f.calls, ['resolve_my_learner_profile'])
+  })
+}
+
+test('a different dirty profile is not mistaken for the retained large request when a second payload cannot fit', async () => {
+  const f = await duplicateRecoveryFixture({ finalized: true })
+  f.localProfile.profile.config.weeklyGoalHours = 8
+  assert.equal((await f.resolve()).status, 'recovering')
+  assert.equal(f.storage.getItem(SYNC_STORAGE_KEY), f.raw)
+  assert.equal(f.storage.getItem(DIRTY_STORAGE_KEY), f.dirty)
+  assert.equal(f.localProfile.profile.config.weeklyGoalHours, 8)
+  assert.equal(f.counters().oversizeWrites, 1)
+  assert.deepEqual(f.calls, ['resolve_my_learner_profile'])
+})
+
+test('an unchanged readable sync record is recoverable regardless of JSON whitespace', async () => {
+  const f = await duplicateRecoveryFixture({ finalized: true, quota: false })
+  f.storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(f.record, null, 2))
+  assert.equal((await f.resolve()).status, 'activate')
+  assert.equal(f.storage.getItem(DIRTY_STORAGE_KEY), null)
+  assert.equal(JSON.parse(f.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+  assert.deepEqual(f.counters(), { oversizeWrites: 0, createdOperations: 0 })
+  assert.deepEqual(f.calls, ['resolve_my_learner_profile', 'commit_my_learner_profile'])
+})

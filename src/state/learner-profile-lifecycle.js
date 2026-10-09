@@ -336,6 +336,9 @@ export function createLearnerProfileLifecycleAuthority({
     Promise.resolve(cloudPersistence.resolve({
       authentication: auth,
       connectivity: connectivity.getObservation(),
+      isCurrent: () => requestId === resolutionId
+        && authentication.getObservation()?.status === 'signed-in'
+        && authentication.getObservation()?.userId === auth.userId,
       ...(accountlessAttachment ? { accountlessAttachment } : {}),
       localProfile,
       purpose

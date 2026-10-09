@@ -10,7 +10,7 @@ export function createImportedStateReader({
   }
 
   return function readImportedState(payload) {
-    const state = payload?.app === 'edenia' ? payload.state : payload
+    let state = payload?.app === 'edenia' ? payload.state : payload
     if (!state || typeof state !== 'object') return null
     if (!state.config || typeof state.config !== 'object') return null
     if (
@@ -23,6 +23,10 @@ export function createImportedStateReader({
       || typeof state.anki !== 'object'
       || Array.isArray(state.anki)
     ) return null
+
+    // Normalization belongs to the local working copy. Nested aliases would
+    // mutate a verified envelope and make unchanged progress look different.
+    try { state = structuredClone(state) } catch { return null }
 
     const baseState = createDefaultState(
       state.config.weeklyGoalHours || 4,

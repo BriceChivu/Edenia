@@ -1271,6 +1271,34 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  async function queueDirtyProfile(profile, record, dirty, isCurrent) {
+    const latest = record.queued || record.pending
+    const represented = latest?.envelope || latest?.prepared
+    if (!canonicalProfilesMatch(profile, represented, prepareEnvelope)) {
+      return isCurrent() && queueProfile(profile, record, `dirty-recovery-${createOperationId()}`)
+    }
+    // The latest complete candidate is already durable. Storing it twice can
+    // exhaust origin quota before replaying a lost acknowledgment.
+    const stored = readStoredSyncRecord()
+    if (JSON.stringify(stored.record) !== JSON.stringify(record)) return false
+    let candidate
+    try {
+      candidate = latest.envelope
+        ? await verifyEnvelope(latest.envelope)
+        : (await finalizeEnvelope(latest.prepared))?.envelope
+    } catch { return false }
+    if (
+      !isCurrent()
+      || candidate?.integrity?.algorithm !== latest.integrity.algorithm
+      || candidate?.integrity?.byteLength !== latest.integrity.byteLength
+      || candidate?.integrity?.payloadSha256 !== latest.integrity.payloadSha256
+      || !canonicalProfilesMatch(profile, candidate, prepareEnvelope)
+      || readStoredSyncRecord().serialized !== stored.serialized
+      || readDirtyRecord().serialized !== dirty.serialized
+    ) return false
+    return clearDirtyRecord(record)
+  }
+
   function queueProfile(profile, record, activationId) {
     let operation
     try {
@@ -2576,7 +2604,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     connectivity,
     accountlessAttachment,
     localProfile,
-    purpose
+    purpose,
+    isCurrent = () => true
   }) {
     if (purpose === 'migrate-accountless-profile') {
       return resolveAccountlessMigration({
@@ -2915,10 +2944,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
           || localProfile?.status !== 'ready'
           || localProfile.ownerId !== authentication.userId
           || localProfile.profileId !== profileId
-          || !queueProfile(
-            localProfile.profile,
-            currentRecord,
-            `dirty-recovery-${createOperationId()}`
+          || !await queueDirtyProfile(
+            localProfile.profile, currentRecord, dirty, isCurrent
           )
         ) return { status: 'recovering' }
         currentRecord = readSyncRecord()

@@ -838,8 +838,10 @@ test('verified voluntary migration attaches the untouched local profile after cl
   assert.equal(harness.authority.getState().ownerId, ownerId)
   assert.equal(harness.authority.readActiveProfile(), accountlessProfile)
   assert.deepEqual(migrationCalls, ['complete'])
+  const { isCurrent, ...resolution } = harness.calls.find(([name]) => name === 'cloud-resolve')[1]
+  assert.equal(isCurrent(), true)
   assert.deepEqual(
-    harness.calls.find(([name]) => name === 'cloud-resolve')[1],
+    resolution,
     {
       authentication: { status: 'signed-in', userId: ownerId },
       connectivity: { status: 'online' },
@@ -857,6 +859,8 @@ test('verified voluntary migration attaches the untouched local profile after cl
     harness.calls.filter(([name]) => name === 'cloud-save').length,
     0
   )
+  harness.authentication.publish({ status: 'signed-out', userId: null })
+  assert.equal(isCurrent(), false)
 })
 
 test('a failed first migration backup reopens the untouched accountless profile', async () => {

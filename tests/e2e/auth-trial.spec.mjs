@@ -738,3 +738,76 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   expect(await page.evaluate(() => loadState().tinySwordsIsland.resources.wood)).toBe(moved.resources.wood)
   expect(await retainedBytes(page)).toEqual(retained)
 })
+
+test('a large already-accepted request reopens under origin storage pressure without duplicating its profile', async ({ page }) => {
+  test.setTimeout(90000)
+  await seedRetained(page)
+  const videos = Object.fromEntries(Array.from({ length: 1600 }, (_, i) => [String(i), {
+    id: String(i), title: 'a'.repeat(300), duration: 60, favorite: true, status: 'unwatched'
+  }]))
+  const fixture = await owned(page, { indexedDb: true, engine: false, videos })
+  await page.goto('./?internal_test=1')
+  await expect.poll(() => page.evaluate(() => loadPersistedState({ persistCleanup: false }).cityProgress.scoringVersion === SCORING_RULES_VERSION)).toBe(true)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 15000 })
+  await expect.poll(async () => {
+    const current = await page.evaluate(() => preparePortableLearnerProfileEnvelope(loadPersistedState({ persistCleanup: false })).profile)
+    return JSON.stringify(current) === JSON.stringify(fixture.head().envelope.profile)
+  }).toBe(true)
+  const before = fixture.head()
+  fixture.advanceRevision()
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  let replays = 0
+  await page.route(origin + '/rest/v1/rpc/commit_my_learner_profile', async route => {
+    const args = route.request().postDataJSON()
+    expect(args.p_operation_id).toBe(operationId)
+    expect(args.p_base_revision).toBe(before.revision)
+    expect(args.p_envelope).toEqual(before.envelope)
+    replays += 1
+    await route.fulfill({ json: [{ status: 'already_accepted', profile_id: profileId,
+      generation: before.generation, base_revision: before.revision, revision: before.revision + 1,
+      payload_sha256: before.envelope.integrity.payloadSha256 }] })
+  })
+  const seeded = await page.evaluate(({ trial, owner, profileId, before, operationId }) => {
+    const current = preparePortableLearnerProfileEnvelope(loadPersistedState({ persistCleanup: false })).profile
+    if (JSON.stringify(current) !== JSON.stringify(before.envelope.profile)) throw new Error('Opening must finish before pressure is seeded')
+    const operation = { activationId: 'retained-before-reload', baseRevision: before.revision,
+      envelope: before.envelope, generation: before.generation, integrity: before.envelope.integrity,
+      nextRetryAt: 0, operationId, ownerId: owner, prepared: null, profileId,
+      retryCount: 0, revision: before.revision + 1 }
+    localStorage.setItem(trial + '_learner_profile_sync_v1', JSON.stringify({ version: 1, ownerId: owner,
+      profileId, generation: before.generation, acceptedRevision: before.revision, pending: operation, queued: null }))
+    localStorage.setItem(trial + '_learner_profile_sync_v1_dirty', JSON.stringify({ version: 1,
+      ownerId: owner, profileId, generation: before.generation }))
+    const paddingKey = 'synthetic-origin-pressure'
+    let padding = ''
+    let exhausted = false
+    for (let i = 0; i < 400; i += 1) {
+      try { localStorage.setItem(paddingKey, padding + 'x'.repeat(32768)); padding += 'x'.repeat(32768) }
+      catch (error) { if (error.name !== 'QuotaExceededError') throw error; exhausted = true; break }
+    }
+    if (!exhausted || padding.length < 65536) throw new Error('Origin quota was not reached')
+    padding = padding.slice(0, -65536)
+    localStorage.setItem(paddingKey, padding)
+    return { exhausted, paddingCharacters: padding.length, videos: Object.keys(current.videos).length }
+  }, { trial, owner, profileId, before, operationId })
+  expect(seeded.exhausted).toBe(true)
+  expect(seeded.videos).toBe(1600)
+  await page.reload()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 15000 })
+  const recovered = await page.evaluate(trial => {
+    const k = trial + '_learner_profile_sync_v1'
+    const m = JSON.parse(localStorage.getItem(k))
+    return { profile: preparePortableLearnerProfileEnvelope(loadPersistedState({ persistCleanup: false })).profile,
+      acceptedRevision: m.acceptedRevision, pending: m.pending, queued: m.queued,
+      dirty: localStorage.getItem(k + '_dirty'), paddingCharacters: localStorage.getItem('synthetic-origin-pressure').length }
+  }, trial)
+  expect(recovered.profile).toEqual(before.envelope.profile)
+  expect(recovered).toMatchObject({ acceptedRevision: before.revision + 1, pending: null,
+    queued: null, dirty: null, paddingCharacters: seeded.paddingCharacters })
+  expect(replays).toBe(1)
+  expect(fixture.head()).toEqual({ ...before, revision: before.revision + 1 })
+  await page.reload()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 15000 })
+  expect(replays).toBe(1)
+  expect(await retainedBytes(page)).toEqual(retained)
+})
