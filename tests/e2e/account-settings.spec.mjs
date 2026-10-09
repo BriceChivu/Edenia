@@ -228,18 +228,15 @@ test('Account settings are localized and responsive', async ({
         accountToHowTo: gap('#accountSettings', '.settings-howto-group'),
         howToToActivity: gap('.settings-howto-group', '.activity-log-panel'),
         activityToReplay: gap('.activity-log-panel', '.settings-replay-group'),
-        replayButtons: gap(
-          '.settings-replay-group .walkthrough-replay-btn:first-child',
-          '.settings-replay-group .walkthrough-replay-btn:last-child'
-        ),
+        replayButtonCount: element.querySelectorAll('.settings-replay-group .walkthrough-replay-btn').length,
         replayToData: gap('.settings-replay-group', '.settings-data-group')
       }
     })
     expect(spacing.accountToHowTo).toBe(10)
     expect(spacing.howToToActivity).toBe(10)
-    expect(spacing.replayButtons).toBe(10)
+    expect(spacing.replayButtonCount).toBe(1)
     expect(spacing.activityToReplay).toBeGreaterThan(spacing.howToToActivity)
-    expect(spacing.replayToData).toBeGreaterThan(spacing.replayButtons)
+    expect(spacing.replayToData).toBeGreaterThan(spacing.howToToActivity)
   }
 })
 
