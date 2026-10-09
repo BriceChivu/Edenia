@@ -270,4 +270,3 @@ grant execute on function
 
 comment on function private.run_learner_profile_maintenance(uuid, boolean) is
   'Reports or applies owner-scoped learner-profile retention while preserving current heads, protected recovery records, and idempotency receipts.';
-
