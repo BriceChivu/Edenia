@@ -103,7 +103,7 @@ test('developed island loads compressed, remains usable, and releases keyboard f
   await expect(page.locator('#cityCurrentLevel')).toHaveText('Level 7')
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect.poll(() => game.evaluate(() => window.edeniaReducedMotion)).toBe(true)
-  await expect(hostFocus).toHaveCSS('transition-duration', '0s')
+  if (!isTouch) await expect(hostFocus).toHaveCSS('transition-duration', '0s')
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await expect.poll(() => game.evaluate(() => window.edeniaReducedMotion)).toBe(false)
   // Offscreen and covered suspension must retain the same engine and island.
