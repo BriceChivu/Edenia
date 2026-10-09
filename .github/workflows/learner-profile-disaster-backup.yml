@@ -10,11 +10,6 @@ on:
         type: boolean
         default: false
 
-      diagnose_capacity:
-        description: 'Inspect the retention query without retaining database changes'
-        type: boolean
-        default: false
-
 permissions:
   contents: read
   actions: write
@@ -25,7 +20,7 @@ concurrency:
 
 jobs:
   backup:
-    if: ${{ !inputs.recover_capacity && !inputs.diagnose_capacity }}
+    if: ${{ !inputs.recover_capacity }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -191,13 +186,15 @@ jobs:
           assert delimiter not in migration
           sql = 'begin;\n' + migration
           sql += "\ninsert into supabase_migrations.schema_migrations (version, name, statements) values ('20261009152958', 'tune_free_retention_batch_size', array[" + delimiter + migration + delimiter + "]::text[]) on conflict (version) do nothing;\n"
-          sql += "select cron.alter_job(jobid, active := false) from cron.job where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
+          sql += "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'edenia-learner-profile-retention';\ncommit;\n"
           source = Path('supabase/migrations/20261009150230_reduce_write_amplification_and_restore_retention.sql').read_text()
           start = source.index('  protected_version_ids as (')
           end = source.index('  version_metrics as (', start)
           protected = source[start:end].strip().rstrip(',').replace('p_owner_id', 'null::uuid')
           sql += 'create temporary table retention_protected_before as with ' + protected
           sql += ' select version.id, version.payload_sha256 from protected_version_ids protected join public.learner_profile_versions version on version.id = protected.version_id and version.user_id = protected.user_id;\n'
+          # Reclaim the large already-dead TOAST backlog before issuing more deletes.
+          sql += "set statement_timeout = '600s';\nVACUUM (FULL, ANALYZE) public.learner_profile_versions;\nset statement_timeout = '180s';\n"
           sql += r'\set has_backlog true' + '\n'
           for _ in range(20):
               sql += r"""
@@ -218,7 +215,7 @@ jobs:
           \if :has_backlog
           do $$ begin raise exception 'Capacity recovery check failed'; end $$;
           \endif
-          VACUUM (FULL, ANALYZE) public.learner_profile_versions;
+          VACUUM (ANALYZE) public.learner_profile_versions;
           select count(*) = count(version.id)
             and bool_and(version.payload_sha256 = baseline.payload_sha256) as protected_intact
           from retention_protected_before baseline
@@ -238,50 +235,3 @@ jobs:
           PY
           psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
             --file "$RUNNER_TEMP/edenia-capacity-recovery.sql"
-
-  capacity-diagnostics:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_capacity }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      PGCONNECT_TIMEOUT: '15'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Inspect retention execution
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PYDIAG'
-          import os
-          from pathlib import Path
-          source = Path('supabase/migrations/20261009152958_tune_free_retention_batch_size.sql').read_text()
-          start = source.index('    with protected_version_ids as (')
-          end = source.index('    select count(*)::bigint into deleted_ordinary', start)
-          query = source[start:end].replace('p_owner_id', 'null::uuid') + 'select count(*) from deleted;'
-          sql = r"""
-          \timing on
-          set statement_timeout = '10s';
-          set lock_timeout = '2s';
-          select current_user, current_setting('statement_timeout'), current_setting('jit'), current_setting('transaction_read_only');
-          select state, wait_event_type, wait_event, count(*) from pg_stat_activity where datname = current_database() group by 1,2,3;
-          select conrelid::regclass as child, conname, pg_get_constraintdef(oid) from pg_constraint where confrelid = 'public.learner_profile_versions'::regclass;
-          select schemaname, tablename, indexdef from pg_indexes where tablename like 'learner_profile%';
-          select relname, n_live_tup, n_dead_tup, last_analyze, last_autoanalyze from pg_stat_user_tables where relname like 'learner_profile%';
-          """
-          sql += 'explain (costs true) ' + query
-          sql += 'explain (analyze, buffers, timing) ' + query[:query.index('    deleted as (')].rstrip().rstrip(',') + ' select id from ranked_candidates where ordinary_rank > 8 order by ordinary_rank desc, id limit 1;\n'
-          sql += "\nset statement_timeout = '60s';\nBEGIN;\nexplain (analyze, buffers, timing) " + query.replace('limit 100', 'limit 1') + '\nROLLBACK;\n'
-          Path(os.environ['RUNNER_TEMP'], 'diagnose.sql').write_text(sql)
-          PYDIAG
-          (
-            for attempt in {1..30}; do
-              printf '%s\n' "select clock_timestamp(), state, wait_event_type, wait_event, count(*) from pg_stat_activity where datname = current_database() and application_name = 'edenia-retention-probe' group by 1,2,3,4;" "select pg_sleep(1);"
-            done
-          ) > "$RUNNER_TEMP/observe.sql"
-          PGAPPNAME=edenia-retention-observer psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --file "$RUNNER_TEMP/observe.sql" > "$RUNNER_TEMP/observe.log" &
-          observer_pid=$!
-          PGAPPNAME=edenia-retention-probe psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 --file "$RUNNER_TEMP/diagnose.sql" || probe_status=$?
-          wait "$observer_pid" || true
-          cat "$RUNNER_TEMP/observe.log"
-          exit "${probe_status:-0}"
