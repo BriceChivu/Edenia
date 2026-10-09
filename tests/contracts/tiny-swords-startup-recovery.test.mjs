@@ -39,8 +39,8 @@ for (const operation of ['open', 'match', 'put', 'keys', 'delete']) {
   })
 }
 
-async function loaderHarness(mode, { fallbackStalls = false } = {}) {
-  const clock = timers(), workers = [], fetches = [], aborted = []
+async function loaderHarness(mode, { fallbackStalls = false, fetchStalls = false } = {}) {
+  const clock = timers(), workers = [], fetches = [], aborted = [], failures = []
   class Worker {
     constructor() { workers.push(this) }
     terminate() { this.terminated = true }
@@ -52,15 +52,16 @@ async function loaderHarness(mode, { fallbackStalls = false } = {}) {
     }
   }
   const context = { window: { edeniaGameAssets: { worker: 'worker.js', decoder: 'decoder.wasm', files: { 'index.wasm': { url: 'index.wasm', bytes: mode === 'normal' ? 2 : 4, type: 'application/wasm' } } } },
-    document: { baseURI: 'https://example.invalid/game/' }, parent: { postMessage() {} }, location: { origin: 'https://example.invalid' },
+    document: { baseURI: 'https://example.invalid/game/' }, parent: { postMessage(message) { failures.push(message.type) } }, location: { origin: 'https://example.invalid' },
     Worker, URL, ReadableStream, Response, Uint8Array, AbortController, ...clock,
     fetch: async (url, options) => {
       fetches.push(String(url)); options?.signal?.addEventListener('abort', () => aborted.push(true))
+      if (fetchStalls) return new Promise(() => {})
       if (fallbackStalls) return new Response(new ReadableStream({ pull() { return new Promise(() => {}) } }))
       return new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'application/wasm' } })
     } }
   vm.runInNewContext(await readFile('scripts/tiny-swords-asset-loader.js', 'utf8'), context)
-  return { clock, workers, fetches, aborted, load: () => context.window.edeniaFetchGameAsset('index.wasm') }
+  return { clock, workers, fetches, aborted, failures, load: () => context.window.edeniaFetchGameAsset('index.wasm') }
 }
 
 test('a silent worker falls back once to ordinary delivery', async () => {
@@ -101,6 +102,18 @@ test('ordinary delivery also fails promptly when its stream stalls', async () =>
   await tick(); h.clock.fire(); await tick(); h.clock.fire(); await tick()
   assert.match(await result, /timed out/)
   assert.equal(h.fetches.length, 1); assert.equal(h.aborted.length, 1)
+  assert.deepEqual(h.failures, ['edenia-game-startup-failed'])
+})
+
+test('a fallback with no response headers reports failure before Godot can retry', async () => {
+  const h = await loaderHarness('silent', { fetchStalls: true })
+  const result = h.load().then(() => 'accepted', error => error.message)
+  await tick(); h.clock.fire(); await tick(); h.clock.fire(); await tick()
+  assert.match(await result, /timed out/)
+  assert.deepEqual(h.failures, ['edenia-game-startup-failed'])
+  assert.equal(h.aborted.length, 1)
+  await assert.rejects(h.load(), /Game asset startup failed/)
+  assert.equal(h.fetches.length, 1, 'Godot retries cannot restart a retired attempt')
 })
 
 test('canceling a compressed stream terminates its worker', async () => {

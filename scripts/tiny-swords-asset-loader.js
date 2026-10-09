@@ -20,6 +20,15 @@
   class AssetTimeout extends Error {
     constructor() { super('Game asset delivery timed out') }
   }
+  let timeoutReported = false
+  function reportTimeout(error) {
+    // Godot retries rejected downloads internally. Once the recovery request
+    // itself stalls, retire this attempt promptly through the host retry UI.
+    if (error instanceof AssetTimeout && !timeoutReported) {
+      timeoutReported = true
+      parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin)
+    }
+  }
   async function deadline(operation, abort = () => {}) {
     let timer
     try {
@@ -45,7 +54,7 @@
           if (bytes > asset.bytes || (chunk.done && bytes !== asset.bytes)) throw new Error('Unexpected game asset size')
           if (chunk.done) controller.close()
           else controller.enqueue(chunk.value)
-        } catch (error) { abort.abort(); controller.error(error) }
+        } catch (error) { abort.abort(); reportTimeout(error); controller.error(error) }
       },
       cancel() { abort.abort(); return reader.cancel() }
     }), { headers: { 'Content-Type': asset.type, 'Content-Length': String(asset.bytes) } })
@@ -139,6 +148,7 @@
     }), { headers: { 'Content-Type': asset.type, 'Content-Length': String(asset.bytes) } })
   }
   window.edeniaFetchGameAsset = async file => {
+    if (timeoutReported) throw new Error('Game asset startup failed')
     const asset = config.files[file]
     if (!asset) return fetch(file)
     if (typeof Worker === 'function') {
@@ -146,6 +156,6 @@
     }
     // Missing compressed files/decoder or unavailable workers retain ordinary
     // HTTP gzip delivery. This URL is stable for an unchanged engine too.
-    return ordinaryResponse(asset)
+    try { return await ordinaryResponse(asset) } catch (error) { reportTimeout(error); throw error }
   }
 })()
