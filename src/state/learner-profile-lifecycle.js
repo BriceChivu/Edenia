@@ -422,6 +422,14 @@ export function createLearnerProfileLifecycleAuthority({
         if (currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           releaseActiveProfile()
         }
+        if (
+          isSignedInProfile(localProfile)
+          && typeof localPersistence.releaseOpeningActivation === 'function'
+          && !localPersistence.releaseOpeningActivation(localProfile)
+        ) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
         let resolvedProfile = result.profile
         if (
           purpose === 'migrate-accountless-profile'
@@ -722,7 +730,7 @@ export function createLearnerProfileLifecycleAuthority({
   function evaluate() {
     const requestId = ++resolutionId
     const auth = authentication.getObservation()
-    const localProfile = localPersistence.read()
+    let localProfile = localPersistence.read()
     if (auth?.status === 'signed-out'
       || (auth?.status === 'signed-in' && auth.userId !== lastResetActivation.ownerId)) {
       lastResetActivation = EMPTY_ACCESS_STATE
@@ -775,6 +783,7 @@ export function createLearnerProfileLifecycleAuthority({
     }
     if (auth.status === 'signed-in') {
       releaseActiveProfile()
+      localProfile = localPersistence.read()
       if (!auth.userId || localProfile?.status === 'invalid') {
         return !auth.userId
           ? publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)

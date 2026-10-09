@@ -104,11 +104,14 @@ export function createLearnerProfileLocalPersistenceAdapter({
   eventTarget,
   hasProfile = () => true,
   loadProfile,
+  readProfileRaw = null,
   inheritProfileRevision = () => {},
   replaceProfile,
   saveProfile,
   storage
 }) {
+  const openingSnapshots = new WeakMap()
+
   function read() {
     let profile
     let access
@@ -162,7 +165,55 @@ export function createLearnerProfileLocalPersistenceAdapter({
     if (access.record?.onboardingFinalizationPending === true) {
       localProfile.onboardingFinalizationPending = true
     }
+    if (localProfile.ownerId) {
+      try {
+        openingSnapshots.set(localProfile, {
+          access: storage.getItem(accessStorageKey),
+          profile: typeof readProfileRaw === 'function'
+            ? readProfileRaw()
+            : JSON.stringify(profile)
+        })
+      } catch {
+        return { status: 'invalid' }
+      }
+    }
     return localProfile
+  }
+
+  function releaseOpeningActivation(localProfile) {
+    const captured = openingSnapshots.get(localProfile)
+    if (!captured || localProfile?.status !== 'ready' || !localProfile.ownerId) {
+      return false
+    }
+    try {
+      if (
+        storage.getItem(accessStorageKey) !== captured.access
+        || (typeof readProfileRaw === 'function'
+          ? readProfileRaw()
+          : JSON.stringify(loadProfile())) !== captured.profile
+        || storage.getItem(accessStorageKey) !== captured.access
+      ) return false
+      const current = readAccessRecord(storage, accessStorageKey).record
+      if (
+        !current
+        || current.ownerId !== localProfile.ownerId
+        || current.profileId !== localProfile.profileId
+        || current.generation !== localProfile.generation
+        || current.revision !== localProfile.revision
+        || current.replacement
+      ) return false
+      if (current.activationId === null) return true
+      // A closed window cannot release its claim. Verified opening may retire
+      // only the exact claim and profile captured before its cloud request.
+      return releaseActivation({
+        activatedAt: current.activatedAt,
+        id: current.activationId,
+        ownerId: current.ownerId,
+        profileId: current.profileId
+      })
+    } catch {
+      return false
+    }
   }
 
   function installLegacyAccountlessProfile(profile, { createdAt } = {}) {
@@ -817,6 +868,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     read,
     reconcileSignedInProfile,
     releaseActivation,
+    releaseOpeningActivation,
     replace,
     save,
     subscribe

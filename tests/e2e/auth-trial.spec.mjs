@@ -44,7 +44,7 @@ function session(userId = owner) {
     refresh_token:'trial-refresh',expires_at:1893456000,expires_in:31536000,token_type:'bearer',
     user:{id:userId,email:'trial@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
 }
-async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},youtubeApiKey=''}) {
+async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},youtubeApiKey='',activationId=null}) {
   await configure(page,{indexedDb,engine,youtubeApiKey})
   const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json',import.meta.url)))
   const at='2026-10-08T00:00:00.000Z'
@@ -65,14 +65,14 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
   const protectedUntil='2099-10-01T00:00:00.000Z'
   const resetId='523e4567-e89b-42d3-a456-426614174004'
   const identity=()=>({profile_id:profileId,generation,revision})
-  await page.addInitScript(({trial,owner,profileId,envelope,authenticated}) => {
+  await page.addInitScript(({trial,owner,profileId,envelope,authenticated,activationId}) => {
     if(sessionStorage.getItem('owned-trial-installed'))return
     localStorage.setItem(trial,JSON.stringify(envelope.profile))
     localStorage.setItem(trial+'_plus_auth_v1',JSON.stringify(authenticated))
-    localStorage.setItem(trial+'_learner_profile_access_v1',JSON.stringify({version:1,ownerId:owner,profileId,generation:1,revision:1,activatedAt:Date.now(),activationId:null,onboardingFinalizationPending:false}))
+    localStorage.setItem(trial+'_learner_profile_access_v1',JSON.stringify({version:1,ownerId:owner,profileId,generation:1,revision:1,activatedAt:Date.now(),activationId,onboardingFinalizationPending:false}))
     localStorage.setItem(trial+'_learner_profile_sync_v1',JSON.stringify({version:1,ownerId:owner,profileId,generation:1,acceptedRevision:1,pending:null,queued:null}))
     sessionStorage.setItem('owned-trial-installed','1')
-  },{trial,owner,profileId,envelope,authenticated:session()})
+  },{trial,owner,profileId,envelope,authenticated:session(),activationId})
   await page.route(origin+'/**',async route => {
     const path=new URL(route.request().url()).pathname
     requests.push(path)
@@ -811,3 +811,28 @@ test('a large already-accepted request reopens under origin storage pressure wit
   expect(replays).toBe(1)
   expect(await retainedBytes(page)).toEqual(retained)
 })
+
+for (const indexedDb of [false, true]) {
+  test(`owned trial restores after an abrupt browser exit (${indexedDb ? 'IndexedDB' : 'localStorage'})`, async ({ page }) => {
+    test.setTimeout(90000)
+    await seedRetained(page)
+    const engine = process.env.EDENIA_TEST_TINY_SWORDS === 'true'
+    await owned(page, { indexedDb, engine, activationId: 'closed-window-activation',
+      anki: { '2026-10-08': { reviewed: 3, experienceReviews: 3, experienceWatermark: 3 } } })
+    await page.goto('./?internal_test=1')
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    expect(await page.evaluate(trial => {
+      const access = JSON.parse(localStorage.getItem(trial + '_learner_profile_access_v1'))
+      return { retired: access.activationId !== 'closed-window-activation',
+        reviews: loadState().anki['2026-10-08'].reviewed }
+    }, trial)).toEqual({ retired: true, reviews: 3 })
+    if (engine) await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
+    expect(await retainedBytes(page)).toEqual(retained)
+    await page.reload()
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    expect(await page.evaluate(() => loadState().anki['2026-10-08'].reviewed)).toBe(3)
+    expect(await retainedBytes(page)).toEqual(retained)
+  })
+}
