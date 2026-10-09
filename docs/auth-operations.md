@@ -81,7 +81,8 @@ workflow's explicit `recover_capacity` input is scoped to the October 9 incident
 it applies the reviewed 100-version batch migration via the existing direct DB
 secret, uses a session-only five-version catch-up limit for at most 400 batches
 before compacting the small retained set, and
-prints only aggregate capacity evidence. It is disabled for scheduled runs and
+prints only aggregate capacity evidence and physical rewrite progress. The
+one-time compaction has a thirty-minute statement budget. It is disabled for scheduled runs and
 ordinary backup dispatches. Use it only with the incident's successful external
 dump and restore rehearsal already recorded.
 

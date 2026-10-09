@@ -219,7 +219,12 @@ jobs:
           \endif
           -- Copy only the retained set after draining; copying the backlog itself
           -- exhausted the Free project's memory and compaction time budget.
-          set statement_timeout = '600s';
+          select pid, usename, state, backend_xmin, clock_timestamp() - xact_start as transaction_age
+          from pg_stat_activity where backend_xmin is not null and pid <> pg_backend_pid();
+          select slot_name, slot_type, active, xmin, catalog_xmin,
+            pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) as retained_wal_bytes
+          from pg_replication_slots;
+          set statement_timeout = '1800s';
           VACUUM (FULL, ANALYZE) public.learner_profile_versions;
           set statement_timeout = '180s';
           select count(*) = count(version.id)
@@ -239,6 +244,16 @@ jobs:
           """
           Path(os.environ['RUNNER_TEMP'], 'edenia-capacity-recovery.sql').write_text(sql)
           PY
+          # Report physical rewrite progress without opening a management session
+          # that initializes table grants while VACUUM holds its exclusive lock.
+          (
+            while sleep 30; do
+              psql "$SUPABASE_DB_URL" --csv --variable ON_ERROR_STOP=1 \
+                --command "select command, phase, heap_blks_total, heap_blks_scanned, heap_tuples_scanned, heap_tuples_written from pg_stat_progress_cluster where datname = current_database();"
+            done
+          ) &
+          progress_pid=$!
+          trap 'kill "$progress_pid" 2>/dev/null || true' EXIT
           psql "$SUPABASE_DB_URL" --variable ON_ERROR_STOP=1 \
             --file "$RUNNER_TEMP/edenia-capacity-recovery.sql"
       - name: Restore scheduled retention after recovery
