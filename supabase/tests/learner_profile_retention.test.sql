@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(35);
+select plan(36);
 
 select has_table(
   'private',
@@ -883,6 +883,15 @@ set database_limit_bytes = 1,
 where singleton;
 
 select * from private.record_learner_profile_capacity_check();
+
+update private.learner_profile_maintenance_config
+set database_limit_verified_at = now() - interval '8 days',
+    pause_restore_constraints_verified_at = now() - interval '8 days'
+where singleton;
+select results_eq(
+  $$select capacity_policy_current, cleanup_allowed from private.learner_profile_capacity_report(null)$$,
+  $$values (false, true)$$,
+  'expired plan review remains visible without stranding approved retention');
 
 select results_eq(
   $query$
