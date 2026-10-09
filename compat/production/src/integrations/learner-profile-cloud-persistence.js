@@ -2901,6 +2901,53 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  // Unlike resolve(), this read never opens, repairs or installs a profile.
+  // Compare with live bookkeeping after the request: the save pump keeps running.
+  async function checkActiveHead({ activation, isCurrent } = {}) {
+    const binding = activeBinding
+    const current = () => binding && activeBinding === binding
+      && binding.activation === activation && isCurrent?.() && binding.isCurrent()
+    if (!current()) return { status: 'stale' }
+    if (!isOnline()) return { status: 'waiting' }
+    let response
+    try {
+      response = await getClient().from('learner_profile_heads')
+        .select('user_id,profile_id,generation,revision')
+        .eq('user_id', activation.ownerId).maybeSingle()
+    } catch { return { status: current() ? 'waiting' : 'stale' } }
+    if (!current()) return { status: 'stale' }
+    if (response?.error) {
+      return { status: isTransientCloudStatus(response.status) ? 'waiting'
+        : response.status === 401 ? 'waiting-authentication' : 'reopen' }
+    }
+    const head = response?.data
+    const record = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (!record || record.ownerId !== activation.ownerId
+      || record.profileId !== activation.profileId
+      || record.generation !== binding.generation
+      || !dirtyRecordMatches(record, dirty)) return { status: 'reopen' }
+    if (!head || head.user_id !== activation.ownerId
+      || !UUID_PATTERN.test(String(head.profile_id || ''))
+      || !normalizePositiveInteger(head.generation)
+      || !normalizePositiveInteger(head.revision)) return { status: 'reopen' }
+    if (head.profile_id === record.profileId && head.generation === record.generation
+      && head.revision <= record.acceptedRevision) {
+      // A read captured before an acknowledged local save is also harmless.
+      cloudHeadKnown = true
+      if (record.pending) retryWhenAvailable()
+      return { status: 'unchanged' }
+    }
+    if (record.pending || record.queued || dirty.present) {
+      // Let local persistence finish before its existing save enqueues work.
+      // Reuse the durable pending/queued candidates; never capture an unpersisted
+      // live snapshot here or start another save pipeline.
+      if (record.pending) void pump()
+      return { status: 'reconciling' }
+    }
+    return { status: 'changed' }
+  }
+
   function activate({ activation, generation, isCurrent, profile, revision }) {
     if (
       !isRecord(activation)
@@ -3436,6 +3483,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   return Object.freeze({
     activate,
+    checkActiveHead,
     chooseConflict,
     commitReplacement,
     confirmImport,

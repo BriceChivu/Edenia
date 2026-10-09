@@ -82,6 +82,13 @@ function createHarness({ delayedVerification = false, delayedImport = false } = 
     learnerProfileReverificationController: null,
     learnerProfileLifecycleAuthority: {
       getState: () => access,
+      async reverify({ verifyOwner, shouldCheckHead } = {}) {
+        const prior = access
+        const verified = await verifyOwner?.()
+        if (prior !== access || access.status !== 'active') return
+        if (shouldCheckHead && !shouldCheckHead()) return
+        if (!verifyOwner || verified) calls.profileRefreshes += 1
+      },
       refresh() {
         calls.profileRefreshes += 1
         access = { status: 'waiting-cloud', ownerId: null, profileId: null }
@@ -210,7 +217,8 @@ for (const order of ['file-before-auth', 'auth-before-file']) {
     assert.equal(harness.toast.textContent, 'toast.invalidSyncJson')
     assert.equal(harness.calls.profileRefreshes, 0)
     harness.close()
-    assert.equal(harness.calls.profileRefreshes, 1, 'Closing Settings runs the deferred cloud reopening')
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(harness.calls.profileRefreshes, 1, 'Closing Settings runs the deferred background check')
   })
 }
 
@@ -249,7 +257,7 @@ test('Auth revocation still closes the import surface and cancels its confirmati
   assert.equal(harness.calls.profileRefreshes, 0)
 })
 
-test('ordinary focus without a picker still reopens the verified profile', async () => {
+test('ordinary focus without a picker checks the verified profile in the background', async () => {
   const harness = createHarness()
   harness.focus()
   await harness.finishAuth()

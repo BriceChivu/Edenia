@@ -39,7 +39,6 @@ function createHarness(viewOptions = {}) {
     ['learnerProfileAccessBody', createElement()],
     ['learnerProfileAccessStatus', createElement()],
     ['learnerProfileOpeningNotice', createElement()],
-    ['learnerProfileOpeningProtection', createElement()],
     ['learnerProfileOpeningStatus', createElement()],
     ['learnerProfileAccessOpenSignIn', createElement()],
     ['learnerProfileAccessRetry', createElement()],
@@ -181,17 +180,13 @@ test('opening progress stays automatic while genuine recovery keeps an escape', 
   }
 })
 
-test('opening progress shows protection and progress-ready status in order', () => {
+test('opening progress shows only the progress-ready status', () => {
   const { elements, view } = createHarness({
     translate: key => I18N.en[key]
   })
 
   view.render({ status: 'waiting-cloud' })
 
-  assert.equal(
-    elements.get('learnerProfileOpeningProtection').textContent,
-    'Private learner content stays hidden until the active profile is ready.'
-  )
   assert.equal(
     elements.get('learnerProfileOpeningStatus').textContent,
     'Getting your progress ready…'
@@ -259,10 +254,7 @@ test('the guarded profile surface contains authentication, retry, and safe sign-
     html,
     /id="learnerProfileOpeningNotice"[^>]*aria-atomic="true"/
   )
-  assert.match(
-    html,
-    /id="learnerProfileOpeningProtection"[^>]*data-i18n="profileAccess\.opening\.protected"/
-  )
+  assert.doesNotMatch(html, /learnerProfileOpeningProtection|profileAccess\.opening\.protected/)
   assert.match(
     html,
     /id="learnerProfileOpeningStatus"[^>]*role="status"[^>]*aria-live="polite"[^>]*data-i18n="profileAccess\.opening\.status"/

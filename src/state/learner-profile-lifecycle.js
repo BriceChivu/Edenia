@@ -45,7 +45,8 @@ function isSignedInProfile(localProfile) {
 export function createLearnerProfileLifecycleAuthority({
   adapters,
   createActivationId,
-  onStateChange
+  onStateChange,
+  onVerificationStateChange = () => {}
 }) {
   const {
     analytics,
@@ -64,6 +65,9 @@ export function createLearnerProfileLifecycleAuthority({
   let offlineVerificationExpiresAt = null
   let offlineExpiryTimer = null
   let started = false
+  let pendingLocalSaves = 0
+  let backgroundVerification = null
+  let backgroundBoundaryTimer = null
   let resolutionId = 0
   let profileOpeningRecoveryAttempts = 0
   let profileOpeningRecoveryOwnerId = null
@@ -150,7 +154,15 @@ export function createLearnerProfileLifecycleAuthority({
     })
   }
 
+  function cancelBackgroundVerification() {
+    backgroundVerification = null
+    if (backgroundBoundaryTimer !== null) clock.clearTimer?.(backgroundBoundaryTimer)
+    backgroundBoundaryTimer = null
+    onVerificationStateChange('idle')
+  }
+
   function releaseActiveProfile() {
+    cancelBackgroundVerification()
     const activation = currentState.activation
     activeProfile = null
     offlineVerificationExpiresAt = null
@@ -962,22 +974,29 @@ export function createLearnerProfileLifecycleAuthority({
     if (!activation) return false
     const { syncCloud = true, localIslandCheckpoint = false, ...persistenceOptions } = options
     if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
-    const persisted = localPersistence.save(
-      profile,
-      persistenceOptions,
-      activation
-    )
-    return mapPersistenceResult(persisted, saved => {
-      if (!saved || !getCurrentActivationFor(profile)) return false
-      if (!syncCloud && localIslandCheckpoint) {
-        cloudPersistence.markLocalIslandCheckpoint?.(profile, {
-          activation, isCurrent: () => getCurrentActivationFor(profile) === activation
-        })
+    pendingLocalSaves += 1
+    try {
+      const persisted = localPersistence.save(profile, persistenceOptions, activation)
+      const completed = mapPersistenceResult(persisted, saved => {
+        if (!saved || !getCurrentActivationFor(profile)) return false
+        if (!syncCloud && localIslandCheckpoint) {
+          cloudPersistence.markLocalIslandCheckpoint?.(profile, {
+            activation, isCurrent: () => getCurrentActivationFor(profile) === activation
+          })
+        }
+        if (options.syncAnalytics !== false) analytics.profileSaved(profile, { activation })
+        if (syncCloud) enqueueCloudSave(profile, activation)
+        return true
+      })
+      if (completed && typeof completed.then === 'function') {
+        return completed.finally(() => { pendingLocalSaves -= 1 })
       }
-      if (options.syncAnalytics !== false) analytics.profileSaved(profile, { activation })
-      if (syncCloud) enqueueCloudSave(profile, activation)
-      return true
-    })
+      pendingLocalSaves -= 1
+      return completed
+    } catch (error) {
+      pendingLocalSaves -= 1
+      throw error
+    }
   }
 
   function replaceActiveProfile(profile, options = {}) {
@@ -1047,6 +1066,7 @@ export function createLearnerProfileLifecycleAuthority({
       || typeof cloudPersistence.importProfile !== 'function'
     ) return { status: 'owner-required' }
 
+    cancelBackgroundVerification()
     let protectedImport
     try {
       protectedImport = await cloudPersistence.importProfile(profile, {
@@ -1444,6 +1464,7 @@ export function createLearnerProfileLifecycleAuthority({
       || !previousState.ownerId
       || typeof cloudPersistence.startOver !== 'function'
     ) return false
+    cancelBackgroundVerification()
     let result
     try {
       result = await cloudPersistence.startOver(profile, {
@@ -1489,6 +1510,7 @@ export function createLearnerProfileLifecycleAuthority({
       || protectedReset?.status !== 'available'
       || typeof cloudPersistence.undoStartOver !== 'function'
     ) return false
+    cancelBackgroundVerification()
     let result
     try {
       result = await cloudPersistence.undoStartOver({
@@ -1816,7 +1838,7 @@ export function createLearnerProfileLifecycleAuthority({
     if (started) return currentState
     started = true
     cloudPersistence.start?.()
-    unsubscribeAuthentication = authentication.subscribe(evaluate)
+    unsubscribeAuthentication = authentication.subscribe(handleAuthenticationChange)
     if (typeof cloudPersistence.subscribe === 'function') {
       unsubscribeCloudPersistence = cloudPersistence.subscribe(
         handleCloudPersistenceState
@@ -1854,6 +1876,113 @@ export function createLearnerProfileLifecycleAuthority({
     return evaluate()
   }
 
+  function retainVerifiedActivation() {
+    const activation = getCurrentActivationFor(activeProfile)
+    if (!activation?.ownerId) return false
+    const auth = authentication.getObservation()
+    const sameOwner = auth?.status === 'signed-in' && auth.userId === activation.ownerId
+    const transportFailure = auth?.status === 'unavailable' && auth.failure === 'network'
+    if (!sameOwner && !transportFailure) return false
+    const verification = requireCurrentOwnerVerification()
+    if (!verification) return false
+    applyOfflineVerificationDeadline(verification)
+    return true
+  }
+
+  function handleAuthenticationChange() {
+    if (retainVerifiedActivation()) return currentState
+    return evaluate()
+  }
+
+  async function reverify({ verifyOwner, shouldCheckHead = () => true, canApplyRemote = () => true } = {}) {
+    if (!started || backgroundVerification || !retainVerifiedActivation()) return false
+    const activation = currentState.activation
+    const profile = activeProfile
+    const requestId = resolutionId
+    const request = {}
+    backgroundVerification = request
+    const current = () => backgroundVerification === request && resolutionId === requestId
+      && getCurrentActivationFor(profile) === activation
+    onVerificationStateChange('checking')
+    try {
+      const verified = await verifyOwner?.()
+      if (!current() || !retainVerifiedActivation()) return false
+      const auth = authentication.getObservation()
+      if (auth?.status !== 'signed-in' || auth.userId !== activation.ownerId
+        || (verifyOwner && verified !== true)) {
+        onVerificationStateChange('waiting-check')
+        return false
+      }
+      if (verified === true) ownerVerification?.record?.({ ownerId: activation.ownerId, verifiedAt: clock.now() })
+      if (!current()) return false
+      applyOfflineVerificationDeadline(requireCurrentOwnerVerification())
+      if (!shouldCheckHead()) {
+        onVerificationStateChange('idle')
+        return true
+      }
+      const result = await cloudPersistence.checkActiveHead?.({ activation, isCurrent: current })
+      if (!current()) return false
+      if (result?.status === 'waiting') {
+        onVerificationStateChange('waiting-check')
+        return false
+      }
+      if (result?.status === 'waiting-authentication') {
+        releaseActiveProfile()
+        ownerVerification?.clear?.()
+        publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION)
+        return false
+      }
+      if (['changed', 'reopen'].includes(result?.status)) {
+        // Wait for local transactions (including checkpoints without a dirty
+        // marker) and recheck the head/bookkeeping at the interaction boundary.
+        const scheduleBoundary = () => {
+          backgroundBoundaryTimer = clock.setTimer?.(applyAtBoundary, 1000) ?? null
+        }
+        const applyAtBoundary = async () => {
+          backgroundBoundaryTimer = null
+          if (!current()) return
+          if (pendingLocalSaves || !canApplyRemote()) {
+            scheduleBoundary()
+            return
+          }
+          try {
+            const latest = await cloudPersistence.checkActiveHead({ activation, isCurrent: current })
+            if (!current()) return
+            if (pendingLocalSaves || !canApplyRemote()) {
+              scheduleBoundary()
+              return
+            }
+            if (['changed', 'reopen'].includes(latest?.status)) evaluate()
+            else if (latest?.status === 'waiting-authentication') {
+              releaseActiveProfile()
+              ownerVerification?.clear?.()
+              publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION)
+            } else {
+              onVerificationStateChange(latest?.status === 'waiting' ? 'waiting-check' : 'idle')
+            }
+          } catch {
+            if (current()) onVerificationStateChange('waiting-check')
+          } finally {
+            if (backgroundVerification === request && backgroundBoundaryTimer === null) {
+              backgroundVerification = null
+            }
+          }
+        }
+        await applyAtBoundary()
+        return true
+      }
+      if (current()) onVerificationStateChange('idle')
+      return true
+    } catch {
+      if (current()) onVerificationStateChange('waiting-check')
+      return false
+    } finally {
+      if (backgroundVerification === request && backgroundBoundaryTimer === null) {
+        backgroundVerification = null
+      }
+    }
+  }
+
   function refresh() {
     return started ? evaluate() : currentState
   }
@@ -1887,6 +2016,7 @@ export function createLearnerProfileLifecycleAuthority({
     importActiveProfile,
     readActiveProfile,
     refresh,
+    reverify,
     replaceOwnerProfile,
     replaceActiveProfile,
     retryCloudBackup,

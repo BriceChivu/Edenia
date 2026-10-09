@@ -65,9 +65,6 @@ export function createLearnerProfileAccessView({
   const body = root.getElementById('learnerProfileAccessBody')
   const status = root.getElementById('learnerProfileAccessStatus')
   const openingNotice = root.getElementById('learnerProfileOpeningNotice')
-  const openingProtection = root.getElementById(
-    'learnerProfileOpeningProtection'
-  )
   const openingStatus = root.getElementById('learnerProfileOpeningStatus')
   const openSignIn = root.getElementById('learnerProfileAccessOpenSignIn')
   const retry = root.getElementById('learnerProfileAccessRetry')
@@ -117,15 +114,11 @@ export function createLearnerProfileAccessView({
     if (!openingNotice) return
     openingNotice.classList.add('hidden')
     openingNotice.classList.remove('sr-only')
-    if (openingProtection) openingProtection.textContent = ''
     if (openingStatus) openingStatus.textContent = ''
   }
 
   function showOpeningNotice() {
-    if (!openingNotice || !openingProtection || !openingStatus) return
-    openingProtection.textContent = translate(
-      'profileAccess.opening.protected'
-    )
+    if (!openingNotice || !openingStatus) return
     openingStatus.textContent = translate('profileAccess.opening.status')
     openingNotice.classList.remove('hidden')
     openingNotice.classList.add('sr-only')

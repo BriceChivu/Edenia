@@ -753,9 +753,7 @@ async function expectQuietProfileOpening(page, expectedState, storedState) {
   await expect(page.locator('#onboardingPanel')).toBeHidden()
   await expect(page.locator('#learnerProfileOpeningNotice'))
     .not.toHaveClass(/hidden/)
-  await expect(page.locator('#learnerProfileOpeningProtection')).toHaveText(
-    'Private learner content stays hidden until the active profile is ready.'
-  )
+  await expect(page.locator('#learnerProfileOpeningProtection')).toHaveCount(0)
   await expect(page.locator('#learnerProfileOpeningStatus')).toHaveText(
     'Getting your progress ready…'
   )
@@ -2915,4 +2913,50 @@ test('failed automatic Anki refresh does not write a signed-in profile diagnosti
   await page.waitForTimeout(500)
   expect(commits).toBe(0)
   await expect(page.locator('#mainApp')).toBeVisible()
+})
+
+test('temporary Auth failure keeps the active profile until existing verification expires', async ({ page, pageDiagnostics }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let enabled = false
+  let envelope
+  let refreshes = 0
+  await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript',
+    body: runtimeConfig({ accountFeaturesRollout: enabled ? 'public' : 'off', lifecycle: enabled }) }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/auth/v1/token')) {
+      refreshes += 1
+      return route.fulfill({ status: 503, json: { message: 'Synthetic temporary outage' } })
+    }
+    if (path.endsWith('/rpc/resolve_my_learner_profile')) return route.fulfill({ json: [{ status: 'profile_ready',
+      created: false, envelope, generation: 1, profile_id: OWNER_PROFILE_ID, revision: 3 }] })
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('/')
+  const stored = await seedOwnedLearnerProfile(page)
+  envelope = (await createPortableLearnerProfileEnvelope(JSON.parse(stored))).envelope
+  enabled = true
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  const before = await page.evaluate(key => {
+    window.verifiedMain = document.getElementById('mainApp')
+    return localStorage.getItem(key)
+  }, OWNER_VERIFICATION_STORAGE_KEY)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect.poll(() => refreshes).toBeGreaterThan(0)
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'active')
+  expect(await page.evaluate(() => window.verifiedMain === document.getElementById('mainApp'))).toBe(true)
+  expect(await page.evaluate(key => localStorage.getItem(key), OWNER_VERIFICATION_STORAGE_KEY)).toBe(before)
+  await page.evaluate(key => {
+    const record = JSON.parse(localStorage.getItem(key))
+    record.verifiedAt = Date.now() - 30 * 86400000 - 1000
+    localStorage.setItem(key, JSON.stringify(record))
+    window.dispatchEvent(new StorageEvent('storage', { key }))
+  }, OWNER_VERIFICATION_STORAGE_KEY)
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'locked')
+  await expect(page.locator('#mainApp')).toHaveCount(0)
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  expect(pageDiagnostics.length).toBeGreaterThan(0)
+  expect(pageDiagnostics.every(message => message === 'console: Failed to load resource: the server responded with a status of 503 (Service Unavailable)')).toBe(true)
+  pageDiagnostics.length = 0
 })
