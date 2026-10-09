@@ -91,3 +91,28 @@ test('imported state reader validates its two deep dependencies', () => {
     /legacy-state cleanup/
   )
 })
+
+for (const wrapped of [false, true]) {
+  test(`normalizing a ${wrapped ? 'wrapped' : 'direct'} import cannot mutate its verified source or opaque island`, () => {
+    const source = { config: { channels: [{ id: 'one', name: 'Source' }] },
+      videos: { video: { id: 'video', watchProgress: [{ seconds: 4 }] } },
+      anki: { day: { reviewed: 2 } }, cityProgress: { maxLevelIndex: 3 },
+      onboarding: { setupCompleted: true }, tinySwordsIsland: { version: 23, tiles: [[1, 2, 3]] } }
+    const original = structuredClone(source)
+    const read = createImportedStateReader({ createDefaultState: () => ({ config: {}, videos: {}, anki: {} }),
+      removeLegacyVideoWatchReminderState(state) {
+        state.videos.video.watchProgress[0].seconds = 8
+        state.anki.day.reviewed = 3
+        state.cityProgress.scoringVersion = 7
+      } })
+    const imported = read(wrapped ? { app: 'edenia', state: source } : source)
+    imported.config.channels[0].name = 'Local'
+    imported.onboarding.setupCompleted = false
+    imported.tinySwordsIsland.tiles[0][0] = 9
+    assert.deepEqual(source, original)
+    assert.equal(imported.videos.video.watchProgress[0].seconds, 8)
+    assert.equal(imported.anki.day.reviewed, 3)
+    assert.equal(imported.cityProgress.scoringVersion, 7)
+    assert.notEqual(imported.tinySwordsIsland, source.tinySwordsIsland)
+  })
+}
