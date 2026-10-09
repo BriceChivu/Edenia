@@ -48,7 +48,7 @@ removed or changed channels, with at most one freshness-only update per day.
 
 `edenia-learner-profile-retention` runs every ten minutes with five-second lock
 and sixty-second statement timeouts. It records fresh aggregate capacity evidence
-and prunes at most 500 ordinary versions per run. The current head, eight newest
+and prunes at most 100 ordinary versions per run. The current head, eight newest
 ordinary versions per profile, open conflicts, active thirty-day protections and
 migration receipts remain retained. Expired protection records are released
 before pruning. Cron run details for this job are retained for seven days.
