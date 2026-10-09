@@ -7053,3 +7053,38 @@ test('automatic uploads coalesce durable unsent saves without changing a sent re
   assert.equal(calls.length, 2)
   assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
 })
+
+test('an explicit retry promptly drains durable queued saves while preserving the finalized request', async () => {
+  const calls = []
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({ version: 1, ownerId: OWNER_ID,
+      profileId: PROFILE_ID, generation: 1, acceptedRevision: 1,
+      pending: null, queued: null })
+  })
+  const adapter = createAdapter({ storage, minimumWriteIntervalMs: 30_000,
+    now: () => 0, setTimer: () => 1,
+    rpc: async (name, parameters) => {
+      calls.push(parameters)
+      if (calls.length === 1) return { error: { message: 'temporary' }, status: 503 }
+      return { data: [{ status: 'accepted', profile_id: PROFILE_ID,
+        generation: 1, base_revision: parameters.p_base_revision,
+        revision: parameters.p_base_revision + 1,
+        payload_sha256: parameters.p_envelope.integrity.payloadSha256 }], error: null }
+    }
+  })
+  const activation = { id: 'manual-retry', ownerId: OWNER_ID, profileId: PROFILE_ID }
+  adapter.activate({ activation, generation: 1, revision: 1, isCurrent: () => true })
+  adapter.save({ marker: 'first' }, { activation, isCurrent: () => true })
+  await flush()
+  adapter.save({ marker: 'latest' }, { activation, isCurrent: () => true })
+  assert.equal(calls.length, 1)
+  assert.equal(adapter.retry(), true)
+  await flush()
+  await flush()
+  assert.equal(calls.length, 3)
+  assert.equal(calls[1].p_operation_id, calls[0].p_operation_id)
+  assert.deepEqual(calls[1].p_envelope, calls[0].p_envelope)
+  assert.deepEqual(calls[2].p_envelope.profile, { marker: 'latest' })
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 3)
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+})

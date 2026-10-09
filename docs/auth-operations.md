@@ -43,7 +43,8 @@ Retention approval does not authorize public profile access.
 Ordinary automatic profile uploads have a 30-second minimum interval after the
 first upload. Every latest candidate remains durable in the browser immediately;
 only never-sent candidates can be coalesced. Finalized requests retain their
-operation ID and envelope for safe retry. Reminder eligibility replaces only
+operation ID and envelope for safe retry. Explicit Retry promptly drains the
+existing durable queue. Reminder eligibility replaces only
 removed or changed channels, with at most one freshness-only update per day.
 
 `edenia-learner-profile-retention` runs every ten minutes with five-second lock

@@ -3717,7 +3717,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return false
     }
     record.pending.nextRetryAt = 0
-    if (restartBackoff) record.pending.retryCount = 0
+    if (restartBackoff) {
+      record.pending.retryCount = 0
+      if (record.queued) record.queued.nextRetryAt = 0
+    }
     if (!writeSyncRecord(record)) {
       publish('needs-attention')
       return false
