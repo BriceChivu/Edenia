@@ -165,7 +165,7 @@ jobs:
   capacity-recovery:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.recover_capacity }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 75
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       PGCONNECT_TIMEOUT: '15'
