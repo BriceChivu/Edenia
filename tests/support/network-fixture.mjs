@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test as base } from '@playwright/test'
+import { isLocalTestOrigin } from './local-test-origin.mjs'
 
 const fixtureRoot = new URL('../fixtures/', import.meta.url)
 const youtubeFixtures = {
@@ -78,7 +79,7 @@ export const test = base.extend({
         return
       }
 
-      if (['localhost', 'localhost.', '127.0.0.1', '::1'].includes(hostname)) {
+      if (isLocalTestOrigin(url)) {
         await route.continue()
         return
       }

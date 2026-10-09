@@ -350,7 +350,7 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-godot
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Build real integrated game
         run: npm run build
         env:
@@ -361,6 +361,13 @@ jobs:
           EDENIA_TEST_TINY_SWORDS: 'true'
           EDENIA_TEST_NORMAL_PORT: '4174'
           EDENIA_TEST_BASE_PATH: '/Edenia/'
+      - name: Verify signed-in game flows in desktop and phone WebKit
+        run: npx playwright test auth-trial.spec.mjs --project=webkit-trial-desktop --project=webkit-trial-phone --output=test-results/webkit-trial --reporter=dot,json
+        env:
+          EDENIA_TEST_TINY_SWORDS: 'true'
+          EDENIA_TEST_NORMAL_PORT: '4174'
+          EDENIA_TEST_BASE_PATH: '/Edenia/'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/webkit-trial/results.json
       - name: Build the explicit public island release
         run: node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
         env:

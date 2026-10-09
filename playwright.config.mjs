@@ -90,7 +90,15 @@ export default defineConfig({
         deviceScaleFactor: 1,
         viewport: { width: 1440, height: 900 }
       }
-    }
+    },
+    ...[
+      { name: 'webkit-trial-desktop', viewport: { width: 1440, height: 900 } },
+      { name: 'webkit-trial-phone', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }
+    ].map(({ name, ...use }) => ({
+      name,
+      testMatch: /auth-trial\.spec\.mjs/,
+      use: { browserName: 'webkit', deviceScaleFactor: 1, ...use }
+    }))
   ],
   webServer: [
     {

@@ -192,9 +192,15 @@ func sync_visual(source: Node, copy: Node) -> void:
 		copy.flip_v = source.flip_v
 		copy.centered = source.centered
 	if source is Polygon2D:
-		copy.polygon = source.polygon
-		copy.color = source.color
-		copy.texture = source.texture
+		# Polygon setters queue a mesh redraw even when their values are unchanged.
+		# Moving actors refresh the depth copy frequently; keep static shadow
+		# geometry intact rather than rewriting its index buffer every frame.
+		if copy.polygon != source.polygon:
+			copy.polygon = source.polygon
+		if copy.color != source.color:
+			copy.color = source.color
+		if copy.texture != source.texture:
+			copy.texture = source.texture
 	for index in range(mini(source.get_child_count(), copy.get_child_count())):
 		sync_visual(source.get_child(index), copy.get_child(index))
 

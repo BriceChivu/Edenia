@@ -3,6 +3,7 @@ import { expect, test } from '../support/network-fixture.mjs'
 import { createPortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
 
 const trial = 'edenia_v1_auth_trial_v1'
+const desktopTrialProjects = new Set(['desktop-standard', 'webkit-trial-desktop'])
 const owner = '123e4567-e89b-42d3-a456-426614174000'
 const profileId = '223e4567-e89b-42d3-a456-426614174001'
 const origin = 'https://auth-trial-fixture.supabase.co'
@@ -318,7 +319,18 @@ for(const indexedDb of [false,true]) {
     await expect(page.locator('#mainApp')).toBeHidden()
     await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
     const commitCount=commits.length
-    await page.evaluate(()=>{if(window.trialRetiredFrame)window.dispatchEvent(new MessageEvent('message',{origin:location.origin,source:window.trialRetiredFrame,data:{type:'edenia-tiny-layout',session:1,id:99,layout:{version:23,resources:{wood:999}}}}))})
+    await page.evaluate(() => {
+      if (!window.trialRetiredFrame) return
+      const event = new MessageEvent('message', {
+        origin: location.origin,
+        data: { type: 'edenia-tiny-layout', session: 1, id: 99,
+          layout: { version: 23, resources: { wood: 999 } } }
+      })
+      // WebKit rejects a detached WindowProxy in the constructor's WebIDL
+      // conversion. Preserve that exact retired source for the receiver check.
+      Object.defineProperty(event, 'source', { value: window.trialRetiredFrame })
+      window.dispatchEvent(event)
+    })
     expect(commits.length).toBe(commitCount)
     expect(await retainedBytes(page)).toEqual(retained)
     const raw=await page.evaluate(trial=>localStorage.getItem(trial+'_learner_profile_access_v1'),trial)
@@ -479,7 +491,7 @@ async function expectNewFrame(page) {
 
 for(const indexedDb of [false,true]) {
   test(`protected island import, reset and Undo restore through the trial lifecycle (${indexedDb?'IndexedDB':'localStorage'})`,async ({page},testInfo)=>{
-    test.skip(testInfo.project.name!=='desktop-standard')
+    test.skip(!desktopTrialProjects.has(testInfo.project.name))
     test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
     test.setTimeout(90000)
     await seedRetained(page)
@@ -532,7 +544,7 @@ for(const indexedDb of [false,true]) {
 }
 
 test('retired trial save completion stays quiet while an active storage failure remains visible',async ({page},testInfo)=>{
-  test.skip(testInfo.project.name!=='desktop-standard')
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
   await seedRetained(page)
   const fixture=await owned(page,{indexedDb:true,engine:false})
   await page.goto('./?internal_test=1')
@@ -577,7 +589,7 @@ test('retired trial save completion stays quiet while an active storage failure 
 })
 
 test('offline verified trial retains study changes until reconnect, then definitive session rejection retires Godot',async ({page,pageDiagnostics},testInfo)=>{
-  test.skip(testInfo.project.name!=='desktop-standard')
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
   test.setTimeout(90000)
   await seedRetained(page)
@@ -628,7 +640,7 @@ test('offline verified trial retains study changes until reconnect, then definit
 })
 
 test('expired offline ownership keeps the cached trial island hidden and prevents cloud writes',async ({page},testInfo)=>{
-  test.skip(testInfo.project.name!=='desktop-standard')
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
   const fixture=await owned(page,{indexedDb:true,engine:true})
   await page.addInitScript(({trial,owner})=>{
     Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false})
@@ -645,7 +657,7 @@ test('expired offline ownership keeps the cached trial island hidden and prevent
 })
 
 test('switching verified trial owners requires explicit replacement and remounts identical island bytes',async ({page},testInfo)=>{
-  test.skip(testInfo.project.name!=='desktop-standard')
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS!=='true')
   test.setTimeout(90000)
   await seedRetained(page)
@@ -676,7 +688,7 @@ test('switching verified trial owners requires explicit replacement and remounts
 
 
 test('signed-in animal checkpoints stay local and the next gameplay save uploads their whole island', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
   test.setTimeout(120000)
   await seedRetained(page)
