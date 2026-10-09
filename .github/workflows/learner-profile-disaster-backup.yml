@@ -151,7 +151,7 @@ jobs:
               echo '::warning::Learner profile database usage reached the configured warning threshold.'
               ;;
             pause)
-              echo '::error::Learner profile maintenance paused at the configured capacity threshold.'
+              echo '::error::Learner profile database usage remains above the configured capacity threshold; inspect allocated disk space after retention.'
               exit 1
               ;;
           esac

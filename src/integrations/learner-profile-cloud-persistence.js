@@ -2215,6 +2215,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
           } else {
             binding.revision = current.acceptedRevision
             binding.checkpointStudyDigest = studyProfileDigest(envelope.profile)
+            if (minimumWriteIntervalMs > 0) {
+              binding.acceptedProfileDigest = profileDigest(envelope.profile)
+            }
             if (
               current.pending === null
               && !clearDirtyRecord(current)
@@ -3688,6 +3691,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'needs-attention' }
     }
 
+    if (minimumWriteIntervalMs > 0 && !record.pending && !record.queued
+      && activeBinding.acceptedProfileDigest) {
+      try {
+        if (profileDigest(profile) === activeBinding.acceptedProfileDigest
+          && clearDirtyRecord(record)) {
+          publish('up-to-date')
+          return { status: 'queued' }
+        }
+      } catch { /* Preparation errors use the normal durable-save failure path. */ }
+    }
     if (!queueProfile(profile, record, activation.id)) {
       publish('not-backed-up')
       return { status: 'not-backed-up' }
