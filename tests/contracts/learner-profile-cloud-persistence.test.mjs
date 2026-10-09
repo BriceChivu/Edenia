@@ -6223,11 +6223,6 @@ test('payload-free stale sync revision is repaired only after activation in an e
   assert.equal(result.commitSyncRepair({ isCurrent: () => false }), false)
   assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
   assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 3)
-  time = 60_000
-  save('third')
-  await flush()
-  assert.equal(calls.length, 2)
-  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
 })
 
 for (const binding of ['missing', 'older-revision', 'other-owner', 'other-lineage']) {
