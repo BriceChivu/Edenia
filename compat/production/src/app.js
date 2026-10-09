@@ -14540,7 +14540,16 @@ async function renderCity(score, s) {
 }
 
 function renderCitySnapshot(snapshot, s, includeTimeline = true) {
-  document.getElementById('cityScore').textContent = snapshot.score
+  const touchDevice = navigator.maxTouchPoints > 0 || matchMedia('(any-pointer: coarse)').matches
+  const resetView = document.querySelector('[data-city-zoom-action="reset"]')
+  if (resetView) {
+    resetView.hidden = touchDevice
+    resetView.disabled = touchDevice
+  }
+  const formatCityPoints = points => touchDevice
+    ? new Intl.NumberFormat(getCurrentLocale(), { maximumFractionDigits: 0 }).format(points)
+    : formatHistoryPointNumber(points)
+  document.getElementById('cityScore').textContent = touchDevice ? formatCityPoints(snapshot.score) : snapshot.score
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
   if (scoreContext) {
@@ -14582,7 +14591,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
     : ''
   const currentPoints = document.getElementById('cityCurrentPoints')
   if (currentPoints) {
-    currentPoints.textContent = `${formatHistoryPointNumber(snapshot.score)} ${t('points.short')}`
+    currentPoints.textContent = `${formatCityPoints(snapshot.score)} ${t('points.short')}`
     // Reserve space for all three labels when the fill reaches either end.
     progress?.style.setProperty('--city-current-xp-half-width', `${currentPoints.textContent.length / 2}ch`)
     progress?.style.setProperty('--city-start-xp-width', `${document.getElementById('cityCurrentMilestonePoints').textContent.length}ch`)
@@ -14592,7 +14601,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
       ? t('city.readyNext')
-      : t('city.ptsToNext', { count: pointsToNextLevel })
+      : t('city.ptsToNext', { count: touchDevice ? formatCityPoints(Math.ceil(pointsToNextLevel)) : pointsToNextLevel })
     : t('city.maxLevel')
   document.getElementById('cityNextEffort').textContent = nextLevel && pointsToNextLevel > 0
     ? t('city.effortToNext', {

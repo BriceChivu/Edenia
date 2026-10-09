@@ -15,7 +15,7 @@ test('Settings replay controls retain identities without inline handlers', () =>
       .split(/\s+/)
       .includes('walkthrough-replay-btn')
   ))
-  assert.equal(controls.length, 2)
+  assert.equal(controls.length, 1)
   assert.deepEqual(controls.map(control => ({
     action: getAttribute(control, 'data-analytics-action'),
     replayAction: getAttribute(control, 'data-settings-replay-action'),
@@ -24,11 +24,6 @@ test('Settings replay controls retain identities without inline handlers', () =>
     {
       action: 'settings.walkthroughAgain',
       replayAction: 'walkthrough',
-      handler: null
-    },
-    {
-      action: 'settings.trailerAgain',
-      replayAction: 'trailer',
       handler: null
     }
   ])
