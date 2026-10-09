@@ -287,6 +287,10 @@ html[data-accountless-profile-migration-urgency="8"] .accountless-profile-migrat
   border-radius: 10px;
   border: 1px solid var(--border);
 }
+.learner-profile-conflict-islands img.saved-island-pending[hidden] {
+  display: block;
+  visibility: hidden;
+}
 .learner-profile-conflict-islands p {
   color: var(--muted);
   font-size: 0.8rem;

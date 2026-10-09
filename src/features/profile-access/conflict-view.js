@@ -389,6 +389,7 @@ export function createLearnerProfileConflictView({
       caption.append(heading)
       const image = root.createElement('img')
       image.hidden = true
+      if (layouts[index] !== null) image.classList.add('saved-island-pending')
       image.alt = translate('profileConflict.preview.alt',{side:translate(sideKey)})
       image.width = 800
       image.height = 480
@@ -410,6 +411,7 @@ export function createLearnerProfileConflictView({
       const label = previewLabels.find(entry => entry.element === status)
       label.key = pixels ? 'profileConflict.preview.saved' : 'profileConflict.preview.unavailable'
       status.textContent = translate(label.key)
+      image.classList.remove('saved-island-pending')
       if (pixels) {
         image.src = pixels
         image.hidden = false
