@@ -271,7 +271,7 @@ jobs:
           """
           sql += 'explain (costs true) ' + query
           sql += 'explain (analyze, buffers, timing) ' + query[:query.index('    deleted as (')].rstrip().rstrip(',') + ' select id from ranked_candidates where ordinary_rank > 8 order by ordinary_rank desc, id limit 1;\n'
-          sql += '\nset statement_timeout = '60s';\nBEGIN;\nexplain (analyze, buffers, timing) ' + query.replace('limit 100', 'limit 1') + '\nROLLBACK;\n'
+          sql += "\nset statement_timeout = '60s';\nBEGIN;\nexplain (analyze, buffers, timing) " + query.replace('limit 100', 'limit 1') + '\nROLLBACK;\n'
           Path(os.environ['RUNNER_TEMP'], 'diagnose.sql').write_text(sql)
           PYDIAG
           (
