@@ -193,8 +193,6 @@ jobs:
           protected = source[start:end].strip().rstrip(',').replace('p_owner_id', 'null::uuid')
           sql += 'create temporary table retention_protected_before as with ' + protected
           sql += ' select version.id, version.payload_sha256 from protected_version_ids protected join public.learner_profile_versions version on version.id = protected.version_id and version.user_id = protected.user_id;\n'
-          # Reclaim the large already-dead TOAST backlog before issuing more deletes.
-          sql += "set statement_timeout = '600s';\nVACUUM (FULL, ANALYZE) public.learner_profile_versions;\nset statement_timeout = '180s';\n"
           sql += r'\set has_backlog true' + '\n'
           for _ in range(20):
               sql += r"""
@@ -215,7 +213,11 @@ jobs:
           \if :has_backlog
           do $$ begin raise exception 'Capacity recovery check failed'; end $$;
           \endif
-          VACUUM (ANALYZE) public.learner_profile_versions;
+          -- Copy only the retained set after draining; copying the backlog itself
+          -- exhausted the Free project's memory and compaction time budget.
+          set statement_timeout = '600s';
+          VACUUM (FULL, ANALYZE) public.learner_profile_versions;
+          set statement_timeout = '180s';
           select count(*) = count(version.id)
             and bool_and(version.payload_sha256 = baseline.payload_sha256) as protected_intact
           from retention_protected_before baseline
