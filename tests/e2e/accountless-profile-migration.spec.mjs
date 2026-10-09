@@ -765,7 +765,7 @@ test('automatic connection preserves the protected device and cloud comparison',
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  await expect(page.getByRole('heading', { name: 'Compare your profiles' }))
+  await expect(page.locator('#learnerProfileConflictTitle'))
     .toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'This device' }))
     .toBeAttached()

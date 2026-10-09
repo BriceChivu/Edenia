@@ -22,6 +22,13 @@ var study_celebrating := false
 var study_editing := false
 
 func _ready() -> void:
+	# Select the canonical read-only scene before initializing gameplay or saves.
+	if preload("res://scripts/conflict_preview.gd").requested():
+		preview_save_enabled = false
+		camera_save_enabled = false
+		process_mode = Node.PROCESS_MODE_DISABLED
+		get_tree().change_scene_to_file.call_deferred("res://scenes/conflict_preview.tscn")
+		return
 	# This integration has its own browser layout; standalone editor saves stay intact.
 	preview_save_enabled = false
 	study_claims_authoritative = true

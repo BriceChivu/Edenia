@@ -162,7 +162,7 @@ test('opening progress stays automatic while genuine recovery keeps an escape', 
     status: 'recovering'
   }, { status: 'conflicting' }]) {
     view.render(accessState)
-    assert.equal(retry.hidden, false)
+    assert.equal(retry.hidden, accessState.status === 'conflicting')
     assert.equal(retry.textContent, 'migration.action.retry')
     assert.equal(signOut.hidden, false)
   }

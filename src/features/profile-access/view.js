@@ -242,7 +242,6 @@ export function createLearnerProfileAccessView({
       return
     }
     if (RECOVERY_ACTION_STATES.has(accessState?.status)) {
-      retry.hidden = false
       signOut.hidden = false
       return
     }
@@ -284,10 +283,13 @@ export function createLearnerProfileAccessView({
         : recoveryCopyKey || COPY_KEYS[state]
     const isOpening = OPENING_STATES.has(state) && accessState.retryable !== true
     const isGenericRecovery = state === 'recovering' && !recoveryCopyKey
+    title.hidden = state === 'conflicting'
+    gate.setAttribute('aria-labelledby', state === 'conflicting' ? 'learnerProfileConflictTitle' : 'learnerProfileAccessTitle')
+    gate.setAttribute('aria-describedby', state === 'conflicting' ? '' : 'learnerProfileAccessBody learnerProfileAccessStatus')
     title.textContent = translate(`${key}.title`)
     body.textContent = translate(`${key}.body`)
-    body.hidden = isOpening
-    status.hidden = isOpening || isGenericRecovery
+    body.hidden = isOpening || state === 'conflicting'
+    status.hidden = isOpening || isGenericRecovery || state === 'conflicting'
     status.textContent = status.hidden
       ? ''
       : translate('profileAccess.noProfileVisible')

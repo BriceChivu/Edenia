@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import {
-  createLearnerProfileConflictComparison
+  createLearnerProfileConflictComparison,
+  getLearnerProfileConflictPreference
 } from '../../src/features/profile-access/conflict-comparison.js'
 
 function profile(overrides = {}) {
@@ -150,4 +151,41 @@ test('comparison rows cover only the meaningful conflict groups', () => {
     days: 1,
     reviewed: 5
   })
+})
+
+
+test('current XP uses credited study provenance rather than legacy time or town levels', () => {
+  const device = profile({
+    videos: { v: { duration: 120, watchProgress: [
+      { seconds: 600, experienceSeconds: 600, watchedAt: '2026-08-20T10:00:00.000Z' },
+      { seconds: 60, watchedAt: '2026-08-21T10:00:00.000Z' }
+    ] } },
+    anki: { '2026-08-21': { reviewed: 80, experienceReviews: 7 } }
+  })
+  const row = createLearnerProfileConflictComparison(device, profile())
+    .find(row => row.key === 'town-study-progress')
+  assert.equal(row.device.totalXp, 9)
+  assert.equal(row.cloud.totalXp, 0)
+})
+
+function studied(seconds, date = '2026-08-20T10:00:00.000Z') {
+  return profile({ videos: { v: { status: 'watched', watchProgress: [
+    { seconds, experienceSeconds: seconds, studyDay: date.slice(0, 10), watchedAt: date }
+  ] } } })
+}
+
+test('button preference requires consistent study evidence and ignores settings activity', () => {
+  const more = studied(120)
+  const less = studied(60)
+  less.activityLog = [{ createdAt: '2026-09-01T10:00:00.000Z', type: 'settings', title: 'Theme changed' }]
+  less.learnerProfile.updatedAt = '2026-09-01T10:00:00.000Z'
+  assert.equal(getLearnerProfileConflictPreference(more, less), 'device')
+  assert.equal(getLearnerProfileConflictPreference(less, more), 'cloud')
+  assert.equal(getLearnerProfileConflictPreference(more, studied(60, '2026-08-21T10:00:00.000Z')), null)
+  assert.equal(getLearnerProfileConflictPreference(more, structuredClone(more)), null)
+  assert.equal(getLearnerProfileConflictPreference(more, studied(120, '2026-08-21T10:00:00.000Z')), 'cloud')
+  const competing = studied(60)
+  competing.anki = { '2026-08-20': { reviewed: 10, created: 2, observedAt: '2026-08-20T10:00:00.000Z' } }
+  assert.equal(getLearnerProfileConflictPreference(more, competing), null)
+  assert.equal(getLearnerProfileConflictPreference(profile(), profile()), null)
 })

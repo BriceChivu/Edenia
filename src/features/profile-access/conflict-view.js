@@ -1,5 +1,6 @@
 import {
-  createLearnerProfileConflictComparison
+  createLearnerProfileConflictComparison,
+  getLearnerProfileConflictPreference
 } from './conflict-comparison.js'
 
 function formatList(values, none, formatItem = value => value) {
@@ -8,6 +9,7 @@ function formatList(values, none, formatItem = value => value) {
 }
 
 export function createLearnerProfileConflictView({
+  createIslandPreviews = () => null,
   isTownEconomyEnabled = () => false,
   clearTimer,
   formatDateTime,
@@ -19,6 +21,13 @@ export function createLearnerProfileConflictView({
 }) {
   const panel = root.getElementById('learnerProfileConflict')
   const rows = root.getElementById('learnerProfileConflictRows')
+  const islands = root.getElementById('learnerProfileConflictIslands')
+  const enlarge = root.getElementById('learnerProfileConflictEnlarge')
+  let previewKey = null
+  let previewGeneration = 0
+  let disposePreviews = null
+  let previewLabels = []
+  let previewImages = []
   const empty = root.getElementById('learnerProfileConflictEmpty')
   const confirmation = root.getElementById(
     'learnerProfileConflictConfirmation'
@@ -113,6 +122,7 @@ export function createLearnerProfileConflictView({
       return translate('profileConflict.value.townStudy', {
         facts: number(value.studyFacts),
         level: number(value.cityLevel),
+        xp: number(value.totalXp),
         watched: number(value.watchedVideos)
       })
     }
@@ -182,6 +192,16 @@ export function createLearnerProfileConflictView({
       conflict.device.profile,
       conflict.cloud.profile
     )
+    const preference = getLearnerProfileConflictPreference(conflict.device.profile, conflict.cloud.profile)
+    for (const side of ['device','cloud']) {
+      const button = root.getElementById(side === 'device' ? 'learnerProfileConflictChooseDevice' : 'learnerProfileConflictChooseCloud')
+      if (button) {
+        button.classList.remove('btn-primary')
+        button.classList.remove('btn-secondary')
+        button.classList.add(preference === null || preference === side ? 'btn-primary' : 'btn-secondary')
+      }
+    }
+    renderIslands(conflict)
     const visibleComparison = comparison.filter(row => row.key !== 'town-economy' || isTownEconomyEnabled())
     const fragments = visibleComparison.map(row => {
       const tableRow = root.createElement('tr')
@@ -206,6 +226,14 @@ export function createLearnerProfileConflictView({
   }
 
   function hideConflict() {
+    previewGeneration += 1
+    disposePreviews?.()
+    disposePreviews = null
+    previewKey = null
+    previewLabels = []
+    previewImages = []
+    islands?.replaceChildren()
+    if (enlarge) enlarge.hidden = true
     panel.classList.add('hidden')
     confirmation.hidden = true
     confirmation.classList.add('hidden')
@@ -233,6 +261,17 @@ export function createLearnerProfileConflictView({
   }
 
   function setBusy(busy) {
+    if (busy) {
+      previewGeneration += 1
+      disposePreviews?.()
+      disposePreviews = null
+      for (const label of previewLabels) {
+        if (label.key === 'profileConflict.preview.loading') {
+          label.key = 'profileConflict.preview.unavailable'
+          label.element.textContent = translate(label.key)
+        }
+      }
+    }
     panel.setAttribute('aria-busy', String(busy))
     for (const control of panel.querySelectorAll('button')) {
       control.disabled = Boolean(busy)
@@ -302,7 +341,99 @@ export function createLearnerProfileConflictView({
   }
 
   function refreshTranslations() {
+    for (const {element,key,params} of previewLabels) element.textContent = translate(key,params)
+    for (const { image, sideKey } of previewImages) {
+      image.alt = translate('profileConflict.preview.alt', { side: translate(sideKey) })
+    }
+    if (enlarge) enlarge.textContent = translate(islands?.classList.contains('enlarged')
+      ? 'profileConflict.preview.reduce' : 'profileConflict.preview.enlarge')
     if (protectedConflicts.length) showProtected(protectedConflicts)
+  }
+
+  function renderIslands(conflict) {
+    if (!islands) return
+    // Full conflict identity includes the verified owner and exact two versions.
+    // Keep this key only in memory; never persist or log profile contents.
+    const key = JSON.stringify(conflict)
+    if (previewKey === key) return
+    previewKey = key
+    const generation = ++previewGeneration
+    disposePreviews?.()
+    disposePreviews = null
+    previewLabels = []
+    previewImages = []
+    islands.replaceChildren()
+    islands.classList.remove('enlarged')
+    if (enlarge) {
+      enlarge.hidden = true
+      enlarge.textContent = translate('profileConflict.preview.enlarge')
+      enlarge.setAttribute('aria-expanded','false')
+      enlarge.onclick = () => {
+        const expanded = islands.classList.contains('enlarged')
+        if (expanded) islands.classList.remove('enlarged')
+        else islands.classList.add('enlarged')
+        enlarge.textContent = translate(expanded ? 'profileConflict.preview.enlarge' : 'profileConflict.preview.reduce')
+        enlarge.setAttribute('aria-expanded',String(!expanded))
+      }
+    }
+    const layouts = ['device','cloud'].map(side => conflict[side].profile.tinySwordsIsland ?? null)
+    const images = []
+    const statuses = []
+    for (const [index,side] of ['device','cloud'].entries()) {
+      const figure = root.createElement('figure')
+      const caption = root.createElement('figcaption')
+      const heading = root.createElement('strong')
+      const sideKey = side === 'device' ? 'profileConflict.thisDevice' : 'profileConflict.cloud'
+      heading.textContent = translate(sideKey)
+      previewLabels.push({element:heading,key:sideKey})
+      caption.append(heading)
+      const image = root.createElement('img')
+      image.hidden = true
+      if (layouts[index] !== null) image.classList.add('saved-island-pending')
+      image.alt = translate('profileConflict.preview.alt',{side:translate(sideKey)})
+      image.width = 800
+      image.height = 480
+      previewImages.push({ image, sideKey })
+      const status = root.createElement('p')
+      const statusKey = layouts[index] === null ? 'profileConflict.value.islandAbsent' : 'profileConflict.preview.loading'
+      status.textContent = translate(statusKey)
+      previewLabels.push({element:status,key:statusKey})
+      status.setAttribute('role','status')
+      figure.append(caption,image,status)
+      islands.append(figure)
+      images.push(image)
+      statuses.push(status)
+    }
+    const onImage = (index,pixels) => {
+      if (generation !== previewGeneration || layouts[index] === null) return
+      const image = images[index]
+      const status = statuses[index]
+      const label = previewLabels.find(entry => entry.element === status)
+      label.key = pixels ? 'profileConflict.preview.saved' : 'profileConflict.preview.unavailable'
+      status.textContent = translate(label.key)
+      image.classList.remove('saved-island-pending')
+      if (pixels) {
+        image.src = pixels
+        image.hidden = false
+        if (enlarge) enlarge.hidden = false
+      }
+    }
+    if (!layouts.some(layout => layout !== null)) return
+    if (layouts.some(layout => layout !== null && new TextEncoder().encode(JSON.stringify(layout)).length > 512 * 1024)) {
+      onImage(0,null)
+      onImage(1,null)
+      return
+    }
+    try {
+      disposePreviews = createIslandPreviews({layouts:structuredClone(layouts),onImage})
+    } catch {
+      // A preview failure must never prevent the explicit conflict choice.
+      disposePreviews = null
+    }
+    if (!disposePreviews) {
+      onImage(0,null)
+      onImage(1,null)
+    }
   }
 
   return Object.freeze({
