@@ -536,7 +536,7 @@ test('Settings shell listeners preserve the phone drawer and scroll reset', asyn
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone-standard')
 
-  await page.setViewportSize({ width: 390, height: 640 })
+  await page.setViewportSize({ width: 390, height: 480 })
   await seedCompletedState(page)
   const panel = page.locator('#settingsPanel')
   const drawer = page.locator('.settings-drawer')
@@ -701,7 +701,7 @@ test('analytics bridge preserves classic global ownership during walkthrough', a
   await expect(page.locator('#mainApp')).toHaveJSProperty('inert', false)
 })
 
-test('Settings replay listeners preserve walkthrough and trailer handoffs', async ({
+test('Settings replay preserves the walkthrough handoff and omits the trailer button', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -744,42 +744,8 @@ test('Settings replay listeners preserve walkthrough and trailer handoffs', asyn
 
   await page.reload()
   await waitForApplication(page)
-  const storedBeforeTrailer = await page.evaluate(
-    () => localStorage.getItem('edenia_v1')
-  )
   await opener.click()
-  const trailerControl = page.locator(
-    '[data-settings-replay-action="trailer"]'
-  )
-  await page.evaluate(() => {
-    window.__trailerReplayAtDocumentBubble = null
-    document.addEventListener('click', event => {
-      if (!event.target.closest('[data-settings-replay-action="trailer"]')) return
-      window.__trailerReplayAtDocumentBubble = {
-        hidden: document.getElementById('settingsPanel').classList.contains('hidden'),
-        inert: document.getElementById('mainApp').inert,
-        active: document.body.classList.contains('intro-active')
-      }
-    }, { once: true })
-  })
-  await trailerControl.press('Space')
-  await expect.poll(() => page.evaluate(
-    () => window.__trailerReplayAtDocumentBubble
-  )).toEqual({
-    hidden: true,
-    inert: false,
-    active: false
-  })
-  await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
-  await expect(page.locator('body')).toHaveClass(/\bintro-active\b/)
-  await expect(page.locator('#mainApp')).toHaveJSProperty('inert', true)
-  await expect(page.locator('#introTrailer')).toHaveAttribute('data-scene', '0')
-  await expect(page.locator('#introStartBtn')).toHaveAttribute(
-    'data-i18n',
-    'intro.finale.return'
-  )
-  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
-    .toBe(storedBeforeTrailer)
+  await expect(page.locator('[data-settings-replay-action="trailer"]')).toHaveCount(0)
   expect(await page.evaluate(() => ({
     showWalkthroughAgain: Object.prototype.hasOwnProperty.call(
       window.EdeniaActions || {},
@@ -825,11 +791,7 @@ test('walkthrough replay preserves phone focus suppression', async ({
   await page.evaluate(() => {
     window.__settingsReplayGearFocuses = 0
   })
-  await page.locator('[data-settings-replay-action="trailer"]').click()
-  await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
-  await expect(page.locator('body')).toHaveClass(/\bintro-active\b/)
-  expect(await page.evaluate(() => window.__settingsReplayGearFocuses))
-    .toBeGreaterThan(0)
+  await expect(page.locator('[data-settings-replay-action="trailer"]')).toHaveCount(0)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
     .toBe(storedBefore)
 })

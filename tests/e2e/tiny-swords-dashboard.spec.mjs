@@ -225,13 +225,16 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await expect(frame).not.toHaveAttribute('inert', '')
   await expect.poll(() => game.evaluate(() => window.hostVisible)).toBe(true)
   const touchDevice = await page.evaluate(() => navigator.maxTouchPoints > 0)
-  const command = touchDevice ? 'reset' : 'in'
+  const commands = touchDevice ? [] : ['in']
   if (touchDevice) {
     await expect(page.locator('[data-city-zoom-action="in"]')).toBeHidden()
     await expect(page.locator('[data-city-zoom-action="out"]')).toBeDisabled()
+    await expect(page.locator('[data-city-zoom-action="reset"]')).toBeHidden()
+    await expect(page.locator('[data-city-zoom-action="reset"]')).toBeDisabled()
+  } else {
+    await page.locator('[data-city-zoom-action="in"]').press('Enter')
   }
-  await page.locator(`[data-city-zoom-action="${command}"]`).press('Enter')
-  await expect.poll(() => game.evaluate(() => window.commands)).toEqual([command])
+  await expect.poll(() => game.evaluate(() => window.commands)).toEqual(commands)
   await game.locator('#gameInput').focus()
   await page.evaluate(() => openSettings())
   await expect(frame).toHaveAttribute('inert', '')
@@ -241,7 +244,7 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await page.keyboard.press('ArrowLeft')
   expect(await game.evaluate(() => window.keys)).toBe(keys)
   await page.evaluate(() => document.querySelector('[data-city-zoom-action="out"]').click())
-  expect(await game.evaluate(() => window.commands)).toEqual([command])
+  expect(await game.evaluate(() => window.commands)).toEqual(commands)
   await page.locator('#settingsCloseBtn').click()
   await expect(frame).not.toHaveAttribute('inert', '')
   await page.evaluate(() => startWalkthrough())
