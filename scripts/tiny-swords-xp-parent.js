@@ -317,7 +317,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     })
     // Parent-owned controls reflect device capabilities; Godot owns pinch zoom.
     const touchDevice = (window.navigator?.maxTouchPoints || 0) > 0
-      || window.matchMedia('(any-pointer: coarse)').matches
+      || window.matchMedia?.('(any-pointer: coarse)')?.matches === true
     if (touchDevice) {
       controls.style.setProperty('--tiny-swords-camera-cursor', 'none')
       for (const button of controls.querySelectorAll('[data-city-zoom-action]')) {
