@@ -200,7 +200,7 @@ select results_eq(
     from private.learner_profile_capacity_report(null)
   $query$,
   $$values ('pause'::text)$$,
-  'database usage at the pause boundary blocks cleanup'
+  'database usage at the pause boundary reports capacity pressure'
 );
 
 update private.learner_profile_maintenance_config
@@ -882,13 +882,15 @@ set database_limit_bytes = 1,
     updated_at = statement_timestamp()
 where singleton;
 
+select * from private.record_learner_profile_capacity_check();
+
 select results_eq(
   $query$
     select capacity_status, cleanup_allowed
     from private.learner_profile_capacity_report(null)
   $query$,
-  $$values ('pause'::text, false)$$,
-  'capacity at or above the pause threshold blocks cleanup'
+  $$values ('pause'::text, true)$$,
+  'capacity pressure permits approved retention with current measurements'
 );
 
 select results_eq(
@@ -899,8 +901,8 @@ select results_eq(
       true
     )
   $query$,
-  $$values ('capacity_pause'::text, 0::bigint)$$,
-  'a paused capacity state leaves profile history unchanged'
+  $$values ('applied'::text, 0::bigint)$$,
+  'retention still runs under capacity pressure without removing retained history'
 );
 
 select * from finish();

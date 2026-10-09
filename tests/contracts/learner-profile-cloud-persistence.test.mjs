@@ -128,6 +128,7 @@ function createAdapter({
   finalizeEnvelope,
   isOnline,
   now,
+  minimumWriteIntervalMs = 0,
   prepareEnvelope,
   readOnboardingState,
   rpc,
@@ -172,6 +173,7 @@ function createAdapter({
     importEnvelope: envelope => envelope.profile,
     isOnline: isOnline || (() => true),
     now: now || (() => 0),
+    minimumWriteIntervalMs,
     prepareEnvelope: prepareEnvelope || preparedEnvelope,
     hasOnboardingProfileDraft: hasOnboardingProfileDraft || (() => false),
     readOnboardingState: readOnboardingState || (() => null),
@@ -6994,4 +6996,55 @@ test('a remote reset seen during local persistence leaves the dirty marker for t
   assert.equal(storage.getItem(DIRTY_STORAGE_KEY), dirty)
   assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
   assert.equal(profile.marker, 'new local fact still being persisted')
+})
+
+
+test('automatic uploads coalesce durable unsent saves without changing a sent request', async () => {
+  let time = 0
+  const timers = []
+  const calls = []
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({ version: 1, ownerId: OWNER_ID,
+      profileId: PROFILE_ID, generation: 1, acceptedRevision: 1,
+      pending: null, queued: null })
+  })
+  const adapter = createAdapter({ storage, minimumWriteIntervalMs: 30_000,
+    now: () => time,
+    setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length },
+    rpc: async (name, parameters) => {
+      calls.push(parameters)
+      return { data: [{ status: 'accepted', profile_id: PROFILE_ID,
+        generation: 1, base_revision: parameters.p_base_revision,
+        revision: parameters.p_base_revision + 1,
+        payload_sha256: parameters.p_envelope.integrity.payloadSha256 }], error: null }
+    }
+  })
+  const activation = { id: 'cadence', ownerId: OWNER_ID, profileId: PROFILE_ID }
+  adapter.activate({ activation, generation: 1, revision: 1, isCurrent: () => true })
+  const save = marker => adapter.save({ marker }, { activation, isCurrent: () => true })
+  save('first')
+  await flush()
+  assert.equal(calls.length, 1)
+  time = 1_000
+  save('second')
+  await flush()
+  assert.equal(calls.length, 1)
+  const waiting = JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending
+  assert.equal(waiting.nextRetryAt, 30_000)
+  save('third')
+  const latest = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(latest.pending.baseRevision, 2)
+  assert.equal(latest.pending.revision, 3)
+  assert.deepEqual(latest.pending.prepared.profile, { marker: 'third' })
+  assert.equal(latest.queued, null)
+  const operationId = latest.pending.operationId
+  save('third')
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending.operationId, operationId)
+  assert.equal(timers.length, 1)
+  time = 30_000
+  timers.shift().callback()
+  await flush()
+  assert.equal(calls.length, 2)
+  assert.deepEqual(calls[1].p_envelope.profile, { marker: 'third' })
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 3)
 })

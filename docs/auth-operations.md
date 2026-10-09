@@ -34,9 +34,48 @@ Auth/soak/Packet 1 Codex reminders have not been resumed.
 Keep the shared Supabase project online: legacy transfer creation/consumption
 and its five-minute cleanup, unsubscribe handling, provider webhook suppression,
 and recovery data remain available. Weekly external disaster dumps and their
-35-day artifact retention continue. Cloud profile cleanup remains disabled.
-The experiment variable also gates restore-rehearsal/maintenance jobs; it does
-not authorize enabling cleanup or public profile access.
+35-day artifact retention continue. Profile retention now has its own database
+schedule; the experiment variable still gates the external restore rehearsal.
+Retention approval does not authorize public profile access.
+
+## Free-plan write and retention policy (2026-10-09)
+
+Ordinary automatic profile uploads have a 30-second minimum interval after the
+first upload. Every latest candidate remains durable in the browser immediately;
+only never-sent candidates can be coalesced. Finalized requests retain their
+operation ID and envelope for safe retry. Reminder eligibility replaces only
+removed or changed channels, with at most one freshness-only update per day.
+
+`edenia-learner-profile-retention` runs every ten minutes with five-second lock
+and sixty-second statement timeouts. It records fresh aggregate capacity evidence
+and prunes at most 500 ordinary versions per run. The current head, eight newest
+ordinary versions per profile, open conflicts, active thirty-day protections and
+migration receipts remain retained. Expired protection records are released
+before pruning. Cron run details for this job are retained for seven days.
+
+Cleanup requires explicit operator enablement, current capacity measurements,
+and read-write mode. Capacity pressure and expired plan-policy evidence remain
+visible in the report, but cannot strand previously approved cleanup. Enabling
+cleanup still requires freshly reviewed plan and pause/restore evidence. Review
+these official sources before recording policy:
+[database size](https://supabase.com/docs/guides/platform/database-size) and
+[project pausing](https://supabase.com/docs/guides/platform/free-project-pausing).
+The current Free database limit is 500 MB; the documented inactivity restore
+window is one year.
+
+After a successful external disaster dump, record the reviewed policy with
+`private.record_learner_profile_capacity_policy`, record a fresh check with
+`private.record_learner_profile_capacity_check`, and explicitly enable cleanup
+with `private.set_learner_profile_cleanup_enabled(true)`. Inspect
+`private.run_learner_profile_maintenance(null, false)` before applying batches.
+A high capacity status must remain visible even when cleanup succeeds. Inspect
+cron failures and the aggregate prunable count after enabling retention.
+
+Deletion makes space reusable but may leave allocated relation files large.
+Use normal vacuum first. A one-time `VACUUM FULL public.learner_profile_versions`
+can reclaim allocated space after a backlog, but requires an exclusive lock;
+use a short lock timeout and verify unchanged heads/protected records afterward.
+Recurring full vacuum is not part of the retention schedule.
 
 The retired pixel-town/Pip experiment remains historical material. Its browser
 namespace is retained and unopened. Trial resumption does not authorize public

@@ -316,6 +316,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   importEnvelope,
   isOnline,
   now,
+  minimumWriteIntervalMs = 30_000,
   prepareEnvelope,
   readOnboardingState,
   setTimer,
@@ -346,6 +347,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   }
   let activeBinding = null
   let cloudHeadKnown = false
+  let nextAutomaticWriteAt = 0
   let inFlight = false
   let retryTimer = null
   let started = false
@@ -1300,13 +1302,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
   }
 
   function queueProfile(profile, record, activationId) {
+    const latest = record.queued || record.pending
+    if (minimumWriteIntervalMs > 0 && latest
+      && canonicalProfilesMatch(profile, latest.envelope || latest.prepared, prepareEnvelope)) {
+      return clearDirtyRecord(record)
+    }
     let operation
     try {
       operation = createOperation(profile, record, activationId)
     } catch {
       return false
     }
-    if (record.pending) record.queued = operation
+    operation.nextRetryAt = Math.max(0, nextAutomaticWriteAt)
+    if (minimumWriteIntervalMs > 0 && record.pending && !inFlight
+      && record.pending.envelope === null && record.pending.retryCount === 0
+      && record.queued === null) {
+      operation.baseRevision = record.pending.baseRevision
+      operation.revision = record.pending.revision
+      record.pending = operation
+    } else if (record.pending) record.queued = operation
     else record.pending = operation
     if (!writeSyncRecord(record)) return false
     return clearDirtyRecord(record)
@@ -2142,6 +2156,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     inFlight = true
+    nextAutomaticWriteAt = now() + Math.max(0, minimumWriteIntervalMs)
     let comparisonPending = false
     publish('syncing')
     let envelope
