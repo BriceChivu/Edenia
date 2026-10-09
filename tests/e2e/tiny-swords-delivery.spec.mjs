@@ -39,6 +39,23 @@ export async function deliveryHost(mode = 'brotli') {
       if (mode === 'storage-denied' && mapped.endsWith('/worker.js')) {
         bytes = Buffer.concat([Buffer.from(`Object.defineProperty(self,'caches',{value:{open:async()=>({match:async()=>undefined,put:async()=>{throw new DOMException('Synthetic quota failure','QuotaExceededError')}})}});\n`), bytes])
       }
+      if (mode.startsWith('cache-stalled-') && mapped.endsWith('/worker.js')) {
+        const operation = mode.slice('cache-stalled-'.length)
+        bytes = Buffer.concat([Buffer.from(`
+          const stall=name=>name===${JSON.stringify(operation)}?new Promise(()=>{}):undefined;
+          Object.defineProperty(self,'caches',{value:{open:async()=>{
+            await stall('open');
+            return {match:async()=>stall('match'),put:async()=>stall('put'),
+              keys:async()=>{await stall('keys');return [{url:'old-engine'}]},
+              delete:async()=>{await stall('delete');return true}};
+          }}});\n`), bytes])
+      }
+      if (mode === 'worker-silent' && mapped.endsWith('/worker.js')) bytes = Buffer.from('self.onmessage=()=>{}')
+      if (mode === 'worker-stalled-stream' && mapped.endsWith('/worker.js')) {
+        bytes = Buffer.concat([Buffer.from(`const report=self.postMessage.bind(self);self.postMessage=(message,...args)=>{report(message,...args);if(message.type==='ready')self.onmessage=()=>{}};\n`), bytes])
+      }
+      if (mode === 'fallback-stalled' && mapped.endsWith('/worker.js')) bytes = Buffer.from('self.onmessage=()=>{}')
+      if (mode === 'fallback-stalled' && /\/index\.(wasm|pck)$/.test(mapped)) return
       if (/\/index\.(wasm|pck)$/.test(mapped)) {
         bytes = await readFile(file + '.gz')
         res.setHeader('Content-Encoding', 'gzip')
@@ -122,6 +139,42 @@ test('asset cache quota failure does not prevent Brotli startup', async ({ page 
     await page.goto(host.url)
     await page.waitForFunction(()=>window.restored===true)
     expect(host.requests.some(p=>/\/index\.(wasm|pck)$/.test(p))).toBe(false)
+  } finally { await page.goto('about:blank'); await host.close() }
+})
+
+for (const operation of ['open', 'match', 'put', 'keys', 'delete']) {
+  test(`stalled engine cache ${operation} still restores the island`, async ({ page }) => {
+    const host = await deliveryHost(`cache-stalled-${operation}`)
+    try {
+      await page.goto(host.url)
+      await page.waitForFunction(() => window.restored === true, null, { timeout: 10000 })
+      expect(host.requests.some(p => /\/index\.(wasm|pck)$/.test(p))).toBe(false)
+      expect(await page.evaluate(() => window.failed)).toBeUndefined()
+    } finally { await page.goto('about:blank'); await host.close() }
+  })
+}
+
+for (const mode of ['worker-silent', 'worker-stalled-stream']) {
+  test(`${mode} recovers through ordinary delivery and restores the island`, async ({ page }) => {
+    test.setTimeout(60000)
+    const host = await deliveryHost(mode)
+    try {
+      await page.goto(host.url)
+      await page.waitForFunction(() => window.restored === true, null, { timeout: 45000 })
+      expect(host.requests.filter(p => p.endsWith('/index.wasm'))).toHaveLength(1)
+      expect(host.requests.filter(p => p.endsWith('/index.pck'))).toHaveLength(1)
+      expect(await page.evaluate(() => window.failed)).toBeUndefined()
+    } finally { await page.goto('about:blank'); await host.close() }
+  })
+}
+
+test('a stalled ordinary fallback reports startup failure instead of waiting forever', async ({ page }) => {
+  test.setTimeout(60000)
+  const host = await deliveryHost('fallback-stalled')
+  try {
+    await page.goto(host.url)
+    await page.waitForFunction(() => window.failed === true, null, { timeout: 45000 })
+    expect(await page.evaluate(() => window.restored)).toBeUndefined()
   } finally { await page.goto('about:blank'); await host.close() }
 })
 
