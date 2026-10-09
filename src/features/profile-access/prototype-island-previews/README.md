@@ -19,6 +19,21 @@ current XP, with illustrative values of 112 and 134; those totals cannot be
 reconstructed from the screenshot's study minutes because XP tracks eligible
 experience facts. Production would need each profile's actual XP total.
 
+The user chose asymmetric action emphasis: the apparently less suitable version
+uses the former Try-again design (plain fill, dark outline, no raised shadow),
+while the apparently more suitable version stays lime. The sample favors Cloud.
+Both actions remain enabled and use the same explicit confirmation step.
+
+The draft demonstrates a conservative comparison rule: prefer a side only when
+all displayed study metrics are at least equal and one is higher, without a known
+contradiction from newer study activity on the other side. Equal study metrics may
+use a newer known study-activity timestamp. Theme changes and other settings-only
+activity do not break ties. Mixed metrics, contradictory evidence, equal evidence,
+or missing tie-break evidence leave both buttons equally emphasized. The host's
+Progress-comparison control demonstrates those cases. Counts do not establish
+that one profile contains all of the other profile's unique facts; this remains
+a draft preference cue, never automatic activation or a completeness guarantee.
+
 The images are **synthetic level-four islands**, rendered by the canonical Godot
 scenes using seeds 41 and 93. They are not the learner's actual device/cloud saves.
 Both use the same framing and scale; clouds, cursors, and controls are hidden.
@@ -54,7 +69,7 @@ The capture tool disables native layout/camera persistence and game processing.
   its frame. Visible islands may look identical despite differing hidden inventory,
   timers, or data. Preserve the actual island-diff result and textual comparisons.
 - Choosing a version chooses its whole learner profile. A screenshot is a recognition
-  aid, not proof that a version has more study progress or should be recommended.
+  aid. Button emphasis must follow verified study evidence, not visual appearance.
   Preserve protection/export behavior and the explicit confirmation step.
 
 ## Draft verification

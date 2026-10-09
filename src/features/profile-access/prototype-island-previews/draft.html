@@ -19,7 +19,7 @@ No profile, auth, storage, export or network mutations. -->
           <tr><th scope="row">Recent activity</th><td><span class="mobile-label">This device</span>主題已變更<br><small>Oct 9, 8:16 PM</small></td><td><span class="mobile-label">Cloud</span>影片狀態已變更<br><small>Oct 9, 8:47 PM</small></td></tr>
           <tr><th scope="row">Video organization</th><td><span class="mobile-label">This device</span>1,717 saved · 18 in progress<br>3 favorites · 17 removed</td><td><span class="mobile-label">Cloud</span>1,718 saved · 18 in progress<br>2 favorites · 17 removed</td></tr>
         </tbody></table>
-        <div class="actions"><div class="choices"><button type="button" class="choose" data-choice="This device">Use This device</button><button type="button" class="choose" data-choice="Cloud">Use Cloud</button></div></div>
+        <div class="actions"><div class="choices"><button type="button" class="choice-secondary" data-choice="This device">Use this device</button><button type="button" class="choose" data-choice="Cloud">Use cloud</button></div></div>
         <div class="confirmation" hidden aria-live="polite"><strong class="confirm-heading"></strong><p class="confirm-copy"></p><div class="confirm-actions"><button type="button" data-cancel>Cancel</button><button type="button" class="choose" data-confirm>Confirm choice</button></div></div>
         <p class="feedback" aria-live="polite"></p>
       </article>
@@ -48,6 +48,7 @@ No profile, auth, storage, export or network mutations. -->
   #edenia-island-draft button:hover {background:var(--ed-wash);}
   #edenia-island-draft .choose {background:var(--ed-lime);border-color:var(--ed-edge);color:#111a10;font-weight:650;box-shadow:0 3px 0 var(--ed-edge);}
   #edenia-island-draft .choose:hover {filter:brightness(.97);background:var(--ed-lime);}
+  #edenia-island-draft .choice-secondary {background:light-dark(#fff,#14282e);border-color:var(--ed-edge);font-weight:400;box-shadow:none;}
   #edenia-island-draft .comparison {width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;}
   #edenia-island-draft .comparison caption {text-align:left;font-weight:650;font-size:15px;margin:0 0 10px;}
   #edenia-island-draft .comparison th,#edenia-island-draft .comparison td {padding:12px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--ed-line);overflow-wrap:anywhere;}
@@ -104,8 +105,51 @@ No profile, auth, storage, export or network mutations. -->
     }));
     view.querySelector('[data-cancel]').addEventListener('click', () => {confirmation.hidden = true; pendingChoice = null;});
     view.querySelector('[data-confirm]').addEventListener('click', () => {feedback.textContent = `Draft only: ${pendingChoice} selected. No profile was changed.`; confirmation.hidden = true;});
-    const state = { availability: 'Both available' };
+    const state = { availability: 'Both available', progress: 'Cloud ahead' };
+    const deviceProgress = {xp:112, minutes:2466, days:65, facts:413, watched:151};
+    const cloudProgress = {xp:134, minutes:2488, days:65, facts:415, watched:152};
+    const comparisons = {
+      'Cloud ahead': {device:deviceProgress, cloud:cloudProgress, deviceActivity:null, cloudActivity:'2026-10-09T20:47:00+08:00'},
+      'Device ahead': {device:cloudProgress, cloud:deviceProgress, deviceActivity:'2026-10-09T20:47:00+08:00', cloudActivity:'2026-10-09T20:16:00+08:00'},
+      'Mixed progress': {device:{...deviceProgress, watched:153}, cloud:cloudProgress, deviceActivity:null, cloudActivity:'2026-10-09T20:47:00+08:00'},
+      'Equal progress, newer study activity': {device:cloudProgress, cloud:cloudProgress, deviceActivity:'2026-10-09T20:16:00+08:00', cloudActivity:'2026-10-09T20:47:00+08:00'},
+      'Equal progress, newer settings only': {device:cloudProgress, cloud:cloudProgress, deviceActivity:null, cloudActivity:null},
+      'More progress, older study activity': {device:deviceProgress, cloud:cloudProgress, deviceActivity:'2026-10-09T20:47:00+08:00', cloudActivity:'2026-10-09T20:16:00+08:00'}
+    };
+    function preferredSide(comparison) {
+      const fields = ['xp', 'minutes', 'days', 'facts', 'watched'];
+      const dominates = (a,b) => fields.every(key => Number.isFinite(a[key]) && Number.isFinite(b[key]) && a[key] >= b[key]) && fields.some(key => a[key] > b[key]);
+      const deviceActivity = Date.parse(comparison.deviceActivity);
+      const cloudActivity = Date.parse(comparison.cloudActivity);
+      const hasActivityPair = Number.isFinite(deviceActivity) && Number.isFinite(cloudActivity);
+      if (dominates(comparison.cloud, comparison.device)) return hasActivityPair && deviceActivity > cloudActivity ? null : 'Cloud';
+      if (dominates(comparison.device, comparison.cloud)) return hasActivityPair && cloudActivity > deviceActivity ? null : 'This device';
+      const equal = fields.every(key => Number.isFinite(comparison.device[key]) && Number.isFinite(comparison.cloud[key]) && comparison.device[key] === comparison.cloud[key]);
+      if (equal && hasActivityPair && deviceActivity !== cloudActivity) return deviceActivity > cloudActivity ? 'This device' : 'Cloud';
+      return null;
+    }
     const render = () => {
+      const comparison = comparisons[state.progress];
+      const preferred = preferredSide(comparison);
+      view.dataset.preferredSide = preferred || 'none';
+      const rows = view.querySelectorAll('.comparison tbody tr');
+      ['device','cloud'].forEach((side,index) => {
+        const progress = comparison[side];
+        const label = side === 'device' ? 'This device' : 'Cloud';
+        const number = value => value.toLocaleString('en');
+        rows[0].children[index+1].innerHTML = `<span class="mobile-label">${label}</span>${number(progress.minutes)} min · ${progress.days} days`;
+        rows[1].children[index+1].innerHTML = `<span class="mobile-label">${label}</span>Level 4 · ${progress.xp} total current XP<br>${progress.facts} study facts · ${progress.watched} videos watched`;
+        const activity = comparison[side+'Activity'];
+        const activityTime = activity ? (activity.includes('20:47') ? '8:47 PM' : '8:16 PM') : (state.progress === 'Equal progress, newer settings only' && side === 'cloud' ? '8:47 PM' : '8:16 PM');
+        rows[2].children[index+1].innerHTML = `<span class="mobile-label">${label}</span>${activity ? '影片狀態已變更' : '主題已變更'}<br><small>Oct 9, ${activityTime}</small>`;
+      });
+      view.querySelectorAll('[data-choice]').forEach(button => {
+        const emphasized = preferred === null || preferred === button.dataset.choice;
+        button.classList.toggle('choose', emphasized);
+        button.classList.toggle('choice-secondary', !emphasized);
+        if (preferred) button.setAttribute('aria-description', emphasized ? 'Appears to have more study progress or newer study activity.' : 'Appears to have less study progress or older study activity. This version is still available to choose.');
+        else button.setAttribute('aria-description', 'The comparison does not clearly favor either version.');
+      });
       view.querySelectorAll('[data-side]').forEach(figure => {
         const side = figure.dataset.side;
         const img = figure.querySelector('img');
@@ -123,6 +167,7 @@ No profile, auth, storage, export or network mutations. -->
     if (globalThis.Tweak) {
       const tweak = new Tweak({container:view, onChange:render});
       tweak.addSelect(state, 'availability', {label:'Preview state', options:['Both available','Cloud unavailable','No device island','Same appearance']});
+      tweak.addSelect(state, 'progress', {label:'Progress comparison', options:Object.keys(comparisons)});
     }
   });
 })();
