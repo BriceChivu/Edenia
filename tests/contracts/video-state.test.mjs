@@ -110,3 +110,13 @@ test('watched confirmation unlocks preserve permissive timestamp validation', ()
     watchedConfirmationUnlockedAt: '2026-07-28T12:34:56.000Z'
   }), true)
 })
+
+
+test('watched section unlock requires 70% unique coverage, never a seek position', () => {
+  const video = { duration: 100, resumeAtSeconds: 99 }
+  assert.equal(hasWatchedConfirmationUnlock(video), false)
+  assert.equal(hasWatchedConfirmationUnlock({ ...video, watchCycleCoverage: [{ start: 0, end: 69.9 }] }), false)
+  assert.equal(hasWatchedConfirmationUnlock({ ...video, watchCycleCoverage: [{ start: 0, end: 70 }] }), true)
+  assert.equal(hasWatchedConfirmationUnlock({ ...video, watchCycleCoverage: [{ start: 0, end: 40 }, { start: 20, end: 60 }] }), false)
+  assert.equal(hasWatchedConfirmationUnlock({ ...video, duration: 0, watchCycleCoverage: [{ start: 0, end: 70 }] }), false)
+})

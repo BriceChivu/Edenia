@@ -61,7 +61,7 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
       action: 'favorite',
       analyticsAction: 'favoriteVideoFromWatchPrompt',
       eventName: 'favorite_video_from_watch_prompt_clicked',
-      content: "${renderVideoActionIcon('favorite')}",
+      content: "${escHtml(favoriteLabel)}",
       rewatch: null,
       playerPrompt: null,
       ariaPressed: '${String(isFavorite)}',
@@ -74,7 +74,7 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
       action: 'confirm',
       analyticsAction: 'confirmVideoWatchPrompt',
       eventName: 'confirm_video_watch_prompt_clicked',
-      content: "${escHtml(t('videoReminder.yes'))}",
+      content: "${escHtml(t('videoReminder.markWatched'))}",
       rewatch: '${String(rewatch)}',
       playerPrompt: null,
       ariaPressed: null,
@@ -82,16 +82,16 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
       title: null
     },
     {
-      className: 'video-watch-reminder-later',
-      exactClass: 'video-watch-reminder-later',
+      className: 'video-watch-reminder-close',
+      exactClass: 'video-watch-reminder-close',
       action: 'dismiss',
       analyticsAction: 'dismissVideoWatchPrompt',
       eventName: 'dismiss_video_watch_prompt_clicked',
-      content: "${escHtml(t('videoReminder.notYet'))}",
+      content: '<span aria-hidden="true">×</span>',
       rewatch: null,
       playerPrompt: null,
       ariaPressed: null,
-      ariaLabel: null,
+      ariaLabel: "${escHtml(t('videoReminder.close'))}",
       title: null
     }
   ]
@@ -131,21 +131,10 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
   }
 })
 
-test('rewatch prompts continue to omit the Favorite action only', () => {
-  assert.match(
-    markupSource,
-    /\$\{rewatch \? '' : `\s*<button\b[\s\S]*?class="video-watch-reminder-favorite\$\{favoriteActive\}"[\s\S]*?<\/button>\s*`\}/
-  )
-
-  const favoriteBranchEnd = markupSource.indexOf('`}', markupSource.indexOf(
-    'class="video-watch-reminder-favorite'
-  ))
-  const confirmIndex = markupSource.indexOf('class="video-watch-reminder-mark"')
-  const dismissIndex = markupSource.indexOf('class="video-watch-reminder-later"')
-
-  assert.ok(favoriteBranchEnd > -1)
-  assert.ok(confirmIndex > favoriteBranchEnd)
-  assert.ok(dismissIndex > favoriteBranchEnd)
+test('first watch and rewatch prompts expose the same three actions and close control', () => {
+  assert.equal(getButtonElements(markupSource).length, 4)
+  assert.match(markupSource, /data-video-watch-prompt-action="rewatch"/)
+  assert.doesNotMatch(markupSource, /rewatch \? ''/)
 })
 
 test('watch-prompt handlers suppress bubbling before performing action work', () => {

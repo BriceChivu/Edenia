@@ -9,10 +9,11 @@ export function bindVideoWatchPromptActions(root, actions) {
     !actions
     || typeof actions.favorite !== 'function'
     || typeof actions.confirm !== 'function'
+    || typeof actions.rewatch !== 'function'
     || typeof actions.dismiss !== 'function'
   ) {
     throw new TypeError(
-      'Video watch prompt actions require favorite, confirm, and dismiss callbacks'
+      'Video watch prompt actions require favorite, confirm, rewatch, and dismiss callbacks'
     )
   }
 
@@ -32,6 +33,10 @@ export function bindVideoWatchPromptActions(root, actions) {
           control.dataset.videoId,
           control.dataset.rewatch === 'true'
         )
+      })
+    } else if (actionName === 'rewatch') {
+      control.addEventListener('click', event => {
+        actions.rewatch(event, control.dataset.videoId)
       })
     } else if (actionName === 'dismiss') {
       control.addEventListener('click', event => {
