@@ -196,7 +196,6 @@ test('completion prompt wraps actions without localized overlap', async ({ page 
       element.getAnimations().map(animation => animation.finished)
     ))
     const layout = await prompt.evaluate(element => {
-      const copyRect = element.querySelector('.video-watch-reminder-copy').getBoundingClientRect()
       const actions = element.querySelector('.video-watch-reminder-actions')
       const actionsRect = actions.getBoundingClientRect()
       const promptRect = element.getBoundingClientRect()
@@ -208,7 +207,9 @@ test('completion prompt wraps actions without localized overlap', async ({ page 
         && Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > 0.5
       )
       return {
-        actionsOnSecondRow: actionsRect.top >= copyRect.bottom - 0.5,
+        stacked: getComputedStyle(actions).flexDirection === 'column',
+        topPadding: actionsRect.top - promptRect.top,
+        bottomPadding: promptRect.bottom - actionsRect.bottom,
         buttonsInsidePrompt: buttonRects.every(rect => (
           rect.left >= promptRect.left - 0.5
           && rect.right <= promptRect.right + 0.5
@@ -218,7 +219,6 @@ test('completion prompt wraps actions without localized overlap', async ({ page 
         buttonsOverlap: buttonRects.some((rect, index) => (
           buttonRects.slice(index + 1).some(otherRect => overlaps(rect, otherRect))
         )),
-        copyOverlapsActions: overlaps(copyRect, actionsRect),
         horizontalOverflow: element.scrollWidth - element.clientWidth,
         verticalOverflow: element.scrollHeight - element.clientHeight
       }
@@ -226,13 +226,11 @@ test('completion prompt wraps actions without localized overlap', async ({ page 
 
     expect(layout.buttonsInsidePrompt, locale).toBe(true)
     expect(layout.buttonsOverlap, locale).toBe(false)
-    expect(layout.copyOverlapsActions, locale).toBe(false)
     expect(layout.horizontalOverflow, locale).toBeLessThanOrEqual(1)
     expect(layout.verticalOverflow, locale).toBeLessThanOrEqual(1)
-    if (locale === 'fr') expect(layout.actionsOnSecondRow).toBe(true)
-    if (locale === 'en' && testInfo.project.name === 'desktop-standard') {
-      expect(layout.actionsOnSecondRow).toBe(false)
-    }
+    expect(layout.stacked).toBe(testInfo.project.name === 'phone-small')
+    if (!layout.stacked) expect(Math.abs(layout.topPadding - layout.bottomPadding)).toBeLessThanOrEqual(1)
+
   }
 })
 
@@ -780,3 +778,202 @@ for (const testerMode of [false, true]) {
     await expect(overlay).toHaveCount(0)
   })
 }
+
+async function endFakeVideo(page) {
+  await page.evaluate(() => {
+    const player = window.__edeniaFakeYoutubePlayer
+    player.currentTime = 480
+    player.state = 0
+    player.events.onStateChange?.({ data: 0 })
+  })
+  await expect(page.locator('.video-watch-reminder-popover.is-player')).toBeVisible()
+}
+
+for (const action of ['favorite', 'confirm', 'dismiss']) {
+  test(`ending ${action} closes the player and preserves the intended organization`, async ({ page }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+    await seedVideoOrganizationState(page)
+    await installFakeYoutubePlayer(page)
+    await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+    await endFakeVideo(page)
+    await page.locator(`[data-video-watch-prompt-action="${action}"]`).click()
+    await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+    const video = await page.evaluate(() => loadState().videos['menu-anchor-video'])
+    expect(video.status).toBe(action === 'confirm' ? 'watched' : 'partial')
+    expect(video.favorite === true).toBe(action === 'favorite')
+    expect((video.watchProgress || []).reduce((sum, entry) => sum + entry.seconds, 0)).toBe(0)
+    await page.reload()
+    const restored = await page.evaluate(() => loadState().videos['menu-anchor-video'])
+    expect(restored.status).toBe(video.status)
+    expect(restored.favorite === true).toBe(video.favorite === true)
+  })
+}
+
+test('Favorite from the ending popup keeps an existing favorite', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedVideoOrganizationState(page)
+  await page.evaluate(async () => {
+    const state = loadState()
+    state.videos['menu-anchor-video'].favorite = true
+    await saveState(state)
+  })
+  await installFakeYoutubePlayer(page)
+  await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+  await endFakeVideo(page)
+  await page.locator('[data-video-watch-prompt-action="favorite"]').click()
+  await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+  expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite)).toBe(true)
+})
+
+test('Rewatch starts at zero and earns fresh XP without moving to watched or crediting seeks', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await seedVideoOrganizationState(page, { testerMode: true })
+  await page.evaluate(async () => {
+    const state = loadState()
+    const video = state.videos['menu-anchor-video']
+    video.watchProgress = [{ watchedAt: '2026-08-03T04:00:00.000Z', seconds: 480, experienceSeconds: 480 }]
+    video.watchCycleCoverage = [{ start: 0, end: 480 }]
+    await saveState(state)
+  })
+  const scoreBefore = await page.evaluate(() => getCurrentCityScore(loadState()))
+  await installFakeYoutubePlayer(page)
+  await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+  await endFakeVideo(page)
+  await page.locator('[data-video-watch-prompt-action="rewatch"]').click()
+  await expect(page.locator('.video-watch-reminder-popover.is-player')).toHaveCount(0)
+  await expect(page.locator('.video-player-overlay')).toBeVisible()
+  expect(await page.evaluate(() => window.__edeniaFakeYoutubePlayer.currentTime)).toBe(0)
+  expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(scoreBefore)
+  await page.evaluate(async () => {
+    const player = window.__edeniaFakeYoutubePlayer
+    for (let sample = 0; sample < 60; sample += 1) {
+      player.currentTime += 1
+      await syncActiveVideoShelfPlayer({ persist: true })
+    }
+    player.currentTime = 400
+    await syncActiveVideoShelfPlayer({ persist: true })
+  })
+  const result = await page.evaluate(() => {
+    const state = loadState()
+    const video = state.videos['menu-anchor-video']
+    return { score: getCurrentCityScore(state), status: video.status, seconds: getTotalVideoWatchProgressSeconds(video), coverage: video.watchCycleCoverage }
+  })
+  expect(result).toEqual({ score: scoreBefore + 1, status: 'partial', seconds: 540, coverage: [{ start: 0, end: 60 }] })
+  await page.keyboard.press('Escape')
+  await page.reload()
+  expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(scoreBefore + 1)
+  await installFakeYoutubePlayer(page)
+  await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+  await page.evaluate(async () => {
+    const player = window.__edeniaFakeYoutubePlayer
+    player.currentTime = 60
+    await syncActiveVideoShelfPlayer({ persist: true })
+    for (let sample = 0; sample < 60; sample += 1) {
+      player.currentTime += 1
+      await syncActiveVideoShelfPlayer({ persist: true })
+    }
+  })
+  expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(scoreBefore + 2)
+})
+
+test('the main-page menu offers watched at 70% and moving it adds no extra XP', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await seedVideoOrganizationState(page)
+  async function setCoverage(seconds) {
+    await page.evaluate(async seconds => {
+      const state = loadState()
+      const video = state.videos['menu-anchor-video']
+      video.resumeAtSeconds = 479
+      video.watchCycleCoverage = [{ start: 0, end: seconds }]
+      video.watchProgress = [{ watchedAt: '2026-08-03T04:00:00.000Z', seconds, experienceSeconds: seconds }]
+      await saveState(state)
+    }, seconds)
+    await page.reload()
+    await waitForApplication(page)
+  }
+  async function openMenu() {
+    const card = page.locator('#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]')
+    await card.scrollIntoViewIfNeeded()
+    if (testInfo.project.name === 'desktop-standard') await card.hover()
+    await card.locator('[data-video-organization-action="menu"]').click()
+  }
+  await setCoverage(335)
+  await openMenu()
+  await expect(page.locator('[data-video-organization-action="put-watched"]')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await setCoverage(336)
+  const scoreBefore = await page.evaluate(() => getCurrentCityScore(loadState()))
+  await openMenu()
+  const move = page.locator('[data-video-organization-action="put-watched"]')
+  await expect(move).toHaveText('Put in watched section')
+  await move.click()
+  expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].status)).toBe('watched')
+  expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(scoreBefore)
+})
+
+test('ending popup uses the available player width and keeps its corner close control clear', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedVideoOrganizationState(page, { locale: 'fr' })
+  await installFakeYoutubePlayer(page)
+  await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+  await endFakeVideo(page)
+  const popup = page.locator('.video-watch-reminder-popover.is-player')
+  for (const width of [1440, 900, 700, 644, 640, 390, 360]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    const layout = await popup.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const close = element.querySelector('.video-watch-reminder-close').getBoundingClientRect()
+      const buttons = [...element.querySelectorAll('.video-watch-reminder-actions button')].map(button => button.getBoundingClientRect())
+      return {
+        overflow: element.scrollWidth - element.clientWidth,
+        inside: buttons.every(button => button.left >= rect.left && button.right <= rect.right),
+        clear: buttons.every(button => button.right <= close.left || button.top >= close.bottom),
+        topGap: close.top - rect.top,
+        rightGap: rect.right - close.right,
+        visible: rect.top >= 0 && rect.bottom <= window.innerHeight,
+        stacked: getComputedStyle(element.querySelector('.video-watch-reminder-actions')).flexDirection === 'column'
+      }
+    })
+    expect(layout.overflow, `width ${width}`).toBeLessThanOrEqual(1)
+    expect(layout.inside, `width ${width}`).toBe(true)
+    expect(layout.clear, `width ${width}`).toBe(true)
+    expect(layout.topGap).toBeLessThanOrEqual(3)
+    expect(layout.rightGap).toBeLessThanOrEqual(3)
+    expect(layout.visible).toBe(true)
+    if (width <= 640) expect(layout.stacked).toBe(true)
+    if (width >= 900) expect(layout.stacked).toBe(false)
+  }
+})
+
+test('Favorite waits for durable storage and can be retried after a failed save', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedVideoOrganizationState(page, { testerMode: true })
+  await page.route('**/config.local.js*', route => route.fulfill({
+    body: 'window.EDENIA_CONFIG = { accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false, indexedDbProfileEnabled: true }',
+    contentType: 'application/javascript'
+  }))
+  await page.reload()
+  await waitForApplication(page)
+  await installFakeYoutubePlayer(page)
+  await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+  await endFakeVideo(page)
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put
+    window.__restoreVideoWrites = () => { IDBObjectStore.prototype.put = put }
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === 'profiles') throw new DOMException('Synthetic storage exhaustion', 'QuotaExceededError')
+      return put.apply(this, args)
+    }
+  })
+  await page.locator('[data-video-watch-prompt-action="favorite"]').click()
+  await expect.poll(() => page.evaluate(() => activeVideoShelfPlayer.completionPromptActionPending)).toBe(false)
+  await expect(page.locator('.video-watch-reminder-popover.is-player')).toBeVisible()
+  expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite === true)).toBe(false)
+  await page.evaluate(() => window.__restoreVideoWrites())
+  await page.locator('[data-video-watch-prompt-action="favorite"]').click()
+  await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+  await page.reload()
+  expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite)).toBe(true)
+  expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].status)).toBe('partial')
+})

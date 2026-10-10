@@ -111,40 +111,6 @@
   .removed-video-restore span {
     display: none;
   }
-  .video-watch-reminder-popover {
-    bottom: 8px;
-    gap: 7px;
-    left: 8px;
-    padding: 8px;
-    right: 8px;
-  }
-  .video-watch-reminder-copy {
-    gap: 7px;
-  }
-  .video-watch-reminder-copy > span:last-child {
-    font-size: 0.72rem;
-  }
-  .video-watch-reminder-icon {
-    flex-basis: 24px;
-    height: 24px;
-    width: 24px;
-  }
-  .video-watch-reminder-actions button {
-    font-size: 0.68rem;
-    min-height: 32px;
-    padding: 5px 8px;
-  }
-  .video-watch-reminder-favorite {
-    flex-basis: 32px;
-    padding-inline: 6px;
-    width: 32px;
-  }
-  .video-watch-reminder-popover.is-player {
-    gap: 6px;
-  }
-  .video-watch-reminder-popover.is-player .video-watch-reminder-copy {
-    gap: 5px;
-  }
 
   .video-grid.channel-view {
     gap: 18px;

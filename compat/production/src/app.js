@@ -8515,7 +8515,7 @@ async function hydrateStoredManualVideoChannelImages() {
 }
 
 function grantWatchedConfirmationUnlock(state, video) {
-  if (!state || !video || hasWatchedConfirmationUnlock(video)) return false
+  if (!state || !video || isValidTimestamp(video.watchedConfirmationUnlockedAt)) return false
   video.watchedConfirmationUnlockedAt = getCurrentAppTimestamp(state)
   return true
 }
@@ -9387,27 +9387,35 @@ function updateDocumentTitle() {
 }
 
 function getVideoWatchReminderMarkup(videoId, options = {}) {
-  const {
-    rewatch = false,
-    video = null
-  } = options
+  const { rewatch = false, video = null } = options
   const safeVideoId = escHtml(String(videoId ?? ''))
-  const promptId = `videoWatchPrompt-${safeVideoId}-player`
   const isFavorite = isFavoriteVideo(video)
   const favoriteActive = isFavorite ? ' active' : ''
-  const favoriteLabel = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
+  const favoriteLabel = t('videos.card.favorite')
   return `
     <div class="video-watch-reminder-popover is-player"
       data-video-id="${safeVideoId}"
       role="dialog"
       aria-live="polite"
-      aria-labelledby="${promptId}">
-      <div class="video-watch-reminder-copy">
-        <span class="video-watch-reminder-icon" aria-hidden="true">✓</span>
-        <span id="${promptId}">${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
-      </div>
+      aria-label="${escHtml(t('videoReminder.aria'))}">
+      <button type="button"
+        class="video-watch-reminder-close"
+        data-video-watch-prompt-action="dismiss"
+        data-video-id="${safeVideoId}"
+        data-analytics-action="dismissVideoWatchPrompt"
+        aria-label="${escHtml(t('videoReminder.close'))}"><span aria-hidden="true">×</span></button>
       <div class="video-watch-reminder-actions">
-        ${rewatch ? '' : `
+        <button type="button"
+          class="video-watch-reminder-mark"
+          data-video-watch-prompt-action="confirm"
+          data-video-id="${safeVideoId}"
+          data-rewatch="${String(rewatch)}"
+          data-analytics-action="confirmVideoWatchPrompt"><span aria-hidden="true">✓</span>${escHtml(t('videoReminder.markWatched'))}</button>
+        <button type="button"
+          class="video-watch-reminder-rewatch"
+          data-video-watch-prompt-action="rewatch"
+          data-video-id="${safeVideoId}"
+          data-analytics-action="rewatchVideoFromWatchPrompt">${renderVideoActionIcon('restore')}${escHtml(t('nextStudy.rewatch'))}</button>
         <button type="button"
           class="video-watch-reminder-favorite${favoriteActive}"
           data-video-watch-prompt-action="favorite"
@@ -9415,21 +9423,7 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
           data-analytics-action="favoriteVideoFromWatchPrompt"
           aria-pressed="${String(isFavorite)}"
           aria-label="${escHtml(favoriteLabel)}"
-          title="${escHtml(favoriteLabel)}">
-          ${renderVideoActionIcon('favorite')}
-        </button>
-        `}
-        <button type="button"
-          class="video-watch-reminder-mark"
-          data-video-watch-prompt-action="confirm"
-          data-video-id="${safeVideoId}"
-          data-rewatch="${String(rewatch)}"
-          data-analytics-action="confirmVideoWatchPrompt">${escHtml(t('videoReminder.yes'))}</button>
-        <button type="button"
-          class="video-watch-reminder-later"
-          data-video-watch-prompt-action="dismiss"
-          data-video-id="${safeVideoId}"
-          data-analytics-action="dismissVideoWatchPrompt">${escHtml(t('videoReminder.notYet'))}</button>
+          title="${escHtml(favoriteLabel)}">${renderVideoActionIcon('favorite')}${escHtml(favoriteLabel)}</button>
       </div>
     </div>
   `
@@ -9437,7 +9431,7 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
 
 async function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false) {
   if (!prompt || !video) return false
-  if (!rewatch && grantWatchedConfirmationUnlock(state, video)) {
+  if (grantWatchedConfirmationUnlock(state, video)) {
     if (!await saveState(state, {
       backup: false,
       syncAnalytics: false
@@ -9471,38 +9465,45 @@ async function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
     || session.completionPromptVisible !== true
     || session.isRewatch !== (rewatch === true)
   ) return false
-  if (rewatch) {
-    const video = loadState()?.videos?.[targetVideoId]
-    const completed = await completeVideoShelfPlayerRewatchConfirmation(session)
-    restorePlayerReturnPosition(session)
-    if (completed) {
-      trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
-        is_rewatch: true,
-        surface: 'embedded_player'
-      }))
+  if (session.completionPromptActionPending) return false
+  session.completionPromptActionPending = true
+  try {
+    if (rewatch) {
+      const video = loadState()?.videos?.[targetVideoId]
+      const completed = await completeVideoShelfPlayerRewatchConfirmation(session)
+      restorePlayerReturnPosition(session)
+      if (completed) {
+        trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+          is_rewatch: true,
+          surface: 'embedded_player'
+        }))
+      }
+      return completed
     }
-    return completed
+    if (!await syncActiveVideoShelfPlayer({
+      persist: true,
+      captureStoppedPlayback: true
+    })) return false
+    if (activeVideoShelfPlayer !== session) return false
+    const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
+    const marked = await markVideo(targetVideoId, 'watched', {
+      creditOnlyRecordedProgress: true,
+      surface: 'embedded_player_prompt'
+    })
+    restorePlayerReturnPosition(completedPlayer)
+    if (marked) {
+      trackEdeniaEvent(
+        'video_completion_prompt_accepted',
+        getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
+          is_rewatch: false,
+          surface: 'embedded_player'
+        })
+      )
+    }
+    return marked
+  } finally {
+    session.completionPromptActionPending = false
   }
-  syncActiveVideoShelfPlayer({
-    persist: true,
-    captureStoppedPlayback: true
-  })
-  const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
-  const marked = await markVideo(targetVideoId, 'watched', {
-    creditOnlyRecordedProgress: true,
-    surface: 'embedded_player_prompt'
-  })
-  restorePlayerReturnPosition(completedPlayer)
-  if (marked) {
-    trackEdeniaEvent(
-      'video_completion_prompt_accepted',
-      getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
-        is_rewatch: false,
-        surface: 'embedded_player'
-      })
-    )
-  }
-  return marked
 }
 
 function dismissVideoWatchPrompt(event, videoId) {
@@ -9510,10 +9511,10 @@ function dismissVideoWatchPrompt(event, videoId) {
   event?.stopPropagation()
   const targetVideoId = String(videoId ?? '')
   const session = activeVideoShelfPlayer
-  if (!session || session.videoId !== targetVideoId) return false
+  if (!session || session.videoId !== targetVideoId || session.completionPromptActionPending) return false
   const video = loadState()?.videos?.[targetVideoId]
   const isRewatch = session.isRewatch === true
-  dismissVideoShelfCompletionPrompt(session)
+  closeVideoShelfPlayer()
   trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
     is_rewatch: isRewatch,
     surface: 'embedded_player'
@@ -9627,7 +9628,7 @@ async function toggleVideoFavorite(videoId, options = {}) {
 function syncVideoWatchPromptFavoriteAction(videoId, isFavorite) {
   document.querySelectorAll('.video-watch-reminder-favorite').forEach(button => {
     if (button.dataset.videoId === String(videoId ?? '')) {
-      const label = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
+      const label = t('videos.card.favorite')
       button.classList.toggle('active', isFavorite === true)
       button.setAttribute('aria-pressed', String(isFavorite === true))
       button.setAttribute('aria-label', label)
@@ -9650,40 +9651,79 @@ async function favoriteVideoFromWatchPrompt(event, videoId) {
   event?.stopPropagation()
   const state = loadState()
   const video = state?.videos?.[videoId]
-  if (!video) return false
-
-  const checkpoint = captureVideoActionState(state, videoId)
-  const beforeVideo = cloneVideoForHistoryAction(video)
-  video.favorite = !isFavoriteVideo(video)
-  const isFavorite = isFavoriteVideo(video)
-  if (!isFavorite && getVideoStatus(video) === 'watched') {
-    video.resumeAtSeconds = null
-    video.pausedAt = null
-  }
-  pushUndoAction(state, {
-    type: 'video-favorite',
-    videoId,
-    before: {
-      video: beforeVideo,
-      status: beforeVideo.status,
-      favorite: isFavoriteVideo(beforeVideo)
-    },
-    after: {
-      video: cloneVideoForHistoryAction(video),
-      status: video.status,
-      favorite: isFavorite
+  const session = activeVideoShelfPlayer
+  if (!video || session?.videoId !== String(videoId) || !session.completionPromptVisible) return false
+  if (session.completionPromptActionPending) return false
+  session.completionPromptActionPending = true
+  try {
+    if (!await syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })) return false
+    if (activeVideoShelfPlayer !== session || !isCurrentLearnerProfileOperation(state)) return false
+    if (!isFavoriteVideo(video)) {
+      const checkpoint = captureVideoActionState(state, videoId)
+      const beforeVideo = cloneVideoForHistoryAction(video)
+      video.favorite = true
+      pushUndoAction(state, {
+        type: 'video-favorite',
+        videoId,
+        before: { video: beforeVideo, status: beforeVideo.status, favorite: false },
+        after: { video: cloneVideoForHistoryAction(video), status: video.status, favorite: true }
+      })
+      if (!await persistVideoAction(state, checkpoint)) return false
+      trackVideoFavoriteChanged(state, video, false, 'completion_prompt')
     }
-  })
-  if (!await persistVideoAction(state, checkpoint)) return false
-  trackVideoFavoriteChanged(state, video, isFavoriteVideo(beforeVideo), 'completion_prompt')
-  syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
-  if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
-    updateVideoPlayerFavoriteButton(
-      activeVideoShelfPlayer.overlay?.querySelector('.video-player-favorite'),
-      isFavorite
-    )
+    closeVideoShelfPlayer()
+    return true
+  } finally {
+    session.completionPromptActionPending = false
   }
-  return isFavorite
+}
+
+async function rewatchVideoFromWatchPrompt(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const session = activeVideoShelfPlayer
+  if (session?.videoId !== String(videoId) || !session.completionPromptVisible) return false
+  if (session.completionPromptActionPending) return false
+  session.completionPromptActionPending = true
+  try {
+    if (!await syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })) return false
+    if (activeVideoShelfPlayer !== session) return false
+    const state = loadState()
+    const video = state?.videos?.[videoId]
+    if (!video) return false
+    const checkpoint = captureVideoActionState(state, videoId)
+    video.watchCycleCoverage = []
+    video.resumeAtSeconds = 0
+    if (!await persistVideoAction(state, checkpoint)) return false
+    if (activeVideoShelfPlayer !== session) return false
+
+    // Start a fresh coverage cycle; XP comes only from new playback samples.
+    session.watchCycleCoverage = []
+    session.progressSeconds = 0
+    session.progressEntryAt = null
+    session.lastKnownSeconds = 0
+    session.lastPersistedSeconds = 0
+    session.lastPlaybackSampleSeconds = 0
+    session.lastPlaybackSampleAt = Date.now()
+    session.lastReportedSeconds = 0
+    session.lastReportedProgressSeconds = 0
+    dismissVideoShelfCompletionPrompt(session)
+    session.overlay?.focus({ preventScroll: true })
+    try {
+      if (!session.player?.seekTo || !session.player?.playVideo) throw new Error('Player API unavailable')
+      session.player.seekTo(0, true)
+      session.player.playVideo()
+    } catch {
+      const returnPosition = session.returnPosition
+      stopActiveVideoShelfPlayer({ persist: false })
+      if (await openVideoPlayer(videoId) && activeVideoShelfPlayer) {
+        activeVideoShelfPlayer.returnPosition = returnPosition
+      }
+    }
+    return true
+  } finally {
+    session.completionPromptActionPending = false
+  }
 }
 
 async function toggleVideoPlayerFavorite(videoId, button) {
@@ -9890,6 +9930,9 @@ async function markVideo(videoId, requestedStatus, options = {}) {
 
 function getVideoOrganizationMenuItems(video) {
   const items = []
+  if (getVideoStatus(video) !== 'watched' && hasWatchedConfirmationUnlock(video)) {
+    items.push({ action: 'put-watched', label: t('videoReminder.markWatched') })
+  }
   if (hasVideoResumePriority(video)) {
     items.push({
       action: 'remove-continue',
@@ -17162,21 +17205,19 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
   if (!video || !session || !normalizedSeconds || !isValidTimestamp(watchedAt)) return false
 
   const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
-  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
-  const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
-  const secondsToAdd = session.isRewatch
-    ? normalizedSeconds
-    : duration > 0
-    ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
-    : normalizedSeconds
+  const secondsToAdd = normalizedSeconds
   if (!secondsToAdd) return false
 
   let sessionEntry = session.progressEntryAt
     ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
     : null
   if (!sessionEntry) {
-    session.progressEntryAt = watchedAt
-    sessionEntry = { watchedAt, seconds: 0 }
+    let entryAt = watchedAt
+    while (entries.some(entry => entry.watchedAt === entryAt)) {
+      entryAt = new Date(new Date(entryAt).getTime() + 1).toISOString()
+    }
+    session.progressEntryAt = entryAt
+    sessionEntry = { watchedAt: entryAt, seconds: 0 }
     entries.push(sessionEntry)
   }
   sessionEntry.seconds += secondsToAdd
@@ -17234,6 +17275,9 @@ function persistVideoShelfWatchCoverage(video, session, watchedAt) {
   const coverageChanged = JSON.stringify(previousCoverage) !== JSON.stringify(nextCoverage)
   video.watchCycleCoverage = nextCoverage
   video.watchProgressTracked = true
+  if (Number(video.duration) > 0 && nextSeconds >= Number(video.duration) * 0.7) {
+    grantWatchedConfirmationUnlock(loadState(), video)
+  }
 
   const newlyCoveredSeconds = Math.max(0, nextSeconds - previousSeconds)
   const progressChanged = newlyCoveredSeconds > 0
@@ -17350,6 +17394,7 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
   bindVideoWatchPromptActions(prompt, {
     favorite: favoriteVideoFromWatchPrompt,
     confirm: confirmVideoWatchPrompt,
+    rewatch: rewatchVideoFromWatchPrompt,
     dismiss: dismissVideoWatchPrompt
   })
   session.completionPromptVisible = true
@@ -17442,10 +17487,11 @@ function completeVideoShelfPlayer(session) {
 
 async function completeVideoShelfPlayerRewatchConfirmation(session) {
   if (activeVideoShelfPlayer !== session || !session.isRewatch) return false
-  syncActiveVideoShelfPlayer({
+  if (!await syncActiveVideoShelfPlayer({
     persist: true,
     captureStoppedPlayback: true
-  })
+  })) return false
+  if (activeVideoShelfPlayer !== session) return false
   const completedSession = stopActiveVideoShelfPlayer({ persist: false })
   const state = loadState()
   const video = state?.videos?.[completedSession?.videoId]
@@ -19378,6 +19424,10 @@ bindWatchedSectionActions(document, {
 bindVideoOrganizationActions(document, {
   openMenu: openVideoOrganizationMenu,
   closeMenu: closeVideoOrganizationMenu,
+  putInWatchedSection: async videoId => {
+    closeVideoOrganizationMenu(true)
+    return await markVideo(videoId, 'watched', { creditOnlyRecordedProgress: true, surface: 'video_menu' })
+  },
   removeFromContinueWatching: removeVideoFromContinueWatching,
   removeFromFeed: removeVideoFromFeed,
   restoreToFeed: restoreVideoToFeed,

@@ -1,4 +1,5 @@
 import { isValidTimestamp } from '../core/date-keys.js'
+import { getVideoWatchCoverageSeconds } from './video-watch-coverage.js'
 
 export const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 
@@ -24,7 +25,10 @@ export function isVideoRemovedFromFeed(video) {
 }
 
 export function hasWatchedConfirmationUnlock(video) {
+  const duration = Number(video?.duration)
   return isValidTimestamp(video?.watchedConfirmationUnlockedAt)
+    || (Number.isFinite(duration) && duration > 0
+      && getVideoWatchCoverageSeconds(video?.watchCycleCoverage, duration) >= duration * 0.7)
 }
 
 export function normalizeResumeAtSeconds(value, duration = null) {
