@@ -98,7 +98,7 @@ export function createProfileRecoveryWorkspace({
       const raw = safeRead(getter, workspaceKey)
       const changed = raw !== observedRaw.get(name)
       observedRaw.set(name, raw)
-      if (!raw || (['memory', 'none'].includes(tier) && !changed)) continue
+      if (!raw || !changed) continue
       try {
         const saved = JSON.parse(raw)
         if (!valid({ ...saved, status: 'active' }) || !['active', 'archived'].includes(saved.status)) continue
@@ -176,6 +176,11 @@ export function createProfileRecoveryWorkspace({
   eventTarget?.addEventListener('storage', event => {
     if (event.key === workspaceKey) refreshFromDisk()
   })
+  function keepInMemory() {
+    if (tier !== 'memory') { tier = 'memory'; onTierChange(tier) }
+    notifyPendingConflict()
+    return false
+  }
   function persist() {
     record.sequence = (record.sequence || 0) + 1
     const raw = JSON.stringify(record)
@@ -183,8 +188,16 @@ export function createProfileRecoveryWorkspace({
       try {
         const target = getter()
         if (!target) continue
+        const before = target.getItem(workspaceKey)
+        // Do not replace a peer that changed after the last scope check. Keep
+        // this candidate in memory until refresh can reconcile both versions.
+        if (before !== (observedRaw.get(name) ?? null)) return keepInMemory()
         target.setItem(workspaceKey, raw)
-        if (target.getItem(workspaceKey) !== raw) continue
+        const written = target.getItem(workspaceKey)
+        if (written !== raw) {
+          if (written !== before) return keepInMemory()
+          continue
+        }
         observedRaw.set(name, raw)
         // A stale fallback must not be replayed after a newer local copy.
         if (name === 'local') {
@@ -205,9 +218,7 @@ export function createProfileRecoveryWorkspace({
         return true
       } catch {}
     }
-    if (tier !== 'memory') { tier = 'memory'; onTierChange(tier) }
-    notifyPendingConflict()
-    return false
+    return keepInMemory()
   }
   function activate(seed = capture(), failure = null, operation = 'recovery') {
     if (active) return
@@ -292,9 +303,11 @@ export function createProfileRecoveryWorkspace({
       baselines.set(profile, raw)
       return profile
     },
-    save(profile, { canPersist = () => true, replace = false } = {}) {
+    save(profile, { canPersist = () => true, replace = false } = {}, attempt = 0) {
       const currentRaw = storage.getItem(storageKey)
-      if (!active || !canPersist()) return false
+      if (!active) return false
+      const started = { ...record, values: { ...record.values } }
+      if (!canPersist()) return false
       const desiredRaw = JSON.stringify(profile)
       const base = baselines.get(profile)
       let desired = JSON.parse(desiredRaw)
@@ -307,8 +320,30 @@ export function createProfileRecoveryWorkspace({
         desired = merged
       }
       if (!canPersist()) return false
-      storage.setItem(storageKey, JSON.stringify(desired))
-      if (replace) storage.recordReplacement()
+      refreshFromDisk()
+      if (!active) return false
+      if ((record.values[accessKey] ?? null) !== (started.values[accessKey] ?? null)
+        || record.originalAccess !== started.originalAccess
+        || record.originalReplacementRevision !== started.originalReplacementRevision
+        || record.replacementId !== started.replacementId) {
+        protectWorkspace({ ...started, values: { ...started.values, [storageKey]: desiredRaw } })
+        persist()
+        return false
+      }
+      if (record.values[storageKey] !== currentRaw) {
+        if (attempt === 0) return repository.save(profile, { canPersist, replace }, 1)
+        rememberConflict(record.values[storageKey], desiredRaw)
+        return false
+      }
+      const writeEpoch = epoch
+      if (!canPersist() || !active || epoch !== writeEpoch) return false
+      // No refreshing storage facade between the final scope fence and this
+      // mutation: refreshing there could adopt a different owner and then put
+      // the old edit into that owner's profile.
+      record.values[storageKey] = JSON.stringify(desired)
+      if (replace) { record.replacement = true; record.replacementId = globalThis.crypto.randomUUID() }
+      epoch++
+      persist()
       for (const key of Object.keys(profile)) delete profile[key]
       Object.defineProperties(profile, Object.getOwnPropertyDescriptors(desired))
       baselines.set(profile, JSON.stringify(desired))

@@ -435,3 +435,40 @@ test('a newer archived fallback prevents replaying an older active copy after re
   const reopened = createProfileRecoveryWorkspace(f.options)
   assert.equal(reopened.hasPending(), false)
 })
+
+test('a peer ownership change after the last caller check cannot receive the old owner edit', () => {
+  const f = fixture()
+  f.workspace.activate()
+  const other = createProfileRecoveryWorkspace(f.options)
+  other.activate()
+  const edit = f.workspace.repository.snapshot()
+  edit.watch = 7
+  let checks = 0
+  const saved = f.workspace.repository.save(edit, { canPersist: () => {
+    const observed = f.workspace.storage.getItem('access')
+    if (++checks === 2) other.storage.setItem('access', '{"ownerId":"new-owner"}')
+    return observed === '{"ownerId":null}'
+  } })
+  assert.equal(saved, false)
+  assert.equal(other.repository.snapshot().watch, 1)
+  assert.equal(JSON.parse(other.storage.getItem('access')).ownerId, 'new-owner')
+})
+
+test('a peer ownership change during the final check keeps the edit in memory without overwriting its workspace', () => {
+  const f = fixture()
+  f.workspace.activate()
+  const other = createProfileRecoveryWorkspace(f.options)
+  other.activate()
+  const edit = f.workspace.repository.snapshot()
+  edit.watch = 7
+  let checks = 0
+  assert.equal(f.workspace.repository.save(edit, { canPersist: () => {
+    const observed = f.workspace.storage.getItem('access')
+    if (++checks === 3) other.storage.setItem('access', '{"ownerId":"new-owner"}')
+    return observed === '{"ownerId":null}'
+  } }), true)
+  assert.equal(JSON.parse(f.values.get('profile_recovery_workspace_v1')).values.access, '{"ownerId":"new-owner"}')
+  assert.equal(f.workspace.getTier(), 'memory')
+  assert.equal(f.workspace.repository.snapshot().watch, 1)
+  assert.equal(JSON.parse(JSON.parse(f.values.get('profile_recovery_workspace_v1')).protectedWorkspaces.at(-1).values.profile).watch, 7)
+})

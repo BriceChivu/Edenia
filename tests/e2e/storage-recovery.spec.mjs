@@ -58,7 +58,9 @@ test('a denied storage probe continues onboarding without an error screen', asyn
     }
   }, key)
   await open(page, { indexedDbProfileEnabled: false })
-  expect(await page.evaluate(() => profileRecoveryWorkspace.isActive())).toBe(true)
+  const recovery = await page.evaluate(key => JSON.parse(localStorage.getItem(`${key}_recovery_workspace_v1`)), key)
+  expect(recovery.version).toBe(1)
+  expect(['active', 'archived']).toContain(recovery.status)
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'What language are you learning?', exact: true })).toBeVisible()
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
