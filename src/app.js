@@ -1,3 +1,5 @@
+import { describeProfileStorageFailure, getStorageRecoveryPresentation, createStorageRecoveryReport } from './state/profile-storage-recovery.js'
+import { renderStorageRecovery } from './features/onboarding/storage-recovery-view.js'
 import { createPortableLearnerProfileConflictArchive } from './state/portable-learner-profile-archive.js'
 import { createIslandAnnouncement } from './features/onboarding/island-announcement.js'
 import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
@@ -703,6 +705,8 @@ const INDEXED_DB_BACKUP_MARKER_KEY =
   `${STATE_BACKUP_KEY}_indexed_db_v1`
 let primaryProfileRepository = null
 let primaryProfileStorageUnavailable = false
+let primaryProfileOpeningFailure = null
+let backupProfileOpeningFailure = null
 const primaryStorage = {
   getItem(key) {
     return key === STORAGE_KEY && primaryProfileRepository
@@ -811,6 +815,8 @@ async function initializeStateBackupStorage() {
       ),
       legacyStorage: localStorage
     })
+    backupRecoveryUnavailable = false
+    backupProfileOpeningFailure = null
     stateBackupStore = createStateBackupStore({
       ...stateBackupStoreOptions,
       storage: repository.storage
@@ -824,6 +830,7 @@ async function initializeStateBackupStorage() {
   } catch (error) {
     console.warn('Edenia IndexedDB backup initialization failed.', error)
     backupRecoveryUnavailable = hasIndexedDbBackups
+    backupProfileOpeningFailure = hasIndexedDbBackups ? describeProfileStorageFailure(error) : null
     if (hasIndexedDbBackups) {
       // The durable bank can hold newer protected copies. Keep ordinary
       // primary operations available, but never recreate a legacy bank or
@@ -1515,6 +1522,8 @@ const personalizedOnboardingState = {
 let onboardingChoiceLayoutFrame = 0
 let onboardingChoiceLayoutViewportSize = null
 const onboardingRecoveryState = {
+  storageChecked: false,
+  openingBlocked: false,
   active: false,
   reason: 'setup',
   resume: 'personalized',
@@ -3319,7 +3328,7 @@ async function init() {
   }
   if (primaryProfileStorageUnavailable) {
     applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
-    showOnboardingRecovery('storage')
+    showOnboardingRecovery('storage', { openingBlocked: true })
     return
   }
   if (backupRecoveryUnavailable) {
@@ -3332,7 +3341,7 @@ async function init() {
     } catch {}
     if (!primaryStateIsReadable) {
       applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
-      showOnboardingRecovery('storage')
+      showOnboardingRecovery('storage', { openingBlocked: true })
       return
     }
   }
@@ -3949,7 +3958,12 @@ function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
   }
 }
 
-function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'personalized' } = {}) {
+function getStorageRecoveryFailure() {
+  return onboardingRecoveryState.openingBlocked
+    ? primaryProfileOpeningFailure || backupProfileOpeningFailure : null
+}
+
+function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'personalized', openingBlocked = false } = {}) {
   const normalizedReason = reason === 'storage' ? 'storage' : 'setup'
   const panel = document.getElementById('onboardingPanel')
   const content = document.getElementById('onboardingContent')
@@ -3962,6 +3976,7 @@ function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'pers
   onboardingRecoveryState.reason = normalizedReason
   onboardingRecoveryState.resume = ['intro', 'complete'].includes(resume) ? resume : 'personalized'
   onboardingRecoveryState.state = state
+  onboardingRecoveryState.openingBlocked = openingBlocked
   localePicker?.classList.add('hidden')
   progress?.classList.add('hidden')
   content.innerHTML = `
@@ -3972,9 +3987,17 @@ function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'pers
     </div>
     <p class="onboarding-recovery-status" id="onboardingRecoveryStatus" role="status" aria-live="polite"></p>
   `
+  if (normalizedReason === 'storage') {
+    content.innerHTML = renderStorageRecovery({
+      failure: getStorageRecoveryFailure(),
+      checked: onboardingRecoveryState.storageChecked, t,
+      renderHeading: renderOnboardingHeading
+    })
+  }
   bindOnboardingRecoveryActions(content, {
     copyLink: copyOnboardingRecoveryLink,
-    retry: retryOnboardingRecovery
+    retry: retryOnboardingRecovery,
+    copyDetails: copyStorageRecoveryDetails
   })
   panel.classList.add('is-recovery')
   panel.classList.remove('hidden')
@@ -3997,6 +4020,31 @@ function closeOnboardingRecovery() {
   progress?.classList.remove('hidden')
   document.body.classList.remove('onboarding-active')
   document.getElementById('mainApp')?.removeAttribute('inert')
+}
+
+async function copyStorageRecoveryDetails() {
+  const report = createStorageRecoveryReport({
+    failure: getStorageRecoveryFailure(),
+    checked: onboardingRecoveryState.storageChecked,
+    mode: IS_AUTH_TRIAL ? 'auth-trial' : IS_TINY_SWORDS_TESTER ? 'tiny-swords-test' : 'public',
+    release: getFeedbackAssetVersion()
+  })
+  const status = document.getElementById('onboardingRecoveryStatus')
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+    await navigator.clipboard.writeText(report)
+    if (status) status.textContent = t('onboarding.recovery.detailsCopied')
+  } catch {
+    const label = document.getElementById('storageRecoveryDetailsLabel')
+    const input = document.getElementById('storageRecoveryDetails')
+    if (input) {
+      input.value = report
+      label?.classList.remove('hidden')
+      input.focus()
+      input.select()
+    }
+    if (status) status.textContent = t('onboarding.recovery.detailsCopyFailed')
+  }
 }
 
 async function copyOnboardingRecoveryLink(button) {
@@ -4033,16 +4081,39 @@ async function copyOnboardingRecoveryLink(button) {
 
 async function retryOnboardingRecovery(button) {
   if (!onboardingRecoveryState.active) return
-  if (backupRecoveryUnavailable || primaryProfileStorageUnavailable) {
+  if (onboardingRecoveryState.reason === 'storage') {
+    const presentation = getStorageRecoveryPresentation(
+      getStorageRecoveryFailure(),
+      { checked: onboardingRecoveryState.storageChecked }
+    )
+    if (!presentation.canCheck) return
+    onboardingRecoveryState.storageChecked = true
+  }
+  if (onboardingRecoveryState.openingBlocked) {
     if (button) button.disabled = true
-    window.location.reload()
+    if (button) button.textContent = t('onboarding.recovery.checking')
+    await initializeBrowserStorage()
+    let readable = false
+    try {
+      const raw = primaryStorage.getItem(STORAGE_KEY)
+      readable = Boolean(raw && isValidStateShape(JSON.parse(raw)))
+    } catch {}
+    if (primaryProfileStorageUnavailable || (backupRecoveryUnavailable && !readable)) {
+      showOnboardingRecovery('storage', {
+        state: onboardingRecoveryState.state, resume: onboardingRecoveryState.resume, openingBlocked: true
+      })
+      return
+    }
+    onboardingRecoveryState.storageChecked = false
+    closeOnboardingRecovery()
+    await init()
     return
   }
   const status = document.getElementById('onboardingRecoveryStatus')
   if (button) button.disabled = true
 
   if (!canPersistLocalState()) {
-    if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
+    showOnboardingRecovery('storage', { state: onboardingRecoveryState.state, resume: onboardingRecoveryState.resume })
     if (button) button.disabled = false
     trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
     return
@@ -4051,12 +4122,13 @@ async function retryOnboardingRecovery(button) {
   const state = onboardingRecoveryState.state || loadState() || defaultState(4, DEFAULT_CHANNELS)
   normalizeOnboardingState(state)
   if (!await saveState(state, { backup: false })) {
-    if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
+    showOnboardingRecovery('storage', { state: onboardingRecoveryState.state, resume: onboardingRecoveryState.resume })
     if (button) button.disabled = false
     trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
     return
   }
 
+  onboardingRecoveryState.storageChecked = false
   const resume = onboardingRecoveryState.resume
   const recoveryReason = onboardingRecoveryState.reason
   closeOnboardingRecovery()
@@ -18465,6 +18537,7 @@ async function initializeBrowserStorage() {
     }
   } catch {}
   await initializeStateBackupStorage()
+  if (primaryProfileRepository) return
   let migrated = false
   try { migrated = ['1', 'empty'].includes(localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`))
     || isIndexedDbProfilePointer(localStorage.getItem(STORAGE_KEY)) } catch {}
@@ -18491,11 +18564,13 @@ async function initializeBrowserStorage() {
       }
     })
     primaryProfileStorageUnavailable = false
+    primaryProfileOpeningFailure = null
   } catch (error) {
     console.warn('Edenia durable profile opening failed.', error)
     // A migrated store may hold newer learner data than any legacy fallback.
-    // Retry opening instead of silently starting from a cookie or old backup.
+    // Preserve saved data and offer recovery appropriate to the failure.
     primaryProfileStorageUnavailable = true
+    primaryProfileOpeningFailure = describeProfileStorageFailure(error)
   }
 }
 stateBackupStorageInitialization = initializeBrowserStorage()

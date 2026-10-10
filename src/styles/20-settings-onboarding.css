@@ -930,6 +930,22 @@ body.onboarding-active .toast { z-index: 320; }
 }
 .onboarding-panel.is-recovery .onboarding-card { max-width: 620px; }
 .onboarding-recovery-actions { justify-content: flex-end; }
+.onboarding-content .storage-recovery-actions {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+}
+.storage-recovery-actions button { width: 100%; }
+#storageRecoveryDetailsLabel { color: var(--muted); font-size: 0.8rem; }
+#storageRecoveryDetails {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  font: 0.75rem/1.5 monospace;
+  padding: 12px;
+  resize: vertical;
+}
 .onboarding-recovery-status {
   color: var(--muted);
   font-size: 0.76rem;

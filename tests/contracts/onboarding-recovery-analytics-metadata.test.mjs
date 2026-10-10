@@ -222,7 +222,7 @@ test('Retry retains inactive, storage-failure, and disabled state gates', () => 
   )
   assert.match(
     source,
-    /if \(!canPersistLocalState\(\)\) \{\s*if \(status\) status\.textContent = t\('onboarding\.recovery\.storageStillUnavailable'\)\s*if \(button\) button\.disabled = false\s*trackEdeniaEvent\('onboarding_recovery_retry', \{ success: false, reason: 'storage' \}\)\s*return\s*\}/
+    /if \(!canPersistLocalState\(\)\) \{\s*showOnboardingRecovery\('storage', \{ state: onboardingRecoveryState\.state, resume: onboardingRecoveryState\.resume \}\)\s*if \(button\) button\.disabled = false\s*trackEdeniaEvent\('onboarding_recovery_retry', \{ success: false, reason: 'storage' \}\)\s*return\s*\}/
   )
   assert.match(
     source,
@@ -230,7 +230,7 @@ test('Retry retains inactive, storage-failure, and disabled state gates', () => 
   )
   assert.match(
     source,
-    /if \(!await saveState\(state, \{ backup: false \}\)\) \{\s*if \(status\) status\.textContent = t\('onboarding\.recovery\.storageStillUnavailable'\)\s*if \(button\) button\.disabled = false\s*trackEdeniaEvent\('onboarding_recovery_retry', \{ success: false, reason: 'storage' \}\)\s*return\s*\}/
+    /if \(!await saveState\(state, \{ backup: false \}\)\) \{\s*showOnboardingRecovery\('storage', \{ state: onboardingRecoveryState\.state, resume: onboardingRecoveryState\.resume \}\)\s*if \(button\) button\.disabled = false\s*trackEdeniaEvent\('onboarding_recovery_retry', \{ success: false, reason: 'storage' \}\)\s*return\s*\}/
   )
   assert.doesNotMatch(source, /\.preventDefault\(|\.stopPropagation\(/)
 })
@@ -278,7 +278,7 @@ test('Retry generic analytics fire only when the live button is enabled at bubbl
     'if (button) button.disabled = false',
     disableIndex
   )
-  const closeIndex = source.indexOf('closeOnboardingRecovery()')
+  const closeIndex = source.lastIndexOf('closeOnboardingRecovery()')
   assert.notEqual(disableIndex, -1)
   assert.ok(firstEnableIndex > disableIndex)
   assert.ok(closeIndex > firstEnableIndex)

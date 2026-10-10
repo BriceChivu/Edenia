@@ -179,7 +179,7 @@ test('each content replacement binds immediately and accepts new nodes', () => {
   assert.ok(bindingIndex < panelIndex)
   assert.match(
     recoverySource,
-    /bindOnboardingRecoveryActions\(content,\s*\{\s*copyLink:\s*copyOnboardingRecoveryLink,\s*retry:\s*retryOnboardingRecovery\s*\}\)/
+    /bindOnboardingRecoveryActions\(content,\s*\{\s*copyLink:\s*copyOnboardingRecoveryLink,\s*retry:\s*retryOnboardingRecovery,\s*copyDetails:\s*copyStorageRecoveryDetails\s*\}\)/
   )
 
   const actions = {
@@ -242,7 +242,7 @@ test('Retry keeps disabled state visible to document analytics by branch', () =>
     'if (button) button.disabled = false',
     disableIndex
   )
-  const closeIndex = source.indexOf('closeOnboardingRecovery()')
+  const closeIndex = source.lastIndexOf('closeOnboardingRecovery()')
   assert.notEqual(disableIndex, -1)
   assert.ok(firstEnableIndex > disableIndex)
   assert.ok(closeIndex > firstEnableIndex)
