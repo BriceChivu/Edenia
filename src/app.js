@@ -12941,7 +12941,7 @@ function renderStudyHistoryPanel(s) {
     : showAnkiColumns ? history.summary.ankiReviewed : history.rows.length)
   setText('historyAnkiCreated', isHistoryRestricted
     ? '••'
-    : showAnkiColumns ? history.summary.ankiCreated : history.summary.points)
+    : showAnkiColumns ? history.summary.ankiCreated : formatHistoryPointNumber(history.summary.points))
   if (thirdStatLabel) {
     thirdStatLabel.dataset.i18n = thirdStatLabelKey
     thirdStatLabel.textContent = t(thirdStatLabelKey)
