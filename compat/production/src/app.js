@@ -12543,7 +12543,11 @@ function openHistoryVideoPopover(event) {
 
 function closeHistoryVideoPopoverSoon() {
   clearTimeout(openHistoryVideoCell._closeTimer)
-  openHistoryVideoCell._closeTimer = window.setTimeout(() => closeHistoryVideoPopovers(), 80)
+  openHistoryVideoCell._closeTimer = window.setTimeout(() => {
+    // Pointer movement must not dismiss the keyboard user's active item.
+    const focusedCell = document.activeElement?.closest('.history-video-cell.open')
+    closeHistoryVideoPopovers(focusedCell)
+  }, 80)
 }
 
 function openHistoryVideoCell(cell, shouldOpen = true) {
@@ -13163,7 +13167,11 @@ function renderStudyHistoryPanel(s) {
     table.setAttribute('aria-busy', String(
       historyAccess.state === STUDY_HISTORY_ACCESS_STATES.LOADING
     ))
-    table.innerHTML = isHistoryRestricted
+    const focusedHistoryVideo = table.contains(document.activeElement)
+      ? document.activeElement?.dataset.historyWatchedVideoAction === 'jump'
+        ? document.activeElement.dataset.videoId : null
+      : null
+    const historyMarkup = isHistoryRestricted
       ? renderRestrictedStudyHistory(historyAccess.state)
       : history.rows.length
       ? `
@@ -13185,6 +13193,10 @@ function renderStudyHistoryPanel(s) {
         `).join('')}
       `
       : `<div class="history-empty">${escHtml(t('history.emptyRange'))}</div>`
+    if (table._historyMarkup !== historyMarkup) {
+      table.innerHTML = historyMarkup
+      table._historyMarkup = historyMarkup
+    }
     bindStudyHistoryWatchedPopoverActions(table, {
       open: openHistoryVideoPopover,
       closeSoon: closeHistoryVideoPopoverSoon,
@@ -13198,6 +13210,14 @@ function renderStudyHistoryPanel(s) {
     bindStudyHistoryWatchedVideoActions(table, {
       jump: jumpToWatchedVideo
     })
+    if (focusedHistoryVideo && !table.contains(document.activeElement)) {
+      const item = Array.from(table.querySelectorAll('[data-history-watched-video-action="jump"]'))
+        .find(item => item.dataset.videoId === focusedHistoryVideo)
+      if (item) {
+        openHistoryVideoCell(item.closest('.history-video-cell'))
+        item.focus({ preventScroll: true })
+      }
+    }
   }
 
   const summaryView = document.getElementById('historySummaryView')
@@ -16262,7 +16282,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
     : []
   const cardOptions = {
     currentDateKey: getCurrentAppDateKey(s),
-    focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
+    focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId || activeNextStudyFocusVideoId,
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
     removedChannelIds,
     chronologicalOnly: statusFilter === 'favorite',
@@ -16433,7 +16453,12 @@ function renderFeed(s, viewport = captureFeedViewport()) {
     bind: bindRenderedVideoShelfPreviewActions
   })
   updateVideoCollection(removedGrid, isRemovedSectionCollapsed)
-  restoreFeedViewport(viewport)
+  // A background refresh must retain the explicit Continue watching target,
+  // rather than restoring the viewport captured before its smooth scroll.
+  const focusedCard = activeNextStudyFocusVideoId && !forcedSearchVideoId
+    ? findVideoCard(activeNextStudyFocusVideoId, '.channel-shelf-card') : null
+  if (focusedCard) scrollVideoCardIntoView(focusedCard, 'auto')
+  else restoreFeedViewport(viewport)
 }
 
 function updateVideoCollection(grid, collapsed) {
@@ -16591,6 +16616,11 @@ async function selectChannelVideoFormat(control, channelKey, format) {
     ? await saveState(state, { backup: false, syncAnalytics: false })
     : false
   if (preferenceUpdated && !persisted) return false
+  const focusedVideo = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+    ?.group.videos.find(video => String(video.id) === activeNextStudyFocusVideoId)
+  if (focusedVideo && getChannelVideoFormat(focusedVideo) !== selectedFormat) {
+    clearFocusedVideoPreview(activeNextStudyFocusVideoId)
+  }
   const applied = applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
   if (!applied) return false
 
@@ -16622,10 +16652,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     cardOptions.historyChannels
   )
   return groups.map((group, index) => {
-    const preferredFormat = getSelectedChannelVideoFormat(
-      cardOptions.channelVideoFormats,
-      group.key
-    )
+    const focusedVideo = group.videos.find(video => String(video.id) === String(cardOptions.focusedVideoId))
+    const preferredFormat = focusedVideo
+      ? getChannelVideoFormat(focusedVideo)
+      : getSelectedChannelVideoFormat(cardOptions.channelVideoFormats, group.key)
     const formatCounts = {
       [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
       [CHANNEL_VIDEO_FORMATS.SHORTS]: 0
@@ -19754,7 +19784,10 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
     return
   }
   recoveryReconciliationPending = true
+  const startingRecoveryRaw = profileBrowserStorage.getItem(STORAGE_KEY)
   let originalRepository = null
+  let comparedRecoveryEpoch = null
+  let promotionStarted = false
   try {
     await profileRecoveryWorkspace.refresh()
     if (!profileRecoveryWorkspace.isActive()) return
@@ -19784,6 +19817,7 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
     if (!original || !isValidStateShape(original)
       || !profileRecoveryWorkspace.acceptsOriginalProfile(originalAccess, originalRepository.readRaw())) return
     const epoch = profileRecoveryWorkspace.getEpoch()
+    comparedRecoveryEpoch = epoch
     const originalRaw = originalRepository.readRaw()
     const current = () => profileRecoveryWorkspace.matches(epoch)
       && window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) === originalAccess
@@ -19816,6 +19850,7 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
     if (!await originalRepository.save(merged, { canPersist: current }) || !profileRecoveryWorkspace.matches(epoch)) return
     // Record the acknowledged head before copying metadata. If the tab closes
     // halfway through promotion, the next opening can safely finish it.
+    promotionStarted = true
     const promotion = profileRecoveryWorkspace.markPromotion(merged, { replacementRevision: originalRepository.getReplacementRevision() })
     const promotedEpoch = profileRecoveryWorkspace.getEpoch()
     if (!await promotion || !profileRecoveryWorkspace.matches(promotedEpoch)
@@ -19853,6 +19888,15 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
   } finally {
     originalRepository?.close()
     recoveryReconciliationPending = false
+    // Imports and acknowledged metadata edits can invalidate a comparison
+    // without another focus event. Replay that comparison once it settles;
+    // our own promotion must not create an unbounded retry on storage failure.
+    if (profileRecoveryWorkspace.isActive()
+      && (profileBrowserStorage.getItem(STORAGE_KEY) !== startingRecoveryRaw
+        || !promotionStarted && comparedRecoveryEpoch !== null
+          && profileRecoveryWorkspace.getEpoch() !== comparedRecoveryEpoch)) {
+      queuedRecoveryReconciliation ||= { refreshConflict: false }
+    }
     if (queuedRecoveryReconciliation) {
       const queued = queuedRecoveryReconciliation
       queuedRecoveryReconciliation = null
@@ -19938,6 +19982,14 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
   else renderAll(loadPersistedState({ persistCleanup: false }))
   return true
 }
+let recoveryAcknowledgementTimer = null
+window.addEventListener('edenia-profile-persisted', () => {
+  if (!profileRecoveryWorkspace.isActive()) return
+  window.clearTimeout(recoveryAcknowledgementTimer)
+  recoveryAcknowledgementTimer = window.setTimeout(() => {
+    void reconcileBackgroundProfileRecovery()
+  }, 1000)
+})
 window.addEventListener('focus', () => { void reconcileBackgroundProfileRecovery() })
 window.addEventListener('online', () => { void reconcileBackgroundProfileRecovery() })
 window.setInterval(() => {

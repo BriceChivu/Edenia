@@ -208,8 +208,17 @@ test('tester import escapes the shared localStorage quota and regular migration 
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect.poll(async () => (await head(page, 'legacy-recovery', testerDatabase))?.raw).toBe(fixture.testerRaw)
+  // Finish opening migration before exercising a second explicit import.
+  await expect.poll(() => page.evaluate(() => profileRecoveryWorkspace.isActive()), { timeout: 15000 }).toBe(false)
   await importFixture(page)
   await expect(page.locator('#toast')).toContainText(/imported/i)
+  // Import may finish in the durable recovery workspace before its primary
+  // migration does. Test a completed migration before changing rollout again.
+  await expect.poll(() => page.evaluate(() => profileRecoveryWorkspace.isActive()), { timeout: 15000 }).toBe(false)
+  await expect.poll(async () => {
+    const saved = await head(page, 'active', testerDatabase)
+    return saved?.raw && Object.keys(JSON.parse(saved.raw).videos).length
+  }).toBe(1612)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(fixture.regularRaw)
   expect(await page.evaluate(key => localStorage.getItem(key), testerKey)).toBeNull()
 

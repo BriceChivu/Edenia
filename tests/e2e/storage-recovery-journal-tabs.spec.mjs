@@ -34,10 +34,15 @@ async function recover(page, context) {
     state.anki['2026-10-10'].reviewed = 7
     await saveState(state)
   })
+  // The acknowledged profile is durable; wait for its subsequent metadata write too.
+  await page.evaluate(() => profileRecoveryWorkspace.flush())
   expect(await page.evaluate(() => profileRecoveryWorkspace.getTier())).toBe('indexed-db')
   const other = await context.newPage()
   await open(other)
   await expect(other.getByRole('heading', { name: 'What language are you learning?', exact: true })).toBeVisible()
+  // Let opening metadata settle before capturing the common stale baseline.
+  await other.evaluate(() => profileRecoveryWorkspace.flush())
+  await page.evaluate(() => profileRecoveryWorkspace.flush())
   await page.evaluate(() => { window.staleRecoveryEdit = loadState() })
   await other.evaluate(() => { window.staleRecoveryEdit = loadState() })
   return other
