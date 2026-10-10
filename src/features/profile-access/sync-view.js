@@ -49,6 +49,7 @@ export function createLearnerProfileSyncView({
       element.dataset.syncStatus = status
       element.classList.toggle('hidden', hidden)
     }
+    header.disabled = status === 'up-to-date'
     const recoveryAvailable = RECOVERY_STATUSES.has(status)
     guidance.textContent = recoveryAvailable
       ? translate('progressSync.backupGuidance')
