@@ -715,10 +715,11 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
       else renderAll(loadPersistedState({ persistCleanup: false }))
     })
   },
-  onConflict({ currentRaw, desiredRaw, epoch }) {
+  onConflictCleared(id) { recoveryConflictView?.hide(id) },
+  onConflict({ id, currentRaw, desiredRaw, epoch }) {
     recoveryConflictView ||= createLocalRecoveryConflict({ document, translate: t,
       choose: (side, conflict) => resolveBackgroundRecoveryChoice(side, conflict) })
-    recoveryConflictView.show({ id: `workspace-${epoch}`, status: 'open', workspaceOnly: true,
+    recoveryConflictView.show({ id: id || `workspace-${epoch}`, status: 'open', workspaceOnly: true,
       device: { profile: JSON.parse(desiredRaw) }, cloud: { profile: JSON.parse(currentRaw) },
       epoch, recentRaw: currentRaw })
   },
@@ -18848,9 +18849,11 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
   if (conflict.workspaceOnly) {
     if (!['device','cloud'].includes(side) || !profileRecoveryWorkspace.matches(conflict.epoch)
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
-    if (!profileRecoveryWorkspace.archive(conflict.cloud.profile)) return false
+    // Workspace choices can continue in memory when both durable stores are
+    // unavailable. Both candidates stay protected and persistence retries later.
+    profileRecoveryWorkspace.archive(conflict.cloud.profile)
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
-      conflict.cloud.profile, { preserveBaseline: true,
+      conflict.cloud.profile, { preserveBaseline: true, conflictId: conflict.id,
         unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
     if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
     else renderAll(loadPersistedState({ persistCleanup: false }))

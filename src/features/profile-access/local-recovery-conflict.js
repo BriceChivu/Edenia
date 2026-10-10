@@ -54,10 +54,11 @@ export function createLocalRecoveryConflict({ document, translate, choose }) {
     else if (action === 'cancel-choice') view.cancelChoice()
     else if (action === 'confirm-choice' && conflict) {
       view.setBusy(true)
-      const resolved = await choose(button.dataset.conflictSide, conflict)
+      const attempted = conflict
+      const resolved = await choose(button.dataset.conflictSide, attempted)
       view.setBusy(false)
-      if (resolved) { conflict = null; dialog.close() }
-      else {
+      if (resolved && conflict === attempted) { conflict = null; dialog.close() }
+      else if (!resolved && conflict === attempted) {
         view.cancelChoice()
         root.getElementById('learnerProfileConflictFeedback').textContent = t('profileConflict.choiceFailed')
       }
@@ -69,6 +70,9 @@ export function createLocalRecoveryConflict({ document, translate, choose }) {
       view.renderConflict(value)
       if (!dialog.open) dialog.showModal()
     },
-    hide() { conflict = null; view.hideConflict(); if (dialog.open) dialog.close() }
+    hide(id) {
+      if (id !== undefined && conflict?.id !== id) return
+      conflict = null; view.hideConflict(); if (dialog.open) dialog.close()
+    }
   }
 }

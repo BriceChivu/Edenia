@@ -46,3 +46,48 @@ test('memory recovery preserves independent peer edits when browser storage retu
   await expect.poll(() => other.evaluate(() => loadState().config.theme)).toBe('dark')
   await expect.poll(() => other.evaluate(() => loadState().anki['2026-10-10'].reviewed)).toBe(7)
 })
+
+for (const chooseSaved of [false, true]) test(`a memory conflict permits choosing ${chooseSaved ? 'saved' : 'recent'} while durable storage is denied`, async ({ page, context }) => {
+  await open(page)
+  await page.evaluate(async () => {
+    const state = loadState()
+    state.anki['2026-10-10'] = { reviewed: 1, created: 0 }
+    await saveState(state, { backup: false })
+    const set = Storage.prototype.setItem
+    window.denyStudyWrites = true
+    Storage.prototype.setItem = function (name, value) {
+      if (window.denyStudyWrites && name.startsWith('edenia_v1_internal_test_2')) throw new DOMException('Denied', 'SecurityError')
+      return set.call(this, name, value)
+    }
+    const edit = loadState()
+    edit.anki['2026-10-10'].reviewed = 7
+    await saveState(edit)
+  })
+  const other = await context.newPage()
+  await open(other)
+  await other.evaluate(async key => {
+    const set = Storage.prototype.setItem
+    Storage.prototype.setItem = function (name, value) {
+      if (name === key) throw new DOMException('Full', 'QuotaExceededError')
+      return set.call(this, name, value)
+    }
+    const edit = loadState()
+    edit.anki['2026-10-10'].reviewed = 9
+    await saveState(edit)
+  }, key)
+  await page.evaluate(() => loadState())
+  const dialog = page.locator('#localProgressConflict')
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: chooseSaved ? 'Use saved progress' : 'Use recent progress', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Confirm this choice', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  expect(await page.evaluate(() => loadState().anki['2026-10-10'].reviewed)).toBe(chooseSaved ? 9 : 7)
+  await page.evaluate(async () => {
+    window.denyStudyWrites = false
+    const edit = loadState()
+    edit.config.weeklyGoalHours = 8
+    await saveState(edit)
+  })
+  expect(await page.evaluate(key => JSON.parse(JSON.parse(localStorage.getItem(`${key}_recovery_workspace_v1`)).unchosenProfile).anki['2026-10-10'].reviewed, key)).toBe(chooseSaved ? 7 : 9)
+  await other.close()
+})

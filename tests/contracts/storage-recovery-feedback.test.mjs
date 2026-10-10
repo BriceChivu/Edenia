@@ -178,3 +178,34 @@ test('persisted reports remain bounded without touching learner or auth storage'
   assert.equal(store.getItem('profile'), 'PRIVATE PROGRESS')
   assert.equal(store.getItem('auth'), 'SECRET TOKEN')
 })
+
+test('an ingestion timeout retains the report and retries the same UUID without blocking the app', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const store = nativeLikeStore()
+  const payloads = []
+  const report = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], createId: () => 'timeout-report',
+    fetch: (_, options) => {
+      payloads.push(JSON.parse(options.body))
+      if (payloads.length > 1) return Promise.resolve({ ok: true })
+      return new Promise((resolve, reject) => options.signal.addEventListener('abort',
+        () => reject(new DOMException('Aborted', 'AbortError')), { once: true }))
+    } })
+  const pending = report(details)
+  t.mock.timers.tick(5000)
+  assert.equal(await pending, 'failed')
+  assert.equal(store.data.size, 1)
+  assert.deepEqual(await report.retryPending(), ['sent'])
+  assert.equal(payloads[0].uuid, payloads[1].uuid)
+  assert.equal(store.data.size, 0)
+})
+test('HTTP rejection and denied outbox storage still retry from memory with the same UUID', async () => {
+  const payloads = []
+  const denied = () => { throw new DOMException('Denied', 'SecurityError') }
+  const report = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [denied, denied], createId: () => 'memory-network-report',
+    fetch: async (_, options) => { payloads.push(JSON.parse(options.body)); return { ok: payloads.length > 1 } } })
+  assert.equal(await report(details), 'failed')
+  assert.deepEqual(await report.retryPending(), ['sent'])
+  assert.equal(payloads[0].uuid, payloads[1].uuid)
+})

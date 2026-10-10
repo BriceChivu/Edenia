@@ -5,15 +5,17 @@ import { rebaseProfileChanges } from './indexed-db-profile.js'
 export function createProfileRecoveryWorkspace({
   storageKey, accessKey, keys, getPrimary, getSecondary = () => null,
   capture = () => ({}), onActivate = () => {}, onTierChange = () => {},
-  eventTarget, onExternalChange = () => {}, onConflict = () => {}
+  eventTarget, onExternalChange = () => {}, onConflict = () => {}, onConflictCleared = () => {}
 }) {
   const workspaceKey = `${storageKey}_recovery_workspace_v1`
   const scopedKeys = new Set([storageKey, ...keys])
   let record = null
+  let archivedRecord = null
   let tier = 'none'
   let active = false
   let epoch = 0
   let persistedRaw = null
+  const observedRaw = new Map()
   const safeRead = (getStorage, key) => {
     try { return getStorage()?.getItem(key) ?? null } catch { return null }
   }
@@ -25,33 +27,151 @@ export function createProfileRecoveryWorkspace({
       && (value.originalAccess === null || typeof value.originalAccess === 'string')
       && (value.baseline === null || typeof value.baseline === 'string')
   }
+  let loaded = null
   for (const [name, getter] of [['local', getPrimary], ['session', getSecondary]]) {
     try {
-      const saved = JSON.parse(safeRead(getter, workspaceKey))
-      if (valid(saved) && (!record || (saved.sequence || 0) > (record.sequence || 0))) {
-        record = saved; tier = name; persistedRaw = JSON.stringify(saved)
-      }
+      const raw = safeRead(getter, workspaceKey)
+      observedRaw.set(name, raw)
+      const saved = JSON.parse(raw)
+      if (valid({ ...saved, status: 'active' }) && ['active', 'archived'].includes(saved.status)
+        && (!loaded || (saved.sequence || 0) > (loaded.saved.sequence || 0))) loaded = { name, raw, saved }
     } catch {}
   }
-  function refreshFromDisk() {
-    if (!active || !persistedRaw || tier === 'memory') return
-    const raw = safeRead(tier === 'local' ? getPrimary : getSecondary, workspaceKey)
-    if (!raw || raw === persistedRaw) return
-    try {
-      const latest = JSON.parse(raw)
-      if ((latest.sequence || 0) < (record.sequence || 0)) return
-      if (latest.status === 'archived') {
-        active = false
-        record = null
-        epoch++
-        onExternalChange({ retired: true })
-      } else if (valid(latest)) {
-        record = latest
-        persistedRaw = raw
-        epoch++
-        onExternalChange({ retired: false })
+  if (loaded?.saved.status === 'active') {
+    record = loaded.saved; tier = loaded.name; persistedRaw = loaded.raw
+  } else if (loaded) archivedRecord = loaded.saved
+  const pendingConflicts = value => Array.isArray(value?.pendingConflicts)
+    ? value.pendingConflicts.filter(item => item && typeof item.id === 'string'
+      && typeof item.currentRaw === 'string' && typeof item.desiredRaw === 'string'
+      && (item.accessRaw === null || typeof item.accessRaw === 'string')) : []
+  let conflictNotificationPending = false
+  let notifiedConflict = null
+  function notifyPendingConflict() {
+    if (conflictNotificationPending) return
+    conflictNotificationPending = true
+    queueMicrotask(() => {
+      conflictNotificationPending = false
+      if (!active) return
+      const pending = pendingConflicts(record).find(item =>
+        item.accessRaw === (record.values[accessKey] ?? null)
+        && typeof item.desiredRaw === 'string')
+      const currentRaw = record.values[storageKey]
+      if (!pending || !currentRaw) {
+        if (notifiedConflict) onConflictCleared(notifiedConflict.id)
+        notifiedConflict = null
+        return
       }
-    } catch {}
+      const signature = JSON.stringify([pending.id, currentRaw, pending.desiredRaw, epoch])
+      if (notifiedConflict?.signature === signature) return
+      try {
+        if (!JSON.parse(pending.desiredRaw) || !JSON.parse(currentRaw)) return
+        notifiedConflict = { id: pending.id, signature }
+        onConflict({ id: pending.id, currentRaw, desiredRaw: pending.desiredRaw, epoch })
+      } catch {}
+    })
+  }
+  function rememberConflict(currentRaw, desiredRaw) {
+    record.pendingConflicts = pendingConflicts(record)
+    let pending = record.pendingConflicts.find(item => item.desiredRaw === desiredRaw
+      && item.accessRaw === (record.values[accessKey] ?? null))
+    if (!pending) {
+      pending = { id: globalThis.crypto.randomUUID(), currentRaw, desiredRaw,
+        accessRaw: record.values[accessKey] ?? null }
+      record.pendingConflicts.push(pending)
+    }
+    persist()
+    // Show the current candidate synchronously to retain the repository's save
+    // contract. Reopening and external changes notify through a microtask.
+    notifiedConflict = { id: pending.id, signature: JSON.stringify([pending.id, currentRaw, desiredRaw, epoch]) }
+    onConflict({ id: pending.id, currentRaw, desiredRaw, epoch })
+  }
+  function protectWorkspace(previous) {
+    const { protectedWorkspaces, ...snapshot } = previous
+    const retained = [...(Array.isArray(record.protectedWorkspaces) ? record.protectedWorkspaces : []),
+      ...(Array.isArray(protectedWorkspaces) ? protectedWorkspaces : []), snapshot]
+    record.protectedWorkspaces = [...new Map(retained.map(item => [JSON.stringify(item), item])).values()]
+  }
+  function refreshFromDisk() {
+    if (!active) return
+    let newest = null
+    for (const [name, getter] of [['local', getPrimary], ['session', getSecondary]]) {
+      const raw = safeRead(getter, workspaceKey)
+      const changed = raw !== observedRaw.get(name)
+      observedRaw.set(name, raw)
+      if (!raw || (['memory', 'none'].includes(tier) && !changed)) continue
+      try {
+        const saved = JSON.parse(raw)
+        if (!valid({ ...saved, status: 'active' }) || !['active', 'archived'].includes(saved.status)) continue
+        if (!newest || (saved.sequence || 0) > (newest.saved.sequence || 0)) newest = { name, raw, saved }
+      } catch {}
+    }
+    if (!newest || newest.raw === persistedRaw) return
+    const { name, raw, saved: latest } = newest
+    if (tier !== 'memory' && (latest.sequence || 0) < (record.sequence || 0)) return
+    if (tier === 'memory') {
+      const previous = record
+      let acknowledged = null
+      try { acknowledged = JSON.parse(persistedRaw) } catch {}
+      const baseRaw = acknowledged?.values?.[storageKey] ?? previous.baseline
+      const sameScope = previous.originalAccess === latest.originalAccess
+        && (previous.values[accessKey] ?? null) === (latest.values[accessKey] ?? null)
+        && previous.originalReplacementRevision === latest.originalReplacementRevision
+        && Boolean(previous.replacement) === Boolean(latest.replacement)
+        && (previous.replacementId ?? null) === (latest.replacementId ?? null)
+      let merged = null
+      try {
+        if (sameScope && baseRaw) merged = rebaseProfileChanges(JSON.parse(baseRaw),
+          JSON.parse(previous.values[storageKey]), JSON.parse(latest.values[storageKey]))
+      } catch {}
+      record = latest
+      persistedRaw = raw
+      tier = name
+      epoch++
+      record.pendingConflicts = [...new Map([...pendingConflicts(latest),
+        ...pendingConflicts(previous)].map(item => [item.id, item])).values()]
+      // A peer may have finished promotion while this tab was still in memory.
+      // Its acknowledged head becomes the baseline for the remaining edits.
+      if (latest.status === 'archived') {
+        record.status = 'active'
+        record.baseline = latest.values[storageKey]
+        record.originalAccess = latest.values[accessKey] ?? null
+        record.originalValues = { ...latest.values }
+      }
+      if (merged) {
+        for (const key of scopedKeys) {
+          if (key === storageKey || key === accessKey) continue
+          const baseline = acknowledged?.values?.[key] ?? previous.originalValues?.[key] ?? null
+          const desired = previous.values[key] ?? null
+          const current = latest.values[key] ?? null
+          if (desired !== baseline && current === baseline) record.values[key] = desired
+          else if (desired !== baseline && desired !== current) protectWorkspace(previous)
+        }
+        record.values[storageKey] = JSON.stringify(merged)
+        persist()
+      } else {
+        protectWorkspace(previous)
+        if (sameScope && previous.values[storageKey] && latest.values[storageKey]) {
+          rememberConflict(latest.values[storageKey], previous.values[storageKey])
+        } else persist()
+      }
+      onExternalChange({ retired: false })
+      notifyPendingConflict()
+      return
+    }
+    if (latest.status === 'archived') {
+      archivedRecord = latest
+      active = false
+      record = null
+      epoch++
+      onExternalChange({ retired: true })
+    } else {
+      record = latest
+      tier = name
+      persistedRaw = raw
+      epoch++
+      onExternalChange({ retired: false })
+      notifyPendingConflict()
+    }
   }
   eventTarget?.addEventListener('storage', event => {
     if (event.key === workspaceKey) refreshFromDisk()
@@ -65,6 +185,7 @@ export function createProfileRecoveryWorkspace({
         if (!target) continue
         target.setItem(workspaceKey, raw)
         if (target.getItem(workspaceKey) !== raw) continue
+        observedRaw.set(name, raw)
         // A stale fallback must not be replayed after a newer local copy.
         if (name === 'local') {
           try { getSecondary()?.removeItem(workspaceKey) } catch {}
@@ -76,12 +197,16 @@ export function createProfileRecoveryWorkspace({
             if (!old || (old.sequence || 0) <= record.sequence) getPrimary()?.removeItem(workspaceKey)
           } catch {}
         }
+        const otherName = name === 'local' ? 'session' : 'local'
+        observedRaw.set(otherName, safeRead(name === 'local' ? getSecondary : getPrimary, workspaceKey))
         persistedRaw = raw
         if (tier !== name) { tier = name; onTierChange(tier) }
+        notifyPendingConflict()
         return true
       } catch {}
     }
     if (tier !== 'memory') { tier = 'memory'; onTierChange(tier) }
+    notifyPendingConflict()
     return false
   }
   function activate(seed = capture(), failure = null, operation = 'recovery') {
@@ -106,12 +231,17 @@ export function createProfileRecoveryWorkspace({
       for (const key of scopedKeys) originalValues[key] = safeRead(getPrimary, key)
       record = { version: 1, status: 'active', baseline: Object.hasOwn(seed, 'baseline') ? seed.baseline : rawProfile,
         originalAccess: safeRead(getPrimary, accessKey), originalValues, values,
-        originalReplacementRevision: Number.isSafeInteger(seed.replacementRevision) ? seed.replacementRevision : null }
+        originalReplacementRevision: Number.isSafeInteger(seed.replacementRevision) ? seed.replacementRevision : null,
+        sequence: archivedRecord?.sequence || 0 }
+      if (archivedRecord) protectWorkspace(archivedRecord)
     }
     active = true
     epoch++
+    refreshFromDisk()
+    if (!active) return
     persist()
     onActivate(failure, operation, resumed)
+    notifyPendingConflict()
   }
   const storage = {
     acceptsStorageArea(area) {
@@ -138,7 +268,8 @@ export function createProfileRecoveryWorkspace({
       persist()
     },
     recordReplacement() {
-      if (active) { record.replacement = true; epoch++; persist() }
+      refreshFromDisk()
+      if (active) { record.replacement = true; record.replacementId = globalThis.crypto.randomUUID(); epoch++; persist() }
     },
     removeItem(key) {
       refreshFromDisk()
@@ -170,7 +301,7 @@ export function createProfileRecoveryWorkspace({
       if (!replace && currentRaw && base !== currentRaw) {
         const merged = base ? rebaseProfileChanges(JSON.parse(base), desired, JSON.parse(currentRaw)) : null
         if (!merged) {
-          onConflict({ currentRaw, desiredRaw, epoch })
+          rememberConflict(currentRaw, desiredRaw)
           return false
         }
         desired = merged
@@ -208,6 +339,7 @@ export function createProfileRecoveryWorkspace({
     },
     getEpoch: () => epoch,
     matches(epochAtStart) {
+      refreshFromDisk()
       if (!active || epoch !== epochAtStart) return false
       if (!persistedRaw || tier === 'memory') return true
       const raw = safeRead(tier === 'local' ? getPrimary : getSecondary, workspaceKey)
@@ -233,17 +365,21 @@ export function createProfileRecoveryWorkspace({
       record.originalProfile = JSON.stringify(original)
       return persist()
     },
-    acceptChoice(chosen, original, { preserveBaseline = false, unchosen } = {}) {
+    acceptChoice(chosen, original, { preserveBaseline = false, unchosen, conflictId } = {}) {
       record.unchosenProfile = unchosen === undefined ? record.values[storageKey] : JSON.stringify(unchosen)
+      record.pendingConflicts = pendingConflicts(record).filter(item => conflictId
+        ? item.id !== conflictId : item.desiredRaw !== JSON.stringify(chosen) && item.currentRaw !== JSON.stringify(chosen))
       if (!preserveBaseline) record.baseline = JSON.stringify(original)
       record.values[storageKey] = JSON.stringify(chosen)
       epoch++
       persist()
+      notifyPendingConflict()
     },
     complete() {
       if (!active) return false
       record.status = 'archived'
       if (!persist()) { record.status = 'active'; return false }
+      archivedRecord = record
       active = false
       record = null
       epoch++

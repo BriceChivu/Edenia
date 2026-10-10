@@ -195,6 +195,16 @@ the current tab. This does not change account authentication or cloud resolution
 An unreadable signed-in profile is reopened from the verified owner's cloud
 profile; an arbitrary local backup is never relabelled as that owner's profile.
 
+Memory recovery compares newly observed local and session copies before writing.
+Compatible changes rebase against the last acknowledged copy; incompatible
+ownership, generation, or replacement scopes remain protected separately. Each
+intentional replacement has its own fence. Pending conflict candidates persist
+inside the workspace and reopen after reload, with a fresh choice fence after
+startup bookkeeping. A choice can continue in memory while durable writes are
+unavailable; both candidates persist when a later save succeeds. Later recovery
+episodes retain earlier protected versions, and a newer archived copy takes
+precedence over a stale active fallback.
+
 The recovery workspace is `<mode-specific storage key>_recovery_workspace_v1`.
 An active workspace resumes on reload. Focus, connectivity restoration and a
 one-minute timer attempt reconciliation without a storage-error screen.
