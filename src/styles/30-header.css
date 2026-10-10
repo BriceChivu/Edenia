@@ -100,7 +100,6 @@ body[data-theme="dark"] .sandbox-version-label {
   font-size: 0.72rem;
   color: var(--muted);
   letter-spacing: 0.04em;
-  line-height: 1;
 }
 .header-right {
   align-items: center;
