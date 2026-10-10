@@ -1,0 +1,154 @@
+<!-- Throwaway prototype: compare responsive stacked and wide layouts for Edenia's video-ending actions. -->
+<div id="edenia-video-ending-prototype" class="viz-carousel viz-dotted-background" aria-label="Video ending popup layouts">
+  <section data-variant="Wide bar" aria-label="Wide bar video ending popup">
+    <div class="ep-stage ep-wide">
+      <div class="ep-video">
+        <div class="ep-end-screen">Video finished</div>
+        <div class="ep-controls"><span>8:00 / 8:00</span><div class="ep-track"><span></span></div></div>
+        <div class="ep-popup" role="dialog" aria-label="Video ending actions">
+          <button type="button" class="ep-close cursor-interaction" data-action="close" aria-label="Close video"><i data-lucide="x" aria-hidden="true"></i></button>
+          <div class="ep-actions">
+            <button type="button" class="ep-button ep-primary cursor-interaction" data-action="watched"><i data-lucide="check" aria-hidden="true"></i><span>Put in watched section</span></button>
+            <button type="button" class="ep-button cursor-interaction" data-action="rewatch"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>Rewatch</span></button>
+            <button type="button" class="ep-button cursor-interaction" data-action="favorite"><i data-lucide="heart" aria-hidden="true"></i><span>Favorite</span></button>
+          </div>
+        </div>
+        <div class="ep-outcome" hidden><i data-lucide="check" aria-hidden="true"></i><span aria-live="polite"></span><button type="button" class="ep-return cursor-interaction">Back to preview</button></div>
+      </div>
+      <div class="ep-state" aria-live="polite"><span>Watched section: <b data-state="watched">No</b></span><span>Favorite: <b data-state="favorite">No</b></span></div>
+    </div>
+  </section>
+
+  <section data-variant="Stacked" aria-label="Stacked video ending popup" hidden>
+    <div class="ep-stage ep-stacked">
+      <div class="ep-video">
+        <div class="ep-end-screen">Video finished</div>
+        <div class="ep-controls"><span>8:00 / 8:00</span><div class="ep-track"><span></span></div></div>
+        <div class="ep-popup" role="dialog" aria-label="Video ending actions">
+          <button type="button" class="ep-close cursor-interaction" data-action="close" aria-label="Close video"><i data-lucide="x" aria-hidden="true"></i></button>
+          <div class="ep-actions">
+            <button type="button" class="ep-button ep-primary cursor-interaction" data-action="watched"><i data-lucide="check" aria-hidden="true"></i><span>Put in watched section</span></button>
+            <button type="button" class="ep-button cursor-interaction" data-action="rewatch"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>Rewatch</span></button>
+            <button type="button" class="ep-button cursor-interaction" data-action="favorite"><i data-lucide="heart" aria-hidden="true"></i><span>Favorite</span></button>
+          </div>
+        </div>
+        <div class="ep-outcome" hidden><i data-lucide="check" aria-hidden="true"></i><span aria-live="polite"></span><button type="button" class="ep-return cursor-interaction">Back to preview</button></div>
+      </div>
+      <div class="ep-state" aria-live="polite"><span>Watched section: <b data-state="watched">No</b></span><span>Favorite: <b data-state="favorite">No</b></span></div>
+    </div>
+  </section>
+
+</div>
+<style>
+  #edenia-video-ending-prototype {
+    --ep-paper: light-dark(#fafbfc, #22282a);
+    --ep-ink: light-dark(#142b31, #eef5f5);
+    --ep-border: light-dark(#111111, #bcc6c8);
+    --ep-soft: light-dark(#607b83, #b0c0c4);
+    --ep-lime: light-dark(#d0f273, #c4e866);
+    --ep-video: light-dark(#17232b, #10191f);
+    --ep-video-text: light-dark(#d7e2e4, #c9d7d9);
+    --ep-video-line: light-dark(#50616a, #41565d);
+    --ep-pink: light-dark(#d7417a, #ff8fb6);
+    --ep-hover: light-dark(#eef3ed, #303d3b);
+  }
+  #edenia-video-ending-prototype .ep-stage { padding: 54px 12px 16px; min-height: 430px; box-sizing: border-box; color: var(--ep-ink); font-family: 'Trebuchet MS', system-ui, sans-serif; }
+  #edenia-video-ending-prototype .ep-video { position: relative; min-height: 332px; background: var(--ep-video); border-radius: 18px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  #edenia-video-ending-prototype .ep-end-screen { position: absolute; top: 20px; left: 22px; color: var(--ep-video-text); opacity: .65; font-size: 13px; }
+  #edenia-video-ending-prototype .ep-controls { position: absolute; bottom: 18px; left: 22px; right: 22px; color: var(--ep-video-text); font-size: 11px; display: grid; gap: 8px; }
+  #edenia-video-ending-prototype .ep-track { height: 3px; background: var(--ep-video-line); border-radius: 8px; }
+  #edenia-video-ending-prototype .ep-track span { display: block; height: 100%; width: 100%; background: var(--ep-video-text); border-radius: inherit; opacity: .7; }
+  #edenia-video-ending-prototype .ep-popup { position: relative; box-sizing: border-box; background: var(--ep-paper); border: 2.5px solid var(--ep-border); border-radius: 20px; width: 350px; max-width: calc(100% - 28px); padding: 44px 20px 20px; box-shadow: 0 10px 30px #0004; }
+  #edenia-video-ending-prototype .ep-close { position: absolute; right: 6px; top: 4px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: var(--ep-soft); display: flex; align-items: center; justify-content: center; opacity: .8; }
+  #edenia-video-ending-prototype .ep-close:hover { opacity: 1; background: var(--ep-hover); }
+  #edenia-video-ending-prototype .ep-close svg { width: 16px; height: 16px; }
+  #edenia-video-ending-prototype .ep-actions { display: flex; flex-direction: column; gap: 10px; }
+  #edenia-video-ending-prototype .ep-button { display: flex; gap: 9px; align-items: center; justify-content: center; min-height: 48px; border: 2px solid var(--ep-border); border-radius: 28px; background: var(--ep-paper); color: var(--ep-ink); font: 700 14px 'Trebuchet MS', system-ui, sans-serif; padding: 10px 16px; }
+  #edenia-video-ending-prototype .ep-button:hover { background: var(--ep-hover); }
+  #edenia-video-ending-prototype .ep-primary { background: var(--ep-lime); color: #152625; }
+  #edenia-video-ending-prototype .ep-primary:hover { background: var(--ep-lime); filter: brightness(.96); }
+  #edenia-video-ending-prototype .ep-button svg { width: 18px; height: 18px; flex: 0 0 18px; }
+  #edenia-video-ending-prototype .ep-wide .ep-popup { width: max-content; padding: 18px 56px 18px 18px; }
+  #edenia-video-ending-prototype .ep-wide .ep-actions { flex-direction: row; flex-wrap: wrap; }
+  #edenia-video-ending-prototype .ep-wide .ep-button { flex: 0 1 auto; white-space: nowrap; }
+  #edenia-video-ending-prototype .ep-wide .ep-close { right: 0; top: 0; width: 32px; height: 32px; }
+  #edenia-video-ending-prototype [data-action="favorite"] svg { color: var(--ep-pink); }
+  #edenia-video-ending-prototype .ep-tiles .ep-popup { width: 540px; }
+  #edenia-video-ending-prototype .ep-tiles .ep-actions { display: grid; grid-template-columns: 1.5fr 1fr 1.2fr; }
+  #edenia-video-ending-prototype .ep-tiles .ep-button { border-radius: 14px; flex-direction: column; gap: 12px; min-height: 108px; padding: 12px; line-height: 1.4; }
+  #edenia-video-ending-prototype .ep-tiles .ep-button svg { width: 24px; height: 24px; flex-basis: 24px; }
+  #edenia-video-ending-prototype .ep-state { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 14px; color: var(--ep-soft); font-size: 12px; }
+  #edenia-video-ending-prototype .ep-state b { font-weight: 700; color: var(--ep-ink); }
+  #edenia-video-ending-prototype .ep-outcome { display: flex; align-items: center; flex-direction: column; gap: 16px; padding: 30px; color: var(--ep-video-text); text-align: center; font-size: 14px; }
+  #edenia-video-ending-prototype .ep-return { border: 1px solid var(--ep-video-line); border-radius: 24px; padding: 10px 16px; background: var(--ep-video); color: var(--ep-video-text); font: inherit; }
+  #edenia-video-ending-prototype [hidden] { display: none !important; }
+  @media (max-width: 480px) {
+    #edenia-video-ending-prototype .ep-stage { padding-inline: 4px; min-height: 440px; }
+    #edenia-video-ending-prototype .ep-video { min-height: 350px; }
+    #edenia-video-ending-prototype .ep-popup { padding-inline: 14px; }
+    #edenia-video-ending-prototype .ep-wide .ep-actions { flex-direction: column; }
+    #edenia-video-ending-prototype .ep-wide .ep-popup { width: 350px; padding: 44px 14px 20px; }
+    #edenia-video-ending-prototype .ep-tiles .ep-actions { grid-template-columns: 1fr 1fr; }
+    #edenia-video-ending-prototype .ep-tiles .ep-primary { grid-column: 1 / -1; min-height: 60px; flex-direction: row; }
+    #edenia-video-ending-prototype .ep-close { width: 44px; height: 40px; top: 1px; right: 1px; }
+  }
+</style>
+<script>
+  (() => {
+    const root = document.getElementById('edenia-video-ending-prototype');
+    const saved = window.openai?.widgetState?.modelContent;
+    root.querySelectorAll('[data-variant]').forEach(section => {
+      const state = { watched: false, favorite: false, action: null };
+      if (saved?.variant === section.dataset.variant) {
+        state.watched = saved.watched === true;
+        state.favorite = saved.favorite === true;
+      }
+      const popup = section.querySelector('.ep-popup');
+      const outcome = section.querySelector('.ep-outcome');
+      const message = outcome.querySelector('span');
+      const update = () => {
+        section.querySelector('[data-state="watched"]').textContent = state.watched ? 'Yes' : 'No';
+        section.querySelector('[data-state="favorite"]').textContent = state.favorite ? 'Yes' : 'No';
+      };
+      update();
+      section.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => {
+        state.action = button.dataset.action;
+        if (state.action === 'watched') state.watched = true;
+        if (state.action === 'favorite') state.favorite = true;
+        message.textContent = {
+          watched: 'Closed · Moved to watched section',
+          favorite: 'Closed · Saved as favorite',
+          rewatch: 'Rewatching · New watch time earns XP',
+          close: 'Video closed'
+        }[state.action];
+        popup.hidden = true;
+        outcome.hidden = false;
+        section.querySelector('.ep-end-screen').hidden = true;
+        if (state.action === 'rewatch') {
+          section.querySelector('.ep-controls > span').textContent = '0:00 / 8:00';
+          section.querySelector('.ep-track span').style.width = '0%';
+        }
+        update();
+        if (window.openai?.setWidgetState) {
+          window.openai.setWidgetState({ modelContent: { variant: section.dataset.variant, ...state }, privateContent: null }).catch(() => {});
+        }
+      }));
+      outcome.querySelector('button').addEventListener('click', () => {
+        state.watched = false;
+        state.favorite = false;
+        state.action = null;
+        outcome.hidden = true;
+        popup.hidden = false;
+        section.querySelector('.ep-end-screen').hidden = false;
+        section.querySelector('.ep-controls > span').textContent = '8:00 / 8:00';
+        section.querySelector('.ep-track span').style.width = '100%';
+        update();
+      });
+      if (globalThis.Tweak) {
+        const design = { radius: 20 };
+        const tweak = new Tweak({ container: popup, onChange: () => { popup.style.borderRadius = `${design.radius}px`; } });
+        tweak.addSlider(design, 'radius', { label: 'Corner radius', min: 8, max: 28, unit: 'px' });
+      }
+    });
+  })();
+</script>
