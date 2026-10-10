@@ -9488,6 +9488,7 @@ async function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
     const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
     const marked = await markVideo(targetVideoId, 'watched', {
       creditOnlyRecordedProgress: true,
+      putInWatchedSection: true,
       surface: 'embedded_player_prompt'
     })
     restorePlayerReturnPosition(completedPlayer)
@@ -9793,6 +9794,12 @@ async function markVideo(videoId, requestedStatus, options = {}) {
     video.duration
   )
   const previousResumePriority = hasVideoResumePriority(video)
+  const isPuttingInWatchedSection = requestedStatus === 'watched' && options.putInWatchedSection === true
+  const isClearingWatchedOrganization = isPuttingInWatchedSection && (
+    isFavoriteVideo(video)
+    || normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
+    || video.pausedAt != null
+  )
   const nextWatchLater = typeof options.watchLater === 'boolean'
     ? options.watchLater
     : requestedStatus === 'watch-later'
@@ -9807,7 +9814,7 @@ async function markVideo(videoId, requestedStatus, options = {}) {
     newStatus = 'watch-later'
   }
   const isClearingResume = requestedStatus === 'unwatched' && hasVideoResumePriority(video)
-  if (previousStatus === newStatus && previousWatchLater === resolvedWatchLater && !isClearingResume) return false
+  if (previousStatus === newStatus && previousWatchLater === resolvedWatchLater && !isClearingResume && !isClearingWatchedOrganization) return false
   if (newStatus === 'watched' && !hasWatchedConfirmationUnlock(video)) return false
   if (isClearingResume) clearFocusedVideoPreview(videoId)
   if (previousStatus === 'watched' && newStatus !== 'watched' && !previousSetAside) {
@@ -9832,12 +9839,17 @@ async function markVideo(videoId, requestedStatus, options = {}) {
 
   video.status    = newStatus
   video.watchLater = resolvedWatchLater
+  if (isPuttingInWatchedSection) video.favorite = false
   if (previousSetAside && newStatus !== 'watched') {
     delete video.setAside
     delete video.setAsideAt
     delete video.setAsideResumeAtSeconds
   }
-  const watchedAt = newStatus === 'watched' ? getCurrentAppTimestamp(s) : null
+  const watchedAt = newStatus === 'watched'
+    ? isPuttingInWatchedSection && previousStatus === 'watched' && isValidTimestamp(video.watchedAt)
+      ? video.watchedAt
+      : getCurrentAppTimestamp(s)
+    : null
   if (watchedAt) {
     if (options.creditOnlyRecordedProgress === true || video.watchProgressTracked === true) {
       video.watchProgressTracked = true
@@ -9862,7 +9874,7 @@ async function markVideo(videoId, requestedStatus, options = {}) {
       ? video.pausedAt
       : getCurrentAppTimestamp(s)
     : null
-  if (watchedAt) {
+  if (watchedAt && (!isPuttingInWatchedSection || previousStatus !== 'watched')) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
   }
@@ -9930,7 +9942,12 @@ async function markVideo(videoId, requestedStatus, options = {}) {
 
 function getVideoOrganizationMenuItems(video) {
   const items = []
-  if (getVideoStatus(video) !== 'watched' && hasWatchedConfirmationUnlock(video)) {
+  if (hasWatchedConfirmationUnlock(video) && (
+    getVideoStatus(video) !== 'watched'
+    || isFavoriteVideo(video)
+    || hasVideoResumePriority(video)
+    || isVideoWatchLater(video)
+  )) {
     items.push({ action: 'put-watched', label: t('videoReminder.markWatched') })
   }
   if (hasVideoResumePriority(video)) {
@@ -10066,6 +10083,7 @@ async function saveVideoOrganizationChange(state, video, beforeVideo, operation,
     after: { video: cloneVideoForHistoryAction(video) }
   })
   const eventNames = {
+    'put-watched': 'video_put_in_watched_section',
     'remove-continue': 'video_removed_from_continue_watching',
     'remove-feed': 'video_removed_from_feed',
     'restore-feed': 'video_restored_to_feed'
@@ -17496,12 +17514,16 @@ async function completeVideoShelfPlayerRewatchConfirmation(session) {
   const state = loadState()
   const video = state?.videos?.[completedSession?.videoId]
   if (!video || getVideoStatus(video) !== 'watched' || !isFavoriteVideo(video)) return false
+  const checkpoint = captureVideoActionState(state, video.id)
+  const beforeVideo = cloneVideoForHistoryAction(video)
   const coveredSeconds = Math.floor(getVideoWatchCoverageSeconds(
     video.watchCycleCoverage,
     video.duration
   ))
   if (!recordVideoRewatch(state, video, coveredSeconds, { creditProgress: false })) return false
-  if (!await saveState(state)) return false
+  video.favorite = false
+  video.watchLater = false
+  if (!await saveVideoOrganizationChange(state, video, beforeVideo, 'put-watched', checkpoint)) return false
   trackVideoRewatchCompleted(state, video, coveredSeconds, 'embedded_player')
   renderAll(state)
   return true
@@ -19426,7 +19448,7 @@ bindVideoOrganizationActions(document, {
   closeMenu: closeVideoOrganizationMenu,
   putInWatchedSection: async videoId => {
     closeVideoOrganizationMenu(true)
-    return await markVideo(videoId, 'watched', { creditOnlyRecordedProgress: true, surface: 'video_menu' })
+    return await markVideo(videoId, 'watched', { creditOnlyRecordedProgress: true, putInWatchedSection: true, surface: 'video_menu' })
   },
   removeFromContinueWatching: removeVideoFromContinueWatching,
   removeFromFeed: removeVideoFromFeed,

@@ -911,6 +911,93 @@ test('the main-page menu offers watched at 70% and moving it adds no extra XP', 
   expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(scoreBefore)
 })
 
+for (const scenario of ['watched replay', 'watched favorite', 'partial favorite']) {
+  test(`Put in watched section clears organization for a ${scenario} without changing study facts`, async ({ page }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+    await seedVideoOrganizationState(page, { testerMode: testInfo.project.name === 'desktop-standard' })
+    await page.evaluate(async scenario => {
+      const state = loadState()
+      const video = state.videos['menu-anchor-video']
+      Object.assign(video, {
+        status: scenario.startsWith('watched') ? 'watched' : 'partial',
+        favorite: true,
+        watchLater: true,
+        watchedAt: scenario.startsWith('watched') ? '2026-08-02T06:00:00.000Z' : null,
+        watchedConfirmationUnlockedAt: '2026-08-02T06:00:00.000Z',
+        resumeAtSeconds: scenario === 'watched favorite' ? null : 53,
+        watchCycleCoverage: [{ start: 0, end: 53 }],
+        watchProgress: [{ watchedAt: '2026-08-02T06:00:00.000Z', seconds: 480, experienceSeconds: 480 }]
+      })
+      await saveState(state)
+    }, scenario)
+    await page.reload()
+    await waitForApplication(page)
+    const before = await page.evaluate(() => ({
+      video: structuredClone(loadState().videos['menu-anchor-video']),
+      score: getCurrentCityScore(loadState())
+    }))
+    const card = page.locator('#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]')
+    await card.scrollIntoViewIfNeeded()
+    if (testInfo.project.name === 'desktop-standard') await card.hover()
+    await card.locator('[data-video-organization-action="menu"]').click()
+    const move = page.locator('[data-video-organization-action="put-watched"]')
+    await expect(move).toBeVisible()
+    await move.click()
+    await expect(card).toHaveCount(0)
+    const after = await page.evaluate(() => ({
+      video: loadState().videos['menu-anchor-video'],
+      score: getCurrentCityScore(loadState())
+    }))
+    expect(after.video).toMatchObject({ status: 'watched', favorite: false, watchLater: false, resumeAtSeconds: null, pausedAt: null })
+    expect(after.video.watchProgress).toEqual(before.video.watchProgress)
+    expect(after.score).toBe(before.score)
+    if (scenario.startsWith('watched')) expect(after.video.watchedAt).toBe(before.video.watchedAt)
+    await page.reload()
+    await waitForApplication(page)
+    await expect(card).toHaveCount(0)
+    const watchedToggle = page.locator('#watchedSectionToggle')
+    if (await watchedToggle.getAttribute('aria-expanded') !== 'true') await watchedToggle.click()
+    await expect(page.locator('#watchedGrid .video-card[data-video-id="menu-anchor-video"]')).toBeVisible()
+    expect(await page.evaluate(() => markVideo('menu-anchor-video', 'watched', { putInWatchedSection: true, creditOnlyRecordedProgress: true }))).toBe(false)
+    await page.evaluate(() => undoLastVideoAction())
+    expect(await page.evaluate(() => loadState().videos['menu-anchor-video'])).toEqual(before.video)
+    expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(before.score)
+  })
+}
+
+for (const status of ['partial', 'watched']) {
+  test(`ending Put in watched section removes Favorite from a ${status} video`, async ({ page }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+    await seedVideoOrganizationState(page, { testerMode: testInfo.project.name === 'desktop-standard' })
+    await page.evaluate(async status => {
+      const state = loadState()
+      Object.assign(state.videos['menu-anchor-video'], {
+        status, favorite: true, watchLater: true,
+        watchedAt: status === 'watched' ? '2026-08-02T06:00:00.000Z' : null,
+        watchedConfirmationUnlockedAt: '2026-08-02T06:00:00.000Z',
+        watchProgress: [{ watchedAt: '2026-08-02T06:00:00.000Z', seconds: 480, experienceSeconds: 480 }]
+      })
+      await saveState(state)
+    }, status)
+    await page.reload()
+    await waitForApplication(page)
+    const before = await page.evaluate(() => ({
+      score: getCurrentCityScore(loadState()),
+      progress: structuredClone(loadState().videos['menu-anchor-video'].watchProgress)
+    }))
+    await installFakeYoutubePlayer(page)
+    await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+    await endFakeVideo(page)
+    await page.locator('[data-video-watch-prompt-action="confirm"]').click()
+    await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+    await expect(page.locator('#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]')).toHaveCount(0)
+    const after = await page.evaluate(() => ({ video: loadState().videos['menu-anchor-video'], score: getCurrentCityScore(loadState()) }))
+    expect(after.video).toMatchObject({ status: 'watched', favorite: false, watchLater: false, resumeAtSeconds: null })
+    expect(after.video.watchProgress).toEqual(before.progress)
+    expect(after.score).toBe(before.score)
+  })
+}
+
 test('ending popup uses the available player width and keeps its corner close control clear', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedVideoOrganizationState(page, { locale: 'fr' })
