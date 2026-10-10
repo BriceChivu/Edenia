@@ -262,12 +262,13 @@ test('high-level claims survive delayed game startup, save failure, and reload',
   const progress = () => page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).cityProgress)
   expect((await progress()).maxLevelIndex).toBe(6)
   expect((await progress()).pendingLevelIndex).toBe(7)
-  // Reproduce a rejected durable host write through the actual save path.
+  // Reject the final provider through the actual save path. A native browser
+  // write failure alone now succeeds through automatic recovery.
   await page.evaluate(async () => {
-    const original=Storage.prototype.setItem
-    Storage.prototype.setItem=function(key,value){if(key==='edenia_v1_internal_test_2')throw new Error('Injected claim write failure');return original.call(this,key,value)}
+    const original=profileBrowserStorage.setItem
+    profileBrowserStorage.setItem=function(key,value){if(key==='edenia_v1_internal_test_2')throw new Error('Injected claim write failure');return original.call(this,key,value)}
     try { if(await claimCityLevelUp()!==false)throw new Error('Failed claim was accepted') }
-    finally {Storage.prototype.setItem=original}
+    finally {profileBrowserStorage.setItem=original}
   })
   expect((await progress()).maxLevelIndex).toBe(6)
   expect(await page.locator('.city-level-up-confetti').count()).toBe(0)

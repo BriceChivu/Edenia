@@ -702,7 +702,7 @@ const pendingStorageFeedback = new Map()
 const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
   storageKey: STORAGE_KEY,
   accessKey: LEARNER_PROFILE_ACCESS_KEY,
-  keys: [STATE_BACKUP_KEY, LEARNER_PROFILE_ACCESS_KEY,
+  keys: [`${STORAGE_KEY}_storage_probe`, STATE_BACKUP_KEY, LEARNER_PROFILE_ACCESS_KEY,
     LEARNER_PROFILE_SYNC_KEY, LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
     ACCOUNTLESS_PROFILE_MIGRATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY,
     ACCOUNT_STUDY_SYNC_OWNER_KEY, PLUS_ENTITLEMENT_CACHE_KEY,
@@ -4169,9 +4169,11 @@ function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
 
 function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'personalized', openingBlocked = false } = {}) {
   if (reason === 'storage') {
-    profileRecoveryWorkspace.activate()
+    // Storage adapters activate recovery on actual I/O failures. A canceled
+    // onboarding save can also return false; it must not retire an owned profile.
+    if (!profileRecoveryWorkspace.isActive()) return false
+    if (state && !isCurrentLearnerProfileOperation(state)) return false
     resetRecoveryBackupStore()
-    reportBackgroundStorageFailure('save')
     if (openingBlocked) { startApplicationFromLocalState(); return true }
     if (state) {
       const saved = saveState(state, { backup: false })
@@ -19660,7 +19662,8 @@ async function initializeBrowserStorage() {
 }
 async function reconcileBackgroundProfileRecovery() {
   if (!profileRecoveryWorkspace.isActive() || recoveryReconciliationPending
-    || !applicationStarted || document.visibilityState === 'hidden') return
+    || !applicationStarted || document.visibilityState === 'hidden'
+    || document.getElementById('localProgressConflict')?.open) return
   recoveryReconciliationPending = true
   let originalRepository = null
   try {
@@ -19782,6 +19785,7 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
       conflict.cloud.profile)
   } catch { return false } finally { repository?.close() }
+  recoveryConflictView?.hide()
   await reconcileBackgroundProfileRecovery()
   if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
   else renderAll(loadPersistedState({ persistCleanup: false }))

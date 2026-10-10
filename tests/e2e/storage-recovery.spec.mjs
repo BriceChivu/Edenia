@@ -49,6 +49,21 @@ for (const kind of ['missing', 'invalid']) {
     }), { databaseName })).toEqual(kind === 'invalid' ? { key: 'active', revision: 1, raw: '{}' } : null)
   })
 }
+test('a denied storage probe continues onboarding without an error screen', async ({ page }) => {
+  await page.addInitScript(key => {
+    const set = Storage.prototype.setItem
+    Storage.prototype.setItem = function (name, value) {
+      if (name === `${key}_storage_probe`) throw new DOMException('Fixture probe denied', 'SecurityError')
+      return set.call(this, name, value)
+    }
+  }, key)
+  await open(page, { indexedDbProfileEnabled: false })
+  expect(await page.evaluate(() => profileRecoveryWorkspace.isActive())).toBe(true)
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'What language are you learning?', exact: true })).toBeVisible()
+  await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
+})
+
 test('opening failure retains recovery progress across reloads without an error screen', async ({ page }) => {
   await open(page)
   await page.addInitScript(databaseName => {
@@ -168,6 +183,8 @@ for (const conflict of [false, true]) {
       await expect(dialog).not.toContainText('Cloud')
       await page.screenshot({ path: testInfo.outputPath('progress-conflict.png') })
       await dialog.getByRole('button', { name: 'Use recent progress', exact: true }).click()
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await expect.poll(() => page.evaluate(() => recoveryReconciliationPending)).toBe(false)
       await dialog.getByRole('button', { name: 'Confirm this choice', exact: true }).click()
       await expect(dialog).toBeHidden()
     } else await expect(dialog).toHaveCount(0)

@@ -1530,8 +1530,8 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
     () => localStorage.getItem('edenia_v1')
   )
   await page.evaluate(() => {
-    window.__originalStorageSetItem = Storage.prototype.setItem
-    Storage.prototype.setItem = function setItemWithImportQuota(key, value) {
+    window.__originalStorageSetItem = profileBrowserStorage.setItem
+    profileBrowserStorage.setItem = function setItemWithImportQuota(key, value) {
       if (key === 'edenia_v1') {
         throw new DOMException(
           'Setting the value of edenia_v1 exceeded the quota.',
@@ -1559,7 +1559,7 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
     'L’espace de stockage du navigateur est insuffisant pour importer ce fichier en toute sécurité. Votre progression actuelle n’a pas été modifiée.'
   )
   const quotaFailureResult = await page.evaluate(() => {
-    Storage.prototype.setItem = window.__originalStorageSetItem
+    profileBrowserStorage.setItem = window.__originalStorageSetItem
     delete window.__originalStorageSetItem
     return {
       primary: localStorage.getItem('edenia_v1'),

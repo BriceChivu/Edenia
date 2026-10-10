@@ -150,9 +150,9 @@ test('verified migration preserves progression and PostHog before removing legac
 
   const primaryBeforeFailedReset = await page.evaluate(() => {
     const primary = localStorage.getItem('edenia_v1')
-    const originalSetItem = Storage.prototype.setItem
-    Storage.prototype.setItem = function (key, value) {
-      if (this === localStorage && key === 'edenia_v1') {
+    const originalSetItem = profileBrowserStorage.setItem
+    profileBrowserStorage.setItem = function (key, value) {
+      if (key === 'edenia_v1') {
         throw new DOMException('Test quota limit', 'QuotaExceededError')
       }
       return originalSetItem.call(this, key, value)

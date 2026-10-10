@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createProfileRecoveryWorkspace } from '../../src/state/profile-recovery-workspace.js'
+import { createStateStore } from '../../src/state/store.js'
 function fixture({ denied = false } = {}) {
   const values = new Map([['profile', JSON.stringify({ watch: 1, language: 'fr' })], ['access', '{"ownerId":null}'], ['auth', 'SECRET']])
   const primary = { getItem: key => values.get(key) ?? null, setItem(key, value) { if (denied) throw new DOMException('', 'SecurityError'); values.set(key, value) }, removeItem: key => values.delete(key) }
@@ -9,6 +10,20 @@ function fixture({ denied = false } = {}) {
   const options = { storageKey: 'profile', accessKey: 'access', keys: ['access','sync'], getPrimary: () => primary, getSecondary: () => secondary, capture: () => ({ profile: primary.getItem('profile') }) }
   return { values, sessionValues, options, workspace: createProfileRecoveryWorkspace(options) }
 }
+test('a backup failure transfers the current edit onto the acknowledged recovery baseline', () => {
+  const f = fixture()
+  const store = createStateStore({ storage: f.workspace.storage, storageKey: 'profile',
+    getRepository: () => f.workspace.isActive() ? f.workspace.repository : null,
+    normalizeLoadedState: () => false, normalizeStateBeforeSave: () => {},
+    createStateBackup: () => f.workspace.activate(), pruneOldestStateBackup: () => false,
+    saveConfigCookie: () => {}, syncPersistedStateToAnalytics: () => {},
+    getLatestBackupState: () => null, loadConfigCookie: () => null, createDefaultStateFromConfig: () => ({}) })
+  const state = store.loadState()
+  state.watch = 2
+  assert.equal(store.saveState(state), true)
+  assert.equal(f.workspace.repository.snapshot().watch, 2)
+  assert.equal(JSON.parse(f.values.get('profile')).watch, 1)
+})
 test('isolates failed writes, keeps auth/original and resumes recovery after reload', () => {
   const f = fixture({ denied: true })
   f.workspace.storage.setItem('profile', JSON.stringify({ watch: 2, language: 'fr' }))
