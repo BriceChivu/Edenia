@@ -947,6 +947,17 @@ for (const scenario of ['watched replay', 'watched favorite', 'partial favorite'
     await card.locator('[data-video-organization-action="menu"]').click()
     const move = page.locator('[data-video-organization-action="put-watched"]')
     await expect(move).toBeVisible()
+    const separatorPositions = await page.locator('#videoActionsPopover .video-actions-list').evaluate(list => {
+      const items = Array.from(list.querySelectorAll('[role="menuitem"]'))
+      const owners = [list, ...items]
+      return owners.flatMap(owner => {
+        const style = getComputedStyle(owner, '::before')
+        if (style.content === 'none' || style.content === 'normal') return []
+        return [owner.getBoundingClientRect().top + parseFloat(style.top)]
+      }).map(y => Math.min(...items.slice(1).map(item => Math.abs(item.getBoundingClientRect().top - y))))
+    })
+    expect(separatorPositions).toHaveLength((await page.locator('#videoActionsPopover [role="menuitem"]').count()) - 1)
+    for (const distance of separatorPositions) expect(distance).toBeLessThanOrEqual(1)
     await move.click()
     await expect(card).toHaveCount(0)
     const after = await page.evaluate(() => ({
