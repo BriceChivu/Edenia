@@ -930,6 +930,22 @@ body.onboarding-active .toast { z-index: 320; }
 }
 .onboarding-panel.is-recovery .onboarding-card { max-width: 620px; }
 .onboarding-recovery-actions { justify-content: flex-end; }
+.onboarding-content .storage-recovery-actions {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+}
+.storage-recovery-actions button { width: 100%; }
+#storageRecoveryDetailsLabel { color: var(--muted); font-size: 0.8rem; }
+#storageRecoveryDetails {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  font: 0.75rem/1.5 monospace;
+  padding: 12px;
+  resize: vertical;
+}
 .onboarding-recovery-status {
   color: var(--muted);
   font-size: 0.76rem;
@@ -1696,3 +1712,17 @@ body[data-theme="dark"] .activity-log-panel {
   top: max(18px, env(safe-area-inset-top));
   z-index: 5;
 }
+
+.profile-recovery-conflict {
+  margin: auto;
+  width: min(900px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(16px, 3vw, 32px);
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--text);
+  border-radius: 20px;
+}
+.profile-recovery-conflict::backdrop { background: rgb(0 0 0 / 45%); }
+.profile-recovery-conflict .learner-profile-conflict { margin-top: 0; }

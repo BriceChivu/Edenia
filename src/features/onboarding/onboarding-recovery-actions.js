@@ -26,6 +26,10 @@ export function bindOnboardingRecoveryActions(root, actions) {
       control.addEventListener('click', () => {
         actions.copyLink(control)
       })
+    } else if (actionName === 'copy-details' && typeof actions.copyDetails === 'function') {
+      control.addEventListener('click', () => {
+        actions.copyDetails(control)
+      })
     } else if (actionName === 'retry') {
       control.addEventListener('click', () => {
         actions.retry(control)

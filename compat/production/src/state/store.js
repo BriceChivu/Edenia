@@ -64,6 +64,7 @@ export function createStateStore({
 
     const persisted = persistenceError === null
     if (persisted) {
+      storage.recordReplacement?.()
       saveConfigCookie(state.config)
       if (syncAnalytics) syncPersistedStateToAnalytics(state)
     }
@@ -80,9 +81,13 @@ export function createStateStore({
     } = options
     normalizeStateBeforeSave(state)
     if (!canPersist()) return false
+    const repositoryBeforeBackup = getRepository()
     if (backup) createStateBackup(backupReason, { force: forceBackup })
     const repository = getRepository()
     if (repository) {
+      // A backup write can activate recovery before the profile write starts.
+      // Carry this in-flight edit onto the captured acknowledged baseline.
+      if (repository !== repositoryBeforeBackup) repository.adoptSnapshot?.(state)
       return mapPersistenceResult(repository.save(state, { canPersist }), persisted => {
         if (persisted) {
           saveConfigCookie(state.config)
@@ -125,8 +130,9 @@ export function createStateStore({
   function loadState({ persistCleanup = true } = {}) {
     let storageError = false
     try {
-      const repository = getRepository()
+      let repository = getRepository()
       const raw = repository ? repository.readRaw() : storage.getItem(storageKey)
+      repository ||= getRepository()
       if (raw) {
         const state = repository ? repository.snapshot() : JSON.parse(raw)
         const shouldSave = normalizeLoadedState(state)

@@ -847,7 +847,8 @@ export function createLearnerProfileLocalPersistenceAdapter({
     }
     const handleStorage = event => {
       if (event.key !== accessStorageKey) return
-      if (event.storageArea && event.storageArea !== storage) return
+      if (event.storageArea && event.storageArea !== storage
+        && storage.acceptsStorageArea?.(event.storageArea) !== true) return
       listener()
     }
     eventTarget.addEventListener('storage', handleStorage)
