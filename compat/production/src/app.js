@@ -19763,6 +19763,9 @@ async function reconcileBackgroundProfileRecovery() {
         document, translate: t,
         choose: (side, conflict) => resolveBackgroundRecoveryChoice(side, conflict)
       })
+      // Protect the version shown now, even if a peer changes it before the
+      // learner confirms or the tab closes.
+      profileRecoveryWorkspace.archive(original)
       recoveryConflictView.show({ id: `local-${epoch}`, status: 'open',
         device: { profile: recent }, cloud: { profile: original },
         epoch, originalAccess, originalRaw, recentRaw })
@@ -19807,6 +19810,12 @@ async function reconcileBackgroundProfileRecovery() {
   }
 }
 
+async function refreshBackgroundRecoveryComparison(conflict) {
+  recoveryConflictView?.hide(conflict.id)
+  await reconcileBackgroundProfileRecovery()
+  return false
+}
+
 async function resolveBackgroundRecoveryChoice(side, conflict) {
   if (conflict.workspaceOnly) {
     if (!['device','cloud'].includes(side) || !profileRecoveryWorkspace.matches(conflict.epoch)
@@ -19822,17 +19831,23 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
     return true
   }
 
-  if (!['device', 'cloud'].includes(side)
-    || !profileRecoveryWorkspace.matches(conflict.epoch)
+  if (!['device', 'cloud'].includes(side)) return false
+  if (!profileRecoveryWorkspace.matches(conflict.epoch)
     || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw
-    || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) return false
+    || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) {
+    return refreshBackgroundRecoveryComparison(conflict)
+  }
   let repository
   try {
     repository = await openIndexedDbProfile({ storage: window.localStorage,
       storageKey: STORAGE_KEY, accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window })
     if (repository.readRaw() !== conflict.originalRaw
-      || !profileRecoveryWorkspace.matches(conflict.epoch)) return false
+      || !profileRecoveryWorkspace.matches(conflict.epoch)) {
+      repository.close()
+      repository = null
+      return await refreshBackgroundRecoveryComparison(conflict)
+    }
     if (!profileRecoveryWorkspace.archive(conflict.cloud.profile)) return false
     // Persist the user's choice as a new common baseline. The unchosen copy
     // remains in the protected archive, never in the feedback payload.

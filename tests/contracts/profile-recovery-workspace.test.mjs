@@ -483,3 +483,14 @@ test('a known original replacement revision still fences memory from a promoted 
   assert.deepEqual(f.first.repository.snapshot(), { watch: 1, language: 'es' })
   assert.equal(JSON.parse(JSON.parse(f.values.get('profile_recovery_workspace_v1')).protectedWorkspaces.at(-1).values.profile).watch, 7)
 })
+
+test('refreshing an original comparison retains previously shown saved versions', () => {
+  const f = fixture()
+  f.workspace.activate()
+  f.workspace.archive({ watch: 9, language: 'fr' })
+  f.workspace.archive({ watch: 12, language: 'fr' })
+  f.workspace.archive({ watch: 12, language: 'fr' })
+  const saved = JSON.parse(f.values.get('profile_recovery_workspace_v1'))
+  assert.equal(JSON.parse(saved.originalProfile).watch, 12)
+  assert.deepEqual(saved.protectedOriginalProfiles.map(raw => JSON.parse(raw).watch), [9])
+})

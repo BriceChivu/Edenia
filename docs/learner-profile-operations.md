@@ -200,7 +200,9 @@ Compatible changes rebase against the last acknowledged copy; incompatible
 ownership, generation, or replacement scopes remain protected separately. Each
 intentional replacement has its own fence. Pending conflict candidates persist
 inside the workspace and reopen after reload, with a fresh choice fence after
-startup bookkeeping. A choice can continue in memory while durable writes are
+startup bookkeeping. If the original saved version changes while its comparison
+is open, the comparison refreshes instead of repeating an unverifiable choice.
+Previously shown original versions remain in `protectedOriginalProfiles`. A choice can continue in memory while durable writes are
 unavailable; both candidates persist when a later save succeeds. Later recovery
 episodes retain earlier protected versions, and a newer archived copy takes
 precedence over a stale active fallback.

@@ -399,7 +399,12 @@ export function createProfileRecoveryWorkspace({
     },
     archive(original) {
       if (!active) return false
-      record.originalProfile = JSON.stringify(original)
+      const raw = JSON.stringify(original)
+      if (record.originalProfile && record.originalProfile !== raw) {
+        const previous = Array.isArray(record.protectedOriginalProfiles) ? record.protectedOriginalProfiles : []
+        record.protectedOriginalProfiles = [...new Set([...previous, record.originalProfile])]
+      }
+      record.originalProfile = raw
       return persist()
     },
     acceptChoice(chosen, original, { preserveBaseline = false, unchosen, conflictId } = {}) {
