@@ -55,8 +55,8 @@ test('concurrent screen rendering sends just one report and previews never send 
 })
 
 test('offline diagnostics survive reload and retry with the original report UUID', async () => {
-  const data = new Map()
-  const store = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key,value), removeItem: key => data.delete(key) }
+  const store = nativeLikeStore()
+  const data = store.data
   const first = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
     createId: () => '11111111-1111-4111-8111-111111111111', fetch: async () => { throw new Error('offline') } })
   assert.equal(await first({ ...details, operation: 'open', recovery: 'local', capabilities: { browser: 'Chrome/130.0 Android 15' } }), 'failed')
@@ -67,4 +67,114 @@ test('offline diagnostics survive reload and retry with the original report UUID
   assert.equal(payloads[0].uuid, '11111111-1111-4111-8111-111111111111')
   assert.match(payloads[0].properties.feedback_message, /Android 15/)
   assert.equal(data.size, 0)
+})
+
+function nativeLikeStore() {
+  const data = new Map()
+  return {
+    data,
+    get length() { return data.size },
+    key: index => [...data.keys()][index] ?? null,
+    getItem: key => data.get(key) ?? null,
+    setItem: (key, value) => data.set(key, value),
+    removeItem: key => data.delete(key)
+  }
+}
+
+test('two offline tabs retain both diagnostics even when opened before either failure', async () => {
+  const store = nativeLikeStore()
+  const make = id => createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], createId: () => id, fetch: async () => { throw new Error('offline') } })
+  const first = make('first-tab-report')
+  const second = make('second-tab-report')
+  await first(details)
+  await second({ ...details, operation: 'save' })
+  const sent = []
+  const reloaded = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], fetch: async (_, options) => { sent.push(JSON.parse(options.body).uuid); return { ok: true } } })
+  await reloaded.retryPending()
+  assert.deepEqual(sent.sort(), ['first-tab-report','second-tab-report'])
+  assert.equal(store.length, 0)
+})
+
+test('acknowledging one tab report does not erase another tab pending report', async () => {
+  const store = nativeLikeStore()
+  const online = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], createId: () => 'online-report', fetch: async () => ({ ok: true }) })
+  const offline = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], createId: () => 'offline-report', fetch: async () => { throw new Error('offline') } })
+  await offline(details)
+  await online({ ...details, operation: 'save' })
+  const sent = []
+  const reloaded = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], fetch: async (_, options) => { sent.push(JSON.parse(options.body).uuid); return { ok: true } } })
+  await reloaded.retryPending()
+  assert.deepEqual(sent, ['offline-report'])
+})
+
+test('identical diagnostics from separate tabs keep both original report UUIDs', async () => {
+  const store = nativeLikeStore()
+  const make = id => createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], createId: () => id, fetch: async () => ({ ok: false }) })
+  const first = make('first-identical')
+  const second = make('second-identical')
+  await first(details)
+  await second(details)
+  const ids = []
+  const next = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    fetch: async (_, options) => { ids.push(JSON.parse(options.body).uuid); return { ok: true } } })
+  await next.retryPending()
+  assert.deepEqual(ids.sort(), ['first-identical', 'second-identical'])
+})
+
+test('a corrupt legacy entry cannot suppress valid later reports or replay private metadata', async () => {
+  const store = nativeLikeStore()
+  const diagnostic = JSON.stringify({ code: 'storage-denied', mode: 'auth-trial', release: 'test-release' })
+  store.setItem('edenia_storage_feedback_outbox_v1', JSON.stringify([
+    { id: 'broken', diagnostic: '{' },
+    { id: 'valid-legacy', diagnostic, submittedAt: 'SECRET', locale: 'PRIVATE@EMAIL', width: 'PRIVATE', height: Infinity }
+  ]))
+  const calls = []
+  const next = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    now: () => '2026-10-10T04:00:00.000Z', fetch: async (_, options) => { calls.push(JSON.parse(options.body)); return { ok: true } } })
+  await next.retryPending()
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].uuid, 'valid-legacy')
+  assert.equal(calls[0].properties.submitted_at, '2026-10-10T04:00:00.000Z')
+  assert.doesNotMatch(JSON.stringify(calls), /SECRET|PRIVATE/)
+  assert.equal(store.length, 0)
+})
+
+test('legacy pending reports migrate safely when copying them encounters quota pressure', async () => {
+  const store = nativeLikeStore()
+  const diagnostic = JSON.stringify({ code: 'storage-denied', mode: 'public', release: 'test-release' })
+  store.setItem('edenia_storage_feedback_outbox_v1', JSON.stringify([{ id: 'legacy-report', diagnostic }]))
+  const set = store.setItem
+  store.setItem = (key, value) => {
+    if (key.includes('_report_')) throw new DOMException('Full', 'QuotaExceededError')
+    set(key, value)
+  }
+  const failed = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store], fetch: async () => ({ ok: false }) })
+  await failed.retryPending()
+  assert.match(store.getItem('edenia_storage_feedback_outbox_v1'), /legacy-report/)
+  store.setItem = set
+  const sent = []
+  const next = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    fetch: async (_, options) => { sent.push(JSON.parse(options.body).uuid); return { ok: true } } })
+  await next.retryPending()
+  assert.deepEqual(sent, ['legacy-report'])
+  assert.equal(store.length, 0)
+})
+
+test('persisted reports remain bounded without touching learner or auth storage', async () => {
+  const store = nativeLikeStore()
+  store.setItem('profile', 'PRIVATE PROGRESS')
+  store.setItem('auth', 'SECRET TOKEN')
+  let id = 0
+  const report = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    createId: () => `bounded-${++id}`, fetch: async () => ({ ok: false }) })
+  for (let index = 0; index < 25; index++) await report({ ...details, release: `release-${index}` })
+  assert.equal([...store.data.keys()].filter(key => key.startsWith('edenia_storage_feedback_outbox_v1_report_')).length, 20)
+  assert.equal(store.getItem('profile'), 'PRIVATE PROGRESS')
+  assert.equal(store.getItem('auth'), 'SECRET TOKEN')
 })

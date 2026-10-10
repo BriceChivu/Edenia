@@ -231,7 +231,7 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
 })
 
-test('two recovery tabs merge independent changes and ask about competing progress', async ({ page, context }) => {
+for (const chooseSaved of [false, true]) test(`two recovery tabs merge changes and retain both copies when choosing ${chooseSaved ? 'saved' : 'recent'} progress`, async ({ page, context }) => {
   await open(page)
   const block = databaseName => {
     const open = IDBFactory.prototype.open
@@ -276,10 +276,12 @@ test('two recovery tabs merge independent changes and ask about competing progre
   const dialog = page.locator('#localProgressConflict')
   await expect(dialog).toBeVisible()
   await expect(page.locator('#toast')).not.toContainText('Could not save')
-  await dialog.getByRole('button', { name: 'Use recent progress', exact: true }).click()
+  await dialog.getByRole('button', { name: chooseSaved ? 'Use saved progress' : 'Use recent progress', exact: true }).click()
   await dialog.getByRole('button', { name: 'Confirm this choice', exact: true }).click()
   await expect(dialog).toBeHidden()
-  await expect.poll(() => other.evaluate(() => loadState().anki['2026-10-10'].reviewed)).toBe(8)
+  await expect.poll(() => other.evaluate(() => loadState().anki['2026-10-10'].reviewed)).toBe(chooseSaved ? 9 : 8)
+  const unchosen = await page.evaluate(key => JSON.parse(JSON.parse(localStorage.getItem(`${key}_recovery_workspace_v1`)).unchosenProfile), key)
+  expect(unchosen.anki['2026-10-10'].reviewed).toBe(chooseSaved ? 8 : 9)
   await other.close()
 })
 
@@ -303,4 +305,43 @@ test('a failed island checkpoint saves through background recovery and survives 
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
   await page.reload()
   await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.resources.wood)).toBe(8)
+})
+
+test('offline diagnostics from two tabs survive reload and acknowledge independently', async ({ page, context, pageDiagnostics }) => {
+  const servedOrigin = `http://localhost:${Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)}`
+  let online = false
+  const attempts = []
+  await context.route('https://us.i.posthog.com/capture/', route => {
+    const event = route.request().postDataJSON()
+    if (event?.event === 'feedback_submitted') attempts.push({ id: event.uuid, online })
+    return online ? route.fulfill({ json: { status: 1 } }) : route.abort('internetdisconnected')
+  })
+  await context.route('https://edenia.study/**', async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/config.local.js') return route.fulfill({ contentType: 'application/javascript',
+      body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: true, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }' })
+    const response = await route.fetch({ url: `${servedOrigin}${url.pathname}${url.search}` })
+    return route.fulfill({ response })
+  })
+  await page.goto('https://edenia.study/?internal_test=2')
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
+  const second = await context.newPage()
+  await second.goto('https://edenia.study/?internal_test=2')
+  await expect(second.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
+  await page.evaluate(() => reportBackgroundStorageFailure('open', { code: 'storage-denied', errorName: 'SecurityError' }))
+  await expect.poll(() => attempts.length).toBe(1)
+  await expect.poll(() => pageDiagnostics).toEqual(['console: Failed to load resource: net::ERR_INTERNET_DISCONNECTED'])
+  pageDiagnostics.splice(0, 1)
+  await second.evaluate(() => reportBackgroundStorageFailure('save', { code: 'storage-full', errorName: 'QuotaExceededError' }))
+  await expect.poll(() => attempts.length).toBe(2)
+  const ids = attempts.map(attempt => attempt.id).sort()
+  await page.close()
+  await second.close()
+  online = true
+  const reopened = await context.newPage()
+  await reopened.goto('https://edenia.study/?internal_test=2')
+  await expect(reopened.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
+  await expect.poll(() => attempts.filter(attempt => attempt.online).map(attempt => attempt.id).sort()).toEqual(ids)
+  await expect.poll(() => reopened.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('edenia_storage_feedback_outbox_v1')))).toEqual([])
+  await expect(reopened.locator('#onboardingPanel.is-recovery')).toBeHidden()
 })

@@ -233,8 +233,8 @@ export function createProfileRecoveryWorkspace({
       record.originalProfile = JSON.stringify(original)
       return persist()
     },
-    acceptChoice(chosen, original, { preserveBaseline = false } = {}) {
-      record.unchosenProfile = record.values[storageKey]
+    acceptChoice(chosen, original, { preserveBaseline = false, unchosen } = {}) {
+      record.unchosenProfile = unchosen === undefined ? record.values[storageKey] : JSON.stringify(unchosen)
       if (!preserveBaseline) record.baseline = JSON.stringify(original)
       record.values[storageKey] = JSON.stringify(chosen)
       epoch++

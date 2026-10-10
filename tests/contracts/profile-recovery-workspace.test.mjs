@@ -184,3 +184,26 @@ test('automatic reconciliation never crosses an original profile replacement', (
   assert.deepEqual(f.workspace.merge({ watch: 1, language: 'es' }, { replacementRevision: 3 }), { watch: 2, language: 'es' })
   assert.equal(f.workspace.merge({ watch: 1, language: 'es' }, { replacementRevision: 4 }), null)
 })
+
+for (const side of ['recent', 'saved']) test(`choosing ${side} recovery progress retains the actual unchosen edit`, () => {
+  const f = fixture()
+  let conflict
+  const first = createProfileRecoveryWorkspace({ ...f.options, onConflict: value => { conflict = value } })
+  first.activate()
+  const stale = first.repository.snapshot()
+  const second = createProfileRecoveryWorkspace(f.options)
+  second.activate()
+  const newer = second.repository.snapshot()
+  newer.watch = 3
+  assert.equal(second.repository.save(newer), true)
+  stale.watch = 2
+  assert.equal(first.repository.save(stale), false)
+  const recent = JSON.parse(conflict.desiredRaw)
+  const saved = JSON.parse(conflict.currentRaw)
+  assert.equal(first.archive(saved), true)
+  first.acceptChoice(side === 'recent' ? recent : saved, saved,
+    { preserveBaseline: true, unchosen: side === 'recent' ? saved : recent })
+  const retained = JSON.parse(f.values.get('profile_recovery_workspace_v1'))
+  assert.equal(JSON.parse(retained.values.profile).watch, side === 'recent' ? 2 : 3)
+  assert.equal(JSON.parse(retained.unchosenProfile).watch, side === 'recent' ? 3 : 2)
+})

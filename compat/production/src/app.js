@@ -19812,7 +19812,8 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     if (!profileRecoveryWorkspace.archive(conflict.cloud.profile)) return false
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
-      conflict.cloud.profile, { preserveBaseline: true })
+      conflict.cloud.profile, { preserveBaseline: true,
+        unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
     if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
     else renderAll(loadPersistedState({ persistCleanup: false }))
     return true
@@ -19833,7 +19834,7 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
     // Persist the user's choice as a new common baseline. The unchosen copy
     // remains in the protected archive, never in the feedback payload.
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
-      conflict.cloud.profile)
+      conflict.cloud.profile, { unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
   } catch { return false } finally { repository?.close() }
   recoveryConflictView?.hide()
   await reconcileBackgroundProfileRecovery()
