@@ -1,4 +1,12 @@
 export const EN_CORE = {
+  "progressRecovery.conflict": "Your progress has two versions with competing changes. Choose which one to continue with. Both copies will be kept.",
+  "progressRecovery.recent": "Recent progress",
+  "progressRecovery.saved": "Saved progress",
+  "progressRecovery.chooseRecent": "Use recent progress",
+  "progressRecovery.chooseSaved": "Use saved progress",
+  "progressRecovery.confirmRecent": "Continue with recent progress? Both copies will be kept.",
+  "progressRecovery.confirmSaved": "Continue with saved progress? Both copies will be kept.",
+
   "authTrial.unavailable.title": "Sign-in trial unavailable",
   "authTrial.unavailable.body": "This sign-in trial is currently paused. Your saved progress is preserved.",
   "islandAnnouncement.eyebrow": "A new chapter for Edenia",

@@ -179,7 +179,7 @@ test('each content replacement binds immediately and accepts new nodes', () => {
   assert.ok(bindingIndex < panelIndex)
   assert.match(
     recoverySource,
-    /bindOnboardingRecoveryActions\(content,\s*\{\s*copyLink:\s*copyOnboardingRecoveryLink,\s*retry:\s*retryOnboardingRecovery,\s*copyDetails:\s*copyStorageRecoveryDetails\s*\}\)/
+    /bindOnboardingRecoveryActions\(content,\s*\{\s*copyLink:\s*copyOnboardingRecoveryLink,\s*retry:\s*retryOnboardingRecovery\s*\}\)/
   )
 
   const actions = {

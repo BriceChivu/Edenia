@@ -1,5 +1,7 @@
-import { describeProfileStorageFailure, getStorageRecoveryPresentation, createStorageRecoveryReport } from './state/profile-storage-recovery.js'
-import { renderStorageRecovery } from './features/onboarding/storage-recovery-view.js'
+import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
+import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
+import { createLocalRecoveryConflict } from './features/profile-access/local-recovery-conflict.js'
+import { describeProfileStorageFailure } from './state/profile-storage-recovery.js'
 import { recoverProductionCityProgress } from './domain/city-progression-recovery.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
 import { mapPersistenceResult } from './state/persistence-result.js'
@@ -329,6 +331,7 @@ import {
   createOnboardingProfileDraftStore
 } from './state/onboarding-profile-draft.js'
 import {
+  readAccessRecord,
   createLearnerProfileLocalPersistenceAdapter
 } from './state/learner-profile-local-adapter.js'
 import {
@@ -688,12 +691,154 @@ function defaultState(...args) {
   const state = createBaseDefaultState(...args)
   return state
 }
+let primaryProfileRepository = null
+let primaryProfileStorageUnavailable = false
+let primaryProfileOpeningFailure = null
+let backupProfileOpeningFailure = null
+let recoveryConflictView = null
+let recoveryReconciliationPending = false
+const automaticStorageFeedback = createStorageRecoveryFeedback({ location: window.location })
+const pendingStorageFeedback = new Map()
+const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
+  storageKey: STORAGE_KEY,
+  accessKey: LEARNER_PROFILE_ACCESS_KEY,
+  keys: [STATE_BACKUP_KEY, LEARNER_PROFILE_ACCESS_KEY,
+    LEARNER_PROFILE_SYNC_KEY, LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
+    ACCOUNTLESS_PROFILE_MIGRATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY,
+    ACCOUNT_STUDY_SYNC_OWNER_KEY, PLUS_ENTITLEMENT_CACHE_KEY,
+    LEGACY_PROGRESS_MIGRATION_KEY, SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
+    CONFIG_COOKIE_KEY],
+  eventTarget: window,
+  onExternalChange({ retired }) {
+    if (retired) primaryProfileStorageUnavailable = true
+    queueMicrotask(async () => {
+      if (retired) await initializeBrowserStorage()
+      if (!applicationStarted) return
+      channelHistoryProfileEpoch += 1
+      if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+      else renderAll(loadPersistedState({ persistCleanup: false }))
+    })
+  },
+  onConflict({ currentRaw, desiredRaw, epoch }) {
+    recoveryConflictView ||= createLocalRecoveryConflict({ document, translate: t,
+      choose: (side, conflict) => resolveBackgroundRecoveryChoice(side, conflict) })
+    recoveryConflictView.show({ id: `workspace-${epoch}`, status: 'open', workspaceOnly: true,
+      device: { profile: JSON.parse(desiredRaw) }, cloud: { profile: JSON.parse(currentRaw) },
+      epoch, recentRaw: currentRaw })
+  },
+  getPrimary: () => window.localStorage,
+  getSecondary: () => window.sessionStorage,
+  capture() {
+    let profile = null
+    try {
+      profile = primaryProfileRepository?.readRaw() || null
+      if (!profile) {
+        const access = JSON.parse(window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY))
+        const raw = window.localStorage.getItem(STORAGE_KEY)
+        if (!access?.ownerId && raw && isValidStateShape(JSON.parse(raw))) profile = raw
+      }
+    } catch {}
+    return { profile, preserveKeys: [LEARNER_PROFILE_SYNC_KEY], replacementRevision: primaryProfileRepository?.getReplacementRevision() }
+  },
+  onActivate(error, operation, resumed) {
+    primaryProfileRepository?.close()
+    primaryProfileRepository = null
+    primaryProfileStorageUnavailable = false
+    queueMicrotask(() => {
+      resetRecoveryBackupStore()
+      if (!resumed) reportBackgroundStorageFailure(operation, error ? describeProfileStorageFailure(error) : primaryProfileOpeningFailure)
+    })
+  }
+})
+const profileBrowserStorage = profileRecoveryWorkspace.storage
+
+function resetRecoveryBackupStore() {
+  stateBackupStore = createStateBackupStore({ ...stateBackupStoreOptions, storage: profileBrowserStorage })
+  flushStateBackupWrites = async () => ({ entries: stateBackupStore.getStateBackupEntries(), error: null, persisted: true })
+  indexedDbBackupStorageActive = false
+  backupRecoveryUnavailable = false
+  backupStorageSharesPrimaryQuota = true
+}
+
+function reportBackgroundStorageFailure(operation, failure = null) {
+  const storageState = {}
+  try {
+    storageState.migrationMarker = window.localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`)
+    storageState.accessMetadataPresent = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== null
+    storageState.cloudOperationPresent = window.localStorage.getItem(LEARNER_PROFILE_SYNC_KEY) !== null
+  } catch {}
+  const details = {
+    failure: failure || { code: 'storage-unavailable', retryable: true },
+    operation, storageState,
+    mode: 'public',
+    release: getFeedbackAssetVersion(),
+    locale: getBrowserDefaultLocale(), width: window.innerWidth, height: window.innerHeight,
+    recovery: profileRecoveryWorkspace.getTier(),
+    capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
+      online: navigator.onLine !== false, browser: navigator.userAgent }
+  }
+  const key = `${operation}:${details.failure.code}`
+  if (pendingStorageFeedback.has(key)) return
+  pendingStorageFeedback.set(key, details)
+  void automaticStorageFeedback(details).then(status => {
+    if (status === 'sent' || status === 'unavailable') pendingStorageFeedback.delete(key)
+  })
+}
+
+// Retry network delivery quietly; ingestion deduplicates the stable report UUID.
+window.addEventListener('online', () => {
+  void automaticStorageFeedback.retryPending()
+  for (const [key, details] of pendingStorageFeedback) {
+    void automaticStorageFeedback(details, { retry: true }).then(status => {
+      if (status === 'sent' || status === 'unavailable') pendingStorageFeedback.delete(key)
+    })
+  }
+})
+
+const profileRepositoryWrappers = new WeakMap()
+
+function getProfileRepository() {
+  const repository = primaryProfileRepository
+  if (!repository) return profileRecoveryWorkspace.isActive() ? profileRecoveryWorkspace.repository : null
+  if (profileRepositoryWrappers.has(repository)) return profileRepositoryWrappers.get(repository)
+  const wrapper = {
+    ...repository,
+    async save(state, options) {
+      let saved = false
+      let failure = null
+      try { saved = await repository.save(state, options) } catch (error) { failure = error }
+      if (saved || options?.canPersist?.() === false) return saved
+      failure ||= repository.getSaveFailure(state)
+      if (!failure) return false
+      // Preserve the last acknowledged baseline and the exact current fences.
+      // A cancelled activation must never be converted into a new save.
+      if (primaryProfileRepository !== repository) return false
+      const acknowledged = repository.readRaw()
+      // A first verified cloud install has no old body, but its candidate and
+      // ownership fence are already known. Keep that exact candidate and fence.
+      profileRecoveryWorkspace.activate({
+        profile: acknowledged || (options?.replace ? JSON.stringify(state) : null),
+        baseline: acknowledged, replacementRevision: repository.getReplacementRevision()
+      }, failure, 'save')
+      profileRecoveryWorkspace.repository.adoptSnapshot(state)
+      resetRecoveryBackupStore()
+      const result = options?.replace
+        ? saveImportedPersistedState(state, { syncAnalytics: false }, options.canPersist)
+        : savePersistedState(state, { backup: false, syncAnalytics: false }, options.canPersist)
+      const persisted = await result
+      return options?.replace ? persisted?.persisted === true : persisted === true
+    }
+  }
+  profileRepositoryWrappers.set(repository, wrapper)
+  return wrapper
+}
+
 const onboardingProfileDraftStore = createOnboardingProfileDraftStore({
   createDefaultState(locale) {
     return defaultState(4, DEFAULT_CHANNELS, undefined, null, locale)
   },
   fallbackLocale: getBrowserDefaultLocale(),
-  storage: localStorage,
+  storage: profileBrowserStorage,
   storageKey: ONBOARDING_PROFILE_DRAFT_KEY
 })
 const readImportedState = createImportedStateReader({
@@ -703,17 +848,13 @@ const readImportedState = createImportedStateReader({
 const STATE_BACKUP_DATABASE = STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
   `${STATE_BACKUP_KEY}_indexed_db_v1`
-let primaryProfileRepository = null
-let primaryProfileStorageUnavailable = false
-let primaryProfileOpeningFailure = null
-let backupProfileOpeningFailure = null
 const primaryStorage = {
   getItem(key) {
     return key === STORAGE_KEY && primaryProfileRepository
-      ? primaryProfileRepository.readRaw() : localStorage.getItem(key)
+      ? primaryProfileRepository.readRaw() : profileBrowserStorage.getItem(key)
   },
-  setItem: (key, value) => localStorage.setItem(key, value),
-  removeItem: key => localStorage.removeItem(key)
+  setItem: (key, value) => profileBrowserStorage.setItem(key, value),
+  removeItem: key => profileBrowserStorage.removeItem(key)
 }
 const stateBackupStoreOptions = {
   readPrimary: () => primaryStorage.getItem(STORAGE_KEY),
@@ -737,7 +878,7 @@ function createDisabledStateBackupStore() {
 
 let stateBackupStore = createStateBackupStore({
   ...stateBackupStoreOptions,
-  storage: localStorage
+  storage: profileBrowserStorage
 })
 let flushStateBackupWrites = async () => ({
   entries: stateBackupStore.getStateBackupEntries(),
@@ -777,7 +918,7 @@ function pruneBackupForPrimaryQuota(...args) {
 
 async function initializeStateBackupStorage() {
   if (!LOCAL_BACKUPS_ENABLED) {
-    try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
+    try { profileBrowserStorage.removeItem(STATE_BACKUP_KEY) } catch {}
     stateBackupStore = createDisabledStateBackupStore()
     flushStateBackupWrites = async () => ({
       entries: [],
@@ -789,7 +930,7 @@ async function initializeStateBackupStorage() {
 
   let hasIndexedDbBackups = false
   try {
-    hasIndexedDbBackups = localStorage.getItem(
+    hasIndexedDbBackups = profileBrowserStorage.getItem(
       INDEXED_DB_BACKUP_MARKER_KEY
     ) === '1'
   } catch {}
@@ -800,8 +941,8 @@ async function initializeStateBackupStorage() {
       backupKey: STATE_BACKUP_KEY,
       beforeLegacyCleanup() {
         try {
-          localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
-          return localStorage.getItem(INDEXED_DB_BACKUP_MARKER_KEY) === '1'
+          profileBrowserStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
+          return profileBrowserStorage.getItem(INDEXED_DB_BACKUP_MARKER_KEY) === '1'
         } catch {
           return false
         }
@@ -813,7 +954,7 @@ async function initializeStateBackupStorage() {
         entry,
         isValidStateShape
       ),
-      legacyStorage: localStorage
+      legacyStorage: profileBrowserStorage
     })
     backupRecoveryUnavailable = false
     backupProfileOpeningFailure = null
@@ -825,7 +966,7 @@ async function initializeStateBackupStorage() {
     backupStorageSharesPrimaryQuota = repository.mirrorsLegacy
     indexedDbBackupStorageActive = true
     if (repository.migration.entryCount > 0) {
-      try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+      try { profileBrowserStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
     }
   } catch (error) {
     console.warn('Edenia IndexedDB backup initialization failed.', error)
@@ -855,7 +996,7 @@ async function createVerifiedStateBackup(reason, options = {}) {
     return null
   }
   if (indexedDbBackupStorageActive) {
-    try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+    try { profileBrowserStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
   }
   return entry
 }
@@ -877,13 +1018,13 @@ async function createVerifiedStateBackupFromState(
     return null
   }
   if (indexedDbBackupStorageActive) {
-    try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+    try { profileBrowserStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
   }
   return entry
 }
 const stateStore = createStateStore({
-  storage: localStorage,
-  getRepository: () => primaryProfileRepository,
+  storage: profileBrowserStorage,
+  getRepository: getProfileRepository,
   storageKey: STORAGE_KEY,
   // Search results are refetchable. Daily usage, recovery copies, profile
   // drafts and unrecognized storage keys must survive quota recovery.
@@ -962,9 +1103,10 @@ async function clearLearnerDerivedDataForOwnerReplacement() {
     YOUTUBE_CHANNEL_SEARCH_USAGE_KEY
   ]
   try {
-    for (const key of keys) localStorage.removeItem(key)
-    document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
-    return keys.every(key => localStorage.getItem(key) === null)
+    for (const key of keys) profileBrowserStorage.removeItem(key)
+    if (profileRecoveryWorkspace.isActive()) profileBrowserStorage.removeItem(CONFIG_COOKIE_KEY)
+    else document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
+    return keys.every(key => profileBrowserStorage.getItem(key) === null)
       && getCookie(CONFIG_COOKIE_KEY) === null
   } catch {
     return false
@@ -1019,7 +1161,7 @@ let learnerProfileOpeningFocusHandoffPending = false
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const ownerVerification = createLearnerProfileOwnerVerificationStore({
     eventTarget: window,
-    storage: localStorage,
+    storage: profileBrowserStorage,
     storageKey: LEARNER_PROFILE_OWNER_VERIFICATION_KEY
   })
   learnerProfileLocalPersistence = createLearnerProfileLocalPersistenceAdapter({
@@ -1029,10 +1171,10 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     eventTarget: window,
     hasProfile: hasPersistedLearnerProfile,
     loadProfile: () => loadPersistedState({ persistCleanup: false }),
-    inheritProfileRevision: (state, source) => primaryProfileRepository?.inheritRevision(state, source),
+    inheritProfileRevision: (state, source) => getProfileRepository()?.inheritRevision(state, source),
     replaceProfile: saveImportedPersistedState,
     saveProfile: savePersistedState,
-    storage: localStorage
+    storage: profileBrowserStorage
   })
   accountlessProfileMigrationController =
     createAccountlessProfileMigrationController({
@@ -1048,7 +1190,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
           learnerProfileLifecycleAuthority?.refresh()
         }
       },
-      storage: localStorage,
+      storage: profileBrowserStorage,
       storageKey: ACCOUNTLESS_PROFILE_MIGRATION_KEY
     })
   const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
@@ -1084,7 +1226,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     ),
     readOnboardingState: loadOnboardingWorkingState,
     setTimer: (callback, delay) => window.setTimeout(callback, delay),
-    storage: localStorage,
+    storage: profileBrowserStorage,
     syncStorageKey: LEARNER_PROFILE_SYNC_KEY,
     verifyEnvelope: envelope => verifyPortableLearnerProfileEnvelope(
       envelope,
@@ -1177,7 +1319,7 @@ function saveState(state, options = {}) {
     if (saved && state && isCurrentLearnerProfileOperation(state)) {
       for (const key of Object.keys(state)) delete state[key]
       Object.defineProperties(state, Object.getOwnPropertyDescriptors(saved))
-      primaryProfileRepository?.adoptSnapshot(state)
+      getProfileRepository()?.adoptSnapshot(state)
       if (applicationStarted) {
         applyLocale(state.config.locale)
         applyTheme(state.config.theme)
@@ -1189,7 +1331,7 @@ function saveState(state, options = {}) {
         }
       }
     }
-    if (applicationStarted) showToast(t('toast.progressSaveFailed'), 'error')
+    if (applicationStarted && !document.getElementById('localProgressConflict')?.open) showToast(t('toast.progressSaveFailed'), 'error')
     return false
   }
   try {
@@ -1654,6 +1796,7 @@ const WALKTHROUGH_HOOKS = {
 }
 
 function getCookie(key) {
+  if (profileRecoveryWorkspace.isActive() && key === CONFIG_COOKIE_KEY) return profileBrowserStorage.getItem(key)
   return document.cookie.split('; ').reduce((value, part) => {
     const [name, val] = part.split('=')
     return name === key ? decodeURIComponent(val) : value
@@ -1763,6 +1906,10 @@ function reportMissingI18nKeys() {
 }
 
 function saveConfigCookie(config) {
+  if (profileRecoveryWorkspace.isActive()) {
+    profileBrowserStorage.setItem(CONFIG_COOKIE_KEY, JSON.stringify(sanitizeConfigForStorage(config)))
+    return
+  }
   try {
     const value = encodeURIComponent(JSON.stringify(sanitizeConfigForStorage(config)))
     document.cookie = `${CONFIG_COOKIE_KEY}=${value}; max-age=31536000; path=/`
@@ -3365,9 +3512,8 @@ async function init() {
     return
   }
   if (primaryProfileStorageUnavailable) {
-    applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
-    showOnboardingRecovery('storage', { openingBlocked: true })
-    return
+    profileRecoveryWorkspace.activate(undefined, null, 'open')
+    resetRecoveryBackupStore()
   }
   if (backupRecoveryUnavailable) {
     let primaryStateIsReadable = false
@@ -3378,9 +3524,8 @@ async function init() {
       )
     } catch {}
     if (!primaryStateIsReadable) {
-      applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
-      showOnboardingRecovery('storage', { openingBlocked: true })
-      return
+      profileRecoveryWorkspace.activate()
+      resetRecoveryBackupStore()
     }
   }
   if (migrationStartupRunning || applicationStarted) return
@@ -4022,13 +4167,26 @@ function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
   }
 }
 
-function getStorageRecoveryFailure() {
-  return onboardingRecoveryState.openingBlocked
-    ? primaryProfileOpeningFailure || backupProfileOpeningFailure : null
-}
-
 function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'personalized', openingBlocked = false } = {}) {
-  const normalizedReason = reason === 'storage' ? 'storage' : 'setup'
+  if (reason === 'storage') {
+    profileRecoveryWorkspace.activate()
+    resetRecoveryBackupStore()
+    reportBackgroundStorageFailure('save')
+    if (openingBlocked) { startApplicationFromLocalState(); return true }
+    if (state) {
+      const saved = saveState(state, { backup: false })
+      void Promise.resolve(saved).then(ok => {
+        if (!ok) return
+        if (resume === 'intro') startIntroTrailer({ state })
+        else if (resume === 'complete') window.location.assign(getPostOnboardingAppUrl())
+        else startPersonalizedOnboarding(state)
+      })
+      return true
+    }
+    startApplicationFromLocalState()
+    return true
+  }
+  const normalizedReason = 'setup'
   const panel = document.getElementById('onboardingPanel')
   const content = document.getElementById('onboardingContent')
   const localePicker = document.getElementById('onboardingLocalePicker')
@@ -4051,17 +4209,9 @@ function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'pers
     </div>
     <p class="onboarding-recovery-status" id="onboardingRecoveryStatus" role="status" aria-live="polite"></p>
   `
-  if (normalizedReason === 'storage') {
-    content.innerHTML = renderStorageRecovery({
-      failure: getStorageRecoveryFailure(),
-      checked: onboardingRecoveryState.storageChecked, t,
-      renderHeading: renderOnboardingHeading
-    })
-  }
   bindOnboardingRecoveryActions(content, {
     copyLink: copyOnboardingRecoveryLink,
-    retry: retryOnboardingRecovery,
-    copyDetails: copyStorageRecoveryDetails
+    retry: retryOnboardingRecovery
   })
   panel.classList.add('is-recovery')
   panel.classList.remove('hidden')
@@ -4084,31 +4234,6 @@ function closeOnboardingRecovery() {
   progress?.classList.remove('hidden')
   document.body.classList.remove('onboarding-active')
   document.getElementById('mainApp')?.removeAttribute('inert')
-}
-
-async function copyStorageRecoveryDetails() {
-  const report = createStorageRecoveryReport({
-    failure: getStorageRecoveryFailure(),
-    checked: onboardingRecoveryState.storageChecked,
-    mode: IS_AUTH_TRIAL ? 'auth-trial' : IS_TINY_SWORDS_TESTER ? 'tiny-swords-test' : 'public',
-    release: getFeedbackAssetVersion()
-  })
-  const status = document.getElementById('onboardingRecoveryStatus')
-  try {
-    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
-    await navigator.clipboard.writeText(report)
-    if (status) status.textContent = t('onboarding.recovery.detailsCopied')
-  } catch {
-    const label = document.getElementById('storageRecoveryDetailsLabel')
-    const input = document.getElementById('storageRecoveryDetails')
-    if (input) {
-      input.value = report
-      label?.classList.remove('hidden')
-      input.focus()
-      input.select()
-    }
-    if (status) status.textContent = t('onboarding.recovery.detailsCopyFailed')
-  }
 }
 
 async function copyOnboardingRecoveryLink(button) {
@@ -4145,34 +4270,6 @@ async function copyOnboardingRecoveryLink(button) {
 
 async function retryOnboardingRecovery(button) {
   if (!onboardingRecoveryState.active) return
-  if (onboardingRecoveryState.reason === 'storage') {
-    const presentation = getStorageRecoveryPresentation(
-      getStorageRecoveryFailure(),
-      { checked: onboardingRecoveryState.storageChecked }
-    )
-    if (!presentation.canCheck) return
-    onboardingRecoveryState.storageChecked = true
-  }
-  if (onboardingRecoveryState.openingBlocked) {
-    if (button) button.disabled = true
-    if (button) button.textContent = t('onboarding.recovery.checking')
-    await initializeBrowserStorage()
-    let readable = false
-    try {
-      const raw = primaryStorage.getItem(STORAGE_KEY)
-      readable = Boolean(raw && isValidStateShape(JSON.parse(raw)))
-    } catch {}
-    if (primaryProfileStorageUnavailable || (backupRecoveryUnavailable && !readable)) {
-      showOnboardingRecovery('storage', {
-        state: onboardingRecoveryState.state, resume: onboardingRecoveryState.resume, openingBlocked: true
-      })
-      return
-    }
-    onboardingRecoveryState.storageChecked = false
-    closeOnboardingRecovery()
-    await init()
-    return
-  }
   const status = document.getElementById('onboardingRecoveryStatus')
   if (button) button.disabled = true
 
@@ -6440,7 +6537,7 @@ function initializePlusAccount() {
   try {
     const client = getSupabaseClient()
     const entitlementCache = createPlusEntitlementCache({
-      storage: localStorage,
+      storage: profileBrowserStorage,
       storageKey: PLUS_ENTITLEMENT_CACHE_KEY
     })
     plusBillingController = createPlusBillingController({
@@ -6579,7 +6676,7 @@ function initializeAccountAuth() {
     })
     accountStudySnapshotController = createAccountStudySnapshotController({
       client,
-      storage: localStorage,
+      storage: profileBrowserStorage,
       ownerStorageKey: ACCOUNT_STUDY_SYNC_OWNER_KEY,
       createSnapshot: getAccountStudySnapshot
     })
@@ -10766,7 +10863,7 @@ function getYoutubeChannelSearchDateKey(date = new Date()) {
 
 function readYoutubeChannelSearchCache() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY) || '{}')
+    const parsed = JSON.parse(profileBrowserStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY) || '{}')
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch {
     return {}
@@ -10801,7 +10898,7 @@ function cacheYoutubeChannelSearch(query, results) {
         .sort(([, a], [, b]) => Number(b?.savedAt || 0) - Number(a?.savedAt || 0))
         .slice(0, 20)
     ))
-    localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, JSON.stringify(trimmedCache))
+    profileBrowserStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, JSON.stringify(trimmedCache))
   } catch {
     // Searching still works when browser storage is unavailable.
   }
@@ -10810,7 +10907,7 @@ function cacheYoutubeChannelSearch(query, results) {
 function getYoutubeChannelSearchUsage() {
   const today = getYoutubeChannelSearchDateKey()
   try {
-    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY) || '{}')
+    const parsed = JSON.parse(profileBrowserStorage.getItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY) || '{}')
     if (parsed?.date === today) {
       return { date: today, count: Math.max(0, Number(parsed.count) || 0) }
     }
@@ -10824,7 +10921,7 @@ function incrementYoutubeChannelSearchUsage() {
   const usage = getYoutubeChannelSearchUsage()
   usage.count += 1
   try {
-    localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY, JSON.stringify(usage))
+    profileBrowserStorage.setItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY, JSON.stringify(usage))
   } catch {
     // The API request can still proceed if browser storage is unavailable.
   }
@@ -19519,21 +19616,26 @@ async function initializeBrowserStorage() {
   // Retire only replaceable search metadata before opening a durable profile.
   // This also gives the small opening markers room in the localStorage pool.
   try {
-    const raw = localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY)
+    const raw = profileBrowserStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY)
     if (raw && raw.length * 2 > 64 * 1024) {
       const bounded = JSON.stringify(budgetObjectCache(readYoutubeChannelSearchCache()))
-      if (bounded !== raw) localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, bounded)
+      if (bounded !== raw) profileBrowserStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, bounded)
     }
   } catch {}
+  if (profileRecoveryWorkspace.hasPending()) {
+    profileRecoveryWorkspace.activate()
+    resetRecoveryBackupStore()
+    return
+  }
   await initializeStateBackupStorage()
   if (primaryProfileRepository) return
   let migrated = false
-  try { migrated = ['1', 'empty'].includes(localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`))
-    || isIndexedDbProfilePointer(localStorage.getItem(STORAGE_KEY)) } catch {}
+  try { migrated = ['1', 'empty'].includes(profileBrowserStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`))
+    || isIndexedDbProfilePointer(profileBrowserStorage.getItem(STORAGE_KEY)) } catch {}
   if (!INDEXED_DB_PROFILE_ENABLED && !migrated) return
   try {
     primaryProfileRepository = await openIndexedDbProfile({
-      storage: localStorage, storageKey: STORAGE_KEY,
+      storage: window.localStorage, storageKey: STORAGE_KEY,
       accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window,
       onChange() {
@@ -19556,6 +19658,146 @@ async function initializeBrowserStorage() {
     primaryProfileOpeningFailure = describeProfileStorageFailure(error)
   }
 }
+async function reconcileBackgroundProfileRecovery() {
+  if (!profileRecoveryWorkspace.isActive() || recoveryReconciliationPending
+    || !applicationStarted || document.visibilityState === 'hidden') return
+  recoveryReconciliationPending = true
+  let originalRepository = null
+  try {
+    const originalAccess = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
+    const protectedKeys = [LEARNER_PROFILE_ACCESS_KEY, LEARNER_PROFILE_SYNC_KEY,
+      LEARNER_PROFILE_OWNER_VERIFICATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY]
+    const originalMetadata = protectedKeys.map(key => window.localStorage.getItem(key))
+    if (!protectedKeys.every((key, index) => profileRecoveryWorkspace.acceptsOriginalMetadata(key, originalMetadata[index]))) return
+    const recentRaw = profileBrowserStorage.getItem(STORAGE_KEY)
+    if (!recentRaw || !isValidStateShape(JSON.parse(recentRaw))) return
+    const recentAccess = readAccessRecord(profileBrowserStorage, LEARNER_PROFILE_ACCESS_KEY)
+    const savedAccess = readAccessRecord(window.localStorage, LEARNER_PROFILE_ACCESS_KEY)
+    // Reconciliation cannot move progress into another owner or reset generation.
+    if (recentAccess.present && !recentAccess.record || savedAccess.present && !savedAccess.record) return
+    const recentOwner = recentAccess.record?.ownerId || null
+    const savedOwner = savedAccess.record?.ownerId || null
+    if (recentOwner !== savedOwner) return
+    if (recentOwner && (recentAccess.record.profileId !== savedAccess.record.profileId
+      || recentAccess.record.generation !== savedAccess.record.generation
+      || learnerProfileSyncViewState.status !== 'up-to-date')) return
+    originalRepository = await openIndexedDbProfile({
+      storage: window.localStorage, storageKey: STORAGE_KEY,
+      accessKey: LEARNER_PROFILE_ACCESS_KEY, isValidState: isValidStateShape,
+      eventTarget: window
+    })
+    const original = originalRepository.snapshot()
+    if (!original || !isValidStateShape(original)
+      || !profileRecoveryWorkspace.acceptsOriginalProfile(originalAccess, originalRepository.readRaw())) return
+    const epoch = profileRecoveryWorkspace.getEpoch()
+    const originalRaw = originalRepository.readRaw()
+    const current = () => profileRecoveryWorkspace.matches(epoch)
+      && window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) === originalAccess
+      && originalRepository.readRaw() === originalRaw
+      && protectedKeys.every((key, index) => window.localStorage.getItem(key) === originalMetadata[index])
+      && profileBrowserStorage.getItem(STORAGE_KEY) === recentRaw
+    if (!current()) return
+    const recent = JSON.parse(recentRaw)
+    // Signed-in progress has already gone through verified cloud replay,
+    // merge/conflict and generation fences. Accountless copies need three-way
+    // local reconciliation and a choice if there is no safe common baseline.
+    const merged = recentOwner ? recent : profileRecoveryWorkspace.merge(original, { replacementRevision: originalRepository.getReplacementRevision() })
+    if (!merged) {
+      originalRepository.close()
+      originalRepository = null
+      recoveryConflictView ||= createLocalRecoveryConflict({
+        document, translate: t,
+        choose: (side, conflict) => resolveBackgroundRecoveryChoice(side, conflict)
+      })
+      recoveryConflictView.show({ id: `local-${epoch}`, status: 'open',
+        device: { profile: recent }, cloud: { profile: original },
+        epoch, originalAccess, originalRaw, recentRaw })
+      return
+    }
+    if (!profileRecoveryWorkspace.archive(original) || !current()) return
+    originalRepository.inheritRevision(merged, original)
+    if (!await originalRepository.save(merged, { canPersist: current }) || !profileRecoveryWorkspace.matches(epoch)) return
+    // Record the acknowledged head before copying metadata. If the tab closes
+    // halfway through promotion, the next opening can safely finish it.
+    if (!profileRecoveryWorkspace.markPromotion(merged, { replacementRevision: originalRepository.getReplacementRevision() })) return
+    const recentAccessRaw = profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
+    if (recentAccessRaw !== null) window.localStorage.setItem(LEARNER_PROFILE_ACCESS_KEY, recentAccessRaw)
+    else window.localStorage.removeItem(LEARNER_PROFILE_ACCESS_KEY)
+    for (const key of [LEARNER_PROFILE_SYNC_KEY, LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
+      ACCOUNTLESS_PROFILE_MIGRATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY, CONFIG_COOKIE_KEY]) {
+      const raw = profileBrowserStorage.getItem(key)
+      if (raw !== null) window.localStorage.setItem(key, raw)
+      else window.localStorage.removeItem(key)
+    }
+    if (!profileRecoveryWorkspace.complete()) return
+    primaryProfileRepository = originalRepository
+    originalRepository.subscribe(() => {
+      if (!applicationStarted || profileRecoveryWorkspace.isActive()) return
+      channelHistoryProfileEpoch += 1
+      if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+      else renderAll(loadPersistedState({ persistCleanup: false }))
+    })
+    originalRepository = null
+    primaryProfileOpeningFailure = null
+    saveConfigCookie(merged.config)
+    await initializeStateBackupStorage()
+    recoveryConflictView?.hide()
+    if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+    else renderAll(loadPersistedState({ persistCleanup: false }))
+    reportBackgroundStorageFailure('reconcile', { code: 'storage-recovered', retryable: false })
+  } catch {
+    // A later focus/online event or timer tries again. Continue on the sidecar.
+  } finally {
+    originalRepository?.close()
+    recoveryReconciliationPending = false
+  }
+}
+
+async function resolveBackgroundRecoveryChoice(side, conflict) {
+  if (conflict.workspaceOnly) {
+    if (!['device','cloud'].includes(side) || !profileRecoveryWorkspace.matches(conflict.epoch)
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
+    if (!profileRecoveryWorkspace.archive(conflict.cloud.profile)) return false
+    profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
+      conflict.cloud.profile, { preserveBaseline: true })
+    if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+    else renderAll(loadPersistedState({ persistCleanup: false }))
+    return true
+  }
+
+  if (!['device', 'cloud'].includes(side)
+    || !profileRecoveryWorkspace.matches(conflict.epoch)
+    || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw
+    || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) return false
+  let repository
+  try {
+    repository = await openIndexedDbProfile({ storage: window.localStorage,
+      storageKey: STORAGE_KEY, accessKey: LEARNER_PROFILE_ACCESS_KEY,
+      isValidState: isValidStateShape, eventTarget: window })
+    if (repository.readRaw() !== conflict.originalRaw
+      || !profileRecoveryWorkspace.matches(conflict.epoch)) return false
+    if (!profileRecoveryWorkspace.archive(conflict.cloud.profile)) return false
+    // Persist the user's choice as a new common baseline. The unchosen copy
+    // remains in the protected archive, never in the feedback payload.
+    profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
+      conflict.cloud.profile)
+  } catch { return false } finally { repository?.close() }
+  await reconcileBackgroundProfileRecovery()
+  if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
+  else renderAll(loadPersistedState({ persistCleanup: false }))
+  return true
+}
+window.addEventListener('focus', () => { void reconcileBackgroundProfileRecovery() })
+window.addEventListener('online', () => { void reconcileBackgroundProfileRecovery() })
+window.setInterval(() => {
+  void reconcileBackgroundProfileRecovery()
+  if (navigator.onLine !== false) void automaticStorageFeedback.retryPending()
+}, 60_000)
+window.setTimeout(() => {
+  void automaticStorageFeedback.retryPending()
+  void reconcileBackgroundProfileRecovery()
+}, 1_000)
+
 stateBackupStorageInitialization = initializeBrowserStorage()
   .finally(() => { stateBackupStorageReady = true })
 document.addEventListener('DOMContentLoaded', init)

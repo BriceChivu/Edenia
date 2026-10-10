@@ -41,9 +41,17 @@ async function seed(page, count = 20) {
 async function head(page, key = 'active', fixtureDatabaseName = databaseName) {
   return page.evaluate(({ databaseName, key }) => new Promise((resolve, reject) => {
     const request = indexedDB.open(databaseName, 1)
-    request.onerror = () => reject(request.error)
+    // This reader must not accidentally create an empty database before the
+    // application gets its chance to initialize the profile schema.
+    request.onupgradeneeded = () => request.transaction.abort()
+    request.onerror = event => {
+      event.preventDefault()
+      if (request.error?.name === 'AbortError') resolve(null)
+      else reject(request.error)
+    }
     request.onsuccess = () => {
       const database = request.result
+      if (!database.objectStoreNames.contains('profiles')) { database.close(); resolve(null); return }
       const transaction = database.transaction('profiles', 'readonly')
       const read = transaction.objectStore('profiles').get(key)
       transaction.oncomplete = () => { database.close(); resolve(read.result || null) }
@@ -187,14 +195,16 @@ test('tester import escapes the shared localStorage quota and regular migration 
     })
   }
   await importFixture(page)
-  await expect(page.locator('#toast')).toContainText('Not enough browser storage')
-  expect(await page.evaluate(key => localStorage.getItem(key), testerKey)).toBe(fixture.testerRaw)
-  expect(await page.evaluate(() => getStateBackupEntries().some(entry => entry.reason === 'before sync import'))).toBe(true)
+  await expect(page.locator('#toast')).toContainText('Sync file imported')
+  await expect.poll(async () => (await head(page, 'legacy-recovery', testerDatabase))?.raw
+    || await page.evaluate(key => localStorage.getItem(key), testerKey)).toBe(fixture.testerRaw)
+  expect(await page.evaluate(() => Object.keys(loadState().videos).length)).toBe(1612)
+  // The exact displaced profile is protected in the original legacy-recovery record.
 
   enabled = true
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
-  expect((await head(page, 'legacy-recovery', testerDatabase)).raw).toBe(fixture.testerRaw)
+  await expect.poll(async () => (await head(page, 'legacy-recovery', testerDatabase))?.raw).toBe(fixture.testerRaw)
   await importFixture(page)
   await expect(page.locator('#toast')).toContainText(/imported/i)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(fixture.regularRaw)
@@ -252,7 +262,7 @@ test('large-library additions save without localStorage profile writes and survi
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1_backups'))).toBeNull()
 })
 
-test('failed additions, settings and video actions retain durable data and render the saved state', async ({ page }) => {
+test('storage-failed additions, settings and video actions continue in recovery and reconcile', async ({ page }) => {
   await seed(page)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
@@ -260,16 +270,17 @@ test('failed additions, settings and video actions retain durable data and rende
   const before = await head(page)
   await rejectWrites(page)
   await add(page)
-  await expect(page.locator('#toast')).toContainText('Could not save')
-  await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
+  expect(await page.evaluate(() => window.loadState().config.channels.length)).toBe(2)
+  await expect(page.locator('#toast')).not.toContainText('Could not save')
   await page.evaluate(() => window.toggleTheme())
-  expect(await page.evaluate(() => document.body.dataset.theme || document.documentElement.dataset.theme)).not.toBe('dark')
+  expect(await page.evaluate(() => document.body.dataset.theme || document.documentElement.dataset.theme)).toBe('dark')
   await page.evaluate(() => window.toggleVideoFavorite('fixture0000'))
   expect(await head(page)).toEqual(before)
-  expect(await page.evaluate(() => window.loadState().videos.fixture0000.favorite)).toBe(true)
-  await page.evaluate(() => window.restoreProfileWrites())
-  await add(page)
-  expect(JSON.parse((await head(page)).raw).config.channels).toHaveLength(2)
+  expect(await page.evaluate(() => window.loadState().videos.fixture0000.favorite)).toBe(false)
+  await page.evaluate(() => { window.restoreProfileWrites(); window.dispatchEvent(new Event('focus')) })
+  await expect.poll(async () => JSON.parse((await head(page)).raw).config.channels.length).toBe(2)
+  await page.reload()
+  expect(await page.evaluate(() => window.loadState().config.channels.length)).toBe(2)
 })
 
 test('failed migration writes retain the original primary and recovery backups', async ({ page }) => {
@@ -283,11 +294,22 @@ test('failed migration writes retain the original primary and recovery backups',
     }
   })
   await page.reload()
-  await expect(page.locator('#onboardingPanel.is-recovery')).toBeVisible()
+  await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
+  await expect(page.locator('#mainApp')).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(before)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1_indexed_db_v1'))).toBeNull()
   // Backups already moved safely to their own verified repository.
-  expect(await page.evaluate(() => window.getStateBackupEntries().some(entry => entry.id === 'legacy'))).toBe(true)
+  expect(await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('edenia_state_backups_v1', 1)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const db = request.result
+      const tx = db.transaction('backups', 'readonly')
+      const entries = tx.objectStore('backups').getAll()
+      tx.oncomplete = () => { db.close(); resolve(entries.result.some(entry => entry.id === 'legacy')) }
+      tx.onabort = () => reject(tx.error)
+    }
+  }))).toBe(true)
 })
 
 test('two tabs reject a stale snapshot and refresh the winner without losing study facts', async ({ page, context }) => {
@@ -331,7 +353,7 @@ test('overlapping same-tab updates preserve an independent preference and the ad
   expect(saved.videos.fixture0000.resumeAtSeconds).toBe(90)
 })
 
-test('failed refreshes and preference changes never render or retain unsaved mutations', async ({ page }) => {
+test('storage-failed refreshes and preference changes retain their new progress in recovery', async ({ page }) => {
   await seed(page)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
@@ -341,27 +363,24 @@ test('failed refreshes and preference changes never render or retain unsaved mut
   await page.evaluate(() => window.openSettings())
   await page.evaluate(() => { document.getElementById('settingsAnkiEnabled').checked = true })
   await page.evaluate(() => window.saveSettingsOnTheFly())
-  expect(await page.locator('#settingsAnkiEnabled').isChecked()).toBe(false)
+  expect(await page.locator('#settingsAnkiEnabled').isChecked()).toBe(true)
   await page.evaluate(() => window.closeSettings())
-  const failed = await page.evaluate(async channelId => {
+  const result = await page.evaluate(async channelId => {
     window.EDENIA_CONFIG.youtubeApiKey = 'synthetic-key'
     return await window.refreshFeed({ silent: true, channelIds: [channelId] })
   }, channelId)
-  expect(failed.ok).toBe(false)
+  expect(result.ok).toBe(true)
   expect(await head(page)).toEqual(before)
-  await expect(page.locator('#toast')).toContainText('Could not save')
-  await page.evaluate(() => window.restoreProfileWrites())
-  const succeeded = await page.evaluate(channelId => window.refreshFeed({ silent: true, channelIds: [channelId] }), channelId)
-  expect(succeeded.ok).toBe(true)
-  const saved = JSON.parse((await head(page)).raw)
+  await expect(page.locator('#toast')).not.toContainText('Could not save')
+  const saved = await page.evaluate(() => window.loadState())
   expect(saved.videos.fixture0001.title).toBe('Fixture Study Video')
   expect(saved.videos.fixture0000.watchProgress).toEqual(JSON.parse(before.raw).videos.fixture0000.watchProgress)
   expect(saved.videos.fixture0000.favorite).toBe(true)
-  await page.locator('#videoGrid').scrollIntoViewIfNeeded()
-  await expect(page.locator('#videoGrid')).toContainText('Fixture Study Video')
+  await page.evaluate(() => { window.restoreProfileWrites(); window.dispatchEvent(new Event('focus')) })
+  await expect.poll(async () => JSON.parse((await head(page)).raw).videos.fixture0001.title).toBe('Fixture Study Video')
 })
 
-test('failed locale, history and channel-format preferences keep the saved view', async ({ page }) => {
+test('storage-failed locale, history and channel-format preferences continue in recovery', async ({ page }) => {
   await seed(page)
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
@@ -380,16 +399,16 @@ test('failed locale, history and channel-format preferences keep the saved view'
   await page.evaluate(() => window.changeIntroLocale('fr'))
   await page.evaluate(() => window.changeOnboardingLocale('fr'))
   await page.evaluate(() => window.saveLocaleFromSettings('fr'))
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
   await page.evaluate(() => window.setHistoryView('heatmap'))
   await page.evaluate(channelId => window.selectChannelVideoFormat(
     document.querySelector('.channel-shelf-format-option[data-channel-video-format="shorts"]'), channelId, 'shorts'
   ), channelId)
-  await expect(shelf).toHaveAttribute('data-channel-selected-video-format', 'videos')
+  await expect(shelf).toHaveAttribute('data-channel-selected-video-format', 'shorts')
   expect(await head(page)).toEqual(before)
 })
 
-test('failed Undo and Redo wait for durable completion and retain saved visibility and history', async ({ page }) => {
+test('Undo and Redo continue in the recovery workspace and preserve the original until promotion', async ({ page }) => {
   await seed(page)
   await page.reload()
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
@@ -397,16 +416,15 @@ test('failed Undo and Redo wait for durable completion and retain saved visibili
   const removed = await head(page)
   await rejectWrites(page)
   await page.evaluate(() => window.undoLastVideoAction())
+  await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
+  expect(await head(page)).toEqual(removed)
+  await page.evaluate(() => window.redoLastVideoAction())
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(0)
   expect(await head(page)).toEqual(removed)
-  await page.evaluate(() => window.restoreProfileWrites())
-  await page.evaluate(() => window.undoLastVideoAction())
-  await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
-  const restored = await head(page)
-  await rejectWrites(page)
-  await page.evaluate(() => window.redoLastVideoAction())
-  await expect(page.locator('.channel-shelf-remove')).toHaveCount(1)
-  expect(await head(page)).toEqual(restored)
+  await page.evaluate(() => { window.restoreProfileWrites(); window.dispatchEvent(new Event('focus')) })
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_recovery_workspace_v1')).status)).toBe('archived')
+  await page.reload()
+  await expect(page.locator('.channel-shelf-remove')).toHaveCount(0)
 })
 
 test('portable export and verified import use the durable profile and survive reload', async ({ page }) => {

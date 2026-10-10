@@ -20,8 +20,16 @@ test('temporary failures offer one real storage check and then an actionable ter
 })
 test('diagnostics exclude exception payloads, URLs, credentials and identifiers', () => {
   const report = createStorageRecoveryReport({ failure: describeProfileStorageFailure(new Error('SECRET PROFILE')), checked: true, mode: 'auth-trial', release: 'https://secret/token' })
-  assert.deepEqual(JSON.parse(report), { diagnostic: 'edenia-storage-recovery-v1', code: 'storage-unavailable', storageCheckedAgain: true, mode: 'auth-trial', release: null })
+  assert.deepEqual(JSON.parse(report), { diagnostic: 'edenia-storage-recovery-v1', code: 'storage-unavailable', storageCheckedAgain: true, mode: 'auth-trial', release: null, error: { name: 'Error', message: null }, storageState: { migrationMarker: null, accessMetadataPresent: false, cloudOperationPresent: false }, operation: null, recovery: null, capabilities: { indexedDb: false, secureContext: false, online: true, browser: null, platform: null } })
   assert.ok(!report.includes('SECRET'))
+})
+test('diagnostics retain known storage errors while discarding arbitrary exception text', () => {
+  for (const message of ['Profile database opening blocked', 'Profile transaction failed', 'IndexedDB backup store is missing']) {
+    const report = JSON.parse(createStorageRecoveryReport({ failure: describeProfileStorageFailure(new Error(message)) }))
+    assert.equal(report.error.message, message)
+  }
+  const report = JSON.parse(createStorageRecoveryReport({ failure: describeProfileStorageFailure(new Error('Profile database opening blocked PRIVATE TOKEN')) }))
+  assert.equal(report.error.message, null)
 })
 test('each locale explains preservation, synced-copy recovery and manual clipboard fallback', () => {
   for (const [locale, dictionary] of Object.entries(I18N)) {

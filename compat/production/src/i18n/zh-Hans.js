@@ -1,6 +1,13 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANS_LOCALIZED = {
+  "progressRecovery.conflict": "你的进度有两个版本，部分变更无法合并。请选择要继续使用的版本。两份副本都会保留。",
+  "progressRecovery.recent": "最近的进度",
+  "progressRecovery.saved": "已保存的进度",
+  "progressRecovery.chooseRecent": "使用最近的进度",
+  "progressRecovery.chooseSaved": "使用已保存的进度",
+  "progressRecovery.confirmRecent": "要继续使用最近的进度吗？两份副本都会保留。",
+  "progressRecovery.confirmSaved": "要继续使用已保存的进度吗？两份副本都会保留。",
   "townEconomy.coins": "{count} 枚金币",
   "townEconomy.flower": "第一片花圃",
   "townEconomy.build": "建造 · {count} 枚金币",

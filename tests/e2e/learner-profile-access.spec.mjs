@@ -83,6 +83,7 @@ const GUARDED_AUTHENTICATION_COPY = Object.freeze({
 function runtimeConfig({
   accountFeaturesRollout = 'off',
   googleIdentityClientId = '',
+  indexedDbProfileEnabled = false,
   lifecycle = false,
   turnstileSiteKey = '',
   youtubeApiKey = ''
@@ -94,6 +95,7 @@ function runtimeConfig({
     googleSignInMode: googleIdentityClientId ? 'id_token' : 'off',
     indexedDbBackupCleanupEnabled: false,
     indexedDbBackupsEnabled: false,
+    indexedDbProfileEnabled,
     learnerProfileLifecycleEnabled: lifecycle,
     plusCheckoutEnabled: false,
     studyGuidanceEnabled: false,
@@ -2960,3 +2962,79 @@ test('temporary Auth failure keeps the active profile until existing verificatio
   expect(pageDiagnostics.every(message => message === 'console: Failed to load resource: the server responded with a status of 503 (Service Unavailable)')).toBe(true)
   pageDiagnostics.length = 0
 })
+
+
+for (const operation of ['open','save']) {
+test(`signed-in storage ${operation} failure opens the verified cloud profile through background recovery`, async ({ page }) => {
+  let enabled = false
+  let envelope
+  const session = restoredSession(OWNER_ID)
+  await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript',
+    body: runtimeConfig({ accountFeaturesRollout: enabled ? 'public' : 'off', lifecycle: enabled, indexedDbProfileEnabled: true }) }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/auth/v1/user')) return route.fulfill({ json: session.user })
+    if (path.endsWith('/rpc/resolve_my_learner_profile')) return route.fulfill({ json: [{
+      created: false, envelope, generation: 1, profile_id: OWNER_PROFILE_ID, revision: 3, status: 'profile_ready'
+    }] })
+    return route.fulfill({ json: path.endsWith('read_my_latest_learner_profile_reset') ? [{ status: 'none' }] : {} })
+  })
+  await page.goto('/')
+  const state = await page.evaluate(() => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const time = '2026-09-04T12:00:00.000Z'
+    Object.assign(state.onboarding, { introSeenAt: time, setupCompleted: true,
+      setupCompletedAt: time, walkthroughCompleted: true, walkthroughCompletedAt: time })
+    state.config.ankiEnabled = false
+    state.learnerProfile.languages = ['french']
+    return state
+  })
+  envelope = (await createPortableLearnerProfileEnvelope(state)).envelope
+  await page.evaluate(async ({ session, key, operation }) => {
+    localStorage.setItem(key, JSON.stringify(session))
+    localStorage.setItem('edenia_v1_indexed_db_v1', operation === 'open' ? '1' : 'empty')
+    localStorage.removeItem('edenia_v1')
+    if (operation === 'open') localStorage.setItem('edenia_v1_learner_profile_access_v1', JSON.stringify({
+      version: 1, ownerId: session.user.id, profileId: '323e4567-e89b-42d3-a456-426614174002',
+      activationId: null, activatedAt: Date.now(), generation: 1, revision: 2
+    }))
+    if (operation === 'save') {
+      localStorage.removeItem('edenia_v1_learner_profile_access_v1')
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.open('edenia_v1_profiles_indexed_db_v1',1)
+        request.onsuccess = () => {
+          const db = request.result
+          const tx = db.transaction('profiles','readwrite')
+          tx.objectStore('profiles').clear()
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onabort = () => reject(tx.error)
+        }
+        request.onerror = () => reject(request.error)
+      })
+    }
+  }, { session, key: AUTH_STORAGE_KEY, operation })
+  await page.addInitScript(operation => {
+    const open = IDBFactory.prototype.open
+    IDBFactory.prototype.open = function (name, ...args) {
+      if (operation === 'open' && name === 'edenia_v1_profiles_indexed_db_v1') throw new DOMException('fixture denied', 'SecurityError')
+      return open.call(this, name, ...args)
+    }
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (...args) {
+      if (operation === 'save' && this.name === 'profiles') throw new DOMException('fixture denied', 'SecurityError')
+      return put.apply(this,args)
+    }
+  }, operation)
+  enabled = true
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state','active')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
+  expect(await page.evaluate(() => loadState().learnerProfile.languages)).toEqual(['french'])
+  const record = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_recovery_workspace_v1')))
+  expect(JSON.parse(record.values[PROFILE_ACCESS_STORAGE_KEY]).ownerId).toBe(OWNER_ID)
+  expect(JSON.parse(record.values[PROFILE_ACCESS_STORAGE_KEY]).generation).toBe(1)
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).user.id, AUTH_STORAGE_KEY)).toBe(OWNER_ID)
+})
+
+}

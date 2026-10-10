@@ -66,6 +66,7 @@ export function createStateStore({
 
     const persisted = persistenceError === null
     if (persisted) {
+      storage.recordReplacement?.()
       onPersisted(state, { replacement: true })
       saveConfigCookie(state.config)
       if (syncAnalytics) syncPersistedStateToAnalytics(state)

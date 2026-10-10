@@ -1,6 +1,13 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "progressRecovery.conflict": "Tu progreso tiene dos versiones con cambios incompatibles. Elige con cuál continuar. Se conservarán ambas copias.",
+  "progressRecovery.recent": "Progreso reciente",
+  "progressRecovery.saved": "Progreso guardado",
+  "progressRecovery.chooseRecent": "Usar progreso reciente",
+  "progressRecovery.chooseSaved": "Usar progreso guardado",
+  "progressRecovery.confirmRecent": "¿Continuar con el progreso reciente? Se conservarán ambas copias.",
+  "progressRecovery.confirmSaved": "¿Continuar con el progreso guardado? Se conservarán ambas copias.",
   "townEconomy.coins": "{count} monedas",
   "townEconomy.flower": "Primer macizo de flores",
   "townEconomy.build": "Construir · {count} monedas",

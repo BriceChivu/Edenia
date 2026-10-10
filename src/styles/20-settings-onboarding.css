@@ -1712,3 +1712,17 @@ body[data-theme="dark"] .activity-log-panel {
   top: max(18px, env(safe-area-inset-top));
   z-index: 5;
 }
+
+.profile-recovery-conflict {
+  margin: auto;
+  width: min(900px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(16px, 3vw, 32px);
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--text);
+  border-radius: 20px;
+}
+.profile-recovery-conflict::backdrop { background: rgb(0 0 0 / 45%); }
+.profile-recovery-conflict .learner-profile-conflict { margin-top: 0; }

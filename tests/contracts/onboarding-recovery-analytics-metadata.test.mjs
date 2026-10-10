@@ -106,7 +106,7 @@ test('generated recovery controls retain exact markup and explicit identities', 
 test('recovery rendering replaces content and restores the exact shell state', () => {
   assert.match(
     recoverySource,
-    /const normalizedReason = reason === 'storage' \? 'storage' : 'setup'/
+    /const normalizedReason = 'setup'/
   )
   assert.match(
     recoverySource,

@@ -1,6 +1,13 @@
 import { EN_CORE } from './en.js'
 
 export const FR_LOCALIZED = {
+  "progressRecovery.conflict": "Deux versions de ta progression contiennent des modifications incompatibles. Choisis celle à utiliser. Les deux copies seront conservées.",
+  "progressRecovery.recent": "Progression récente",
+  "progressRecovery.saved": "Progression enregistrée",
+  "progressRecovery.chooseRecent": "Utiliser la progression récente",
+  "progressRecovery.chooseSaved": "Utiliser la progression enregistrée",
+  "progressRecovery.confirmRecent": "Continuer avec la progression récente ? Les deux copies seront conservées.",
+  "progressRecovery.confirmSaved": "Continuer avec la progression enregistrée ? Les deux copies seront conservées.",
   "townEconomy.coins": "{count} pièces",
   "townEconomy.flower": "Premier massif de fleurs",
   "townEconomy.build": "Construire · {count} pièces",

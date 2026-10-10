@@ -1,6 +1,13 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANT_LOCALIZED = {
+  "progressRecovery.conflict": "你的進度有兩個版本，部分變更無法合併。請選擇要繼續使用的版本。兩份副本都會保留。",
+  "progressRecovery.recent": "最近的進度",
+  "progressRecovery.saved": "已儲存的進度",
+  "progressRecovery.chooseRecent": "使用最近的進度",
+  "progressRecovery.chooseSaved": "使用已儲存的進度",
+  "progressRecovery.confirmRecent": "要繼續使用最近的進度嗎？兩份副本都會保留。",
+  "progressRecovery.confirmSaved": "要繼續使用已儲存的進度嗎？兩份副本都會保留。",
   "authTrial.unavailable.title": "登入測試暫不可用",
   "authTrial.unavailable.body": "此登入測試已暫停。你儲存的進度仍會保留。",
   "islandAnnouncement.eyebrow": "Edenia 的新篇章",
