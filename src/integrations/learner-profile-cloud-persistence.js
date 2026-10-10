@@ -316,6 +316,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   importEnvelope,
   isOnline,
   now,
+  minimumWriteIntervalMs = 30_000,
   prepareEnvelope,
   readOnboardingState,
   setTimer,
@@ -346,6 +347,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   }
   let activeBinding = null
   let cloudHeadKnown = false
+  let nextAutomaticWriteAt = 0
   let inFlight = false
   let retryTimer = null
   let started = false
@@ -1300,13 +1302,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
   }
 
   function queueProfile(profile, record, activationId) {
+    const latest = record.queued || record.pending
+    if (minimumWriteIntervalMs > 0 && latest
+      && canonicalProfilesMatch(profile, latest.envelope || latest.prepared, prepareEnvelope)) {
+      return clearDirtyRecord(record)
+    }
     let operation
     try {
       operation = createOperation(profile, record, activationId)
     } catch {
       return false
     }
-    if (record.pending) record.queued = operation
+    operation.nextRetryAt = Math.max(0, nextAutomaticWriteAt)
+    if (minimumWriteIntervalMs > 0 && record.pending && !inFlight
+      && record.pending.envelope === null && record.pending.retryCount === 0
+      && record.queued === null) {
+      operation.baseRevision = record.pending.baseRevision
+      operation.revision = record.pending.revision
+      record.pending = operation
+    } else if (record.pending) record.queued = operation
     else record.pending = operation
     if (!writeSyncRecord(record)) return false
     return clearDirtyRecord(record)
@@ -2142,6 +2156,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     inFlight = true
+    nextAutomaticWriteAt = now() + Math.max(0, minimumWriteIntervalMs)
     let comparisonPending = false
     publish('syncing')
     let envelope
@@ -2200,6 +2215,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
           } else {
             binding.revision = current.acceptedRevision
             binding.checkpointStudyDigest = studyProfileDigest(envelope.profile)
+            if (minimumWriteIntervalMs > 0) {
+              binding.acceptedProfileDigest = profileDigest(envelope.profile)
+            }
             if (
               current.pending === null
               && !clearDirtyRecord(current)
@@ -3673,6 +3691,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'needs-attention' }
     }
 
+    if (minimumWriteIntervalMs > 0 && !record.pending && !record.queued
+      && activeBinding.acceptedProfileDigest) {
+      try {
+        if (profileDigest(profile) === activeBinding.acceptedProfileDigest
+          && clearDirtyRecord(record)) {
+          publish('up-to-date')
+          return { status: 'queued' }
+        }
+      } catch { /* Preparation errors use the normal durable-save failure path. */ }
+    }
     if (!queueProfile(profile, record, activation.id)) {
       publish('not-backed-up')
       return { status: 'not-backed-up' }
@@ -3689,7 +3717,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return false
     }
     record.pending.nextRetryAt = 0
-    if (restartBackoff) record.pending.retryCount = 0
+    if (restartBackoff) {
+      record.pending.retryCount = 0
+      if (record.queued) record.queued.nextRetryAt = 0
+    }
     if (!writeSyncRecord(record)) {
       publish('needs-attention')
       return false

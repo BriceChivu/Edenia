@@ -1,5 +1,7 @@
 import { getTownBalance, FIRST_FLOWER_ID } from '../../state/town-economy.js'
 import { canonicalizeJson } from '../../state/portable-state.js'
+import { normalizeVideoWatchProgress } from '../../domain/video-watch-progress.js'
+import { historyExperience } from '../../domain/experience.js'
 
 const COMPARISON_GROUPS = Object.freeze([
   ['update-study-time', summarizeUpdateAndStudyTime],
@@ -80,21 +82,68 @@ function summarizeLanguageAndLevel(profile) {
 function summarizeTownAndStudyProgress(profile) {
   let studyFacts = 0
   let watchedVideos = 0
+  let experienceSeconds = 0
+  let experienceReviews = 0
   for (const video of videoEntries(profile)) {
     const progress = Array.isArray(video?.watchProgress)
       ? video.watchProgress
       : []
     studyFacts += progress.length
+    experienceSeconds += normalizeVideoWatchProgress(progress, video.duration)
+      .reduce((sum, entry) => sum + (entry.experienceSeconds || 0), 0)
     if (video?.status === 'watched') watchedVideos += 1
   }
   studyFacts += ankiEntries(profile).filter(([, entry]) => (
     positiveInteger(entry?.reviewed) || positiveInteger(entry?.created)
   )).length
+  for (const [, entry] of ankiEntries(profile)) {
+    if (positiveInteger(entry?.reviewed) || positiveInteger(entry?.created)) {
+      experienceReviews += positiveInteger(entry?.experienceReviews)
+    }
+  }
   return {
     cityLevel: positiveInteger(profile?.cityProgress?.maxLevelIndex) + 1,
     studyFacts,
+    totalXp: historyExperience({ experienceSeconds, experienceReviews }),
     watchedVideos
   }
+}
+
+function latestStudyActivity(profile) {
+  const dates = []
+  for (const video of videoEntries(profile)) {
+    for (const entry of normalizeVideoWatchProgress(video.watchProgress, video.duration)) {
+      dates.push(Date.parse(entry.watchedAt))
+    }
+  }
+  for (const [, entry] of ankiEntries(profile)) {
+    if ((positiveInteger(entry?.reviewed) || positiveInteger(entry?.created))
+      && Number.isFinite(Date.parse(entry.observedAt))) dates.push(Date.parse(entry.observedAt))
+  }
+  return dates.length ? dates.reduce((latest,date) => Math.max(latest,date),0) : null
+}
+
+// Presentation cue only; counts never establish that one profile contains every
+// unique fact or island edit on the other side. Choice remains explicit.
+export function getLearnerProfileConflictPreference(deviceProfile, cloudProfile) {
+  const evidence = profile => {
+    const time = summarizeUpdateAndStudyTime(profile)
+    const study = summarizeTownAndStudyProgress(profile)
+    const anki = summarizeAnkiTotals(profile)
+    return {
+      values: [time.studySeconds, time.studyDays, study.studyFacts,
+        study.watchedVideos, study.totalXp, anki.reviewed, anki.created],
+      activity: latestStudyActivity(profile)
+    }
+  }
+  const device = evidence(deviceProfile)
+  const cloud = evidence(cloudProfile)
+  const dominates = (left,right) => left.values.every((value,index) => value >= right.values[index]) && left.values.some((value,index) => value > right.values[index])
+  const bothDates = device.activity !== null && cloud.activity !== null
+  if (dominates(device,cloud)) return bothDates && cloud.activity > device.activity ? null : 'device'
+  if (dominates(cloud,device)) return bothDates && device.activity > cloud.activity ? null : 'cloud'
+  if (bothDates && device.values.every((value,index) => value === cloud.values[index]) && device.activity !== cloud.activity) return device.activity > cloud.activity ? 'device' : 'cloud'
+  return null
 }
 
 function summarizeRecentActivity(profile) {

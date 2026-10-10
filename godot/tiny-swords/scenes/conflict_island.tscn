@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/level_two_preview.tscn" id="Base"]
+[ext_resource type="Script" path="res://scripts/conflict_island.gd" id="Capture"]
+
+[node name="ConflictIsland" instance=ExtResource("Base")]
+script = ExtResource("Capture")

@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises'
-import { strFromU8, unzipSync } from 'fflate'
 import { expect, test } from '../support/network-fixture.mjs'
 import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
@@ -77,8 +76,8 @@ async function useAccountReturnOrigin(page) {
   await page.route(`${ACCOUNT_RETURN_ORIGIN}/**`, async route => {
     const requested = new URL(route.request().url())
     const served = new URL(
-      `${requested.pathname}${requested.search}`,
-      `${SERVED_ORIGIN}/`
+      `${requested.pathname.slice(1)}${requested.search}`,
+      `${SERVED_ORIGIN}${process.env.EDENIA_TEST_BASE_PATH || '/'}`
     )
     const response = await route.fetch({ url: served.href })
     await route.fulfill({ response })
@@ -90,6 +89,8 @@ async function createConflictEnvelope({
   channelName,
   language,
   level,
+  island = null,
+  currentXp = false,
   locale,
   maxLevelIndex,
   reviewed,
@@ -111,7 +112,8 @@ async function createConflictEnvelope({
       '2026-08-21': {
         created: Math.floor(reviewed / 4),
         observedAt: updatedAt,
-        reviewed
+        reviewed,
+        ...(currentXp ? { experienceReviews: reviewed } : {})
       }
     },
     cityProgress: { maxLevelIndex },
@@ -155,7 +157,8 @@ async function createConflictEnvelope({
         ? '2026-08-20T00:00:00.000Z'
         : null
     },
-    videos: {}
+    videos: {},
+    ...(island ? { tinySwordsIsland: island } : {})
   }, { now: () => new Date(updatedAt) })
   return envelope
 }
@@ -170,11 +173,17 @@ async function prepareConflictPage(page, {
   expiredChoice = false,
   queuedLatest = false,
   previousExpired = true,
-  previousResolved = false
+  previousResolved = false,
+  withIslands = false
 } = {}) {
   // Keep the mocked protected-copy deadline valid regardless of the CI date.
   await page.clock.setFixedTime(new Date('2026-08-25T12:00:00.000Z'))
+  const island = withIslands ? JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8')) : null
+  const cloudIsland = structuredClone(island)
+  if (cloudIsland) cloudIsland.decorations = []
   const deviceEnvelope = await createConflictEnvelope({
+    currentXp: trial,
+    island,
     channelId: 'device-channel',
     channelName: 'Device channel',
     language: 'spanish',
@@ -185,6 +194,8 @@ async function prepareConflictPage(page, {
     updatedAt: '2026-08-21T09:15:00.000Z'
   })
   const cloudEnvelope = identicalProfiles ? structuredClone(deviceEnvelope) : await createConflictEnvelope({
+    currentXp: trial,
+    island: cloudIsland,
     channelId: 'cloud-channel',
     channelName: 'Cloud channel',
     language: 'french',
@@ -445,7 +456,7 @@ test('equal conflict profiles explain the empty comparison', async ({ page }, te
   await page.screenshot({ path: testInfo.outputPath('equal-conflict-explanation.png') })
 })
 
-test('divergent profiles require exportable, confirmed choices at every width', async ({
+test('divergent profiles require confirmed choices at every width', async ({
   page
 }, testInfo) => {
   test.skip(![
@@ -471,15 +482,13 @@ test('divergent profiles require exportable, confirmed choices at every width', 
   const gate = page.locator('#learnerProfileAccessGate')
   await expect(gate).toBeVisible()
   await expect(page.locator('#mainApp')).toBeHidden()
-  await expect(page.getByRole('heading', { name: 'Compare your profiles' }))
+  await expect(page.locator('#learnerProfileConflictTitle'))
     .toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'This device' }))
     .toBeAttached()
   await expect(page.getByRole('columnheader', { name: 'Cloud' })).toBeAttached()
-  await expect(page.getByText(
-    'Edenia does not recommend a version because it is newer.',
-    { exact: false }
-  )).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictTitle')).toHaveText('Your device version differs from the Cloud version. Choose which one to use.')
+  await expect(page.locator('#learnerProfileAccessRetry')).toBeHidden()
   await expect(page.getByRole('button', { name: /Combine/i })).toHaveCount(0)
   await expect(page.getByRole('row')).toHaveCount(7)
   const geometry = await gate.evaluate(element => ({
@@ -490,14 +499,9 @@ test('divergent profiles require exportable, confirmed choices at every width', 
   expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
   expect(geometry.cardWidth).toBeLessThanOrEqual(geometry.viewportWidth)
 
+  await expect(page.getByRole('button', { name: 'Export both' })).toHaveCount(0)
   const downloads = []
   page.on('download', download => downloads.push(download.suggestedFilename()))
-  await page.getByRole('button', { name: 'Export both' }).click()
-  await expect.poll(() => downloads.length).toBe(2)
-  expect(downloads).toEqual(expect.arrayContaining([
-    expect.stringContaining('this-device'),
-    expect.stringContaining('cloud')
-  ]))
 
   await page.getByRole('button', {
     name: selectedSide === 'device' ? 'Use This device' : 'Use Cloud'
@@ -561,7 +565,7 @@ test('divergent profiles require exportable, confirmed choices at every width', 
   await page.locator(
     '[data-profile-conflict-action="export-protected"]'
   ).click()
-  await expect.poll(() => downloads.length).toBe(3)
+  await expect.poll(() => downloads.length).toBe(1)
   expect(downloads.at(-1)).toContain(unchosenSide === 'device'
     ? 'this-device'
     : 'cloud')
@@ -571,7 +575,7 @@ test('divergent profiles require exportable, confirmed choices at every width', 
   await page.locator(
     '[data-profile-conflict-action="export-protected"]'
   ).click()
-  await expect.poll(() => downloads.length).toBe(4)
+  await expect.poll(() => downloads.length).toBe(2)
   await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
 })
 
@@ -741,13 +745,13 @@ for (const { queuedLatest, previousExpired, previousResolved = false } of [
   { queuedLatest: true, previousExpired: false },
   { queuedLatest: true, previousExpired: false, previousResolved: true }
 ]) {
-test(`trial reopens a lost-choice acknowledgment as an exportable fresh comparison (queued ${queuedLatest}, expired ${previousExpired}, resolved ${previousResolved})`, async ({ page }, testInfo) => {
+test(`trial reopens a lost-choice acknowledgment as a fresh comparison (queued ${queuedLatest}, expired ${previousExpired}, resolved ${previousResolved})`, async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   const { commitRequests, choiceRequests, deviceEnvelope } = await prepareConflictPage(page, {
     trial: true, expiredChoice: true, queuedLatest, previousExpired, previousResolved
   })
-  await expect(page.getByRole('heading', { name: 'Compare your profiles' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Export both', exact: true })).toBeEnabled()
+  await expect(page.locator('#learnerProfileConflictTitle')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Export both', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Use Cloud', exact: true })).toBeVisible()
   await expect(page.locator('#mainApp')).toBeHidden()
   expect(choiceRequests).toEqual([])
@@ -763,17 +767,16 @@ test(`trial reopens a lost-choice acknowledgment as an exportable fresh comparis
 }
 
 
-test('trial comparison exports one complete archive and retains individual protected downloads', async ({ page }, testInfo) => {
+test('trial comparison keeps saves untouched until confirmation and retains protected downloads', async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'tablet-portrait', 'phone-small'].includes(testInfo.project.name))
   const { choiceRequests } = await prepareConflictPage(page, { trial: true, acceptPostChoiceCommits: true, preserveStateOnReload: true })
   const gate = page.locator('#learnerProfileAccessGate')
-  await expect(page.getByRole('heading', { name: 'Compare your profiles', exact: true })).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictTitle')).toBeVisible()
   const candidates = await page.evaluate(() => {
     const conflict = learnerProfileLifecycleAuthority.getState().conflict
     return { device: conflict.device.profile, cloud: conflict.cloud.profile }
   })
   const deviceProfile = preparePortableLearnerProfileEnvelope(candidates.device).profile
-  const cloudProfile = preparePortableLearnerProfileEnvelope(candidates.cloud).profile
   const syncBefore = await page.evaluate(() => {
     const key = 'edenia_v1_auth_trial_v1_learner_profile_sync_v1'
     const raw = localStorage.getItem(key)
@@ -781,29 +784,11 @@ test('trial comparison exports one complete archive and retains individual prote
     localStorage.setItem(key + '_dirty', JSON.stringify({ ownerId, profileId, generation, version: 1 }))
     return raw
   })
-  const downloads = []
-  page.on('download', download => downloads.push(download.suggestedFilename()))
-  const archiveDownload = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export both' }).click()
-  const archive = await archiveDownload
-  await expect.poll(() => downloads.length).toBe(1)
-  expect(archive.suggestedFilename()).toMatch(/^edenia-sync-both-.*\.zip$/)
-  const files = unzipSync(new Uint8Array(await readFile(await archive.path())))
-  expect(Object.keys(files)).toHaveLength(2)
-  for (const [side, expected] of [['this-device', deviceProfile], ['cloud', cloudProfile]]) {
-    const filename = Object.keys(files).find(name => name.includes(side))
-    const envelope = await verifyPortableLearnerProfileEnvelope(strFromU8(files[filename]))
-    expect(envelope?.profile).toEqual(expected)
-  }
+  await expect(page.getByRole('button', { name: /^Export/ })).toHaveCount(0)
   expect(choiceRequests).toHaveLength(0)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'))).toBe(syncBefore)
   await expect(gate).toBeVisible()
   await expect(page.locator('#mainApp')).toBeHidden()
-  const deviceDownload = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export This device', exact: true }).click()
-  const device = await deviceDownload
-  expect(device.suggestedFilename()).toMatch(/this-device.*\.json$/)
-  expect((await verifyPortableLearnerProfileEnvelope(await readFile(await device.path(), 'utf8')))?.profile).toEqual(deviceProfile)
   await page.getByRole('button', { name: 'Use Cloud', exact: true }).click()
   await page.getByRole('button', { name: 'Confirm this choice' }).click()
   await expect(page.locator('#mainApp')).toBeVisible()
@@ -819,4 +804,39 @@ test('trial comparison exports one complete archive and retains individual prote
   expect(retainedDevice.suggestedFilename()).toMatch(/this-device.*\.json$/)
   expect((await verifyPortableLearnerProfileEnvelope(await readFile(await retainedDevice.path(), 'utf8')))?.profile).toEqual(deviceProfile)
   expect(choiceRequests).toHaveLength(1)
+})
+
+
+test('real Godot conflict previews render both exact saves without modifying them', async ({ page }, testInfo) => {
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' || !['desktop-standard', 'phone-standard', 'phone-small'].includes(testInfo.project.name))
+  test.setTimeout(90000)
+  const { choiceRequests } = await prepareConflictPage(page, { trial: true, withIslands: true })
+  await expect(page.locator('#learnerProfileConflict')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'))?.pending?.revision)).toBe(13)
+  const before = await page.evaluate(() => ({
+    saved: localStorage.getItem('edenia_v1_auth_trial_v1'),
+    sync: localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'),
+    conflict: structuredClone(learnerProfileLifecycleAuthority.getState().conflict)
+  }))
+  const images = page.locator('#learnerProfileConflictIslands img')
+  await expect(images).toHaveCount(2)
+  await expect(images.nth(0)).toBeVisible({ timeout: 60000 })
+  await expect(images.nth(1)).toBeVisible({ timeout: 60000 })
+  await expect.poll(() => images.evaluateAll(nodes => nodes.every(img => img.complete && img.naturalWidth === 800 && img.naturalHeight === 480))).toBe(true)
+  expect(await images.evaluateAll(nodes => nodes[0].src !== nodes[1].src)).toBe(true)
+  await expect(page.locator('iframe[title="Saved island preview renderer"]')).toHaveCount(0)
+  await expect(page.locator('#learnerProfileConflictRows')).toContainText('24 total current XP')
+  await expect(page.locator('#learnerProfileConflictRows')).toContainText('8 total current XP')
+  await page.locator('#learnerProfileConflictEnlarge').click()
+  await expect(page.locator('#learnerProfileConflictEnlarge')).toHaveAttribute('aria-expanded', 'true')
+  expect(await page.evaluate(() => ({
+    saved: localStorage.getItem('edenia_v1_auth_trial_v1'),
+    sync: localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'),
+    conflict: structuredClone(learnerProfileLifecycleAuthority.getState().conflict)
+  }))).toEqual(before)
+  expect(choiceRequests).toHaveLength(0)
+  await page.locator('#learnerProfileConflictEnlarge').click()
+  await page.locator('#learnerProfileAccessGate').evaluate(node => { node.scrollTop = 0 })
+  expect(await page.locator('#learnerProfileConflictTitle').evaluate(node => node.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0)
+  await page.screenshot({ path: testInfo.outputPath('saved-island-comparison.png'), fullPage: true })
 })
