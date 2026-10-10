@@ -565,7 +565,13 @@ test('a local persistence failure rolls the protected cloud import back', async 
   await page.locator('[data-settings-shell-action="open"]').click()
   await selectImportFile(page, importedEnvelope, 'write-failure.json')
   await page.evaluate(() => {
-    window.__failImportedProfileWrite = true
+    // Reject the final provider, including its recovery facade, so this still
+    // covers protected cloud-import rollback rather than successful recovery.
+    const original = profileBrowserStorage.setItem
+    profileBrowserStorage.setItem = function(key, value) {
+      if (key === 'edenia_v1' && value.includes('"source-entry-499"')) throw new DOMException('Forced final write rejection', 'QuotaExceededError')
+      return original.call(this, key, value)
+    }
   })
   await page.getByRole('button', {
     name: 'Protect current progress and replace'

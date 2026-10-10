@@ -887,6 +887,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     await expect(page.locator('#introTrailer')).toBeHidden()
     await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
     await expect(page.locator('#onboardingPanel')).toBeVisible()
+    expect(await page.evaluate(() => profileRecoveryWorkspace.isActive())).toBe(false)
   }
   const restored = await page.evaluate(({ accessKey, stateKey }) => ({
     access: JSON.parse(localStorage.getItem(accessKey)),

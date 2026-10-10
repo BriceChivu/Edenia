@@ -30,15 +30,15 @@ test('removal menu returns focus on failure, retry and the last-card empty state
   const remove = page.locator('#videoActionsList [data-video-organization-action="remove-feed"]')
   await expect(remove).toBeFocused()
   await page.evaluate(() => {
-    window.__setItem = Storage.prototype.setItem
-    Storage.prototype.setItem = function(key, value) {
+    window.__setItem = profileBrowserStorage.setItem
+    profileBrowserStorage.setItem = function(key, value) {
       if (key === 'edenia_v1') throw new DOMException('Full', 'QuotaExceededError')
       return window.__setItem.call(this, key, value)
     }
   })
   await remove.press('Enter')
   await expect(card.locator('.more-btn')).toBeFocused()
-  await page.evaluate(() => { Storage.prototype.setItem = window.__setItem })
+  await page.evaluate(() => { profileBrowserStorage.setItem = window.__setItem })
   await card.locator('.more-btn').press('Enter')
   await remove.press('Enter')
   await expect(page.locator('.video-card[data-video-id="anchor-1"] .more-btn')).toBeFocused()

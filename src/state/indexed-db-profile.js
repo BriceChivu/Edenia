@@ -235,6 +235,9 @@ export async function openIndexedDbProfile({
   const revisions = new WeakMap()
   const baselines = new WeakMap()
   const pendingByState = new WeakMap()
+  const saveFailures = new WeakMap()
+  const islandSaveFailures = new WeakMap()
+  const emptyIslandFailureKey = {}
   const localRevisions = new Set()
   const unacknowledgedHeads = new Set()
   const listeners = new Set()
@@ -314,6 +317,7 @@ export async function openIndexedDbProfile({
   }
 
   function save(state, { canPersist = () => true, replace = false } = {}) {
+    saveFailures.delete(state)
     const raw = JSON.stringify(state)
     if (!isValidState(JSON.parse(raw))) return Promise.resolve(false)
     const expectedRevision = revisions.get(state) ?? (replace || !current ? current?.revision || 0 : -1)
@@ -363,7 +367,7 @@ export async function openIndexedDbProfile({
           token.head = next
           unacknowledgedHeads.add(next)
           store.put(durableHead(next))
-        } catch { transaction.abort() }
+        } catch (error) { saveFailures.set(state, error); transaction.abort() }
       }
       request.onsuccess = () => {
         const latest = request.result
@@ -378,7 +382,8 @@ export async function openIndexedDbProfile({
       }
       await finished
       let verified
-      try { verified = await read(database) } catch {
+      try { verified = await read(database) } catch (error) {
+        saveFailures.set(state, error)
         await restoreUnacknowledgedHead(next, previous)
         return false
       }
@@ -407,7 +412,8 @@ export async function openIndexedDbProfile({
       token.revision = current.revision
       signal()
       return true
-    }).catch(async () => {
+    }).catch(async error => {
+      if (error?.name !== 'AbortError' && error?.message !== 'Profile transaction aborted') saveFailures.set(state, error)
       try { await refresh() } catch {}
       return false
     })
@@ -420,6 +426,8 @@ export async function openIndexedDbProfile({
     return operation
   }
   function saveIsland(layout, expected, { canPersist = () => true } = {}) {
+    const failureKey = layout && typeof layout === 'object' ? layout : emptyIslandFailureKey
+    islandSaveFailures.delete(failureKey)
     const islandRaw = JSON.stringify(layout)
     const expectedRevision = current?.revision
     const capturedAccess = storage.getItem(accessKey)
@@ -455,11 +463,12 @@ export async function openIndexedDbProfile({
           token.head = next
           unacknowledgedHeads.add(next)
           store.put(durableHead(next))
-        } catch { transaction.abort() }
+        } catch (error) { islandSaveFailures.set(failureKey, error); transaction.abort() }
       }
       await finished
       let verified
-      try { verified = await read(database, HEAD, null, true) } catch {
+      try { verified = await read(database, HEAD, null, true) } catch (error) {
+        islandSaveFailures.set(failureKey, error)
         await restoreUnacknowledgedHead(next, previous)
         return false
       }
@@ -473,7 +482,8 @@ export async function openIndexedDbProfile({
       if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
       signal()
       return true
-    }).catch(async () => {
+    }).catch(async error => {
+      if (error?.name !== 'AbortError' && error?.message !== 'Profile transaction aborted') islandSaveFailures.set(failureKey, error)
       try { await refresh() } catch {}
       return false
     })
@@ -489,6 +499,9 @@ export async function openIndexedDbProfile({
     readIslandState,
     saveIsland,
     save,
+    getSaveFailure: state => saveFailures.get(state) || null,
+    getIslandSaveFailure: layout => islandSaveFailures.get(layout && typeof layout === 'object' ? layout : emptyIslandFailureKey) || null,
+    getReplacementRevision: () => current?.replacementRevision || 0,
     refresh,
     hasProfile: () => Boolean(current),
     readRaw: () => current?.raw || null,

@@ -46,12 +46,15 @@ async function seedChannel(page, count = 12) {
 
 async function limitPrimaryWrites(page, { rejectAll = false, growth = 1.25 } = {}) {
   return page.evaluate(({ rejectAll, growth }) => {
-    const original = Storage.prototype.setItem
+    // Final-provider rejection still needs rollback. Browser quota errors are
+    // recoverable and are exercised separately below through native Storage.
+    const target = rejectAll ? profileBrowserStorage : Storage.prototype
+    const original = target.setItem
     const raw = localStorage.getItem('edenia_v1')
     const limit = Math.ceil(raw.length * growth)
     window.removalWriteSizes = []
-    window.restoreRemovalWrites = () => { Storage.prototype.setItem = original }
-    Storage.prototype.setItem = function (key, value) {
+    window.restoreRemovalWrites = () => { target.setItem = original }
+    target.setItem = function (key, value) {
       if (key === 'edenia_v1') {
         window.removalWriteSizes.push(value.length)
         if (rejectAll || value.length > limit) {
@@ -124,7 +127,7 @@ test('large-channel removal fits without full-library Undo copies and survives U
   expect(redone.anki).toEqual(before.anki)
 })
 
-test('quota pressure discards only search results and retries the requested removal without a popup', async ({ page }) => {
+test('quota pressure continues removal in recovery while preserving search results and protected copies', async ({ page }) => {
   await seedChannel(page, 200)
   const protectedValues = await page.evaluate(() => {
     const cacheKey = 'edenia_v1_youtube_channel_search_cache_v1'
@@ -156,12 +159,12 @@ test('quota pressure discards only search results and retries the requested remo
   await removeFromShelf(page)
   await expect(page.locator('.channel-shelf-remove')).toHaveCount(0)
   const result = await page.evaluate(() => ({
-    state: JSON.parse(localStorage.getItem('edenia_v1')),
+    state: loadState(),
     cache: localStorage.getItem('edenia_v1_youtube_channel_search_cache_v1'),
     failures: window.removalQuotaFailures
   }))
   expect(result.failures).toBe(1)
-  expect(result.cache).toBeNull()
+  expect(result.cache).not.toBeNull()
   expect(result.state.config.channels).toEqual([])
   expect(result.state.config.removedChannelIds).toContain(channelId)
   expect(Object.keys(result.state.videos)).toHaveLength(200)

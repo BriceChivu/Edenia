@@ -173,6 +173,7 @@ export async function openIndexedDbProfile({
   const revisions = new WeakMap()
   const baselines = new WeakMap()
   const pendingByState = new WeakMap()
+  const saveFailures = new WeakMap()
   const localRevisions = new Set()
   const listeners = new Set()
   const channel = typeof eventTarget?.BroadcastChannel === 'function'
@@ -226,6 +227,7 @@ export async function openIndexedDbProfile({
   }
 
   function save(state, { canPersist = () => true, replace = false } = {}) {
+    saveFailures.delete(state)
     const raw = JSON.stringify(state)
     if (!isValidState(JSON.parse(raw))) return Promise.resolve(false)
     const expectedRevision = revisions.get(state) ?? (replace || !current ? current?.revision || 0 : -1)
@@ -265,13 +267,15 @@ export async function openIndexedDbProfile({
             if (!merged || !isValidState(merged)) { transaction.abort(); return }
             nextRaw = JSON.stringify(merged)
           }
-          next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1 }
+          next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1,
+            ...(replace ? { replacementRevision: latestRevision + 1 } : previous?.replacementRevision ? { replacementRevision: previous.replacementRevision } : {}) }
           store.put(next)
-        } catch { transaction.abort() }
+        } catch (error) { saveFailures.set(state, error); transaction.abort() }
       }
       await finished
       let verified
-      try { verified = await read(database) } catch {
+      try { verified = await read(database) } catch (error) {
+        saveFailures.set(state, error)
         await restoreUnacknowledgedHead(next, previous)
         return false
       }
@@ -300,7 +304,8 @@ export async function openIndexedDbProfile({
       token.revision = current.revision
       signal()
       return true
-    }).catch(async () => {
+    }).catch(async error => {
+      if (error?.name !== 'AbortError' && error?.message !== 'Profile transaction aborted') saveFailures.set(state, error)
       try { await refresh() } catch {}
       return false
     })
@@ -311,6 +316,8 @@ export async function openIndexedDbProfile({
   return {
     snapshot,
     save,
+    getSaveFailure: state => saveFailures.get(state) || null,
+    getReplacementRevision: () => current?.replacementRevision || 0,
     refresh,
     hasProfile: () => Boolean(current),
     readRaw: () => current?.raw || null,

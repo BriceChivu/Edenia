@@ -184,3 +184,45 @@ stopped; it must not run against restored identities and sessions. The explicit
 recovery-code-table check catches the schema gap that prevented the October 4
 archive from restoring with CLI 2.116.0. This is a local rehearsal, not a provider
 sign-in or a production restore.
+
+### Background browser storage recovery
+
+When the durable browser profile cannot open or an actual save fails, the app
+continues through a separate recovery workspace. It preserves the original
+profile, ownership record and immutable cloud operation ledger. Recovery
+writes try a separate localStorage record, then sessionStorage, then memory for
+the current tab. This does not change account authentication or cloud resolution.
+An unreadable signed-in profile is reopened from the verified owner's cloud
+profile; an arbitrary local backup is never relabelled as that owner's profile.
+
+The recovery workspace is `<mode-specific storage key>_recovery_workspace_v1`.
+An active workspace resumes on reload. Focus, connectivity restoration and a
+one-minute timer attempt reconciliation without a storage-error screen.
+Accountless progress uses a three-way comparison against the acknowledged
+baseline. Compatible changes merge automatically; competing changes show
+"Recent progress" and "Saved progress" with study-detail comparisons. Choices
+and automatic promotion retain both copies in the archived workspace.
+Intentional replacements require a choice if old progress changed meanwhile.
+Signed-in progress first passes existing verified cloud replay, conflict and
+generation checks. Original ownership or reset-generation changes prevent local
+promotion. Exact metadata, workspace and IndexedDB revision checks cancel a
+promotion when another operation changes its inputs. Interrupted promotion
+keeps its acknowledged profile and metadata so a later opening can finish.
+The existing localStorage metadata fence is not a transaction across tabs.
+
+Every new storage incident automatically submits a sanitized JSON diagnostic as
+`feedback_submitted`, source `automatic_storage_recovery`, to the existing
+**Edenia Feedback → Discord** PostHog destination. This path runs on both
+`edenia.study` and `www.edenia.study`, including the internal sign-in trial where
+product analytics is disabled. It does not depend on the analytics SDK. Reports
+include the stable error category, affected operation, release, runtime mode,
+recovery storage tier, browser/OS versions, capabilities and viewport. They
+exclude exception payloads, learner progress, account identifiers, credentials,
+URL parameters and replay links. No Discord webhook secret is shipped.
+
+Failed deliveries retain a bounded sanitized outbox in available browser storage
+and retry after reload, on connectivity restoration and while the page remains
+online. Retries keep the original event UUID. The UI does not ask the learner to
+copy or submit diagnostics. If every durable browser store is blocked, memory
+can keep the current tab usable; it cannot survive closing that tab. Signed-in
+cloud synchronization still uses its ordinary verified account path.
