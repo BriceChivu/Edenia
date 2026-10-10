@@ -67,6 +67,11 @@ export function createStateStore({
     const persisted = persistenceError === null
     if (persisted) {
       storage.recordReplacement?.()
+      // A native write may have activated recovery. The imported object is
+      // still used by rendering; bind it to its exact acknowledged copy so an
+      // ordinary follow-up edit does not become an unbased conflict.
+      const activatedRepository = getRepository()
+      if (activatedRepository?.readRaw() === serializedState) activatedRepository.adoptSnapshot?.(state)
       onPersisted(state, { replacement: true })
       saveConfigCookie(state.config)
       if (syncAnalytics) syncPersistedStateToAnalytics(state)

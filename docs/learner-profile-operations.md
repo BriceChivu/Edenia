@@ -195,6 +195,25 @@ the current tab. This does not change account authentication or cloud resolution
 An unreadable signed-in profile is reopened from the verified owner's cloud
 profile; an arbitrary local backup is never relabelled as that owner's profile.
 
+Memory recovery compares newly observed local and session copies before writing.
+Compatible changes rebase against the last acknowledged copy; incompatible
+ownership, generation, or replacement scopes remain protected separately. Each
+intentional replacement has its own fence. Pending conflict candidates persist
+inside the workspace and reopen after reload, with a fresh choice fence after
+startup bookkeeping. If the original saved version changes while its comparison
+is open, the comparison refreshes instead of repeating an unverifiable choice.
+Previously shown original versions remain in `protectedOriginalProfiles`. If
+primary storage fails during confirmation, the choice is retained locally and
+the learner continues. Later promotion checks ownership and the exact saved
+version again; an intervening version requires a fresh comparison. A choice can
+continue in memory while durable writes are unavailable; both candidates persist
+when a later save succeeds. Failures of the recovery copy itself also submit
+automatic diagnostics, including when quota forces a session or memory fallback.
+An import that activates recovery retains its acknowledged revision for ordinary
+UI updates instead of opening an unbased conflict against its own saved copy.
+Later recovery episodes retain earlier protected versions, and a newer archived copy takes
+precedence over a stale active fallback.
+
 The recovery workspace is `<mode-specific storage key>_recovery_workspace_v1`.
 An active workspace resumes on reload. Focus, connectivity restoration and a
 one-minute timer attempt reconciliation without a storage-error screen.
@@ -220,9 +239,13 @@ recovery storage tier, browser/OS versions, capabilities and viewport. They
 exclude exception payloads, learner progress, account identifiers, credentials,
 URL parameters and replay links. No Discord webhook secret is shipped.
 
-Failed deliveries retain a bounded sanitized outbox in available browser storage
+Failed deliveries retain up to 20 sanitized reports per available browser store
 and retry after reload, on connectivity restoration and while the page remains
-online. Retries keep the original event UUID. The UI does not ask the learner to
+online. Each report has its own storage key, so different tabs cannot replace
+each other's pending reports or erase them when one report succeeds. Legacy
+array outboxes migrate only after verified copying; quota pressure preserves the
+uncopied legacy reports. Invalid queue entries cannot suppress valid ones.
+Retries keep the original event UUID. The UI does not ask the learner to
 copy or submit diagnostics. If every durable browser store is blocked, memory
 can keep the current tab usable; it cannot survive closing that tab. Signed-in
 cloud synchronization still uses its ordinary verified account path.
