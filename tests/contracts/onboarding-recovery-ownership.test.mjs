@@ -242,7 +242,7 @@ test('Retry keeps disabled state visible to document analytics by branch', () =>
     'if (button) button.disabled = false',
     disableIndex
   )
-  const closeIndex = source.indexOf('closeOnboardingRecovery()')
+  const closeIndex = source.lastIndexOf('closeOnboardingRecovery()')
   assert.notEqual(disableIndex, -1)
   assert.ok(firstEnableIndex > disableIndex)
   assert.ok(closeIndex > firstEnableIndex)

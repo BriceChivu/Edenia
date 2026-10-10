@@ -477,15 +477,15 @@ test('failed favorite persistence leaves the card and focus ready for retry', as
     await new Promise(resolve => setTimeout(resolve, 300))
     const id = slot.querySelector('.video-card').dataset.videoId
     const left = element.scrollLeft
-    const setItem = Storage.prototype.setItem
-    Storage.prototype.setItem = function(key, value) {
+    const setItem = profileBrowserStorage.setItem
+    profileBrowserStorage.setItem = function(key, value) {
       if (key === 'edenia_v1') throw new DOMException('Full', 'QuotaExceededError')
       return setItem.call(this, key, value)
     }
     button.click()
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     const failed = element.querySelector(`.video-card[data-video-id="${id}"] .favorite-btn`).getAttribute('aria-pressed')
-    Storage.prototype.setItem = setItem
+    profileBrowserStorage.setItem = setItem
     element.querySelector(`.video-card[data-video-id="${id}"] .favorite-btn`).click()
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     const retried = element.querySelector(`.video-card[data-video-id="${id}"]`)
@@ -542,21 +542,21 @@ test('watched, undo and redo retain the neighbor in both formats through failed 
       slot.querySelector('.favorite-btn').focus({ preventScroll: true })
       await new Promise(resolve => setTimeout(resolve, 300))
       const left = slot.getBoundingClientRect().left
-      const setItem = Storage.prototype.setItem
-      const fail = () => { Storage.prototype.setItem = function(key, value) {
+      const setItem = profileBrowserStorage.setItem
+      const fail = () => { profileBrowserStorage.setItem = function(key, value) {
         if (key === 'edenia_v1') throw new DOMException('Full', 'QuotaExceededError')
         return setItem.call(this, key, value)
       } }
       fail()
       const failed = await window.markVideo(id, 'watched')
-      Storage.prototype.setItem = setItem
+      profileBrowserStorage.setItem = setItem
       const marked = await window.markVideo(id, 'watched')
       const next = element.querySelector(`.video-card[data-video-id="${neighbor}"]`)
       const delta = next?.closest('.channel-shelf-slot').getBoundingClientRect().left - left
       fail()
       await window.undoLastVideoAction()
       const failedUndoRetained = !element.querySelector(`.video-card[data-video-id="${id}"]`)
-      Storage.prototype.setItem = setItem
+      profileBrowserStorage.setItem = setItem
       await window.undoLastVideoAction()
       const undone = Boolean(element.querySelector(`.video-card[data-video-id="${id}"]`))
       await window.redoLastVideoAction()

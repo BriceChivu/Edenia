@@ -946,8 +946,10 @@ test('ending popup uses the available player width and keeps its corner close co
   }
 })
 
-test('Favorite waits for durable storage and can be retried after a failed save', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+for (const recoverable of [false, true]) test(recoverable
+  ? 'Favorite silently recovers from browser storage failure and survives reload'
+  : 'Favorite waits for durable storage and can be retried after a rejected final save', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await seedVideoOrganizationState(page, { testerMode: true })
   await page.route('**/config.local.js*', route => route.fulfill({
     body: 'window.EDENIA_CONFIG = { accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false, indexedDbProfileEnabled: true }',
@@ -958,22 +960,40 @@ test('Favorite waits for durable storage and can be retried after a failed save'
   await installFakeYoutubePlayer(page)
   await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
   await endFakeVideo(page)
-  await page.evaluate(() => {
-    const put = IDBObjectStore.prototype.put
-    window.__restoreVideoWrites = () => { IDBObjectStore.prototype.put = put }
-    IDBObjectStore.prototype.put = function (...args) {
-      if (this.name === 'profiles') throw new DOMException('Synthetic storage exhaustion', 'QuotaExceededError')
-      return put.apply(this, args)
+  await page.evaluate(recoverable => {
+    if (recoverable) {
+      const put = IDBObjectStore.prototype.put
+      window.__restoreVideoWrites = () => { IDBObjectStore.prototype.put = put }
+      IDBObjectStore.prototype.put = function (...args) {
+        if (this.name === 'profiles') throw new DOMException('Synthetic storage exhaustion', 'QuotaExceededError')
+        return put.apply(this, args)
+      }
+    } else {
+      // Reject the final provider, since a native browser failure now recovers.
+      const provider = getProfileRepository()
+      const save = provider.save
+      window.__restoreVideoWrites = () => { provider.save = save }
+      provider.save = async () => false
     }
-  })
+  }, recoverable)
   await page.locator('[data-video-watch-prompt-action="favorite"]').click()
-  await expect.poll(() => page.evaluate(() => activeVideoShelfPlayer.completionPromptActionPending)).toBe(false)
-  await expect(page.locator('.video-watch-reminder-popover.is-player')).toBeVisible()
-  expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite === true)).toBe(false)
+  if (recoverable) {
+    await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+    expect(await page.evaluate(() => profileRecoveryWorkspace.isActive())).toBe(true)
+    expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite)).toBe(true)
+  } else {
+    await expect.poll(() => page.evaluate(() => activeVideoShelfPlayer.completionPromptActionPending)).toBe(false)
+    await expect(page.locator('.video-watch-reminder-popover.is-player')).toBeVisible()
+    expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite === true)).toBe(false)
+    expect(await page.evaluate(() => profileRecoveryWorkspace.isActive())).toBe(false)
+  }
   await page.evaluate(() => window.__restoreVideoWrites())
-  await page.locator('[data-video-watch-prompt-action="favorite"]').click()
-  await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+  if (!recoverable) {
+    await page.locator('[data-video-watch-prompt-action="favorite"]').click()
+    await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+  }
   await page.reload()
   expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].favorite)).toBe(true)
   expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].status)).toBe('partial')
+  await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
 })
