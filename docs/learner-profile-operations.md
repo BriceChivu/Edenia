@@ -202,9 +202,16 @@ intentional replacement has its own fence. Pending conflict candidates persist
 inside the workspace and reopen after reload, with a fresh choice fence after
 startup bookkeeping. If the original saved version changes while its comparison
 is open, the comparison refreshes instead of repeating an unverifiable choice.
-Previously shown original versions remain in `protectedOriginalProfiles`. A choice can continue in memory while durable writes are
-unavailable; both candidates persist when a later save succeeds. Later recovery
-episodes retain earlier protected versions, and a newer archived copy takes
+Previously shown original versions remain in `protectedOriginalProfiles`. If
+primary storage fails during confirmation, the choice is retained locally and
+the learner continues. Later promotion checks ownership and the exact saved
+version again; an intervening version requires a fresh comparison. A choice can
+continue in memory while durable writes are unavailable; both candidates persist
+when a later save succeeds. Failures of the recovery copy itself also submit
+automatic diagnostics, including when quota forces a session or memory fallback.
+An import that activates recovery retains its acknowledged revision for ordinary
+UI updates instead of opening an unbased conflict against its own saved copy.
+Later recovery episodes retain earlier protected versions, and a newer archived copy takes
 precedence over a stale active fallback.
 
 The recovery workspace is `<mode-specific storage key>_recovery_workspace_v1`.

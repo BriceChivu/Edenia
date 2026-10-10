@@ -494,3 +494,58 @@ test('refreshing an original comparison retains previously shown saved versions'
   assert.equal(JSON.parse(saved.originalProfile).watch, 12)
   assert.deepEqual(saved.protectedOriginalProfiles.map(raw => JSON.parse(raw).watch), [9])
 })
+
+test('a deferred choice survives reload and requires a new comparison for an intervening saved version', () => {
+  const f = fixture()
+  f.workspace.activate()
+  f.workspace.acceptChoice({ watch: 9, language: 'fr' }, { watch: 9, language: 'fr' },
+    { deferred: true, unchosen: { watch: 7, language: 'fr' } })
+  const restored = createProfileRecoveryWorkspace(f.options)
+  restored.activate()
+  assert.deepEqual(restored.merge({ watch: 9, language: 'fr' }), { watch: 9, language: 'fr' })
+  assert.equal(restored.merge({ watch: 12, language: 'fr' }), null)
+  restored.markPromotion({ watch: 9, language: 'fr' })
+  assert.deepEqual(restored.merge({ watch: 9, language: 'es' }), { watch: 9, language: 'es' })
+})
+test('only a local decision tolerates an unavailable durable fence; missing or changed records still reject it', () => {
+  const f = fixture()
+  f.workspace.activate()
+  const epoch = f.workspace.getEpoch()
+  const primary = f.options.getPrimary()
+  const read = primary.getItem
+  primary.getItem = () => { throw new DOMException('', 'SecurityError') }
+  assert.equal(f.workspace.matches(epoch), false)
+  assert.equal(f.workspace.matches(epoch, { allowUnavailable: true }), true)
+  primary.getItem = read
+  f.values.delete('profile_recovery_workspace_v1')
+  assert.equal(f.workspace.matches(epoch, { allowUnavailable: true }), false)
+})
+
+test('failed recovery writes report the actual exception when falling back to session or memory', () => {
+  for (const memory of [false, true]) {
+    const f = fixture({ denied: true })
+    const failures = []
+    const workspace = createProfileRecoveryWorkspace({ ...f.options,
+      getSecondary: memory ? () => null : f.options.getSecondary,
+      onStorageFailure: error => failures.push(error.name) })
+    workspace.activate()
+    assert.equal(workspace.getTier(), memory ? 'memory' : 'session')
+    assert.deepEqual(failures, ['SecurityError'])
+  }
+})
+
+
+test('a native import that activates recovery keeps its saved revision for subsequent UI updates', () => {
+  const f = fixture({ denied: true })
+  const store = createStateStore({ storage: f.workspace.storage, storageKey: 'profile',
+    getRepository: () => f.workspace.isActive() ? f.workspace.repository : null,
+    normalizeLoadedState: () => false, normalizeStateBeforeSave: () => {},
+    createStateBackup: () => {}, pruneOldestStateBackup: () => false,
+    saveConfigCookie: () => {}, syncPersistedStateToAnalytics: () => {},
+    getLatestBackupState: () => null, loadConfigCookie: () => null, createDefaultStateFromConfig: () => ({}) })
+  const imported = { watch: 7, language: 'es' }
+  assert.equal(store.saveImportedState(imported).persisted, true)
+  imported.insight = 'routine-return'
+  assert.equal(store.saveState(imported, { backup: false }), true)
+  assert.equal(f.workspace.repository.snapshot().insight, 'routine-return')
+})

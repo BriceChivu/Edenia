@@ -4,7 +4,7 @@ import { rebaseProfileChanges } from './indexed-db-profile.js'
 // namespace is never modified while it is inaccessible. Auth stays independent.
 export function createProfileRecoveryWorkspace({
   storageKey, accessKey, keys, getPrimary, getSecondary = () => null,
-  capture = () => ({}), onActivate = () => {}, onTierChange = () => {},
+  capture = () => ({}), onActivate = () => {}, onTierChange = () => {}, onStorageFailure = () => {},
   eventTarget, onExternalChange = () => {}, onConflict = () => {}, onConflictCleared = () => {}
 }) {
   const workspaceKey = `${storageKey}_recovery_workspace_v1`
@@ -186,6 +186,7 @@ export function createProfileRecoveryWorkspace({
   function persist() {
     record.sequence = (record.sequence || 0) + 1
     const raw = JSON.stringify(record)
+    let failure = null
     for (const [name, getter] of [['local', getPrimary], ['session', getSecondary]]) {
       try {
         const target = getter()
@@ -217,10 +218,13 @@ export function createProfileRecoveryWorkspace({
         persistedRaw = raw
         if (tier !== name) { tier = name; onTierChange(tier) }
         notifyPendingConflict()
+        if (failure) onStorageFailure(failure)
         return true
-      } catch {}
+      } catch (error) { failure = error }
     }
-    return keepInMemory()
+    const saved = keepInMemory()
+    if (failure) onStorageFailure(failure)
+    return saved
   }
   function activate(seed = capture(), failure = null, operation = 'recovery') {
     if (active) return
@@ -371,16 +375,23 @@ export function createProfileRecoveryWorkspace({
       record.baseline = JSON.stringify(profile)
       record.values[storageKey] = record.baseline
       record.promotion = { profile: record.baseline, values: { ...record.values } }
+      delete record.deferredChoice
       epoch++
       return persist()
     },
     getEpoch: () => epoch,
-    matches(epochAtStart) {
+    matches(epochAtStart, { allowUnavailable = false } = {}) {
       refreshFromDisk()
       if (!active || epoch !== epochAtStart) return false
       if (!persistedRaw || tier === 'memory') return true
-      const raw = safeRead(tier === 'local' ? getPrimary : getSecondary, workspaceKey)
-      return raw === persistedRaw
+      try {
+        const raw = (tier === 'local' ? getPrimary : getSecondary)()?.getItem(workspaceKey) ?? null
+        return raw === persistedRaw
+      } catch {
+        // A local choice can be retained without touching the unavailable
+        // original. Promotion continues to require the durable comparison.
+        return allowUnavailable
+      }
     },
     merge(original, { replacementRevision } = {}) {
       if (!active) return null
@@ -391,6 +402,7 @@ export function createProfileRecoveryWorkspace({
       } catch { return null }
       if (!recent) return original
       if (JSON.stringify(recent) === JSON.stringify(original)) return recent
+      if (record.deferredChoice && JSON.stringify(original) !== record.deferredChoice.originalRaw) return null
       if (record.originalReplacementRevision !== null && replacementRevision !== undefined
         && record.originalReplacementRevision !== replacementRevision) return null
       // A missing baseline cannot prove that either copy's changes are safe.
@@ -407,12 +419,14 @@ export function createProfileRecoveryWorkspace({
       record.originalProfile = raw
       return persist()
     },
-    acceptChoice(chosen, original, { preserveBaseline = false, unchosen, conflictId } = {}) {
+    acceptChoice(chosen, original, { preserveBaseline = false, unchosen, conflictId, deferred = false } = {}) {
       record.unchosenProfile = unchosen === undefined ? record.values[storageKey] : JSON.stringify(unchosen)
       record.pendingConflicts = pendingConflicts(record).filter(item => conflictId
         ? item.id !== conflictId : item.desiredRaw !== JSON.stringify(chosen) && item.currentRaw !== JSON.stringify(chosen))
       if (!preserveBaseline) record.baseline = JSON.stringify(original)
       record.values[storageKey] = JSON.stringify(chosen)
+      if (deferred) record.deferredChoice = { originalRaw: JSON.stringify(original) }
+      else delete record.deferredChoice
       epoch++
       persist()
       notifyPendingConflict()

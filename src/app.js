@@ -715,6 +715,9 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
       else renderAll(loadPersistedState({ persistCleanup: false }))
     })
   },
+  onStorageFailure(error) {
+    queueMicrotask(() => reportBackgroundStorageFailure('save', describeProfileStorageFailure(error)))
+  },
   onConflictCleared(id) { recoveryConflictView?.hide(id) },
   onConflict({ id, currentRaw, desiredRaw, epoch }) {
     recoveryConflictView ||= createLocalRecoveryConflict({ document, translate: t,
@@ -18866,7 +18869,8 @@ async function reconcileBackgroundProfileRecovery() {
     if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
     else renderAll(loadPersistedState({ persistCleanup: false }))
     reportBackgroundStorageFailure('reconcile', { code: 'storage-recovered', retryable: false })
-  } catch {
+  } catch (error) {
+    reportBackgroundStorageFailure('reconcile', describeProfileStorageFailure(error))
     // A later focus/online event or timer tries again. Continue on the sidecar.
   } finally {
     originalRepository?.close()
@@ -18882,7 +18886,7 @@ async function refreshBackgroundRecoveryComparison(conflict) {
 
 async function resolveBackgroundRecoveryChoice(side, conflict) {
   if (conflict.workspaceOnly) {
-    if (!['device','cloud'].includes(side) || !profileRecoveryWorkspace.matches(conflict.epoch)
+    if (!['device','cloud'].includes(side) || !profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     // Workspace choices can continue in memory when both durable stores are
     // unavailable. Both candidates stay protected and persistence retries later.
@@ -18896,30 +18900,44 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
   }
 
   if (!['device', 'cloud'].includes(side)) return false
-  if (!profileRecoveryWorkspace.matches(conflict.epoch)
-    || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw
-    || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) {
+  if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+    || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) {
     return refreshBackgroundRecoveryComparison(conflict)
   }
   let repository
+  let deferred = false
   try {
+    if (window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) {
+      return await refreshBackgroundRecoveryComparison(conflict)
+    }
     repository = await openIndexedDbProfile({ storage: window.localStorage,
       storageKey: STORAGE_KEY, accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window })
     if (repository.readRaw() !== conflict.originalRaw
-      || !profileRecoveryWorkspace.matches(conflict.epoch)) {
+      || !profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })) {
       repository.close()
       repository = null
       return await refreshBackgroundRecoveryComparison(conflict)
     }
-    if (!profileRecoveryWorkspace.archive(conflict.cloud.profile)) return false
+    profileRecoveryWorkspace.archive(conflict.cloud.profile)
     // Persist the user's choice as a new common baseline. The unchosen copy
     // remains in the protected archive, never in the feedback payload.
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
       conflict.cloud.profile, { unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
-  } catch { return false } finally { repository?.close() }
+  } catch (error) {
+    reportBackgroundStorageFailure('reconcile', describeProfileStorageFailure(error))
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
+    // The displayed copies are already protected. Retain the decision locally;
+    // original ownership, generation and head checks still gate later promotion.
+    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
+      conflict.cloud.profile, { deferred: true,
+        unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
+    deferred = true
+  } finally { repository?.close() }
   recoveryConflictView?.hide()
-  await reconcileBackgroundProfileRecovery()
+  if (!deferred) await reconcileBackgroundProfileRecovery()
   if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
   else renderAll(loadPersistedState({ persistCleanup: false }))
   return true
