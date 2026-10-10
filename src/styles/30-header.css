@@ -58,10 +58,11 @@ body[data-theme="dark"] .app-header::before {
   text-transform: uppercase;
 }
 .header-week-row {
-  align-items: center;
+  align-items: baseline;
   display: flex;
   gap: 8px;
   min-width: 0;
+  margin-top: 2px;
 }
 .learner-profile-sync-status {
   background: transparent;
@@ -75,7 +76,7 @@ body[data-theme="dark"] .app-header::before {
   line-height: 1;
   max-width: min(48vw, 320px);
   overflow: hidden;
-  padding: 4px 0;
+  padding: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -84,9 +85,13 @@ body[data-theme="dark"] .app-header::before {
 .learner-profile-sync-status[data-sync-status="conflicting"] {
   color: var(--text);
 }
-.learner-profile-sync-status:hover {
+.learner-profile-sync-status:enabled:hover {
   color: var(--text);
   text-decoration: underline;
+}
+.learner-profile-sync-status:disabled {
+  cursor: default;
+  min-height: 0;
 }
 body[data-theme="dark"] .sandbox-version-label {
   color: #ff6b6b;
@@ -95,7 +100,7 @@ body[data-theme="dark"] .sandbox-version-label {
   font-size: 0.72rem;
   color: var(--muted);
   letter-spacing: 0.04em;
-  margin-top: 2px;
+  line-height: 1;
 }
 .header-right {
   align-items: center;

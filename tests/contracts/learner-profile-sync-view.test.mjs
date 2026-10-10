@@ -15,6 +15,7 @@ function element() {
       }
     },
     dataset: {},
+    disabled: false,
     textContent: ''
   }
 }
@@ -59,6 +60,7 @@ test('sync status stays quiet when idle and exposes every pending or failed stat
     ['conflicting', 'Needs attention']
   ]) {
     view.render({ status })
+    assert.equal(header.disabled, status === 'up-to-date')
     assert.equal(header.textContent, expected)
     assert.equal(settings.textContent, expected)
     assert.equal(header.dataset.syncStatus, status)
@@ -97,6 +99,7 @@ test('verification has one quiet delay, cancels stale timers and preserves save-
   assert.equal(timerId, 1)
   timers.get(1)()
   assert.equal(header.textContent, 'progressSync.checking')
+  assert.equal(header.disabled, false)
   view.render({ status: 'not-backed-up' })
   assert.equal(header.textContent, 'progressSync.notBackedUp')
   assert.equal(elements.learnerProfileSyncActions.classList.contains('hidden'), false)
@@ -109,7 +112,9 @@ test('verification has one quiet delay, cancels stale timers and preserves save-
   assert.equal(header.textContent, 'progressSync.upToDate')
   view.setVerification('waiting-check')
   assert.equal(header.textContent, 'progressSync.checkWaiting')
+  assert.equal(header.disabled, false)
   view.setVerification('checking')
   view.setVerification('idle')
   assert.equal(header.textContent, 'progressSync.upToDate')
+  assert.equal(header.disabled, true)
 })
