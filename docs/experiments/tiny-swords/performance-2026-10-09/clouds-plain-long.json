@@ -1,0 +1,2395 @@
+[
+  {
+    "label": "plain-idle-0-animated",
+    "seconds": 25.00089999999851,
+    "rafFrames": 1500,
+    "p50": 16.69999999999709,
+    "p95": 17.600000000000364,
+    "p99": 17.700000000000728,
+    "parent": {
+      "timerP95": 17.300000000745058,
+      "timerP99": 17.899999998509884,
+      "timerMax": 22.800000000745058,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0042,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0041,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0042,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.004,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.004,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0046,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0041,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0041,
+        "seconds": 1.01666333333334
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0045,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 166,
+        "process_s": 0.0039,
+        "seconds": 1.016626
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.014,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 1.385668,
+        "cpuPercent": 1.1130686815383382
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.052956,
+        "cpuPercent": 0.001683057487806847
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 10.17773,
+        "cpuPercent": 23.705141120972257
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 6.804682,
+        "cpuPercent": 19.396278084272808
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.20356,
+        "cpuPercent": 0.10751978891820582
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.033167,
+        "cpuPercent": 0.0007555768769489153
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.305632,
+        "cpuPercent": 0.550967458223395
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-0-static",
+    "seconds": 25.00160000000149,
+    "rafFrames": 1500,
+    "p50": 16.69999999999709,
+    "p95": 17.60000000000582,
+    "p99": 17.700000000004366,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 18.5,
+      "timerMax": 24.399999998509884,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0022,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0037,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0047,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0039,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.002,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0035,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0029,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0039,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0045,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0046,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0065,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0042,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0039,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0043,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0057,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0073,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0042,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0038,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.014,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 1.777634,
+        "cpuPercent": 1.1470576477172778
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.055077,
+        "cpuPercent": 0.0084792516190933
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 15.033684,
+        "cpuPercent": 18.466226912928754
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 12.100682,
+        "cpuPercent": 20.1625889501879
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.21395,
+        "cpuPercent": 0.04153673942592152
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.037293,
+        "cpuPercent": 0.016494762932757645
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.310164,
+        "cpuPercent": 0.018117854001758936
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "static",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "static"
+  },
+  {
+    "label": "plain-idle-0-animated",
+    "seconds": 25.00760000000149,
+    "rafFrames": 1496,
+    "p50": 16.69999999999709,
+    "p95": 17.60000000000582,
+    "p99": 17.69999999999709,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 19.5,
+      "timerMax": 116.5,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0049,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0038,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0042,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0036,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0038,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0038,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0035,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0036,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 98,
+        "fps": 55,
+        "nodes": 171,
+        "process_s": 0.0481,
+        "seconds": 1.00829333333333
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0077,
+        "seconds": 1.01652933333333
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.004,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0061,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0031,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0044,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0048,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0035,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.056,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 2.00533,
+        "cpuPercent": 0.838689335887611
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.056165,
+        "cpuPercent": 0.004058908045977
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 20.780903,
+        "cpuPercent": 21.745079022988495
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 16.92101,
+        "cpuPercent": 18.19962484035759
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.225917,
+        "cpuPercent": 0.04765325670498086
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.039257,
+        "cpuPercent": 0.00774265644955299
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.312283,
+        "cpuPercent": 0.0077785759897828
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": false,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-1-animated",
+    "seconds": 25.011300000000745,
+    "rafFrames": 1501,
+    "p50": 16.69999999999709,
+    "p95": 17.60000000000582,
+    "p99": 17.69999999999709,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 19.199999999254942,
+      "timerMax": 43.19999999925494,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0047,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0046,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0103,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 171,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1.01663866666667
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.018,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.005,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0074,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0098,
+        "seconds": 1.016626
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0139,
+        "seconds": 1.00831866666667
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0047,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0036,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.076,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 2.254053,
+        "cpuPercent": 0.8756500239272605
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.057641,
+        "cpuPercent": 0.005886106237039393
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 26.563508,
+        "cpuPercent": 21.810264795023123
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 21.805713,
+        "cpuPercent": 18.378696761843994
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.252599,
+        "cpuPercent": 0.10233689583665664
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.042431,
+        "cpuPercent": 0.012434200031903027
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.322792,
+        "cpuPercent": 0.040090126016908735
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-1-static",
+    "seconds": 25.00220000000298,
+    "rafFrames": 1500,
+    "p50": 16.69999999999709,
+    "p95": 17.60000000000582,
+    "p99": 17.70000000001164,
+    "parent": {
+      "timerP95": 17.5,
+      "timerP99": 18.200000002980232,
+      "timerMax": 42,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0027,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0025,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0232,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0018,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0053,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0021,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0027,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0025,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0044,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0028,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0028,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0162,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0027,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0023,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.096,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 2.548493,
+        "cpuPercent": 1.0763747210710872
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.061653,
+        "cpuPercent": 0.015986611412177245
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 30.722795,
+        "cpuPercent": 15.683495377749452
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 25.988815,
+        "cpuPercent": 15.731299808734459
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.275154,
+        "cpuPercent": 0.08711746891934977
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.048359,
+        "cpuPercent": 0.022609180745935605
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.335737,
+        "cpuPercent": 0.045971469556901574
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "static",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "static"
+  },
+  {
+    "label": "plain-idle-1-animated",
+    "seconds": 25.007,
+    "rafFrames": 1500,
+    "p50": 16.699999999982538,
+    "p95": 17.60000000000582,
+    "p99": 17.70000000001164,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 19.100000001490116,
+      "timerMax": 25.900000002235174,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.005,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0045,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0134,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0056,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0042,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0027,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0047,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.004,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0041,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0052,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0044,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0045,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0041,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0046,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.055,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 2.833558,
+        "cpuPercent": 0.9856395928956291
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.062063,
+        "cpuPercent": 0.0016363999201756162
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 36.435547,
+        "cpuPercent": 21.249255637597283
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 30.893889,
+        "cpuPercent": 18.211099580921974
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.288894,
+        "cpuPercent": 0.049287567351825975
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.052114,
+        "cpuPercent": 0.01239672720015964
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.340332,
+        "cpuPercent": 0.015577728996208523
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-2-animated",
+    "seconds": 25.002900000002235,
+    "rafFrames": 1500,
+    "p50": 16.699999999982538,
+    "p95": 17.60000000000582,
+    "p99": 17.70000000001164,
+    "parent": {
+      "timerP95": 17.399999998509884,
+      "timerP99": 17.900000002235174,
+      "timerMax": 36.19999999925494,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0027,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0107,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0043,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0034,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0056,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0052,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0031,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0031,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0036,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.043,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 3.061671,
+        "cpuPercent": 0.8340414487082217
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.064957,
+        "cpuPercent": 0.011556123467635671
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 41.917568,
+        "cpuPercent": 20.78110849339138
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 35.491826,
+        "cpuPercent": 17.386674919139093
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.311349,
+        "cpuPercent": 0.08939823503573839
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.05599,
+        "cpuPercent": 0.015173900890468385
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.346228,
+        "cpuPercent": 0.023543505171105525
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-2-static",
+    "seconds": 25.006,
+    "rafFrames": 1500,
+    "p50": 16.699999999982538,
+    "p95": 17.60000000000582,
+    "p99": 17.70000000001164,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 17.900000002235174,
+      "timerMax": 19.099999997764826,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0024,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0023,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0022,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0046,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0042,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.004,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0027,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0022,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0022,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0018,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0021,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0026,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0026,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0024,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.002,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 36,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.056,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 3.300147,
+        "cpuPercent": 0.8615221902937427
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.06574,
+        "cpuPercent": 0.0031250000000000236
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 45.887458,
+        "cpuPercent": 14.903484195402303
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 39.562926,
+        "cpuPercent": 15.271667464878655
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.322821,
+        "cpuPercent": 0.04554597701149438
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.05734,
+        "cpuPercent": 0.005096583652618137
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.353632,
+        "cpuPercent": 0.02954980842911886
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "static",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "static"
+  },
+  {
+    "label": "plain-idle-2-animated",
+    "seconds": 25.01,
+    "rafFrames": 1501,
+    "p50": 16.699999999982538,
+    "p95": 17.60000000000582,
+    "p99": 17.70000000001164,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 18.5,
+      "timerMax": 34,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0038,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 100,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0086,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0031,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0035,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0033,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 98,
+        "fps": 60,
+        "nodes": 173,
+        "process_s": 0.0052,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0062,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0031,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0036,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0042,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0043,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0055,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0032,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0037,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0093,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0039,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0042,
+        "seconds": 1
+      },
+      {
+        "draw_calls": 99,
+        "fps": 60,
+        "nodes": 174,
+        "process_s": 0.0042,
+        "seconds": 1
+      }
+    ],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 25.06,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 70268,
+        "cpuTime": 3.559301,
+        "cpuPercent": 0.9494253790901831
+      },
+      {
+        "type": "renderer",
+        "id": 70292,
+        "cpuTime": 0.068627,
+        "cpuPercent": 0.011520351157222613
+      },
+      {
+        "type": "renderer",
+        "id": 70293,
+        "cpuTime": 51.60216,
+        "cpuPercent": 21.272789305666382
+      },
+      {
+        "type": "GPU",
+        "id": 70287,
+        "cpuTime": 44.444524,
+        "cpuPercent": 18.331416600159628
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 70288,
+        "cpuTime": 0.3317,
+        "cpuPercent": 0.03543096568236221
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 70289,
+        "cpuTime": 0.061594,
+        "cpuPercent": 0.016975259377494018
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 70298,
+        "cpuTime": 0.35796,
+        "cpuPercent": 0.016612130885874016
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  }
+]

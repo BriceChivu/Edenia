@@ -1,0 +1,178 @@
+[
+  {
+    "label": "baseline-99-desktop-idle-0",
+    "seconds": 10.14089999999851,
+    "rafFrames": 377,
+    "p50": 32.399999999999636,
+    "p95": 49.5,
+    "p99": 50.79999999999927,
+    "parent": {
+      "timerP95": 82.80000000074506,
+      "timerP99": 90.90000000223517,
+      "timerMax": 97.80000000074506,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.514,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 58904,
+        "cpuTime": 1.532198,
+        "cpuPercent": 2.0956914590070372
+      },
+      {
+        "type": "renderer",
+        "id": 58925,
+        "cpuTime": 0.068439,
+        "cpuPercent": 0.018052120981548382
+      },
+      {
+        "type": "renderer",
+        "id": 58926,
+        "cpuTime": 16.80001,
+        "cpuPercent": 105.60781814723227
+      },
+      {
+        "type": "GPU",
+        "id": 58912,
+        "cpuTime": 4.224123,
+        "cpuPercent": 15.505877877116223
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 58913,
+        "cpuTime": 0.257331,
+        "cpuPercent": 0.18516264028913818
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 58914,
+        "cpuTime": 0.046124,
+        "cpuPercent": 0.0031386722465284096
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 58929,
+        "cpuTime": 0.484115,
+        "cpuPercent": 1.0061061441887011
+      }
+    ],
+    "cpuThrottle": 8,
+    "dpr": 2,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": false
+  },
+  {
+    "label": "baseline-99-desktop-inventory-0",
+    "seconds": 10.0185,
+    "rafFrames": 588,
+    "p50": 16.700000000000728,
+    "p95": 17.599999999998545,
+    "p99": 33.39999999999782,
+    "parent": {
+      "timerP95": 35.79999999701977,
+      "timerP99": 50.400000002235174,
+      "timerMax": 94.70000000298023,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      2108,
+      908
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.079,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 58904,
+        "cpuTime": 1.736276,
+        "cpuPercent": 1.3511459470185536
+      },
+      {
+        "type": "renderer",
+        "id": 58925,
+        "cpuTime": 0.068609,
+        "cpuPercent": 0.0016866752654033483
+      },
+      {
+        "type": "renderer",
+        "id": 58926,
+        "cpuTime": 29.248349,
+        "cpuPercent": 105.00760988193272
+      },
+      {
+        "type": "GPU",
+        "id": 58912,
+        "cpuTime": 5.840283,
+        "cpuPercent": 14.64565929159639
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 58913,
+        "cpuTime": 0.269653,
+        "cpuPercent": 0.10163706716936179
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 58914,
+        "cpuTime": 0.046261,
+        "cpuPercent": 0.0013592618315308883
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 58929,
+        "cpuTime": 0.57469,
+        "cpuPercent": 0.7239210239111026
+      }
+    ],
+    "cpuThrottle": 8,
+    "dpr": 2,
+    "scenario": "inventory-stationary",
+    "game": {
+      "staticClouds": false,
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": true,
+        "height": 496,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": false
+  }
+]

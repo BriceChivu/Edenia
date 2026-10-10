@@ -7,6 +7,16 @@ var failures := 0
 func _initialize() -> void:
 	run.call_deferred()
 
+func placement_preview(level, cell: Vector2i) -> Image:
+	# Hovering an occupied tree previews its next replacement variant. This test
+	# compares a new placement with the planted tree of the same variant.
+	var planted: Dictionary = level.layout.trees
+	level.layout.trees = planted.duplicate()
+	level.layout.trees.erase(cell)
+	var image: Image = level.terrain.clipped_tree_preview_texture().get_image()
+	level.layout.trees = planted
+	return image
+
 func run() -> void:
 	var level = load("res://previews/level_three.tscn").instantiate()
 	root.add_child(level)
@@ -26,7 +36,7 @@ func run() -> void:
 			var tile := Rect2(level.layout.center(cell) - Vector2(32, 32 + height), Vector2(64, 64))
 			level.terrain.hover = cell
 			level.terrain.preview_position = level.layout.center(cell) + offset - Vector2(0, height)
-			var ghost: Image = level.terrain.clipped_tree_preview_texture().get_image()
+			var ghost: Image = placement_preview(level, cell)
 			var rendered := tree.texture.get_image()
 			if ghost.get_data() != rendered.get_data():
 				failures += 1
@@ -74,7 +84,7 @@ func run() -> void:
 		push_error("Fixture has no shadow across shared grass edge")
 	level.terrain.hover = cell
 	level.terrain.preview_position = level.layout.center(cell) + level.layout.tree_offset(cell)
-	if level.terrain.clipped_tree_preview_texture().get_image().get_data() != connected.get_data():
+	if placement_preview(level, cell).get_data() != connected.get_data():
 		failures += 1
 		push_error("Connected-grass cursor shadow differs from planted tree")
 	for neighbor_kind in ["high_gold", "stairs", "water"]:
@@ -87,7 +97,7 @@ func run() -> void:
 		if level.tree_nodes[0].texture.get_image().get_data() != isolated.get_data():
 			failures += 1
 			push_error("Shadow crosses water, stairs or an elevation edge")
-		if level.terrain.clipped_tree_preview_texture().get_image().get_data() != isolated.get_data():
+		if placement_preview(level, cell).get_data() != isolated.get_data():
 			failures += 1
 			push_error("Cursor shadow retained stale neighboring grass")
 	if "--capture" in OS.get_cmdline_user_args():

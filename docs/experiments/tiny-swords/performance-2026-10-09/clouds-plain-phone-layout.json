@@ -1,0 +1,541 @@
+[
+  {
+    "label": "plain-idle-0-animated",
+    "seconds": 10.0045,
+    "rafFrames": 600,
+    "p50": 16.69999999999891,
+    "p95": 17.5,
+    "p99": 17.600000000002183,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 17.800000000745058,
+      "timerMax": 20.299999997019768,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.031,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 65134,
+        "cpuTime": 0.944794,
+        "cpuPercent": 1.030345927624365
+      },
+      {
+        "type": "renderer",
+        "id": 65155,
+        "cpuTime": 0.046787,
+        "cpuPercent": 0.025341441531253138
+      },
+      {
+        "type": "renderer",
+        "id": 65156,
+        "cpuTime": 6.246945,
+        "cpuPercent": 20.934951649885356
+      },
+      {
+        "type": "GPU",
+        "id": 65149,
+        "cpuTime": 3.927739,
+        "cpuPercent": 18.792732529159604
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 65150,
+        "cpuTime": 0.166992,
+        "cpuPercent": 0.09012062605921635
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 65152,
+        "cpuTime": 0.03708,
+        "cpuPercent": 0.0005981457481806847
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 65161,
+        "cpuTime": 0.186542,
+        "cpuPercent": 0.5577609410826441
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 3,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 743,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-0-static",
+    "seconds": 10.006699999999254,
+    "rafFrames": 601,
+    "p50": 16.700000000000728,
+    "p95": 17.5,
+    "p99": 17.600000000002183,
+    "parent": {
+      "timerP95": 17.399999998509884,
+      "timerP99": 17.800000000745058,
+      "timerMax": 40.399999998509884,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.049,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 65134,
+        "cpuTime": 1.095613,
+        "cpuPercent": 1.3311175241317545
+      },
+      {
+        "type": "renderer",
+        "id": 65155,
+        "cpuTime": 0.047439,
+        "cpuPercent": 0.004308886456363846
+      },
+      {
+        "type": "renderer",
+        "id": 65156,
+        "cpuTime": 7.551721,
+        "cpuPercent": 11.546203602348491
+      },
+      {
+        "type": "GPU",
+        "id": 65149,
+        "cpuTime": 5.178577,
+        "cpuPercent": 10.9209274554682
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 65150,
+        "cpuTime": 0.17986,
+        "cpuPercent": 0.11372275848343114
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 65152,
+        "cpuTime": 0.037143,
+        "cpuPercent": 0.0006269280525425471
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 65161,
+        "cpuTime": 0.236598,
+        "cpuPercent": 0.44427306199621847
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 3,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "static",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 743,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "static"
+  },
+  {
+    "label": "plain-idle-0-animated",
+    "seconds": 10.00310000000149,
+    "rafFrames": 600,
+    "p50": 16.69999999999709,
+    "p95": 17.5,
+    "p99": 17.60000000000582,
+    "parent": {
+      "timerP95": 17.200000002980232,
+      "timerP99": 17.5,
+      "timerMax": 18.399999998509884,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.012,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 65134,
+        "cpuTime": 1.160879,
+        "cpuPercent": 0.49778266080703204
+      },
+      {
+        "type": "renderer",
+        "id": 65155,
+        "cpuTime": 0.047521,
+        "cpuPercent": 0.0008190171793847257
+      },
+      {
+        "type": "renderer",
+        "id": 65156,
+        "cpuTime": 9.208192,
+        "cpuPercent": 14.454105073911313
+      },
+      {
+        "type": "GPU",
+        "id": 65149,
+        "cpuTime": 6.590543,
+        "cpuPercent": 12.16728925289653
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 65150,
+        "cpuTime": 0.187255,
+        "cpuPercent": 0.005353575709149108
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 65152,
+        "cpuTime": 0.037375,
+        "cpuPercent": 0.002317219336795806
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 65161,
+        "cpuTime": 0.250552,
+        "cpuPercent": 0.07847582900519379
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 3,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 743,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-1-animated",
+    "seconds": 10.000699999999254,
+    "rafFrames": 600,
+    "p50": 16.69999999999709,
+    "p95": 17.5,
+    "p99": 17.599999999998545,
+    "parent": {
+      "timerP95": 17.400000002235174,
+      "timerP99": 18.100000001490116,
+      "timerMax": 32.30000000074506,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.004,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 65134,
+        "cpuTime": 1.261789,
+        "cpuPercent": 0.8473810475809683
+      },
+      {
+        "type": "renderer",
+        "id": 65155,
+        "cpuTime": 0.04755,
+        "cpuPercent": 0.0002898840463814599
+      },
+      {
+        "type": "renderer",
+        "id": 65156,
+        "cpuTime": 11.913519,
+        "cpuPercent": 23.82584966013596
+      },
+      {
+        "type": "GPU",
+        "id": 65149,
+        "cpuTime": 8.934368,
+        "cpuPercent": 20.560515793682516
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 65150,
+        "cpuTime": 0.18905,
+        "cpuPercent": 0.017942822870851572
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 65152,
+        "cpuTime": 0.038333,
+        "cpuPercent": 0.00957616953218713
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 65161,
+        "cpuTime": 0.250587,
+        "cpuPercent": 0.00034986005597768144
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 3,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 743,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  },
+  {
+    "label": "plain-idle-1-static",
+    "seconds": 10.002300000000744,
+    "rafFrames": 600,
+    "p50": 16.69999999999709,
+    "p95": 17.599999999998545,
+    "p99": 17.599999999998545,
+    "parent": {
+      "timerP95": 17.5,
+      "timerP99": 18.399999998509884,
+      "timerMax": 29.800000000745058,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.009,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 65134,
+        "cpuTime": 1.526519,
+        "cpuPercent": 2.4437805974622826
+      },
+      {
+        "type": "renderer",
+        "id": 65155,
+        "cpuTime": 0.049208,
+        "cpuPercent": 0.016565091417724047
+      },
+      {
+        "type": "renderer",
+        "id": 65156,
+        "cpuTime": 13.916258,
+        "cpuPercent": 16.635677889899075
+      },
+      {
+        "type": "GPU",
+        "id": 65149,
+        "cpuTime": 11.072206,
+        "cpuPercent": 18.007992806474167
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 65150,
+        "cpuTime": 0.194836,
+        "cpuPercent": 0.04559896093515848
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 65152,
+        "cpuTime": 0.04089,
+        "cpuPercent": 0.024487960835248294
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 65161,
+        "cpuTime": 0.254043,
+        "cpuPercent": 0.03452892396842856
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 3,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "static",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 743,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "static"
+  },
+  {
+    "label": "plain-idle-1-animated",
+    "seconds": 10.006099999997765,
+    "rafFrames": 600,
+    "p50": 16.69999999999709,
+    "p95": 17.5,
+    "p99": 17.60000000000582,
+    "parent": {
+      "timerP95": 17.399999998509884,
+      "timerP99": 17.900000002235174,
+      "timerMax": 20.399999998509884,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 10.026,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 65134,
+        "cpuTime": 1.635022,
+        "cpuPercent": 0.8982146419309794
+      },
+      {
+        "type": "renderer",
+        "id": 65155,
+        "cpuTime": 0.051163,
+        "cpuPercent": 0.007799720726112088
+      },
+      {
+        "type": "renderer",
+        "id": 65156,
+        "cpuTime": 16.215899,
+        "cpuPercent": 20.07692998204669
+      },
+      {
+        "type": "GPU",
+        "id": 65149,
+        "cpuTime": 13.080901,
+        "cpuPercent": 17.648803111909046
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 65150,
+        "cpuTime": 0.198461,
+        "cpuPercent": 0.035647316975862695
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 65152,
+        "cpuTime": 0.041954,
+        "cpuPercent": 0.009505286255735044
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 65161,
+        "cpuTime": 0.256263,
+        "cpuPercent": 0.022142429682824653
+      }
+    ],
+    "cpuThrottle": 1,
+    "dpr": 3,
+    "scenario": "idle",
+    "game": {
+      "staticClouds": false,
+      "actualCloudMode": "animated",
+      "frameInterval": 1,
+      "pixelRatioPolicy": 0,
+      "camera": {
+        "editing": false,
+        "height": 743,
+        "pawnX": 544,
+        "pawnY": 208,
+        "waterPhase": 0,
+        "width": 1152,
+        "x": 544,
+        "y": 176,
+        "zoom": 0.800000011920929
+      }
+    },
+    "frameBudgetPass": true,
+    "cloudMode": "animated"
+  }
+]

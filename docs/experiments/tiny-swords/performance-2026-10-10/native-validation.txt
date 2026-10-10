@@ -1,0 +1,100 @@
+tiny-swords-canonical-reuse-before.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+ERROR: Unchanged inventory rebuild reuses the clipped tree texture
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tests/tree_texture_reuse.gd:11)
+       [1] run (res://tests/tree_texture_reuse.gd:33)
+ERROR: Undo and re-placement reuse the original clipped texture
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tests/tree_texture_reuse.gd:11)
+       [1] run (res://tests/tree_texture_reuse.gd:38)
+Tree texture inventory reuse: FAIL (2)
+
+
+tiny-swords-tree-cache-check.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree cache parity: 72 cases; terrain changes, exact offsets, LRU bounds and artwork invalidation checked
+Tree texture inventory reuse: PASS
+
+
+tree_cut_reaction.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree cut reaction render checks: 0 failures
+
+
+tree_inventory_pause.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree inventory pause checks: 0 failures
+
+
+tree_harvesting.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree harvesting checks: 0 failures
+
+
+tree_cursor_placement.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+ERROR: Actual world click retains its sub-cell position
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tests/tree_cursor_placement.gd:12)
+       [1] run (res://tests/tree_cursor_placement.gd:32)
+SCRIPT ERROR: Invalid access of index '0' on a base object of type: 'Array[Node]'.
+          at: run (res://tests/tree_cursor_placement.gd:33)
+          GDScript backtrace (most recent call first):
+              [0] run (res://tests/tree_cursor_placement.gd:33)
+
+
+tree_swap_hover.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree swap hover: PASS
+
+
+tree_shadow_clipping.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree shadow clipping: PASS (15 placements, all 8 frames)
+
+
+tiny-swords-cursor-before.log
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+ERROR: Actual world click retains its sub-cell position
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tests/tree_cursor_placement.gd:12)
+       [1] run (res://tests/tree_cursor_placement.gd:32)
+SCRIPT ERROR: Invalid access of index '0' on a base object of type: 'Array[Node]'.
+          at: run (res://tests/tree_cursor_placement.gd:33)
+          GDScript backtrace (most recent call first):
+              [0] run (res://tests/tree_cursor_placement.gd:33)
+
+
+Updated diagnostic helper validation
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree texture exact parity: PASS (72 cases)
+
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M3
+
+Tree shadow clipping: PASS (15 placements, all 8 frames)
