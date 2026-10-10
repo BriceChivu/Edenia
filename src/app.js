@@ -9812,6 +9812,7 @@ async function markVideo(videoId, requestedStatus, options = {}) {
   )
   const previousResumePriority = hasVideoResumePriority(video)
   const isPuttingInWatchedSection = requestedStatus === 'watched' && options.putInWatchedSection === true
+  const isReorganizingWatchedVideo = isPuttingInWatchedSection && previousStatus === 'watched'
   const isClearingWatchedOrganization = isPuttingInWatchedSection && (
     isFavoriteVideo(video)
     || normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
@@ -9863,16 +9864,19 @@ async function markVideo(videoId, requestedStatus, options = {}) {
     delete video.setAsideResumeAtSeconds
   }
   const watchedAt = newStatus === 'watched'
-    ? isPuttingInWatchedSection && previousStatus === 'watched' && isValidTimestamp(video.watchedAt)
+    ? isReorganizingWatchedVideo && isValidTimestamp(video.watchedAt)
       ? video.watchedAt
       : getCurrentAppTimestamp(s)
     : null
   if (watchedAt) {
-    if (options.creditOnlyRecordedProgress === true || video.watchProgressTracked === true) {
-      video.watchProgressTracked = true
-    } else {
-      const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
-      if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
+    // An organization-only move must retain old completion credit as well as detailed records.
+    if (!isReorganizingWatchedVideo) {
+      if (options.creditOnlyRecordedProgress === true || video.watchProgressTracked === true) {
+        video.watchProgressTracked = true
+      } else {
+        const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
+        if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
+      }
     }
     delete video.watchCycleCoverage
     delete video.rewatchCoverage
@@ -9891,7 +9895,7 @@ async function markVideo(videoId, requestedStatus, options = {}) {
       ? video.pausedAt
       : getCurrentAppTimestamp(s)
     : null
-  if (watchedAt && (!isPuttingInWatchedSection || previousStatus !== 'watched')) {
+  if (watchedAt && !isReorganizingWatchedVideo) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
   }

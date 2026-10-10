@@ -911,7 +911,7 @@ test('the main-page menu offers watched at 70% and moving it adds no extra XP', 
   expect(await page.evaluate(() => getCurrentCityScore(loadState()))).toBe(scoreBefore)
 })
 
-for (const scenario of ['watched replay', 'watched favorite', 'partial favorite']) {
+for (const scenario of ['watched replay', 'watched favorite', 'partial favorite', 'legacy watched favorite']) {
   test(`Put in watched section clears organization for a ${scenario} without changing study facts`, async ({ page }, testInfo) => {
     test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
     await seedVideoOrganizationState(page, { testerMode: testInfo.project.name === 'desktop-standard' })
@@ -919,15 +919,20 @@ for (const scenario of ['watched replay', 'watched favorite', 'partial favorite'
       const state = loadState()
       const video = state.videos['menu-anchor-video']
       Object.assign(video, {
-        status: scenario.startsWith('watched') ? 'watched' : 'partial',
+        status: scenario === 'partial favorite' ? 'partial' : 'watched',
         favorite: true,
         watchLater: true,
-        watchedAt: scenario.startsWith('watched') ? '2026-08-02T06:00:00.000Z' : null,
+        watchedAt: scenario === 'partial favorite' ? null : '2026-08-02T06:00:00.000Z',
         watchedConfirmationUnlockedAt: '2026-08-02T06:00:00.000Z',
-        resumeAtSeconds: scenario === 'watched favorite' ? null : 53,
+        resumeAtSeconds: scenario.endsWith('watched favorite') ? null : 53,
         watchCycleCoverage: [{ start: 0, end: 53 }],
         watchProgress: [{ watchedAt: '2026-08-02T06:00:00.000Z', seconds: 480, experienceSeconds: 480 }]
       })
+      if (scenario === 'legacy watched favorite') {
+        video.watchProgress = []
+        delete video.watchProgressTracked
+        delete video.watchCycleCoverage
+      }
       await saveState(state)
     }, scenario)
     await page.reload()
@@ -951,7 +956,7 @@ for (const scenario of ['watched replay', 'watched favorite', 'partial favorite'
     expect(after.video).toMatchObject({ status: 'watched', favorite: false, watchLater: false, resumeAtSeconds: null, pausedAt: null })
     expect(after.video.watchProgress).toEqual(before.video.watchProgress)
     expect(after.score).toBe(before.score)
-    if (scenario.startsWith('watched')) expect(after.video.watchedAt).toBe(before.video.watchedAt)
+    if (before.video.status === 'watched') expect(after.video.watchedAt).toBe(before.video.watchedAt)
     await page.reload()
     await waitForApplication(page)
     await expect(card).toHaveCount(0)
