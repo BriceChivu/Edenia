@@ -1,0 +1,435 @@
+[
+  {
+    "label": "ui-cold-open",
+    "seconds": 3.00129999999702,
+    "rafFrames": 178,
+    "p50": 16.69999999999891,
+    "p95": 17.600000000000364,
+    "p99": 17.700000000000728,
+    "parent": {
+      "timerP95": 17.5,
+      "timerP99": 19.600000001490116,
+      "timerMax": 61,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 3.006,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 86371,
+        "cpuTime": 1.119335,
+        "cpuPercent": 1.802594810379244
+      },
+      {
+        "type": "renderer",
+        "id": 86408,
+        "cpuTime": 0.060709,
+        "cpuPercent": 0.078210246174318
+      },
+      {
+        "type": "renderer",
+        "id": 86409,
+        "cpuTime": 4.925403,
+        "cpuPercent": 23.590552228875595
+      },
+      {
+        "type": "GPU",
+        "id": 86388,
+        "cpuTime": 2.622639,
+        "cpuPercent": 19.60788423153693
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 86391,
+        "cpuTime": 0.180364,
+        "cpuPercent": 0.22039254823685936
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 86394,
+        "cpuTime": 0.044218,
+        "cpuPercent": 0.0021290751829674505
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 86413,
+        "cpuTime": 0.320387,
+        "cpuPercent": 0.8141716566866266
+      }
+    ]
+  },
+  {
+    "label": "ui-edit-undo-0",
+    "seconds": 3.0011999999955297,
+    "rafFrames": 177,
+    "p50": 16.69999999999891,
+    "p95": 17.600000000000364,
+    "p99": 17.69999999999891,
+    "parent": {
+      "timerP95": 17.399999998509884,
+      "timerP99": 23.700000002980232,
+      "timerMax": 90.79999999701977,
+      "longTasks": [
+        {
+          "at": 11719.20000000298,
+          "ms": 57
+        }
+      ]
+    },
+    "gameLongTasks": [
+      {
+        "at": 11621.10000000149,
+        "ms": 57
+      }
+    ],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 3.009,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 86371,
+        "cpuTime": 1.172996,
+        "cpuPercent": 1.7081090063143873
+      },
+      {
+        "type": "renderer",
+        "id": 86408,
+        "cpuTime": 0.060709,
+        "cpuPercent": 0
+      },
+      {
+        "type": "renderer",
+        "id": 86409,
+        "cpuTime": 5.6404,
+        "cpuPercent": 23.61498836822863
+      },
+      {
+        "type": "GPU",
+        "id": 86388,
+        "cpuTime": 3.240393,
+        "cpuPercent": 20.44297108673978
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 86391,
+        "cpuTime": 0.184916,
+        "cpuPercent": 0.151279494848787
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 86394,
+        "cpuTime": 0.044753,
+        "cpuPercent": 0.01777999335327354
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 86413,
+        "cpuTime": 0.348313,
+        "cpuPercent": 0.924559654370223
+      }
+    ],
+    "actionCount": 2,
+    "dpr": 3,
+    "cpuThrottle": 1
+  },
+  {
+    "label": "ui-edit-undo-1",
+    "seconds": 3.0007000000029804,
+    "rafFrames": 180,
+    "p50": 16.69999999999891,
+    "p95": 17.600000000000364,
+    "p99": 17.700000000000728,
+    "parent": {
+      "timerP95": 17.5,
+      "timerP99": 17.899999998509884,
+      "timerMax": 36.29999999701977,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 3.004,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 86371,
+        "cpuTime": 1.223745,
+        "cpuPercent": 1.6000998668442104
+      },
+      {
+        "type": "renderer",
+        "id": 86408,
+        "cpuTime": 0.060709,
+        "cpuPercent": 0
+      },
+      {
+        "type": "renderer",
+        "id": 86409,
+        "cpuTime": 6.374604,
+        "cpuPercent": 24.246504660452736
+      },
+      {
+        "type": "GPU",
+        "id": 86388,
+        "cpuTime": 3.96431,
+        "cpuPercent": 23.986051930758986
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 86391,
+        "cpuTime": 0.189097,
+        "cpuPercent": 0.13918109187749636
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 86394,
+        "cpuTime": 0.045293,
+        "cpuPercent": 0.017976031957390108
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 86413,
+        "cpuTime": 0.375594,
+        "cpuPercent": 0.9049933422103856
+      }
+    ],
+    "actionCount": 2,
+    "dpr": 3,
+    "cpuThrottle": 1
+  },
+  {
+    "label": "ui-edit-undo-2",
+    "seconds": 3.0062999999970197,
+    "rafFrames": 181,
+    "p50": 16.69999999999709,
+    "p95": 17.599999999998545,
+    "p99": 17.700000000000728,
+    "parent": {
+      "timerP95": 17.600000001490116,
+      "timerP99": 20.899999998509884,
+      "timerMax": 32.100000001490116,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 3.012,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 86371,
+        "cpuTime": 1.270527,
+        "cpuPercent": 1.5056772908366507
+      },
+      {
+        "type": "renderer",
+        "id": 86408,
+        "cpuTime": 0.060851,
+        "cpuPercent": 0.004714475431607013
+      },
+      {
+        "type": "renderer",
+        "id": 86409,
+        "cpuTime": 7.192155,
+        "cpuPercent": 27.097476759628137
+      },
+      {
+        "type": "GPU",
+        "id": 86388,
+        "cpuTime": 4.705861,
+        "cpuPercent": 24.619887118193887
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 86391,
+        "cpuTime": 0.194805,
+        "cpuPercent": 0.18950863213811484
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 86394,
+        "cpuTime": 0.045562,
+        "cpuPercent": 0.008930942895086268
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 86413,
+        "cpuTime": 0.40381,
+        "cpuPercent": 0.9351593625498008
+      }
+    ],
+    "actionCount": 2,
+    "dpr": 3,
+    "cpuThrottle": 1
+  },
+  {
+    "label": "ui-edit-undo-3",
+    "seconds": 3.00370000000298,
+    "rafFrames": 180,
+    "p50": 16.69999999999709,
+    "p95": 17.600000000002183,
+    "p99": 17.69999999999709,
+    "parent": {
+      "timerP95": 17.700000002980232,
+      "timerP99": 25.5,
+      "timerMax": 34.19999999552965,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 3.007,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 86371,
+        "cpuTime": 1.321807,
+        "cpuPercent": 1.611739275024941
+      },
+      {
+        "type": "renderer",
+        "id": 86408,
+        "cpuTime": 0.060851,
+        "cpuPercent": 0
+      },
+      {
+        "type": "renderer",
+        "id": 86409,
+        "cpuTime": 7.937791,
+        "cpuPercent": 24.63182573994014
+      },
+      {
+        "type": "GPU",
+        "id": 86388,
+        "cpuTime": 5.432002,
+        "cpuPercent": 24.041802460924508
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 86391,
+        "cpuTime": 0.199035,
+        "cpuPercent": 0.1406717658796137
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 86394,
+        "cpuTime": 0.045997,
+        "cpuPercent": 0.014466245427336375
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 86413,
+        "cpuTime": 0.431228,
+        "cpuPercent": 0.9083471898902563
+      }
+    ],
+    "actionCount": 2,
+    "dpr": 3,
+    "cpuThrottle": 1
+  },
+  {
+    "label": "ui-edit-undo-4",
+    "seconds": 3.00039999999851,
+    "rafFrames": 180,
+    "p50": 16.69999999999709,
+    "p95": 17.600000000002183,
+    "p99": 17.700000000000728,
+    "parent": {
+      "timerP95": 17.5,
+      "timerP99": 19.400000005960464,
+      "timerMax": 38.79999999701977,
+      "longTasks": []
+    },
+    "gameLongTasks": [],
+    "samples": [],
+    "canvas": [
+      1041,
+      672
+    ],
+    "consoleErrors": 0,
+    "visibility": "visible",
+    "cpuSeconds": 3.005,
+    "cpuTimingReliable": true,
+    "processes": [
+      {
+        "type": "browser",
+        "id": 86371,
+        "cpuTime": 1.370342,
+        "cpuPercent": 1.5413643926788638
+      },
+      {
+        "type": "renderer",
+        "id": 86408,
+        "cpuTime": 0.060851,
+        "cpuPercent": 0
+      },
+      {
+        "type": "renderer",
+        "id": 86409,
+        "cpuTime": 8.672002,
+        "cpuPercent": 24.356372712146452
+      },
+      {
+        "type": "GPU",
+        "id": 86388,
+        "cpuTime": 6.182055,
+        "cpuPercent": 24.94831946755409
+      },
+      {
+        "type": "network.mojom.NetworkService",
+        "id": 86391,
+        "cpuTime": 0.204101,
+        "cpuPercent": 0.1685856905158075
+      },
+      {
+        "type": "storage.mojom.StorageService",
+        "id": 86394,
+        "cpuTime": 0.046239,
+        "cpuPercent": 0.008053244592346062
+      },
+      {
+        "type": "audio.mojom.AudioService",
+        "id": 86413,
+        "cpuTime": 0.458222,
+        "cpuPercent": 0.893344425956739
+      }
+    ],
+    "actionCount": 2,
+    "dpr": 3,
+    "cpuThrottle": 1
+  }
+]

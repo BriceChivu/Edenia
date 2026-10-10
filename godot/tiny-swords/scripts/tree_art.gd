@@ -13,6 +13,13 @@ const TEXTURES := {
 }
 static var sources := {}
 static var shadows := {}
+# Bound retained generated RGBA texels; imported textures are already shared.
+const MAX_CACHED_TEXTURE_BYTES := 16 * 1024 * 1024
+const MAX_CACHED_TEXTURES := 16
+static var _texture_cache := {}
+static var _texture_order: Array[Array] = []
+static var _texture_cache_bytes := 0
+static var _watched_sources := {}
 
 static func art_offset(kind: String) -> Vector2:
 	return Vector2(0, -64) if kind in ["tree2", "tree4"] else Layout.TREE_ART_OFFSET
@@ -47,6 +54,44 @@ static func shadow_pixel_on_ground(position: Vector2, ground: Dictionary) -> boo
 	return true
 
 static func texture_at(offset: Vector2, kind := "tree", stump := false, ground: Dictionary = {Vector2i.ZERO: true}) -> Texture2D:
+	var source_key: String = kind + ("_stump" if stump else "")
+	if not _watched_sources.has(source_key):
+		var original: Texture2D = STUMPS[kind] if stump else TEXTURES[kind]
+		original.changed.connect(_source_changed.bind(source_key))
+		_watched_sources[source_key] = true
+	# Clipping depends on relative receiving cells, not their insertion order or
+	# the tree's world position. Preserve exact offsets for free-position previews.
+	var cells := ground.keys()
+	cells.sort()
+	var key: Array = [kind, stump, offset, cells]
+	if _texture_cache.has(key):
+		_texture_order.erase(key)
+		_texture_order.append(key)
+		return _texture_cache[key].texture
+	var texture := _create_texture(offset, kind, stump, ground)
+	var bytes := texture.get_width() * texture.get_height() * 4 if texture is ImageTexture else 0
+	if bytes <= MAX_CACHED_TEXTURE_BYTES:
+		while not _texture_order.is_empty() and (_texture_cache.size() >= MAX_CACHED_TEXTURES or _texture_cache_bytes + bytes > MAX_CACHED_TEXTURE_BYTES):
+			var oldest: Array = _texture_order.pop_front()
+			_texture_cache_bytes -= int(_texture_cache[oldest].bytes)
+			_texture_cache.erase(oldest)
+		_texture_cache[key] = {"texture": texture, "bytes": bytes}
+		_texture_order.append(key)
+		_texture_cache_bytes += bytes
+	return texture
+
+static func clear_texture_cache() -> void:
+	_texture_cache.clear()
+	_texture_order.clear()
+	_texture_cache_bytes = 0
+
+static func _source_changed(key: String) -> void:
+	# Editor reimports invalidate derived images and shadows as well as textures.
+	sources.erase(key)
+	shadows.erase(key)
+	clear_texture_cache()
+
+static func _create_texture(offset: Vector2, kind: String, stump: bool, ground: Dictionary) -> Texture2D:
 	var texture: Texture2D = STUMPS[kind] if stump else TEXTURES[kind]
 	var key: String = kind + ("_stump" if stump else "")
 	if not sources.has(key):

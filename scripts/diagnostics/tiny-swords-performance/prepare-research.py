@@ -75,10 +75,27 @@ p.write_text(s)
 # Exact-input, bounded tree-texture reuse: attribution for inventory rebuilds.
 # Keep the original pixel clipping path as the disabled control.
 p=base/'tree_art.gd';s=p.read_text()
-s=s.replace('static var sources := {}','static var perf_texture_cache := {}\nstatic var sources := {}')
 signature='static func texture_at(offset: Vector2, kind := "tree", stump := false, ground: Dictionary = {Vector2i.ZERO: true}) -> Texture2D:\n'
 assert signature in s
-s=s.replace(signature,signature+''' var perf = Engine.get_main_loop().root.get_node("Perf")
+if 'MAX_CACHED_TEXTURE_BYTES' in s:
+ # Current production cache is on by default. Explicit false is the original
+ # clipping control; never put a second prototype cache around production.
+ s=s.replace(signature,signature+''' var perf = Engine.get_main_loop().root.get_node("Perf")
+ var started := Time.get_ticks_usec()
+ var result: Texture2D = _canonical_texture_at(offset,kind,stump,ground) if perf.flags.get("tree_texture_cache",true) else _research_texture_at(offset,kind,stump,ground)
+ perf.record("tree_art.gd:texture_at",Time.get_ticks_usec()-started)
+ return result
+
+static func _research_texture_at(offset: Vector2, kind := "tree", stump := false, ground: Dictionary = {Vector2i.ZERO: true}) -> Texture2D:
+ return _create_texture(offset,kind,stump,ground)
+
+static func _canonical_texture_at(offset: Vector2, kind := "tree", stump := false, ground: Dictionary = {Vector2i.ZERO: true}) -> Texture2D:
+''')
+else:
+ s=s.replace('static var sources := {}','static var perf_texture_cache := {}\nstatic var sources := {}')
+ signature='static func texture_at(offset: Vector2, kind := "tree", stump := false, ground: Dictionary = {Vector2i.ZERO: true}) -> Texture2D:\n'
+ assert signature in s
+ s=s.replace(signature,signature+''' var perf = Engine.get_main_loop().root.get_node("Perf")
  var started := Time.get_ticks_usec()
  var tiles := ground.keys()
  tiles.sort()
@@ -142,6 +159,9 @@ func run() -> void:
  print("Tree texture exact parity: ","PASS" if failures==0 else "FAIL"," (",checked," cases)")
  quit(0 if failures==0 else 1)
 ''')
+if 'MAX_CACHED_TEXTURE_BYTES' in (base/'tree_art.gd').read_text():
+ p=tests/'research_tree_texture_parity.gd'
+ p.write_text(p.read_text().replace('art.perf_texture_cache','art._texture_cache'))
 source=(pathlib.Path.cwd()/'godot/tiny-swords/tests/tree_shadow_clipping.gd').read_text()
 # CLI SceneTree scripts compile before autoload names become available. Load
 # instrumented Layout lazily, once Perf has been registered.
@@ -151,9 +171,10 @@ source=source.replace('preload("res://scripts/tree_art.gd")','load("res://script
 # expected the planted variant; compare ghost pixels with an uncached clipping
 # result for the actual replacement while keeping planted-shadow checks intact.
 expected='load("res://scripts/tree_art.gd")._research_texture_at(level.layout.tree_offset(cell),level.terrain.tree_preview_variant(),false,load("res://scripts/tree_art.gd").shadow_ground(level.layout,cell)).get_image().get_data()'
-source=source.replace('ghost.get_data() != rendered.get_data()', 'ghost.get_data() != '+expected)
-source=source.replace('level.terrain.clipped_tree_preview_texture().get_image().get_data() != connected.get_data()', 'level.terrain.clipped_tree_preview_texture().get_image().get_data() != '+expected)
-source=source.replace('level.terrain.clipped_tree_preview_texture().get_image().get_data() != isolated.get_data()', 'level.terrain.clipped_tree_preview_texture().get_image().get_data() != '+expected)
+if 'func placement_preview(' not in source:
+ source=source.replace('ghost.get_data() != rendered.get_data()', 'ghost.get_data() != '+expected)
+ source=source.replace('level.terrain.clipped_tree_preview_texture().get_image().get_data() != connected.get_data()', 'level.terrain.clipped_tree_preview_texture().get_image().get_data() != '+expected)
+ source=source.replace('level.terrain.clipped_tree_preview_texture().get_image().get_data() != isolated.get_data()', 'level.terrain.clipped_tree_preview_texture().get_image().get_data() != '+expected)
 (tests/'research_tree_shadow_clipping.gd').write_text(source.replace('func run() -> void:\n','func run() -> void:\n\troot.get_node("Perf").flags = {"tree_texture_cache":true}\n\tvar Layout = load("res://scripts/terrain_layout.gd")\n\tvar Source: Texture2D = load("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1.png")\n',1))
 source=(pathlib.Path.cwd()/'godot/tiny-swords/tests/cloud_depth.gd').read_text()
 (tests/'research_cloud_depth.gd').write_text(source.replace('func run() -> void:\n','func run() -> void:\n\troot.get_node("Perf").flags = {"mask_copy_cache":true}\n',1))

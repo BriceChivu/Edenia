@@ -76,6 +76,14 @@ strike strengths repeat with the eight ambient tree poses every 2.4 seconds;
 right-side chopping mirrors the reaction. Roots stay anchored and the clipped
 ground shadow does not rotate. The motion uses the website's measured rotation
 as a close reproduction; it is not certified pixel-identical to its GIF.
+Clipped tree and stump textures are reused across inventory rebuilds, previews
+and undo. The LRU key preserves exact offsets, variant, stump state and sorted
+relative receiving grass cells; terrain changes therefore select fresh clipping.
+The cache retains at most 16 textures and 16 MiB of generated RGBA texels
+(excluding already shared imported artwork and renderer overhead), and artwork
+changes invalidate derived textures. Animation and pixel density are unchanged.
+`tests/tree_texture_reuse.gd` exercises real inventory placement/undo, exact pixel
+parity, terrain changes, eviction and source invalidation with a real renderer.
 Completed trees fade out over 0.2 seconds while Dust_01 and Dust_02 play once
 at the trunk, revealing their matching static Stump PNG. Every tree regrows after
 five minutes, including time while the preview

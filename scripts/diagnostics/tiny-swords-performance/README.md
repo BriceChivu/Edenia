@@ -18,6 +18,26 @@ pages. These are investigation tools, not universal device benchmarks.
 
 ## Native-resolution research — 2026-10-09
 
+### Production tree-cache validation — 2026-10-10
+
+`research-inventory-ui` uses the ordinary integrated export with no gameplay
+instrumentation. It opens inventory, clicks the pine at (2,2) on a 100-tile
+synthetic island, then clicks the actual Undo button. Every pair must persist
+the changed variant and restore the exact terrain, trees, stock and resources.
+Compare separate builds serially; retain the JSON after each run before the next
+run overwrites it. `--mobile` uses DPR 3 phone layout on the Mac, not a real phone.
+
+```sh
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-inventory-ui --site=PATH_TO_BASELINE_SITE --seconds=3 --repeat=5
+node scripts/diagnostics/tiny-swords-performance/run.mjs --suite=research-inventory-ui --seconds=3 --repeat=5
+```
+
+For fresh diagnostic exports, `tree_texture_cache` now defaults to the canonical
+production cache. An explicit false bypasses it through the unchanged clipping
+routine, and `research-inventory-actions` sets false/true/false explicitly. The
+historical prototype remains supported for source without the production cache.
+Do not reuse an old generated export to validate current production code.
+
 The `research-*` suites retain the current default native pixel density. They
 disable per-WebGL-call timing and the JS CPU profiler. The diagnostic preparer
 also adapts the older inventory-cloud probe to the current rare-cloud property;

@@ -105,7 +105,7 @@ async function worldClick(page,gf,x,y){const c=await gf.evaluate(()=>window.eden
 try {
  if(suite.startsWith('research-')) {
   const {research}=await import('./research-suites.mjs');
-  await research({suite,setup,inventorySample,sample,flags,results,out,writeFile});
+  await research({suite,setup,inventorySample,sample,flags,worldClick,results,out,writeFile});
  } else if(suite==='gate'||suite==='baseline') {
   for(const mode of suite==='gate'?['integrated']:['nogame','integrated','alone']) {
    const s=await setup({mode});await sample(s.page,mode+'-idle',10,suite!=='gate');

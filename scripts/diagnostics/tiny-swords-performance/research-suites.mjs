@@ -1,5 +1,5 @@
 // Native-density crossover experiments. Imported by the existing local runner.
-export async function research({suite,setup,inventorySample,sample,flags,results,out,writeFile}) {
+export async function research({suite,setup,inventorySample,sample,flags,worldClick,results,out,writeFile}) {
  const option=(key,fallback)=>process.argv.find(x=>x.startsWith(`--${key}=`))?.split('=')[1]??fallback;
  const seconds=Number(option('seconds',12)),repeat=Number(option('repeat',2));
  const cpu=Number(option('cpu',1));
@@ -17,7 +17,37 @@ export async function research({suite,setup,inventorySample,sample,flags,results
    canvas:row.canvas,pass:row.frameBudgetPass}));return row;
  };
  const attach=async s=>{const c=await s.context.newCDPSession(s.page);await c.send('Emulation.setCPUThrottlingRate',{rate:cpu});return c;};
- if(suite==='research-baseline'){
+ if(suite==='research-inventory-ui'){
+  // Canonical export: no Perf autoload, injected gameplay, or cache flags.
+  const mobile=process.argv.includes('--mobile');
+  const s=await setup({side:10,mobile,dpr:mobile?3:2});const c=await attach(s);
+  if(await s.gf.evaluate(()=>!!window.__godotPerf))throw new Error('UI validation requires an uninstrumented game export');
+  const b=await s.page.locator('iframe').boundingBox();
+  const opened=inventorySample(s.page,'ui-cold-open',seconds);
+  await s.page.waitForTimeout(250);
+  await s.page.mouse.click(b.x+b.width-22,b.y+b.height-24);
+  await s.gf.waitForFunction(()=>window.edeniaCamera?.editing===true,null,{timeout:5000});
+  const opening=await opened;
+  if(opening.consoleErrors)throw new Error('Game console errors during inventory opening');
+  console.log(JSON.stringify({label:opening.label,p99:opening.p99,timerMax:opening.parent.timerMax,canvas:opening.canvas,errors:opening.consoleErrors}));
+  const durable=()=>s.page.evaluate(()=>{const a=loadState().tinySwordsIsland;return JSON.stringify([a.tiles,a.tree_offsets,a.stock,a.resources]);});
+  const original=await durable();
+  for(let r=0;r<repeat;r++){
+   const measurement=inventorySample(s.page,`ui-edit-undo-${r}`,seconds);
+   await s.page.waitForTimeout(250);
+   await worldClick(s.page,s.gf,672,296);
+   await s.page.waitForFunction(()=>loadState().tinySwordsIsland?.tree_offsets?.some(a=>a[0]===2&&a[1]===2&&a[4]==='tree3'),null,{timeout:5000});
+   await s.page.mouse.click(b.x+b.width-40,b.y+b.height-44);
+   await s.page.waitForFunction(()=>loadState().tinySwordsIsland?.tree_offsets?.some(a=>a[0]===2&&a[1]===2&&a[4]==='tree2'),null,{timeout:5000});
+   const row=await measurement;row.actionCount=2;row.dpr=mobile?3:2;row.cpuThrottle=cpu;
+   if(row.consoleErrors)throw new Error('Game console errors during inventory edits');
+   if(await durable()!==original)throw new Error('UI edit/undo changed retained terrain, trees, stock or resources');
+   console.log(JSON.stringify({label:row.label,p99:row.p99,timerMax:row.parent.timerMax,canvas:row.canvas,errors:row.consoleErrors}));
+  }
+  await s.page.locator('iframe').screenshot({path:out+'/inventory-ui.png'});
+  console.log('INVENTORY_UI PASS: actual tree click and Undo button retained the exact durable island');
+  await c.detach();await s.context.close();
+ }else if(suite==='research-baseline'){
   for(const side of option("sides","6,99").split(",").map(Number))for(const mobile of option("layouts","desktop,phone").split(",").map(x=>x==="phone")){
    const s=await setup({side,mobile,dpr:mobile?3:2});const c=await attach(s);
    for(let r=0;r<repeat;r++){
@@ -70,7 +100,7 @@ export async function research({suite,setup,inventorySample,sample,flags,results
   await s.gf.waitForFunction(()=>window.__inventoryCommandDone===600);
   const probe=option('edit-probe','static_original_clouds');
   for(let r=0;r<repeat;r++)for(const mode of ['before','enabled','after']){
-   await flags(s.gf,mode==='enabled'?{[probe]:true}:{});
+   await flags(s.gf,probe==='tree_texture_cache'?{[probe]:mode==='enabled'}:mode==='enabled'?{[probe]:true}:{});
    const measurement=inventorySample(s.page,`single-edit-undo-${r}-${probe}-${mode}`,seconds);
    await s.page.waitForTimeout(250);
    const id=700+r*3+['before','enabled','after'].indexOf(mode);
