@@ -1,4 +1,5 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import { readRecoveryRecord } from '../support/profile-recovery-fixture.mjs'
 const key = 'edenia_v1_internal_test_2'
 const databaseName = `${key}_profiles_indexed_db_v1`
 async function open(page, config = {}) {
@@ -100,8 +101,8 @@ for (const failure of ['indexeddb', 'local-read', 'writes']) for (const chooseSa
       window.blockConfirmationStorage = false
       window.dispatchEvent(new Event('focus'))
     })
-    await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(`${key}_recovery_workspace_v1`)).status, key)).toBe('archived')
-    const protectedCopy = await page.evaluate(key => JSON.parse(JSON.parse(localStorage.getItem(`${key}_recovery_workspace_v1`)).unchosenProfile).anki['2026-10-10'].reviewed, key)
+    await expect.poll(async () => (await readRecoveryRecord(page, key)).status).toBe('archived')
+    const protectedCopy = JSON.parse((await readRecoveryRecord(page, key)).unchosenProfile).anki['2026-10-10'].reviewed
     expect(protectedCopy).toBe(chooseSaved ? 7 : 9)
   })
 }
@@ -154,4 +155,53 @@ test('a new background reconciliation failure reports automatically without inte
     await reconcileBackgroundProfileRecovery()
   })
   await expect.poll(() => page.evaluate(() => profileRecoveryWorkspace.isActive())).toBe(false)
+})
+
+test('an unavailable recovery journal reports its own detailed failure and keeps onboarding usable', async ({ page }) => {
+  const captured = []
+  const servedOrigin = `http://localhost:${Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)}`
+  await page.route('https://us.i.posthog.com/capture/', route => {
+    const payload = route.request().postDataJSON()
+    if (payload.event === 'feedback_submitted') captured.push(payload)
+    return route.fulfill({ json: { status: 1 } })
+  })
+  await page.route('https://edenia.study/**', async route => {
+    const url = new URL(route.request().url())
+    return route.fulfill({ response: await route.fetch({ url: `${servedOrigin}${url.pathname}${url.search}` }) })
+  })
+  await open(page)
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'What language are you learning?', exact: true })).toBeVisible()
+  await page.evaluate(async () => {
+    const put = IDBObjectStore.prototype.put
+    const set = Storage.prototype.setItem
+    window.blockAllRecoveryWrites = true
+    IDBObjectStore.prototype.put = function (...args) {
+      if (window.blockAllRecoveryWrites && ['heads', 'profiles'].includes(this.name)) throw new DOMException('PRIVATE fixture data', 'QuotaExceededError')
+      return put.apply(this, args)
+    }
+    Storage.prototype.setItem = function (name, value) {
+      if (window.blockAllRecoveryWrites && name.startsWith('edenia_v1_internal_test_2')) throw new DOMException('PRIVATE fixture data', 'QuotaExceededError')
+      return set.call(this, name, value)
+    }
+    const state = loadState()
+    state.anki['2026-10-10'] = { reviewed: 7, created: 0 }
+    await saveState(state)
+  })
+  await expect.poll(() => captured.some(payload => {
+    const report = JSON.parse(payload.properties.feedback_message.split('\n').slice(1).join('\n'))
+    return report.storageTarget === 'recovery-journal' && report.code === 'storage-full'
+      && report.operation === 'save' && report.error.name === 'QuotaExceededError'
+  })).toBe(true)
+  expect(JSON.stringify(captured)).not.toContain('PRIVATE')
+  await expect(page.getByRole('heading', { name: 'What language are you learning?', exact: true })).toBeVisible()
+  await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
+  expect(await page.evaluate(() => loadState().anki['2026-10-10'].reviewed)).toBe(7)
+  await page.evaluate(async () => {
+    window.blockAllRecoveryWrites = false
+    await reconcileBackgroundProfileRecovery()
+  })
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'What language are you learning?', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => loadState().anki['2026-10-10'].reviewed)).toBe(7)
 })

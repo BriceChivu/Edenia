@@ -1,5 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
 import { readFile } from 'node:fs/promises'
+import { build } from 'esbuild'
+import { fileURLToPath } from 'node:url'
 const channelId = 'UC0000000000000000000000'
 const addedId = 'UC1111111111111111111111'
 const databaseName = 'edenia_v1_profiles_indexed_db_v1'
@@ -496,7 +498,8 @@ test('a failed migrated-backup reopen preserves primary operation without recrea
 // including the narrow interval between transaction commit and acknowledgment.
 const edgeDatabaseName = 'synthetic_profile_edge_cases'
 async function repositoryFixture(page) {
-  const source = await readFile(new URL('../../src/state/indexed-db-profile.js', import.meta.url), 'utf8')
+  const { outputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../../src/state/indexed-db-profile.js', import.meta.url))], bundle: true, format: 'esm', platform: 'browser', write: false })
+  const source = outputFiles[0].text
   const adapter = await readFile(new URL('../../src/state/tiny-swords-island.js', import.meta.url), 'utf8')
   await configure(page, false)
   await page.route('**/profile-repository-fixture.js', route => route.fulfill({

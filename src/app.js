@@ -704,6 +704,7 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
     ACCOUNT_STUDY_SYNC_OWNER_KEY, PLUS_ENTITLEMENT_CACHE_KEY,
     LEGACY_PROGRESS_MIGRATION_KEY, SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
     CONFIG_COOKIE_KEY],
+  indexedDb: (() => { try { return window.indexedDB } catch { return null } })(),
   eventTarget: window,
   onExternalChange({ retired }) {
     if (retired) primaryProfileStorageUnavailable = true
@@ -715,8 +716,10 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
       else renderAll(loadPersistedState({ persistCleanup: false }))
     })
   },
-  onStorageFailure(error) {
-    queueMicrotask(() => reportBackgroundStorageFailure('save', describeProfileStorageFailure(error)))
+  onStorageFailure(error, operation = 'save', target) {
+    const failure = describeProfileStorageFailure(error)
+    if (target === 'recovery-journal') failure.storageTarget = target
+    queueMicrotask(() => reportBackgroundStorageFailure(operation, failure))
   },
   onConflictCleared(id) { recoveryConflictView?.hide(id) },
   onConflict({ id, currentRaw, desiredRaw, epoch }) {
@@ -754,7 +757,7 @@ const profileBrowserStorage = profileRecoveryWorkspace.storage
 
 function resetRecoveryBackupStore() {
   stateBackupStore = createStateBackupStore({ ...stateBackupStoreOptions, storage: profileBrowserStorage })
-  flushStateBackupWrites = async () => ({ entries: stateBackupStore.getStateBackupEntries(), error: null, persisted: true })
+  flushStateBackupWrites = async () => ({ entries: stateBackupStore.getStateBackupEntries(), error: null, persisted: await profileRecoveryWorkspace.flush() })
   indexedDbBackupStorageActive = false
   backupRecoveryUnavailable = false
   backupStorageSharesPrimaryQuota = true
@@ -777,7 +780,7 @@ function reportBackgroundStorageFailure(operation, failure = null) {
     capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
       online: navigator.onLine !== false, browser: navigator.userAgent }
   }
-  const key = `${operation}:${details.failure.code}`
+  const key = `${operation}:${details.failure.code}:${details.failure.storageTarget || 'profile'}`
   if (pendingStorageFeedback.has(key)) return
   pendingStorageFeedback.set(key, details)
   void automaticStorageFeedback(details).then(status => {
@@ -18727,6 +18730,7 @@ bindUndoRedoActions(document, {
 
 bindImageFallbackActions(document)
 async function initializeBrowserStorage() {
+  await profileRecoveryWorkspace.initialize()
   // Retire only replaceable search metadata before opening a durable profile.
   // This also gives the small opening markers room in the localStorage pool.
   try {
@@ -18785,6 +18789,8 @@ async function reconcileBackgroundProfileRecovery() {
   recoveryReconciliationPending = true
   let originalRepository = null
   try {
+    await profileRecoveryWorkspace.refresh()
+    if (!profileRecoveryWorkspace.isActive()) return
     const originalAccess = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
     const protectedKeys = [LEARNER_PROFILE_ACCESS_KEY, LEARNER_PROFILE_SYNC_KEY,
       LEARNER_PROFILE_OWNER_VERIFICATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY]
@@ -18832,18 +18838,23 @@ async function reconcileBackgroundProfileRecovery() {
       })
       // Protect the version shown now, even if a peer changes it before the
       // learner confirms or the tab closes.
-      profileRecoveryWorkspace.archive(original)
+      await profileRecoveryWorkspace.archive(original)
       recoveryConflictView.show({ id: `local-${epoch}`, status: 'open',
         device: { profile: recent }, cloud: { profile: original },
         epoch, originalAccess, originalRaw, recentRaw })
       return
     }
-    if (!profileRecoveryWorkspace.archive(original) || !current()) return
+    if (!await profileRecoveryWorkspace.archive(original) || !current()) return
     originalRepository.inheritRevision(merged, original)
     if (!await originalRepository.save(merged, { canPersist: current }) || !profileRecoveryWorkspace.matches(epoch)) return
     // Record the acknowledged head before copying metadata. If the tab closes
     // halfway through promotion, the next opening can safely finish it.
-    if (!profileRecoveryWorkspace.markPromotion(merged, { replacementRevision: originalRepository.getReplacementRevision() })) return
+    const promotion = profileRecoveryWorkspace.markPromotion(merged, { replacementRevision: originalRepository.getReplacementRevision() })
+    const promotedEpoch = profileRecoveryWorkspace.getEpoch()
+    if (!await promotion || !profileRecoveryWorkspace.matches(promotedEpoch)
+      || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== originalAccess
+      || originalRepository.readRaw() !== JSON.stringify(merged)
+      || !protectedKeys.every((key, index) => window.localStorage.getItem(key) === originalMetadata[index])) return
     const recentAccessRaw = profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
     if (recentAccessRaw !== null) window.localStorage.setItem(LEARNER_PROFILE_ACCESS_KEY, recentAccessRaw)
     else window.localStorage.removeItem(LEARNER_PROFILE_ACCESS_KEY)
@@ -18853,7 +18864,7 @@ async function reconcileBackgroundProfileRecovery() {
       if (raw !== null) window.localStorage.setItem(key, raw)
       else window.localStorage.removeItem(key)
     }
-    if (!profileRecoveryWorkspace.complete()) return
+    if (!await profileRecoveryWorkspace.complete()) return
     primaryProfileRepository = originalRepository
     originalRepository.subscribe(() => {
       if (!applicationStarted || profileRecoveryWorkspace.isActive()) return
@@ -18890,10 +18901,13 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     // Workspace choices can continue in memory when both durable stores are
     // unavailable. Both candidates stay protected and persistence retries later.
-    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    await profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
       conflict.cloud.profile, { preserveBaseline: true, conflictId: conflict.id,
         unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
+    await profileRecoveryWorkspace.flush()
     if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
     else renderAll(loadPersistedState({ persistCleanup: false }))
     return true
@@ -18919,7 +18933,13 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       repository = null
       return await refreshBackgroundRecoveryComparison(conflict)
     }
-    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    await profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw
+      || repository.readRaw() !== conflict.originalRaw
+      || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) {
+      return await refreshBackgroundRecoveryComparison(conflict)
+    }
     // Persist the user's choice as a new common baseline. The unchosen copy
     // remains in the protected archive, never in the feedback payload.
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
@@ -18930,12 +18950,15 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     // The displayed copies are already protected. Retain the decision locally;
     // original ownership, generation and head checks still gate later promotion.
-    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    await profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
       conflict.cloud.profile, { deferred: true,
         unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
     deferred = true
   } finally { repository?.close() }
+  await profileRecoveryWorkspace.flush()
   recoveryConflictView?.hide()
   if (!deferred) await reconcileBackgroundProfileRecovery()
   if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()

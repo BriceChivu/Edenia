@@ -1,3 +1,5 @@
+import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
+
 const STORE = 'profiles'
 const HEAD = 'active'
 const RECOVERY = 'legacy-recovery'
@@ -12,9 +14,12 @@ function equal(left, right) {
 function record(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
-function mergeChanges(base, desired, current) {
+function mergeChanges(base, desired, current, path = []) {
   if (equal(base, desired)) return current
   if (equal(base, current) || equal(desired, current)) return desired
+  if (path.length === 3 && path[0] === 'config' && path[1] === 'studyInsights' && path[2] === 'history') {
+    return mergeStudyInsightHistoryChanges(base, desired, current) ?? CONFLICT
+  }
   // Arrays (including Undo and ordered learner facts) stay atomic. Concurrent
   // edits to the same value require a fresh operation rather than guessing.
   if (!record(base) || !record(desired) || !record(current)) return CONFLICT
@@ -23,7 +28,8 @@ function mergeChanges(base, desired, current) {
     const value = mergeChanges(
       Object.hasOwn(base, key) ? base[key] : undefined,
       Object.hasOwn(desired, key) ? desired[key] : undefined,
-      Object.hasOwn(current, key) ? current[key] : undefined
+      Object.hasOwn(current, key) ? current[key] : undefined,
+      [...path, key]
     )
     if (value === CONFLICT) return CONFLICT
     if (value === undefined) delete merged[key]

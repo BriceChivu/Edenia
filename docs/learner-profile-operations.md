@@ -190,8 +190,10 @@ sign-in or a production restore.
 When the durable browser profile cannot open or an actual save fails, the app
 continues through a separate recovery workspace. It preserves the original
 profile, ownership record and immutable cloud operation ledger. Recovery
-writes try a separate localStorage record, then sessionStorage, then memory for
-the current tab. This does not change account authentication or cloud resolution.
+writes try a separate localStorage record, then sessionStorage. If these stores
+cannot retain the full workspace, the app uses a separate IndexedDB recovery
+journal when available. Only a failure of all durable stores leaves progress in
+memory for the current tab. This does not change account authentication or cloud resolution.
 An unreadable signed-in profile is reopened from the verified owner's cloud
 profile; an arbitrary local backup is never relabelled as that owner's profile.
 
@@ -200,7 +202,8 @@ Compatible changes rebase against the last acknowledged copy; incompatible
 ownership, generation, or replacement scopes remain protected separately. Each
 intentional replacement has its own fence. Pending conflict candidates persist
 inside the workspace and reopen after reload, with a fresh choice fence after
-startup bookkeeping. If the original saved version changes while its comparison
+startup bookkeeping. Background bookkeeping keeps an existing selection when
+the compared progress copies are unchanged. If the original saved version changes while its comparison
 is open, the comparison refreshes instead of repeating an unverifiable choice.
 Previously shown original versions remain in `protectedOriginalProfiles`. If
 primary storage fails during confirmation, the choice is retained locally and
@@ -214,7 +217,15 @@ UI updates instead of opening an unbased conflict against its own saved copy.
 Later recovery episodes retain earlier protected versions, and a newer archived copy takes
 precedence over a stale active fallback.
 
-The recovery workspace is `<mode-specific storage key>_recovery_workspace_v1`.
+The Web Storage recovery workspace is `<mode-specific storage key>_recovery_workspace_v1`.
+The IndexedDB journal is `edenia_profile_recovery_v1`; its `heads` store uses the
+mode-specific storage key as its namespace. `candidates` retains stale writers
+whose transaction could not advance the head. A later transaction retires only
+the candidates incorporated into its protected workspace. On startup, compatible
+native and journal edits merge, and interrupted competing candidates reopen a
+progress choice. Archive writes require transaction completion and readback
+before promotion. Edits made during asynchronous archive completion keep the
+workspace active. Journal failures use the existing automatic diagnostic path.
 An active workspace resumes on reload. Focus, connectivity restoration and a
 one-minute timer attempt reconciliation without a storage-error screen.
 Accountless progress uses a three-way comparison against the acknowledged

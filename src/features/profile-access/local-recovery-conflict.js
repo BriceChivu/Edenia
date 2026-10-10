@@ -45,6 +45,7 @@ export function createLocalRecoveryConflict({ document, translate, choose }) {
     formatNumber: value => new Intl.NumberFormat(document.documentElement.lang || 'en').format(value),
     formatDateTime: value => new Date(value).toLocaleString(document.documentElement.lang || 'en') })
   let conflict = null
+  let comparison = null
   dialog.addEventListener('cancel', event => event.preventDefault())
   dialog.addEventListener('click', async event => {
     const button = event.target.closest('[data-profile-conflict-action]')
@@ -66,13 +67,18 @@ export function createLocalRecoveryConflict({ document, translate, choose }) {
   })
   return {
     show(value) {
+      // Epoch changes also cover background bookkeeping. Keep the learner's
+      // selection while advancing the authorization fence for identical copies.
+      const nextComparison = JSON.stringify([value.id, value.workspaceOnly,
+        value.originalAccess, value.originalRaw, value.recentRaw, value.device, value.cloud])
       conflict = value
-      view.renderConflict(value)
+      if (comparison !== nextComparison) view.renderConflict(value)
+      comparison = nextComparison
       if (!dialog.open) dialog.showModal()
     },
     hide(id) {
       if (id !== undefined && conflict?.id !== id) return
-      conflict = null; view.hideConflict(); if (dialog.open) dialog.close()
+      conflict = null; comparison = null; view.hideConflict(); if (dialog.open) dialog.close()
     }
   }
 }

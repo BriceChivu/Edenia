@@ -31,6 +31,15 @@ test('diagnostics retain known storage errors while discarding arbitrary excepti
   const report = JSON.parse(createStorageRecoveryReport({ failure: describeProfileStorageFailure(new Error('Profile database opening blocked PRIVATE TOKEN')) }))
   assert.equal(report.error.message, null)
 })
+test('recovery journal diagnostics retain the safe storage tier and bounded operation details', () => {
+  const report = JSON.parse(createStorageRecoveryReport({ recovery: 'indexed-db',
+    failure: { ...describeProfileStorageFailure(new Error('Recovery archive transaction timed out')), storageTarget: 'recovery-journal' } }))
+  assert.equal(report.recovery, 'indexed-db')
+  assert.equal(report.storageTarget, 'recovery-journal')
+  assert.equal(report.error.message, 'Recovery archive transaction timed out')
+  const unsafe = createStorageRecoveryReport({ failure: { storageTarget: 'PRIVATE TOKEN', errorMessage: 'Recovery archive transaction timed out PRIVATE TOKEN' } })
+  assert.ok(!unsafe.includes('PRIVATE'))
+})
 test('each locale explains preservation, synced-copy recovery and manual clipboard fallback', () => {
   for (const [locale, dictionary] of Object.entries(I18N)) {
     const t = key => {
