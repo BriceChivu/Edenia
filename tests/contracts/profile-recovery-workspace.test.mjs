@@ -284,7 +284,7 @@ test('a peer retirement does not discard memory progress that was never acknowle
   const peer = f.second.repository.snapshot()
   peer.language = 'es'
   f.second.repository.save(peer)
-  f.second.markPromotion(peer)
+  f.second.markPromotion(peer, { replacementRevision: 0 })
   f.second.complete()
   assert.deepEqual(f.first.repository.snapshot(), { watch: 7, language: 'es' })
   assert.equal(f.first.isActive(), true)
@@ -470,5 +470,16 @@ test('a peer ownership change during the final check keeps the edit in memory wi
   assert.equal(JSON.parse(f.values.get('profile_recovery_workspace_v1')).values.access, '{"ownerId":"new-owner"}')
   assert.equal(f.workspace.getTier(), 'memory')
   assert.equal(f.workspace.repository.snapshot().watch, 1)
+  assert.equal(JSON.parse(JSON.parse(f.values.get('profile_recovery_workspace_v1')).protectedWorkspaces.at(-1).values.profile).watch, 7)
+})
+
+test('a known original replacement revision still fences memory from a promoted peer', () => {
+  const f = memoryPair()
+  const peer = f.second.repository.snapshot()
+  peer.language = 'es'
+  f.second.repository.save(peer)
+  f.second.markPromotion(peer, { replacementRevision: 1 })
+  f.second.complete()
+  assert.deepEqual(f.first.repository.snapshot(), { watch: 1, language: 'es' })
   assert.equal(JSON.parse(JSON.parse(f.values.get('profile_recovery_workspace_v1')).protectedWorkspaces.at(-1).values.profile).watch, 7)
 })

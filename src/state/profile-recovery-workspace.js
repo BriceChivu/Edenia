@@ -113,9 +113,11 @@ export function createProfileRecoveryWorkspace({
       let acknowledged = null
       try { acknowledged = JSON.parse(persistedRaw) } catch {}
       const baseRaw = acknowledged?.values?.[storageKey] ?? previous.baseline
+      const firstPromotion = previous.originalReplacementRevision === null
+        && latest.originalReplacementRevision === 0 && latest.promotion && !latest.replacement
       const sameScope = previous.originalAccess === latest.originalAccess
         && (previous.values[accessKey] ?? null) === (latest.values[accessKey] ?? null)
-        && previous.originalReplacementRevision === latest.originalReplacementRevision
+        && (previous.originalReplacementRevision === latest.originalReplacementRevision || firstPromotion)
         && Boolean(previous.replacement) === Boolean(latest.replacement)
         && (previous.replacementId ?? null) === (latest.replacementId ?? null)
       let merged = null
