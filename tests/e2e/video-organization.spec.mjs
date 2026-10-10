@@ -892,6 +892,8 @@ test('the main-page menu offers watched at 70% and moving it adds no extra XP', 
     await waitForApplication(page)
   }
   async function openMenu() {
+    // Shelf cards are virtualized; reveal their row before locating a card.
+    await page.locator('#videoGrid .channel-shelf').first().scrollIntoViewIfNeeded()
     const card = page.locator('#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]')
     await card.scrollIntoViewIfNeeded()
     if (testInfo.project.name === 'desktop-standard') await card.hover()
@@ -941,6 +943,8 @@ for (const scenario of ['watched replay', 'watched favorite', 'partial favorite'
       video: structuredClone(loadState().videos['menu-anchor-video']),
       score: getCurrentCityScore(loadState())
     }))
+    // Shelf cards are virtualized; reveal their row before locating a card.
+    await page.locator('#videoGrid .channel-shelf').first().scrollIntoViewIfNeeded()
     const card = page.locator('#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]')
     await card.scrollIntoViewIfNeeded()
     if (testInfo.project.name === 'desktop-standard') await card.hover()
@@ -973,6 +977,7 @@ for (const scenario of ['watched replay', 'watched favorite', 'partial favorite'
     await expect(card).toHaveCount(0)
     const watchedToggle = page.locator('#watchedSectionToggle')
     if (await watchedToggle.getAttribute('aria-expanded') !== 'true') await watchedToggle.click()
+    await page.locator('#watchedGrid').scrollIntoViewIfNeeded()
     await expect(page.locator('#watchedGrid .video-card[data-video-id="menu-anchor-video"]')).toBeVisible()
     expect(await page.evaluate(() => markVideo('menu-anchor-video', 'watched', { putInWatchedSection: true, creditOnlyRecordedProgress: true }))).toBe(false)
     await page.evaluate(() => undoLastVideoAction())

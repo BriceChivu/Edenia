@@ -1,5 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
 import { readFile } from 'node:fs/promises'
+import { build } from 'esbuild'
+import { fileURLToPath } from 'node:url'
 const channelId = 'UC0000000000000000000000'
 const addedId = 'UC1111111111111111111111'
 const databaseName = 'edenia_v1_profiles_indexed_db_v1'
@@ -137,6 +139,7 @@ test('tester import escapes the shared localStorage quota and regular migration 
   }))
   const testerUrl = new URL('?internal_test=2', baseURL).href
   await page.goto(testerUrl)
+  await expect(page.locator('#introTrailer')).toBeVisible()
   await page.waitForFunction(() => typeof defaultState === 'function')
   const fixture = await page.evaluate(async testerKey => {
     const at = new Date().toISOString()
@@ -205,8 +208,17 @@ test('tester import escapes the shared localStorage quota and regular migration 
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect.poll(async () => (await head(page, 'legacy-recovery', testerDatabase))?.raw).toBe(fixture.testerRaw)
+  // Finish opening migration before exercising a second explicit import.
+  await expect.poll(() => page.evaluate(() => profileRecoveryWorkspace.isActive()), { timeout: 15000 }).toBe(false)
   await importFixture(page)
   await expect(page.locator('#toast')).toContainText(/imported/i)
+  // Import may finish in the durable recovery workspace before its primary
+  // migration does. Test a completed migration before changing rollout again.
+  await expect.poll(() => page.evaluate(() => profileRecoveryWorkspace.isActive()), { timeout: 15000 }).toBe(false)
+  await expect.poll(async () => {
+    const saved = await head(page, 'active', testerDatabase)
+    return saved?.raw && Object.keys(JSON.parse(saved.raw).videos).length
+  }).toBe(1612)
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(fixture.regularRaw)
   expect(await page.evaluate(key => localStorage.getItem(key), testerKey)).toBeNull()
 
@@ -496,7 +508,8 @@ test('a failed migrated-backup reopen preserves primary operation without recrea
 // including the narrow interval between transaction commit and acknowledgment.
 const edgeDatabaseName = 'synthetic_profile_edge_cases'
 async function repositoryFixture(page) {
-  const source = await readFile(new URL('../../src/state/indexed-db-profile.js', import.meta.url), 'utf8')
+  const { outputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../../src/state/indexed-db-profile.js', import.meta.url))], bundle: true, format: 'esm', platform: 'browser', write: false })
+  const source = outputFiles[0].text
   const adapter = await readFile(new URL('../../src/state/tiny-swords-island.js', import.meta.url), 'utf8')
   await configure(page, false)
   await page.route('**/profile-repository-fixture.js', route => route.fulfill({

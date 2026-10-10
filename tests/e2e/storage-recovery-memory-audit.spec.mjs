@@ -1,6 +1,15 @@
 import { expect, test } from '../support/network-fixture.mjs'
 const key = 'edenia_v1_internal_test_2'
 async function open(page) {
+  // Exercise actual memory recovery: Web Storage failure alone can now use
+  // the independent IndexedDB recovery journal.
+  await page.addInitScript(() => {
+    const open = IDBFactory.prototype.open
+    IDBFactory.prototype.open = function (name, ...args) {
+      if (window.denyStudyWrites && name === 'edenia_profile_recovery_v1') throw new DOMException('Denied', 'SecurityError')
+      return open.call(this, name, ...args)
+    }
+  })
   await page.route('**/config.local.js*', route => route.fulfill({ body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: false, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }', contentType: 'application/javascript' }))
   await page.goto('/?internal_test=2')
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()

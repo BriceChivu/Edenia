@@ -693,6 +693,7 @@ let primaryProfileOpeningFailure = null
 let backupProfileOpeningFailure = null
 let recoveryConflictView = null
 let recoveryReconciliationPending = false
+let queuedRecoveryReconciliation = null
 const automaticStorageFeedback = createStorageRecoveryFeedback({ location: window.location })
 const pendingStorageFeedback = new Map()
 const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
@@ -704,6 +705,7 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
     ACCOUNT_STUDY_SYNC_OWNER_KEY, PLUS_ENTITLEMENT_CACHE_KEY,
     LEGACY_PROGRESS_MIGRATION_KEY, SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
     CONFIG_COOKIE_KEY],
+  indexedDb: (() => { try { return window.indexedDB } catch { return null } })(),
   eventTarget: window,
   onExternalChange({ retired }) {
     if (retired) primaryProfileStorageUnavailable = true
@@ -715,8 +717,10 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
       else renderAll(loadPersistedState({ persistCleanup: false }))
     })
   },
-  onStorageFailure(error) {
-    queueMicrotask(() => reportBackgroundStorageFailure('save', describeProfileStorageFailure(error)))
+  onStorageFailure(error, operation = 'save', target) {
+    const failure = describeProfileStorageFailure(error)
+    if (target === 'recovery-journal') failure.storageTarget = target
+    queueMicrotask(() => reportBackgroundStorageFailure(operation, failure))
   },
   onConflictCleared(id) { recoveryConflictView?.hide(id) },
   onConflict({ id, currentRaw, desiredRaw, epoch }) {
@@ -754,7 +758,7 @@ const profileBrowserStorage = profileRecoveryWorkspace.storage
 
 function resetRecoveryBackupStore() {
   stateBackupStore = createStateBackupStore({ ...stateBackupStoreOptions, storage: profileBrowserStorage })
-  flushStateBackupWrites = async () => ({ entries: stateBackupStore.getStateBackupEntries(), error: null, persisted: true })
+  flushStateBackupWrites = async () => ({ entries: stateBackupStore.getStateBackupEntries(), error: null, persisted: await profileRecoveryWorkspace.flush() })
   indexedDbBackupStorageActive = false
   backupRecoveryUnavailable = false
   backupStorageSharesPrimaryQuota = true
@@ -777,7 +781,7 @@ function reportBackgroundStorageFailure(operation, failure = null) {
     capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
       online: navigator.onLine !== false, browser: navigator.userAgent }
   }
-  const key = `${operation}:${details.failure.code}`
+  const key = `${operation}:${details.failure.code}:${details.failure.storageTarget || 'profile'}`
   if (pendingStorageFeedback.has(key)) return
   pendingStorageFeedback.set(key, details)
   void automaticStorageFeedback(details).then(status => {
@@ -12598,7 +12602,11 @@ function openHistoryVideoPopover(event) {
 
 function closeHistoryVideoPopoverSoon() {
   clearTimeout(openHistoryVideoCell._closeTimer)
-  openHistoryVideoCell._closeTimer = window.setTimeout(() => closeHistoryVideoPopovers(), 80)
+  openHistoryVideoCell._closeTimer = window.setTimeout(() => {
+    // Pointer movement must not dismiss the keyboard user's active item.
+    const focusedCell = document.activeElement?.closest('.history-video-cell.open')
+    closeHistoryVideoPopovers(focusedCell)
+  }, 80)
 }
 
 function openHistoryVideoCell(cell, shouldOpen = true) {
@@ -13218,7 +13226,11 @@ function renderStudyHistoryPanel(s) {
     table.setAttribute('aria-busy', String(
       historyAccess.state === STUDY_HISTORY_ACCESS_STATES.LOADING
     ))
-    table.innerHTML = isHistoryRestricted
+    const focusedHistoryVideo = table.contains(document.activeElement)
+      ? document.activeElement?.dataset.historyWatchedVideoAction === 'jump'
+        ? document.activeElement.dataset.videoId : null
+      : null
+    const historyMarkup = isHistoryRestricted
       ? renderRestrictedStudyHistory(historyAccess.state)
       : history.rows.length
       ? `
@@ -13240,6 +13252,10 @@ function renderStudyHistoryPanel(s) {
         `).join('')}
       `
       : `<div class="history-empty">${escHtml(t('history.emptyRange'))}</div>`
+    if (table._historyMarkup !== historyMarkup) {
+      table.innerHTML = historyMarkup
+      table._historyMarkup = historyMarkup
+    }
     bindStudyHistoryWatchedPopoverActions(table, {
       open: openHistoryVideoPopover,
       closeSoon: closeHistoryVideoPopoverSoon,
@@ -13253,6 +13269,14 @@ function renderStudyHistoryPanel(s) {
     bindStudyHistoryWatchedVideoActions(table, {
       jump: jumpToWatchedVideo
     })
+    if (focusedHistoryVideo && !table.contains(document.activeElement)) {
+      const item = Array.from(table.querySelectorAll('[data-history-watched-video-action="jump"]'))
+        .find(item => item.dataset.videoId === focusedHistoryVideo)
+      if (item) {
+        openHistoryVideoCell(item.closest('.history-video-cell'))
+        item.focus({ preventScroll: true })
+      }
+    }
   }
 
   const summaryView = document.getElementById('historySummaryView')
@@ -15296,7 +15320,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
     : []
   const cardOptions = {
     currentDateKey: getCurrentAppDateKey(s),
-    focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
+    focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId || activeNextStudyFocusVideoId,
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
     removedChannelIds,
     chronologicalOnly: statusFilter === 'favorite',
@@ -15467,7 +15491,12 @@ function renderFeed(s, viewport = captureFeedViewport()) {
     bind: bindRenderedVideoShelfPreviewActions
   })
   updateVideoCollection(removedGrid, isRemovedSectionCollapsed)
-  restoreFeedViewport(viewport)
+  // A background refresh must retain the explicit Continue watching target,
+  // rather than restoring the viewport captured before its smooth scroll.
+  const focusedCard = activeNextStudyFocusVideoId && !forcedSearchVideoId
+    ? findVideoCard(activeNextStudyFocusVideoId, '.channel-shelf-card') : null
+  if (focusedCard) scrollVideoCardIntoView(focusedCard, 'auto')
+  else restoreFeedViewport(viewport)
 }
 
 function updateVideoCollection(grid, collapsed) {
@@ -15625,6 +15654,11 @@ async function selectChannelVideoFormat(control, channelKey, format) {
     ? await saveState(state, { backup: false, syncAnalytics: false })
     : false
   if (preferenceUpdated && !persisted) return false
+  const focusedVideo = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+    ?.group.videos.find(video => String(video.id) === activeNextStudyFocusVideoId)
+  if (focusedVideo && getChannelVideoFormat(focusedVideo) !== selectedFormat) {
+    clearFocusedVideoPreview(activeNextStudyFocusVideoId)
+  }
   const applied = applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
   if (!applied) return false
 
@@ -15656,10 +15690,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     cardOptions.historyChannels
   )
   return groups.map((group, index) => {
-    const preferredFormat = getSelectedChannelVideoFormat(
-      cardOptions.channelVideoFormats,
-      group.key
-    )
+    const focusedVideo = group.videos.find(video => String(video.id) === String(cardOptions.focusedVideoId))
+    const preferredFormat = focusedVideo
+      ? getChannelVideoFormat(focusedVideo)
+      : getSelectedChannelVideoFormat(cardOptions.channelVideoFormats, group.key)
     const formatCounts = {
       [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
       [CHANNEL_VIDEO_FORMATS.SHORTS]: 0
@@ -18727,6 +18761,7 @@ bindUndoRedoActions(document, {
 
 bindImageFallbackActions(document)
 async function initializeBrowserStorage() {
+  await profileRecoveryWorkspace.initialize()
   // Retire only replaceable search metadata before opening a durable profile.
   // This also gives the small opening markers room in the localStorage pool.
   try {
@@ -18778,13 +18813,22 @@ async function initializeBrowserStorage() {
     primaryProfileOpeningFailure = describeProfileStorageFailure(error)
   }
 }
-async function reconcileBackgroundProfileRecovery() {
-  if (!profileRecoveryWorkspace.isActive() || recoveryReconciliationPending
+async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = {}) {
+  if (!profileRecoveryWorkspace.isActive()
     || !applicationStarted || document.visibilityState === 'hidden'
-    || document.getElementById('localProgressConflict')?.open) return
+    || (!refreshConflict && document.getElementById('localProgressConflict')?.open)) return
+  if (recoveryReconciliationPending) {
+    queuedRecoveryReconciliation = { refreshConflict: refreshConflict || queuedRecoveryReconciliation?.refreshConflict === true }
+    return
+  }
   recoveryReconciliationPending = true
+  const startingRecoveryRaw = profileBrowserStorage.getItem(STORAGE_KEY)
   let originalRepository = null
+  let comparedRecoveryEpoch = null
+  let promotionStarted = false
   try {
+    await profileRecoveryWorkspace.refresh()
+    if (!profileRecoveryWorkspace.isActive()) return
     const originalAccess = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
     const protectedKeys = [LEARNER_PROFILE_ACCESS_KEY, LEARNER_PROFILE_SYNC_KEY,
       LEARNER_PROFILE_OWNER_VERIFICATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY]
@@ -18811,6 +18855,7 @@ async function reconcileBackgroundProfileRecovery() {
     if (!original || !isValidStateShape(original)
       || !profileRecoveryWorkspace.acceptsOriginalProfile(originalAccess, originalRepository.readRaw())) return
     const epoch = profileRecoveryWorkspace.getEpoch()
+    comparedRecoveryEpoch = epoch
     const originalRaw = originalRepository.readRaw()
     const current = () => profileRecoveryWorkspace.matches(epoch)
       && window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) === originalAccess
@@ -18832,18 +18877,24 @@ async function reconcileBackgroundProfileRecovery() {
       })
       // Protect the version shown now, even if a peer changes it before the
       // learner confirms or the tab closes.
-      profileRecoveryWorkspace.archive(original)
+      await profileRecoveryWorkspace.archive(original)
       recoveryConflictView.show({ id: `local-${epoch}`, status: 'open',
         device: { profile: recent }, cloud: { profile: original },
         epoch, originalAccess, originalRaw, recentRaw })
       return
     }
-    if (!profileRecoveryWorkspace.archive(original) || !current()) return
+    if (!await profileRecoveryWorkspace.archive(original) || !current()) return
     originalRepository.inheritRevision(merged, original)
     if (!await originalRepository.save(merged, { canPersist: current }) || !profileRecoveryWorkspace.matches(epoch)) return
     // Record the acknowledged head before copying metadata. If the tab closes
     // halfway through promotion, the next opening can safely finish it.
-    if (!profileRecoveryWorkspace.markPromotion(merged, { replacementRevision: originalRepository.getReplacementRevision() })) return
+    promotionStarted = true
+    const promotion = profileRecoveryWorkspace.markPromotion(merged, { replacementRevision: originalRepository.getReplacementRevision() })
+    const promotedEpoch = profileRecoveryWorkspace.getEpoch()
+    if (!await promotion || !profileRecoveryWorkspace.matches(promotedEpoch)
+      || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== originalAccess
+      || originalRepository.readRaw() !== JSON.stringify(merged)
+      || !protectedKeys.every((key, index) => window.localStorage.getItem(key) === originalMetadata[index])) return
     const recentAccessRaw = profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
     if (recentAccessRaw !== null) window.localStorage.setItem(LEARNER_PROFILE_ACCESS_KEY, recentAccessRaw)
     else window.localStorage.removeItem(LEARNER_PROFILE_ACCESS_KEY)
@@ -18853,7 +18904,7 @@ async function reconcileBackgroundProfileRecovery() {
       if (raw !== null) window.localStorage.setItem(key, raw)
       else window.localStorage.removeItem(key)
     }
-    if (!profileRecoveryWorkspace.complete()) return
+    if (!await profileRecoveryWorkspace.complete()) return
     primaryProfileRepository = originalRepository
     originalRepository.subscribe(() => {
       if (!applicationStarted || profileRecoveryWorkspace.isActive()) return
@@ -18875,12 +18926,27 @@ async function reconcileBackgroundProfileRecovery() {
   } finally {
     originalRepository?.close()
     recoveryReconciliationPending = false
+    // Imports and acknowledged metadata edits can invalidate a comparison
+    // without another focus event. Replay that comparison once it settles;
+    // our own promotion must not create an unbounded retry on storage failure.
+    if (profileRecoveryWorkspace.isActive()
+      && (profileBrowserStorage.getItem(STORAGE_KEY) !== startingRecoveryRaw
+        || !promotionStarted && comparedRecoveryEpoch !== null
+          && profileRecoveryWorkspace.getEpoch() !== comparedRecoveryEpoch)) {
+      queuedRecoveryReconciliation ||= { refreshConflict: false }
+    }
+    if (queuedRecoveryReconciliation) {
+      const queued = queuedRecoveryReconciliation
+      queuedRecoveryReconciliation = null
+      queueMicrotask(() => { void reconcileBackgroundProfileRecovery(queued) })
+    }
   }
 }
 
 async function refreshBackgroundRecoveryComparison(conflict) {
-  recoveryConflictView?.hide(conflict.id)
-  await reconcileBackgroundProfileRecovery()
+  // Keep the comparison visible and busy until its replacement is ready.
+  // A hidden gap can look like a completed choice while newer copies load.
+  await reconcileBackgroundProfileRecovery({ refreshConflict: true })
   return false
 }
 
@@ -18890,10 +18956,13 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     // Workspace choices can continue in memory when both durable stores are
     // unavailable. Both candidates stay protected and persistence retries later.
-    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    await profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
       conflict.cloud.profile, { preserveBaseline: true, conflictId: conflict.id,
         unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
+    await profileRecoveryWorkspace.flush()
     if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
     else renderAll(loadPersistedState({ persistCleanup: false }))
     return true
@@ -18919,7 +18988,13 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       repository = null
       return await refreshBackgroundRecoveryComparison(conflict)
     }
-    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    await profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw
+      || repository.readRaw() !== conflict.originalRaw
+      || window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== conflict.originalAccess) {
+      return await refreshBackgroundRecoveryComparison(conflict)
+    }
     // Persist the user's choice as a new common baseline. The unchosen copy
     // remains in the protected archive, never in the feedback payload.
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
@@ -18930,18 +19005,29 @@ async function resolveBackgroundRecoveryChoice(side, conflict) {
       || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     // The displayed copies are already protected. Retain the decision locally;
     // original ownership, generation and head checks still gate later promotion.
-    profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    await profileRecoveryWorkspace.archive(conflict.cloud.profile)
+    if (!profileRecoveryWorkspace.matches(conflict.epoch, { allowUnavailable: true })
+      || profileBrowserStorage.getItem(STORAGE_KEY) !== conflict.recentRaw) return false
     profileRecoveryWorkspace.acceptChoice(side === 'device' ? conflict.device.profile : conflict.cloud.profile,
       conflict.cloud.profile, { deferred: true,
         unchosen: side === 'device' ? conflict.cloud.profile : conflict.device.profile })
     deferred = true
   } finally { repository?.close() }
+  await profileRecoveryWorkspace.flush()
   recoveryConflictView?.hide()
   if (!deferred) await reconcileBackgroundProfileRecovery()
   if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
   else renderAll(loadPersistedState({ persistCleanup: false }))
   return true
 }
+let recoveryAcknowledgementTimer = null
+window.addEventListener('edenia-profile-persisted', () => {
+  if (!profileRecoveryWorkspace.isActive()) return
+  window.clearTimeout(recoveryAcknowledgementTimer)
+  recoveryAcknowledgementTimer = window.setTimeout(() => {
+    void reconcileBackgroundProfileRecovery()
+  }, 1000)
+})
 window.addEventListener('focus', () => { void reconcileBackgroundProfileRecovery() })
 window.addEventListener('online', () => { void reconcileBackgroundProfileRecovery() })
 window.setInterval(() => {

@@ -1,5 +1,5 @@
-const SAFE_ERROR_NAMES = ['Error','SyntaxError','SecurityError','NotAllowedError','QuotaExceededError','NS_ERROR_DOM_QUOTA_REACHED','NotFoundError','AbortError','UnknownError','InvalidStateError','TransactionInactiveError']
-const SAFE_ERROR_MESSAGES = ['The migrated learner profile is missing','Invalid durable learner profile','Invalid legacy learner profile','Invalid durable profile body','Missing durable profile body','Profile migration has conflicting durable copies','Profile database opening timed out','Profile database opening blocked','Profile transaction timed out','Profile transaction failed','IndexedDB is unavailable','Profile migration readback failed or became stale','Profile opening marker readback failed','IndexedDB request failed','IndexedDB backup transaction timed out','IndexedDB backup transaction failed','IndexedDB backup database opening timed out','Could not open IndexedDB backup database','IndexedDB existing backup database opening timed out','IndexedDB backup database open was blocked','Could not open the existing IndexedDB backup database','IndexedDB backup store is missing','IndexedDB contains an invalid state backup','IndexedDB backup change verification failed']
+const SAFE_ERROR_NAMES = ['Error','SyntaxError','SecurityError','NotAllowedError','QuotaExceededError','NS_ERROR_DOM_QUOTA_REACHED','NotFoundError','AbortError','UnknownError','InvalidStateError','TransactionInactiveError','DataError','VersionError']
+const SAFE_ERROR_MESSAGES = ['The migrated learner profile is missing','Invalid durable learner profile','Invalid legacy learner profile','Invalid durable profile body','Missing durable profile body','Profile migration has conflicting durable copies','Profile database opening timed out','Profile database opening blocked','Profile transaction timed out','Profile transaction failed','IndexedDB is unavailable','Profile migration readback failed or became stale','Profile opening marker readback failed','IndexedDB request failed','IndexedDB backup transaction timed out','IndexedDB backup transaction failed','IndexedDB backup database opening timed out','Could not open IndexedDB backup database','IndexedDB existing backup database opening timed out','IndexedDB backup database open was blocked','Could not open the existing IndexedDB backup database','IndexedDB backup store is missing','IndexedDB contains an invalid state backup','IndexedDB backup change verification failed','Recovery archive opening timed out','Recovery archive opening blocked','Recovery archive transaction timed out','Recovery archive transaction failed','Invalid recovery archive']
 // Only these stable categories leave the storage boundary. Exception text can
 // include saved data; never put it in the UI, clipboard report, or analytics.
 export function describeProfileStorageFailure(error) {
@@ -7,7 +7,7 @@ export function describeProfileStorageFailure(error) {
   const detail = { errorName: SAFE_ERROR_NAMES.includes(error?.name) ? error.name : null, errorMessage: SAFE_ERROR_MESSAGES.includes(message) ? message : null }
   if (message === 'The migrated learner profile is missing') return { ...detail, code: 'profile-missing', retryable: false }
   if (['Invalid durable learner profile', 'Invalid legacy learner profile', 'Invalid durable profile body', 'Missing durable profile body'].includes(message)
-    || error?.name === 'SyntaxError' || error?.name === 'NotFoundError') return { ...detail, code: 'profile-invalid', retryable: false }
+    || error?.name === 'SyntaxError' || error?.name === 'NotFoundError' || error?.name === 'DataError') return { ...detail, code: 'profile-invalid', retryable: false }
   if (message === 'Profile migration has conflicting durable copies') return { ...detail, code: 'profile-conflict', retryable: false }
   if (error?.name === 'QuotaExceededError' || error?.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
     return { ...detail, code: 'storage-full', retryable: true }
@@ -44,7 +44,8 @@ export function createStorageRecoveryReport({ failure, checked, mode, release,
     mode: ['auth-trial', 'tiny-swords-test', 'public'].includes(mode) ? mode : 'public',
     release: /^[a-zA-Z0-9._-]{1,80}$/.test(release || '') ? release : null,
     operation: ['open','save','recovery','reconcile'].includes(operation) ? operation : null,
-    recovery: ['local','session','memory','none'].includes(recovery) ? recovery : null,
+    storageTarget: failure?.storageTarget === 'recovery-journal' ? 'recovery-journal' : undefined,
+    recovery: ['local','session','indexed-db','memory','none'].includes(recovery) ? recovery : null,
     storageState: {
       migrationMarker: ['1','empty'].includes(storageState.migrationMarker) ? storageState.migrationMarker : null,
       accessMetadataPresent: storageState.accessMetadataPresent === true,

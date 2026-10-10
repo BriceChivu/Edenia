@@ -298,8 +298,10 @@ test('Continue watching and Study History reach unmounted saved videos', async (
   await expect(page.locator('.video-card[data-video-id="large-5999"]')).toHaveCount(0)
   if (!testInfo.project.name.startsWith('phone')) {
     await page.locator('[data-next-study-action="focus"][data-video-id="large-5999"]').click()
+    await page.evaluate(() => renderFeed(loadState({ persistCleanup: false })))
     // The expanded preview can extend past the shelf; its source slot is the scroll destination.
     await expect(page.locator('.channel-shelf-slot').filter({ has: page.locator('.video-card[data-video-id="large-5999"]') })).toBeInViewport({ ratio: .98 })
+    await page.evaluate(() => renderFeed(loadState({ persistCleanup: false })))
     await expect(page.locator('.video-card[data-video-id="large-5999"]')).toBeVisible()
     await page.keyboard.press('Escape')
   } else {
@@ -311,7 +313,14 @@ test('Continue watching and Study History reach unmounted saved videos', async (
   const cell = page.locator('[data-history-watched-popover-action="toggle"]').filter({ has: historyItem }).first()
   if (testInfo.project.use.hasTouch) await cell.locator('.history-video-count').press('Space')
   else await cell.hover()
+  await cell.hover()
   await historyItem.focus()
+  await page.mouse.move(0, 0)
+  // Cross the 80 ms pointer-leave deadline with keyboard focus still inside.
+  await page.waitForTimeout(150)
+  await expect(historyItem).toBeFocused()
+  await page.evaluate(() => renderStudyHistoryPanel(loadState({ persistCleanup: false })))
+  await expect(historyItem).toBeFocused()
   await historyItem.press('Enter')
   await expect(page.locator('#watchedGrid .video-card[data-video-id="large-6498"]')).toBeInViewport({ ratio: .98 })
   expect(await page.locator('.video-card').count()).toBeLessThan(180)

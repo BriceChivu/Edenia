@@ -29,6 +29,17 @@ export function createStateStore({
     return reclaimed
   }
 
+  function settleNativeWrite(state, raw, canPersist) {
+    if (!canPersist()) return false
+    const activatedRepository = getRepository()
+    if (!activatedRepository) return true
+    // A native write can activate asynchronous recovery. Bind this exact
+    // candidate, then wait for the repository's available durable journal.
+    if (activatedRepository.readRaw() !== raw) return false
+    activatedRepository.adoptSnapshot?.(state)
+    return activatedRepository.save(state, { canPersist })
+  }
+
   function saveImportedState(state, {
     preserveBackupId = null,
     syncAnalytics = true
@@ -64,19 +75,16 @@ export function createStateStore({
       }
     }
 
-    const persisted = persistenceError === null
-    if (persisted) {
-      storage.recordReplacement?.()
-      // A native write may have activated recovery. The imported object is
-      // still used by rendering; bind it to its exact acknowledged copy so an
-      // ordinary follow-up edit does not become an unbased conflict.
-      const activatedRepository = getRepository()
-      if (activatedRepository?.readRaw() === serializedState) activatedRepository.adoptSnapshot?.(state)
-      onPersisted(state, { replacement: true })
-      saveConfigCookie(state.config)
-      if (syncAnalytics) syncPersistedStateToAnalytics(state)
-    }
-    return { persisted, error: persistenceError }
+    if (persistenceError !== null || !canPersist()) return { persisted: false, error: persistenceError }
+    storage.recordReplacement?.()
+    return mapPersistenceResult(settleNativeWrite(state, serializedState, canPersist), persisted => {
+      if (persisted) {
+        onPersisted(state, { replacement: true })
+        saveConfigCookie(state.config)
+        if (syncAnalytics) syncPersistedStateToAnalytics(state)
+      }
+      return { persisted, error: persistenceError }
+    })
   }
 
   function saveState(state, options = {}, canPersist = () => true) {
@@ -131,12 +139,15 @@ export function createStateStore({
         } catch {}
       }
     }
-    if (persisted) {
-      onPersisted(state, { replacement: options.replaceIsland === true })
-      saveConfigCookie(state.config)
-    }
-    if (persisted && syncAnalytics) syncPersistedStateToAnalytics(state)
-    return persisted
+    if (!persisted) return false
+    return mapPersistenceResult(settleNativeWrite(state, serializedState, canPersist), acknowledged => {
+      if (acknowledged) {
+        onPersisted(state, { replacement: options.replaceIsland === true })
+        saveConfigCookie(state.config)
+        if (syncAnalytics) syncPersistedStateToAnalytics(state)
+      }
+      return acknowledged
+    })
   }
 
   function loadState({ persistCleanup = true } = {}) {

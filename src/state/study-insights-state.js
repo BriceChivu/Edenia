@@ -28,6 +28,40 @@ export function isStudyInsightsEnabled() {
   return true
 }
 
+// These are automatically generated summaries, not the underlying study facts.
+// Keep the newest observation per key, as normalization does, without turning
+// different rendering times into a learner-facing progress choice.
+export function mergeStudyInsightHistoryChanges(base, desired, current) {
+  const valid = entries => Array.isArray(entries) && entries.every(entry => entry
+    && typeof entry === 'object' && !Array.isArray(entry)
+    && typeof entry.key === 'string' && isValidTimestamp(entry.recordedAt))
+  if (![base, desired, current].every(valid)) return null
+  const prior = new Map(base.map(entry => [entry.key, entry]))
+  const left = new Map(desired.map(entry => [entry.key, entry]))
+  const right = new Map(current.map(entry => [entry.key, entry]))
+  const merged = []
+  for (const key of new Set([...prior.keys(), ...left.keys(), ...right.keys()])) {
+    const before = prior.get(key)
+    const a = left.get(key)
+    const b = right.get(key)
+    if (before && (!a || !b)) {
+      const remaining = a || b
+      if (remaining && JSON.stringify(remaining) !== JSON.stringify(before)) return null
+      continue
+    }
+    const entries = [a, b].filter(Boolean)
+    entries.sort((x, y) => new Date(y.recordedAt) - new Date(x.recordedAt)
+      || JSON.stringify(y).localeCompare(JSON.stringify(x)))
+    const chosen = { ...entries[0] }
+    const first = [...entries, ...(before ? [before] : [])]
+      .map(entry => isValidTimestamp(entry.firstRecordedAt) ? entry.firstRecordedAt : entry.recordedAt)
+      .sort((x, y) => new Date(x) - new Date(y))[0]
+    chosen.firstRecordedAt = first
+    merged.push(chosen)
+  }
+  return merged.sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt) || a.key.localeCompare(b.key))
+}
+
 export function normalizeStudyInsightConfig(state) {
   if (!state?.config) return false
   const existing = state.config.studyInsights && typeof state.config.studyInsights === 'object' && !Array.isArray(state.config.studyInsights)
