@@ -23,7 +23,7 @@ test('completion prompt markup is owned only by the embedded player', () => {
   assert.notEqual(markupStart, -1)
   assert.notEqual(markupEnd, -1)
   assert.match(markupSource, /class="video-watch-reminder-popover is-player"/)
-  assert.match(markupSource, /const promptId = `videoWatchPrompt-\$\{safeVideoId\}-player`/)
+  assert.match(markupSource, /aria-label="\$\{escHtml\(t\('videoReminder.aria'\)\)\}"/)
   assert.doesNotMatch(markupSource, /is-global|data-player-prompt|global =|player =/)
 })
 
@@ -33,7 +33,7 @@ test('player inserts and binds its completion prompt before exposing it', () => 
   const source = appSource.slice(start, end)
   assert.match(
     source,
-    /session\.frame\.insertAdjacentHTML\('beforeend', getVideoWatchReminderMarkup\(session\.videoId,\s*\{\s*rewatch: session\.isRewatch,\s*video\s*\}\)\)\s*const prompt = session\.frame\.querySelector\('\.video-watch-reminder-popover\.is-player'\)\s*if \(!prompt\) return false\s*bindVideoWatchPromptActions\(prompt,\s*\{\s*favorite: favoriteVideoFromWatchPrompt,\s*confirm: confirmVideoWatchPrompt,\s*dismiss: dismissVideoWatchPrompt\s*\}\)\s*session\.completionPromptVisible = true/
+    /session\.frame\.insertAdjacentHTML\('beforeend', getVideoWatchReminderMarkup\(session\.videoId,\s*\{\s*rewatch: session\.isRewatch,\s*video\s*\}\)\)\s*const prompt = session\.frame\.querySelector\('\.video-watch-reminder-popover\.is-player'\)\s*if \(!prompt\) return false\s*bindVideoWatchPromptActions\(prompt,\s*\{\s*favorite: favoriteVideoFromWatchPrompt,\s*confirm: confirmVideoWatchPrompt,\s*rewatch: rewatchVideoFromWatchPrompt,\s*dismiss: dismissVideoWatchPrompt\s*\}\)\s*session\.completionPromptVisible = true/
   )
   assert.equal((appSource.match(/bindVideoWatchPromptActions\(/g) || []).length, 1)
 })
@@ -60,7 +60,8 @@ test('watch-prompt handlers stay out of inline and legacy global ownership', asy
   const actionNames = [
     'favoriteVideoFromWatchPrompt',
     'confirmVideoWatchPrompt',
-    'dismissVideoWatchPrompt'
+    'dismissVideoWatchPrompt',
+    'rewatchVideoFromWatchPrompt'
   ]
   const files = [new URL('../../index.html', import.meta.url), ...await getJavaScriptFiles(new URL('../../src/', import.meta.url))]
   const inlineHandlers = []

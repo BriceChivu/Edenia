@@ -40,6 +40,10 @@ function createActions(calls) {
       calls.push(['confirm', args])
       return false
     },
+    rewatch(...args) {
+      calls.push(['rewatch', args])
+      return false
+    },
     dismiss(...args) {
       calls.push(['dismiss', args])
       return false
@@ -200,12 +204,25 @@ test('watch-prompt binding fails closed on invalid boundaries', () => {
     {},
     { ...validActions, favorite: null },
     { ...validActions, confirm: null },
+    { ...validActions, rewatch: null },
     { ...validActions, dismiss: null }
   ]
   invalidActionMaps.forEach(actions => {
     assert.throws(
       () => bindVideoWatchPromptActions(root, actions),
-      /favorite, confirm, and dismiss callbacks/
+      /favorite, confirm, rewatch, and dismiss callbacks/
     )
   })
+})
+
+
+test('Rewatch forwards the exact event and current video id', () => {
+  const rewatch = createControl('rewatch', { videoId: 'before' })
+  const { root } = createHarness([rewatch])
+  const calls = []
+  assert.equal(bindVideoWatchPromptActions(root, createActions(calls)), 1)
+  rewatch.dataset.videoId = 'live'
+  const event = new Event('click')
+  rewatch.dispatchEvent(event)
+  assert.deepEqual(calls, [['rewatch', [event, 'live']]])
 })
