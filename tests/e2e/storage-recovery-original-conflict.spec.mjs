@@ -1,4 +1,10 @@
 import { expect, test } from '../support/network-fixture.mjs'
+// Exercise refresh while browser work overlaps confirmation and focus events.
+test.beforeEach(async ({ page, context, browserName }) => {
+  if (browserName !== 'chromium') return
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 })
+})
 const key = 'edenia_v1_internal_test_2'
 const databaseName = `${key}_profiles_indexed_db_v1`
 async function open(page, config = {}) {
@@ -94,4 +100,3 @@ for (const conflict of [true]) {
     if (!conflict) expect(await page.evaluate(() => loadState().config.theme)).toBe('dark')
   })
 }
-

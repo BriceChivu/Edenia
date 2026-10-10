@@ -697,6 +697,7 @@ let primaryProfileOpeningFailure = null
 let backupProfileOpeningFailure = null
 let recoveryConflictView = null
 let recoveryReconciliationPending = false
+let queuedRecoveryReconciliation = null
 const automaticStorageFeedback = createStorageRecoveryFeedback({ location: window.location })
 const pendingStorageFeedback = new Map()
 const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
@@ -19744,10 +19745,14 @@ async function initializeBrowserStorage() {
     primaryProfileOpeningFailure = describeProfileStorageFailure(error)
   }
 }
-async function reconcileBackgroundProfileRecovery() {
-  if (!profileRecoveryWorkspace.isActive() || recoveryReconciliationPending
+async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = {}) {
+  if (!profileRecoveryWorkspace.isActive()
     || !applicationStarted || document.visibilityState === 'hidden'
-    || document.getElementById('localProgressConflict')?.open) return
+    || (!refreshConflict && document.getElementById('localProgressConflict')?.open)) return
+  if (recoveryReconciliationPending) {
+    queuedRecoveryReconciliation = { refreshConflict: refreshConflict || queuedRecoveryReconciliation?.refreshConflict === true }
+    return
+  }
   recoveryReconciliationPending = true
   let originalRepository = null
   try {
@@ -19848,12 +19853,18 @@ async function reconcileBackgroundProfileRecovery() {
   } finally {
     originalRepository?.close()
     recoveryReconciliationPending = false
+    if (queuedRecoveryReconciliation) {
+      const queued = queuedRecoveryReconciliation
+      queuedRecoveryReconciliation = null
+      queueMicrotask(() => { void reconcileBackgroundProfileRecovery(queued) })
+    }
   }
 }
 
 async function refreshBackgroundRecoveryComparison(conflict) {
-  recoveryConflictView?.hide(conflict.id)
-  await reconcileBackgroundProfileRecovery()
+  // Keep the comparison visible and busy until its replacement is ready.
+  // A hidden gap can look like a completed choice while newer copies load.
+  await reconcileBackgroundProfileRecovery({ refreshConflict: true })
   return false
 }
 

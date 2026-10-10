@@ -2980,6 +2980,8 @@ test(`signed-in storage ${operation} failure opens the verified cloud profile th
     return route.fulfill({ json: path.endsWith('read_my_latest_learner_profile_reset') ? [{ status: 'none' }] : {} })
   })
   await page.goto('/')
+  // Finish startup before replacing storage underneath the running application.
+  await expect(page.locator('#introTrailer')).toBeVisible()
   const state = await page.evaluate(() => {
     const state = window.defaultState(4, [], 'light', [], 'en')
     const time = '2026-09-04T12:00:00.000Z'

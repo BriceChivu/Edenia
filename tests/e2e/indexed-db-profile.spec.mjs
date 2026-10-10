@@ -139,6 +139,7 @@ test('tester import escapes the shared localStorage quota and regular migration 
   }))
   const testerUrl = new URL('?internal_test=2', baseURL).href
   await page.goto(testerUrl)
+  await expect(page.locator('#introTrailer')).toBeVisible()
   await page.waitForFunction(() => typeof defaultState === 'function')
   const fixture = await page.evaluate(async testerKey => {
     const at = new Date().toISOString()

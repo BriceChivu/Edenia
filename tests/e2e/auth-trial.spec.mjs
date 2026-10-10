@@ -783,8 +783,9 @@ test('a large already-accepted request reopens under origin storage pressure wit
   }]))
   const fixture = await owned(page, { indexedDb: true, engine: false, videos })
   await page.goto('./?internal_test=1')
-  await expect.poll(() => page.evaluate(() => loadPersistedState({ persistCleanup: false }).cityProgress.scoringVersion === SCORING_RULES_VERSION)).toBe(true)
+  // The large owned profile must finish activation before its state is inspected.
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 15000 })
+  await expect.poll(() => page.evaluate(() => loadPersistedState({ persistCleanup: false }).cityProgress.scoringVersion === SCORING_RULES_VERSION)).toBe(true)
   await expect.poll(async () => {
     const current = await page.evaluate(() => preparePortableLearnerProfileEnvelope(loadPersistedState({ persistCleanup: false })).profile)
     return JSON.stringify(current) === JSON.stringify(fixture.head().envelope.profile)

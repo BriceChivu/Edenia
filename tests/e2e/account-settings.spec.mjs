@@ -512,6 +512,10 @@ test('global off switch preserves the retained session and blocks the account de
 
   await page.goto('/')
   await seedReadyState(page, 'en')
+  // Capture an opened profile, after its initial automatic study summary is
+  // persisted, so the next navigation compares the same initialized settings.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#studyInsightCard')).toHaveAttribute('data-insight-id', 'weekly-summary')
   const retained = await page.evaluate(() => ({
     profile: localStorage.getItem('edenia_v1'),
     session: localStorage.getItem('edenia_v1_plus_auth_v1')
