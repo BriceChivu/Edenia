@@ -1553,20 +1553,29 @@ export function createLearnerProfileLifecycleAuthority({
             conflictId ? item.id === conflictId : protectedConflicts.length === 1
           ))
         : null
-    const version = ['device', 'cloud'].includes(side)
-      ? conflict?.[side]
-      : null
+    if (!conflict || !['device', 'cloud'].includes(side)) return false
+    const activation = currentState.activation
+    const isCurrent = () => (
+      currentState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+        && currentState.conflict === conflict
+    ) || (
+      currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        && currentState.activation === activation
+        && getCurrentActivationFor(activeProfile) === activation
+        && currentState.ownerId === conflict.ownerId
+        && currentState.protectedConflicts?.includes(conflict)
+    )
+    let version = conflict[side]
+    if (!version?.profile) {
+      const verified = await cloudPersistence.readProtectedConflict?.({ conflict, isCurrent })
+      if (!isCurrent()) return false
+      version = verified?.[side]
+    }
     if (!version?.profile || typeof version.profile !== 'object') return false
     return await exportDownload.download(version.profile, {
       conflictId: conflict.id,
       exportedAt: clock.now(),
-      isCurrent: () => (
-        currentState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
-          && currentState.conflict === conflict
-      ) || (
-        currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
-          && currentState.protectedConflicts?.includes(conflict)
-      ),
+      isCurrent,
       side
     }) === true
   }

@@ -158,17 +158,17 @@ function createAdapter({
           } }
         } }
       },
-      rpc: rpc || (async () => ({
-        data: [{
-          created: false,
-          envelope: { profile: { learnerProfile: {} } },
-          generation: 1,
-          profile_id: PROFILE_ID,
-          revision: 1,
-          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
-        }],
-        error: null
-      }))
+      rpc(name, parameters) {
+        const response = (rpc || defaultRpc)(name, parameters)
+        return Object.assign(Promise.resolve(response), {
+          select(columns) {
+            assert.equal(columns.includes('envelope'), false)
+            return Promise.resolve(response).then(result => ({ ...result,
+              data: result.data?.map(row => Object.fromEntries(columns.split(',').map(column => [column, row[column]])))
+            }))
+          }
+        })
+      }
     }),
     importEnvelope: envelope => envelope.profile,
     isOnline: isOnline || (() => true),
@@ -182,6 +182,12 @@ function createAdapter({
     syncStorageKey: SYNC_STORAGE_KEY,
     verifyEnvelope: verifyEnvelope || (async envelope => envelope)
   })
+}
+
+async function defaultRpc() {
+  return { data: [{ created: false, envelope: { profile: { learnerProfile: {} } },
+    generation: 1, profile_id: PROFILE_ID, revision: 1,
+    status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY }], error: null }
 }
 
 test('a superseded opening cannot turn an older local profile into a backup over a newer cloud revision', async () => {
@@ -4355,16 +4361,52 @@ test('reload keeps the protected unchosen version downloadable', async () => {
   assert.equal(result.status, 'activate')
   assert.equal(result.protectedConflicts[0].status, 'resolved')
   assert.equal(result.protectedConflicts[0].selectedSide, 'device')
-  assert.deepEqual(result.protectedConflicts[0].cloud.profile, {
-    marker: 'cloud-newer'
-  })
+  const downloaded = await adapter.readProtectedConflict({ conflict: result.protectedConflicts[0], isCurrent: () => true })
+  assert.deepEqual(downloaded.cloud.profile, { marker: 'cloud-newer' })
   assert.deepEqual(
     rpcCalls.map(([name]) => name),
-    ['resolve_my_learner_profile', 'read_my_learner_profile_conflict']
+    ['resolve_my_learner_profile', 'read_my_learner_profile_conflict', 'read_my_learner_profile_conflict']
   )
 })
 
-test('reload retains every unexpired protected conflict download', async () => {
+for (const outcome of ['download', 'changed-operation', 'changed-choice', 'changed-expiry', 'expired-during-verification', 'invalid-envelope']) {
+  test(`protected download revalidates its saved descriptor: ${outcome}`, async () => {
+    const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+    const operationId = '423e4567-e89b-42d3-a456-426614174003'
+    const protectedUntil = Date.parse('2026-10-12T00:00:00.000Z')
+    let at = protectedUntil - 1000
+    const descriptor = {
+      id: conflictId, operationId, ownerId: OWNER_ID, profileId: PROFILE_ID,
+      protectedUntil, selectedSide: 'device', status: 'resolved'
+    }
+    const adapter = createAdapter({
+      now: () => at,
+      rpc: async () => ({ data: [{
+        status: 'resolved',
+        conflict_id: conflictId,
+        operation_id: outcome === 'changed-operation' ? conflictId : operationId,
+        profile_id: PROFILE_ID,
+        device_generation: 1,
+        device_revision: 2,
+        cloud_generation: 1,
+        cloud_revision: 3,
+        device_envelope: { profile: { marker: 'device' } },
+        cloud_envelope: { profile: { marker: 'cloud' } },
+        selected_side: outcome === 'changed-choice' ? 'cloud' : 'device',
+        protected_until: new Date(protectedUntil + (outcome === 'changed-expiry' ? 1000 : 0)).toISOString()
+      }], error: null }),
+      verifyEnvelope: async envelope => {
+        if (outcome === 'expired-during-verification') at = protectedUntil
+        return outcome === 'invalid-envelope' ? null : envelope
+      }
+    })
+    const downloaded = await adapter.readProtectedConflict({ conflict: descriptor, isCurrent: () => true })
+    if (outcome === 'download') assert.deepEqual(downloaded.cloud.profile, { marker: 'cloud' })
+    else assert.equal(downloaded, null)
+  })
+}
+
+test('reload retains protected download descriptors without reading old profile snapshots', async () => {
   const conflictIds = [
     '323e4567-e89b-42d3-a456-426614174002',
     '423e4567-e89b-42d3-a456-426614174003'
@@ -4381,7 +4423,9 @@ test('reload retains every unexpired protected conflict download', async () => {
       version: 1
     })
   })
+  let verifications = 0
   const adapter = createAdapter({
+    verifyEnvelope: async envelope => { verifications++; return envelope },
     rpc: async (name, parameters) => {
       if (name === 'resolve_my_learner_profile') {
         return {
@@ -4433,6 +4477,8 @@ test('reload retains every unexpired protected conflict download', async () => {
   })
 
   assert.equal(result.status, 'activate')
+  assert.equal(verifications, 1, 'opening verifies only the current profile, not archived versions')
+  assert.equal(result.protectedConflicts.some(conflict => conflict.device || conflict.cloud), false)
   assert.deepEqual(
     result.protectedConflicts.map(conflict => conflict.id),
     conflictIds
