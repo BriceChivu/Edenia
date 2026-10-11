@@ -1,3 +1,4 @@
+import { reportWindowHealth } from './integrations/health-monitor.js'
 import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
 import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
 import { createLocalRecoveryConflict } from './features/profile-access/local-recovery-conflict.js'
@@ -769,6 +770,7 @@ function resetRecoveryBackupStore() {
 }
 
 function reportBackgroundStorageFailure(operation, failure = null) {
+  reportWindowHealth('storage', 'degraded', { reason: failure?.code || 'storage-unavailable', recovery: profileRecoveryWorkspace.getTier() })
   const storageState = {}
   try {
     storageState.migrationMarker = window.localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`)
@@ -1317,12 +1319,19 @@ function saveImportedState(state, options = {}) {
 }
 
 function saveState(state, options = {}) {
-  if (primaryProfileStorageUnavailable) return false
+  const healthStartedAt = performance.now()
+  if (primaryProfileStorageUnavailable) {
+    reportWindowHealth('save', 'failure', { reason: 'storage-unavailable' })
+    return false
+  }
   const complete = persisted => {
     if (persisted) {
+      const recovery = profileRecoveryWorkspace.isActive()
+      reportWindowHealth('save', recovery ? 'degraded' : 'success', { reason: recovery ? 'recovery-copy' : 'none', recovery: profileRecoveryWorkspace.getTier(), duration: performance.now() - healthStartedAt })
       rememberPersistedPortableProfile(state)
       return true
     }
+    if (isCurrentLearnerProfileOperation(state) && !document.getElementById('localProgressConflict')?.open) reportWindowHealth('save', 'failure', { reason: 'save-failed' })
     const saved = loadPersistedState({ persistCleanup: false })
     if (saved && state && isCurrentLearnerProfileOperation(state)) {
       for (const key of Object.keys(state)) delete state[key]
@@ -3067,6 +3076,7 @@ async function startApplicationWithState(initialState, {
     && !state?.onboarding?.setupCompleted
   if (!unfinishedOnboardingStartsImmediately) show('mainApp')
   renderAll(state)
+  try { window.edeniaHealth?.ready() } catch {}
   void initializeRequestedReminderDestination()
   loadDynamicChannelCatalogs()
   syncHeaderCompactState()
@@ -3708,6 +3718,7 @@ function startIntroTrailer({ replay = false, state = null } = {}) {
 
   setIntroTrailerScene(0)
   startIntroMusic().catch(() => {})
+  try { window.edeniaHealth?.ready() } catch {}
   return true
 }
 
@@ -4164,6 +4175,7 @@ function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
     document.body.classList.add('onboarding-active')
     document.getElementById('mainApp')?.setAttribute('inert', '')
     renderPersonalizedOnboarding()
+    try { window.edeniaHealth?.ready() } catch {}
     return true
   } catch (error) {
     console.error('Unable to start personalized onboarding.', error)

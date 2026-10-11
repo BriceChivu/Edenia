@@ -43,7 +43,8 @@ export async function buildProductionExperience(projectRoot, outputDir, assetVer
   let html = await readFile(sourcePath('index.html'), 'utf8')
   for (const [before, after] of [
     ['app.js', 'production-app.js'], ['style.css', 'style-production.css'],
-    ['analytics.js', 'analytics-production.js'], ['config.local.js', 'config.local.js']
+    ['analytics.js', 'analytics-production.js'], ['config.local.js', 'config.local.js'],
+    ['health.js', 'health.js']
   ]) {
     html = html.replace(new RegExp(`${before.replaceAll('.', '\\.')}\\?v=[^"\\s]+|${before.replaceAll('.', '\\.')}(?=")`), `${after}?v=${assetVersion}`)
   }

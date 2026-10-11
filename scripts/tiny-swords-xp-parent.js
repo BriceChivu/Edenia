@@ -13,6 +13,12 @@ if (window.edeniaTinySwordsEnabled === true) {
     const controls = surface.querySelector('.tiny-swords-camera-controls')
     let frame
     let startupTimer
+    let healthStartedAt = 0
+    let healthBackgrounded = document.hidden
+    document.addEventListener('visibilitychange', () => { if (document.hidden) healthBackgrounded = true })
+    const reportHealth = (outcome, reason = 'none') => {
+      try { window.edeniaHealth?.report('island', outcome, { reason, duration: performance.now() - healthStartedAt, backgrounded: healthBackgrounded }) } catch {}
+    }
     let failed = false
     let blocked = false
     let statusKey = 'island.preparing'
@@ -69,6 +75,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       clearInterval(progressTimer)
       controls.hidden = true
       setLoadState('failed', key)
+      reportHealth('failure', key === 'island.restoreFailed' ? 'restore-failed' : 'startup-failed')
       syncInput()
     }
     // Edenia owns page overlays. Inert removes the iframe from pointer and
@@ -143,6 +150,9 @@ if (window.edeniaTinySwordsEnabled === true) {
       }) : null
     document.addEventListener?.('visibilitychange', sendVisibility)
     function mountFrame() {
+      healthStartedAt = performance.now()
+      healthBackgrounded = document.hidden
+      reportHealth('started')
       clearTimeout(startupTimer)
       clearInterval(progressTimer)
       const previous = frame
@@ -179,7 +189,10 @@ if (window.edeniaTinySwordsEnabled === true) {
       syncInput()
       progressTimer = setInterval(advancePreparation, 100)
       startupTimer = setTimeout(() => {
-        if (!restored && !failed) setLoadState('slow', 'island.slow')
+        if (!restored && !failed) {
+          setLoadState('slow', 'island.slow')
+          if (!document.hidden && !healthBackgrounded) reportHealth('slow', 'startup-slow')
+        }
       }, 20000)
     }
     function sendStudyLevel() {
@@ -287,6 +300,7 @@ if (window.edeniaTinySwordsEnabled === true) {
         clearInterval(progressTimer)
         if (restored) progressPercent = 100
         setLoadState(restored ? 'ready' : 'failed', restored ? 'island.loading' : 'island.restoreFailed')
+        reportHealth(restored ? 'success' : 'failure', restored ? 'none' : 'restore-failed')
         controls.hidden = !restored
         syncInput()
       }
