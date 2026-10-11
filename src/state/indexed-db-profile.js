@@ -1,5 +1,7 @@
 import { annotateStorageFailure } from './profile-storage-recovery.js'
 import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
+import { mergeActivityLogAdditions } from './activity-log.js'
+import { isValidTimestamp } from '../core/date-keys.js'
 
 const STORE = 'profiles'
 const HEAD = 'active'
@@ -18,6 +20,15 @@ function record(value) {
 function mergeChanges(base, desired, current, path = []) {
   if (equal(base, desired)) return current
   if (equal(base, current) || equal(desired, current)) return desired
+  // Loading a disabled Anki profile initializes this missing timestamp. Two
+  // observations of the same unset value are compatible; later edits are not.
+  if (path.length === 2 && path[0] === 'config' && path[1] === 'ankiDisabledAt'
+    && (base === null || base === undefined) && isValidTimestamp(desired) && isValidTimestamp(current)) {
+    return new Date(desired) < new Date(current) ? desired : current
+  }
+  if (path.length === 1 && path[0] === 'activityLog') {
+    return mergeActivityLogAdditions(base, desired, current) ?? CONFLICT
+  }
   if (path.length === 3 && path[0] === 'config' && path[1] === 'studyInsights' && path[2] === 'history') {
     return mergeStudyInsightHistoryChanges(base, desired, current) ?? CONFLICT
   }

@@ -83,6 +83,15 @@ export default defineConfig({
       }
     })),
     {
+      name: 'firefox-storage',
+      testMatch: /(profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
+      use: {
+        browserName: 'firefox',
+        deviceScaleFactor: 1,
+        viewport: { width: 1440, height: 900 }
+      }
+    },
+    {
       name: 'webkit-storage',
       testMatch: /(indexed-db-backups|indexed-db-profile|legacy-migration-helper|legacy-origin-storage|legacy-progress-migration)\.spec\.mjs/,
       use: {
@@ -96,7 +105,7 @@ export default defineConfig({
       { name: 'webkit-trial-phone', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }
     ].map(({ name, ...use }) => ({
       name,
-      testMatch: /(auth-trial|storage-recovery-connection)\.spec\.mjs/,
+      testMatch: /(auth-trial|storage-recovery-connection|profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
       use: { browserName: 'webkit', deviceScaleFactor: 1, ...use }
     }))
   ],

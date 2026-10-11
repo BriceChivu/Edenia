@@ -1,3 +1,6 @@
+import { mergeActivityLogAdditions } from './activity-log.js'
+import { isValidTimestamp } from '../core/date-keys.js'
+
 const STORE = 'profiles'
 const HEAD = 'active'
 const RECOVERY = 'legacy-recovery'
@@ -10,9 +13,16 @@ function equal(left, right) {
 function record(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
-function mergeChanges(base, desired, current) {
+function mergeChanges(base, desired, current, path = []) {
   if (equal(base, desired)) return current
   if (equal(base, current) || equal(desired, current)) return desired
+  if (path.length === 2 && path[0] === 'config' && path[1] === 'ankiDisabledAt'
+    && (base === null || base === undefined) && isValidTimestamp(desired) && isValidTimestamp(current)) {
+    return new Date(desired) < new Date(current) ? desired : current
+  }
+  if (path.length === 1 && path[0] === 'activityLog') {
+    return mergeActivityLogAdditions(base, desired, current) ?? CONFLICT
+  }
   // Arrays (including Undo and ordered learner facts) stay atomic. Concurrent
   // edits to the same value require a fresh operation rather than guessing.
   if (!record(base) || !record(desired) || !record(current)) return CONFLICT
@@ -21,7 +31,8 @@ function mergeChanges(base, desired, current) {
     const value = mergeChanges(
       Object.hasOwn(base, key) ? base[key] : undefined,
       Object.hasOwn(desired, key) ? desired[key] : undefined,
-      Object.hasOwn(current, key) ? current[key] : undefined
+      Object.hasOwn(current, key) ? current[key] : undefined,
+      [...path, key]
     )
     if (value === CONFLICT) return CONFLICT
     if (value === undefined) delete merged[key]
