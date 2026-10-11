@@ -549,3 +549,51 @@ test('a native import that activates recovery keeps its saved revision for subse
   assert.equal(store.saveState(imported, { backup: false }), true)
   assert.equal(f.workspace.repository.snapshot().insight, 'routine-return')
 })
+
+test('recovery diagnostic context survives reload and completion without entering portable progress', () => {
+  const f = fixture()
+  const options = { ...f.options, testRunId: 'synthetic-workspace-436' }
+  const first = createProfileRecoveryWorkspace(options)
+  first.activate()
+  const context = first.getDiagnosticContext()
+  assert.match(context.incidentId, /^[a-f0-9-]{36}$/)
+  assert.equal(context.testRunId, 'synthetic-workspace-436')
+  assert.equal(first.repository.snapshot().incidentId, undefined)
+  const second = createProfileRecoveryWorkspace(f.options)
+  second.activate()
+  assert.deepEqual(second.getDiagnosticContext(), context)
+  assert.equal(second.complete(), true)
+  assert.equal(second.getDiagnosticContext(), null)
+  second.activate()
+  assert.notEqual(second.getDiagnosticContext().incidentId, context.incidentId)
+  assert.equal(second.getDiagnosticContext().testRunId, null)
+})
+
+
+test('a resumed ordinary incident never inherits the current synthetic run marker', () => {
+  const f = fixture()
+  f.workspace.activate()
+  const original = f.workspace.getDiagnosticContext()
+  const resumed = createProfileRecoveryWorkspace({ ...f.options, testRunId: 'different-test-run' })
+  resumed.activate()
+  assert.deepEqual(resumed.getDiagnosticContext(), original)
+  assert.equal(resumed.getDiagnosticContext().testRunId, null)
+})
+
+test('legacy active workspaces acquire one incident ID and retain it on reload', () => {
+  const f = fixture()
+  f.workspace.activate()
+  const key = 'profile_recovery_workspace_v1'
+  const legacy = JSON.parse(f.values.get(key))
+  delete legacy.incidentId
+  delete legacy.testRunId
+  f.values.set(key, JSON.stringify(legacy))
+  const resumed = createProfileRecoveryWorkspace({ ...f.options, testRunId: 'unrelated-test' })
+  resumed.activate()
+  const context = resumed.getDiagnosticContext()
+  assert.match(context.incidentId, /^[a-f0-9-]{36}$/)
+  assert.equal(context.testRunId, null)
+  const reloaded = createProfileRecoveryWorkspace(f.options)
+  reloaded.activate()
+  assert.deepEqual(reloaded.getDiagnosticContext(), context)
+})

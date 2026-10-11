@@ -1,10 +1,25 @@
+const FAILURE_CONTEXTS = new WeakMap()
+const STORAGE_TARGETS = ['primary-profile', 'backup', 'recovery-journal', 'web-storage']
+const STORAGE_PHASES = ['database-open', 'transaction-open', 'transaction-complete', 'request', 'readback', 'workspace-write', 'promotion']
+export const sanitizeStorageDiagnosticId = value => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(value) ? value : null
+// Attach only internal, bounded context. Native exception messages can contain data.
+export function annotateStorageFailure(error, storageTarget, phase) {
+  if (error && typeof error === 'object' && !FAILURE_CONTEXTS.has(error)) {
+    FAILURE_CONTEXTS.set(error, {
+      storageTarget: STORAGE_TARGETS.includes(storageTarget) ? storageTarget : undefined,
+      phase: STORAGE_PHASES.includes(phase) ? phase : undefined
+    })
+  }
+  return error
+}
+
 const SAFE_ERROR_NAMES = ['Error','SyntaxError','SecurityError','NotAllowedError','QuotaExceededError','NS_ERROR_DOM_QUOTA_REACHED','NotFoundError','AbortError','UnknownError','InvalidStateError','TransactionInactiveError','DataError','VersionError']
 const SAFE_ERROR_MESSAGES = ['The migrated learner profile is missing','Invalid durable learner profile','Invalid legacy learner profile','Invalid durable profile body','Missing durable profile body','Profile migration has conflicting durable copies','Profile database opening timed out','Profile database opening blocked','Profile transaction timed out','Profile transaction failed','IndexedDB is unavailable','Profile migration readback failed or became stale','Profile opening marker readback failed','IndexedDB request failed','IndexedDB backup transaction timed out','IndexedDB backup transaction failed','IndexedDB backup database opening timed out','Could not open IndexedDB backup database','IndexedDB existing backup database opening timed out','IndexedDB backup database open was blocked','Could not open the existing IndexedDB backup database','IndexedDB backup store is missing','IndexedDB contains an invalid state backup','IndexedDB backup change verification failed','Recovery archive opening timed out','Recovery archive opening blocked','Recovery archive transaction timed out','Recovery archive transaction failed','Invalid recovery archive']
 // Only these stable categories leave the storage boundary. Exception text can
 // include saved data; never put it in the UI, clipboard report, or analytics.
 export function describeProfileStorageFailure(error) {
   const message = error?.message || ''
-  const detail = { errorName: SAFE_ERROR_NAMES.includes(error?.name) ? error.name : null, errorMessage: SAFE_ERROR_MESSAGES.includes(message) ? message : null }
+  const detail = { ...FAILURE_CONTEXTS.get(error), errorName: SAFE_ERROR_NAMES.includes(error?.name) ? error.name : null, errorMessage: SAFE_ERROR_MESSAGES.includes(message) ? message : null }
   if (message === 'The migrated learner profile is missing') return { ...detail, code: 'profile-missing', retryable: false }
   if (['Invalid durable learner profile', 'Invalid legacy learner profile', 'Invalid durable profile body', 'Missing durable profile body'].includes(message)
     || error?.name === 'SyntaxError' || error?.name === 'NotFoundError' || error?.name === 'DataError') return { ...detail, code: 'profile-invalid', retryable: false }
@@ -31,8 +46,8 @@ export function getStorageRecoveryPresentation(failure, { checked = false } = {}
 }
 
 export function createStorageRecoveryReport({ failure, checked, mode, release,
-  operation, recovery, capabilities = {}, storageState = {} }) {
-  // Deliberately excludes URLs, credentials, profile contents and identifiers.
+  operation, recovery, incidentId, testRunId, capabilities = {}, storageState = {} }) {
+  // Deliberately excludes URLs, credentials, profile contents and account identifiers.
   return JSON.stringify({
     diagnostic: 'edenia-storage-recovery-v1',
     code: getStorageRecoveryPresentation(failure).code,
@@ -44,7 +59,10 @@ export function createStorageRecoveryReport({ failure, checked, mode, release,
     mode: ['auth-trial', 'tiny-swords-test', 'public'].includes(mode) ? mode : 'public',
     release: /^[a-zA-Z0-9._-]{1,80}$/.test(release || '') ? release : null,
     operation: ['open','save','recovery','reconcile'].includes(operation) ? operation : null,
-    storageTarget: failure?.storageTarget === 'recovery-journal' ? 'recovery-journal' : undefined,
+    incidentId: sanitizeStorageDiagnosticId(incidentId) || undefined,
+    testRunId: sanitizeStorageDiagnosticId(testRunId) || undefined,
+    storageTarget: STORAGE_TARGETS.includes(failure?.storageTarget) ? failure.storageTarget : undefined,
+    phase: STORAGE_PHASES.includes(failure?.phase) ? failure.phase : undefined,
     recovery: ['local','session','indexed-db','memory','none'].includes(recovery) ? recovery : null,
     storageState: {
       migrationMarker: ['1','empty'].includes(storageState.migrationMarker) ? storageState.migrationMarker : null,
