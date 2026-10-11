@@ -136,6 +136,7 @@
         api_host: 'https://us.i.posthog.com',
         defaults: '2026-05-30',
         autocapture: false,
+        capture_exceptions: false,
         disable_capture_url_hashes: true,
         disable_session_recording: sessionRecordingBlockedForAuthUrl,
         get_current_url: () => redactAnalyticsUrl(window.location.href),
@@ -161,6 +162,7 @@
       }
     }
   </script>
+  <script src="health.js" defer></script>
   <script src="config.local.js" defer></script>
   <script src="analytics.js?v=20260727-6" defer></script>
   <script src="app.js?v=20260727-159" defer></script>

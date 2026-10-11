@@ -18,6 +18,7 @@ test('build emits the stable public entrypoint contract', async () => {
     'index.html',
     'app.js',
     'analytics.js',
+    'health.js',
     'style.css',
     'config.local.js',
     'release.json',
@@ -118,16 +119,21 @@ test('built index preserves the classic deferred script order and one cache vers
   const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
   const analyticsMatch = html.match(/analytics\.js\?v=([^"'&\s>]+)/)
   const appMatch = html.match(/app\.js\?v=([^"'&\s>]+)/)
+  const healthMatch = html.match(/health\.js\?v=([^"'&\s>]+)/)
 
   assert.ok(styleMatch)
   assert.ok(analyticsMatch)
   assert.ok(appMatch)
+  assert.ok(healthMatch)
   assert.equal(styleMatch[1], analyticsMatch[1])
   assert.equal(styleMatch[1], appMatch[1])
+  assert.equal(styleMatch[1], healthMatch[1])
 
   const configPosition = html.indexOf('<script src="config.local.js?v=')
   const analyticsPosition = html.indexOf('<script src="analytics.js?')
   const appPosition = html.indexOf('<script src="app.js?')
+  const healthPosition = html.indexOf('<script src="health.js?')
+  assert.ok(healthPosition > 0 && healthPosition < configPosition)
   assert.ok(configPosition > 0)
   assert.ok(configPosition < analyticsPosition)
   assert.ok(analyticsPosition < appPosition)

@@ -74,8 +74,16 @@ html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}"
 html = html.replace('<!-- TINY_SWORDS_CONFLICT_PREVIEWS -->', `<script src="${gameParent.replace('parent.js', 'conflict-previews.js')}" defer></script>`)
 html = versionAssetReference(html, 'style.css', assetVersion)
 html = versionAssetReference(html, 'analytics.js', assetVersion)
+html = versionAssetReference(html, 'health.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
 html = versionAssetReference(html, 'config.local.js', assetVersion)
+
+const healthBuild = await build({
+  entryPoints: [resolve(projectRoot, 'scripts/health-entry.js')],
+  bundle: true, format: 'iife', platform: 'browser', target: 'es2022',
+  minify: true, write: false
+})
+await writeFile(resolve(outputDir, 'health.js'), healthBuild.outputFiles[0].text)
 
 const productionHtml = await buildProductionExperience(projectRoot, outputDir, assetVersion)
 const entry = await build({

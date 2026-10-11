@@ -17,6 +17,7 @@
 
   function capture(eventName, properties) {
     if (!analyticsAvailable()) return false;
+    try { window.edeniaHealth?.observeEvent(eventName, properties); } catch {}
     window.posthog.capture(eventName, properties);
     return true;
   }
