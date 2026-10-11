@@ -485,6 +485,9 @@ test('global off switch preserves the retained session and blocks the account de
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
+  // A fresh empty profile receives its weekly summary only on Sunday.
+  // Keep the preservation check independent of the day CI happens to run.
+  await page.clock.setFixedTime(new Date('2026-08-23T04:00:00.000Z'))
   const providerRequests = []
   page.on('request', request => {
     if (request.url().includes('account-ui-test.supabase.co')) providerRequests.push(request.url())
