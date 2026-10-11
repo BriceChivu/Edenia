@@ -228,11 +228,10 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   expect(event.properties.feedback_source).toBe('automatic_storage_recovery')
   expect(event.properties.feedback_message).toContain('storage-denied')
   expect(event.properties.feedback_message).toContain('local')
-  expect(event.properties.feedback_message).toContain(browserName === 'webkit' ? 'Safari/' : 'Chrome/')
+  expect(event.properties.feedback_message).toContain(browserName === 'webkit' ? 'Version/' : 'Chrome/')
   expect(event.properties.page_url).toBe('https://edenia.study/')
   expect(JSON.stringify(event)).not.toContain('SECRET')
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
-  await page.goto('about:blank')
 })
 
 for (const chooseSaved of [false, true]) test(`two recovery tabs merge changes and retain both copies when choosing ${chooseSaved ? 'saved' : 'recent'} progress`, async ({ page, context }) => {
