@@ -1,3 +1,4 @@
+import { annotateStorageFailure } from './profile-storage-recovery.js'
 const DATABASE = 'edenia_profile_recovery_v1'
 
 // Web Storage can run out of room while IndexedDB still has capacity. Keep the
@@ -49,26 +50,28 @@ export function createProfileRecoveryJournal({
         if (missing && request.error?.name === 'AbortError') resolve(null)
         else reject(request.error || new Error('Recovery archive opening blocked'))
       }, { once: true })
-    }).finally(() => { opening = null })
+    }).catch(error => { throw annotateStorageFailure(error, 'recovery-journal', 'database-open') }).finally(() => { opening = null })
     return opening
   }
   function transaction(db, mode, run) {
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(['heads', 'candidates'], mode)
+      let tx
+      try { tx = db.transaction(['heads', 'candidates'], mode) }
+      catch (error) { reject(annotateStorageFailure(error, 'recovery-journal', 'transaction-open')); return }
       let result
       let failure
       const timer = setTimeout(() => {
         try { tx.abort() } catch {}
-        reject(new Error('Recovery archive transaction timed out'))
+        reject(annotateStorageFailure(new Error('Recovery archive transaction timed out'), 'recovery-journal', 'transaction-complete'))
       }, timeoutMs)
       tx.oncomplete = () => { clearTimeout(timer); resolve(result) }
       tx.onabort = tx.onerror = () => {
         clearTimeout(timer)
-        reject(failure || tx.error || new Error('Recovery archive transaction failed'))
+        reject(annotateStorageFailure(failure || tx.error || new Error('Recovery archive transaction failed'), 'recovery-journal', 'transaction-complete'))
       }
       const fail = error => { failure = error; try { tx.abort() } catch {} }
       try { run(tx, value => { result = value }, fail) }
-      catch (error) { failure = error; try { tx.abort() } catch {}; clearTimeout(timer); reject(error) }
+      catch (error) { failure = error; try { tx.abort() } catch {}; clearTimeout(timer); reject(annotateStorageFailure(error, 'recovery-journal', 'request')) }
     })
   }
   async function read() {

@@ -1,4 +1,4 @@
-import { createStorageRecoveryReport } from '../state/profile-storage-recovery.js'
+import { createStorageRecoveryReport, sanitizeStorageDiagnosticId } from '../state/profile-storage-recovery.js'
 
 // Existing public ingestion token. The active feedback_submitted destination
 // sends the diagnostic to Discord, independently of product analytics consent.
@@ -8,7 +8,7 @@ const OUTBOX_KEY = 'edenia_storage_feedback_outbox_v1'
 
 export function createStorageRecoveryFeedback({
   fetch: send = globalThis.fetch, location, now = () => new Date().toISOString(),
-  createId = () => globalThis.crypto.randomUUID(),
+  createId = () => globalThis.crypto.randomUUID(), testRunId = null,
   getStores = () => [() => globalThis.localStorage, () => globalThis.sessionStorage]
 }) {
   const enabled = ['https://edenia.study', 'https://www.edenia.study'].includes(location.origin)
@@ -20,7 +20,7 @@ export function createStorageRecoveryFeedback({
       const parsed = JSON.parse(entry.diagnostic)
       // Rebuild every field before replay; saved outbox data is untrusted.
       const diagnostic = createStorageRecoveryReport({ ...parsed,
-        failure: { code: parsed.code, errorName: parsed.error?.name, errorMessage: parsed.error?.message, storageTarget: parsed.storageTarget },
+        failure: { code: parsed.code, errorName: parsed.error?.name, errorMessage: parsed.error?.message, storageTarget: parsed.storageTarget, phase: parsed.phase },
         checked: parsed.storageCheckedAgain, capabilities: { ...parsed.capabilities,
           browser: [parsed.capabilities?.browser, parsed.capabilities?.platform].filter(Boolean).join(' ') } })
       const dimension = value => Number.isFinite(Number(value)) ? Math.max(0, Math.min(10000, Number(value))) : 0
@@ -95,6 +95,9 @@ export function createStorageRecoveryFeedback({
     }
   }
   async function deliver(entry) {
+    const diagnostic = JSON.parse(entry.diagnostic)
+    const testPrefix = diagnostic.testRunId ? `[TEST: ${diagnostic.testRunId}] ` : ''
+    const completed = diagnostic.code === 'storage-recovered'
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
     try {
@@ -106,11 +109,15 @@ export function createStorageRecoveryFeedback({
           uuid: entry.id, distinct_id: `storage-report-${entry.id}`,
           properties: {
             $process_person_profile: false,
-            feedback_id: entry.id, feedback_category: 'bug',
+            feedback_id: entry.id, feedback_category: completed ? 'other' : 'bug',
+            storage_recovery_is_test: Boolean(diagnostic.testRunId),
+            storage_recovery_test_run_id: diagnostic.testRunId || null,
+            storage_recovery_incident_id: diagnostic.incidentId || null,
+            storage_recovery_outcome: completed ? 'recovered' : 'failure',
             feedback_source: 'automatic_storage_recovery',
             feedback_name: null, feedback_email: null,
-            feedback_message: `Automatic storage recovery report\n${entry.diagnostic}`,
-            app_version: JSON.parse(entry.diagnostic).release,
+            feedback_message: `${testPrefix}${completed ? 'Storage recovery completed' : 'Automatic storage recovery report'}\n${entry.diagnostic}`,
+            app_version: diagnostic.release,
             page_url: `${location.origin}/`, session_replay_url: null,
             locale: /^[a-zA-Z-]{2,12}$/.test(entry.locale || '') ? entry.locale : 'en',
             viewport_width: Number(entry.width) || 0,
@@ -134,7 +141,7 @@ export function createStorageRecoveryFeedback({
   }
   async function report(details, { retry = false } = {}) {
     if (!enabled) return 'unavailable'
-    const diagnostic = createStorageRecoveryReport(details)
+    const diagnostic = createStorageRecoveryReport({ ...details, testRunId: sanitizeStorageDiagnosticId(Object.hasOwn(details, 'testRunId') ? details.testRunId : testRunId) })
     let entry = [...reports.values()].find(value => value.diagnostic === diagnostic)
     if (entry && (!retry || entry.status !== 'failed')) return entry.pending || entry.status
     if (!entry) {

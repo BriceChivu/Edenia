@@ -1,3 +1,4 @@
+import { annotateStorageFailure } from './profile-storage-recovery.js'
 import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
 
 const STORE = 'profiles'
@@ -47,15 +48,19 @@ export function isIndexedDbProfilePointer(raw) {
   try { return JSON.parse(raw)?.schema === POINTER_SCHEMA } catch { return false }
 }
 
+function profileTransaction(database, ...args) {
+  try { return database.transaction(...args) }
+  catch (error) { throw annotateStorageFailure(error, 'primary-profile', 'transaction-open') }
+}
 function complete(transaction) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { transaction.abort() } catch {}
-      reject(new Error('Profile transaction timed out'))
+      reject(annotateStorageFailure(new Error('Profile transaction timed out'), 'primary-profile', 'transaction-complete'))
     }, 8000)
     transaction.oncomplete = () => { clearTimeout(timeout); resolve() }
-    transaction.onabort = () => { clearTimeout(timeout); reject(transaction.error || new Error('Profile transaction aborted')) }
-    transaction.onerror = () => { clearTimeout(timeout); reject(transaction.error || new Error('Profile transaction failed')) }
+    transaction.onabort = () => { clearTimeout(timeout); reject(annotateStorageFailure(transaction.error || new Error('Profile transaction aborted'), 'primary-profile', 'transaction-complete')) }
+    transaction.onerror = () => { clearTimeout(timeout); reject(annotateStorageFailure(transaction.error || new Error('Profile transaction failed'), 'primary-profile', 'transaction-complete')) }
   })
 }
 
@@ -77,7 +82,7 @@ function openProfileDatabase(indexedDb, name) {
       database.onversionchange = () => database.close()
       resolve(database)
     }
-  })
+  }).catch(error => { throw annotateStorageFailure(error, 'primary-profile', 'database-open') })
 }
 
 function splitHead(value) { return value?.schema === HEAD_SCHEMA }
@@ -122,7 +127,7 @@ function sameHead(left, right) {
 // Cache the large, immutable body across island revisions. Warm checkpoints
 // neither fetch nor serialize it; complete profile reads compose it lazily.
 async function read(database, key = HEAD, cached = null, headOnly = false) {
-  const transaction = database.transaction(STORE, 'readonly')
+  const transaction = profileTransaction(database, STORE, 'readonly')
   const finished = complete(transaction)
   const store = transaction.objectStore(STORE)
   const request = store.get(key)
@@ -182,7 +187,7 @@ export async function openIndexedDbProfile({
       if (!isValidState(JSON.parse(capturedLegacy))) throw new Error('Invalid legacy learner profile')
       if (head && head.raw !== capturedLegacy) throw new Error('Profile migration has conflicting durable copies')
       if (!head) {
-        const transaction = database.transaction(STORE, 'readwrite', { durability: 'strict' })
+        const transaction = profileTransaction(database, STORE, 'readwrite', { durability: 'strict' })
         const finished = complete(transaction)
         const store = transaction.objectStore(STORE)
         const request = store.get(HEAD)
@@ -300,7 +305,7 @@ export async function openIndexedDbProfile({
   if (channel) channel.onmessage = handleFocus
 
   async function restoreUnacknowledgedHead(next, previous) {
-    const rollback = database.transaction(STORE, 'readwrite', { durability: 'strict' })
+    const rollback = profileTransaction(database, STORE, 'readwrite', { durability: 'strict' })
     const rolledBack = complete(rollback)
     const store = rollback.objectStore(STORE)
     const latest = store.get(HEAD)
@@ -338,7 +343,7 @@ export async function openIndexedDbProfile({
       let previous
       const baseRevision = predecessor ? predecessor.revision : expectedRevision
       if (baseRevision === null || !canPersist()) return false
-      const transaction = database.transaction(STORE, 'readwrite', { durability: 'strict' })
+      const transaction = profileTransaction(database, STORE, 'readwrite', { durability: 'strict' })
       const finished = complete(transaction)
       const store = transaction.objectStore(STORE)
       const request = store.get(HEAD)
@@ -442,7 +447,7 @@ export async function openIndexedDbProfile({
       if (expectedRevision === undefined || islandRaw === undefined || !canPersist()) return false
       let previous
       let next
-      const transaction = database.transaction(STORE, 'readwrite', { durability: 'strict' })
+      const transaction = profileTransaction(database, STORE, 'readwrite', { durability: 'strict' })
       const finished = complete(transaction)
       const store = transaction.objectStore(STORE)
       const request = store.get(HEAD)

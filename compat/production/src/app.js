@@ -698,9 +698,11 @@ let backupProfileOpeningFailure = null
 let recoveryConflictView = null
 let recoveryReconciliationPending = false
 let queuedRecoveryReconciliation = null
-const automaticStorageFeedback = createStorageRecoveryFeedback({ location: window.location })
+const storageRecoveryTestRunId = window.EDENIA_CONFIG?.storageRecoveryTestRunId
+const automaticStorageFeedback = createStorageRecoveryFeedback({ location: window.location, testRunId: storageRecoveryTestRunId })
 const pendingStorageFeedback = new Map()
 const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
+  testRunId: storageRecoveryTestRunId,
   storageKey: STORAGE_KEY,
   accessKey: LEARNER_PROFILE_ACCESS_KEY,
   keys: [`${STORAGE_KEY}_storage_probe`, STATE_BACKUP_KEY, LEARNER_PROFILE_ACCESS_KEY,
@@ -724,6 +726,7 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
   onStorageFailure(error, operation = 'save', target) {
     const failure = describeProfileStorageFailure(error)
     if (target === 'recovery-journal') failure.storageTarget = target
+    else { failure.storageTarget ||= 'web-storage'; failure.phase ||= 'workspace-write' }
     queueMicrotask(() => reportBackgroundStorageFailure(operation, failure))
   },
   onConflictCleared(id) { recoveryConflictView?.hide(id) },
@@ -768,7 +771,7 @@ function resetRecoveryBackupStore() {
   backupStorageSharesPrimaryQuota = true
 }
 
-function reportBackgroundStorageFailure(operation, failure = null) {
+function reportBackgroundStorageFailure(operation, failure = null, diagnosticContext = profileRecoveryWorkspace.getDiagnosticContext()) {
   const storageState = {}
   try {
     storageState.migrationMarker = window.localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`)
@@ -777,7 +780,7 @@ function reportBackgroundStorageFailure(operation, failure = null) {
   } catch {}
   const details = {
     failure: failure || { code: 'storage-unavailable', retryable: true },
-    operation, storageState,
+    operation, storageState, ...diagnosticContext,
     mode: 'public',
     release: getFeedbackAssetVersion(),
     locale: getBrowserDefaultLocale(), width: window.innerWidth, height: window.innerHeight,
@@ -785,7 +788,7 @@ function reportBackgroundStorageFailure(operation, failure = null) {
     capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
       online: navigator.onLine !== false, browser: navigator.userAgent }
   }
-  const key = `${operation}:${details.failure.code}:${details.failure.storageTarget || 'profile'}`
+  const key = `${details.incidentId || 'standalone'}:${operation}:${details.failure.code}:${details.failure.storageTarget || 'profile'}`
   if (pendingStorageFeedback.has(key)) return
   pendingStorageFeedback.set(key, details)
   void automaticStorageFeedback(details).then(status => {
@@ -19866,6 +19869,7 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
       if (raw !== null) window.localStorage.setItem(key, raw)
       else window.localStorage.removeItem(key)
     }
+    const diagnosticContext = profileRecoveryWorkspace.getDiagnosticContext()
     if (!await profileRecoveryWorkspace.complete()) return
     primaryProfileRepository = originalRepository
     originalRepository.subscribe(() => {
@@ -19881,7 +19885,7 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
     recoveryConflictView?.hide()
     if (learnerProfileLifecycleAuthority) learnerProfileLifecycleAuthority.refresh()
     else renderAll(loadPersistedState({ persistCleanup: false }))
-    reportBackgroundStorageFailure('reconcile', { code: 'storage-recovered', retryable: false })
+    reportBackgroundStorageFailure('reconcile', { code: 'storage-recovered', retryable: false, phase: 'promotion' }, diagnosticContext)
   } catch (error) {
     reportBackgroundStorageFailure('reconcile', describeProfileStorageFailure(error))
     // A later focus/online event or timer tries again. Continue on the sidecar.

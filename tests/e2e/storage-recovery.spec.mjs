@@ -196,7 +196,7 @@ for (const conflict of [false, true]) {
   })
 }
 
-test('a failure on the apex production origin automatically sends sanitized Discord feedback', async ({ page }) => {
+test('a failure on the apex production origin automatically sends sanitized Discord feedback', async ({ page, browserName }) => {
   const captured = []
   const servedOrigin = `http://localhost:${Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)}`
   await page.route('https://us.i.posthog.com/capture/', route => {
@@ -205,6 +205,7 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   })
   await page.route('https://edenia.study/**', async route => {
     const url = new URL(route.request().url())
+    if (url.pathname.endsWith('.mp4')) return route.fulfill({ status: 204, body: '' })
     if (url.pathname === '/config.local.js') return route.fulfill({ contentType: 'application/javascript',
       body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: true, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }' })
     const response = await route.fetch({ url: `${servedOrigin}${url.pathname}${url.search}` })
@@ -227,7 +228,7 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   expect(event.properties.feedback_source).toBe('automatic_storage_recovery')
   expect(event.properties.feedback_message).toContain('storage-denied')
   expect(event.properties.feedback_message).toContain('local')
-  expect(event.properties.feedback_message).toContain('Chrome/')
+  expect(event.properties.feedback_message).toContain(browserName === 'webkit' ? 'Version/' : 'Chrome/')
   expect(event.properties.page_url).toBe('https://edenia.study/')
   expect(JSON.stringify(event)).not.toContain('SECRET')
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
@@ -312,7 +313,7 @@ test('a failed island checkpoint saves through background recovery and survives 
   await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.resources.wood)).toBe(8)
 })
 
-test('offline diagnostics from two tabs survive reload and acknowledge independently', async ({ page, context, pageDiagnostics }) => {
+test('offline diagnostics from two tabs survive reload and acknowledge independently', async ({ page, context, pageDiagnostics, browserName }) => {
   const servedOrigin = `http://localhost:${Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)}`
   let online = false
   const attempts = []
@@ -338,7 +339,8 @@ test('offline diagnostics from two tabs survive reload and acknowledge independe
   await second.evaluate(() => reportBackgroundStorageFailure('save', { code: 'storage-full', errorName: 'QuotaExceededError' }))
   await expect.poll(() => attempts.length).toBe(2)
   const expectedOffline = 'console: Failed to load resource: net::ERR_INTERNET_DISCONNECTED'
-  await expect.poll(() => pageDiagnostics.includes(expectedOffline)).toBe(true)
+  // WebKit logs an inspector info message for an intercepted offline request.
+  if (browserName === 'chromium') await expect.poll(() => pageDiagnostics.includes(expectedOffline)).toBe(true)
   expect(pageDiagnostics.filter(message => message !== expectedOffline)).toEqual([])
   pageDiagnostics.splice(0)
   const ids = attempts.map(attempt => attempt.id).sort()

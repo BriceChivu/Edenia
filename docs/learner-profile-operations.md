@@ -260,3 +260,24 @@ Retries keep the original event UUID. The UI does not ask the learner to
 copy or submit diagnostics. If every durable browser store is blocked, memory
 can keep the current tab usable; it cannot survive closing that tab. Signed-in
 cloud synchronization still uses its ordinary verified account path.
+
+
+Recovery reports include a random `incidentId` stored with the recovery workspace.
+It stays the same across reloads and links failures to a `storage-recovered`
+completion after verified promotion. Event UUIDs still identify individual
+reports and remain stable on delivery retries. Completions use category `other`
+and the message heading "Storage recovery completed". The incident ID is not
+part of portable learner progress. Storage errors include bounded `storageTarget`
+and `phase` fields at the failing database or transaction boundary; arbitrary
+exception text remains excluded.
+
+Synthetic recovery checks must explicitly set `window.EDENIA_CONFIG.storageRecoveryTestRunId`
+to a short run identifier before app initialization. Only letters, digits, dots,
+underscores and hyphens are accepted (maximum 80 characters). These messages
+begin `[TEST: <run identifier>]`, with `storage_recovery_is_test: true` and
+`storage_recovery_test_run_id` on the event. Their persisted workspace and outbox
+retain the original marker through reload and delivery retries. Runtime mode
+(`auth-trial`, `tiny-swords-test`, `public`) alone never establishes test provenance.
+Do not set this option in the shared production runtime configuration. Ordinary
+incidents have `storage_recovery_is_test: false`; older unmarked reports require
+a matching injection receipt before classifying them as tests.
