@@ -232,7 +232,7 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   expect(event.properties.page_url).toBe('https://edenia.study/')
   expect(JSON.stringify(event)).not.toContain('SECRET')
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
-  await page.unrouteAll({ behavior: 'wait' })
+  await page.goto('about:blank')
 })
 
 for (const chooseSaved of [false, true]) test(`two recovery tabs merge changes and retain both copies when choosing ${chooseSaved ? 'saved' : 'recent'} progress`, async ({ page, context }) => {
