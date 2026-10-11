@@ -313,7 +313,7 @@ test('a failed island checkpoint saves through background recovery and survives 
   await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.resources.wood)).toBe(8)
 })
 
-test('offline diagnostics from two tabs survive reload and acknowledge independently', async ({ page, context, pageDiagnostics }) => {
+test('offline diagnostics from two tabs survive reload and acknowledge independently', async ({ page, context, pageDiagnostics, browserName }) => {
   const servedOrigin = `http://localhost:${Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)}`
   let online = false
   const attempts = []
@@ -339,7 +339,8 @@ test('offline diagnostics from two tabs survive reload and acknowledge independe
   await second.evaluate(() => reportBackgroundStorageFailure('save', { code: 'storage-full', errorName: 'QuotaExceededError' }))
   await expect.poll(() => attempts.length).toBe(2)
   const expectedOffline = 'console: Failed to load resource: net::ERR_INTERNET_DISCONNECTED'
-  await expect.poll(() => pageDiagnostics.includes(expectedOffline)).toBe(true)
+  // WebKit logs an inspector info message for an intercepted offline request.
+  if (browserName === 'chromium') await expect.poll(() => pageDiagnostics.includes(expectedOffline)).toBe(true)
   expect(pageDiagnostics.filter(message => message !== expectedOffline)).toEqual([])
   pageDiagnostics.splice(0)
   const ids = attempts.map(attempt => attempt.id).sort()
