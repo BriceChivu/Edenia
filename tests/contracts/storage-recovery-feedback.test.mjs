@@ -209,3 +209,45 @@ test('HTTP rejection and denied outbox storage still retry from memory with the 
   assert.deepEqual(await report.retryPending(), ['sent'])
   assert.equal(payloads[0].uuid, payloads[1].uuid)
 })
+
+test('explicit synthetic runs are labeled in Discord and retain provenance across offline replay', async () => {
+  const store = nativeLikeStore()
+  const first = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    testRunId: 'hosted-436-run-1', getStores: () => [() => store], createId: () => 'synthetic-report', fetch: async () => ({ ok: false }) })
+  await first({ ...details, incidentId: 'incident-436', failure: { code: 'storage-denied', errorName: 'SecurityError', storageTarget: 'primary-profile', phase: 'database-open' } })
+  const payloads = []
+  const replay = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], fetch: async (_, options) => { payloads.push(JSON.parse(options.body)); return { ok: true } } })
+  await replay.retryPending()
+  const p = payloads[0].properties
+  assert.match(p.feedback_message, /^\[TEST: hosted-436-run-1\]/)
+  assert.equal(p.storage_recovery_is_test, true)
+  assert.equal(p.storage_recovery_test_run_id, 'hosted-436-run-1')
+  assert.equal(p.storage_recovery_incident_id, 'incident-436')
+  assert.match(p.feedback_message, /database-open/)
+  assert.match(p.feedback_message, /primary-profile/)
+})
+
+test('internal trial failures remain real by default and completion shares the incident', async () => {
+  const payloads = []
+  let id = 0
+  const report = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, createId: () => `report-${++id}`,
+    fetch: async (_, options) => { payloads.push(JSON.parse(options.body)); return { ok: true } } })
+  await report({ ...details, incidentId: 'incident-real' })
+  await report({ ...details, incidentId: 'incident-real', operation: 'reconcile', failure: { code: 'storage-recovered' } })
+  assert.equal(payloads[0].properties.storage_recovery_is_test, false)
+  assert.doesNotMatch(payloads[0].properties.feedback_message, /\[TEST/)
+  assert.equal(payloads[1].properties.storage_recovery_incident_id, 'incident-real')
+  assert.match(payloads[1].properties.feedback_message, /Storage recovery completed/)
+  assert.equal(payloads[1].properties.feedback_category, 'other')
+  assert.notEqual(payloads[0].uuid, payloads[1].uuid)
+})
+
+test('untrusted diagnostic provenance and phase fields cannot replay arbitrary data', async () => {
+  const payloads = []
+  const report = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, testRunId: 'https://PRIVATE/TOKEN',
+    fetch: async (_, options) => { payloads.push(JSON.parse(options.body)); return { ok: true } } })
+  await report({ ...details, incidentId: 'PRIVATE@EMAIL', testRunId: 'SECRET TOKEN', failure: { code: 'storage-denied', phase: 'SECRET TOKEN', storageTarget: 'PRIVATE@EMAIL' } })
+  assert.doesNotMatch(JSON.stringify(payloads), /PRIVATE|SECRET|TOKEN/)
+  assert.equal(payloads[0].properties.storage_recovery_is_test, false)
+})

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { describeProfileStorageFailure, getStorageRecoveryPresentation, createStorageRecoveryReport } from '../../src/state/profile-storage-recovery.js'
+import { describeProfileStorageFailure, getStorageRecoveryPresentation, createStorageRecoveryReport, annotateStorageFailure } from '../../src/state/profile-storage-recovery.js'
 import { renderStorageRecovery } from '../../src/features/onboarding/storage-recovery-view.js'
 import { I18N } from '../../src/i18n/index.js'
 
@@ -56,4 +56,18 @@ test('each locale explains preservation, synced-copy recovery and manual clipboa
       }
     }
   }
+})
+
+
+test('native failures retain the first storage boundary without leaking arbitrary annotations', () => {
+  const error = new DOMException('PRIVATE PROFILE', 'InvalidStateError')
+  assert.equal(annotateStorageFailure(error, 'primary-profile', 'transaction-open'), error)
+  annotateStorageFailure(error, 'backup', 'database-open')
+  const report = JSON.parse(createStorageRecoveryReport({ failure: describeProfileStorageFailure(error) }))
+  assert.equal(report.storageTarget, 'primary-profile')
+  assert.equal(report.phase, 'transaction-open')
+  assert.equal(report.error.name, 'InvalidStateError')
+  assert.equal(report.error.message, null)
+  const unsafe = annotateStorageFailure(new Error('PRIVATE'), 'PRIVATE TARGET', 'PRIVATE PHASE')
+  assert.ok(!createStorageRecoveryReport({ failure: describeProfileStorageFailure(unsafe) }).includes('PRIVATE'))
 })

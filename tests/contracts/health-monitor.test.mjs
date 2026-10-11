@@ -86,6 +86,26 @@ test('routine cooldowns, empty feeds and skipped refreshes do not create inciden
 })
 
 for (const source of ['src/app.js', 'compat/production/src/app.js']) {
+  test(`${source}: storage recovery completion is healthy and retains diagnostic context`, async () => {
+    const code = await readFile(source, 'utf8')
+    const start = code.indexOf('function reportBackgroundStorageFailure(')
+    const fn = code.slice(start, code.indexOf('\n// Retry network delivery', start))
+    const reports = []
+    const diagnostics = []
+    const context = vm.createContext({ reportWindowHealth: (...args) => reports.push(args),
+      profileRecoveryWorkspace: { getTier: () => 'none', getDiagnosticContext: () => ({ incidentId: 'recovery-1' }) },
+      window: { localStorage: { getItem: () => null } }, STORAGE_KEY: 'profile', LEARNER_PROFILE_ACCESS_KEY: 'access', LEARNER_PROFILE_SYNC_KEY: 'sync',
+      IS_AUTH_TRIAL: false, IS_TINY_SWORDS_TESTER: false, getFeedbackAssetVersion: () => 'abc123', getBrowserDefaultLocale: () => 'en',
+      navigator: {}, pendingStorageFeedback: new Map(), automaticStorageFeedback: async details => { diagnostics.push(details); return 'sent' } })
+    vm.runInContext(fn + '\nthis.report = reportBackgroundStorageFailure', context)
+    context.report('save', { code: 'storage-unavailable' })
+    assert.equal(reports.at(-1)[1], 'degraded')
+    context.report('reconcile', { code: 'storage-recovered', phase: 'promotion' }, { incidentId: 'original-incident' })
+    assert.equal(reports.at(-1)[1], 'success')
+    assert.equal(reports.at(-1)[2].reason, 'none')
+    assert.equal(diagnostics.at(-1).incidentId, 'original-incident')
+    assert.equal(diagnostics.at(-1).failure.phase, 'promotion')
+  })
   test(`${source}: recovery saves are warnings and monitoring cannot change persistence results`, async () => {
     const code = await readFile(source, 'utf8')
     const fn = code.slice(code.indexOf('function saveState(state'), code.indexOf('\nfunction isCurrentLearnerProfileOperation'))

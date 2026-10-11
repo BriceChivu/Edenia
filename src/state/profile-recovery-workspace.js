@@ -1,10 +1,11 @@
 import { createProfileRecoveryJournal } from './profile-recovery-journal.js'
+import { sanitizeStorageDiagnosticId } from './profile-storage-recovery.js'
 import { rebaseProfileChanges } from './indexed-db-profile.js'
 
 // A separate copy of the profile and its ownership/sync fences. The original
 // namespace is never modified while it is inaccessible. Auth stays independent.
 export function createProfileRecoveryWorkspace({
-  storageKey, accessKey, keys, getPrimary, getSecondary = () => null,
+  storageKey, accessKey, keys, testRunId = null, getPrimary, getSecondary = () => null,
   capture = () => ({}), onActivate = () => {}, onTierChange = () => {}, onStorageFailure = () => {},
   indexedDb, journal: suppliedJournal, eventTarget, onExternalChange = () => {}, onConflict = () => {}, onConflictCleared = () => {}
 }) {
@@ -428,10 +429,12 @@ export function createProfileRecoveryWorkspace({
     if (journalRaw !== null && !parseRecord(journalRaw)) {
       record.protectedJournalRecords = [...new Set([...(record.protectedJournalRecords || []), journalRaw])]
     }
+    if (!resumed) record.testRunId = sanitizeStorageDiagnosticId(testRunId)
     active = true
     epoch++
     refreshFromDisk()
     if (!active) return
+    if (!sanitizeStorageDiagnosticId(record.incidentId)) record.incidentId = globalThis.crypto.randomUUID()
     persist()
     onActivate(failure, operation, resumed)
     notifyPendingConflict()
@@ -566,6 +569,8 @@ export function createProfileRecoveryWorkspace({
     async refresh() { await refreshJournal(); refreshFromDisk() },
     hasPending: () => Boolean(record),
     isActive: () => active, getTier: () => tier,
+    getDiagnosticContext: () => record ? { incidentId: sanitizeStorageDiagnosticId(record.incidentId),
+      testRunId: sanitizeStorageDiagnosticId(record.testRunId) } : null,
     getOriginalAccess: () => record?.originalAccess ?? null,
     acceptsOriginalMetadata(key, value) {
       return value === (record?.originalValues?.[key] ?? null)

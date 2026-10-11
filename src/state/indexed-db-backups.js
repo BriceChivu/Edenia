@@ -1,3 +1,4 @@
+import { annotateStorageFailure } from './profile-storage-recovery.js'
 export const STATE_BACKUP_DATABASE_NAME = 'edenia_state_backups_v1'
 export const STATE_BACKUP_DATABASE_VERSION = 1
 
@@ -76,13 +77,17 @@ export function shouldMirrorLegacyStateBackups({
     || (legacyExists && legacyValid && !legacyRemoved)
 }
 
+function backupTransaction(database, ...args) {
+  try { return database.transaction(...args) }
+  catch (error) { throw annotateStorageFailure(error, 'backup', 'transaction-open') }
+}
 function requestResult(request) {
   return new Promise((resolve, reject) => {
     request.addEventListener('success', () => resolve(request.result), {
       once: true
     })
     request.addEventListener('error', () => reject(
-      request.error || new Error('IndexedDB request failed')
+      annotateStorageFailure(request.error || new Error('IndexedDB request failed'), 'backup', 'request')
     ), { once: true })
   })
 }
@@ -91,7 +96,7 @@ function transactionComplete(transaction) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { transaction.abort() } catch {}
-      reject(new Error('IndexedDB backup transaction timed out'))
+      reject(annotateStorageFailure(new Error('IndexedDB backup transaction timed out'), 'backup', 'transaction-complete'))
     }, 8000)
     transaction.addEventListener('complete', () => {
       clearTimeout(timeout)
@@ -100,7 +105,7 @@ function transactionComplete(transaction) {
     for (const event of ['abort', 'error']) {
       transaction.addEventListener(event, () => {
         clearTimeout(timeout)
-        reject(transaction.error || new Error('IndexedDB backup transaction failed'))
+        reject(annotateStorageFailure(transaction.error || new Error('IndexedDB backup transaction failed'), 'backup', 'transaction-complete'))
       }, { once: true })
     }
   })
@@ -141,7 +146,7 @@ function openBackupDatabase(indexedDb, databaseName) {
         reject(request.error || new Error('Could not open IndexedDB backup database'))
       }, { once: true })
     }
-  })
+  }).catch(error => { throw annotateStorageFailure(error, 'backup', 'database-open') })
 }
 
 function openExistingBackupDatabase(indexedDb, databaseName) {
@@ -191,11 +196,11 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
         'Could not open the existing IndexedDB backup database'
       ))
     }, { once: true })
-  })
+  }).catch(error => { throw annotateStorageFailure(error, 'backup', 'database-open') })
 }
 
 async function readBackupEntries(database) {
-  const transaction = database.transaction(BACKUP_STORE_NAME, 'readonly')
+  const transaction = backupTransaction(database, BACKUP_STORE_NAME, 'readonly')
   const request = transaction.objectStore(BACKUP_STORE_NAME).getAll()
   const [entries] = await Promise.all([
     requestResult(request),
@@ -248,7 +253,7 @@ export async function readIndexedDbBackupEntries({
 async function applyBackupChanges(database, previous, next) {
   const previousById = new Map(previous.map(entry => [entry.id, entry]))
   const nextById = new Map(next.map(entry => [entry.id, entry]))
-  const transaction = database.transaction(BACKUP_STORE_NAME, 'readwrite', { durability: 'strict' })
+  const transaction = backupTransaction(database, BACKUP_STORE_NAME, 'readwrite', { durability: 'strict' })
   const finished = transactionComplete(transaction)
   const store = transaction.objectStore(BACKUP_STORE_NAME)
   const request = store.getAll()
@@ -270,7 +275,7 @@ async function applyBackupChanges(database, previous, next) {
 }
 
 async function writeMigrationMetadata(database, metadata) {
-  const transaction = database.transaction(METADATA_STORE_NAME, 'readwrite')
+  const transaction = backupTransaction(database, METADATA_STORE_NAME, 'readwrite')
   transaction.objectStore(METADATA_STORE_NAME).put({
     key: MIGRATION_METADATA_KEY,
     ...metadata
