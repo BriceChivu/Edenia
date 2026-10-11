@@ -933,7 +933,8 @@ for (const newerWinner of [false, true]) {
 
 test('stale backup adapters preserve each other’s recovery copies and a failed flush retains durable entries', async ({ page }) => {
   await repositoryFixture(page)
-  const source = await readFile(new URL('../../src/state/indexed-db-backups.js', import.meta.url), 'utf8')
+  const { outputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../../src/state/indexed-db-backups.js', import.meta.url))], bundle: true, format: 'esm', platform: 'browser', write: false })
+  const source = outputFiles[0].text
   await page.route('**/backup-repository-fixture.js', route => route.fulfill({
     body: source, contentType: 'application/javascript'
   }))

@@ -1,8 +1,10 @@
-import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import { build } from 'esbuild'
 import { expect, test } from '../support/network-fixture.mjs'
 
 test.beforeEach(async ({ page }) => {
-  const source = await readFile(new URL('../../src/state/profile-recovery-journal.js', import.meta.url), 'utf8')
+  const { outputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../../src/state/profile-recovery-journal.js', import.meta.url))], bundle: true, format: 'esm', platform: 'browser', write: false })
+  const source = outputFiles[0].text
   await page.route('**/__recovery-journal.js', route => route.fulfill({ body: source, contentType: 'application/javascript' }))
   await page.goto('/')
 })
