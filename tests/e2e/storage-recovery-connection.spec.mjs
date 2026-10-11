@@ -90,5 +90,6 @@ for (const boundary of ['before-save', 'after-commit']) {
     expect(await page.evaluate(() => loadState().config.weeklyGoalHours)).toBe(8)
     await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
     await expect(page.locator('#localProgressConflict')).toBeHidden()
+    await page.unrouteAll({ behavior: 'wait' })
   })
 }
