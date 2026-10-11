@@ -39,7 +39,8 @@ export function createHealthMonitor({ enabled, capture, now = () => performance.
     return safe(() => {
       if (!enabled || sent >= limit || !OPERATIONS.includes(operation) || !OUTCOMES.includes(outcome)) return false
       const reason = REASONS.includes(options.reason) ? options.reason : 'none'
-      const key = `${operation}:${outcome}:${reason}`
+      const metric = ['LCP', 'INP', 'CLS'].includes(options.metric) ? options.metric : ''
+      const key = `${operation}:${outcome}:${reason}:${metric}`
       const timestamp = now()
       // Successes are observations, not a complete denominator for a failure rate.
       const interval = outcome === 'success' && operation === 'save' ? 60000 : 10000
@@ -48,8 +49,8 @@ export function createHealthMonitor({ enabled, capture, now = () => performance.
       const properties = { health_operation: operation, health_outcome: outcome, health_reason: reason }
       if (Number.isFinite(options.duration) && options.duration >= 0 && options.duration <= 600000 && !options.backgrounded) properties.health_duration_ms = Math.round(options.duration)
       if (TIERS.includes(options.recovery)) properties.health_recovery = options.recovery
-      if (['LCP', 'INP', 'CLS'].includes(options.metric) && Number.isFinite(options.value) && options.value >= 0) {
-        properties.health_metric = options.metric
+      if (metric && Number.isFinite(options.value) && options.value >= 0) {
+        properties.health_metric = metric
         properties.health_value = Math.round(options.value * 10000) / 10000
       }
       if (['good', 'needs-improvement', 'poor'].includes(options.rating)) properties.health_rating = options.rating

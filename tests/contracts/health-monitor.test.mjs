@@ -46,6 +46,15 @@ test('save sampling and a hard event budget bound runaway collection', () => {
   assert.equal(events.at(-1).properties.health_outcome, 'limited')
 })
 
+test('page-performance metrics arriving together retain independent observations', () => {
+  const { monitor, events } = fixture()
+  for (const [metric, value] of [['LCP', 2400], ['INP', 180], ['CLS', .06]]) {
+    monitor.report('web_vital', 'observed', { metric, value, rating: 'good' })
+  }
+  monitor.report('web_vital', 'observed', { metric: 'CLS', value: .06, rating: 'good' })
+  assert.deepEqual(events.map(event => [event.properties.health_metric, event.properties.health_value]), [['LCP', 2400], ['INP', 180], ['CLS', .06]])
+})
+
 test('startup and timing distinguish successful startup from hidden-tab wait', () => {
   const { monitor, events, advance } = fixture({ hidden: () => true })
   monitor.start(); monitor.start(); advance(40000); monitor.checkStartup(); monitor.ready(); monitor.ready()
