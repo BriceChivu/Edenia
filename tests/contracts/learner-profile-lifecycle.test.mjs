@@ -68,6 +68,7 @@ function createHarness({
     status: 'rolled-back'
   }),
   cloudRecoveryCandidate = { status: 'recovering' },
+  cloudProtectedConflict = null,
   cloudResolution = { status: 'waiting' },
   cloudSave = () => ({ status: 'saved' }),
   cloudRestore = { status: 'recovering' },
@@ -159,6 +160,11 @@ function createHarness({
               ? cloudImportRollback(context)
               : cloudImportRollback
           )
+        },
+        readProtectedConflict(context) {
+          calls.push(['cloud-read-protected-conflict', context])
+          return Promise.resolve(typeof cloudProtectedConflict === 'function'
+            ? cloudProtectedConflict(context) : cloudProtectedConflict)
         },
         readRecoveryCandidate(context) {
           calls.push(['cloud-read-recovery', context])
@@ -4374,4 +4380,35 @@ async function loadRetainedModule(path) {
   const { sourcePath, plugin } = await createProductionSourceResolver(resolve('.'))
   const result = await build({ entryPoints: [sourcePath(path)], bundle: true, format: 'esm', write: false, plugins: [plugin] })
   return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`)
+}
+
+for (const outcome of ['download', 'sign-out', 'owner-change', 'fence-loss', 'expired']) {
+  test(`lazy protected conflict download preserves the owner fence: ${outcome}`, async () => {
+    const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+    const profileId = '223e4567-e89b-42d3-a456-426614174001'
+    const descriptor = { id: '323e4567-e89b-42d3-a456-426614174002',
+      operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ownerId, profileId,
+      selectedSide: 'device', status: 'resolved', protectedUntil: 1_900_000_000_000 }
+    const snapshot = { marker: 'protected-cloud' }
+    const pending = deferred()
+    const harness = createHarness({ authentication: { status: 'signed-in', userId: ownerId },
+      local: { status: 'ready', ownerId, profileId, generation: 1, revision: 1, profile: { marker: 'previous' } },
+      cloudProtectedConflict: context => {
+        assert.equal(context.conflict, descriptor)
+        assert.equal(context.isCurrent(), true)
+        return pending.promise
+      },
+      cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 2,
+        profile: { marker: 'current' }, protectedConflicts: [descriptor] } })
+    harness.authority.start()
+    await new Promise(resolve => setImmediate(resolve))
+    const download = harness.authority.exportConflictVersion('cloud', descriptor.id)
+    if (outcome === 'fence-loss') harness.setCurrentFence(null)
+    if (outcome === 'sign-out') harness.authentication.publish({ status: 'signed-out' })
+    if (outcome === 'owner-change') harness.authentication.publish({ status: 'signed-in', userId: '423e4567-e89b-42d3-a456-426614174003' })
+    pending.resolve(outcome === 'expired' ? null : { ...descriptor, cloud: { profile: snapshot } })
+    assert.equal(await download, outcome === 'download')
+    assert.deepEqual(harness.calls.filter(([name]) => name === 'download').map(([, profile]) => profile),
+      outcome === 'download' ? [snapshot] : [])
+  })
 }
