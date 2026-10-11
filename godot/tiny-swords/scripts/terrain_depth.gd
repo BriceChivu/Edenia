@@ -69,7 +69,7 @@ func _process(_delta: float) -> void:
 	for i in nodes.size():
 		if is_actor(nodes[i]):
 			actor_indices.append(i)
-		elif is_terrain(nodes[i]):
+		elif is_terrain(nodes[i]) or nodes[i].has_meta("foliage_depth"):
 			terrain_indices.append(i)
 	# Explicit cliff relations keep a ramp constraint from pushing a lower
 	# actor after a landing that happened to be created before the ramp.
@@ -77,7 +77,10 @@ func _process(_delta: float) -> void:
 		for actor_index in actor_indices:
 			var actor = nodes[actor_index]
 			var terrain = nodes[terrain_index]
-			if actor.z_index != terrain.z_index or not overlaps_terrain(actor, terrain):
+			if actor.z_index != terrain.z_index:
+				continue
+			# Keep foliage's contact order when ramp constraints delay an actor.
+			if is_terrain(terrain) and not overlaps_terrain(actor, terrain):
 				continue
 			var front := actor_in_front(actor, terrain)
 			var first := terrain_index if front else actor_index
