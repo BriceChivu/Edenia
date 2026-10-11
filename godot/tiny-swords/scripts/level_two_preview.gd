@@ -1039,6 +1039,7 @@ func rebuild_decorations(display_layout = null) -> void:
 	$World/IsletRock.hide() # Editable layouts render the rock through decorations.
 	for pair in [["MainBush", Vector2i(0, 0), 1], ["LeafyTuft", Vector2i(1, 1), 2]]:
 		var node = $World.get_node(pair[0])
+		node.set_meta("foliage_depth", true)
 		node.visible = render_layout.flora.get(pair[1], 0) == pair[2]
 		node.offset.y = -15 - render_layout.height_at(pair[1]) / node.scale.y
 		node.z_index = int(render_layout.height_at(pair[1]) / 64.0)
@@ -1053,6 +1054,7 @@ func rebuild_decorations(display_layout = null) -> void:
 		plant.position = render_layout.center(cell) + Vector2(0, 12)
 		plant.offset = Vector2(0, -15 - render_layout.height_at(cell) / 0.75)
 		plant.set_script(preload("res://scripts/environment_sprite.gd"))
+		plant.set_meta("foliage_depth", true)
 		$World.add_child(plant)
 		flora_nodes.append(plant)
 	for cell in render_layout.decorations:
@@ -1078,7 +1080,7 @@ func rebuild_decorations(display_layout = null) -> void:
 				decoration.scale = Vector2.ONE * 0.8
 				decoration.flip_h = item.variant == 2
 		decoration.position = render_layout.center(item.water if in_water else cell)
-		if item.kind == "land_rock":
+		if item.kind in ["land_rock", "bush"]:
 			# Sort from the near edge like foliage, without moving the artwork.
 			decoration.position.y += 12
 			decoration.offset.y -= 12 / decoration.scale.y
@@ -1089,6 +1091,8 @@ func rebuild_decorations(display_layout = null) -> void:
 			decoration.set_script(preload("res://scripts/environment_sprite.gd"))
 			decoration.phase = float(cell.x * 7 + cell.y * 11) / 5.0
 		decoration.set_meta("random_decoration", item.kind)
+		if item.kind in ["flowers", "bush"]:
+			decoration.set_meta("foliage_depth", true)
 		$World.add_child(decoration)
 		flora_nodes.append(decoration)
 	for cell in render_layout.log_piles:
