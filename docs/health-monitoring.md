@@ -24,7 +24,9 @@ The public website monitor requests `https://www.edenia.study/` every five minut
 
 During setup on 11 October 2026, an inverted keyword setting produced one false incident before correction. Checks after that correction are the monitoring baseline; the initial incident was not a website outage.
 
-Application alert thresholds start conservatively: any observed progress save failure is urgent; repeated app or island failures need attention. A single unavailable YouTube video or a normal refresh cooldown should not page the owner. Alert evaluation and email delivery are periodic, so alerts are not immediate. Investigate the actual issue and whether affected sessions recovered before recommending a repair.
+Two [PostHog email alerts](https://us.posthog.com/project/511399/alerts) notify the existing account owner. They check every completed hour, including weekends: any observed progress save failure is urgent; app or island opening failures in three or more observed browser sessions need attention. Checking completed hours avoids missing events after an early check of an unfinished hour. Alerts and delivery are periodic, so they are not immediate. A single unavailable YouTube video or a normal refresh cooldown should not page the owner. Investigate the actual issue and whether affected sessions recovered before recommending a repair.
+
+The collection panel shows recent reports, observed sessions, the latest observed release and whether page loads hit the reporting cap. Speed panels show sample counts alongside their measurements. Empty charts mean no matching observations, not a guarantee that every learner is fine.
 
 ## Staying free
 
