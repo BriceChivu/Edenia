@@ -205,6 +205,7 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   })
   await page.route('https://edenia.study/**', async route => {
     const url = new URL(route.request().url())
+    if (url.pathname.endsWith('.mp4')) return route.fulfill({ status: 204, body: '' })
     if (url.pathname === '/config.local.js') return route.fulfill({ contentType: 'application/javascript',
       body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: true, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }' })
     const response = await route.fetch({ url: `${servedOrigin}${url.pathname}${url.search}` })

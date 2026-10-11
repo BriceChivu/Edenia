@@ -12,6 +12,8 @@ for (const boundary of ['before-save', 'after-commit']) {
     })
     await page.route('https://edenia.study/**', async route => {
       const url = new URL(route.request().url())
+      // This storage test does not exercise trailer streaming across reloads.
+      if (url.pathname.endsWith('.mp4')) return route.fulfill({ status: 204, body: '' })
       if (url.pathname === '/config.local.js') return route.fulfill({ contentType: 'application/javascript',
         body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: true, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false, storageRecoveryTestRunId: "closed-connection-436" }' })
       const response = await route.fetch({ url: `${localOrigin}${url.pathname}${url.search}` })
