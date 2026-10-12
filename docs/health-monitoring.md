@@ -51,3 +51,13 @@ Unexpected first-party errors additionally produce sanitized `$exception` events
 The source is `src/integrations/health-monitor.js`; `scripts/health-entry.js` installs it before the application starts. Both current and retained production entries include the same versioned `health.js`. Save and startup integration changes are mirrored in `src/app.js` and `compat/production/src/app.js`.
 
 Validation includes privacy allowlisting, transport failure isolation, bounded collection, hidden-tab timing, expected refresh conditions, save result preservation, and both production entries. Run `node --test tests/contracts/health-monitor.test.mjs` after changing the event contract, then rebuild and run the relevant browser tests. Never send fake failures into the production project to test an alert.
+
+## Tiny Swords session replay
+
+The game is a same-origin Godot WebGL iframe. PostHog's parent DOM recorder sees its shell, but its canvas sampler does not capture that iframe's frames, even with canvas recording enabled. `scripts/tiny-swords-xp-replay.js` supplies a WebP background image on the game's canvas so the DOM replay shows the rendered island. Godot still renders and controls the live game.
+
+Readback runs only while the parent production analytics gate is enabled, PostHog reports an active recording, the game is ready, and the page/game is visible. Local and tester routes retain their existing analytics exclusion; protected conflict previews are excluded. Only rendered game pixels are mirrored. The integration does not send island JSON, profile data, inputs, console logs, or network bodies. Existing input and auth-URL masking stays in place. Keep sensitive learner text out of the game canvas, or revise this capture path before adding it.
+
+Frames are limited to two per second at WebP quality 0.4 and at most 960×540 pixels. Unchanged images do not update the DOM. Canvas readback and encoding have a cost, so preserve these bounds and the recording/visibility gates. Old recordings cannot gain pixels that were never captured; verify a new recording after release. No global PostHog canvas setting is required.
+
+Checks: `node --test tests/contracts/tiny-swords-replay.test.mjs`; after rebuilding the integration, `EDENIA_TEST_TINY_SWORDS=true npx playwright test tiny-swords-replay.spec.mjs --project=desktop-standard --project=phone-standard`. The browser test checks actual Godot pixels and pauses capture when recording stops without contacting PostHog.
