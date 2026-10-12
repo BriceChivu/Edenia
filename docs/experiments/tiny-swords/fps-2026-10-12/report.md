@@ -22,7 +22,7 @@ Use **Save report** for the JSON. It contains user agent, canvas dimensions, fra
 
 The full application loads **1,000 real public YouTube videos from 11 Mandarin channels** in Edenia's catalog, with actual IDs/titles/durations/thumbnails. Public thumbnail images load normally; other external traffic is blocked. Records are marked unwatched for repeatability. This is not the user's personal viewing history or signed-in cloud-sync workload. The normal feed controls card/lazy-image mounting; 1,000 simultaneous DOM cards are not forced. IndexedDB profile/backups are enabled as in production.
 
-The synthetic level-ten island has 32 grass tiles, four animated trees, two chickens and two sheep. The runner verifies complete restoration and real pawn movement. It sends a trusted canvas gesture before measurement, matching normal gameplay and unlocking the engine's Web Audio context. Both final scenarios recorded audio **running**. These measurements supersede the earlier exploratory reports that charged initial test setup to the first 60 FPS round.
+The synthetic level-ten island has 32 grass tiles, four animated trees, two chickens and two sheep. The runner verifies complete restoration and real pawn movement. It sends a trusted canvas gesture before measurement, matching normal gameplay and unlocking the engine's Web Audio context. Both final scenarios recorded audio **running**. These measurements supersede earlier exploratory reports that charged initial test setup to the first 60 FPS round or retained a large empty test-panel background after closing its controls. The final run uses the corrected compact menu, leaving the island visible.
 
 ## Final 30-versus-60 results, with the direct-route optimization
 
@@ -30,15 +30,15 @@ Mac15,13 / Apple M3, headed Chrome 155, Metal renderer; desktop 1440×900 at DPR
 
 | Scenario | Actual FPS 60 → 30 | Whole-page work ms/s 60 → 30 | Work reduction | p95 frame interval 60 → 30 |
 | --- | --- | --- | --- | --- |
-| Walking | 58.0 → 30.1 | 214.1 → 128.9 | 39.8% | 18.6 → 49.6 ms |
-| Terrain + walking | 59.2 → 30.1 | 150.9 → 101.8 | 32.5% | 18.5 → 49.9 ms |
+| Walking | 60.0 → 30.0 | 181.0 → 127.6 | 29.5% | 18.4 → 50.0 ms |
+| Terrain + walking | 58.8 → 30.1 | 127.6 → 84.7 | 33.7% | 18.6 → 50.0 ms |
 
 Phone-style emulation on the **same M3 GPU/host**: 390×844 at DPR 3 with **4× CDP CPU throttling**. The initial normal feed mounted five cards with two loaded thumbnails. This does not emulate Pixel 7a GPU, memory, thermal or carrier behavior.
 
 | Scenario | Actual FPS 60 → 30 | Whole-page work ms/s 60 → 30 | Work reduction | p95 frame interval 60 → 30 |
 | --- | --- | --- | --- | --- |
-| Walking | 55.0 → 30.0 | 555.4 → 310.1 | 44.2% | 30.1 → 49.1 ms |
-| Terrain + walking | 58.4 → 30.0 | 273.4 → 155.0 | 43.3% | 18.8 → 49.7 ms |
+| Walking | 58.4 → 30.0 | 496.7 → 281.8 | 43.3% | 19.0 → 49.4 ms |
+| Terrain + walking | 59.3 → 30.0 | 274.3 → 175.3 | 36.1% | 18.5 → 49.4 ms |
 
 Some 30 FPS p95 intervals still approach 50 ms, and occasional longer gaps remain. Lower sustained work is established more clearly than universal frame-pacing improvement. Physical Pixel 7a/Chrome acceptance remains pending; the hosted trial runs on the user's actual profile and connection. A public default change is not supported by these measurements.
 

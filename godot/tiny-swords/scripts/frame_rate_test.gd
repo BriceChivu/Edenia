@@ -51,7 +51,9 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	contents.add_child(column)
 	column.visible = false
-	toggle.pressed.connect(func(): column.visible = not column.visible)
+	toggle.pressed.connect(func():
+		column.visible = not column.visible
+		panel.call_deferred("reset_size"))
 	summary = Label.new()
 	summary.add_theme_font_size_override("font_size", 14)
 	summary.custom_minimum_size.x = 230
@@ -70,7 +72,8 @@ func _ready() -> void:
 	compare.add_theme_font_size_override("font_size", 14)
 	compare.pressed.connect(func():
 		if JavaScriptBridge.eval("window.edeniaFrameTest.startComparison()"):
-			column.visible = false)
+			column.visible = false
+			panel.call_deferred("reset_size"))
 	column.add_child(compare)
 	download = Button.new()
 	download.text = "Save report"
@@ -112,6 +115,9 @@ func refresh() -> void:
 	summary.text = "FPS test · %s FPS\n%s" % [state.targetFps, state.status]
 	if state.report is Dictionary:
 		summary.text = "60: %.1f FPS · late %.1f%%\n30: %.1f FPS · late %.1f%%\nLoop work: %.1f%% less" % [state.report.control.actualFps, state.report.control.missedDeadlinePct, state.report.trial.actualFps, state.report.trial.missedDeadlinePct, state.report.workReductionPct]
+	# A top-level Container grows to its children but does not shrink itself
+	# when they are hidden. Keep the closed test menu clear of the island.
+	panel.call_deferred("reset_size")
 
 func receive_motion(arguments: Array) -> void:
 	if arguments.is_empty():
