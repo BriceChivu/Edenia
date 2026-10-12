@@ -6,6 +6,36 @@ export const ACTIVITY_LOG_LIMIT = 500
 export const ACTIVITY_LOG_BYTE_LIMIT = 128 * 1024
 export const ACTIVITY_LOG_DEDUPE_WINDOW_MS = 30 * 60_000
 
+// Activity entries have immutable IDs. Independent additions can be combined,
+// but edits, clearing and reordering existing history still require a choice.
+export function mergeActivityLogAdditions(base, desired, current) {
+  const valid = entries => Array.isArray(entries) && entries.every(entry => entry
+    && typeof entry.id === 'string' && entry.id && isValidTimestamp(entry.createdAt))
+    && new Set(entries.map(entry => entry.id)).size === entries.length
+  if (![base, desired, current].every(valid)) return null
+  const baselineIds = new Set(base.map(entry => entry.id))
+  function additions(entries) {
+    const firstExisting = entries.findIndex(entry => baselineIds.has(entry.id))
+    const count = firstExisting === -1 ? entries.length : firstExisting
+    if (!count) return null
+    const retained = entries.slice(count)
+    if (JSON.stringify(retained) !== JSON.stringify(base.slice(0, retained.length))) return null
+    return { added: entries.slice(0, count), retained: retained.length }
+  }
+  const left = additions(desired)
+  const right = additions(current)
+  if (!left || !right) return null
+  const merged = new Map()
+  for (const entry of [...right.added, ...left.added]) {
+    if (merged.has(entry.id) && JSON.stringify(merged.get(entry.id)) !== JSON.stringify(entry)) return null
+    merged.set(entry.id, entry)
+  }
+  const entries = [...merged.values(), ...base.slice(0, Math.min(left.retained, right.retained))]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, ACTIVITY_LOG_LIMIT)
+  return budgetRecentEntries(entries, { maxBytes: ACTIVITY_LOG_BYTE_LIMIT })
+}
+
 export function makeActivityLogId() {
   const now = Date.now().toString(36)
   const random = Math.random().toString(36).slice(2, 8)
