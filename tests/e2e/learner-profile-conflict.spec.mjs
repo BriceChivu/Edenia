@@ -215,6 +215,7 @@ async function prepareConflictPage(page, {
     setupCompleted: cloudSetupCompleted,
     updatedAt: '2026-08-21T10:15:00.000Z'
   })
+  const conflictRequests = []
   const choiceRequests = []
   const commitRequests = []
   const resolutionRequests = []
@@ -391,8 +392,7 @@ async function prepareConflictPage(page, {
         await route.fulfill({ json: [], status: 200 })
         return
       }
-      await route.fulfill({
-        json: [{
+      const row = {
           cloud_envelope: cloudEnvelope,
           cloud_generation: 4,
           cloud_revision: 14,
@@ -406,9 +406,11 @@ async function prepareConflictPage(page, {
           protected_until: selectedSide || (previousResolved && activeConflictId === CONFLICT_ID) ? PROTECTED_UNTIL : null,
           selected_side: previousResolved && activeConflictId === CONFLICT_ID ? 'cloud' : selectedSide,
           status: selectedSide || (previousResolved && activeConflictId === CONFLICT_ID) ? 'resolved' : 'open'
-        }],
-        status: 200
-      })
+      }
+      const select = new URL(request.url()).searchParams.get('select')
+      const projected = select ? Object.fromEntries(select.split(',').map(column => [column, row[column]])) : row
+      conflictRequests.push({ select, bytes: Buffer.byteLength(JSON.stringify(projected)) })
+      await route.fulfill({ json: [projected], status: 200 })
       return
     }
     if (pathname === '/rest/v1/rpc/choose_my_learner_profile_conflict') {
@@ -439,6 +441,7 @@ async function prepareConflictPage(page, {
   })
   await page.goto(`${ACCOUNT_RETURN_ORIGIN}/${trial ? '?internal_test=1' : ''}`)
   return {
+    conflictRequests,
     choiceRequests,
     cloudEnvelope,
     commitRequests,
@@ -769,7 +772,7 @@ test(`trial reopens a lost-choice acknowledgment as a fresh comparison (queued $
 
 test('trial comparison keeps saves untouched until confirmation and retains protected downloads', async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'tablet-portrait', 'phone-small'].includes(testInfo.project.name))
-  const { choiceRequests } = await prepareConflictPage(page, { trial: true, acceptPostChoiceCommits: true, preserveStateOnReload: true })
+  const { choiceRequests, conflictRequests } = await prepareConflictPage(page, { trial: true, acceptPostChoiceCommits: true, preserveStateOnReload: true })
   const gate = page.locator('#learnerProfileAccessGate')
   await expect(page.locator('#learnerProfileConflictTitle')).toBeVisible()
   const candidates = await page.evaluate(() => {
@@ -797,10 +800,14 @@ test('trial comparison keeps saves untouched until confirmation and retains prot
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1_dirty'))).toBeNull()
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
+  expect(conflictRequests.at(-1).select).not.toBeNull()
+  expect(conflictRequests.at(-1).select).not.toContain('envelope')
+  expect(conflictRequests.at(-1).bytes).toBeLessThan(1024)
   await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
   const protectedDownload = page.waitForEvent('download')
   await page.locator('[data-profile-conflict-action="export-protected"]').click()
   const retainedDevice = await protectedDownload
+  expect(conflictRequests.at(-1).select).toBeNull()
   expect(retainedDevice.suggestedFilename()).toMatch(/this-device.*\.json$/)
   expect((await verifyPortableLearnerProfileEnvelope(await readFile(await retainedDevice.path(), 'utf8')))?.profile).toEqual(deviceProfile)
   expect(choiceRequests).toHaveLength(1)

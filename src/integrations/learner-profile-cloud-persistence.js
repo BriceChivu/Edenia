@@ -1434,7 +1434,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }).status === 'queued'
   }
 
-  async function readVerifiedConflict(conflictId, ownerId, activation = null) {
+  async function readVerifiedConflict(conflictId, ownerId, activation = null, { metadataOnly = false } = {}) {
     if (
       !UUID_PATTERN.test(String(conflictId || ''))
       || !UUID_PATTERN.test(String(ownerId || ''))
@@ -1442,10 +1442,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
     ) return null
     let response
     try {
-      response = await getClient().rpc(
+      const request = getClient().rpc(
         'read_my_learner_profile_conflict',
         { p_conflict_id: conflictId }
       )
+      // Recovery-download buttons need identity and expiry, not two full
+      // historical profiles. PostgREST projects these columns before transfer.
+      response = await (metadataOnly ? request.select(
+        'status,conflict_id,operation_id,profile_id,device_generation,device_revision,cloud_generation,cloud_revision,selected_side,protected_until'
+      ) : request)
     } catch {
       return null
     }
@@ -1492,6 +1497,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
           || protectedUntil <= now())
       )
     ) return null
+    if (metadataOnly) {
+      if (status !== 'resolved') return null
+      return Object.freeze({
+        id: conflictId,
+        operationId: row.operation_id,
+        ownerId,
+        profileId: row.profile_id,
+        protectedUntil,
+        selectedSide,
+        status
+      })
+    }
     let deviceEnvelope
     let cloudEnvelope
     try {
@@ -1531,6 +1548,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
       selectedSide,
       status
     })
+  }
+
+  async function readProtectedConflict({ conflict, isCurrent } = {}) {
+    if (conflict?.status !== 'resolved' || typeof isCurrent !== 'function'
+      || !isCurrent() || conflict.protectedUntil <= now()) return null
+    const verified = await readVerifiedConflict(conflict.id, conflict.ownerId)
+    if (!isCurrent() || verified?.status !== 'resolved'
+      || verified.operationId !== conflict.operationId
+      || verified.profileId !== conflict.profileId
+      || verified.selectedSide !== conflict.selectedSide
+      || verified.protectedUntil !== conflict.protectedUntil
+      || verified.protectedUntil <= now()) return null
+    return verified
   }
 
   async function readRecoveryCandidate({ candidate } = {}) {
@@ -1843,14 +1873,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const conflictIds = record?.protectedConflictIds || []
     const conflicts = []
     const retainedIds = []
-    for (const conflictId of conflictIds) {
-      const conflict = verifiedConflicts.get(conflictId)
-        || await readVerifiedConflict(conflictId, record.ownerId)
-      if (conflict?.status === 'resolved') {
-        conflicts.push(conflict)
-        retainedIds.push(conflictId)
-      } else if (conflict?.status !== 'expired') {
-        return null
+    // Bound concurrency while overlapping these small owner-scoped reads.
+    for (let start = 0; start < conflictIds.length; start += 3) {
+      const batch = conflictIds.slice(start, start + 3)
+      const records = await Promise.all(batch.map(conflictId =>
+        verifiedConflicts.get(conflictId)
+          || readVerifiedConflict(conflictId, record.ownerId, null, { metadataOnly: true })
+      ))
+      for (const [index, conflict] of records.entries()) {
+        if (conflict?.status === 'resolved') {
+          conflicts.push(conflict)
+          retainedIds.push(batch[index])
+        } else if (conflict?.status !== 'expired') {
+          return null
+        }
       }
     }
     if (!deferPruning && retainedIds.length !== conflictIds.length) {
@@ -3784,6 +3820,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     importProfile,
     markDirty,
     markLocalIslandCheckpoint,
+    readProtectedConflict,
     readProtectedReset,
     readResetState,
     readRecoveryCandidate,
