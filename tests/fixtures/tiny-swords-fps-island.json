@@ -1,0 +1,376 @@
+{
+  "bridges": [],
+  "carried_wood": 0,
+  "chicken_release_at": 0.0,
+  "chickens": [
+    [
+      608.0,
+      272.0
+    ],
+    [
+      736.0,
+      272.0
+    ]
+  ],
+  "decorations": [],
+  "free_house_grass": 0,
+  "house_build": {},
+  "house_bundle": 0,
+  "house_bundle_source": [],
+  "house_free_tiles": [],
+  "houses": [],
+  "island_started": true,
+  "level": 10,
+  "log_piles": [],
+  "manual_ground_elevation": true,
+  "next_tree_variant": "tree",
+  "resources": {
+    "wood": 0
+  },
+  "sheep": [
+    [
+      544.0,
+      336.0
+    ],
+    [
+      800.0,
+      336.0
+    ]
+  ],
+  "stock": {
+    "bridge": 1,
+    "chicken": 0,
+    "gold": 0,
+    "high_gold": 0,
+    "high_meadow": 0,
+    "house": 0,
+    "meadow": 0,
+    "sheep": 0,
+    "stairs": 2,
+    "tree": 0,
+    "violet": 0
+  },
+  "tiles": [
+    [
+      -2,
+      -1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      -1,
+      -1,
+      "meadow",
+      true,
+      0,
+      0,
+      0.0
+    ],
+    [
+      0,
+      -1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      1,
+      -1,
+      "meadow",
+      true,
+      0,
+      1,
+      0.0
+    ],
+    [
+      2,
+      -1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      3,
+      -1,
+      "meadow",
+      true,
+      0,
+      0,
+      0.0
+    ],
+    [
+      4,
+      -1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      5,
+      -1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      -2,
+      0,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      -1,
+      0,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      0,
+      0,
+      "meadow",
+      false,
+      0,
+      1,
+      0.0
+    ],
+    [
+      1,
+      0,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      2,
+      0,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      3,
+      0,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      4,
+      0,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      5,
+      0,
+      "meadow",
+      false,
+      0,
+      1,
+      0.0
+    ],
+    [
+      -2,
+      1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      -1,
+      1,
+      "meadow",
+      false,
+      0,
+      1,
+      0.0
+    ],
+    [
+      0,
+      1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      1,
+      1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      2,
+      1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      3,
+      1,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      4,
+      1,
+      "meadow",
+      false,
+      0,
+      1,
+      0.0
+    ],
+    [
+      5,
+      1,
+      "meadow",
+      true,
+      0,
+      0,
+      0.0
+    ],
+    [
+      -2,
+      2,
+      "meadow",
+      false,
+      0,
+      1,
+      0.0
+    ],
+    [
+      -1,
+      2,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      0,
+      2,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      1,
+      2,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      2,
+      2,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      3,
+      2,
+      "meadow",
+      false,
+      0,
+      1,
+      0.0
+    ],
+    [
+      4,
+      2,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ],
+    [
+      5,
+      2,
+      "meadow",
+      false,
+      0,
+      0,
+      0.0
+    ]
+  ],
+  "tree_cut_remaining": [],
+  "tree_offsets": [
+    [
+      -1,
+      -1,
+      0.0,
+      10.0,
+      "tree"
+    ],
+    [
+      1,
+      -1,
+      0.0,
+      10.0,
+      "tree2"
+    ],
+    [
+      3,
+      -1,
+      0.0,
+      10.0,
+      "tree3"
+    ],
+    [
+      5,
+      1,
+      0.0,
+      10.0,
+      "tree4"
+    ]
+  ],
+  "tree_stumps": [],
+  "version": 32
+}

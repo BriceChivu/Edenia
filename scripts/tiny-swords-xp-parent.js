@@ -161,7 +161,14 @@ if (window.edeniaTinySwordsEnabled === true) {
         visibilityObserver?.unobserve(previous)
       }
       frame = document.createElement('iframe')
-      frame.src = new URL('index.html', tinySwordsReleaseUrl).href
+      const gameUrl = new URL('index.html', tinySwordsReleaseUrl)
+      // Transport the explicit rendering experiment; Godot owns its policy/UI.
+      const parameters = new URLSearchParams(location.search)
+      const requestedFps = parameters.get('tiny_swords_fps')
+      const testFps = ['30', '60'].includes(requestedFps) ? requestedFps
+        : parameters.get('internal_test') === '1' ? '30' : null
+      if (testFps === '30' || testFps === '60') gameUrl.searchParams.set('tiny_swords_fps', testFps)
+      frame.src = gameUrl.href
       frame.title = translate('island.frameTitle')
       frame.className = 'tiny-swords-frame'
       session += 1
