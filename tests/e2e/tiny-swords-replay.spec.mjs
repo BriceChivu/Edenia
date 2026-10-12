@@ -20,7 +20,9 @@ test('active PostHog replay receives visible island pixels and stops when record
   await surface.scrollIntoViewIfNeeded()
   await expect(surface).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
   const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
-  await game.waitForFunction(() => window.edeniaGameLevel >= 1 && window.edeniaStudyReady === false)
+  await game.waitForFunction(() => window.edeniaGameLevel >= 1)
+  // Godot consumes the host's restore request; capture must not depend on it.
+  await game.evaluate(() => { window.edeniaStudyReady = false })
   expect(await game.locator('#canvas').evaluate(canvas => canvas.style.backgroundImage)).toBe('')
   // Stub recording locally; no SDK request or synthetic event reaches PostHog.
   await page.evaluate(() => {
