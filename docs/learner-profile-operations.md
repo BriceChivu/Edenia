@@ -240,8 +240,11 @@ and automatic promotion retain both copies in the archived workspace.
 Intentional replacements require a choice if old progress changed meanwhile.
 Independent additions to the activity log merge by immutable entry ID, retaining
 the normal history limits. Editing, clearing or reordering existing history is
-still a conflict. This prevents starter-feed preparation from rejecting an
-otherwise compatible learner save solely because both operations appended a log.
+still a conflict. This prevents starter-feed preparation and ordinary automatic
+feed refreshes from rejecting an otherwise compatible learner save solely because
+both operations appended a log. Browser regressions exercise both paths with a
+simultaneous study save and verify that study facts, fetched videos and both log
+entries survive reload.
 Independent initialization of a missing Anki-disabled timestamp retains the
 earliest observation; concurrent edits to an existing timestamp remain a conflict.
 Signed-in progress first passes existing verified cloud replay, conflict and
