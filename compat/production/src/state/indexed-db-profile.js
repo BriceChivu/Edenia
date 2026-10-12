@@ -1,5 +1,6 @@
 import { mergeActivityLogAdditions } from './activity-log.js'
 import { isValidTimestamp } from '../core/date-keys.js'
+import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
 
 const STORE = 'profiles'
 const HEAD = 'active'
@@ -22,6 +23,9 @@ function mergeChanges(base, desired, current, path = []) {
   }
   if (path.length === 1 && path[0] === 'activityLog') {
     return mergeActivityLogAdditions(base, desired, current) ?? CONFLICT
+  }
+  if (path.length === 3 && path[0] === 'config' && path[1] === 'studyInsights' && path[2] === 'history') {
+    return mergeStudyInsightHistoryChanges(base, desired, current) ?? CONFLICT
   }
   // Arrays (including Undo and ordered learner facts) stay atomic. Concurrent
   // edits to the same value require a fresh operation rather than guessing.

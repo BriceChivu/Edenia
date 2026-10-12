@@ -1,5 +1,56 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
+for (const entry of ['public', 'internal']) test(`${entry} automatic study summaries retain compatible overlapping saves after reload`, async ({ page }) => {
+  await page.route('**/config.local.js*', route => route.fulfill({
+    body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: false, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }',
+    contentType: 'application/javascript'
+  }))
+  await page.goto(entry === 'public' ? '/' : '/?internal_test=2')
+  await expect.poll(() => page.evaluate(() => applicationStarted && stateBackupStorageReady)).toBe(true)
+  await page.evaluate(key => {
+    const initial = defaultState(4, [], 'light', [], 'en')
+    initial.config.ankiEnabled = true
+    initial.config.studyInsights.collapsed = true
+    initial.config.studyInsights.history = []
+    initial.onboarding.setupCompleted = true
+    initial.onboarding.walkthroughCompleted = true
+    initial.anki['2026-10-11'] = { reviewed: 7, created: 0 }
+    localStorage.setItem(key, JSON.stringify(initial))
+  }, entry === 'public' ? 'edenia_v1' : 'edenia_v1_internal_test_2')
+  await page.unroute('**/config.local.js*')
+  await page.route('**/config.local.js*', route => route.fulfill({
+    body: 'window.EDENIA_CONFIG = { indexedDbProfileEnabled: true, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }',
+    contentType: 'application/javascript'
+  }))
+  await page.reload()
+  await expect.poll(() => page.evaluate(() => applicationStarted && stateBackupStorageReady)).toBe(true)
+  const result = await page.evaluate(async () => {
+    const first = loadState()
+    const second = loadState()
+    second.config.weeklyGoalHours = 7
+    second.anki['2026-10-11'].reviewed = 9
+    const timestamp = getCurrentAppTimestamp
+    let observedAt = Date.parse('2026-10-11T13:30:00.000Z')
+    getCurrentAppTimestamp = () => new Date(observedAt++).toISOString()
+    const insight = { id: 'weekly-summary', type: 'weekly-summary', reviewedCards: 7 }
+    let outcomes
+    try { outcomes = await Promise.all([recordStudyInsight(first, insight, '2026-10-11'), recordStudyInsight(second, { ...insight, reviewedCards: 9 }, '2026-10-11')]) }
+    finally { getCurrentAppTimestamp = timestamp }
+    return { outcomes, state: loadState() }
+  })
+  expect(result.outcomes.every(value => typeof value === 'string' && value.length > 0)).toBe(true)
+  expect(result.state.config.weeklyGoalHours).toBe(7)
+  expect(result.state.anki['2026-10-11'].reviewed).toBe(9)
+  expect(result.state.config.studyInsights.history).toHaveLength(1)
+  expect(result.state.config.studyInsights.history[0].firstRecordedAt).toBe('2026-10-11T13:30:00.000Z')
+  await page.reload()
+  await expect.poll(() => page.evaluate(() => applicationStarted && stateBackupStorageReady)).toBe(true)
+  const saved = await page.evaluate(() => loadState())
+  expect(saved.config.weeklyGoalHours).toBe(7)
+  expect(saved.anki['2026-10-11'].reviewed).toBe(9)
+  expect(saved.config.studyInsights.history.some(item => item.key.endsWith(':weekly-summary'))).toBe(true)
+})
+
 test('automatic feed refresh retains a simultaneous study save and both activity entries after reload', async ({ page }) => {
   await page.route('**/config.local.js*', route => route.fulfill({
     body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", indexedDbProfileEnabled: true, accountFeaturesRollout: "off", learnerProfileLifecycleEnabled: false }',

@@ -245,6 +245,9 @@ feed refreshes from rejecting an otherwise compatible learner save solely becaus
 both operations appended a log. Browser regressions exercise both paths with a
 simultaneous study save and verify that study facts, fetched videos and both log
 entries survive reload.
+Automatic study-summary observations use the same per-key history merge in the
+island and retained town bundles. Different observation times must not reject an
+otherwise compatible study or preference change.
 Independent initialization of a missing Anki-disabled timestamp retains the
 earliest observation; concurrent edits to an existing timestamp remain a conflict.
 Signed-in progress first passes existing verified cloud replay, conflict and
