@@ -9818,10 +9818,6 @@ async function toggleVideoFavorite(videoId, options = {}) {
   const preservePreview = isActiveVideoShelfPreview(videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
-  if (!isFavoriteVideo(video) && getVideoStatus(video) === 'watched') {
-    video.resumeAtSeconds = null
-    video.pausedAt = null
-  }
   const shouldRefreshRemovedChannel = (
     isFavoriteVideo(beforeVideo)
     && !isFavoriteVideo(video)
@@ -9968,7 +9964,7 @@ async function toggleVideoPlayerFavorite(videoId, button) {
 }
 
 function recordVideoRewatch(state, video, seconds = null, options = {}) {
-  if (!state || !video || !isFavoriteVideo(video) || getVideoStatus(video) !== 'watched') return false
+  if (!state || !video || getVideoStatus(video) !== 'watched') return false
   const rewatchSeconds = seconds === null
     ? Math.max(0, Math.floor(Number(video.duration || 0)))
     : Math.max(0, Math.floor(Number(seconds || 0)))
@@ -10433,7 +10429,7 @@ async function markVideoInProgressOnOpen(videoId, options = {}) {
     opened_at: openedAt
   }))
   if (previousStatus === 'watched') {
-    if (!isFavoriteVideo(video)) {
+    if (!isFavoriteVideo(video) && !hasVideoResumePriority(video)) {
       if (!await saveState(s, { backup: false })) return false
       return false
     }
@@ -12733,7 +12729,7 @@ function jumpToWatchedVideo(event, videoId) {
     })
     return
   }
-  if (getVideoStatus(video) === 'watched' && !isFavoriteVideo(video)) {
+  if (getVideoStatus(video) === 'watched' && !isFavoriteVideo(video) && !hasVideoResumePriority(video)) {
     if (selectedStatusFilter === 'favorite') selectedStatusFilter = 'all'
     isWatchedSectionCollapsed = false
     forcedSearchVideoId = targetId
@@ -13105,6 +13101,7 @@ function jumpToVideoFromSearch(videoId) {
   const shouldRevealInWatchedSection = !isRemovedTarget
     && getVideoStatus(video) === 'watched'
     && !isFavoriteVideo(video)
+    && !hasVideoResumePriority(video)
   if (isRemovedTarget) {
     selectedStatusFilter = 'all'
     isRemovedSectionCollapsed = false
@@ -14642,7 +14639,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const title = getVideoDisplayTitle(nextVideo)
   const status = getVideoStatus(nextVideo)
   const isInProgress = hasVideoResumePriority(nextVideo)
-  const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
+  const isRewatch = status === 'watched' && (isFavoriteVideo(nextVideo) || isInProgress)
   const safeVideoId = escHtml(nextVideo.id)
   const resumeTimestamp = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   const panelTitleKey = isInProgress
@@ -15290,7 +15287,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
   const timelineVideos = [
     ...visibleActiveVideos,
-    ...favoriteVideos.filter(v => getVideoStatus(v) === 'watched')
+    ...favoriteVideos.filter(v => getVideoStatus(v) === 'watched' && !hasVideoResumePriority(v))
   ].sort(compareActiveVideos)
   let activeVideos = statusFilter === 'favorite'
     ? favoriteVideos
@@ -15306,6 +15303,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
   let watchedVideos = statusFilter === 'favorite' ? [] : allVideos
     .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => !isFavoriteVideo(v))
+    .filter(v => !hasVideoResumePriority(v))
     .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
@@ -15322,7 +15320,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
       && ['all', 'favorite'].includes(statusFilter)
     if (isRemoved) {
       removedVideos = includeForcedSearchVideo(removedVideos, forcedSearchVideo)
-    } else if (getVideoStatus(forcedSearchVideo) === 'watched' && !shouldFocusInChannelShelf && !shouldStayInChannelTimeline) {
+    } else if (getVideoStatus(forcedSearchVideo) === 'watched' && !hasVideoResumePriority(forcedSearchVideo) && !shouldFocusInChannelShelf && !shouldStayInChannelTimeline) {
       watchedVideos = includeForcedSearchVideo(watchedVideos, forcedSearchVideo)
     } else {
       activeVideos = includeForcedSearchVideo(activeVideos, forcedSearchVideo)
@@ -16333,7 +16331,7 @@ async function openVideoPlayer(videoId, options = {}) {
     surface: 'channel_shelf',
     playerMode: 'embedded'
   })) return false
-  if (!isRemovedPreview && wasWatched && isFavoriteVideo(existingVideo)) {
+  if (!isRemovedPreview && wasWatched && (isFavoriteVideo(existingVideo) || hasVideoResumePriority(existingVideo))) {
     if (!await markVideoInProgressOnOpen(videoId, {
       render: false,
       reminder: false,
@@ -16347,7 +16345,7 @@ async function openVideoPlayer(videoId, options = {}) {
     !isRemovedPreview
     && video
     && getVideoStatus(video) === 'watched'
-    && isFavoriteVideo(video)
+    && hasVideoResumePriority(video)
   )
   if (
     !video
@@ -16595,7 +16593,7 @@ async function syncActiveVideoShelfPlayer(options = {}) {
     !video
     || (
       getVideoStatus(video) !== 'partial'
-      && !(session.isRewatch && getVideoStatus(video) === 'watched' && isFavoriteVideo(video))
+      && !(session.isRewatch && getVideoStatus(video) === 'watched')
     )
   ) return false
   const normalized = normalizeResumeAtSeconds(currentSeconds, video.duration)
@@ -16667,7 +16665,7 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
   const state = loadState()
   const video = state?.videos?.[session.videoId]
   const canPrompt = session.isRewatch
-    ? video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video)
+    ? video && getVideoStatus(video) === 'watched'
     : video && getVideoStatus(video) !== 'watched'
   if (!canPrompt || !session.frame) return false
 
@@ -16782,7 +16780,7 @@ async function completeVideoShelfPlayerRewatchConfirmation(session) {
   const completedSession = stopActiveVideoShelfPlayer({ persist: false })
   const state = loadState()
   const video = state?.videos?.[completedSession?.videoId]
-  if (!video || getVideoStatus(video) !== 'watched' || !isFavoriteVideo(video)) return false
+  if (!video || getVideoStatus(video) !== 'watched') return false
   const checkpoint = captureVideoActionState(state, video.id)
   const beforeVideo = cloneVideoForHistoryAction(video)
   const coveredSeconds = Math.floor(getVideoWatchCoverageSeconds(
@@ -17824,7 +17822,7 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
     && (!channelFilters || matchesWatchedChannelFilter(video, selectedChannels, removedChannelIds))
   ))
   counts.favorite = visibleFavorites.length
-  const watchedFavorites = visibleFavorites.filter(video => getVideoStatus(video) === 'watched')
+  const watchedFavorites = visibleFavorites.filter(video => getVideoStatus(video) === 'watched' && !hasVideoResumePriority(video))
   counts.all += watchedFavorites.length
   counts.partial = [...activeVideos, ...watchedFavorites].filter(hasVideoResumePriority).length
 

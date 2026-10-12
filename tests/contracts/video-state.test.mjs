@@ -48,7 +48,7 @@ test('resume normalization preserves coercion, flooring, and duration edge behav
   assert.throws(() => normalizeResumeAtSeconds(Symbol('seconds')), TypeError)
 })
 
-test('resume priority preserves status-specific favorite and timestamp rules', () => {
+test('resume priority is independent of Favorite for unfinished replays', () => {
   assert.equal(hasVideoResumePriority({ status: 'partial' }), true)
   assert.equal(hasVideoResumePriority({
     status: 'watched',
@@ -59,7 +59,9 @@ test('resume priority preserves status-specific favorite and timestamp rules', (
     status: 'watched',
     favorite: false,
     resumeAtSeconds: 5
-  }), false)
+  }), true)
+  assert.equal(hasVideoResumePriority({ status: 'watched', favorite: false, resumeAtSeconds: 0 }), true)
+  assert.equal(hasVideoResumePriority({ status: 'watched', favorite: true, resumeAtSeconds: null }), false)
   assert.equal(hasVideoResumePriority({
     status: 'watch-later',
     resumeAtSeconds: 0

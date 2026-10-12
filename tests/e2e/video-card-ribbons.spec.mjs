@@ -241,7 +241,7 @@ test('preview state changes replace New with the winning ribbon without rerender
 })
 
 for (const testerMode of [false, true]) {
-  test(`In progress includes watched favorites with a replay position (${testerMode ? 'tester' : 'public'})`, async ({ page }, testInfo) => {
+  test(`In progress preserves unfinished replays when Favorite is removed (${testerMode ? 'tester' : 'public'})`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-standard')
     const seededKey = await seedRibbonState(page, { testerMode })
     await page.evaluate(storageKey => {
@@ -251,7 +251,10 @@ for (const testerMode of [false, true]) {
         const id = `replaying-favorite-${index}`
         return [id, {
           ...base, id, title: `Replaying favorite ${index}`, status: 'watched',
-          watchedAt: '2026-08-09T04:00:00.000Z', resumeAtSeconds
+          watchedAt: '2026-08-09T04:00:00.000Z', resumeAtSeconds,
+          pausedAt: '2026-08-10T03:00:00.000Z',
+          watchProgress: [{ watchedAt: '2026-08-09T04:00:00.000Z', seconds: 600 }],
+          watchProgressTracked: true
         }]
       }))
       localStorage.setItem(storageKey, JSON.stringify(state))
@@ -259,6 +262,7 @@ for (const testerMode of [false, true]) {
     await page.reload()
     await waitForApplication(page)
 
+    await page.locator('#videoGrid .channel-shelf').first().scrollIntoViewIfNeeded()
     await expect(page.locator('#videoGrid .partial-priority-badge')).toHaveCount(2)
     const progressTab = page.locator('[data-status-tab="partial"]')
     await expect(progressTab).toHaveText(/In progress\s*2/)
@@ -266,6 +270,35 @@ for (const testerMode of [false, true]) {
     await expect(page.locator('#videoGrid .channel-shelf-card')).toHaveCount(2)
     for (let index = 0; index < 2; index += 1) {
       await expect(page.locator(`#videoGrid [data-video-id="replaying-favorite-${index}"].channel-shelf-card`)).toBeVisible()
+    }
+
+    const before = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).videos, seededKey)
+    for (let index = 0; index < 2; index += 1) {
+      const card = page.locator(`#videoGrid .channel-shelf-card[data-video-id="replaying-favorite-${index}"]`)
+      await card.hover()
+      await expect(card).toHaveClass(/\bis-previewing\b/)
+      await card.locator('.favorite-btn').click()
+      await expect(progressTab).toHaveText(/In progress\s*2/)
+      await expect(card).toHaveCount(1)
+      await expect(card.locator('.favorite-btn')).toHaveAttribute('aria-pressed', 'false')
+    }
+    await expect(page.locator('[data-status-tab="favorite"]')).toHaveText(/Favorite\s*0/)
+    const after = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).videos, seededKey)
+    for (const [id, video] of Object.entries(before)) {
+      expect(after[id]).toEqual({ ...video, favorite: false })
+    }
+    await page.reload()
+    await waitForApplication(page)
+    await expect(progressTab).toHaveText(/In progress\s*2/)
+    await progressTab.click()
+    await expect(page.locator('#videoGrid .channel-shelf-card')).toHaveCount(2)
+
+    // Restore favorites for the remaining filter edge cases.
+    for (let index = 0; index < 2; index += 1) {
+      const card = page.locator(`#videoGrid .channel-shelf-card[data-video-id="replaying-favorite-${index}"]`)
+      await card.hover()
+      await expect(card).toHaveClass(/\bis-previewing\b/)
+      await card.locator('.favorite-btn').click()
     }
 
     await page.evaluate(storageKey => {
@@ -277,7 +310,7 @@ for (const testerMode of [false, true]) {
         'replay-at-zero': { resumeAtSeconds: 0 },
         'completed-favorite': { resumeAtSeconds: null },
         'invalid-resume': { resumeAtSeconds: 'invalid' },
-        'completed-nonfavorite': { favorite: false },
+        'completed-nonfavorite': { favorite: false, resumeAtSeconds: null },
         'removed-replay': { removedFromFeedAt: '2026-08-09T04:00:00.000Z' }
       }
       for (const [id, overrides] of Object.entries(cases)) {

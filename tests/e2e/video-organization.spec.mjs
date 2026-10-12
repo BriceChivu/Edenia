@@ -789,6 +789,71 @@ async function endFakeVideo(page) {
   await expect(page.locator('.video-watch-reminder-popover.is-player')).toBeVisible()
 }
 
+for (const testerMode of [false, true]) {
+  test(`unfinished replay without Favorite resumes, records playback and completes (${testerMode ? 'tester' : 'public'})`, async ({ page }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+    await seedVideoOrganizationState(page, { testerMode })
+    await page.evaluate(async () => {
+      const state = loadState()
+      Object.assign(state.videos['menu-anchor-video'], {
+        status: 'watched', favorite: true, resumeAtSeconds: 60,
+        watchedAt: '2026-08-02T06:00:00.000Z',
+        pausedAt: '2026-08-03T02:00:00.000Z',
+        watchProgress: [{ watchedAt: '2026-08-02T06:00:00.000Z', seconds: 480, experienceSeconds: 480 }],
+        watchCycleCoverage: []
+      })
+      await saveState(state)
+      await toggleVideoFavorite('menu-anchor-video')
+    })
+    await page.reload()
+    await waitForApplication(page)
+    const before = await page.evaluate(() => ({
+      video: structuredClone(loadState().videos['menu-anchor-video']),
+      score: getCurrentCityScore(loadState())
+    }))
+    expect(before.video).toMatchObject({ status: 'watched', favorite: false, resumeAtSeconds: 60 })
+    await installFakeYoutubePlayer(page)
+    expect(await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))).toBe(true)
+    await expect.poll(() => page.evaluate(() => window.__edeniaFakeYoutubePlayer?.currentTime)).toBe(60)
+    expect(await page.evaluate(async () => {
+      const player = window.__edeniaFakeYoutubePlayer
+      for (let sample = 0; sample < 60; sample += 1) {
+        player.currentTime += 1
+        if (!await syncActiveVideoShelfPlayer({ persist: true })) return false
+      }
+      return true
+    })).toBe(true)
+    const playing = await page.evaluate(() => ({
+      video: structuredClone(loadState().videos['menu-anchor-video']),
+      score: getCurrentCityScore(loadState()),
+      seconds: getTotalVideoWatchProgressSeconds(loadState().videos['menu-anchor-video'])
+    }))
+    expect(playing.video).toMatchObject({ status: 'watched', favorite: false, resumeAtSeconds: 120, watchedAt: before.video.watchedAt })
+    expect(playing.video.watchProgress[0]).toEqual(before.video.watchProgress[0])
+    expect(playing.seconds).toBe(540)
+    if (testerMode) expect(playing.score).toBeGreaterThan(before.score)
+    else expect(playing.score).toBe(before.score)
+    await page.keyboard.press('Escape')
+    await page.reload()
+    await waitForApplication(page)
+    expect(await page.evaluate(() => loadState().videos['menu-anchor-video'].resumeAtSeconds)).toBe(120)
+    await installFakeYoutubePlayer(page)
+    await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+    await endFakeVideo(page)
+    await page.locator('[data-video-watch-prompt-action="confirm"]').click()
+    await expect(page.locator('.video-player-overlay')).toHaveCount(0)
+    const completed = await page.evaluate(() => ({
+      video: loadState().videos['menu-anchor-video'],
+      score: getCurrentCityScore(loadState()),
+      rewatches: loadState().totalRewatchCount
+    }))
+    expect(completed.video).toMatchObject({ status: 'watched', favorite: false, resumeAtSeconds: null, pausedAt: null, watchedAt: before.video.watchedAt })
+    expect(completed.video.watchProgress[0]).toEqual(before.video.watchProgress[0])
+    expect(completed.score).toBe(playing.score)
+    expect(completed.rewatches).toBe(1)
+  })
+}
+
 for (const action of ['favorite', 'confirm', 'dismiss']) {
   test(`ending ${action} closes the player and preserves the intended organization`, async ({ page }, testInfo) => {
     test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
