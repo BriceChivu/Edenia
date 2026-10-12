@@ -105,7 +105,7 @@ select is((select last_replacement_revision from public.read_my_learner_profile_
 reset role;
 update private.learner_profile_access_control set rollout_state = 'tester-trial', tester_user_ids = array['22222222-2222-4222-8222-222222222222'::uuid] where singleton;
 set local role authenticated;
-select throws_ok($$select * from public.read_my_learner_profile_write_receipt('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')$$, '42501', 'Learner profile access disabled', 'removal from the trial fences receipt inspection');
-select throws_ok($$select * from public.commit_my_learner_profile_handoff('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', (select profile_id from progress_sync_fixture), 1, 4, (select envelope from progress_sync_fixture), true)$$, '42501', 'Learner profile access disabled', 'removal from the trial fences session-end writes');
+select throws_ok($$select * from public.read_my_learner_profile_write_receipt('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')$$, '42501', 'Learner profile tester access disabled', 'removal from the trial fences receipt inspection');
+select throws_ok($$select * from public.commit_my_learner_profile_handoff('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', (select profile_id from progress_sync_fixture), 1, 4, (select envelope from progress_sync_fixture), true)$$, '42501', 'Learner profile tester access disabled', 'removal from the trial fences session-end writes');
 select * from finish();
 rollback;

@@ -63,7 +63,10 @@ declare owner_id uuid := auth.uid(); gate private.learner_profile_access_control
 begin
   if owner_id is null then raise exception 'Authentication required' using errcode = '42501'; end if;
   select value.* into strict gate from private.learner_profile_access_control value where value.singleton;
-  if not private.learner_profile_trial_allows_owner() or gate.rollout_state = 'off'
+  if not private.learner_profile_trial_allows_owner() then
+    raise exception 'Learner profile tester access disabled' using errcode = '42501';
+  end if;
+  if gate.rollout_state = 'off'
     or (gate.rollout_state = 'developer-canary' and gate.developer_user_id is distinct from owner_id)
     or private.learner_profile_account_is_locked(owner_id)
     or not exists (select 1 from auth.users u where u.id = owner_id and u.confirmed_at is not null
@@ -90,7 +93,10 @@ declare owner_id uuid := auth.uid(); gate private.learner_profile_access_control
 begin
   if owner_id is null then raise exception 'Authentication required' using errcode = '42501'; end if;
   select value.* into strict gate from private.learner_profile_access_control value where value.singleton;
-  if not private.learner_profile_trial_allows_owner() or gate.rollout_state = 'off'
+  if not private.learner_profile_trial_allows_owner() then
+    raise exception 'Learner profile tester access disabled' using errcode = '42501';
+  end if;
+  if gate.rollout_state = 'off'
     or (gate.rollout_state = 'developer-canary' and gate.developer_user_id is distinct from owner_id)
     or private.learner_profile_account_is_locked(owner_id) then
     raise exception 'Learner profile access disabled' using errcode = '42501';
