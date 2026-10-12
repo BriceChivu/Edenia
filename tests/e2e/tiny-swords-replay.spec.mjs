@@ -20,6 +20,7 @@ test('active PostHog replay receives visible island pixels and stops when record
   await surface.scrollIntoViewIfNeeded()
   await expect(surface).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
   const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  await game.waitForFunction(() => window.edeniaGameLevel >= 1 && window.edeniaStudyReady === false)
   expect(await game.locator('#canvas').evaluate(canvas => canvas.style.backgroundImage)).toBe('')
   // Stub recording locally; no SDK request or synthetic event reaches PostHog.
   await page.evaluate(() => {
@@ -27,6 +28,8 @@ test('active PostHog replay receives visible island pixels and stops when record
     window.posthog = { sessionRecordingStarted: () => true }
   })
   await expect.poll(() => game.locator('#canvas').evaluate(canvas => canvas.style.backgroundImage)).toContain('data:image/webp')
+  const firstFrame = await game.locator('#canvas').evaluate(canvas => canvas.style.backgroundImage)
+  await expect.poll(() => game.locator('#canvas').evaluate(canvas => canvas.style.backgroundImage), { timeout: 5000 }).not.toBe(firstFrame)
   const frame = await game.locator('#canvas').evaluate(canvas => canvas.style.backgroundImage.match(/data:image\/webp;base64,([^"\)]+)/)[1])
   const image = await game.evaluate(async base64 => {
     const img = new Image()

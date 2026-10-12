@@ -20,7 +20,7 @@
         schedule(1000)
         return
       }
-      if (!canvas.width || !canvas.height || !window.edeniaStudyReady) {
+      if (!canvas.width || !canvas.height || !(window.edeniaGameLevel >= 1)) {
         schedule(1000)
         return
       }

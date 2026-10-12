@@ -13,7 +13,7 @@ function harness({ analytics = true, recording = true, hidden = false, visible =
   const parent = { EDENIA_ANALYTICS_ENABLED: analytics, posthog: { sessionRecordingStarted: () => recording } }
   const target = {
     parent, document: { hidden, getElementById: () => canvas, createElement: () => snapshot },
-    edeniaConflictPreviewMode: conflict, edeniaHostVisible: visible, edeniaStudyReady: ready,
+    edeniaConflictPreviewMode: conflict, edeniaHostVisible: visible, edeniaGameLevel: ready ? 1 : undefined,
     setTimeout(fn, delay) { timers.push({ fn, delay }) }, requestAnimationFrame(fn) { fn() }
   }
   target.window = target
