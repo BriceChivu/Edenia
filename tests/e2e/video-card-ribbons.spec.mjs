@@ -290,6 +290,7 @@ for (const testerMode of [false, true]) {
     await page.reload()
     await waitForApplication(page)
     await expect(progressTab).toHaveText(/In progress\s*2/)
+    await expect(page.locator('#nextStudyCard .next-study-meta')).toHaveText('Ribbon channel · In progress')
     await progressTab.click()
     await expect(page.locator('#videoGrid .channel-shelf-card')).toHaveCount(2)
 

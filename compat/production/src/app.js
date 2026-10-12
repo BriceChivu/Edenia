@@ -14657,7 +14657,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
     <span class="next-study-copy">
       <span class="next-study-eyebrow">${escHtml(t(panelTitleKey))}</span>
       <span class="next-study-title" title="${escHtml(title)}">${escHtml(title)}</span>
-      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(isRewatch ? t('videos.status.favorite') : formatVideoStatus(status))}</span>
+      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(isRewatch && isFavoriteVideo(nextVideo) ? t('videos.status.favorite') : formatVideoStatus(isInProgress ? 'partial' : status))}</span>
     </span>
     <span class="next-study-actions">
       ${actions}
