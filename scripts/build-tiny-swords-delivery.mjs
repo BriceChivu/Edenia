@@ -69,6 +69,12 @@ export async function prepareTinySwordsDelivery(staging, outputDir) {
   const errorHook = 'controller.close();\n\t\t\t\t});'
   if (engineJs.split(errorHook).length !== 2) throw new Error('Godot progress-stream hook changed')
   engineJs = engineJs.replace(errorHook, 'controller.close();\n\t\t\t\t}, function (error) { controller.error(error); });')
+  // This embedded engine consumes its memoized initialization stream once.
+  // Godot's unused clone branch otherwise retains the entire decoded WASM
+  // (about 40 MB) while the compilation branch reads it.
+  const bodyHook = 'new Response(response.clone().body'
+  if (engineJs.split(bodyHook).length !== 2) throw new Error('Godot engine-response hook changed')
+  engineJs = engineJs.replace(bodyHook, 'new Response(response.body')
   await writeFile(resolve(staging, 'index.js'), engineJs)
   let html = await readFile(resolve(staging, 'index.html'), 'utf8')
   const startupHook = 'engine.startGame({'

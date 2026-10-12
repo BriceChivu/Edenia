@@ -278,3 +278,104 @@ test('malformed legacy data and test-mode progression are never broadly cleared'
     primary: sandboxValues.primary
   })
 })
+
+async function openBackupProbe(page) {
+  const { build } = await import('esbuild')
+  const compiled = await build({
+    stdin: {
+      contents: "export { createIndexedDbBackupStorage } from './src/state/indexed-db-backups.js'",
+      resolveDir: process.cwd()
+    },
+    bundle: true, format: 'esm', write: false
+  })
+  await page.route('**/__backup-module.js', route => route.fulfill({
+    contentType: 'text/javascript', body: compiled.outputFiles[0].text
+  }))
+  await page.route('**/__backup-probe', route => route.fulfill({
+    contentType: 'text/html', body: '<!doctype html><title>Backup startup test</title>'
+  }))
+  await page.goto('/__backup-probe')
+}
+
+test('opening an unchanged backup bank reads once and writes no recovery snapshots', async ({ page }, testInfo) => {
+  test.skip(!STORAGE_PROJECT_NAMES.has(testInfo.project.name))
+  await openBackupProbe(page)
+  const result = await page.evaluate(async () => {
+    const { createIndexedDbBackupStorage } = await import('/__backup-module.js')
+    const entry = { id: 'kept', createdAt: '2026-08-01', reason: 'automatic backup', sandbox: false, state: { config: {}, videos: {}, anki: {} } }
+    let raw = JSON.stringify([entry])
+    const options = {
+      backupKey: 'bank', databaseName: 'startup-backups', cleanupLegacy: true,
+      isValidEntry: entry => Boolean(entry.id && entry.state?.videos),
+      legacyStorage: { getItem: () => raw, setItem: (_key, value) => { raw = value }, removeItem: () => { raw = null } }
+    }
+    const first = await createIndexedDbBackupStorage(options)
+    first.close()
+    let puts = 0, reads = 0
+    const put = IDBObjectStore.prototype.put, getAll = IDBObjectStore.prototype.getAll
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === 'backups') puts++
+      return put.apply(this, args)
+    }
+    IDBObjectStore.prototype.getAll = function (...args) {
+      if (this.name === 'backups') reads++
+      return getAll.apply(this, args)
+    }
+    const next = await createIndexedDbBackupStorage(options)
+    const entries = (await next.flush()).entries
+    next.close()
+    return { puts, reads, entries, raw, entry }
+  })
+  expect(result.puts).toBe(0)
+  expect(result.reads).toBe(1)
+  expect(result.entries).toEqual([result.entry])
+  expect(result.raw).toBeNull()
+})
+
+test('backup startup optimization preserves migration, concurrent additions, isolated reads, and failed-write rollback', async ({ page }, testInfo) => {
+  test.skip(!STORAGE_PROJECT_NAMES.has(testInfo.project.name))
+  await openBackupProbe(page)
+  const result = await page.evaluate(async () => {
+    const { createIndexedDbBackupStorage } = await import('/__backup-module.js')
+    const entry = id => ({ id, createdAt: '2026-08-01', reason: 'automatic backup', sandbox: false, state: { config: {}, videos: {}, anki: {} } })
+    let raw = JSON.stringify([entry('first')])
+    const options = {
+      backupKey: 'bank', databaseName: 'startup-backups', cleanupLegacy: true,
+      isValidEntry: entry => Boolean(entry.id && entry.state?.videos),
+      legacyStorage: { getItem: () => raw, setItem: (_key, value) => { raw = value }, removeItem: () => { raw = null } }
+    }
+    const first = await createIndexedDbBackupStorage(options)
+    const stale = await createIndexedDbBackupStorage(options)
+    raw = JSON.stringify([entry('migrated')])
+    let puts = 0
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (...args) { if (this.name === 'backups') puts++; return put.apply(this, args) }
+    const migrated = await createIndexedDbBackupStorage(options)
+    const migrationWrites = puts
+    migrated.close()
+    first.storage.setItem('bank', JSON.stringify([entry('first'), entry('added')]))
+    await first.flush()
+    stale.storage.setItem('bank', JSON.stringify([{ ...entry('first'), reason: 'edited' }]))
+    const flushed = await stale.flush()
+    const ids = flushed.entries.map(entry => entry.id).sort()
+    flushed.entries[0].reason = 'outside mutation'
+    const isolated = JSON.parse(stale.storage.getItem('bank')).every(entry => entry.reason !== 'outside mutation')
+    const beforeFailure = stale.storage.getItem('bank')
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === 'backups') throw new DOMException('Test quota', 'QuotaExceededError')
+      return put.apply(this, args)
+    }
+    stale.storage.setItem('bank', JSON.stringify([entry('failed')]))
+    const failed = await stale.flush()
+    const rolledBack = stale.storage.getItem('bank') === beforeFailure
+    IDBObjectStore.prototype.put = put
+    const reopened = await createIndexedDbBackupStorage(options)
+    const persistedIds = (await reopened.flush()).entries.map(entry => entry.id).sort()
+    first.close(); stale.close(); reopened.close()
+    return { migrationWrites, raw, ids, isolated, failed: failed.persisted, rolledBack, persistedIds }
+  })
+  expect(result).toEqual({
+    migrationWrites: 1, raw: null, ids: ['added', 'first', 'migrated'],
+    isolated: true, failed: false, rolledBack: true, persistedIds: ['added', 'first', 'migrated']
+  })
+})

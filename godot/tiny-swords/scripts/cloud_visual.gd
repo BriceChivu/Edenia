@@ -1,6 +1,7 @@
 extends Sprite2D
 
 const MIN_VIEW_ZOOM := 0.5
+const Geometry = preload("res://assets/clouds/cloud_metadata.gd")
 
 const ORIGINAL_VARIANTS := [
 	preload("res://Tiny Swords (Free Pack)/Terrain/Decorations/Clouds/Clouds_01.png"),
@@ -76,31 +77,16 @@ func set_variant(index: int) -> void:
 	texture = VARIANTS[variant_index]
 	if shadow_sprite != null:
 		shadow_sprite.texture = SHADOW_VARIANTS[variant_index]
-	# Original sheets retain the established body-to-shadow spacing.
-	var pixels: Image = ORIGINAL_VARIANTS[variant_index].get_image()
-	var body_sum := Vector2.ZERO
-	var shadow_sum := Vector2.ZERO
-	var body_count := 0
-	var shadow_count := 0
-	for y in range(pixels.get_height()):
-		for x in range(pixels.get_width()):
-			var color := pixels.get_pixel(x, y)
-			if color.a < 0.1:
-				continue
-			if color.get_luminance() < 0.52:
-				shadow_sum += Vector2(x, y)
-				shadow_count += 1
-			else:
-				body_sum += Vector2(x, y)
-				body_count += 1
-	if shadow_count > 0 and body_count > 0:
-		baked_shadow_offset = shadow_sum / shadow_count - body_sum / body_count
-		shadow_center = body_sum / body_count - Vector2(texture.get_size()) / 2.0
+	# Geometry is fixed by the authored PNGs. Bake the old pixel classification
+	# offline so startup and cloud recycling do no image reads or pixel scans.
+	var geometry: Dictionary = Geometry.VARIANTS[variant_index]
+	baked_shadow_offset = Vector2(geometry.offset[0], geometry.offset[1])
+	shadow_center = Vector2(geometry.center[0], geometry.center[1])
 	set_altitude(altitude)
 
 func next_variant(large_only: bool = false) -> void:
 	var next := (variant_index + 1) % VARIANTS.size()
-	while large_only and VARIANTS[next].get_image().get_used_rect().size.x < 400:
+	while large_only and Geometry.VARIANTS[next].body_width < 400:
 		next = (next + 1) % VARIANTS.size()
 	set_variant(next)
 	set_mirrored(randf() < 0.5)
@@ -115,7 +101,7 @@ func mirrored_point(point: Vector2) -> Vector2:
 	return Vector2(-point.x if flip_h else point.x, point.y)
 
 func set_altitude(value: float) -> void:
-	var painted_width := float(texture.get_image().get_used_rect().size.x)
+	var painted_width := float(Geometry.VARIANTS[variant_index].body_width)
 	# Small source art remains a small, low cloud; only large art goes overhead.
 	altitude = clampf(value, 0.0, 1.0 if painted_width >= 400 else 0.3)
 	# Body depth is resolved against each world object by its ground shadow.

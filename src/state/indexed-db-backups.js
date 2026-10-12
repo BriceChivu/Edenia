@@ -256,15 +256,12 @@ async function applyBackupChanges(database, previous, next) {
   const transaction = backupTransaction(database, BACKUP_STORE_NAME, 'readwrite', { durability: 'strict' })
   const finished = transactionComplete(transaction)
   const store = transaction.objectStore(BACKUP_STORE_NAME)
-  const request = store.getAll()
-  request.addEventListener('success', () => {
-    try {
-      for (const id of previousById.keys()) if (!nextById.has(id)) store.delete(id)
-      for (const entry of next) {
-        if (JSON.stringify(previousById.get(entry.id)) !== JSON.stringify(entry)) store.put(cloneJson(entry))
-      }
-    } catch { transaction.abort() }
-  }, { once: true })
+  try {
+    for (const id of previousById.keys()) if (!nextById.has(id)) store.delete(id)
+    for (const entry of next) {
+      if (JSON.stringify(previousById.get(entry.id)) !== JSON.stringify(entry)) store.put(entry)
+    }
+  } catch { transaction.abort() }
   await finished
   const persisted = await readBackupEntries(database)
   const persistedById = new Map(persisted.map(entry => [entry.id, entry]))
@@ -290,14 +287,17 @@ function createIndexedDbStorageAdapter({
   legacyStorage,
   mirrorLegacy
 }) {
-  let currentEntries = cloneJson(initialEntries)
-  let persistedEntries = cloneJson(initialEntries)
+  // IndexedDB reads and JSON.parse produce owned snapshots. Only strings and
+  // cloned flush results leave the adapter; replace these arrays, never mutate
+  // them. Sharing an unchanged snapshot avoids two more full backup-bank copies.
+  let currentEntries = initialEntries
+  let persistedEntries = initialEntries
   let currentRevision = 0
   let latestOperation = Promise.resolve(persistedEntries)
 
   function scheduleWrite(entries) {
-    const snapshot = cloneJson(entries)
-    const previous = cloneJson(currentEntries)
+    const snapshot = entries
+    const previous = currentEntries
     const revision = currentRevision + 1
     currentRevision = revision
     currentEntries = snapshot
@@ -306,13 +306,13 @@ function createIndexedDbStorageAdapter({
       .catch(() => {})
       .then(() => applyBackupChanges(database, previous, snapshot))
       .then(writtenEntries => {
-        persistedEntries = cloneJson(writtenEntries)
-        if (revision === currentRevision) currentEntries = cloneJson(writtenEntries)
+        persistedEntries = writtenEntries
+        if (revision === currentRevision) currentEntries = writtenEntries
         return writtenEntries
       })
       .catch(error => {
         if (revision === currentRevision) {
-          currentEntries = cloneJson(persistedEntries)
+          currentEntries = persistedEntries
         }
         throw error
       })
@@ -404,10 +404,13 @@ export async function createIndexedDbBackupStorage({
     if (!indexedEntries.every(isValidEntry)) {
       throw new Error('IndexedDB contains an invalid state backup')
     }
-    const mergedEntries = legacy.valid
-      ? mergeStateBackupEntries(indexedEntries, legacy.entries)
-      : mergeStateBackupEntries(indexedEntries)
-    const verifiedEntries = await applyBackupChanges(database, [], mergedEntries)
+    // Most reloads have no legacy bank to migrate. The validated native read
+    // already owns its values: do not rewrite, reread, or JSON-clone every full
+    // learner profile merely to open its recovery bank.
+    const verifiedEntries = legacy.valid && legacy.entries.length
+      ? await applyBackupChanges(database, indexedEntries,
+        mergeStateBackupEntries(indexedEntries, legacy.entries))
+      : indexedEntries
     const legacyWasVerified = legacy.valid && legacy.entries.every(entry => (
       verifiedEntries.some(candidate => stateBackupEntriesMatch(
         [entry],

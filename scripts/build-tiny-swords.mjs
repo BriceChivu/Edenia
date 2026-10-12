@@ -40,6 +40,8 @@ export async function buildTinySwords(outputDir) {
   for (const args of [
     ['--editor', '--import'],
     ['--script', resolve('tests/godot/tiny-swords-export-contract.gd')],
+    ['--script', 'res://tools/generate_cloud_metadata.gd', '--', '--check'],
+    ['--script', 'res://tests/cloud_metadata.gd'],
     ['--script', 'res://tests/inventory_outline_assets.gd'],
     ['--script', 'res://tests/gameplay.gd'],
     ['--script', 'res://tests/animal_checkpoint_saves.gd'],

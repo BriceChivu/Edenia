@@ -332,6 +332,12 @@ ignored to prevent overlapping sequences. **F8** stops a game launched from the 
   Visual revisions are shared between clouds at pre-draw; each cloud retains its
   own candidate set and depth texture. Changed masks render again on the following
   frame to include queued canvas redraws, then sleep until their inputs change.
+- `assets/clouds/cloud_metadata.gd`: generated painted widths, body centers, and
+  shadow offsets. Cloud startup/recycling uses these values without reading GPU
+  textures or scanning image pixels. After changing either original or split PNGs,
+  run `Godot --headless --path godot/tiny-swords --script res://tools/generate_cloud_metadata.gd`.
+  The integrated build checks that metadata matches its source art and compares
+  runtime geometry against the imported textures in `tests/cloud_metadata.gd`.
 - `scripts/rare_cloud.gd`: a rare foreground cloud first enters after 4–7 minutes,
   then waits 6–10 minutes after leaving before another pass. Each pass varies in
   height, scale, direction, and speed.

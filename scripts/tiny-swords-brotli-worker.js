@@ -86,19 +86,47 @@ async function commitEngineCache() {
   } catch { /* Disposable asset caching must never prevent island startup. */ }
   cacheCopy = null
 }
+// Start compilation with the first available bytes. Later pulls batch the
+// decoder's small outputs, reducing worker round trips without buffering the
+// whole engine. Keep partial native chunks alive until their remainder is read.
+let pendingValue = null
+let pendingOffset = 0
+let streamDone = false
 async function readChunk(type) {
-  const result = await reader.read()
-  decodedBytes += result.value?.byteLength || 0
-  if (decodedBytes > expectedBytes || (result.done && decodedBytes !== expectedBytes)) {
-    throw new Error('Unexpected decoded game asset size')
+  const limit = type === 'ready' ? 64 * 1024 : 512 * 1024
+  const parts = []
+  let bytes = 0
+  while (bytes < limit && !streamDone) {
+    if (!pendingValue) {
+      const result = await reader.read()
+      decodedBytes += result.value?.byteLength || 0
+      if (decodedBytes > expectedBytes || (result.done && decodedBytes !== expectedBytes)) {
+        throw new Error('Unexpected decoded game asset size')
+      }
+      if (result.done) { streamDone = true; break }
+      if (!result.value.byteLength) continue
+      pendingValue = result.value
+      pendingOffset = 0
+    }
+    const amount = Math.min(limit - bytes, pendingValue.byteLength - pendingOffset)
+    parts.push(pendingValue.subarray(pendingOffset, pendingOffset + amount))
+    pendingOffset += amount
+    bytes += amount
+    if (pendingOffset === pendingValue.byteLength) pendingValue = null
+    // Preserve the first available bytes so compilation starts immediately.
+    if (type === 'ready') break
   }
-  if (result.done) { await commitEngineCache(); postMessage({ type: 'done' }) }
-  else {
-    const value = result.value
-    const buffer = value.byteOffset === 0 && value.byteLength === value.buffer.byteLength
-      ? value.buffer : value.slice().buffer
-    postMessage({ type, buffer }, [buffer])
+  if (!bytes) { await commitEngineCache(); postMessage({ type: 'done' }); return }
+  let buffer
+  if (parts.length === 1 && parts[0].byteOffset === 0 && parts[0].byteLength === parts[0].buffer.byteLength) {
+    buffer = parts[0].buffer
+  } else {
+    const combined = new Uint8Array(bytes)
+    let offset = 0
+    for (const part of parts) { combined.set(part, offset); offset += part.byteLength }
+    buffer = combined.buffer
   }
+  postMessage({ type, buffer }, [buffer])
 }
 
 self.onmessage = async ({ data }) => {
