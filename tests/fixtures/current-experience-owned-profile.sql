@@ -6,6 +6,49 @@ select no_plan();
 -- production compatibility resolver. Generate them before running this suite.
 -- CLIENT_ENVELOPE_INPUTS
 
+-- Lock down the pre-optimization bytes, including opaque Godot snapshots and
+-- rejected-but-well-formed inputs. This reference is intentionally unchanged.
+create or replace function pg_temp.previous_canonical_jsonb_text(p_value jsonb)
+returns text
+language plpgsql
+stable
+strict
+security invoker
+set search_path = ''
+as $$
+declare
+  result text;
+begin
+  case pg_catalog.jsonb_typeof(p_value)
+    when 'object' then
+      select '{' || coalesce(pg_catalog.string_agg(
+        pg_catalog.to_jsonb(item.key)::text || ':' ||
+        case when item.key = 'tinySwordsIsland'
+          and p_value ?& array['activityLog','anki','cityProgress','config','learnerProfile','noAnkiFrequentUserPrompt','onboarding','videos']
+          then private.canonical_island_jsonb_text(item.value)
+          else pg_temp.previous_canonical_jsonb_text(item.value) end,
+        ',' order by item.key collate "C"
+      ), '') || '}' into result
+      from pg_catalog.jsonb_each(p_value) as item(key, value);
+      return result;
+    when 'array' then
+      select '[' || coalesce(pg_catalog.string_agg(
+        pg_temp.previous_canonical_jsonb_text(item.value), ',' order by item.ordinality
+      ), '') || ']' into result
+      from pg_catalog.jsonb_array_elements(p_value) with ordinality as item(value, ordinality);
+      return result;
+    else return p_value::text;
+  end case;
+end;
+$$;
+select is(private.canonical_jsonb_text(envelope), pg_temp.previous_canonical_jsonb_text(envelope),
+  name || ' preserves pre-optimization canonical bytes')
+from owned_profile_inputs order by name;
+select is(private.canonical_jsonb_text('{"z":[null,false,true,0,-2,{"text":"spaces : , and \"quotes\"","é":"日本語"}],"a":{},"empty":[]}'::jsonb),
+  pg_temp.previous_canonical_jsonb_text('{"z":[null,false,true,0,-2,{"text":"spaces : , and \"quotes\"","é":"日本語"}],"a":{},"empty":[]}'::jsonb),
+  'nested scalar, escaping, UTF-8 and empty-container bytes are unchanged');
+
+
 select lives_ok(format('select private.assert_learner_profile_envelope(%L::jsonb)', envelope), name || ' client envelope is accepted')
 from owned_profile_inputs where name in ('initial','legacy','xp','island','opaque','reset','island-limit','cloud-limit') order by name;
 select lives_ok($$select private.assert_initial_learner_profile_envelope(pg_temp.profile_input('initial'))$$,
@@ -33,6 +76,19 @@ select is((select status from public.commit_my_learner_profile('aaaaaaaa-aaaa-4a
 select is((select status from public.commit_my_learner_profile('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', (select profile_id from opened),1,2,pg_temp.profile_input('island'))), 'already_accepted', 'snapshot retry uses unchanged request identity');
 
 reset role;
+select is(receipt.request_sha256,
+  rtrim(translate(encode(extensions.digest(convert_to(
+    pg_temp.previous_canonical_jsonb_text(jsonb_build_object(
+      'baseRevision', receipt.base_revision,
+      'envelope', pg_temp.profile_input('island'),
+      'generation', receipt.generation,
+      'operationId', receipt.operation_id,
+      'ownerId', receipt.user_id,
+      'profileId', receipt.profile_id
+    )), 'UTF8'), 'sha256'), 'base64'), '+/', '-_'), '='),
+  'retry receipts retain the exact pre-optimization request digest')
+from public.learner_profile_write_receipts receipt
+where operation_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
 create function pg_temp.persisted_profile_rows() returns jsonb language sql security definer set search_path='' as $$
  select jsonb_build_object(
  'heads',(select jsonb_agg(to_jsonb(t)) from public.learner_profile_heads t),
