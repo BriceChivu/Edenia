@@ -335,22 +335,25 @@ test('offline diagnostics from two tabs survive reload and acknowledge independe
   await second.goto('https://edenia.study/?internal_test=2')
   await expect(second.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
   await page.evaluate(() => reportBackgroundStorageFailure('open', { code: 'storage-denied', errorName: 'SecurityError' }))
-  await expect.poll(() => attempts.length).toBe(1)
+  const reportIds = () => [...new Set(attempts.map(attempt => attempt.id))].sort()
+  await expect.poll(() => reportIds().length).toBe(1)
   await second.evaluate(() => reportBackgroundStorageFailure('save', { code: 'storage-full', errorName: 'QuotaExceededError' }))
-  await expect.poll(() => attempts.length).toBe(2)
+  // Another tab may retry the same offline outbox record. UUIDs identify the
+  // two independent reports; request counts depend on retry scheduling.
+  await expect.poll(() => reportIds().length).toBe(2)
   const expectedOffline = 'console: Failed to load resource: net::ERR_INTERNET_DISCONNECTED'
   // WebKit logs an inspector info message for an intercepted offline request.
   if (browserName === 'chromium') await expect.poll(() => pageDiagnostics.includes(expectedOffline)).toBe(true)
   expect(pageDiagnostics.filter(message => message !== expectedOffline)).toEqual([])
   pageDiagnostics.splice(0)
-  const ids = attempts.map(attempt => attempt.id).sort()
+  const ids = reportIds()
   await page.close()
   await second.close()
   online = true
   const reopened = await context.newPage()
   await reopened.goto('https://edenia.study/?internal_test=2')
   await expect(reopened.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
-  await expect.poll(() => attempts.filter(attempt => attempt.online).map(attempt => attempt.id).sort()).toEqual(ids)
+  await expect.poll(() => [...new Set(attempts.filter(attempt => attempt.online).map(attempt => attempt.id))].sort()).toEqual(ids)
   await expect.poll(() => reopened.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('edenia_storage_feedback_outbox_v1')))).toEqual([])
   await expect(reopened.locator('#onboardingPanel.is-recovery')).toBeHidden()
 })

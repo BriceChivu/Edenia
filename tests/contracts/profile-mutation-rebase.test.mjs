@@ -2,6 +2,59 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { rebaseProfileChanges } from '../../src/state/indexed-db-profile.js'
 
+const activity = (id, seconds = 0) => ({ id, createdAt: `2026-10-11T13:30:${String(seconds).padStart(2, '0')}.000Z`, title: id })
+const profile = activityLog => ({ activityLog, anki: { day: { reviewed: 1 } } })
+
+test('independent initialization of a missing Anki disabled timestamp retains the earliest observation', () => {
+  const base = { config: { ankiEnabled: false, ankiDisabledAt: null }, anki: { day: { reviewed: 1 } } }
+  const desired = structuredClone(base)
+  const current = structuredClone(base)
+  desired.config.ankiDisabledAt = '2026-10-11T13:30:00.002Z'
+  desired.config.channels = ['feed']
+  current.config.ankiDisabledAt = '2026-10-11T13:30:00.001Z'
+  current.anki.day.reviewed = 7
+  assert.deepEqual(rebaseProfileChanges(base, desired, current), {
+    config: { ankiEnabled: false, ankiDisabledAt: current.config.ankiDisabledAt, channels: ['feed'] },
+    anki: { day: { reviewed: 7 } }
+  })
+  base.config.ankiDisabledAt = '2026-10-10T13:30:00.000Z'
+  assert.equal(rebaseProfileChanges(base, desired, current), null)
+  base.config.ankiDisabledAt = null
+  desired.anki.day.reviewed = 9
+  assert.equal(rebaseProfileChanges(base, desired, current), null)
+})
+
+test('independent activity additions retain both logs and the learner progress', () => {
+  const base = profile([activity('original')])
+  const desired = profile([activity('feed', 2), ...base.activityLog])
+  const current = profile([activity('study', 1), ...base.activityLog])
+  current.anki.day.reviewed = 7
+  const merged = rebaseProfileChanges(base, desired, current)
+  assert.deepEqual(merged?.activityLog.map(entry => entry.id), ['feed', 'study', 'original'])
+  assert.equal(merged?.anki.day.reviewed, 7)
+  assert.deepEqual(base.activityLog, [activity('original')])
+})
+
+test('activity merging rejects edited entries, clearing, reordered history and colliding IDs', () => {
+  const base = profile([activity('a'), activity('b')])
+  const desired = profile([activity('feed', 2), ...base.activityLog])
+  for (const current of [
+    [{ ...activity('a'), title: 'changed' }, activity('b')],
+    [], [activity('b'), activity('a')],
+    [{ ...activity('feed', 2), title: 'different' }, ...base.activityLog],
+    [activity('study', 1), activity('study', 1), ...base.activityLog]
+  ]) assert.equal(rebaseProfileChanges(base, desired, profile(current)), null)
+})
+
+test('activity additions can trim old history while preserving every recent addition', () => {
+  const base = profile([activity('a'), activity('b'), activity('c')])
+  const merged = rebaseProfileChanges(base,
+    profile([activity('feed', 2), activity('a'), activity('b')]),
+    profile([activity('study', 1), activity('a')]))
+  assert.deepEqual(merged?.activityLog.map(entry => entry.id), ['feed', 'study', 'a'])
+  assert.equal(rebaseProfileChanges(base, profile([activity('a')]), profile([activity('study', 1), activity('a')])), null)
+})
+
 test('independent nested updates retain current owned facts and apply only the requested changes', () => {
   const base = { config: { theme: 'light', channels: ['a'] }, videos: { a: { favorite: false, watchProgress: [] } }, anki: {} }
   const desired = structuredClone(base)

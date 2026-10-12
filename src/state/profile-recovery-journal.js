@@ -13,6 +13,11 @@ export function createProfileRecoveryJournal({
     ? new eventTarget.BroadcastChannel(`${DATABASE}:${namespace}`) : null
   if (channel) channel.onmessage = () => onChange()
 
+  function discardConnection(db) {
+    if (database === db) database = null
+    try { db.close() } catch {}
+  }
+
   function open(create) {
     if (database) return Promise.resolve(database)
     if (opening) return opening.then(value => value || (create ? open(true) : null))
@@ -39,9 +44,10 @@ export function createProfileRecoveryJournal({
         clearTimeout(timer)
         if (settled) { request.result.close(); return }
         settled = true
-        database = request.result
-        database.onversionchange = () => { database.close(); database = null }
-        resolve(database)
+        const db = request.result
+        database = db
+        db.onversionchange = db.onclose = () => discardConnection(db)
+        resolve(db)
       }
       for (const event of ['blocked', 'error']) request.addEventListener(event, () => {
         clearTimeout(timer)
@@ -53,15 +59,30 @@ export function createProfileRecoveryJournal({
     }).catch(error => { throw annotateStorageFailure(error, 'recovery-journal', 'database-open') }).finally(() => { opening = null })
     return opening
   }
-  function transaction(db, mode, run) {
+  async function transaction(db, mode, run, canReconnect = true) {
+    let tx
+    try { tx = db.transaction(['heads', 'candidates'], mode) }
+    catch (error) {
+      if (error.name === 'InvalidStateError') {
+        discardConnection(db)
+        // No transaction started, so retrying cannot replay an uncertain write.
+        // The callback still checks the current head and ownership after opening.
+        if (canReconnect) {
+          const reopened = await open(mode === 'readwrite')
+          if (!reopened) return { raw: null, candidates: [] }
+          return transaction(reopened, mode, run, false)
+        }
+      }
+      throw annotateStorageFailure(error, 'recovery-journal', 'transaction-open')
+    }
     return new Promise((resolve, reject) => {
-      let tx
-      try { tx = db.transaction(['heads', 'candidates'], mode) }
-      catch (error) { reject(annotateStorageFailure(error, 'recovery-journal', 'transaction-open')); return }
       let result
       let failure
       const timer = setTimeout(() => {
         try { tx.abort() } catch {}
+        // Leave the head untouched and reopen on the next attempt. A timed-out
+        // transaction may have an uncertain outcome and must not be replayed.
+        discardConnection(db)
         reject(annotateStorageFailure(new Error('Recovery archive transaction timed out'), 'recovery-journal', 'transaction-complete'))
       }, timeoutMs)
       tx.oncomplete = () => { clearTimeout(timer); resolve(result) }
@@ -135,5 +156,5 @@ export function createProfileRecoveryJournal({
     })
     return { saved: false, raw: acknowledged.raw, candidate }
   }
-  return { read, save, close() { channel?.close(); database?.close(); database = null } }
+  return { read, save, close() { channel?.close(); if (database) discardConnection(database) } }
 }
