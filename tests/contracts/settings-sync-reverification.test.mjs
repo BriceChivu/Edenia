@@ -156,7 +156,7 @@ function createHarness({ delayedVerification = false, delayedImport = false } = 
   vm.runInContext([
     sourceBetween('let legacyProgressManualImportDone', '\nfunction normalizeLegacyProgressState('),
     sourceBetween('async function handleLearnerProfileAccessStateChange(', '\nfunction synchronizeAccountStudySnapshotForProfile('),
-    sourceBetween('function startLearnerProfileReverification()', '\nfunction initializeAccountAuth()'),
+    sourceBetween('function canApplyRemoteProfile()', '\nfunction initializeAccountAuth()'),
     sourceBetween('function closeSettings()', '\nfunction setSettingsAccordionOpen('),
     sourceBetween('async function exportSyncFile()', '\nfunction formatBackupTimestamp('),
     sourceBetween('bindSettingsSyncActions(document, {', '\nbindLegacyProgressRecoveryActions(')

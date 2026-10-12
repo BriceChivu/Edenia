@@ -46,6 +46,7 @@ export function createLearnerProfileLifecycleAuthority({
   adapters,
   createActivationId,
   onStateChange,
+  canApplyRemote = () => true,
   onVerificationStateChange = () => {}
 }) {
   const {
@@ -66,6 +67,7 @@ export function createLearnerProfileLifecycleAuthority({
   let offlineExpiryTimer = null
   let started = false
   let pendingLocalSaves = 0
+  const pendingLocalTransactions = new Set()
   let backgroundVerification = null
   let backgroundBoundaryTimer = null
   let resolutionId = 0
@@ -170,7 +172,10 @@ export function createLearnerProfileLifecycleAuthority({
       clock.clearTimer?.(offlineExpiryTimer)
       offlineExpiryTimer = null
     }
-    if (activation) localPersistence.releaseActivation(activation)
+    if (activation) {
+      cloudPersistence.cancelHeadChecks?.({ activation })
+      localPersistence.releaseActivation(activation)
+    }
   }
 
   function scheduleOfflineExpiryCheck() {
@@ -253,6 +258,7 @@ export function createLearnerProfileLifecycleAuthority({
     if (activation.ownerId && typeof cloudPersistence.activate === 'function') {
       cloudPersistence.activate({
         activation,
+        ...(localProfile.syncBaseProfile ? { baseProfile: localProfile.syncBaseProfile } : {}),
         generation: activation.generation,
         isCurrent: () => Boolean(getCurrentActivationFor(activeProfile)),
         profile: activeProfile,
@@ -533,6 +539,7 @@ export function createLearnerProfileLifecycleAuthority({
           resolvedProfile = reconciledProfile.profile
         }
         const activationProfile = {
+          ...(result.syncBaseProfile ? { syncBaseProfile: result.syncBaseProfile } : {}),
           generation: result.generation,
           ownerId: result.ownerId,
           profile: resolvedProfile,
@@ -948,6 +955,10 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   function handleCloudPersistenceState(state) {
+    if (state?.status === 'head-changed' && state.activation === currentState.activation) {
+      void reverify({ canApplyRemote })
+      return
+    }
     if (state?.status !== 'conflicting') return
     const activation = state.conflict?.activation
     if (
@@ -989,7 +1000,9 @@ export function createLearnerProfileLifecycleAuthority({
         return true
       })
       if (completed && typeof completed.then === 'function') {
-        return completed.finally(() => { pendingLocalSaves -= 1 })
+        const tracked = completed.finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(tracked) })
+        pendingLocalTransactions.add(tracked)
+        return tracked
       }
       pendingLocalSaves -= 1
       return completed
@@ -1903,7 +1916,7 @@ export function createLearnerProfileLifecycleAuthority({
     return evaluate()
   }
 
-  async function reverify({ verifyOwner, shouldCheckHead = () => true, canApplyRemote = () => true } = {}) {
+  async function reverify({ verifyOwner, shouldCheckHead = () => true, canApplyRemote: canApply = canApplyRemote } = {}) {
     if (!started || backgroundVerification || !retainVerifiedActivation()) return false
     const activation = currentState.activation
     const profile = activeProfile
@@ -1950,14 +1963,14 @@ export function createLearnerProfileLifecycleAuthority({
         const applyAtBoundary = async () => {
           backgroundBoundaryTimer = null
           if (!current()) return
-          if (pendingLocalSaves || !canApplyRemote()) {
+          if (pendingLocalSaves || !canApply()) {
             scheduleBoundary()
             return
           }
           try {
             const latest = await cloudPersistence.checkActiveHead({ activation, isCurrent: current })
             if (!current()) return
-            if (pendingLocalSaves || !canApplyRemote()) {
+            if (pendingLocalSaves || !canApply()) {
               scheduleBoundary()
               return
             }
@@ -1996,6 +2009,15 @@ export function createLearnerProfileLifecycleAuthority({
     return started ? evaluate() : currentState
   }
 
+  function flushSessionBoundary(options = {}) {
+    if (!readActiveProfile()) return false
+    if (!pendingLocalTransactions.size) return cloudPersistence.flushSessionBoundary?.(options) || false
+    return Promise.allSettled([...pendingLocalTransactions]).then(() => {
+      if (!readActiveProfile()) return false
+      return cloudPersistence.flushSessionBoundary?.(options) || false
+    })
+  }
+
   function destroy() {
     lastResetActivation = EMPTY_ACCESS_STATE
     resolutionId += 1
@@ -2021,6 +2043,7 @@ export function createLearnerProfileLifecycleAuthority({
     exportConflictVersion,
     exportConflictVersions,
     exportRecoveryCandidate,
+    flushSessionBoundary,
     getState: () => currentState,
     importActiveProfile,
     readActiveProfile,

@@ -105,7 +105,7 @@ export default defineConfig({
       { name: 'webkit-trial-phone', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }
     ].map(({ name, ...use }) => ({
       name,
-      testMatch: /(auth-trial|storage-recovery-connection|profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
+      testMatch: /(auth-trial|profile-handoff|storage-recovery-connection|profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
       use: { browserName: 'webkit', deviceScaleFactor: 1, ...use }
     }))
   ],

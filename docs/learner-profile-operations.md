@@ -1,14 +1,22 @@
 # Learner profile retention and disaster recovery
 
-During the internal Auth experiment pause, weekly external dumps and 35-day
-retention remain enabled. Restore rehearsal and guarded retention steps require
-`EDENIA_AUTH_EXPERIMENT_ENABLED=true`; they are paused independently of backup
-creation. Server profile cleanup is disabled. See
-[the pause record](auth-operations.md#internal-experiment-pause-2026-09-27).
+The September 27 experiment pause is historical; see [the pause record](auth-operations.md#internal-experiment-pause-2026-09-27). [PR #422](https://github.com/BriceChivu/Edenia/pull/422) restored bounded Free-tier retention during the restricted trial. Verify the live maintenance and rollout configuration before changing operator settings.
 
+This runbook covers the operator boundary for signed-in learner profiles. The browser does not call private maintenance functions.
 
-This runbook covers the operator boundary for signed-in learner profiles. The
-browser does not call these private maintenance functions.
+## Restricted-trial device handoff
+
+Apply `20261012132414_bounded_profile_handoff.sql` before serving the revised frontend. The new protocol is enabled only through the existing authentication trial (`internal_test=1` with trial admission). It adds owner-scoped receipt inspection and conditional handoff commits. Existing clients retain their original API; this migration does not enable mandatory public accounts.
+
+Ordinary uploads remain coalesced at 30 seconds. When a session hides, the browser first waits for pending local saves and attempts one final cloud upload. The server permits at most one **early** session flush per current owner/profile allowance in five minutes, serializing the allowance across devices. A normally eligible upload consumes no early-flush allowance. Server deferrals persist in the local outbox and cannot be bypassed by repeated hiding, focus, reload or explicit retry. Local changes keep accumulating while delivery waits.
+
+Return checks use visibility restoration, back/forward restoration, focus and reconnect. Before a trial upload, the client checks the current owner head. Exact accepted receipts repair lost acknowledgements without replaying an old profile. Compatible pending changes combine from a verified base within the same owner, profile and generation. Dated playback observations keep resume positions paired with their timestamps; ambiguous or tied observations retain the protected choice. Imports, restores, Undo and explicit conflict choices establish a durable replacement boundary. Generation changes fence older pending work.
+
+The existing outbox holds the upload candidate. Its sparse before-value journal is capped at 128 KiB and 2,048 entries. A second bounded before-value journal bridges the crash window between installing a reconciled IndexedDB profile and updating the outbox; it contains no additional full profile. Unsupported, corrupt or oversized evidence retains the protected resolver. Godot declares ambient animal arrays; Edenia transports that declaration while comparing other island fields.
+
+Browser suspension can prevent completion of any final network request. Keep local durability and deferred reconciliation as the recovery path; do not promise that an offline or immediately suspended phone has already delivered its last save to the cloud.
+
+For rollout acceptance, run `tests/e2e/profile-handoff.spec.mjs` on Chromium and WebKit, the profile contract suites, and `supabase/tests/learner_profile_handoff.test.sql`. Then check a physical Pixel 7a with Chrome: leave both tabs open, study on the phone and immediately lock it, study on the computer, then unlock the phone. Repeat with a slow connection, offline phone, a lost acknowledgement and studying the same video. Confirm both sessions' study remains, no compatible handoff prompts appear, and pending delivery eventually reaches Up to date. Automated lifecycle suspension does not substitute for this hardware check.
 
 ## What the maintenance job protects
 

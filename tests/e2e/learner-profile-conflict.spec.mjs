@@ -219,6 +219,7 @@ async function prepareConflictPage(page, {
   const choiceRequests = []
   const commitRequests = []
   const resolutionRequests = []
+  const headRequests = []
   const acceptedCommitOperations = new Map()
   let failedResolvedRead = false
   let resolvedEnvelope = cloudEnvelope
@@ -326,11 +327,18 @@ async function prepareConflictPage(page, {
       })
       return
     }
+    if (pathname === '/rest/v1/learner_profile_heads') {
+      headRequests.push(true)
+      await route.fulfill({json:{user_id:USER_ID,profile_id:PROFILE_ID,generation:4,revision:resolvedRevision}});return
+    }
+    if (pathname === '/rest/v1/rpc/read_my_learner_profile_write_receipt') {
+      await route.fulfill({json:[{status:'not_accepted',last_replacement_revision:0}]});return
+    }
     if (pathname === '/rest/v1/rpc/read_my_latest_learner_profile_reset') {
       await route.fulfill({ json: [{ status: 'none' }], status: 200 })
       return
     }
-    if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+    if (pathname === '/rest/v1/rpc/commit_my_learner_profile' || pathname === '/rest/v1/rpc/commit_my_learner_profile_handoff') {
       const body = request.postDataJSON()
       commitRequests.push(body)
       if (expiredChoice && body.p_operation_id !== OPERATION_ID) {
@@ -446,7 +454,8 @@ async function prepareConflictPage(page, {
     cloudEnvelope,
     commitRequests,
     deviceEnvelope,
-    resolutionRequests
+    resolutionRequests,
+    headRequests
   }
 }
 
@@ -653,7 +662,7 @@ test('choosing an unfinished Cloud profile opens onboarding without exposing the
     })
     capture()
   })
-  const { choiceRequests, resolutionRequests } = await prepareConflictPage(page, {
+  const { choiceRequests, resolutionRequests, headRequests } = await prepareConflictPage(page, {
     acceptPostChoiceCommits: true,
     cloudSetupCompleted: false,
     preserveStateOnReload: true
@@ -674,10 +683,10 @@ test('choosing an unfinished Cloud profile opens onboarding without exposing the
   ))).toBe(false)
 
   const resolutionCountBeforeFocus = resolutionRequests.length
+  const headCountBeforeFocus = headRequests.length
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-  await expect.poll(() => resolutionRequests.length).toBeGreaterThan(
-    resolutionCountBeforeFocus
-  )
+  await expect.poll(() => headRequests.length).toBeGreaterThan(headCountBeforeFocus)
+  expect(resolutionRequests.length).toBe(resolutionCountBeforeFocus)
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
     'active'

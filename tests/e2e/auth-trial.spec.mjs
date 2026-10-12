@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
 import { createPortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
+import { canonicalizeJson, sha256Base64UrlSync } from '../../src/state/portable-state.js'
 
 const trial = 'edenia_v1_auth_trial_v1'
 const desktopTrialProjects = new Set(['desktop-standard', 'webkit-trial-desktop'])
@@ -75,15 +76,22 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
     sessionStorage.setItem('owned-trial-installed','1')
   },{trial,owner,profileId,envelope,authenticated:session(),activationId})
   await page.route(origin+'/**',async route => {
+    const reply = options => route.fulfill({ ...options, headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS',
+      'access-control-allow-headers': 'authorization,apikey,x-client-info,content-type',
+      ...options.headers
+    } })
+    if (route.request().method() === 'OPTIONS') { await reply({ status: 204 }); return }
     const path=new URL(route.request().url()).pathname
     requests.push(path)
-    if(path==='/auth/v1/logout'){await route.fulfill({status:204});return}
-    if(path==='/auth/v1/token'){await route.fulfill({json:authenticated});return}
-    if(path==='/auth/v1/user'){await route.fulfill({json:authenticated.user});return}
-    if(path==='/rest/v1/learner_profile_heads'){await route.fulfill({json:{user_id:authenticated.user.id,...identity()}});return}
-    if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await route.fulfill({json:[{status:'profile_ready',created:false,...identity(),envelope}]});return}
+    if(path==='/auth/v1/logout'){await reply({status:204});return}
+    if(path==='/auth/v1/token'){await reply({json:authenticated});return}
+    if(path==='/auth/v1/user'){await reply({json:authenticated.user});return}
+    if(path==='/rest/v1/learner_profile_heads'){await reply({json:{user_id:authenticated.user.id,...identity()}});return}
+    if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await reply({json:[{status:'profile_ready',created:false,...identity(),envelope}]});return}
     if(path==='/rest/v1/rpc/read_my_latest_learner_profile_reset'){
-      await route.fulfill({json:[reset ? {status:reset.status,reset_id:resetId,profile_id:profileId,
+      await reply({json:[reset ? {status:reset.status,reset_id:resetId,profile_id:profileId,
         prior_generation:reset.generation,prior_revision:reset.revision,prior_envelope:reset.envelope,
         reset_generation:generation,protected_until:protectedUntil} : {status:'none'}]});return
     }
@@ -91,39 +99,40 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
       const args=route.request().postDataJSON()
       reset={envelope,generation,revision,status:'available'}
       envelope=args.p_envelope;generation+=1;revision=1
-      await route.fulfill({json:[{status:'started_over',...identity(),reset_id:resetId,envelope,protected_until:protectedUntil}]});return
+      await reply({json:[{status:'started_over',...identity(),reset_id:resetId,envelope,protected_until:protectedUntil}]});return
     }
     if(path==='/rest/v1/rpc/undo_my_learner_profile_start_over'){
       envelope=reset.envelope;revision+=1;reset.status='undone'
-      await route.fulfill({json:[{status:'undone',...identity(),reset_id:resetId,envelope}]});return
+      await reply({json:[{status:'undone',...identity(),reset_id:resetId,envelope}]});return
     }
     if(path==='/rest/v1/rpc/import_my_learner_profile'){
       const args=route.request().postDataJSON()
       imported={args,previous:envelope};envelope=args.p_envelope;revision=args.p_base_revision+1
-      await route.fulfill({json:[{status:'replaced',...identity(),base_revision:args.p_base_revision,
+      await reply({json:[{status:'replaced',...identity(),base_revision:args.p_base_revision,
         payload_sha256:envelope.integrity.payloadSha256,protected_until:protectedUntil}]});return
     }
     if(path==='/rest/v1/rpc/read_my_learner_profile_import_backup'){
-      await route.fulfill({json:[{status:'protected',...identity(),base_revision:imported.args.p_base_revision,
+      await reply({json:[{status:'protected',...identity(),base_revision:imported.args.p_base_revision,
         imported_envelope:imported.args.p_envelope,imported_revision:imported.args.p_base_revision+1,
         operation_id:imported.args.p_operation_id,previous_envelope:imported.previous,protected_until:protectedUntil}]});return
     }
     if(path==='/rest/v1/rpc/rollback_my_learner_profile_import'){
       envelope=imported.previous;revision=imported.args.p_base_revision+2
-      await route.fulfill({json:[{status:'rolled_back',...identity(),base_revision:imported.args.p_base_revision}]});return
+      await reply({json:[{status:'rolled_back',...identity(),base_revision:imported.args.p_base_revision}]});return
     }
-    if(path==='/rest/v1/rpc/commit_my_learner_profile'){
+    if(path==='/rest/v1/rpc/commit_my_learner_profile'||path==='/rest/v1/rpc/commit_my_learner_profile_handoff'){
       const args=route.request().postDataJSON();commits.push(args)
       const receipt=receipts.get(args.p_operation_id)
-      if(receipt){await route.fulfill({json:[{...receipt,status:'already_accepted'}]});return}
+      if(receipt){await reply({json:[{...receipt,status:'already_accepted'}]});return}
       expect(args.p_base_revision).toBe(revision)
       expect(args.p_generation).toBe(generation)
       envelope=args.p_envelope;revision=args.p_base_revision+1
-      const accepted={status:'accepted',...identity(),base_revision:args.p_base_revision,payload_sha256:envelope.integrity.payloadSha256}
+      const accepted={status:'accepted',...identity(),base_revision:args.p_base_revision,payload_sha256:envelope.integrity.payloadSha256,request_sha256:sha256Base64UrlSync(canonicalizeJson({baseRevision:args.p_base_revision,envelope:args.p_envelope,generation:args.p_generation,operationId:args.p_operation_id,ownerId:authenticated.user.id,profileId:args.p_profile_id}))}
       receipts.set(args.p_operation_id,accepted)
-      await route.fulfill({json:[accepted]});return
+      await reply({json:[accepted]});return
     }
-    await route.fulfill({json:[]})
+    if(path==='/rest/v1/rpc/read_my_learner_profile_write_receipt'){const receipt=receipts.get(route.request().postDataJSON().p_operation_id);await reply({json:[receipt?{...receipt,status:'already_accepted'}:{status:'not_accepted'}]});return}
+    await reply({json:[]})
   })
   return {commits,island,requests,
     head:()=>({envelope:structuredClone(envelope),generation,revision}),
@@ -519,7 +528,12 @@ for(const indexedDb of [false,true]) {
     await page.locator('[data-settings-sync-action="confirm-import"]').click()
     await expectNewFrame(page)
     expect(fixture.protectedImport().previous.profile).toEqual(before.profile)
-    expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(imported.profile.tinySwordsIsland)
+    const restoredImport = await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)
+    // This fixture edits wood outside Godot, so its old gameplay fingerprint
+    // must be refreshed by Godot while all imported gameplay remains exact.
+    expect({ ...restoredImport, sync_semantics: null }).toEqual({ ...imported.profile.tinySwordsIsland, sync_semantics: null })
+    expect(restoredImport.sync_semantics.sha256).not.toBe(imported.profile.tinySwordsIsland.sync_semantics.sha256)
+    expect(fixture.protectedImport().args.p_envelope.profile).toEqual(imported.profile)
     expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(13)
     await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
     expect(await page.evaluate(key=>localStorage.getItem(key+'_learner_profile_sync_v1_import_v1'),trial)).toBeNull()
@@ -794,15 +808,13 @@ test('a large already-accepted request reopens under origin storage pressure wit
   fixture.advanceRevision()
   const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   let replays = 0
-  await page.route(origin + '/rest/v1/rpc/commit_my_learner_profile', async route => {
+  await page.route(origin + '/rest/v1/rpc/read_my_learner_profile_write_receipt', async route => {
     const args = route.request().postDataJSON()
     expect(args.p_operation_id).toBe(operationId)
-    expect(args.p_base_revision).toBe(before.revision)
-    expect(args.p_envelope).toEqual(before.envelope)
     replays += 1
     await route.fulfill({ json: [{ status: 'already_accepted', profile_id: profileId,
       generation: before.generation, base_revision: before.revision, revision: before.revision + 1,
-      payload_sha256: before.envelope.integrity.payloadSha256 }] })
+      payload_sha256: before.envelope.integrity.payloadSha256,request_sha256:sha256Base64UrlSync(canonicalizeJson({baseRevision:before.revision,envelope:before.envelope,generation:before.generation,operationId,ownerId:owner,profileId})) }] })
   })
   const seeded = await page.evaluate(({ trial, owner, profileId, before, operationId }) => {
     const current = preparePortableLearnerProfileEnvelope(loadPersistedState({ persistCleanup: false })).profile

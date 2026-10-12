@@ -1,3 +1,4 @@
+import vm from 'node:vm'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -48,13 +49,31 @@ test('general accounts and Plus reuse one browser auth client and storage sessio
   )
 })
 
-test('account integrations are released with the existing Plus lifecycle', async () => {
+test('page exit captures the final local save before releasing its activation', async () => {
   const source = await readFile(appUrl, 'utf8')
-
-  assert.match(
-    source,
-    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) learnerProfileReverificationController\?\.destroy\(\)\s*if \(!event\.persisted\) learnerProfileLifecycleAuthority\?\.destroy\(\)\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) googleIdentityServicesController\?\.destroy\(\)\s*if \(!event\.persisted\) turnstileController\?\.destroy\(\)\s*if \(!event\.persisted\) accountStudySnapshotController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
-  )
+  const start = source.indexOf("window.addEventListener('pagehide', event => {")
+  const end = source.indexOf("\nif (!IS_SANDBOX)", start)
+  assert.ok(start >= 0 && end > start)
+  const calls = []
+  let complete, handler
+  const capture = new Promise(resolve => { complete = resolve })
+  const controller = { destroy: () => calls.push('other-cleanup') }
+  vm.runInNewContext(source.slice(start, end), {
+    window: { addEventListener: (type, callback) => { if (type === 'pagehide') handler = callback } },
+    learnerProfilePageLeaving: false,
+    syncActiveVideoShelfPlayer(options) { assert.equal(options.captureStoppedPlayback, true); calls.push('capture'); return capture },
+    learnerProfileLifecycleAuthority: { flushSessionBoundary: options => { assert.equal(options.allowNewUpload, false); calls.push('flush') }, destroy: () => calls.push('release') },
+    learnerProfileReverificationController: controller, accountAuthController: controller,
+    googleIdentityServicesController: controller, turnstileController: controller,
+    accountStudySnapshotController: controller, plusAccountController: controller,
+    activeVideoShelfPlayer: null, trackVideoPlaybackSessionEnded() {}
+  })
+  handler({ persisted: false })
+  assert.equal(calls[0], 'capture')
+  assert.equal(calls.includes('release'), false, 'An unfinished local save retains its owner fence')
+  complete(true)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(calls.slice(-2), ['flush', 'release'])
 })
 
 test('internal Account UI replaces the retired Plus settings presentation', async () => {

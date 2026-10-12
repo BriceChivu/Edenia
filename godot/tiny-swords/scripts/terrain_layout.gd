@@ -1154,6 +1154,13 @@ func snapshot() -> Dictionary:
 		saved.manual_ground_elevation = true
 	if not playground_grants.is_empty():
 		saved.playground_grants = playground_grants.duplicate()
+	# Godot owns gameplay meaning. Exact animal positions remain in the portable
+	# snapshot for restoration; ambient wandering is not a competing learner edit.
+	# Counts, inventory, terrain, structures and resources still affect identity.
+	var semantic := saved.duplicate(true)
+	semantic.chickens = chickens.size()
+	semantic.sheep = sheep.size()
+	saved.sync_semantics = {"version": 1, "sha256": JSON.stringify(semantic, "", true).sha256_text(), "ambient_arrays": ["chickens", "sheep"]}
 	return saved
 
 func restore(data: Dictionary) -> bool:

@@ -31,8 +31,10 @@ Profile opening will use this ordered outcome model:
 1. If the verified owner's current profile is valid, open it.
 2. If the failure is transient, remain retryable as `waiting-cloud`; do not
    roll back or start onboarding.
-3. If multiple valid states disagree, use the existing progress-conflict
-   flow; do not treat the conflict as profile corruption.
+3. If multiple valid states disagree, reconcile proven compatible changes
+   within the same generation under ADR 0002 where that protocol is enabled.
+   Otherwise use the existing progress-conflict flow; do not treat the conflict
+   as profile corruption.
 4. If the current profile is invalid, automatically restore the newest
    trusted profile predecessor within the current profile generation. The
    predecessor must be owner-bound, structurally valid, and connected to the
