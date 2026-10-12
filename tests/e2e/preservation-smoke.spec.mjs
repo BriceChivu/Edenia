@@ -2225,6 +2225,8 @@ test('feedback modal listeners preserve focus, Escape, keyboard, storage, and or
   await launcher.focus()
   await launcher.press('Enter')
   await expect(modal).not.toHaveClass(/\bhidden\b/)
+  // Finish the dialog's scheduled autofocus before testing another control.
+  await expect(message).toBeFocused()
   await closeControl.focus()
   await closeControl.press('Space')
   await expect(modal).toHaveClass(/\bhidden\b/)

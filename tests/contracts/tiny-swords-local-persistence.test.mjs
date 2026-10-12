@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
-function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false } = {}) {
+function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false, search = '' } = {}) {
   const handlers = {}; const sent = []; const frames = []; const storage = new Map(); const saves = []
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
@@ -25,8 +25,8 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
   })
   const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},remove(){this.removed=true},append(){} }
   const context = {
-    location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037'},
-    URL,
+    location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037',search},
+    URL, URLSearchParams,
     window:{edeniaTinySwordsEnabled:true,edeniaTinySwordsLegacyPreview:developer,EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn}},
     document:{body:node,querySelectorAll(){return []},currentScript:{src:'http://localhost:8037/tiny-swords-game/test/parent.js'},documentElement:node,visibilityState:'visible',addEventListener(type,fn){handlers[type]=fn},createElement(type){
       if(type!=='iframe') return {...node}
@@ -55,6 +55,13 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
     finishPending(){finishPending()},get writes(){return writes},get durable(){return durable},replace(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{replacement:true}})} }
 }
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
+
+test('host transports only explicitly supported FPS experiment values', () => {
+  for (const [search, expected] of [['', null], ['?internal_test=1', '30'], ['?internal_test=2', null], ['?internal_test=1&tiny_swords_fps=60', '60'], ['?tiny_swords_fps=30', '30'], ['?tiny_swords_fps=60', '60'], ['?tiny_swords_fps=20', null]]) {
+    const h = harness({ island, search })
+    assert.equal(new URL(h.frames[0].src).searchParams.get('tiny_swords_fps'), expected)
+  }
+})
 
 test('keyboard exit returns to the host only for the ready current game session', async () => {
   const h = harness({island})

@@ -18,10 +18,12 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 GameCopy="*res://scripts/game_copy.gd"
 GamePresentation="*res://scripts/game_presentation.gd"
+FrameRateTest="*res://scripts/frame_rate_test.gd"
 
 [gameplay]
 
 chicken_carry_enabled=false
+direct_walk_routes_enabled=false
 
 [display]
 
