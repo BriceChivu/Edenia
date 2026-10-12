@@ -45,7 +45,6 @@ export function hasVideoResumePriority(video) {
   return status === 'partial'
     || (
       status === 'watched'
-      && isFavoriteVideo(video)
       && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
     )
     || (

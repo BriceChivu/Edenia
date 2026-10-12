@@ -108,7 +108,7 @@ export function matchesChannelFilter(video, selectedChannelIds) {
 }
 
 export function isSavedActiveVideo(video) {
-  return ['partial', 'watch-later'].includes(getVideoStatus(video))
+  return hasVideoResumePriority(video) || getVideoStatus(video) === 'watch-later'
 }
 
 export function matchesActiveChannelFilter(video, selectedChannelIds, removedChannelIds) {
@@ -137,7 +137,7 @@ export function getVisibleActiveVideos(videos, includeShorts = true, options = {
   const byChannel = new Map()
 
   const visibleVideos = videos
-    .filter(video => getVideoStatus(video) !== 'watched')
+    .filter(video => getVideoStatus(video) !== 'watched' || hasVideoResumePriority(video))
     .filter(video => !isHiddenFromVideoGrid(video))
     .filter(video => !isHiddenShortVideo(video, includeShorts))
     .sort(compareActiveVideos)

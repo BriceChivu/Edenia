@@ -20,6 +20,17 @@ import {
   normalizeChannelShelfOrder
 } from '../../src/features/videos/feed-selectors.js'
 
+test('unfinished watched replays stay active independently of Favorite', () => {
+  const replay = { id: 'replay', channelId: 'removed-channel', status: 'watched', favorite: false, resumeAtSeconds: 42 }
+  const favoriteReplay = { ...replay, id: 'favorite-replay', favorite: true, resumeAtSeconds: 0 }
+  const completed = { ...replay, id: 'completed', resumeAtSeconds: null }
+  const hidden = { ...replay, id: 'hidden', hiddenFromGrid: true }
+  const removed = { ...replay, id: 'removed', removedFromFeedAt: '2026-08-03T00:00:00.000Z' }
+  assert.deepEqual(getVisibleActiveVideos([replay, favoriteReplay, completed, hidden, removed]).map(video => video.id), ['replay', 'favorite-replay'])
+  assert.equal(isSavedActiveVideo(replay), true)
+  assert.equal(matchesActiveChannelFilter(replay, new Set(), new Set(['removed-channel'])), true)
+})
+
 test('feed timestamps and comparators preserve invalid, pre-epoch, and tie behavior', () => {
   const older = {
     id: 'older',
