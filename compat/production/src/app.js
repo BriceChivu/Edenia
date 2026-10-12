@@ -1209,6 +1209,9 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       storageKey: ACCOUNTLESS_PROFILE_MIGRATION_KEY
     })
   const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
+    // Retained production keeps its prior cadence; the revised coalescing and
+    // handoff budget belong to the current restricted trial.
+    minimumWriteIntervalMs: 0,
     clearOnboardingDraft: onboardingProfileDraftStore.clear,
     createOnboardingEnvelope: onboardingState => (
       createInitialSignedInProfileEnvelope(onboardingState, {

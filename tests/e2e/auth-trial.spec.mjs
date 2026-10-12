@@ -632,7 +632,7 @@ test('offline verified trial retains study changes until reconnect, then definit
   expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(11)
   expect(fixture.commits.length).toBe(commitCount)
   await page.evaluate(()=>{window.trialOnline=true;sessionStorage.removeItem('trial-offline');window.dispatchEvent(new Event('online'))})
-  await expect.poll(()=>fixture.commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===11)).toBe(true)
+  await expect.poll(()=>fixture.commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===11),{timeout:40000}).toBe(true)
   await readyGame(page)
   let rejectedRefreshes=0
   await page.route(origin+'/auth/v1/token*',route=>{rejectedRefreshes+=1;return route.fulfill({status:400,json:{code:'refresh_token_not_found',msg:'Synthetic revoked session'}})})

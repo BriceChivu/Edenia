@@ -288,10 +288,12 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     draftKey: DRAFT_STORAGE_KEY
   })
   await installRuntimeConfig(page, { authTrialEnabled: true, tinySwordsEnabled: false })
+  await page.clock.install()
   let releaseResolution
   let resolutionCount = 0
   let refreshCount = 0
   let headCount = 0
+  let countBackgroundHeads = false
   let headRevision = 12
   let releaseFocusCheck
   let releaseSignoutCheck
@@ -313,10 +315,10 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
       return
     }
     if (url.pathname === '/rest/v1/learner_profile_heads') {
-      headCount += 1
-      if (headCount === 1) await focusBarrier
-      if (headCount === 4) await signoutBarrier
-      if (headCount === 2) {
+      if (countBackgroundHeads) headCount += 1
+      if (countBackgroundHeads && headCount === 1) await focusBarrier
+      if (countBackgroundHeads && headCount === 4) await signoutBarrier
+      if (countBackgroundHeads && headCount === 2) {
         await route.fulfill({ json: { message: 'Synthetic temporary outage' }, status: 500 })
         return
       }
@@ -324,13 +326,17 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
         generation: 4, revision: headRevision }, status: 200 })
       return
     }
-    if (url.pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+    if (['/rest/v1/rpc/commit_my_learner_profile', '/rest/v1/rpc/commit_my_learner_profile_handoff'].includes(url.pathname)) {
       const request = route.request().postDataJSON()
       headRevision = request.p_base_revision + 1
       returningEnvelope = request.p_envelope
       await route.fulfill({ json: [{ status: 'accepted', profile_id: request.p_profile_id,
         generation: request.p_generation, base_revision: request.p_base_revision, revision: headRevision,
         payload_sha256: request.p_envelope.integrity.payloadSha256 }], status: 200 })
+      return
+    }
+    if (url.pathname === '/rest/v1/rpc/read_my_learner_profile_write_receipt') {
+      await route.fulfill({ json: [{ status: 'not_accepted', last_replacement_revision: 0 }], status: 200 })
       return
     }
     if (url.pathname === '/auth/v1/token') {
@@ -416,13 +422,21 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     await expect.poll(() => page.evaluate(query => [...document.scripts].some(script =>
       new URL(script.src || location.href).pathname.endsWith(query ? '/app.js' : '/production-app.js')
     ), experienceQuery)).toBe(true)
-    await page.evaluate(() => {
+    await page.clock.runFor(31_000)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await page.evaluate(async () => {
       const state = window.loadState()
       state.videos['background-video'] = { id: 'background-video', channelId: 'returning-owner-channel',
         title: 'Background lesson', duration: 600, status: 'partial', resumeAtSeconds: 10,
         watchProgress: [], aspectRatio: 16 / 9 }
-      window.saveState(state)
+      await window.saveState(state)
       window.renderAll(state)
+    })
+    // The trial preflights uploads. Complete this fixture's seed upload before
+    // arming the foreground-check barriers; incidental preflights are separate.
+    await page.clock.runFor(31_000)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    await page.evaluate(() => {
       window.playerBuilds = 0
       window.playerDestroys = 0
       window.YT = { PlayerState: { ENDED: 0, PLAYING: 1, PAUSED: 2 }, Player: class {
@@ -453,6 +467,7 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
       window.backgroundAccess = localStorage.getItem(accessKey)
     }, PROFILE_ACCESS_STORAGE_KEY)
     const resolutionAfterActivation = resolutionCount
+    countBackgroundHeads = true
     await page.evaluate(() => {
       window.dispatchEvent(new Event('focus'))
       window.dispatchEvent(new Event('focus'))
@@ -462,7 +477,10 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     expect(resolutionCount).toBe(resolutionAfterActivation)
     await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Checking progress…')
     await expect(page.locator('#mainApp')).toBeVisible()
-    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Checking progress…')
+    // Trial playback captures dated pause observations, so pending delivery
+    // keeps its existing priority over the background-check label.
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(experienceQuery
+      ? 'Saved on this device — waiting to sync.' : 'Checking progress…')
     await expect(page.locator('#learnerProfileOpeningNotice')).toHaveClass(/hidden/)
     expect(await page.evaluate(accessKey => ({
       main: window.backgroundMain === document.getElementById('mainApp'),
@@ -498,13 +516,15 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     await expect.poll(() => headCount).toBe(2)
     expect(resolutionCount).toBe(resolutionAfterFocus)
     await expect(page.locator('#mainApp')).toBeVisible()
-    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Progress check unavailable — will try again.')
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(experienceQuery
+      ? 'Saved on this device — waiting to sync.' : 'Progress check unavailable — will try again.')
     await page.evaluate(() => { window.dispatchEvent(new Event('offline')); window.dispatchEvent(new Event('online')) })
     await expect.poll(() => headCount).toBe(3)
     await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Progress check unavailable — will try again.')
 
     await page.evaluate(() => { window.syntheticPlayer.currentTime = 43 })
     await page.waitForTimeout(1100)
+    countBackgroundHeads = false
     await page.locator('.video-player-overlay').click({ position: { x: 2, y: 2 } })
     await page.reload()
     await expect(page.locator('#mainApp')).toBeVisible()
@@ -513,6 +533,7 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     if (experienceQuery) expect(await page.evaluate(() => window.loadState().tinySwordsIsland)).toEqual(backgroundIsland)
     await page.locator('.gear-btn').click()
     await page.getByRole('button', { name: 'Account' }).click()
+    countBackgroundHeads = true
     await page.evaluate(() => window.dispatchEvent(new Event('focus')))
     await expect.poll(() => headCount).toBe(4)
     const latestSerialized = await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY)
