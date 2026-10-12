@@ -623,3 +623,28 @@ test('a receipt waits for local-save enqueue and begins the next ordinary interv
   await settle()
   assert.equal(server.head().revision, 3)
 })
+
+
+test('locking during an ordinary upload gives its later locally saved candidate one final attempt', async () => {
+  const server = sharedCloud(), ack = deferred()
+  let response, uploads = 0
+  const phone = await openDevice(server, { rpc: async (name, args) => {
+    const result = await server.rpc(name, args)
+    if (name !== 'commit_my_learner_profile_handoff' || ++uploads > 1) return result
+    response = result
+    return ack.promise
+  } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.save()
+  const firstHide = phone.adapter.flushSessionBoundary()
+  const repeatedHide = phone.adapter.flushSessionBoundary()
+  ack.resolve(response)
+  await Promise.all([firstHide, repeatedHide])
+  await settle()
+  assert.equal(server.head().revision, 3)
+  assert.equal(uploads, 2)
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+})

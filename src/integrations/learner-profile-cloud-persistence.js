@@ -4017,7 +4017,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
     sessionBoundaryPending = true
     // The server enforces one early flush per profile per five minutes. In-flight
     // work stays immutable and later input remains in the existing outbox.
-    if (inFlight) return Promise.allSettled([...pumpTasks]).then(() => true)
+    if (inFlight) {
+      const binding = activeBinding
+      const operationId = record.pending.operationId
+      return Promise.allSettled([...pumpTasks]).then(() => {
+        // An ordinary upload already in progress may acknowledge an older
+        // locally saved snapshot. Give its promoted candidate one final attempt,
+        // while preserving server deferrals and avoiding a second retry of the
+        // same failed request or parallel delivery from repeated hide events.
+        if (activeBinding !== binding || !binding.isCurrent() || inFlight
+          || readSyncRecord()?.pending?.operationId === operationId) return true
+        return flushSessionBoundary() || true
+      })
+    }
     record.pending.nextRetryAt = 0
     if (!writeSyncRecord(record)) return false
     return pump().then(() => true)
