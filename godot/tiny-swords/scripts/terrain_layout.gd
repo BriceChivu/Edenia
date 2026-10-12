@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SYNC_CONTRACT = preload("res://scripts/sync_contract.gd")
+
 const BridgeRules = preload("res://scripts/bridge_rules.gd")
 
 const DecorationRules = preload("res://scripts/decoration_rules.gd")
@@ -1157,10 +1159,7 @@ func snapshot() -> Dictionary:
 	# Godot owns gameplay meaning. Exact animal positions remain in the portable
 	# snapshot for restoration; ambient wandering is not a competing learner edit.
 	# Counts, inventory, terrain, structures and resources still affect identity.
-	var semantic := saved.duplicate(true)
-	semantic.chickens = chickens.size()
-	semantic.sheep = sheep.size()
-	saved.sync_semantics = {"version": 1, "sha256": JSON.stringify(semantic, "", true).sha256_text(), "ambient_arrays": ["chickens", "sheep"]}
+	saved.sync_semantics = SYNC_CONTRACT.identity(saved)
 	return saved
 
 func restore(data: Dictionary) -> bool:

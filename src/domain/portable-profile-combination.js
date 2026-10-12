@@ -1,5 +1,6 @@
 import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
 import { validateTownEconomy } from '../state/town-economy.js'
+import islandSyncContract from '../../godot/tiny-swords/sync_contract.json' with { type: 'json' }
 
 export const PROFILE_CHANGE_MAX_BYTES = 128 * 1024
 const ROOTS = new Set(['config', 'learnerProfile', 'onboarding', 'noAnkiFrequentUserPrompt', 'videos', 'anki', 'activityLog', 'cityProgress', 'legacyCityProgress', 'townEconomy', 'tinySwordsIsland'])
@@ -13,8 +14,9 @@ const equal = (a, b) => a === undefined || b === undefined ? a === b : canonical
 function semanticIsland(value) {
   const identity = value?.sync_semantics
   // Godot owns this identity and the rules for what constitutes gameplay.
-  if (identity?.version !== 1 || !/^[a-f0-9]{64}$/.test(identity.sha256)
-    || !Array.isArray(identity.ambient_arrays) || !identity.ambient_arrays.length
+  if (identity?.version !== islandSyncContract.version || !/^[a-f0-9]{64}$/.test(identity.sha256)
+    || !Array.isArray(identity.ambient_arrays)
+    || !equal(identity.ambient_arrays, islandSyncContract.ambient_arrays) || !identity.ambient_arrays.length
     || identity.ambient_arrays.length > 8 || new Set(identity.ambient_arrays).size !== identity.ambient_arrays.length
     || identity.ambient_arrays.some(key => typeof key !== 'string' || BAD_KEYS.has(key) || key === 'sync_semantics' || !Array.isArray(value[key]))) return value
   const projected = { ...value }

@@ -564,3 +564,62 @@ test('final flush waits for an existing upload before lifecycle teardown', async
   assert.equal(finished, true)
   assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
 })
+
+test('animal wandering during acknowledgement does not create another full-profile upload', async () => {
+  const server = sharedCloud(), ack = deferred()
+  let response
+  const phone = await openDevice(server, { rpc: async (name, args) => {
+    const result = await server.rpc(name, args)
+    if (name !== 'commit_my_learner_profile_handoff') return result
+    response = result
+    return ack.promise
+  } })
+  phone.profile.tinySwordsIsland = { sync_semantics: { version: 1, sha256: 'a'.repeat(64), ambient_arrays: ['chickens', 'sheep'] }, chickens: [[0, 0]], sheep: [], resources: { wood: 1 } }
+  phone.save()
+  await settle()
+  phone.profile.tinySwordsIsland.chickens = [[10, 20]]
+  phone.save()
+  phone.setTime(10000)
+  ack.resolve(response)
+  await settle()
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+  phone.setTime(41000)
+  phone.profile.tinySwordsIsland.chickens = [[20, 30]]
+  phone.save()
+  await settle()
+  assert.equal(server.head().revision, 2)
+  phone.profile.tinySwordsIsland.resources.wood = 2
+  phone.save()
+  await settle()
+  assert.equal(server.head().revision, 3, 'Meaningful island changes still upload')
+})
+
+test('a receipt waits for local-save enqueue and begins the next ordinary interval at acknowledgement', async () => {
+  const server = sharedCloud(), ack = deferred()
+  let response
+  const phone = await openDevice(server, { rpc: async (name, args) => {
+    const result = await server.rpc(name, args)
+    if (name !== 'commit_my_learner_profile_handoff') return result
+    response = result
+    return ack.promise
+  } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  // The live object has changed, but its second local transaction has not
+  // completed yet, so lifecycle has not called cloud save for it.
+  phone.profile.videos.phone.watchLater = true
+  phone.setTime(35000)
+  ack.resolve(response)
+  await settle()
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+  assert.equal(server.head().revision, 2)
+  phone.save() // Local transaction completes and lifecycle enqueues it.
+  await settle()
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending.nextRetryAt, 65000)
+  assert.equal(server.head().revision, 2)
+  phone.setTime(65000)
+  phone.eventTarget.dispatch('focus')
+  await settle()
+  assert.equal(server.head().revision, 3)
+})

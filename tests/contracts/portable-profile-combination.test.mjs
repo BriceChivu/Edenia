@@ -105,3 +105,11 @@ test('same-video sequential playback retains both study facts and the latest dat
   cloud.videos.a.pausedAt = null
   assert.equal(combinePortableProfiles(base, local, cloud), null)
 })
+
+test('a profile cannot declare meaningful building arrays as ambient', () => {
+  const base = { tinySwordsIsland: { sync_semantics: { version: 1, sha256: 'a'.repeat(64), ambient_arrays: ['buildings'] }, buildings: [{ type: 'farm' }] } }
+  const local = clone(base), cloud = clone(base)
+  local.tinySwordsIsland.buildings[0].type = 'sawmill'
+  cloud.tinySwordsIsland.buildings[0].type = 'house'
+  assert.equal(combinePortableProfiles(base, local, cloud), null)
+})

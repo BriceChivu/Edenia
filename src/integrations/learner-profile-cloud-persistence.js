@@ -373,6 +373,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return sha256Base64UrlSync(canonicalizeJson(prepareEnvelope(profile).profile))
   }
 
+  function syncProfileDigest(profile) {
+    return handoffEnabled
+      ? portableProfileChangeDigest(prepareEnvelope(profile).profile)
+      : profileDigest(profile)
+  }
+
   function studyProfileDigest(profile) {
     try { return profileDigest({ ...profile, tinySwordsIsland: null }) }
     catch { return null }
@@ -2300,6 +2306,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
           current.queued = null
           if (handoffEnabled) {
             binding.baseProfile = envelope.profile
+            // Count the coalescing interval from acknowledgement so a slow
+            // request cannot immediately send another large envelope.
+            nextAutomaticWriteAt = Math.max(nextAutomaticWriteAt, now() + Math.max(0, minimumWriteIntervalMs))
+            const queuedCandidate = current.pending?.envelope || current.pending?.prepared
+            if (queuedCandidate && syncProfileDigest(queuedCandidate.profile) === syncProfileDigest(envelope.profile)) {
+              current.pending = null
+            }
             sessionBoundaryPending = false
             if (current.pending) {
               current.pending.nextRetryAt = Math.max(current.pending.nextRetryAt, nextAutomaticWriteAt)
@@ -2315,7 +2328,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
             binding.revision = current.acceptedRevision
             binding.checkpointStudyDigest = studyProfileDigest(envelope.profile)
             if (minimumWriteIntervalMs > 0) {
-              binding.acceptedProfileDigest = profileDigest(envelope.profile)
+              binding.acceptedProfileDigest = syncProfileDigest(envelope.profile)
             }
             if (
               current.pending === null
@@ -2332,7 +2345,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
                   revision: current.acceptedRevision
                 }
               })
-              if (!current.pending) {
+              // Trial saves enter the outbox only after local persistence
+              // completes. A receipt must not capture a still-mutating object.
+              if (!handoffEnabled && !current.pending) {
                 queueLatestActiveProfileIfChanged(envelope)
               }
             }
@@ -3954,7 +3969,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (minimumWriteIntervalMs > 0 && !record.pending && !record.queued
       && activeBinding.acceptedProfileDigest) {
       try {
-        if (profileDigest(profile) === activeBinding.acceptedProfileDigest
+        if (syncProfileDigest(profile) === activeBinding.acceptedProfileDigest
           && clearDirtyRecord(record)) {
           publish('up-to-date')
           return { status: 'queued' }

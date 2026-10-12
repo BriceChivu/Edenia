@@ -111,7 +111,7 @@ jobs:
                   run_supabase=true
                   run_supabase_db=true
                   ;;
-                supabase/migrations/*_start_over_learner_profile.sql|supabase/tests/learner_profile_start_over.test.sql)
+                supabase/migrations/*_start_over_learner_profile.sql|supabase/tests/learner_profile_start_over.test.sql|supabase/migrations/*_bounded_profile_handoff.sql|supabase/tests/learner_profile_handoff.test.sql)
                   run_supabase=true
                   run_supabase_db=true
                   ;;
