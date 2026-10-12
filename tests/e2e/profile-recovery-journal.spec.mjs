@@ -103,3 +103,127 @@ test('an unreadable recovery head reports the read failure without erasing ackno
   expect(result.errorName).toBe('SecurityError')
   expect(result.saved.raw).toBe('acknowledged')
 })
+
+for (const operation of ['read', 'save']) test(`a closed recovery connection reopens for ${operation} and retains acknowledged progress`, async ({ page }) => {
+  const result = await page.evaluate(async operation => {
+    const { createProfileRecoveryJournal } = await import('/__recovery-journal.js')
+    const connections = []
+    const journal = createProfileRecoveryJournal({ namespace: 'closed-recovery', indexedDb: {
+      open(...args) {
+        const request = indexedDB.open(...args)
+        request.addEventListener('success', () => connections.push(request.result))
+        return request
+      }
+    } })
+    await journal.save('acknowledged progress', null)
+    connections.at(-1).close()
+    let error = null
+    try {
+      if (operation === 'save') await journal.save('later progress', 'acknowledged progress')
+      else await journal.read()
+    } catch (failure) { error = failure.name }
+    // An independent reader proves the database itself remains available.
+    const fresh = createProfileRecoveryJournal({ namespace: 'closed-recovery', indexedDb: indexedDB })
+    const persisted = await fresh.read()
+    journal.close(); fresh.close()
+    return { error, persisted, connections: connections.length }
+  }, operation)
+  expect(result.error).toBeNull()
+  expect(result.connections).toBe(2)
+  expect(result.persisted.raw).toBe(operation === 'save' ? 'later progress' : 'acknowledged progress')
+})
+
+test('reopening still checks the latest head and cancels retired profile work', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { createProfileRecoveryJournal } = await import('/__recovery-journal.js')
+    let connection
+    const namespace = 'reopened-fences'
+    const journal = createProfileRecoveryJournal({ namespace, indexedDb: {
+      open(...args) {
+        const request = indexedDB.open(...args)
+        request.addEventListener('success', () => { connection = request.result })
+        return request
+      }
+    } })
+    const peer = createProfileRecoveryJournal({ namespace, indexedDb: indexedDB })
+    await journal.save('original progress', null)
+    connection.close()
+    await peer.save('peer progress', 'original progress')
+    const collision = await journal.save('recent progress', 'original progress')
+    connection.close()
+    const cancelled = await journal.save('retired owner progress', 'peer progress', {
+      consumedIds: [collision.candidate.id], canPersist: () => false
+    })
+    const saved = await peer.read()
+    journal.close(); peer.close()
+    return { collision, cancelled, saved }
+  })
+  expect(result.collision.saved).toBe(false)
+  expect(result.cancelled.cancelled).toBe(true)
+  expect(result.saved.raw).toBe('peer progress')
+  expect(result.saved.candidates.map(copy => copy.raw)).toEqual(['recent progress'])
+})
+
+test('an unavailable reopened connection fails after one retry and keeps the saved head', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { createProfileRecoveryJournal } = await import('/__recovery-journal.js')
+    let connection
+    let opens = 0
+    const journal = createProfileRecoveryJournal({ namespace: 'bounded-reconnect', indexedDb: {
+      open(...args) {
+        opens += 1
+        const request = indexedDB.open(...args)
+        request.addEventListener('success', () => {
+          connection = request.result
+          if (opens > 1) connection.close()
+        })
+        return request
+      }
+    } })
+    await journal.save('acknowledged progress', null)
+    connection.close()
+    let error
+    try { await journal.save('new progress', 'acknowledged progress') } catch (failure) { error = failure.name }
+    const fresh = createProfileRecoveryJournal({ namespace: 'bounded-reconnect', indexedDb: indexedDB })
+    const saved = await fresh.read()
+    journal.close(); fresh.close()
+    return { error, opens, saved }
+  })
+  expect(result.error).toBe('InvalidStateError')
+  expect(result.opens).toBe(2)
+  expect(result.saved.raw).toBe('acknowledged progress')
+})
+
+test('an archive transaction timeout preserves the head and reopens for the next save', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { createProfileRecoveryJournal } = await import('/__recovery-journal.js')
+    let opens = 0
+    const journal = createProfileRecoveryJournal({ namespace: 'timed-out-recovery', timeoutMs: 100, indexedDb: {
+      open(...args) { opens += 1; return indexedDB.open(...args) }
+    } })
+    await journal.save('acknowledged progress', null)
+    const transact = IDBDatabase.prototype.transaction
+    IDBDatabase.prototype.transaction = function (...args) {
+      const tx = transact.apply(this, args)
+      if (this.name === 'edenia_profile_recovery_v1' && args[1] === 'readwrite') {
+        const heads = tx.objectStore('heads')
+        const hold = () => { try { heads.get('fixture-hold').onsuccess = hold } catch {} }
+        hold()
+      }
+      return tx
+    }
+    let error
+    try { await journal.save('timed-out progress', 'acknowledged progress') } catch (failure) { error = failure.message }
+    finally { IDBDatabase.prototype.transaction = transact }
+    const afterTimeout = await journal.read()
+    const next = await journal.save('later progress', afterTimeout.raw)
+    const saved = await journal.read()
+    journal.close()
+    return { error, opens, afterTimeout, next, saved }
+  })
+  expect(result.error).toBe('Recovery archive transaction timed out')
+  expect(result.opens).toBe(2)
+  expect(result.afterTimeout.raw).toBe('acknowledged progress')
+  expect(result.next.saved).toBe(true)
+  expect(result.saved.raw).toBe('later progress')
+})

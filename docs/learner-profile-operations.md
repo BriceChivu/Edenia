@@ -226,6 +226,11 @@ native and journal edits merge, and interrupted competing candidates reopen a
 progress choice. Archive writes require transaction completion and readback
 before promotion. Edits made during asynchronous archive completion keep the
 workspace active. Journal failures use the existing automatic diagnostic path.
+A closed recovery connection is discarded and reopened once when a transaction
+cannot start (`InvalidStateError`). The reopened transaction checks the head and
+ownership fence again. A transaction that times out is aborted and its connection
+discarded; it is not replayed, because its commit outcome may be uncertain. The
+next attempt uses a fresh connection and retains conflicting candidates.
 An active workspace resumes on reload. Focus, connectivity restoration and a
 one-minute timer attempt reconciliation without a storage-error screen.
 Accountless progress uses a three-way comparison against the acknowledged
@@ -233,6 +238,18 @@ baseline. Compatible changes merge automatically; competing changes show
 "Recent progress" and "Saved progress" with study-detail comparisons. Choices
 and automatic promotion retain both copies in the archived workspace.
 Intentional replacements require a choice if old progress changed meanwhile.
+Independent additions to the activity log merge by immutable entry ID, retaining
+the normal history limits. Editing, clearing or reordering existing history is
+still a conflict. This prevents starter-feed preparation and ordinary automatic
+feed refreshes from rejecting an otherwise compatible learner save solely because
+both operations appended a log. Browser regressions exercise both paths with a
+simultaneous study save and verify that study facts, fetched videos and both log
+entries survive reload.
+Automatic study-summary observations use the same per-key history merge in the
+island and retained town bundles. Different observation times must not reject an
+otherwise compatible study or preference change.
+Independent initialization of a missing Anki-disabled timestamp retains the
+earliest observation; concurrent edits to an existing timestamp remain a conflict.
 Signed-in progress first passes existing verified cloud replay, conflict and
 generation checks. Original ownership or reset-generation changes prevent local
 promotion. Exact metadata, workspace and IndexedDB revision checks cancel a
