@@ -24,6 +24,32 @@ head, a protected version, or a profile's study contents. The maintenance
 function locks the profile tables while it selects and deletes candidates, so a
 concurrent profile write waits for a complete dry run or apply operation.
 
+## Cloud-save validation performance
+
+Profile acceptance keeps the existing canonical bytes, byte-length limit, SHA-256
+integrity, schema and study-fact checks. Recursive serialization handles scalar
+values directly, and validation reuses one canonical profile traversal for both
+the full-envelope byte length and the integrity payload. Stored profiles and
+operation receipts retain their byte format; no profile rewrite is required.
+
+Use `scripts/diagnostics/cloud-profile-save.mjs` against an isolated local
+Supabase Docker database with current migrations. It generates a 1.74 MB profile,
+measures validation, serialization, an authenticated commit and its exact retry,
+and verifies the complete saved envelope, revision, retained predecessor and
+receipt count. Fixture writes and optional baseline function definitions roll
+back together. The default 500 ms commit budget is a local diagnostic threshold,
+not a production latency guarantee or a CI wall-clock gate.
+
+```sh
+node scripts/diagnostics/cloud-profile-save.mjs \
+  --container=supabase_db_edenia-cloud-save-perf --docker-context=colima
+```
+
+Add `--baseline-ref=763670ddd37e03a7acc53e1a0c8c573c213d7af9` to compare the
+pre-optimization functions on the same input and database. The baseline is
+expected to exceed the diagnostic budget. Use `--max-ms` to set an explicit budget
+for a different local machine, and keep its value identical for both runs.
+
 ## Capacity gate
 
 The initial policy records the current Free database limit as 500 MiB, warns at
