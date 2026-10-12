@@ -608,14 +608,18 @@ test('a receipt waits for local-save enqueue and begins the next ordinary interv
   await settle()
   // The live object has changed, but its second local transaction has not
   // completed yet, so lifecycle has not called cloud save for it.
+  assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
   phone.profile.videos.phone.watchLater = true
   phone.setTime(35000)
   ack.resolve(response)
   await settle()
   assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
   assert.equal(server.head().revision, 2)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), 'The earlier receipt must preserve the later unfinished local save marker')
+  assert.notEqual(phone.adapter.getState().status, 'up-to-date')
   phone.save() // Local transaction completes and lifecycle enqueues it.
   await settle()
+  assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
   assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending.nextRetryAt, 65000)
   assert.equal(server.head().revision, 2)
   phone.setTime(65000)

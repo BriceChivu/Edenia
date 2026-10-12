@@ -2332,11 +2332,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
             }
             if (
               current.pending === null
+              && !handoffEnabled
               && !clearDirtyRecord(current)
             ) {
               publish('needs-attention')
             } else {
-              publish(current.pending ? 'syncing' : 'up-to-date', {
+              // Durable enqueue already clears the trial's dirty marker. Any
+              // marker still present belongs to an unfinished/newer local save;
+              // this older receipt must neither erase it nor claim completion.
+              publish(current.pending || (handoffEnabled && readDirtyRecord().present) ? 'syncing' : 'up-to-date', {
                 accepted: {
                   activation: binding.activation,
                   generation: operation.generation,
