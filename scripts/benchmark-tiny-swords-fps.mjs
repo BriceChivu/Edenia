@@ -17,6 +17,9 @@ const output = resolve(arg('--output', '.cache/tiny-swords-fps-benchmark.json'))
 const phone = process.argv.includes('--phone')
 const headless = process.argv.includes('--headless')
 const throttle = Number(arg('--cpu-throttle', '1'))
+const indexedDb = process.argv.includes('--indexed-db')
+const cpuProfile = process.argv.includes('--profile-cpu')
+const suspendAudio = process.argv.includes('--suspend-audio')
 const browser = await chromium.launch({ headless, ...(process.argv.includes('--chrome') ? { channel: 'chrome' } : {}) })
 try {
   const context = await browser.newContext({
@@ -55,6 +58,12 @@ try {
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, { island, corpus })
   await page.unroute('**/tiny-swords-game/*/index.html*')
+  if (indexedDb) {
+    await page.route('**/config.local.js*', async route => {
+      const response = await route.fetch()
+      await route.fulfill({ response, body: (await response.text()) + '\nObject.assign(window.EDENIA_CONFIG, {indexedDbProfileEnabled:true,indexedDbBackupsEnabled:true,indexedDbBackupCleanupEnabled:true});' })
+    })
+  }
   await page.reload({ waitUntil: 'domcontentloaded' })
   const surface = page.locator('#tinySwordsSurface')
   await surface.scrollIntoViewIfNeeded()
@@ -66,6 +75,16 @@ try {
   // Browser scroll anchoring can otherwise retain the earlier feed position.
   await surface.scrollIntoViewIfNeeded()
   await game.waitForFunction(() => !window.edeniaPresentationSuspended)
+  // Real play begins with a trusted canvas gesture (which also unlocks Web
+  // Audio). Open/close the Godot test control without changing the island.
+  const canvas = game.locator('#canvas')
+  for (let click = 0; click < 2; click++) {
+    if (phone) {
+      const box = await canvas.boundingBox()
+      await page.touchscreen.tap(box.x + 70, box.y + 28)
+    } else await canvas.click({ position: { x: 70, y: 28 } })
+    await game.waitForTimeout(300)
+  }
   const restored = await page.evaluate(() => loadState().tinySwordsIsland)
   if (restored.tiles.length !== island.tiles.length || restored.tree_offsets.length !== island.tree_offsets.length
     || restored.sheep.length !== 2 || restored.chickens.length !== 2) throw new Error('Benchmark island was not retained intact')
@@ -76,6 +95,10 @@ try {
   if (library.videos !== 1000 || library.renderedCards === 0) throw new Error('Real-video feed was not loaded')
   const session = await context.newCDPSession(page)
   await session.send('Performance.enable')
+  if (cpuProfile) {
+    await session.send('Profiler.enable')
+    await session.send('Profiler.setSamplingInterval', { interval: 1000 })
+  }
   if (throttle !== 1) await session.send('Emulation.setCPUThrottlingRate', { rate: throttle })
   const scenarios = []
   const sampleMs = Number(arg('--sample-ms', '10000'))
@@ -88,10 +111,13 @@ try {
     await game.waitForTimeout(2000)
     await surface.scrollIntoViewIfNeeded()
     await game.waitForFunction(() => !window.edeniaPresentationSuspended)
+    if (suspendAudio) await game.evaluate(() => window.edeniaFrameTest.suspendAudio())
     const pageRounds = []
-    let previousMetrics = Object.fromEntries((await session.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
+    if (cpuProfile) await session.send('Profiler.start')
     const started = await game.evaluate(sampleMs => window.edeniaFrameTest.startComparison({ sampleMs }), sampleMs)
     if (!started) throw new Error('Game was not ready for comparison')
+    // Exclude initial route selection/setup from the first 60 FPS round.
+    let previousMetrics = Object.fromEntries((await session.send('Performance.getMetrics')).metrics.map(item => [item.name, item.value]))
     let phase = 0
     const deadline = Date.now() + 4 * (sampleMs + 2000) + 30000
     while (true) {
@@ -111,6 +137,11 @@ try {
       if (Date.now() > deadline) throw new Error('Comparison timed out')
     }
     const state = await game.evaluate(() => window.edeniaFrameTest.getState())
+    if (cpuProfile) {
+      const { profile } = await session.send('Profiler.stop')
+      await mkdir(dirname(output), { recursive: true })
+      await writeFile(output.replace(/\.json$/, `-${scenario}.cpuprofile`), JSON.stringify(profile))
+    }
     if (!state.report) {
       await page.screenshot({ path: output.replace(/\.json$/, '-cancelled.png') })
       console.log(await page.evaluate(() => ({ scrollY, bodyClass: document.body.className,
@@ -138,7 +169,7 @@ try {
   })
   const evidence = { recordedAt: new Date().toISOString(), browserVersion: browser.version(),
     hostModel: spawnSync('sysctl', ['-n', 'hw.model'], { encoding: 'utf8' }).stdout?.trim(),
-    headless, phoneEmulation: phone, cpuThrottle: throttle, renderer,
+    headless, phoneEmulation: phone, cpuThrottle: throttle, renderer, indexedDb, cpuProfile, suspendAudio,
     physicalPhone: false, library, corpusFetchedAt: corpus.fetchedAt,
     fixture: { tiles: restored.tiles.length, trees: restored.tree_offsets.length, sheep: restored.sheep.length, chickens: restored.chickens.length }, errors, scenarios }
   await mkdir(dirname(output), { recursive: true })

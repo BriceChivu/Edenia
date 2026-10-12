@@ -22,3 +22,5 @@ func set_presented(world: Node, presented: bool) -> void:
 	# JavaScriptBridge.eval returns JS booleans as an integer in this engine.
 	if applied:
 		suspended = not presented
+		if presented:
+			JavaScriptBridge.eval("window.edeniaFrameTest?.refreshDisplay()")

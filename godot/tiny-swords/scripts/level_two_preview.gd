@@ -1294,6 +1294,9 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 		target = point
 	candidates.append(target)
 	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty():
+		if bool(ProjectSettings.get_setting("gameplay/direct_walk_routes_enabled", false)) and clear_segment(start_point, target):
+			route.append(target)
+			return route
 		candidates = tree_navigation_path(start_point, target)
 		if candidates.is_empty():
 			return route

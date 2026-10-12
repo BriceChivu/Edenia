@@ -8,11 +8,11 @@
 
   let targetFps = Number(requested)
   let nextFrame = null
-  let lastRAF = null
-  let rafCount = 0
-  const refreshIntervals = []
+  let nativeDivisor = 0
+  let calibration = 0
   let started = 0
   let previous = null
+  let previousWorkMs = 0
   let phase = -1
   let phaseStart = 0
   let samples = []
@@ -28,32 +28,41 @@
     return { width: canvas?.width, height: canvas?.height, dpr: devicePixelRatio }
   }
   let comparisonSize = null
+  let longTasks = []
+  let probes = []
+  const observerSupport = { game: false, host: false }
+  const observers = []
+  for (const [scope, context] of [['game', window], ['host', window.parent]]) {
+    try {
+      if (!context?.PerformanceObserver || scope === 'host' && context === window) continue
+      const observer = new context.PerformanceObserver(list => {
+        if (phase < 0) return
+        for (const entry of list.getEntries()) {
+          longTasks.push({ scope, atEpochMs: context.performance.timeOrigin + entry.startTime,
+            durationMs: entry.duration, attribution: entry.name })
+          if (longTasks.length > 500) longTasks.shift()
+        }
+      })
+      observer.observe({ type: 'longtask', buffered: false })
+      observers.push(observer)
+      observerSupport[scope] = true
+    } catch {}
+  }
+  // Parent observers hold this iframe's callback; release them when the engine
+  // is retired so retries/profile replacements cannot retain a WASM instance.
+  addEventListener('pagehide', () => { for (const observer of observers) observer.disconnect() })
+  addEventListener('pageshow', event => {
+    if (event.persisted) for (const observer of observers) observer.observe({ type: 'longtask', buffered: false })
+  })
 
-  // Gate only the engine's RAF callback. Browser input and page rendering retain
-  // their refresh rate. A timestamp budget also caps 90/120/144 Hz displays.
-  MainLoop.requestAnimationFrame = callback => {
+  // Native RAF divisors are the cheapest and most stable option when the
+  // selected rate aligns with display refresh. Timestamp gating handles other
+  // refresh rates without blocking the single-threaded engine.
+  const gatedRAF = callback => {
     const generation = MainLoop.currentlyRunningMainloop
     const tick = timestamp => {
       if (generation !== MainLoop.currentlyRunningMainloop) return
-      if (lastRAF !== null && timestamp > lastRAF && timestamp - lastRAF < 100) {
-        refreshIntervals.push(timestamp - lastRAF)
-        if (refreshIntervals.length > 60) refreshIntervals.shift()
-      }
-      lastRAF = timestamp
-      // Align integer rates to actual display ticks, including fractional
-      // 59.94Hz displays. Absolute 33.333ms deadlines otherwise drift and
-      // introduce avoidable 16/50ms pairs. Use a robust refresh estimate so an
-      // occasional missed callback does not halve our inferred refresh rate.
-      if (refreshIntervals.length >= 12) {
-        const ratio = 1000 / percentile(refreshIntervals, 0.2) / targetFps
-        const divisor = Math.max(1, Math.round(ratio))
-        if (Math.abs(ratio - divisor) / divisor < 0.02) {
-          rafCount++
-          if (rafCount % divisor === 0) callback(timestamp)
-          else originalRAF(tick)
-          return
-        }
-      }
+      if (nativeDivisor > 0) { callback(timestamp); return }
       const period = 1000 / targetFps
       if (nextFrame === null || timestamp + 0.75 >= nextFrame) {
         nextFrame = nextFrame === null || timestamp - nextFrame > period
@@ -63,13 +72,32 @@
     }
     originalRAF(tick)
   }
-
+  const refreshDisplay = () => {
+    const version = ++calibration
+    const intervals = []
+    let last = null
+    const sample = timestamp => {
+      if (version !== calibration) return
+      if (document.hidden || window.edeniaPresentationSuspended) return
+      if (last !== null && timestamp > last && timestamp - last < 100) intervals.push(timestamp - last)
+      last = timestamp
+      if (intervals.length < 12) { requestAnimationFrame(sample); return }
+      const ratio = 1000 / percentile(intervals, 0.2) / targetFps
+      const divisor = Math.max(1, Math.round(ratio))
+      nativeDivisor = Math.abs(ratio - divisor) / divisor < 0.02 ? divisor : 0
+      MainLoop.requestAnimationFrame = nativeDivisor ? originalRAF : gatedRAF
+      nextFrame = null
+      _emscripten_set_main_loop_timing(1, nativeDivisor || 1)
+    }
+    requestAnimationFrame(sample)
+  }
   const setFps = fps => {
     if (![30, 60].includes(fps)) return false
     targetFps = fps
     nextFrame = null
-    rafCount = 0
-    lastRAF = null
+    nativeDivisor = 0
+    MainLoop.requestAnimationFrame = gatedRAF
+    refreshDisplay()
     // Never use Engine.max_fps's blocking sleep on the single-threaded web build.
     return _emscripten_set_main_loop_timing(1, 1) === 0
   }
@@ -107,10 +135,15 @@
     const trial = summarize(rounds.filter(item => item.fps === 30).flatMap(item => item.samples), 30)
     window.edeniaFrameTestMotion?.('finish')
     report = {
-      version: 1, recordedAt: new Date().toISOString(), userAgent: navigator.userAgent,
+      version: 2, recordedAt: new Date().toISOString(), userAgent: navigator.userAgent,
       canvas: comparisonSize, warmupMs: warmup, sampleMsPerRound: duration, order,
       control, trial,
       movement: window.edeniaFrameTestMotionInfo || null,
+      directWalkRoutesEnabled: window.edeniaFrameTestNavigationFastPath === true,
+      audioState: typeof GodotAudio === 'object' ? GodotAudio.ctx?.state || 'unavailable' : 'unavailable',
+      longTaskObserverSupport: observerSupport, longTasks,
+      probes,
+      stalls: rounds.flatMap(round => round.samples.filter(item => item.intervalMs > 50).map(item => ({ ...item, targetFps: round.fps }))),
       workReductionPct: 100 * (1 - trial.mainLoopWorkMsPerSecond / control.mainLoopWorkMsPerSecond),
       missedDeadlineChangePoints: trial.missedDeadlinePct - control.missedDeadlinePct,
       rounds: rounds.map(item => summarize(item.samples, item.fps)),
@@ -126,6 +159,8 @@
   MainLoop.postMainLoop.push(() => {
     const ended = performance.now()
     const intervalMs = previous === null ? 0 : started - previous
+    const priorWorkMs = previousWorkMs
+    previousWorkMs = ended - started
     previous = started
     if (phase < 0) return
     // Count visible long stalls: they are the symptom we are measuring. Actual
@@ -140,7 +175,8 @@
     }
     const elapsed = ended - phaseStart
     status = `${order[phase]} FPS · round ${phase + 1}/4 · ${Math.max(0, Math.ceil((warmup + duration - elapsed) / 1000))}s`
-    if (elapsed >= warmup && intervalMs > 0) samples.push({ intervalMs, workMs: ended - started })
+    if (elapsed >= warmup && intervalMs > 0) samples.push({ intervalMs, workMs: ended - started,
+      previousWorkMs: priorWorkMs, atEpochMs: performance.timeOrigin + started })
     if (elapsed < warmup + duration) return
     rounds.push({ fps: order[phase], samples })
     samples = []
@@ -152,6 +188,20 @@
   })
   addEventListener('visibilitychange', () => { if (document.hidden && phase >= 0) cancel('page hidden') })
   window.edeniaFrameTest = {
+    refreshDisplay,
+    async suspendAudio() {
+      const context = typeof GodotAudio === 'object' ? GodotAudio.ctx : null
+      if (!context) return 'unavailable'
+      if (context.state !== 'running') return context.state
+      await Promise.race([context.suspend(), new Promise(resolve => setTimeout(resolve, 1000))])
+      return context.state
+    },
+    recordProbe(operation, durationMs, atEpochMs) {
+      if (phase >= 0 && durationMs >= 10) {
+        probes.push({ operation, durationMs, atEpochMs })
+        if (probes.length > 200) probes.shift()
+      }
+    },
     cancel(reason) { if (phase >= 0) cancel(reason) },
     setFps(fps) {
       if (phase >= 0) cancel('FPS changed')
@@ -171,6 +221,8 @@
       comparisonSize = initialSize()
       samples = []
       rounds = []
+      longTasks = []
+      probes = []
       report = null
       status = 'Starting'
       return setFps(order[phase])

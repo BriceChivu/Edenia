@@ -1,0 +1,534 @@
+{
+  "recordedAt": "2026-10-12T14:00:59.468Z",
+  "browserVersion": "155.0.8059.40",
+  "hostModel": "Mac15,13",
+  "headless": false,
+  "phoneEmulation": true,
+  "cpuThrottle": 4,
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)",
+  "indexedDb": true,
+  "cpuProfile": true,
+  "physicalPhone": false,
+  "library": {
+    "videos": 1000,
+    "channels": 11,
+    "renderedCards": 5,
+    "loadedThumbnails": 2,
+    "documentNodes": 1129
+  },
+  "corpusFetchedAt": "2026-10-12T13:28:20.977Z",
+  "fixture": {
+    "tiles": 32,
+    "trees": 4,
+    "sheep": 2,
+    "chickens": 2
+  },
+  "errors": [],
+  "scenarios": [
+    {
+      "scenario": "walking",
+      "version": 2,
+      "recordedAt": "2026-10-12T14:00:28.100Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "canvas": {
+        "width": 1032,
+        "height": 666,
+        "dpr": 3
+      },
+      "warmupMs": 2000,
+      "sampleMsPerRound": 5000,
+      "order": [
+        60,
+        30,
+        30,
+        60
+      ],
+      "control": {
+        "targetFps": 60,
+        "frames": 587,
+        "elapsedMs": 10034.199999999255,
+        "actualFps": 58.499930238588384,
+        "p50FrameMs": 16.699999999254942,
+        "p95FrameMs": 18.699999999254942,
+        "p99FrameMs": 33.600000001490116,
+        "missedDeadlinePct": 2.5553662691652472,
+        "stallsOver50Ms": 1,
+        "meanWorkMs": 6.242759795583391,
+        "p95WorkMs": 8.5,
+        "mainLoopWorkMsPerSecond": 365.20101253789267
+      },
+      "trial": {
+        "targetFps": 30,
+        "frames": 301,
+        "elapsedMs": 10049.699999999255,
+        "actualFps": 29.951142820185908,
+        "p50FrameMs": 33.399999998509884,
+        "p95FrameMs": 50.099999997764826,
+        "p99FrameMs": 51.100000001490116,
+        "missedDeadlinePct": 5.3156146179401995,
+        "stallsOver50Ms": 16,
+        "meanWorkMs": 6.8305647840531565,
+        "p95WorkMs": 9.5,
+        "mainLoopWorkMsPerSecond": 204.5832213897084
+      },
+      "movement": {
+        "distancePixels": 1964.27476394176,
+        "routeLengthPixels": 344.650543212891,
+        "speedPixelsPerSecond": 70
+      },
+      "longTaskObserverSupport": {
+        "game": true,
+        "host": true
+      },
+      "longTasks": [
+        {
+          "scope": "host",
+          "atEpochMs": 1791813602443.5,
+          "durationMs": 53,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813602443.5,
+          "durationMs": 53,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813608527.4,
+          "durationMs": 75,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813608527.4,
+          "durationMs": 75,
+          "attribution": "self"
+        }
+      ],
+      "probes": [],
+      "stalls": [
+        {
+          "intervalMs": 53.80000000074506,
+          "workMs": 6.5,
+          "previousWorkMs": 51.19999999925494,
+          "atEpochMs": 1791813602497.5,
+          "targetFps": 60
+        },
+        {
+          "intervalMs": 50.099999997764826,
+          "workMs": 7.700000002980232,
+          "previousWorkMs": 7.5,
+          "atEpochMs": 1791813609278.6,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.19999999925494,
+          "workMs": 8.700000002980232,
+          "previousWorkMs": 5.300000000745058,
+          "atEpochMs": 1791813610245.6,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.70000000298023,
+          "workMs": 8.699999999254942,
+          "previousWorkMs": 7,
+          "atEpochMs": 1791813610879.8,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 52.19999999925494,
+          "workMs": 5.900000002235174,
+          "previousWorkMs": 10.399999998509884,
+          "atEpochMs": 1791813611114.4,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.19999999925494,
+          "workMs": 6.699999999254942,
+          "previousWorkMs": 5.800000000745058,
+          "atEpochMs": 1791813611245.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.19999999925494,
+          "workMs": 6.900000002235174,
+          "previousWorkMs": 6.300000000745058,
+          "atEpochMs": 1791813611979.1,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.099999997764826,
+          "workMs": 6.5,
+          "previousWorkMs": 4.699999999254942,
+          "atEpochMs": 1791813612278.4,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51.5,
+          "workMs": 4.799999997019768,
+          "previousWorkMs": 4.799999997019768,
+          "atEpochMs": 1791813613080.3,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51.100000001490116,
+          "workMs": 5.799999997019768,
+          "previousWorkMs": 4.899999998509884,
+          "atEpochMs": 1791813613446.8,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.30000000074506,
+          "workMs": 6.699999999254942,
+          "previousWorkMs": 6,
+          "atEpochMs": 1791813616111.5,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51.80000000074506,
+          "workMs": 6.699999999254942,
+          "previousWorkMs": 5.400000002235174,
+          "atEpochMs": 1791813616346.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.599999997764826,
+          "workMs": 5.699999999254942,
+          "previousWorkMs": 5.899999998509884,
+          "atEpochMs": 1791813616912.9,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.20000000298023,
+          "workMs": 6.299999997019768,
+          "previousWorkMs": 6.200000002980232,
+          "atEpochMs": 1791813618012.3,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.399999998509884,
+          "workMs": 5.199999999254942,
+          "previousWorkMs": 4.599999997764826,
+          "atEpochMs": 1791813618445.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.5,
+          "workMs": 6.099999997764826,
+          "previousWorkMs": 5.599999997764826,
+          "atEpochMs": 1791813619778.8,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.30000000074506,
+          "workMs": 7.300000000745058,
+          "previousWorkMs": 5.199999999254942,
+          "atEpochMs": 1791813620779.5,
+          "targetFps": 30
+        }
+      ],
+      "workReductionPct": 43.98065329337465,
+      "missedDeadlineChangePoints": 2.7602483487749523,
+      "rounds": [
+        {
+          "targetFps": 60,
+          "frames": 290,
+          "elapsedMs": 5017.699999999255,
+          "actualFps": 57.79540426889672,
+          "p50FrameMs": 16.700000002980232,
+          "p95FrameMs": 18.799999997019768,
+          "p99FrameMs": 33.600000001490116,
+          "missedDeadlinePct": 3.4482758620689653,
+          "stallsOver50Ms": 1,
+          "meanWorkMs": 6.353448275810686,
+          "p95WorkMs": 8.699999999254942,
+          "mainLoopWorkMsPerSecond": 367.2001116020034
+        },
+        {
+          "targetFps": 30,
+          "frames": 150,
+          "elapsedMs": 5015.5,
+          "actualFps": 29.907287409032,
+          "p50FrameMs": 33.399999998509884,
+          "p95FrameMs": 50.099999997764826,
+          "p99FrameMs": 51.5,
+          "missedDeadlinePct": 6,
+          "stallsOver50Ms": 9,
+          "meanWorkMs": 7.086000000064572,
+          "p95WorkMs": 11.5,
+          "mainLoopWorkMsPerSecond": 211.9230385823319
+        },
+        {
+          "targetFps": 30,
+          "frames": 151,
+          "elapsedMs": 5034.199999999255,
+          "actualFps": 29.994835326372083,
+          "p50FrameMs": 33.400000002235174,
+          "p95FrameMs": 50,
+          "p99FrameMs": 50.599999997764826,
+          "missedDeadlinePct": 4.635761589403973,
+          "stallsOver50Ms": 7,
+          "meanWorkMs": 6.576821191988836,
+          "p95WorkMs": 8,
+          "mainLoopWorkMsPerSecond": 197.2706686246993
+        },
+        {
+          "targetFps": 60,
+          "frames": 297,
+          "elapsedMs": 5016.5,
+          "actualFps": 59.2046247383634,
+          "p50FrameMs": 16.600000001490116,
+          "p95FrameMs": 18.600000001490116,
+          "p99FrameMs": 33.900000002235174,
+          "missedDeadlinePct": 1.6835016835016836,
+          "stallsOver50Ms": 0,
+          "meanWorkMs": 6.134680134755393,
+          "p95WorkMs": 8.100000001490116,
+          "mainLoopWorkMsPerSecond": 363.2014352680857
+        }
+      ],
+      "measurement": "Engine preMainLoop to postMainLoop synchronous work; excludes GPU completion and other page tasks. Frame deadlines use 1.5x the selected frame budget. Not a battery measurement.",
+      "wholePage": {
+        "control": {
+          "taskMsPerSecond": 464.2218604236405,
+          "seconds": 14.591913000000204
+        },
+        "trial": {
+          "taskMsPerSecond": 281.04123567684525,
+          "seconds": 13.99395000000004
+        },
+        "rounds": [
+          {
+            "targetFps": 60,
+            "seconds": 7.461000999999669,
+            "taskSeconds": 3.43978,
+            "scriptSeconds": 2.805355,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 6.8830849999976635,
+            "taskSeconds": 1.907893,
+            "scriptSeconds": 1.6358309999999996,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 7.110865000002377,
+            "taskSeconds": 2.024984,
+            "scriptSeconds": 1.8339940000000006,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 60,
+            "seconds": 7.130912000000535,
+            "taskSeconds": 3.334105,
+            "scriptSeconds": 2.931953,
+            "layoutSeconds": 0
+          }
+        ],
+        "measurement": "CDP Performance.TaskDuration for the page main thread, including same-origin Godot iframe and host tasks; excludes GPU/other threads. Includes warm-ups; phase boundary uncertainty <=250ms.",
+        "workReductionPct": 39.45971535671068
+      }
+    },
+    {
+      "scenario": "terrain-walking",
+      "version": 2,
+      "recordedAt": "2026-10-12T14:00:59.316Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "canvas": {
+        "width": 1032,
+        "height": 666,
+        "dpr": 3
+      },
+      "warmupMs": 2000,
+      "sampleMsPerRound": 5000,
+      "order": [
+        60,
+        30,
+        30,
+        60
+      ],
+      "control": {
+        "targetFps": 60,
+        "frames": 598,
+        "elapsedMs": 10030.800000000745,
+        "actualFps": 59.61638154483746,
+        "p50FrameMs": 16.699999999254942,
+        "p95FrameMs": 18.399999998509884,
+        "p99FrameMs": 18.800000000745058,
+        "missedDeadlinePct": 0.6688963210702341,
+        "stallsOver50Ms": 0,
+        "meanWorkMs": 3.231103679003275,
+        "p95WorkMs": 4.799999997019768,
+        "mainLoopWorkMsPerSecond": 192.62670973838726
+      },
+      "trial": {
+        "targetFps": 30,
+        "frames": 301,
+        "elapsedMs": 10035.60000000149,
+        "actualFps": 29.99322412212078,
+        "p50FrameMs": 33.400000002235174,
+        "p95FrameMs": 49.20000000298023,
+        "p99FrameMs": 50.30000000074506,
+        "missedDeadlinePct": 1.6611295681063123,
+        "stallsOver50Ms": 5,
+        "meanWorkMs": 3.928903654762281,
+        "p95WorkMs": 7.899999998509884,
+        "mainLoopWorkMsPerSecond": 117.84048787150454
+      },
+      "movement": {
+        "distancePixels": 1963.108071208,
+        "routeLengthPixels": 344.650543212891,
+        "speedPixelsPerSecond": 70
+      },
+      "longTaskObserverSupport": {
+        "game": true,
+        "host": true
+      },
+      "longTasks": [],
+      "probes": [],
+      "stalls": [
+        {
+          "intervalMs": 50.69999999925494,
+          "workMs": 3.300000000745058,
+          "previousWorkMs": 7.899999998509884,
+          "atEpochMs": 1791813640777.7,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51.100000001490116,
+          "workMs": 6.5,
+          "previousWorkMs": 3.100000001490116,
+          "atEpochMs": 1791813644345.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.100000001490116,
+          "workMs": 3.899999998509884,
+          "previousWorkMs": 3.400000002235174,
+          "atEpochMs": 1791813644844.7,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.30000000074506,
+          "workMs": 3.699999999254942,
+          "previousWorkMs": 2.899999998509884,
+          "atEpochMs": 1791813645177.8,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.69999999925494,
+          "workMs": 4.5,
+          "previousWorkMs": 3,
+          "atEpochMs": 1791813645278.7,
+          "targetFps": 30
+        }
+      ],
+      "workReductionPct": 38.824429887450385,
+      "missedDeadlineChangePoints": 0.9922332470360782,
+      "rounds": [
+        {
+          "targetFps": 60,
+          "frames": 300,
+          "elapsedMs": 5015.5,
+          "actualFps": 59.814574818064,
+          "p50FrameMs": 16.600000001490116,
+          "p95FrameMs": 18.5,
+          "p99FrameMs": 18.799999997019768,
+          "missedDeadlinePct": 0.3333333333333333,
+          "stallsOver50Ms": 0,
+          "meanWorkMs": 3.3203333334376413,
+          "p95WorkMs": 4.899999998509884,
+          "mainLoopWorkMsPerSecond": 198.60432659381766
+        },
+        {
+          "targetFps": 30,
+          "frames": 150,
+          "elapsedMs": 5001,
+          "actualFps": 29.99400119976005,
+          "p50FrameMs": 33.5,
+          "p95FrameMs": 49.80000000074506,
+          "p99FrameMs": 50.69999999925494,
+          "missedDeadlinePct": 3.3333333333333335,
+          "stallsOver50Ms": 5,
+          "meanWorkMs": 4.058000000243386,
+          "p95WorkMs": 8,
+          "mainLoopWorkMsPerSecond": 121.71565687592638
+        },
+        {
+          "targetFps": 30,
+          "frames": 151,
+          "elapsedMs": 5034.60000000149,
+          "actualFps": 29.992452230555617,
+          "p50FrameMs": 33.399999998509884,
+          "p95FrameMs": 35.400000002235174,
+          "p99FrameMs": 36,
+          "missedDeadlinePct": 0,
+          "stallsOver50Ms": 0,
+          "meanWorkMs": 3.800662251966481,
+          "p95WorkMs": 7.800000000745058,
+          "mainLoopWorkMsPerSecond": 113.99118103658063
+        },
+        {
+          "targetFps": 60,
+          "frames": 298,
+          "elapsedMs": 5015.300000000745,
+          "actualFps": 59.41818036806487,
+          "p50FrameMs": 16.699999999254942,
+          "p95FrameMs": 18.199999999254942,
+          "p99FrameMs": 31.699999999254942,
+          "missedDeadlinePct": 1.0067114093959733,
+          "stallsOver50Ms": 0,
+          "meanWorkMs": 3.141275167827738,
+          "p95WorkMs": 4.600000001490116,
+          "mainLoopWorkMsPerSecond": 186.64885450771177
+        }
+      ],
+      "measurement": "Engine preMainLoop to postMainLoop synchronous work; excludes GPU completion and other page tasks. Frame deadlines use 1.5x the selected frame budget. Not a battery measurement.",
+      "wholePage": {
+        "control": {
+          "taskMsPerSecond": 251.68968275985665,
+          "seconds": 14.370597000000998
+        },
+        "trial": {
+          "taskMsPerSecond": 155.15936978589343,
+          "seconds": 13.943514999999024
+        },
+        "rounds": [
+          {
+            "targetFps": 60,
+            "seconds": 7.28078800000003,
+            "taskSeconds": 1.9647459999999999,
+            "scriptSeconds": 1.561833,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 7.0939389999985,
+            "taskSeconds": 1.12927,
+            "scriptSeconds": 0.9619959999999992,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 6.849576000000525,
+            "taskSeconds": 1.0341970000000007,
+            "scriptSeconds": 0.8678290000000004,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 60,
+            "seconds": 7.089809000000969,
+            "taskSeconds": 1.6521849999999993,
+            "scriptSeconds": 1.451642999999999,
+            "layoutSeconds": 0
+          }
+        ],
+        "measurement": "CDP Performance.TaskDuration for the page main thread, including same-origin Godot iframe and host tasks; excludes GPU/other threads. Includes warm-ups; phase boundary uncertainty <=250ms.",
+        "workReductionPct": 38.35290819849186
+      }
+    }
+  ]
+}

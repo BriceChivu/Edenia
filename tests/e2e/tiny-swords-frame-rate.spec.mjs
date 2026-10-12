@@ -34,6 +34,7 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
   expect(report.trial.frames).toBeGreaterThan(0)
   expect(report.trial.mainLoopWorkMsPerSecond).toBeGreaterThan(0)
   expect(report.movement.distancePixels).toBeGreaterThan(100)
+  expect(report.directWalkRoutesEnabled).toBe(true)
   await page.evaluate(() => openSettings())
   await expect.poll(() => game.evaluate(() => window.edeniaPresentationSuspended)).toBe(true)
   await page.locator('#settingsCloseBtn').click()

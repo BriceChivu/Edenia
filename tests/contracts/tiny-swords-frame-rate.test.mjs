@@ -4,29 +4,50 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 const source = await readFile(new URL('../../godot/tiny-swords/scripts/frame_rate_test.js', import.meta.url), 'utf8')
-function engine(search = '?tiny_swords_fps=30') {
+function engine(search = '?tiny_swords_fps=30', withObservers = false) {
   let now = 0
   const queued = []
   const listeners = {}
   const canvas = { width: 1152, height: 496 }
   const loop = { currentlyRunningMainloop: 1, preMainLoop: [], postMainLoop: [], requestAnimationFrame: cb => queued.push(cb) }
   const window = { edeniaLastSavePersisted: true }
+  const observers = []
+  let nativeInterval = 1
+  let frameNumber = 0
+  class Observer {
+    constructor(callback) { this.callback = callback; observers.push(this) }
+    observe() { this.observing = true }
+    disconnect() { this.observing = false }
+  }
+  if (withObservers) {
+    window.PerformanceObserver = Observer
+    window.performance = { timeOrigin: 0 }
+    window.parent = { PerformanceObserver: Observer, performance: { timeOrigin: 1000 } }
+  }
   const context = { location: { search }, MainLoop: loop, window,
     document: { hidden: false, querySelector: () => canvas }, navigator: { userAgent: 'test' },
-    devicePixelRatio: 1, performance: { now: () => now }, URLSearchParams,
+    devicePixelRatio: 1, performance: { now: () => now, timeOrigin: 0 }, URLSearchParams,
     requestAnimationFrame: cb => queued.push(cb), addEventListener: (name, cb) => { listeners[name] = cb },
-    _emscripten_set_main_loop_timing: () => 0 }
+    _emscripten_set_main_loop_timing: (_mode, interval) => { nativeInterval = interval; return 0 } }
   vm.runInNewContext(source, context)
   let frames = 0
-  const run = () => {
-    for (const cb of loop.preMainLoop) cb()
-    now += 2 // Model 2ms of real engine work per rendered frame.
-    for (const cb of loop.postMainLoop) cb()
-    frames++
+  const start = () => {
+    const generation = loop.currentlyRunningMainloop
+    const run = () => {
+      if (generation !== loop.currentlyRunningMainloop) return
+      frameNumber++
+      if (frameNumber % nativeInterval === 0) {
+        for (const cb of loop.preMainLoop) cb()
+        now += 2 // Model 2ms of real engine work per rendered frame.
+        for (const cb of loop.postMainLoop) cb()
+        frames++
+      }
+      loop.requestAnimationFrame(run)
+    }
     loop.requestAnimationFrame(run)
   }
-  return { context, canvas, window, loop, listeners,
-    start: () => loop.requestAnimationFrame(run),
+  return { context, canvas, window, loop, listeners, observers,
+    start,
     advance(ms, hz = 60) {
       const end = now + ms
       let raf = now
@@ -135,4 +156,20 @@ test('pending RAF callbacks do not wake a paused engine and resume keeps the cap
   game.start()
   game.advance(10000)
   assert.ok(Math.abs((game.frames - before) / 10 - 30) < 0.3)
+})
+
+test('long-task telemetry records attribution and releases parent observers on retirement', () => {
+  const game = engine('?tiny_swords_fps=30', true)
+  game.start()
+  game.advance(100)
+  game.window.edeniaFrameTest.startComparison({ sampleMs: 1000, warmupMs: 1000 })
+  game.observers[1].callback({ getEntries: () => [{ startTime: 200, duration: 120, name: 'same-origin-descendant' }] })
+  game.advance(8500)
+  const report = game.window.edeniaFrameTest.getState().report
+  assert.equal(report.longTasks[0].atEpochMs, 1200)
+  assert.equal(report.longTasks[0].scope, 'host')
+  game.listeners.pagehide()
+  assert.ok(game.observers.every(observer => !observer.observing))
+  game.listeners.pageshow({ persisted: true })
+  assert.ok(game.observers.every(observer => observer.observing))
 })

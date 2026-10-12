@@ -1,69 +1,87 @@
-# Tiny Swords 30 FPS experiment — 2026-10-12
+# Tiny Swords FPS and frame-stall experiment — 2026-10-12
 
-The internal_test=1 route defaults to an experimental 30 FPS rendering cap, testing whether 30 FPS gives laptop and phone hardware more rendering headroom. The default web policy still follows display refresh (`Engine.max_fps = 0`, RAF interval 1), usually 60 FPS; it was not a fixed 60 FPS cap.
+`internal_test=1` defaults to an experimental 30 FPS mode and a safe direct-walking optimization. Ordinary routes retain their existing settings. The earlier rendering policy followed display refresh (often 60 FPS, potentially 90/120 Hz), rather than imposing a fixed 60 FPS limit.
 
-## Try it on your island
+## Try it on your actual profile
 
-Open `https://www.edenia.study/?internal_test=1` after this change deploys; that route now defaults to the 30 FPS test. This keeps the existing signed-in trial/profile route and adds only the rendering experiment. `tiny_swords_fps=60` starts the same test at 60 FPS. Removing the FPS parameter keeps internal_test=1 at 30 FPS. Ordinary routes retain their normal refresh-following policy; their FPS experiment remains explicitly opt-in. The rendering preference never enters an island snapshot, and the physics tick rate is unchanged. Animals keep their normal gameplay reactions to the moving pawn.
+Open [the internal trial](https://www.edenia.study/?internal_test=1) after deployment. Tap **FPS test** in the top-left corner of the island to open its controls. Switch between 30/60 FPS for a visual comparison; `&tiny_swords_fps=60` also starts the trial at 60 FPS. Both control rates use the safe direct-route optimization. Removing the FPS parameter keeps this internal route at 30 FPS. Other routes remain opt-in for this experiment.
 
-Use the 30 FPS / 60 FPS buttons to compare movement by eye. For measurements, finish loading, close modals, keep the same camera view and canvas size, and press **Compare (48s)**. Godot automatically walks the pawn back and forth along a reachable route at its ordinary 70 pixels/second speed, restarting from the same point during every warm-up and returning it to its starting point at completion/cancellation. Keep the page visible and avoid interacting during the comparison. Repeat with Terrain open to measure the builder while walking. Finish any active harvesting, construction, water action or chicken carry first; a comparison also needs a reachable walking destination. Each comparison warms up for two seconds and samples ten seconds in each of four rounds: **60, 30, 30, 60**. This order reduces first-run/order effects. It does not control thermal drift or random animal movement completely.
+After the island has loaded, finish harvesting/construction/water/chicken-carry actions and close host modals. Press **Compare (48s)**. Godot walks the pawn back and forth along a reachable route at its ordinary 70 pixels/second speed. Each round restarts from the same point during warm-up; completion/cancellation returns the pawn to its starting position. Animals retain their normal reactions to movement. No inventory is spent by the test, and rendering preferences never enter an island snapshot. Physics and action clocks retain their original rate.
 
-Press **Save report** to download the JSON. A report contains browser/device user agent, canvas dimensions, frame rates and timing summaries; it contains no profile, account or island data. Send the laptop and Pixel 7a reports back for an actual device comparison. A phone-size desktop viewport with CPU throttling cannot establish Pixel 7a performance.
+The four rounds run **60, 30, 30, 60 FPS**, with two seconds of warm-up and ten seconds of sampling each. Keep the page visible, keep canvas size/camera fixed, and avoid interacting. Repeat with Terrain open to measure the builder. The order reduces first-run bias but does not control thermal drift, random animal movement or other processes completely.
 
-If the island is covered/offscreen, the tab is hidden, or the canvas changes size, the current comparison is cancelled. Repeat it after returning to the island. Changing FPS manually also cancels a comparison.
+Use **Save report** for the JSON. It contains user agent, canvas dimensions, frame/work summaries, movement distance, timestamped stalls, browser long-task attribution and slow pawn-route timings. It contains no account credentials, learner profile or island snapshot. Send the laptop/Pixel reports back to identify what remains on the real device. Covered/offscreen/hidden/resized comparisons cancel; visible long stalls over one second remain in the measurements.
 
-## What is measured
+## Measurements and limits
 
-- Actual engine frames, sampled at Emscripten's engine `preMainLoop` and `postMainLoop` boundaries, rather than the unrestricted browser RAF rate.
-- Median, p95 and p99 frame intervals; a missed deadline is an interval exceeding 1.5 times that mode's budget (25 ms at 60 FPS; 50 ms at 30 FPS).
-- Frames with gaps over 50 ms, including visible stalls over one second; these are measured rather than mistaken for background suspension.
-- The automated runner also measures whole-page main-thread TaskDuration through Chrome DevTools, including host and same-origin Godot iframe work. Its four rounds include warm-ups and have up to 250 ms of phase-boundary uncertainty; GPU/other thread work is excluded.
-- Synchronous engine-loop work per frame and total work milliseconds per second. This includes CPU work and rendering submission. It excludes asynchronous GPU completion, other page tasks, browser compositor work and battery/power consumption.
+- Engine frames are sampled at actual Emscripten `preMainLoop`/`postMainLoop` boundaries, not the unrestricted browser RAF rate.
+- p50/p95/p99 intervals and missed deadlines are recorded. A missed deadline exceeds 1.5× the selected frame budget: 25 ms at 60 FPS or 50 ms at 30 FPS. Absolute gaps over 50 ms are also retained.
+- Synchronous engine-loop work includes CPU and rendering submission, but excludes asynchronous GPU completion, host tasks and other threads. Stall records also retain the preceding engine call's work, which is needed to attribute the gap correctly.
+- The automated runner measures whole-page main-thread TaskDuration through CDP, including host and same-origin game iframe tasks. It excludes **initial route-selection/test setup**, includes per-round warm-ups, and has up to 250 ms of phase-boundary uncertainty. GPU/other threads and battery/power are not measured.
+- Work reduction is `100 × (1 − work_per_second_at_30 / work_per_second_at_60)`. Lower work does not itself establish smoother gameplay; 30 FPS necessarily has a longer normal frame interval.
 
-The work reduction is `100 × (1 − work_per_second_at_30 / work_per_second_at_60)`. A larger frame interval is expected at 30 FPS; compare missed deadlines relative to each mode's budget, and also inspect absolute stalls. A lower work value alone does not establish smoother gameplay.
+The full application loads **1,000 real public YouTube videos from 11 Mandarin channels** in Edenia's catalog, with actual IDs/titles/durations/thumbnails. Public thumbnail images load normally; other external traffic is blocked. Records are marked unwatched for repeatability. This is not the user's personal viewing history or signed-in cloud-sync workload. The normal feed controls card/lazy-image mounting; 1,000 simultaneous DOM cards are not forced. IndexedDB profile/backups are enabled as in production.
 
-## Implementation
+The synthetic level-ten island has 32 grass tiles, four animated trees, two chickens and two sheep. The runner verifies complete restoration and real pawn movement. It sends a trusted canvas gesture before measurement, matching normal gameplay and unlocking the engine's Web Audio context. Both final scenarios recorded audio **running**. These measurements supersede the earlier exploratory reports that charged initial test setup to the first 60 FPS round.
 
-Godot owns the experiment in `scripts/frame_rate_test.gd` and `scripts/frame_rate_test.js`. The bridge only transports the validated opt-in URL parameter into the game URL. Instrumentation and UI are installed only for exact `30` or `60` values.
+## Final 30-versus-60 results, with the direct-route optimization
 
-The scheduler gates only the engine's RAF callback, keeping input/page RAF untouched. It estimates display refresh and uses integer display ticks when a 30/60 FPS target aligns with that display, avoiding fractional-refresh deadline drift; other displays use timestamp budgets. This caps 90/120/144 Hz displays too; merely using RAF divisor 2 would run at 60 FPS on a 120 Hz display. The existing Emscripten main-loop timing API remains in RAF mode. Generation checks discard pending callbacks on suspension, and the cap survives resume. No blocking `Engine.max_fps` limiter is used on the single-threaded web build. Physics remains at its existing 60 ticks per second.
+Mac15,13 / Apple M3, headed Chrome 155, Metal renderer; desktop 1440×900 at DPR 2. The normal initial feed mounted eight cards with seven loaded thumbnails. These are local laptop measurements, not a device-independent performance promise.
 
-Relevant primary references: [Emscripten main-loop timing](https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_set_main_loop_timing) and [Godot Engine timing](https://docs.godotengine.org/en/4.6/classes/class_engine.html).
+| Scenario | Actual FPS 60 → 30 | Whole-page work ms/s 60 → 30 | Work reduction | p95 frame interval 60 → 30 |
+| --- | --- | --- | --- | --- |
+| Walking | 58.0 → 30.1 | 214.1 → 128.9 | 39.8% | 18.6 → 49.6 ms |
+| Terrain + walking | 59.2 → 30.1 | 150.9 → 101.8 | 32.5% | 18.5 → 49.9 ms |
 
-## Repeat the automated measurement
+Phone-style emulation on the **same M3 GPU/host**: 390×844 at DPR 3 with **4× CDP CPU throttling**. The initial normal feed mounted five cards with two loaded thumbnails. This does not emulate Pixel 7a GPU, memory, thermal or carrier behavior.
+
+| Scenario | Actual FPS 60 → 30 | Whole-page work ms/s 60 → 30 | Work reduction | p95 frame interval 60 → 30 |
+| --- | --- | --- | --- | --- |
+| Walking | 55.0 → 30.0 | 555.4 → 310.1 | 44.2% | 30.1 → 49.1 ms |
+| Terrain + walking | 58.4 → 30.0 | 273.4 → 155.0 | 43.3% | 18.8 → 49.7 ms |
+
+Some 30 FPS p95 intervals still approach 50 ms, and occasional longer gaps remain. Lower sustained work is established more clearly than universal frame-pacing improvement. Physical Pixel 7a/Chrome acceptance remains pending; the hosted trial runs on the user's actual profile and connection. A public default change is not supported by these measurements.
+
+## Long-stall diagnosis and the implemented fix
+
+A matched, profiled phone-style run used 1,000 real videos, IndexedDB, pawn movement and 4× CPU throttling. Browser attribution identified the game iframe, not a video-feed update, for the largest pauses. For example, a 294.6 ms gap followed a 287.4 ms engine call. CPU samples showed repeated script execution; a source-owned timer then identified **pawn route calculation** as 222–286 ms of the large sampled gaps.
+
+`land_route()` performed the eight-pixel fine-grid search whenever any tree/log/house existed anywhere on the island. It did so even for a clear straight walk. The trial now checks the existing **whole-segment** collision predicate first and returns the direct destination when it is safe. Blocked routes keep the existing fine-grid search. This preserves the same boot/terrain/tree/log/house/stair safety checks; it does not skip obstacle validation.
+
+| Matched profiled scenario | Gaps >100 ms before → after | Largest gap before → after |
+| --- | --- | --- |
+| Walking | 4 → 0 | 269.2 → 53.8 ms |
+| Terrain + walking | 4 → 0 | 326.4 → 51.1 ms |
+
+The matched experiment removed all eight reproduced large **route-related** gaps. Longer final runs still have other gaps, which must not be presented as fixed. Before/after raw reports are `navigation-before.json` and `navigation-after.json`; CPU profiles are preserved in the local audit artifacts.
+
+## Next fixes, in priority order
+
+1. **Blocked-route search:** replace or deepen the fine-grid breadth-first search with a target-directed A* planner and per-search collision/contact caching. Keep the exact segment predicate and terrain/feet tests. If worst-case searches still exceed the frame budget, process them in bounded batches with cancellation on movement/layout changes. The direct-path fix is implemented; these further planner changes are suggestions, not deployed changes.
+2. **Residual engine/browser work:** profile actual Pixel stalls using the included attribution/preceding-engine-work records. Chromium's synchronous framebuffer-copy `getParameter` calls were visible in the CPU trace (~1.1 seconds across a 28-second audio-suspended diagnostic), but this is not proof they caused a particular remaining long gap. Check CPU execution, GPU synchronization and allocation/GC separately before changing rendering quality.
+3. **Web Audio:** a short audio-suspended diagnostic had no >100 ms gaps, but it differed in duration/profiling from the longer final runs; this does not establish audio as the cause. Keep normal audio behavior unchanged. The CLI offers a bounded explicit audio-suspension probe for matched follow-up testing. The production trial does not disable audio.
+4. If real-device evidence points to pixel/GPU pressure, compare the existing Godot `edenia/web/max_pixel_ratio` diagnostic cap with native density. A 3×→2× cap reduces pixel count by 56%, but affects sharpness and is not currently applied. Do not substitute desktop CPU throttling for this physical GPU test.
+
+## Implementation and validation
+
+Godot owns the experiment/UI/movement/rendering policy. The bridge transports only the selected FPS parameter. Native RAF divisors are calibrated to display refresh; timestamp gating handles non-integer ratios. The native limiter avoids blocking `Engine.max_fps` on the single-threaded web template. Calibration refreshes periodically and after visibility resume. Parent long-task observers are released when the iframe retires to avoid retaining an engine instance.
+
+`gameplay/direct_walk_routes_enabled` defaults to false and is enabled by the Godot FPS experiment. Native/editor previews can enable that same setting. No ordinary route is changed by default.
+
+Validation includes the required integrated rebuild/export/gameplay/progression checks, 66 Tiny Swords contracts, direct-route equivalence/contact regression, log navigation, behind-tree navigation, diagonal stairs, stair-floor routes and chicken-following checks with the optimization enabled. The separate sheep object-navigation diagnostic failed identically with the flag disabled/enabled; it was not changed or used as a passing check. Browser coverage exercises pawn movement, FPS caps, suspend/resume, loading, controls and persistence. CI includes the new regression on desktop and phone projects.
+
+## Repeat
 
 ```sh
 node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
 node scripts/serve-static.mjs --host localhost --port 8047 --root _site
-# In another terminal; run measurements sequentially with other benchmarks stopped:
-node scripts/benchmark-tiny-swords-fps.mjs --chrome --output .cache/fps-desktop.json
-node scripts/benchmark-tiny-swords-fps.mjs --chrome --phone --cpu-throttle 4 --output .cache/fps-phone-emulated.json
+# In another terminal, sequentially with other benchmarks stopped:
+node scripts/benchmark-tiny-swords-fps.mjs --chrome --indexed-db --output .cache/fps-desktop.json
+node scripts/benchmark-tiny-swords-fps.mjs --chrome --phone --cpu-throttle 4 --indexed-db --output .cache/fps-phone.json
+# Optional, explicit diagnostic (normal trial audio is unchanged):
+node scripts/benchmark-tiny-swords-fps.mjs --chrome --phone --cpu-throttle 4 --indexed-db --profile-cpu --suspend-audio --sample-ms 5000 --output .cache/fps-audio-probe.json
 ```
 
-The runner seeds only localhost's isolated `internal_test=2` profile. It loads 1,000 real public videos captured from 11 Mandarin channels in Edenia's catalog through YouTube Data API, with actual IDs, titles, durations and thumbnail URLs. Public YouTube thumbnails load normally; other external traffic is blocked. The records are marked unwatched for a repeatable corpus; this is not the user's personal history or signed-in cloud sync workload. The normal feed determines which cards to render/lazily load; the benchmark does not force 1,000 simultaneous DOM cards. It verifies restoration of a synthetic level-ten island with 32 grass tiles, four animated trees, two chickens and two sheep, then measures pawn walking and Terrain-open walking scenarios in a headed browser. A movement-distance check rejects a run where the pawn did not actually walk. `--chrome` uses installed Chrome; omit it to use Playwright Chromium. `--headless` is available for CI/debugging, but its renderer must be checked before treating it as hardware evidence. `--sample-ms` can change the per-round duration. Regenerate the public metadata corpus with `node scripts/prepare-tiny-swords-fps-videos.mjs` using the existing YouTube runtime config or YOUTUBE_API_KEY; credentials are not stored in the corpus.
+The runner seeds only localhost's isolated `internal_test=2` profile. `--chrome` uses installed Chrome; omit it for Playwright Chromium. `--headless` is available for debugging, but check the renderer before calling it hardware evidence. Regenerate the public metadata corpus with `node scripts/prepare-tiny-swords-fps-videos.mjs`, using the existing YouTube runtime config or YOUTUBE_API_KEY; no credentials are stored in the corpus.
 
-## Results
-
-Mac15,13 / Apple M3, headed Chrome 155, Metal renderer, 1440×900 at DPR 2. The real-video profile retained all 1,000 videos and 11 channels; the normal feed initially rendered eight cards with seven thumbnails loaded. Each comparison moved the pawn approximately 3,365 pixels over 48 seconds.
-
-| Scenario | Actual FPS 60 → 30 | Engine work ms/s 60 → 30 | Whole-page work ms/s 60 → 30 | Whole-page reduction | p95 frame interval 60 → 30 |
-| --- | --- | --- | --- | --- | --- |
-| Walking | 58.8 → 30.5 | 204.8 → 134.8 | 274.7 → 183.0 | 33.4% | 17.7 → 34.3 ms |
-| Terrain + walking | 59.4 → 30.5 | 147.7 → 92.5 | 197.4 → 134.8 | 31.7% | 17.6 → 34.3 ms |
-
-Absolute stalls over 50 ms did **not** disappear: walking had 9 in each mode, and Terrain had 4 at 60 FPS versus 5 at 30 FPS. The finding is reduced sustained work/headroom, not proof that all stutters are resolved. The isolated trial is warranted by the consistent roughly one-third whole-page reduction with the large real-video corpus and movement; a public default change is not supported by these measurements.
-
-Physical Pixel 7a / Chrome results remain pending. The hosted internal trial runs on the user's actual profile and carrier connection for that next check. Raw reports are saved alongside this document.
-
-The phone-style run used the same Apple M3/Chrome/Metal host, a 390×844 viewport at DPR 3, and **4× CDP CPU throttling**. It retained 1,000 videos/11 channels; the normal initial feed rendered five cards with two thumbnails loaded. This emulates layout, density and CPU pressure, not Pixel 7a hardware, GPU, memory or thermal behavior.
-
-| Emulated scenario | Actual FPS 60 → 30 | Whole-page work ms/s 60 → 30 | Whole-page reduction | Missed deadlines 60 → 30 | Stalls >50 ms 60 → 30 |
-| --- | --- | --- | --- | --- | --- |
-| Walking | 49.3 → 26.1 | 675.2 → 450.0 | 33.3% | 4.65% → 4.55% | 19 → 24 |
-| Terrain + walking | 56.7 → 28.7 | 366.8 → 215.2 | 41.3% | 1.23% → 1.39% | 4 → 8 |
-
-Both emulated scenarios reduced sustained work, but they still missed frame deadlines and had more absolute >50 ms stalls at the lower rate. Lower work is useful headroom, not evidence that 30 FPS eliminates the observed frame drops. The Pixel 7a comparison is still needed before any wider rollout.
-
-## Validation
-
-The integrated preview was rebuilt from Godot source with the required build command, including its existing export/gameplay/progression/persistence checks. The focused Tiny Swords contract suite verifies refresh rates (including 59.94/60.1 Hz), fractional-refresh pacing, actual loop-work summaries, visible long stalls, opt-in/trial routing, and host suspension/resume. The integrated browser regression measures engine frames with real pawn movement and checks suspension/resume; the existing populated-island acceptance covers loading, controls and persistence. CI also runs the new regression on desktop and phone projects.
+Primary runtime references: [Emscripten main-loop timing](https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_set_main_loop_timing), [Godot Engine timing](https://docs.godotengine.org/en/4.6/classes/class_engine.html).

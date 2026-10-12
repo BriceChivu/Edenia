@@ -4,7 +4,10 @@ extends CanvasLayer
 var summary: Label
 var compare: Button
 var download: Button
+var panel: PanelContainer
+var toggle: Button
 var refresh_elapsed := 0.0
+var calibration_elapsed := 0.0
 var motion_callback: JavaScriptObject
 var motion_world: Node
 var motion_start := Vector2.ZERO
@@ -21,11 +24,16 @@ func _ready() -> void:
 	var enabled = JavaScriptBridge.eval(FileAccess.get_file_as_string("res://scripts/frame_rate_test.js"))
 	if not enabled:
 		return
+	# The experiment uses the same collision checks, avoiding a fine-grid search
+	# when the complete walking segment is already known to be safe.
+	ProjectSettings.set_setting("gameplay/direct_walk_routes_enabled", true)
+	JavaScriptBridge.eval("window.edeniaFrameTestNavigationFastPath = true")
 	motion_callback = JavaScriptBridge.create_callback(receive_motion)
 	JavaScriptBridge.get_interface("window").edeniaFrameTestMotion = motion_callback
 	layer = 100
-	var panel := PanelContainer.new()
+	panel = PanelContainer.new()
 	panel.position = Vector2(8, 8)
+	panel.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.06, 0.10, 0.14, 0.94)
 	style.content_margin_left = 10
@@ -34,10 +42,20 @@ func _ready() -> void:
 	style.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
+	var contents := VBoxContainer.new()
+	panel.add_child(contents)
+	toggle = Button.new()
+	toggle.add_theme_font_size_override("font_size", 14)
+	toggle.custom_minimum_size.y = 32
+	contents.add_child(toggle)
 	var column := VBoxContainer.new()
-	panel.add_child(column)
+	contents.add_child(column)
+	column.visible = false
+	toggle.pressed.connect(func(): column.visible = not column.visible)
 	summary = Label.new()
 	summary.add_theme_font_size_override("font_size", 14)
+	summary.custom_minimum_size.x = 230
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(summary)
 	var row := HBoxContainer.new()
 	column.add_child(row)
@@ -50,7 +68,9 @@ func _ready() -> void:
 	compare = Button.new()
 	compare.text = "Compare (48s)"
 	compare.add_theme_font_size_override("font_size", 14)
-	compare.pressed.connect(func(): JavaScriptBridge.eval("window.edeniaFrameTest.startComparison()"))
+	compare.pressed.connect(func():
+		if JavaScriptBridge.eval("window.edeniaFrameTest.startComparison()"):
+			column.visible = false)
 	column.add_child(compare)
 	download = Button.new()
 	download.text = "Save report"
@@ -61,13 +81,17 @@ func _ready() -> void:
 	refresh()
 
 func _process(delta: float) -> void:
+	calibration_elapsed += delta
+	if calibration_elapsed >= 5.0:
+		calibration_elapsed = 0.0
+		JavaScriptBridge.eval("window.edeniaFrameTest.refreshDisplay()")
 	if motion_running and is_instance_valid(motion_world):
 		motion_distance += motion_world.pawn.position.distance_to(motion_previous)
 		motion_previous = motion_world.pawn.position
 		if motion_world.waypoints.is_empty() and motion_world.pawn.position.distance_to(motion_world.pawn.destination) < 0.2:
 			motion_outward = not motion_outward
 			var target := motion_destination if motion_outward else motion_start
-			motion_world.walk_on_land(motion_world.layout.cell_at(target), target)
+			walk_for_test(target)
 	refresh_elapsed += delta
 	if refresh_elapsed < 0.5:
 		return
@@ -80,9 +104,14 @@ func refresh() -> void:
 		return
 	compare.disabled = state.running
 	download.disabled = not state.report is Dictionary
+	var width := float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width"))
+	var scale_ui := maxf(1.0, get_viewport().get_visible_rect().size.x / maxf(1, width))
+	panel.scale = Vector2.ONE * scale_ui
+	panel.position = Vector2(8, 8) * scale_ui
+	toggle.text = "FPS test · %s%s" % [state.status if state.running else "%s FPS" % state.targetFps, " · results" if state.report is Dictionary else ""]
 	summary.text = "FPS test · %s FPS\n%s" % [state.targetFps, state.status]
 	if state.report is Dictionary:
-		summary.text += "\n60: %.1f FPS · late %.1f%%\n30: %.1f FPS · late %.1f%%\nLoop work: %.1f%% less" % [state.report.control.actualFps, state.report.control.missedDeadlinePct, state.report.trial.actualFps, state.report.trial.missedDeadlinePct, state.report.workReductionPct]
+		summary.text = "60: %.1f FPS · late %.1f%%\n30: %.1f FPS · late %.1f%%\nLoop work: %.1f%% less" % [state.report.control.actualFps, state.report.control.missedDeadlinePct, state.report.trial.actualFps, state.report.trial.missedDeadlinePct, state.report.workReductionPct]
 
 func receive_motion(arguments: Array) -> void:
 	if arguments.is_empty():
@@ -122,7 +151,7 @@ func receive_motion(arguments: Array) -> void:
 		motion_world.pawn.position = motion_start
 		motion_previous = motion_start
 		motion_outward = true
-		motion_world.walk_on_land(motion_world.layout.cell_at(motion_destination), motion_destination)
+		walk_for_test(motion_destination)
 	if operation == "finish" and motion_running:
 		motion_distance += motion_world.pawn.position.distance_to(motion_previous)
 		JavaScriptBridge.eval("window.edeniaFrameTestMotionInfo = %s" % JSON.stringify({"distancePixels": motion_distance, "routeLengthPixels": motion_start.distance_to(motion_destination), "speedPixelsPerSecond": motion_world.pawn.speed}))
@@ -130,3 +159,10 @@ func receive_motion(arguments: Array) -> void:
 		motion_world.waypoints.clear()
 		motion_world.pawn.position = motion_start
 		motion_world.pawn.walk_to(motion_start)
+
+func walk_for_test(target: Vector2) -> void:
+	var started := Time.get_ticks_usec()
+	motion_world.walk_on_land(motion_world.layout.cell_at(target), target)
+	var duration_ms := (Time.get_ticks_usec() - started) / 1000.0
+	if duration_ms >= 10:
+		JavaScriptBridge.eval("window.edeniaFrameTest.recordProbe('pawn-route', %s, Date.now() - %s)" % [duration_ms, duration_ms])

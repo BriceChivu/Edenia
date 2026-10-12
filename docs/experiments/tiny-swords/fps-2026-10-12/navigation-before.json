@@ -1,0 +1,910 @@
+{
+  "recordedAt": "2026-10-12T13:55:10.560Z",
+  "browserVersion": "155.0.8059.40",
+  "hostModel": "Mac15,13",
+  "headless": false,
+  "phoneEmulation": true,
+  "cpuThrottle": 4,
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)",
+  "indexedDb": true,
+  "cpuProfile": true,
+  "physicalPhone": false,
+  "library": {
+    "videos": 1000,
+    "channels": 11,
+    "renderedCards": 5,
+    "loadedThumbnails": 1,
+    "documentNodes": 1129
+  },
+  "corpusFetchedAt": "2026-10-12T13:28:20.977Z",
+  "fixture": {
+    "tiles": 32,
+    "trees": 4,
+    "sheep": 2,
+    "chickens": 2
+  },
+  "errors": [],
+  "scenarios": [
+    {
+      "scenario": "walking",
+      "version": 2,
+      "recordedAt": "2026-10-12T13:54:36.228Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "canvas": {
+        "width": 1032,
+        "height": 666,
+        "dpr": 3
+      },
+      "warmupMs": 2000,
+      "sampleMsPerRound": 5000,
+      "order": [
+        60,
+        30,
+        30,
+        60
+      ],
+      "control": {
+        "targetFps": 60,
+        "frames": 547,
+        "elapsedMs": 10031.499999996275,
+        "actualFps": 54.528236056442516,
+        "p50FrameMs": 16.699999999254942,
+        "p95FrameMs": 29.900000002235174,
+        "p99FrameMs": 36.5,
+        "missedDeadlinePct": 5.484460694698354,
+        "stallsOver50Ms": 3,
+        "meanWorkMs": 8.759232175476862,
+        "p95WorkMs": 12.300000000745058,
+        "mainLoopWorkMsPerSecond": 477.62547973758893
+      },
+      "trial": {
+        "targetFps": 30,
+        "frames": 287,
+        "elapsedMs": 10049.5,
+        "actualFps": 28.558634757948155,
+        "p50FrameMs": 33.5,
+        "p95FrameMs": 50.19999999925494,
+        "p99FrameMs": 57.899999998509884,
+        "missedDeadlinePct": 6.968641114982578,
+        "stallsOver50Ms": 20,
+        "meanWorkMs": 10.76550522647824,
+        "p95WorkMs": 15.5,
+        "mainLoopWorkMsPerSecond": 307.448131747774
+      },
+      "movement": {
+        "distancePixels": 1891.94203197956,
+        "routeLengthPixels": 344.650543212891,
+        "speedPixelsPerSecond": 70
+      },
+      "longTaskObserverSupport": {
+        "game": true,
+        "host": true
+      },
+      "longTasks": [
+        {
+          "scope": "host",
+          "atEpochMs": 1791813252931,
+          "durationMs": 230,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813252931.0999,
+          "durationMs": 230,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813255146.3,
+          "durationMs": 305,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813255146.4,
+          "durationMs": 305,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813256781.5999,
+          "durationMs": 74,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813256781.7,
+          "durationMs": 74,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813260264.7,
+          "durationMs": 251,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813260264.8,
+          "durationMs": 251,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813261630.0999,
+          "durationMs": 51,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813261630.2,
+          "durationMs": 51,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813262147.9,
+          "durationMs": 327,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813262148,
+          "durationMs": 327,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813263299.2,
+          "durationMs": 79,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813263379.9,
+          "durationMs": 109,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813263299.3,
+          "durationMs": 79,
+          "attribution": "self"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813263380,
+          "durationMs": 109,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813267265,
+          "durationMs": 266,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813267265.0999,
+          "durationMs": 266,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813268615.0999,
+          "durationMs": 56,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813268615.2,
+          "durationMs": 56,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813269164.8,
+          "durationMs": 397,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813269570.2,
+          "durationMs": 66,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813269164.9,
+          "durationMs": 397,
+          "attribution": "self"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813269570.3,
+          "durationMs": 66,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813270913.2,
+          "durationMs": 58,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813270913.3,
+          "durationMs": 58,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813274365.2,
+          "durationMs": 265,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813274365.3,
+          "durationMs": 265,
+          "attribution": "self"
+        }
+      ],
+      "probes": [
+        {
+          "operation": "pawn-route",
+          "durationMs": 222.3,
+          "atEpochMs": 1791813252931.7
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 296.2,
+          "atEpochMs": 1791813255152.8
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 237.3,
+          "atEpochMs": 1791813260268.7
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 309,
+          "atEpochMs": 1791813262161
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 250.2,
+          "atEpochMs": 1791813267267.8
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 376.1,
+          "atEpochMs": 1791813269179.9
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 252.8,
+          "atEpochMs": 1791813274367.2
+        }
+      ],
+      "stalls": [
+        {
+          "intervalMs": 231.79999999701977,
+          "workMs": 7.200000002980232,
+          "previousWorkMs": 229.59999999776483,
+          "atEpochMs": 1791813253163,
+          "targetFps": 60
+        },
+        {
+          "intervalMs": 50.100000001490116,
+          "workMs": 5.399999998509884,
+          "previousWorkMs": 7.100000001490116,
+          "atEpochMs": 1791813258398.5999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.19999999925494,
+          "workMs": 6.300000000745058,
+          "previousWorkMs": 8,
+          "atEpochMs": 1791813258898.4,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.5,
+          "workMs": 5.899999998509884,
+          "previousWorkMs": 6.5,
+          "atEpochMs": 1791813259398.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.19999999925494,
+          "workMs": 6.300000000745058,
+          "previousWorkMs": 12,
+          "atEpochMs": 1791813259598.4,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.80000000074506,
+          "workMs": 7.5,
+          "previousWorkMs": 8.199999999254942,
+          "atEpochMs": 1791813259699.0999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.5,
+          "workMs": 250.5,
+          "previousWorkMs": 7.700000002980232,
+          "atEpochMs": 1791813260265,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 253.5,
+          "workMs": 12.100000001490116,
+          "previousWorkMs": 250.5,
+          "atEpochMs": 1791813260518.5,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.599999997764826,
+          "workMs": 18.600000001490116,
+          "previousWorkMs": 7.5,
+          "atEpochMs": 1791813261498.8,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 52,
+          "workMs": 7.199999999254942,
+          "previousWorkMs": 50.29999999701977,
+          "atEpochMs": 1791813261682.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.5,
+          "workMs": 9.100000001490116,
+          "previousWorkMs": 9.300000000745058,
+          "atEpochMs": 1791813261832.8,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51,
+          "workMs": 9.800000000745058,
+          "previousWorkMs": 8.400000002235174,
+          "atEpochMs": 1791813261998.3,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.399999998509884,
+          "workMs": 9.300000000745058,
+          "previousWorkMs": 6.799999997019768,
+          "atEpochMs": 1791813262065.0999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.5,
+          "workMs": 9.100000001490116,
+          "previousWorkMs": 7.600000001490116,
+          "atEpochMs": 1791813264198.5999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.100000001490116,
+          "workMs": 19.099999997764826,
+          "previousWorkMs": 8.5,
+          "atEpochMs": 1791813264330.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51,
+          "workMs": 8.600000001490116,
+          "previousWorkMs": 10.5,
+          "atEpochMs": 1791813266064.5999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.19999999925494,
+          "workMs": 15,
+          "previousWorkMs": 10.599999997764826,
+          "atEpochMs": 1791813266398.0999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.5,
+          "workMs": 265.19999999925494,
+          "previousWorkMs": 8.699999999254942,
+          "atEpochMs": 1791813267265.2,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 269.19999999925494,
+          "workMs": 9.199999999254942,
+          "previousWorkMs": 265.19999999925494,
+          "atEpochMs": 1791813267534.4,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.099999997764826,
+          "workMs": 8.700000002980232,
+          "previousWorkMs": 6.5,
+          "atEpochMs": 1791813267998.5,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 57.899999998509884,
+          "workMs": 17.899999998509884,
+          "previousWorkMs": 54.399999998509884,
+          "atEpochMs": 1791813268673.0999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 52.80000000074506,
+          "workMs": 9.800000000745058,
+          "previousWorkMs": 6,
+          "atEpochMs": 1791813271486.9,
+          "targetFps": 60
+        },
+        {
+          "intervalMs": 269.19999999925494,
+          "workMs": 8.100000001490116,
+          "previousWorkMs": 264.19999999925494,
+          "atEpochMs": 1791813274634.5,
+          "targetFps": 60
+        }
+      ],
+      "workReductionPct": 35.629872192604054,
+      "missedDeadlineChangePoints": 1.4841804202842237,
+      "rounds": [
+        {
+          "targetFps": 60,
+          "frames": 273,
+          "elapsedMs": 5016.199999999255,
+          "actualFps": 54.42366731789812,
+          "p50FrameMs": 16.799999997019768,
+          "p95FrameMs": 32.30000000074506,
+          "p99FrameMs": 33.79999999701977,
+          "missedDeadlinePct": 6.227106227106227,
+          "stallsOver50Ms": 1,
+          "meanWorkMs": 7.516117216125403,
+          "p95WorkMs": 9.5,
+          "mainLoopWorkMsPerSecond": 409.0546628927355
+        },
+        {
+          "targetFps": 30,
+          "frames": 144,
+          "elapsedMs": 5032.60000000149,
+          "actualFps": 28.613440368786982,
+          "p50FrameMs": 33.599999997764826,
+          "p95FrameMs": 50.5,
+          "p99FrameMs": 52,
+          "missedDeadlinePct": 8.333333333333334,
+          "stallsOver50Ms": 12,
+          "meanWorkMs": 10.188888888883715,
+          "p95WorkMs": 18,
+          "mainLoopWorkMsPerSecond": 291.5391646462704
+        },
+        {
+          "targetFps": 30,
+          "frames": 143,
+          "elapsedMs": 5016.89999999851,
+          "actualFps": 28.503657637194777,
+          "p50FrameMs": 33.400000002235174,
+          "p95FrameMs": 50.099999997764826,
+          "p99FrameMs": 57.899999998509884,
+          "missedDeadlinePct": 5.594405594405594,
+          "stallsOver50Ms": 8,
+          "meanWorkMs": 11.346153846153847,
+          "p95WorkMs": 14.899999998509884,
+          "mainLoopWorkMsPerSecond": 323.40688472971
+        },
+        {
+          "targetFps": 60,
+          "frames": 274,
+          "elapsedMs": 5015.29999999702,
+          "actualFps": 54.63282355993915,
+          "p50FrameMs": 16.600000001490116,
+          "p95FrameMs": 24.899999998509884,
+          "p99FrameMs": 47.900000002235174,
+          "missedDeadlinePct": 4.744525547445256,
+          "stallsOver50Ms": 2,
+          "meanWorkMs": 9.99781021891828,
+          "p95WorkMs": 14.599999997764826,
+          "mainLoopWorkMsPerSecond": 546.208601675919
+        }
+      ],
+      "measurement": "Engine preMainLoop to postMainLoop synchronous work; excludes GPU completion and other page tasks. Frame deadlines use 1.5x the selected frame budget. Not a battery measurement.",
+      "wholePage": {
+        "control": {
+          "taskMsPerSecond": 660.7563523913445,
+          "seconds": 16.309566999996605
+        },
+        "trial": {
+          "taskMsPerSecond": 427.82618629729575,
+          "seconds": 14.127908000002208
+        },
+        "rounds": [
+          {
+            "targetFps": 60,
+            "seconds": 9.57115899999917,
+            "taskSeconds": 6.07027,
+            "scriptSeconds": 3.4437550000000003,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 7.033191000002262,
+            "taskSeconds": 2.7523050000000007,
+            "scriptSeconds": 2.419584,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 7.094716999999946,
+            "taskSeconds": 3.2919839999999994,
+            "scriptSeconds": 2.8114310000000007,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 60,
+            "seconds": 6.738407999997435,
+            "taskSeconds": 4.706380000000001,
+            "scriptSeconds": 4.047236,
+            "layoutSeconds": 0
+          }
+        ],
+        "measurement": "CDP Performance.TaskDuration for the page main thread, including same-origin Godot iframe and host tasks; excludes GPU/other threads. Includes warm-ups; phase boundary uncertainty <=250ms.",
+        "workReductionPct": 35.25205096417927
+      }
+    },
+    {
+      "scenario": "terrain-walking",
+      "version": 2,
+      "recordedAt": "2026-10-12T13:55:10.233Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "canvas": {
+        "width": 1032,
+        "height": 666,
+        "dpr": 3
+      },
+      "warmupMs": 2000,
+      "sampleMsPerRound": 5000,
+      "order": [
+        60,
+        30,
+        30,
+        60
+      ],
+      "control": {
+        "targetFps": 60,
+        "frames": 565,
+        "elapsedMs": 10033,
+        "actualFps": 56.314163261237915,
+        "p50FrameMs": 16.699999999254942,
+        "p95FrameMs": 18.800000000745058,
+        "p99FrameMs": 33.20000000298023,
+        "missedDeadlinePct": 1.9469026548672566,
+        "stallsOver50Ms": 2,
+        "meanWorkMs": 6.091504424823596,
+        "p95WorkMs": 7.800000000745058,
+        "mainLoopWorkMsPerSecond": 343.03797468606916
+      },
+      "trial": {
+        "targetFps": 30,
+        "frames": 286,
+        "elapsedMs": 10017.10000000149,
+        "actualFps": 28.55117748649384,
+        "p50FrameMs": 33.30000000074506,
+        "p95FrameMs": 49,
+        "p99FrameMs": 51.5,
+        "missedDeadlinePct": 2.097902097902098,
+        "stallsOver50Ms": 6,
+        "meanWorkMs": 8.159090909090908,
+        "p95WorkMs": 11.899999998509884,
+        "mainLoopWorkMsPerSecond": 232.95165267389294
+      },
+      "movement": {
+        "distancePixels": 1882.60876762867,
+        "routeLengthPixels": 344.650543212891,
+        "speedPixelsPerSecond": 70
+      },
+      "longTaskObserverSupport": {
+        "game": true,
+        "host": true
+      },
+      "longTasks": [
+        {
+          "scope": "host",
+          "atEpochMs": 1791813282162.0999,
+          "durationMs": 59,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813282162.2,
+          "durationMs": 59,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813286965,
+          "durationMs": 281,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813286965.0999,
+          "durationMs": 281,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813289162.5999,
+          "durationMs": 383,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813289162.7,
+          "durationMs": 383,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813294364.3,
+          "durationMs": 313,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813294364.4,
+          "durationMs": 313,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813296165.2,
+          "durationMs": 340,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813296165.3,
+          "durationMs": 340,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813301296.7,
+          "durationMs": 265,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813301296.8,
+          "durationMs": 265,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813303181.2,
+          "durationMs": 347,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813303181.3,
+          "durationMs": 347,
+          "attribution": "self"
+        },
+        {
+          "scope": "host",
+          "atEpochMs": 1791813308313.3,
+          "durationMs": 247,
+          "attribution": "same-origin-descendant"
+        },
+        {
+          "scope": "game",
+          "atEpochMs": 1791813308313.4,
+          "durationMs": 247,
+          "attribution": "self"
+        }
+      ],
+      "probes": [
+        {
+          "operation": "pawn-route",
+          "durationMs": 266.3,
+          "atEpochMs": 1791813286968.7
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 354.7,
+          "atEpochMs": 1791813289174.3
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 286.4,
+          "atEpochMs": 1791813294369.6
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 333.4,
+          "atEpochMs": 1791813296172.6
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 257.1,
+          "atEpochMs": 1791813301299.9
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 334.8,
+          "atEpochMs": 1791813303193.2
+        },
+        {
+          "operation": "pawn-route",
+          "durationMs": 242,
+          "atEpochMs": 1791813308315
+        }
+      ],
+      "stalls": [
+        {
+          "intervalMs": 285.1000000014901,
+          "workMs": 7,
+          "previousWorkMs": 279.8999999985099,
+          "atEpochMs": 1791813287250.2,
+          "targetFps": 60
+        },
+        {
+          "intervalMs": 326.4000000022352,
+          "workMs": 16.199999999254942,
+          "previousWorkMs": 305.5,
+          "atEpochMs": 1791813294691.4,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51,
+          "workMs": 9.699999999254942,
+          "previousWorkMs": 6.300000000745058,
+          "atEpochMs": 1791813294815.5999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.100000001490116,
+          "workMs": 5.899999998509884,
+          "previousWorkMs": 4.800000000745058,
+          "atEpochMs": 1791813295481.5999,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 50.899999998509884,
+          "workMs": 3.400000002235174,
+          "previousWorkMs": 6.399999998509884,
+          "atEpochMs": 1791813295582,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 51.5,
+          "workMs": 5.100000001490116,
+          "previousWorkMs": 7.100000001490116,
+          "atEpochMs": 1791813295916.3,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 266.9000000022352,
+          "workMs": 9.099999997764826,
+          "previousWorkMs": 263.6000000014901,
+          "atEpochMs": 1791813301564.9,
+          "targetFps": 30
+        },
+        {
+          "intervalMs": 249.5,
+          "workMs": 7.199999999254942,
+          "previousWorkMs": 247.09999999776483,
+          "atEpochMs": 1791813308562.9,
+          "targetFps": 60
+        }
+      ],
+      "workReductionPct": 32.09158464537975,
+      "missedDeadlineChangePoints": 0.15099944303484136,
+      "rounds": [
+        {
+          "targetFps": 60,
+          "frames": 281,
+          "elapsedMs": 5017.10000000149,
+          "actualFps": 56.008451097230775,
+          "p50FrameMs": 16.699999999254942,
+          "p95FrameMs": 18.699999999254942,
+          "p99FrameMs": 33.099999997764826,
+          "missedDeadlinePct": 1.7793594306049823,
+          "stallsOver50Ms": 1,
+          "meanWorkMs": 6.473309608673498,
+          "p95WorkMs": 8.599999997764826,
+          "mainLoopWorkMsPerSecond": 362.5600446546237
+        },
+        {
+          "targetFps": 30,
+          "frames": 142,
+          "elapsedMs": 5001.300000000745,
+          "actualFps": 28.392617919336743,
+          "p50FrameMs": 33.30000000074506,
+          "p95FrameMs": 49.19999999925494,
+          "p99FrameMs": 51.5,
+          "missedDeadlinePct": 3.5211267605633805,
+          "stallsOver50Ms": 5,
+          "meanWorkMs": 8.902816901508142,
+          "p95WorkMs": 13.699999999254942,
+          "mainLoopWorkMsPerSecond": 252.77427869033406
+        },
+        {
+          "targetFps": 30,
+          "frames": 144,
+          "elapsedMs": 5015.800000000745,
+          "actualFps": 28.709278679368918,
+          "p50FrameMs": 33.30000000074506,
+          "p95FrameMs": 48.899999998509884,
+          "p99FrameMs": 49.600000001490116,
+          "missedDeadlinePct": 0.6944444444444444,
+          "stallsOver50Ms": 1,
+          "meanWorkMs": 7.425694444346139,
+          "p95WorkMs": 10.900000002235174,
+          "mainLoopWorkMsPerSecond": 213.1863311905748
+        },
+        {
+          "targetFps": 60,
+          "frames": 284,
+          "elapsedMs": 5015.89999999851,
+          "actualFps": 56.61994856358467,
+          "p50FrameMs": 16.600000001490116,
+          "p95FrameMs": 18.800000000745058,
+          "p99FrameMs": 33.899999998509884,
+          "missedDeadlinePct": 2.112676056338028,
+          "stallsOver50Ms": 1,
+          "meanWorkMs": 5.713732394324222,
+          "p95WorkMs": 7.199999999254942,
+          "mainLoopWorkMsPerSecond": 323.51123427272495
+        }
+      ],
+      "measurement": "Engine preMainLoop to postMainLoop synchronous work; excludes GPU completion and other page tasks. Frame deadlines use 1.5x the selected frame budget. Not a battery measurement.",
+      "wholePage": {
+        "control": {
+          "taskMsPerSecond": 544.3123676072604,
+          "seconds": 16.796620000000985
+        },
+        "trial": {
+          "taskMsPerSecond": 354.96379651352487,
+          "seconds": 13.965781999999308
+        },
+        "rounds": [
+          {
+            "targetFps": 60,
+            "seconds": 9.926782999998977,
+            "taskSeconds": 6.272597999999999,
+            "scriptSeconds": 3.1001439999999985,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 6.951992999998765,
+            "taskSeconds": 2.632086000000001,
+            "scriptSeconds": 2.192095000000002,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 30,
+            "seconds": 7.013789000000543,
+            "taskSeconds": 2.325261000000001,
+            "scriptSeconds": 1.932352999999999,
+            "layoutSeconds": 0
+          },
+          {
+            "targetFps": 60,
+            "seconds": 6.869837000002008,
+            "taskSeconds": 2.8700100000000006,
+            "scriptSeconds": 2.3870959999999997,
+            "layoutSeconds": 0
+          }
+        ],
+        "measurement": "CDP Performance.TaskDuration for the page main thread, including same-origin Godot iframe and host tasks; excludes GPU/other threads. Includes warm-ups; phase boundary uncertainty <=250ms.",
+        "workReductionPct": 34.78674789736853
+      }
+    }
+  ]
+}
