@@ -19,7 +19,6 @@
     "src/i18n/fr.js",
     "src/i18n/zh-Hans.js",
     "src/i18n/zh-Hant.js",
-    "src/integrations/learner-profile-cloud-persistence.js",
     "src/state/anki-state.js",
     "src/state/default-state.js",
     "src/state/first-signed-in-profile.js",

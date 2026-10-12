@@ -2,6 +2,7 @@ const FOCUS_REVERIFICATION_INTERVAL_MS = 60_000
 
 export function createLearnerProfileReverificationController({
   eventTarget,
+  visibilityTarget = eventTarget,
   isEligible,
   now,
   reverify
@@ -19,6 +20,7 @@ export function createLearnerProfileReverificationController({
   let lastAttemptAt = Number.NEGATIVE_INFINITY
   let started = false
   let wasOffline = false
+  let wasHidden = visibilityTarget?.hidden === true
 
   function attempt({ force = false } = {}) {
     if (!started || inFlight || !isEligible()) return false
@@ -44,6 +46,17 @@ export function createLearnerProfileReverificationController({
     attempt()
   }
 
+  function handleVisibility() {
+    if (visibilityTarget?.hidden === true) { wasHidden = true; return }
+    if (wasHidden || visibilityTarget?.hidden === undefined) {
+      wasHidden = false
+      attempt({ force: true })
+    }
+  }
+  function handlePageShow(event) {
+    if (event?.persisted) attempt({ force: true })
+  }
+
   function handleOffline() {
     wasOffline = true
   }
@@ -60,6 +73,8 @@ export function createLearnerProfileReverificationController({
     eventTarget.addEventListener('focus', handleFocus)
     eventTarget.addEventListener('offline', handleOffline)
     eventTarget.addEventListener('online', handleOnline)
+    eventTarget.addEventListener('pageshow', handlePageShow)
+    visibilityTarget?.addEventListener?.('visibilitychange', handleVisibility)
     return true
   }
 
@@ -69,6 +84,8 @@ export function createLearnerProfileReverificationController({
     eventTarget.removeEventListener('focus', handleFocus)
     eventTarget.removeEventListener('offline', handleOffline)
     eventTarget.removeEventListener('online', handleOnline)
+    eventTarget.removeEventListener('pageshow', handlePageShow)
+    visibilityTarget?.removeEventListener?.('visibilitychange', handleVisibility)
     return true
   }
 

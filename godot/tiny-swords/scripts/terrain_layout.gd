@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SYNC_CONTRACT = preload("res://scripts/sync_contract.gd")
+
 const BridgeRules = preload("res://scripts/bridge_rules.gd")
 
 const DecorationRules = preload("res://scripts/decoration_rules.gd")
@@ -1154,6 +1156,10 @@ func snapshot() -> Dictionary:
 		saved.manual_ground_elevation = true
 	if not playground_grants.is_empty():
 		saved.playground_grants = playground_grants.duplicate()
+	# Godot owns gameplay meaning. Exact animal positions remain in the portable
+	# snapshot for restoration; ambient wandering is not a competing learner edit.
+	# Counts, inventory, terrain, structures and resources still affect identity.
+	saved.sync_semantics = SYNC_CONTRACT.identity(saved)
 	return saved
 
 func restore(data: Dictionary) -> bool:

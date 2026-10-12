@@ -1166,6 +1166,7 @@ learnerProfileSyncView.render(learnerProfileSyncViewState)
 let learnerProfileLifecycleAuthority = null
 let learnerProfileLocalPersistence = null
 let learnerProfileReverificationController = null
+let learnerProfilePageLeaving = false
 let accountlessProfileMigrationController = null
 let learnerProfileProtectedReset = null
 let learnerProfileOpeningStartedAt = null
@@ -1208,6 +1209,9 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       storageKey: ACCOUNTLESS_PROFILE_MIGRATION_KEY
     })
   const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
+    // Retained production keeps its prior cadence; the revised coalescing and
+    // handoff budget belong to the current restricted trial.
+    minimumWriteIntervalMs: 0,
     clearOnboardingDraft: onboardingProfileDraftStore.clear,
     createOnboardingEnvelope: onboardingState => (
       createInitialSignedInProfileEnvelope(onboardingState, {
@@ -1283,6 +1287,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       ownerVerification
     },
     createActivationId: createLearnerProfileActivationId,
+    canApplyRemote: canApplyRemoteProfile,
     onVerificationStateChange: status => learnerProfileSyncView.setVerification(status),
     onStateChange: handleLearnerProfileAccessStateChange
   })
@@ -6622,6 +6627,13 @@ function getSupabaseClient() {
   return supabaseClient
 }
 
+function canApplyRemoteProfile() {
+  const focused = document.activeElement
+  return !document.hidden && !activeVideoShelfPlayer && !document.body.classList.contains('video-player-open')
+    && !shouldDeferSettingsSyncRefresh(learnerProfileLifecycleAuthority.getState())
+    && !focused?.matches('iframe, input, textarea, select, [contenteditable="true"]')
+}
+
 function startLearnerProfileReverification() {
   if (
     learnerProfileReverificationController
@@ -6631,6 +6643,7 @@ function startLearnerProfileReverification() {
   learnerProfileReverificationController =
     createLearnerProfileReverificationController({
       eventTarget: window,
+      visibilityTarget: document,
       isEligible() {
         const access = learnerProfileLifecycleAuthority?.getState()
         return window.navigator.onLine !== false
@@ -6651,12 +6664,7 @@ function startLearnerProfileReverification() {
             if (deferred) settingsSyncRefreshDeferred = true
             return !deferred
           },
-          canApplyRemote() {
-            const focused = document.activeElement
-            return !activeVideoShelfPlayer && !document.body.classList.contains('video-player-open')
-              && !shouldDeferSettingsSyncRefresh(learnerProfileLifecycleAuthority.getState())
-              && !focused?.matches('iframe, input, textarea, select, [contenteditable="true"]')
-          }
+          canApplyRemote: canApplyRemoteProfile
         })
       }
     })
@@ -17566,8 +17574,8 @@ async function syncActiveVideoShelfPlayer(options = {}) {
   const watchedAt = getCurrentAppTimestamp(state)
   const progressChanged = persistVideoShelfWatchCoverage(video, session, watchedAt)
   video.resumeAtSeconds = normalized
-  if (session.isRewatch) video.pausedAt = watchedAt
   if (nextResume === previousResume && !progressChanged && !session.isRewatch) return true
+  if (session.isRewatch) video.pausedAt = watchedAt
   syncStreak(state)
   if (!await saveState(state, {
     backup: false,
@@ -17787,7 +17795,10 @@ function closeVideoShelfPlayer() {
 
 function handleVideoShelfPlayerVisibilityChange() {
   if (document.hidden) {
-    syncActiveVideoShelfPlayer({ persist: true })
+    const capture = syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })
+    Promise.resolve(capture).then(() => {
+      if (!learnerProfilePageLeaving) return learnerProfileLifecycleAuthority?.flushSessionBoundary()
+    }).catch(() => {})
     return
   }
   const session = activeVideoShelfPlayer
@@ -20083,15 +20094,20 @@ document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('pagehide', event => {
+  learnerProfilePageLeaving = true
+  const capture = syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })
+  // Retain the activation until the final local transaction has committed. A
+  // terminated page needs no live cleanup; reopening already retires its fence.
+  Promise.resolve(capture).then(() => learnerProfileLifecycleAuthority?.flushSessionBoundary({ allowNewUpload: false }))
+    .catch(() => {}).finally(() => { if (!event.persisted) learnerProfileLifecycleAuthority?.destroy() })
   if (!event.persisted) learnerProfileReverificationController?.destroy()
-  if (!event.persisted) learnerProfileLifecycleAuthority?.destroy()
   if (!event.persisted) accountAuthController?.destroy()
   if (!event.persisted) googleIdentityServicesController?.destroy()
   if (!event.persisted) turnstileController?.destroy()
   if (!event.persisted) accountStudySnapshotController?.destroy()
   if (!event.persisted) plusAccountController?.destroy()
   const session = activeVideoShelfPlayer
-  syncActiveVideoShelfPlayer({ persist: true })
   trackVideoPlaybackSessionEnded(session, 'page_hidden')
 })
+window.addEventListener('pageshow', () => { learnerProfilePageLeaving = false })
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

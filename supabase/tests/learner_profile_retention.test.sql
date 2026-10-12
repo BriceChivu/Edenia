@@ -3,6 +3,13 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
+-- The scheduled capacity job can populate evidence before this suite starts.
+-- Isolate its empty-evidence premise from that job for this rolled-back fixture.
+-- Acquire config first, matching the maintenance job's read/write order.
+lock table private.learner_profile_maintenance_config,
+  private.learner_profile_capacity_checks in access exclusive mode;
+delete from private.learner_profile_capacity_checks;
+
 select plan(40);
 
 select has_table(

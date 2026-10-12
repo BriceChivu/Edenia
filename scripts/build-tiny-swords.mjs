@@ -46,6 +46,7 @@ export async function buildTinySwords(outputDir) {
     ['--script', 'res://tests/gameplay.gd'],
     ['--script', 'res://tests/direct_walk_routes.gd'],
     ['--script', 'res://tests/animal_checkpoint_saves.gd'],
+    ['--script', 'res://tests/sync_semantics.gd'],
     ['--script', 'res://tests/conflict_previews.gd'],
     ['--script', 'res://tests/progression.gd'],
     ['--export-release', 'Web', resolve(staging, 'index.html')]]) {

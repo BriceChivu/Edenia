@@ -7,6 +7,7 @@ import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../domain/learner-profile-resolution.js'
 import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
+import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfileChangeDigest } from '../domain/portable-profile-combination.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
@@ -124,7 +125,7 @@ function isSyncOperation(value, identity) {
       'profileId',
       'retryCount',
       'revision'
-    ])
+    ].concat(['changes', 'budgetRetryAt'].filter(key => Object.hasOwn(value || {}, key))))
     || typeof value.activationId !== 'string'
     || !value.activationId
     || !UUID_PATTERN.test(value.operationId)
@@ -137,6 +138,7 @@ function isSyncOperation(value, identity) {
     || value.retryCount < 0
     || !Number.isFinite(value.nextRetryAt)
     || value.nextRetryAt < 0
+    || (Object.hasOwn(value, 'budgetRetryAt') && (!Number.isFinite(value.budgetRetryAt) || value.budgetRetryAt < 0))
   ) return false
   const isPrepared = isPreparedEnvelope(value.prepared)
     && value.envelope === null
@@ -310,6 +312,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   createOnboardingEnvelope,
   createOperationId,
   eventTarget,
+  handoffEnabled = false,
   finalizeEnvelope,
   getClient,
   hasOnboardingProfileDraft = () => false,
@@ -351,9 +354,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
   let inFlight = false
   let retryTimer = null
   let started = false
+  let sessionBoundaryPending = false
   let syncState = Object.freeze({ status: 'idle' })
   const listeners = new Set()
+  const headRequests = new Set()
+  const pumpTasks = new Set()
   const protectedImports = new WeakMap()
+  const handoffRepairStorageKey = `${syncStorageKey}_handoff_repair`
   const dirtyStorageKey = `${syncStorageKey}_dirty`
   const accountlessMigrationStorageKey = `${syncStorageKey}_accountless_migration`
   const importStorageKey = `${syncStorageKey}_import_v1`
@@ -364,6 +371,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
     // Envelope integrity also covers export time. A local checkpoint must
     // identify just the canonical content across separate preparations.
     return sha256Base64UrlSync(canonicalizeJson(prepareEnvelope(profile).profile))
+  }
+
+  function syncProfileDigest(profile) {
+    return handoffEnabled
+      ? portableProfileChangeDigest(prepareEnvelope(profile).profile)
+      : profileDigest(profile)
   }
 
   function studyProfileDigest(profile) {
@@ -1254,11 +1267,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   function createOperation(profile, record, activationId) {
     const prepared = prepareEnvelope(profile)
+    const changes = handoffEnabled && activeBinding?.baseProfile
+      ? captureProfileChanges(activeBinding.baseProfile, prepared.profile) : null
     const baseRevision = record.pending
       ? record.pending.baseRevision + 1
       : record.acceptedRevision
     return {
       activationId,
+      ...(changes ? { changes: { ...changes, baseRevision: record.acceptedRevision } } : {}),
       baseRevision,
       envelope: null,
       generation: record.generation,
@@ -2161,7 +2177,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  async function pump() {
+  function pump() {
+    const task = performPump()
+    pumpTasks.add(task)
+    void task.finally(() => pumpTasks.delete(task)).catch(() => {})
+    return task
+  }
+
+  async function performPump() {
     if (inFlight) return
     const binding = activeBinding
     const record = readSyncRecord()
@@ -2180,7 +2203,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       publish('waiting')
       return
     }
-    const retryAt = Number(operation.nextRetryAt) || 0
+    const retryAt = Math.max(Number(operation.nextRetryAt) || 0, handoffEnabled ? Number(operation.budgetRetryAt) || 0 : 0)
     if (retryAt > now()) {
       publish('waiting')
       if (retryTimer === null) {
@@ -2192,9 +2215,24 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     inFlight = true
-    nextAutomaticWriteAt = now() + Math.max(0, minimumWriteIntervalMs)
     let comparisonPending = false
+    let budgetDeferred = false
     publish('syncing')
+    if (handoffEnabled) {
+      const head = await checkActiveHead({ activation: binding.activation, isCurrent: binding.isCurrent, preflight: true })
+      if (activeBinding !== binding || !binding.isCurrent()) {
+        inFlight = false
+        if (activeBinding?.isCurrent()) void pump()
+        return
+      }
+      if (head.status !== 'unchanged') {
+        inFlight = false
+        if (head.status === 'waiting') scheduleTransientRetry(operation)
+        else publish('head-changed', { activation: binding.activation })
+        return
+      }
+    }
+    nextAutomaticWriteAt = now() + Math.max(0, minimumWriteIntervalMs)
     let envelope
     try {
       envelope = await finalizeDurableOperation(operation)
@@ -2213,8 +2251,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     let response
     try {
       response = await getClient().rpc(
-        'commit_my_learner_profile',
-        operationParameters(operation, envelope)
+        handoffEnabled ? 'commit_my_learner_profile_handoff' : 'commit_my_learner_profile',
+        { ...operationParameters(operation, envelope), ...(handoffEnabled ? { p_session_boundary: sessionBoundaryPending } : {}) }
       )
     } catch {
       inFlight = false
@@ -2230,7 +2268,27 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     try {
       const row = readSingleRpcRow(response?.data)
-      if (response?.error && isTransientCloudStatus(response.status)) {
+      if (handoffEnabled && !response?.error && row?.status === 'head_changed'
+        && UUID_PATTERN.test(String(row.profile_id || '')) && normalizePositiveInteger(row.generation)
+        && normalizePositiveInteger(row.revision) && normalizePositiveInteger(row.base_revision) === operation.baseRevision) {
+        comparisonPending = true
+        cloudHeadKnown = false
+        publish('head-changed', { activation: binding.activation })
+      } else if (handoffEnabled && !response?.error && row?.status === 'deferred'
+        && row.profile_id === operation.profileId && normalizePositiveInteger(row.generation) === operation.generation
+        && normalizePositiveInteger(row.base_revision) === operation.baseRevision
+        && Number.isSafeInteger(row.retry_after_ms) && row.retry_after_ms > 0 && row.retry_after_ms <= 30_000) {
+        budgetDeferred = true
+        const current = readSyncRecord()
+        if (current?.pending?.operationId === operation.operationId) {
+          current.pending.budgetRetryAt = now() + row.retry_after_ms
+          current.pending.nextRetryAt = current.pending.budgetRetryAt
+          nextAutomaticWriteAt = current.pending.nextRetryAt
+          sessionBoundaryPending = false
+          if (writeSyncRecord(current)) publish('waiting')
+          else publish('needs-attention')
+        }
+      } else if (response?.error && isTransientCloudStatus(response.status)) {
         scheduleTransientRetry(operation)
       } else if (
         !response?.error
@@ -2246,21 +2304,43 @@ export function createLearnerProfileCloudPersistenceAdapter({
           current.acceptedRevision = normalizePositiveInteger(row.revision)
           current.pending = current.queued
           current.queued = null
+          if (handoffEnabled) {
+            binding.baseProfile = envelope.profile
+            // Count the coalescing interval from acknowledgement so a slow
+            // request cannot immediately send another large envelope.
+            nextAutomaticWriteAt = Math.max(nextAutomaticWriteAt, now() + Math.max(0, minimumWriteIntervalMs))
+            const queuedCandidate = current.pending?.envelope || current.pending?.prepared
+            if (queuedCandidate && syncProfileDigest(queuedCandidate.profile) === syncProfileDigest(envelope.profile)) {
+              current.pending = null
+            }
+            sessionBoundaryPending = false
+            if (current.pending) {
+              current.pending.nextRetryAt = Math.max(current.pending.nextRetryAt, nextAutomaticWriteAt)
+              const candidate = current.pending.envelope || current.pending.prepared
+              const changes = captureProfileChanges(envelope.profile, candidate.profile)
+              if (changes) current.pending.changes = { ...changes, baseRevision: current.acceptedRevision }
+              else delete current.pending.changes
+            }
+          }
           if (!writeSyncRecord(current)) {
             publish('needs-attention')
           } else {
             binding.revision = current.acceptedRevision
             binding.checkpointStudyDigest = studyProfileDigest(envelope.profile)
             if (minimumWriteIntervalMs > 0) {
-              binding.acceptedProfileDigest = profileDigest(envelope.profile)
+              binding.acceptedProfileDigest = syncProfileDigest(envelope.profile)
             }
             if (
               current.pending === null
+              && !handoffEnabled
               && !clearDirtyRecord(current)
             ) {
               publish('needs-attention')
             } else {
-              publish(current.pending ? 'syncing' : 'up-to-date', {
+              // Durable enqueue already clears the trial's dirty marker. Any
+              // marker still present belongs to an unfinished/newer local save;
+              // this older receipt must neither erase it nor claim completion.
+              publish(current.pending || (handoffEnabled && readDirtyRecord().present) ? 'syncing' : 'up-to-date', {
                 accepted: {
                   activation: binding.activation,
                   generation: operation.generation,
@@ -2269,7 +2349,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
                   revision: current.acceptedRevision
                 }
               })
-              if (!current.pending) {
+              // Trial saves enter the outbox only after local persistence
+              // completes. A receipt must not capture a still-mutating object.
+              if (!handoffEnabled && !current.pending) {
                 queueLatestActiveProfileIfChanged(envelope)
               }
             }
@@ -2302,7 +2384,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     inFlight = false
     const next = readSyncRecord()
-    if (!comparisonPending && next?.pending && next.pending.operationId !== operation.operationId) {
+    if (budgetDeferred || (!comparisonPending && next?.pending && next.pending.operationId !== operation.operationId)) {
       void pump()
     }
   }
@@ -2653,6 +2735,143 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  // IndexedDB profile installation and the localStorage outbox cannot share a
+  // transaction. A bounded before-value journal bridges that crash window;
+  // the original outbox stays intact until installation has been verified.
+  function recoverHandoffInstallation(localProfile, ownerId, isCurrent) {
+    try {
+      const serialized = storage.getItem(handoffRepairStorageKey)
+      if (!serialized) return true
+      const repair = JSON.parse(serialized)
+      if (!hasExactKeys(repair, ['version', 'identity', 'sourceDigest', 'operationId', 'changes'])
+        || repair.version !== 1 || !UUID_PATTERN.test(repair.operationId)
+        || !hasExactKeys(repair.identity, ['ownerId', 'profileId', 'generation', 'revision'])
+        || !UUID_PATTERN.test(repair.identity.ownerId) || !UUID_PATTERN.test(repair.identity.profileId)
+        || !normalizePositiveInteger(repair.identity.generation) || !normalizePositiveInteger(repair.identity.revision)) return false
+      if (repair.identity.ownerId !== ownerId) return true
+      const stored = readStoredSyncRecord()
+      if (!stored.record || !isCurrent() || readDirtyRecord().present) return false
+      const installed = localProfile?.status === 'ready'
+        && ['ownerId', 'profileId', 'generation', 'revision'].every(key => localProfile[key] === repair.identity[key])
+        && portableProfileChangeDigest(prepareEnvelope(localProfile.profile).profile) === repair.changes?.targetDigest
+      const original = sha256Base64UrlSync(stored.serialized) === repair.sourceDigest
+      if (!installed) {
+        // Installation never finished: retain the old candidate and resolve it
+        // again. A changed outbox cannot be silently discarded here.
+        if (!original) return false
+      } else if (original) {
+        const prepared = prepareEnvelope(localProfile.profile)
+        if (!restoreProfileBase(prepared.profile, repair.changes)) return false
+        const next = createSyncRecord(repair.identity)
+        if (stored.record.protectedConflictIds?.length) next.protectedConflictIds = [...stored.record.protectedConflictIds]
+        if (repair.changes.baseDigest !== repair.changes.targetDigest) next.pending = {
+          activationId: stored.record.pending.activationId, baseRevision: repair.identity.revision,
+          changes: { ...repair.changes, baseRevision: repair.identity.revision },
+          envelope: null, generation: repair.identity.generation, integrity: prepared.integrity,
+          nextRetryAt: 0, operationId: repair.operationId, ownerId, prepared,
+          profileId: repair.identity.profileId, retryCount: 0, revision: repair.identity.revision + 1
+        }
+        if (!isCurrent() || !writeSyncRecord(next)) return false
+      } else if (stored.record.ownerId !== ownerId || stored.record.profileId !== repair.identity.profileId
+        || stored.record.generation !== repair.identity.generation || stored.record.acceptedRevision !== repair.identity.revision
+        || (stored.record.pending && stored.record.pending.operationId !== repair.operationId)) return false
+      if (!isCurrent()) return false
+      storage.removeItem(handoffRepairStorageKey)
+      return storage.getItem(handoffRepairStorageKey) === null
+    } catch { return false }
+  }
+
+  async function prepareHandoffResolution({ authentication, localProfile, cloudIdentity, cloudEnvelope, record, isCurrent }) {
+    const pending = record.pending
+    const latest = record.queued || pending
+    let acceptedEnvelope
+    let latestEnvelope
+    try {
+      acceptedEnvelope = await finalizeDurableOperation(pending)
+      latestEnvelope = latest === pending ? acceptedEnvelope : latest.envelope
+        ? await verifyEnvelope(latest.envelope) : (await finalizeEnvelope(latest.prepared))?.envelope
+      if (!latestEnvelope || latestEnvelope.integrity?.payloadSha256 !== latest.integrity.payloadSha256
+        || latestEnvelope.integrity?.byteLength !== latest.integrity.byteLength) return null
+    } catch { return null }
+    const captured = readStoredSyncRecord()
+    if (!isCurrent() || captured.record?.pending?.operationId !== pending.operationId
+      || (captured.record.queued || captured.record.pending)?.operationId !== latest.operationId
+      || !canonicalProfilesMatch(localProfile.profile, latestEnvelope, prepareEnvelope)) return null
+    let response
+    try { response = await getClient().rpc('read_my_learner_profile_write_receipt', { p_operation_id: pending.operationId }) }
+    catch { return waitForCloudHead() }
+    if (response?.error) return isTransientCloudStatus(response.status) ? waitForCloudHead() : { status: 'recovering' }
+    const receipt = readSingleRpcRow(response?.data)
+    const accepted = isAcceptedOperationReceipt(receipt, pending, acceptedEnvelope, ['already_accepted'])
+      && receipt.request_sha256 === sha256Base64UrlSync(canonicalizeJson({
+        baseRevision: pending.baseRevision, envelope: acceptedEnvelope, generation: pending.generation,
+        operationId: pending.operationId, ownerId: pending.ownerId, profileId: pending.profileId
+      }))
+    if (!accepted && receipt?.status !== 'not_accepted') return { status: 'recovering' }
+    if (!isCurrent() || readStoredSyncRecord().serialized !== captured.serialized || readDirtyRecord().present) return { status: 'recovering' }
+    let combined
+    if (accepted && latest === pending) {
+      // The whole local candidate is already in the verified lineage. There is
+      // no later edit to protect, even if another device has since continued.
+      combined = cloudEnvelope.profile
+    } else {
+      const baseRevision = accepted ? pending.revision : record.acceptedRevision
+      if (!Number.isSafeInteger(receipt.last_replacement_revision) || receipt.last_replacement_revision < 0
+        || receipt.last_replacement_revision > baseRevision) return null
+      const base = accepted ? acceptedEnvelope.profile
+        : latest.changes && latest.changes.baseRevision === record.acceptedRevision
+          ? restoreProfileBase(latestEnvelope.profile, latest.changes) : null
+      if (!base) return null
+      combined = combinePortableProfiles(base, latestEnvelope.profile, cloudEnvelope.profile)
+      if (!combined) return null
+    }
+    let prepared
+    let profile
+    try {
+      prepared = prepareEnvelope(importEnvelope({ ...cloudEnvelope, profile: combined }))
+      profile = importEnvelope(prepared)
+    } catch { return { status: 'recovering' } }
+    if (!isRecord(profile)) return { status: 'recovering' }
+    const repairChanges = captureProfileChanges(cloudEnvelope.profile, prepared.profile)
+    if (!repairChanges) return null
+    const next = createSyncRecord(cloudIdentity)
+    const repairOperationId = createOperationId()
+    if (record.protectedConflictIds?.length) next.protectedConflictIds = [...record.protectedConflictIds]
+    if (portableProfileChangeDigest(prepared.profile) !== portableProfileChangeDigest(cloudEnvelope.profile)) {
+      const changes = captureProfileChanges(cloudEnvelope.profile, prepared.profile)
+      next.pending = {
+        activationId: pending.activationId, baseRevision: cloudIdentity.revision,
+        ...(changes ? { changes: { ...changes, baseRevision: cloudIdentity.revision } } : {}),
+        envelope: null, generation: cloudIdentity.generation, integrity: prepared.integrity,
+        nextRetryAt: Math.max(nextAutomaticWriteAt, pending.nextRetryAt), operationId: repairOperationId,
+        ownerId: cloudIdentity.ownerId, prepared, profileId: cloudIdentity.profileId,
+        retryCount: 0, revision: cloudIdentity.revision + 1
+      }
+    }
+    const protectedResult = await readStoredProtectedConflicts(record, new Map(), { deferPruning: true })
+    if (!protectedResult || !isCurrent() || readStoredSyncRecord().serialized !== captured.serialized) return { status: 'recovering' }
+    const repairSerialized = JSON.stringify({ version: 1, identity: cloudIdentity,
+      sourceDigest: sha256Base64UrlSync(captured.serialized), operationId: repairOperationId, changes: repairChanges })
+    try {
+      storage.setItem(handoffRepairStorageKey, repairSerialized)
+      if (storage.getItem(handoffRepairStorageKey) !== repairSerialized) return { status: 'recovering' }
+    } catch { return { status: 'recovering' } }
+    cloudHeadKnown = true
+    return {
+      status: 'activate', backupRequired: false, created: false, ...cloudIdentity, profile,
+      syncBaseProfile: cloudEnvelope.profile, protectedConflicts: protectedResult.conflicts,
+      commitSyncRepair({ isCurrent: current } = {}) {
+        if (!current?.() || readStoredSyncRecord().serialized !== captured.serialized || readDirtyRecord().present) return false
+        // Install the merged profile locally before replacing the old outbox.
+        // Failed installation leaves the complete original candidate intact.
+        if (!writeSyncRecord(next) || !current()) return false
+        try { storage.removeItem(handoffRepairStorageKey) } catch { return false }
+        return current()
+      },
+      finalize({ isCurrent: current } = {}) { return Boolean(current?.()) && clearOnboardingDraft() }
+    }
+  }
+
   async function resolve({
     authentication,
     connectivity,
@@ -2684,6 +2903,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     const malformedImportRepair = durableRecovery.malformedImportRepair || null
     localProfile = durableRecovery.localProfile
+    if (handoffEnabled && !recoverHandoffInstallation(localProfile, authentication.userId, isCurrent)) return { status: 'recovering' }
     if (purpose === 'link-accountless-profile') {
       return { status: 'migrating' }
     }
@@ -3005,6 +3225,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
         currentRecord = readSyncRecord()
         if (!currentRecord) return { status: 'recovering' }
       }
+      if (handoffEnabled && currentRecord.pending && currentRecord.generation === generation
+        && currentRecord.pending.baseRevision < revision && localProfile?.status === 'ready'
+        && localProfile.ownerId === authentication.userId && localProfile.profileId === profileId) {
+        const handoff = await prepareHandoffResolution({ authentication, localProfile, cloudIdentity,
+          cloudEnvelope: envelope, record: currentRecord, isCurrent })
+        if (handoff) return handoff
+        currentRecord = readSyncRecord()
+        if (!currentRecord?.pending) return { status: 'recovering' }
+      }
       if (currentRecord.pending) {
         if (
           currentRecord.pending.baseRevision !== revision
@@ -3176,6 +3405,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     cloudHeadKnown = true
     return {
       backupRequired,
+      ...(handoffEnabled ? { syncBaseProfile: envelope.profile } : {}),
       ...(syncRepairs.length ? {
         commitSyncRepair({ isCurrent } = {}) {
           if (
@@ -3215,18 +3445,22 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   // Unlike resolve(), this read never opens, repairs or installs a profile.
   // Compare with live bookkeeping after the request: the save pump keeps running.
-  async function checkActiveHead({ activation, isCurrent } = {}) {
+  async function checkActiveHead({ activation, isCurrent, preflight = false } = {}) {
     const binding = activeBinding
     const current = () => binding && activeBinding === binding
       && binding.activation === activation && isCurrent?.() && binding.isCurrent()
     if (!current()) return { status: 'stale' }
     if (!isOnline()) return { status: 'waiting' }
     let response
+    const cancellation = new AbortController()
+    headRequests.add(cancellation)
     try {
-      response = await getClient().from('learner_profile_heads')
+      const request = getClient().from('learner_profile_heads')
         .select('user_id,profile_id,generation,revision')
         .eq('user_id', activation.ownerId).maybeSingle()
+      response = await (typeof request?.abortSignal === 'function' ? request.abortSignal(cancellation.signal) : request)
     } catch { return { status: current() ? 'waiting' : 'stale' } }
+    finally { headRequests.delete(cancellation) }
     if (!current()) return { status: 'stale' }
     if (response?.error) {
       return { status: isTransientCloudStatus(response.status) ? 'waiting'
@@ -3247,10 +3481,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && head.revision <= record.acceptedRevision) {
       // A read captured before an acknowledged local save is also harmless.
       cloudHeadKnown = true
-      if (record.pending) retryWhenAvailable()
+      if (record.pending && !preflight) retryWhenAvailable()
       return { status: 'unchanged' }
     }
     if (record.pending || record.queued || dirty.present) {
+      if (handoffEnabled) return { status: 'changed' }
       // Let local persistence finish before its existing save enqueues work.
       // Reuse the durable pending/queued candidates; never capture an unpersisted
       // live snapshot here or start another save pipeline.
@@ -3260,7 +3495,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return { status: 'changed' }
   }
 
-  function activate({ activation, generation, isCurrent, profile, revision }) {
+  function activate({ activation, baseProfile, generation, isCurrent, profile, revision }) {
     if (
       !isRecord(activation)
       || typeof isCurrent !== 'function'
@@ -3295,6 +3530,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (!dirtyRecordMatches(record, dirty)) {
       publish('needs-attention')
       return false
+    }
+    if (handoffEnabled && isRecord(profile)) {
+      const candidate = record.queued || record.pending
+      activeBinding.baseProfile = baseProfile || (candidate?.changes
+        ? restoreProfileBase((candidate.envelope || candidate.prepared)?.profile, candidate.changes) : null)
+      if (!activeBinding.baseProfile && !record.pending && !dirty.present) {
+        activeBinding.baseProfile = prepareEnvelope(profile).profile
+      }
     }
     if (record.pending) record.pending.activationId = activation.id
     if (record.queued) record.queued.activationId = activation.id
@@ -3730,7 +3973,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (minimumWriteIntervalMs > 0 && !record.pending && !record.queued
       && activeBinding.acceptedProfileDigest) {
       try {
-        if (profileDigest(profile) === activeBinding.acceptedProfileDigest
+        if (syncProfileDigest(profile) === activeBinding.acceptedProfileDigest
           && clearDirtyRecord(record)) {
           publish('up-to-date')
           return { status: 'queued' }
@@ -3752,7 +3995,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       publish('waiting')
       return false
     }
-    record.pending.nextRetryAt = 0
+    record.pending.nextRetryAt = restartBackoff || !handoffEnabled ? 0 : Math.max(record.pending.nextRetryAt, nextAutomaticWriteAt)
     if (restartBackoff) {
       record.pending.retryCount = 0
       if (record.queued) record.queued.nextRetryAt = 0
@@ -3767,6 +4010,33 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   function retry() {
     return resumePendingOperation({ restartBackoff: true })
+  }
+
+  function flushSessionBoundary({ allowNewUpload = true } = {}) {
+    const record = readSyncRecord()
+    if (!handoffEnabled || !activeBinding?.isCurrent() || !record?.pending
+      || record.pending.retryCount >= MAX_AUTOMATIC_RETRIES) return false
+    if (!allowNewUpload) return inFlight ? Promise.allSettled([...pumpTasks]).then(() => true) : false
+    if (record.pending.budgetRetryAt > now()) return true
+    sessionBoundaryPending = true
+    // The server enforces one early flush per profile per five minutes. In-flight
+    // work stays immutable and later input remains in the existing outbox.
+    if (inFlight) {
+      const binding = activeBinding
+      const operationId = record.pending.operationId
+      return Promise.allSettled([...pumpTasks]).then(() => {
+        // An ordinary upload already in progress may acknowledge an older
+        // locally saved snapshot. Give its promoted candidate one final attempt,
+        // while preserving server deferrals and avoiding a second retry of the
+        // same failed request or parallel delivery from repeated hide events.
+        if (activeBinding !== binding || !binding.isCurrent() || inFlight
+          || readSyncRecord()?.pending?.operationId === operationId) return true
+        return flushSessionBoundary() || true
+      })
+    }
+    record.pending.nextRetryAt = 0
+    if (!writeSyncRecord(record)) return false
+    return pump().then(() => true)
   }
 
   function retryWhenAvailable() {
@@ -3798,7 +4068,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return syncState
   }
 
+  function cancelHeadChecks({ activation } = {}) {
+    if (activeBinding?.activation !== activation) return false
+    // Keep the captured binding for protected import confirmation/rollback.
+    // Its local activation fence retires writes; only head reads are cancelled.
+    for (const request of headRequests) request.abort()
+    headRequests.clear()
+    return true
+  }
+
   function destroy() {
+    for (const request of headRequests) request.abort()
+    headRequests.clear()
     if (!started) return
     eventTarget.removeEventListener('online', retryWhenAvailable)
     eventTarget.removeEventListener('focus', retryWhenAvailable)
@@ -3814,6 +4095,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     commitReplacement,
     confirmImport,
     destroy,
+    flushSessionBoundary,
     getState: () => syncState,
     requiresCloudHeadResolution,
     getReplacementProtection,
@@ -3824,6 +4106,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     readProtectedReset,
     readResetState,
     readRecoveryCandidate,
+    cancelHeadChecks,
     resolve,
     restoreRecoveryCandidate,
     retry,
