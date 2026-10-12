@@ -15298,7 +15298,8 @@ function renderFeed(s, viewport = captureFeedViewport()) {
       ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter)
       && (
         statusFilter === 'all'
-        || (statusFilter === 'watch-later' ? isVideoWatchLater(v) : getVideoStatus(v) === statusFilter)
+        || (statusFilter === 'partial' ? hasVideoResumePriority(v)
+          : statusFilter === 'watch-later' ? isVideoWatchLater(v) : getVideoStatus(v) === statusFilter)
       )
     ))
 
@@ -17823,7 +17824,9 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
     && (!channelFilters || matchesWatchedChannelFilter(video, selectedChannels, removedChannelIds))
   ))
   counts.favorite = visibleFavorites.length
-  counts.all += visibleFavorites.filter(video => getVideoStatus(video) === 'watched').length
+  const watchedFavorites = visibleFavorites.filter(video => getVideoStatus(video) === 'watched')
+  counts.all += watchedFavorites.length
+  counts.partial = [...activeVideos, ...watchedFavorites].filter(hasVideoResumePriority).length
 
   return counts
 }

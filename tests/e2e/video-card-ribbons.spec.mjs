@@ -17,8 +17,9 @@ async function waitForApplication(page) {
   })
 }
 
-async function seedRibbonState(page, { locale = 'en', theme = 'light' } = {}) {
-  await page.goto('/')
+async function seedRibbonState(page, { locale = 'en', theme = 'light', testerMode = false } = {}) {
+  const seededKey = testerMode ? 'edenia_v1_internal_test_2' : storageKey
+  await page.goto(testerMode ? '/?internal_test=2' : '/')
   await waitForApplication(page)
   await page.evaluate(({ seededLocale, seededTheme, seededStorageKey }) => {
     const state = window.defaultState(4, [], seededTheme, [], seededLocale)
@@ -109,11 +110,12 @@ async function seedRibbonState(page, { locale = 'en', theme = 'light' } = {}) {
     localStorage.setItem(seededStorageKey, JSON.stringify(state))
   }, {
     seededLocale: locale,
-    seededStorageKey: storageKey,
+    seededStorageKey: seededKey,
     seededTheme: theme
   })
   await page.reload()
   await waitForApplication(page)
+  return seededKey
 }
 
 test('shelf ribbons cover every priority and remain flush on responsive cards', async ({ page }, testInfo) => {
@@ -237,3 +239,65 @@ test('preview state changes replace New with the winning ribbon without rerender
     /\bwatch-later-priority-badge\b/
   )
 })
+
+for (const testerMode of [false, true]) {
+  test(`In progress includes watched favorites with a replay position (${testerMode ? 'tester' : 'public'})`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-standard')
+    const seededKey = await seedRibbonState(page, { testerMode })
+    await page.evaluate(storageKey => {
+      const state = JSON.parse(localStorage.getItem(storageKey))
+      const base = state.videos['favorite-only']
+      state.videos = Object.fromEntries([4, 60].map((resumeAtSeconds, index) => {
+        const id = `replaying-favorite-${index}`
+        return [id, {
+          ...base, id, title: `Replaying favorite ${index}`, status: 'watched',
+          watchedAt: '2026-08-09T04:00:00.000Z', resumeAtSeconds
+        }]
+      }))
+      localStorage.setItem(storageKey, JSON.stringify(state))
+    }, seededKey)
+    await page.reload()
+    await waitForApplication(page)
+
+    await expect(page.locator('#videoGrid .partial-priority-badge')).toHaveCount(2)
+    const progressTab = page.locator('[data-status-tab="partial"]')
+    await expect(progressTab).toHaveText(/In progress\s*2/)
+    await progressTab.click()
+    await expect(page.locator('#videoGrid .channel-shelf-card')).toHaveCount(2)
+    for (let index = 0; index < 2; index += 1) {
+      await expect(page.locator(`#videoGrid [data-video-id="replaying-favorite-${index}"].channel-shelf-card`)).toBeVisible()
+    }
+
+    await page.evaluate(storageKey => {
+      const state = JSON.parse(localStorage.getItem(storageKey))
+      const base = state.videos['replaying-favorite-0']
+      const cases = {
+        partial: { status: 'partial', favorite: false, resumeAtSeconds: 75 },
+        'resumed-watch-later': { status: 'watch-later', favorite: false, resumeAtSeconds: 45 },
+        'replay-at-zero': { resumeAtSeconds: 0 },
+        'completed-favorite': { resumeAtSeconds: null },
+        'invalid-resume': { resumeAtSeconds: 'invalid' },
+        'completed-nonfavorite': { favorite: false },
+        'removed-replay': { removedFromFeedAt: '2026-08-09T04:00:00.000Z' }
+      }
+      for (const [id, overrides] of Object.entries(cases)) {
+        state.videos[id] = { ...base, id, title: id, ...overrides }
+      }
+      localStorage.setItem(storageKey, JSON.stringify(state))
+    }, seededKey)
+    await page.reload()
+    await waitForApplication(page)
+    await expect(progressTab).toHaveText(/In progress\s*5/)
+    await expect(page.locator('[data-status-tab="watch-later"]')).toHaveText(/Watch later\s*1/)
+    await progressTab.click()
+    await expect(page.locator('#videoGrid .channel-shelf-card')).toHaveCount(5)
+    await expect(page.locator('#videoGrid .partial-priority-badge')).toHaveCount(5)
+    for (const id of ['partial', 'resumed-watch-later', 'replay-at-zero']) {
+      await expect(page.locator(`#videoGrid .channel-shelf-card[data-video-id="${id}"]`)).toHaveCount(1)
+    }
+    await expect.poll(() => page.evaluate(key => {
+      const video = JSON.parse(localStorage.getItem(key)).videos['replaying-favorite-0']
+      return { status: video.status, favorite: video.favorite, resumeAtSeconds: video.resumeAtSeconds }
+    }, seededKey)).toEqual({ status: 'watched', favorite: true, resumeAtSeconds: 4 })
+  })
+}
