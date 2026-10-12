@@ -132,7 +132,7 @@ async function createDevice(browser, cloud, device, browserName, baseURL) {
   }
 }
 
-for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acceptance']) {
+for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acceptance', 'local-save-after-acceptance']) {
   test(`phone lock during ${stage} then computer study preserves both devices without a conflict`, async ({ browser, browserName, baseURL }, testInfo) => {
     test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
     test.setTimeout(90_000)
@@ -160,10 +160,25 @@ for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acc
       } else {
         if (stage === 'before-send') cloud.controls.phoneHead = headGate
         if (stage === 'after-head-check') { cloud.controls.phoneSend = sendGate; cloud.controls.allowStale = true }
-        if (stage === 'after-acceptance') cloud.controls.phoneAck = ackGate
+        if (['after-acceptance', 'local-save-after-acceptance'].includes(stage)) cloud.controls.phoneAck = ackGate
         expect(await phone.capture(40)).toBe(true)
         if (stage === 'after-head-check') await expect.poll(() => cloud.commits.length).toBe(1)
-        if (stage === 'after-acceptance') await expect.poll(() => cloud.head().envelope.profile.videos.phone.watchProgress[0]?.seconds).toBe(40)
+        if (['after-acceptance', 'local-save-after-acceptance'].includes(stage)) await expect.poll(() => cloud.head().envelope.profile.videos.phone.watchProgress[0]?.seconds).toBe(40)
+        if (stage === 'local-save-after-acceptance') {
+          await phone.page.evaluate(() => {
+            const original = primaryProfileRepository.save.bind(primaryProfileRepository)
+            primaryProfileRepository.save = async (...args) => {
+              await new Promise(resolve => { window.handoffReleaseLocalSave = resolve })
+              primaryProfileRepository.save = original
+              return original(...args)
+            }
+            const state = loadState()
+            state.videos.phone.watchProgress[0].seconds = 80
+            state.videos.phone.watchProgress[0].experienceSeconds = 80
+            window.handoffSave = saveState(state)
+          })
+          await expect.poll(() => phone.page.evaluate(() => typeof window.handoffReleaseLocalSave)).toBe('function')
+        }
       }
       await phone.visibility(true)
       if (browserName === 'chromium') {
@@ -181,14 +196,20 @@ for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acc
       headGate.resolve(); ackGate.resolve(); sendGate.resolve()
       if (cdp) await cdp.send('Page.setWebLifecycleState', { state: 'active' })
       await phone.visibility(false)
-      if (stage === 'local-save') await phone.page.evaluate(() => window.handoffReleaseLocalSave())
+      if (stage === 'local-save-after-acceptance') {
+        await expect.poll(() => phone.page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'))?.pending)).toBeNull()
+        expect(await phone.page.evaluate(() => localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1_dirty'))).not.toBeNull()
+        await expect(phone.page.locator('#learnerProfileSyncStatus')).not.toHaveText('Up to date')
+      }
+      if (['local-save', 'local-save-after-acceptance'].includes(stage)) await phone.page.evaluate(() => window.handoffReleaseLocalSave())
+      const expectedPhoneSeconds = stage === 'local-save-after-acceptance' ? 80 : 40
       await phone.page.clock.runFor(31_000)
       await expect(phone.page.locator('#mainApp')).toBeVisible()
       await expect(phone.page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
-      await expect.poll(() => cloud.head().envelope.profile.videos.phone.watchProgress[0]?.seconds).toBe(40)
+      await expect.poll(() => cloud.head().envelope.profile.videos.phone.watchProgress[0]?.seconds).toBe(expectedPhoneSeconds)
       expect(cloud.head().envelope.profile.videos.computer.watchProgress[0].seconds).toBe(60)
       expect(await phone.page.evaluate(() => ({ phone: loadState().videos.phone.watchProgress[0].seconds,
-        computer: loadState().videos.computer.watchProgress[0].seconds }))).toEqual({ phone: 40, computer: 60 })
+        computer: loadState().videos.computer.watchProgress[0].seconds }))).toEqual({ phone: expectedPhoneSeconds, computer: 60 })
       expect(cloud.requests.some(({ path }) => path.includes('conflict'))).toBe(false)
       expect(phone.errors).toEqual([])
       expect(computer.errors).toEqual([])
