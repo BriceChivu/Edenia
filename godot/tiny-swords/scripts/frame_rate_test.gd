@@ -240,8 +240,11 @@ func receive_motion(arguments: Array) -> void:
 		walk_for_test(motion_destination)
 	if operation == "finish" and motion_running:
 		motion_distance += motion_world.pawn.position.distance_to(motion_previous)
-		JavaScriptBridge.eval("window.edeniaFrameTestMotionInfo = %s" % JSON.stringify({"distancePixels": motion_distance, "routeLengthPixels": motion_start.distance_to(motion_destination), "speedPixelsPerSecond": motion_world.pawn.speed}))
+		if OS.has_feature("web"):
+			JavaScriptBridge.eval("window.edeniaFrameTestMotionInfo = %s" % JSON.stringify({"distancePixels": motion_distance, "routeLengthPixels": motion_start.distance_to(motion_destination), "speedPixelsPerSecond": motion_world.pawn.speed}))
 		motion_running = false
+		motion_world.movement_generation += 1
+		motion_world.navigation_pending = false
 		motion_world.waypoints.clear()
 		motion_world.pawn.position = motion_start
 		motion_world.pawn.walk_to(motion_start)

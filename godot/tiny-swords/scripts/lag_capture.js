@@ -147,6 +147,7 @@
       limit(probes, {operation,durationMs,details:safe,atEpochMs:epoch()},500)
     },
     getState: () => ({ active, status, hasReport: Boolean(report), hasVideo: Boolean(video), recording: active && hasVideo,
+      navigationSearches:probes.filter(probe=>probe.operation==='obstacle-search').length,
       elapsedSeconds: active ? (epoch() - began) / 1000 : 0, markers: markers.length }),
     saveReport() { if (report) save(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }), `${captureId}.json`) },
     saveVideo() { if (video) save(video, `${captureId}.${video.type.includes('mp4') ? 'mp4' : 'webm'}`) }

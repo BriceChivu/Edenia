@@ -99,5 +99,22 @@ func run() -> void:
 	world.construction.phase = world.construction.Phase.PICKUP
 	world.construction._process(0)
 	check(world.layout.house_bundle == 6, "Arrival retains the existing 0.2px tolerance")
+	# Ending the automatic motion must retire a pending route at the same origin.
+	world.layout.restore(fixture)
+	world.pawn.position = start
+	world.pawn.walk_to(start)
+	world.navigation_frame = Engine.get_process_frames()
+	world.navigation_spent_usec = 2000
+	world.walk_on_land(Vector2i(2, 2), world.layout.center(Vector2i(2, 2)))
+	check(world.navigation_pending, "Motion stop fixture has a suspended route")
+	var tester = root.get_node("FrameRateTest")
+	tester.motion_world = world
+	tester.motion_running = true
+	tester.motion_start = start
+	tester.motion_previous = start
+	tester.receive_motion(["finish"])
+	for frame in 100:
+		await process_frame
+	check(not world.navigation_pending and world.waypoints.is_empty() and world.pawn.destination.is_equal_approx(start), "Stopping motion cancels a route that could otherwise resume from the same origin")
 	print("Bounded obstacle search: cases=", cases, " legacyMaxMs=", legacy_max, " optimizedMaxMs=", optimized_max, " sliceMaxMs=", max_slice, " failures=", failures)
 	quit(0 if failures == 0 else 1)
