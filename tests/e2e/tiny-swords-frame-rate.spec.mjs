@@ -1,5 +1,6 @@
 import { expect, test } from '../support/network-fixture.mjs'
 import { readFile } from 'node:fs/promises'
+import { unzipSync } from 'fflate'
 
 test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Uses the integrated Godot build')
 
@@ -23,6 +24,7 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
   const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   await game.waitForFunction(() => window.edeniaFrameTest && window.edeniaLastSavePersisted)
+  await game.waitForFunction(() => !window.edeniaLagCapture.getState().busy)
   expect(new URL(game.url()).searchParams.get('tiny_swords_fps')).toBe('30')
   expect(await game.evaluate(() => window.edeniaFrameTest.startComparison({ sampleMs: 2000, warmupMs: 1000 }))).toBe(true)
   await game.waitForFunction(() => window.edeniaFrameTest.getState().report, null, { timeout: 20000 })
@@ -49,6 +51,7 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
   expect(await game.evaluate(() => window.edeniaFrameTestMotionReady)).toBe(true)
   await game.waitForFunction(() => window.edeniaLagCapture.getState().navigationSearches>0,null,{timeout:15000})
   await game.evaluate(() => { window.edeniaLagCapture.mark(); window.edeniaLagCapture.stop(); window.edeniaFrameTestMotion('finish') })
+  await game.waitForFunction(() => !window.edeniaLagCapture.getState().busy)
   const reportDownload = page.waitForEvent('download')
   await game.evaluate(() => window.edeniaLagCapture.saveReport())
   const saved = await reportDownload
@@ -67,6 +70,7 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
   await game.waitForTimeout(1600)
   await game.evaluate(() => { window.edeniaLagCapture.stop(); window.edeniaFrameTestMotion('finish') })
   await game.waitForFunction(() => window.edeniaLagCapture.getState().hasVideo)
+  await game.waitForFunction(() => !window.edeniaLagCapture.getState().busy)
   const videoDownload = page.waitForEvent('download')
   await game.evaluate(() => window.edeniaLagCapture.saveVideo())
   const clip = await videoDownload
@@ -100,4 +104,47 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
   await expect.poll(() => game.evaluate(() => window.edeniaLagCapture.getState().active)).toBe(false)
   await expect.poll(() => game.evaluate(() => window.edeniaLagCapture.getState().hasReport)).toBe(true)
   await page.locator('#settingsCloseBtn').click()
+  await game.waitForFunction(() => !window.edeniaLagCapture.getState().busy)
+
+  // The user-facing flow automatically pairs a recording with a log-only run.
+  // No separate save gestures are needed, and the archive survives another run/reload.
+  const retainedIds = await game.evaluate(() => window.edeniaLagCapture.getState().captures.map(item => item.id))
+  expect(await game.evaluate(() => window.edeniaLagCapture.startComparison({phaseMs: 2000}))).toBe(true)
+  await game.evaluate(() => window.edeniaFrameTestMotion('start'))
+  const bounds = await game.locator('#canvas').boundingBox()
+  await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.4)
+  await page.mouse.move(bounds.x + bounds.width * 0.6, bounds.y + bounds.height * 0.5, {steps: 15})
+  await game.waitForFunction(() => window.edeniaLagCapture.getState().active && window.edeniaLagCapture.getState().phase === 'log-only')
+  expect(await game.evaluate(() => window.edeniaLagCapture.getState().recording)).toBe(false)
+  await game.waitForFunction(() => !window.edeniaLagCapture.getState().active && !window.edeniaLagCapture.getState().busy)
+  await game.evaluate(() => window.edeniaFrameTestMotion('finish'))
+  const completed = await game.evaluate(() => window.edeniaLagCapture.getState())
+  expect(completed.captures.map(item => item.id)).toEqual(expect.arrayContaining(retainedIds))
+  expect(completed.captures.find(item => item.id === completed.selectedId).durable).toBe(true)
+  const packageDownload = page.waitForEvent('download')
+  expect(await game.evaluate(() => window.edeniaLagCapture.savePackage())).toBe(true)
+  const packaged = await packageDownload
+  expect(packaged.suggestedFilename()).toBe(`${completed.selectedId}.zip`)
+  const files = unzipSync(new Uint8Array(await readFile(await packaged.path())))
+  const summary = JSON.parse(new TextDecoder().decode(files[`${completed.selectedId}-summary.json`]))
+  expect(summary.comparisonComplete).toBe(true)
+  expect(summary.pageUrl).toContain('internal_test=2')
+  expect(summary.runs.map(run => run.phase)).toEqual(['recorded', 'log-only'])
+  expect(Object.keys(files).filter(name => name.endsWith('.webm'))).toHaveLength(1)
+  for (const run of summary.runs) {
+    const diagnostic = JSON.parse(new TextDecoder().decode(files[run.reportFile]))
+    expect(diagnostic.captureId).toBe(completed.selectedId)
+    expect(diagnostic.frames.length).toBeGreaterThan(0)
+    expect(diagnostic.actions.some(action => action.type === 'gameplay')).toBe(true)
+    expect(diagnostic.video.requested).toBe(run.phase === 'recorded')
+  }
+  expect(await game.evaluate(() => window.edeniaLagCapture.start(false))).toBe(true)
+  await game.evaluate(() => window.edeniaLagCapture.stop())
+  await game.waitForFunction(() => !window.edeniaLagCapture.getState().busy)
+  await page.reload({waitUntil: 'domcontentloaded'})
+  await page.locator('#tinySwordsSurface').scrollIntoViewIfNeeded()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', {timeout: 60000})
+  const reloadedGame = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  await reloadedGame.waitForFunction(() => window.edeniaLagCapture && !window.edeniaLagCapture.getState().busy)
+  expect(await reloadedGame.evaluate(() => window.edeniaLagCapture.getState().captures.map(item => item.id))).toContain(completed.selectedId)
 })

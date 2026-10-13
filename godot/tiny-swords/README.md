@@ -685,16 +685,31 @@ The direct export command above applies to the separate base preview on port 418
 `tiny_swords_fps=30` remains available for comparisons. Physics and gameplay clocks
 retain their original cadence. Normal URLs do not install the experiment.
 
-Open **FPS test → Lag capture** on the island. **Log lag** records actual engine
-frame intervals, loop work, supported host/game long tasks, navigation timing, sync-status changes, local persistence events and
-lag markers for up to three minutes. **Record clip** also records the game canvas
-without microphone or host-page content, for up to 60 seconds (16 MB safety limit).
-The menu closes during capture; tap **Mark lag** whenever a stutter is noticeable.
-Open the menu, stop, then use **Save lag report** and, for a recording, **Save clip**.
-Both files stay local until the learner chooses to share them. There is no upload,
-profile dump, credential capture or analytics enablement. Recording itself can add
-load: compare with Log lag alone. Unsupported video encoders show a fallback message;
-Android's screen recorder can be used alongside Log lag.
+Open **FPS test → Lag capture** on the island. **Record + compare** runs a 20-second
+game-only recording, then automatically runs another 20 seconds without recording.
+The status asks the learner to repeat similar actions in the second phase; this
+sequential comparison does not replay identical inputs or prove recorder causality.
+**Log only** remains available for up to three minutes. **Stop & keep**, or the
+compact **Stop** button, ends early and keeps the available evidence.
+
+Frame intervals over 50 ms are marked automatically; **Mark lag** adds optional
+felt-lag markers. Reports include actual engine intervals/loop work, supported
+host/game long tasks, navigation timing, sync-status changes, local persistence,
+allowlisted gameplay modes and aggregate pointer/click/scroll/video-event counts.
+The parent page URL retains the path and numeric experiment parameters only;
+arbitrary query strings/fragments, typed text and video/profile content are omitted.
+
+**Save package** downloads one ZIP containing the matching clip, phase reports,
+summary and reading instructions. Completed packages are kept in a separate local
+IndexedDB capture archive (five packages maximum); a new run does not replace them.
+The picker selects earlier captures; **Delete selected** explicitly makes room.
+Storage failure retains the package in memory and warns to download before leaving.
+An in-progress capture is best effort on page exit; completed durable packages
+survive reload. ZIP work uses a worker, with a yielding fallback after capture ends.
+
+The clip has no microphone or host page, with a 16 MB recording safety limit. There
+is no upload, learner-profile dump, credential capture or analytics enablement.
+Unsupported encoders still produce diagnostic packages and report the missing clip.
 
 The internal experiment uses asynchronous WebP encoding for the existing replay
 mirror, with one image in flight and fresh visibility/recording checks after
