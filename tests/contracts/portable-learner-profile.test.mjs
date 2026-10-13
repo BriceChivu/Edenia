@@ -8,6 +8,7 @@ import {
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   PORTABLE_LEARNER_PROFILE_VERSION,
   preparePortableLearnerProfileEnvelope,
+  normalizePortableLearnerProfile,
   reconcilePortableAnkiDays,
   verifyPortableLearnerProfileEnvelope
 } from '../../src/state/portable-learner-profile.js'
@@ -531,4 +532,18 @@ test('verification rejects noncanonical, tampered, unsupported, or oversized dat
     /too large/
   )
   assert.deepEqual(source, sourceBefore)
+})
+
+test('content comparison normalizes the exact export profile without preparing export integrity', () => {
+  const source = durableState()
+  const before = structuredClone(source)
+  const normalized = normalizePortableLearnerProfile(source)
+  assert.deepEqual(normalized, preparePortableLearnerProfileEnvelope(source).profile)
+  assert.deepEqual(source, before)
+  source.config.weeklyGoalHours++
+  assert.notDeepEqual(normalizePortableLearnerProfile(source), normalized)
+  source.config.weeklyGoalHours--
+  const video = source.videos[Object.keys(source.videos)[0]]
+  video.favorite = !video.favorite
+  assert.notDeepEqual(normalizePortableLearnerProfile(source), normalized)
 })

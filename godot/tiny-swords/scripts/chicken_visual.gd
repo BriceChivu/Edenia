@@ -142,6 +142,10 @@ func movement_speed() -> float:
 	return world.pawn.speed if following else super.movement_speed()
 
 func clear_following() -> void:
+	if follow_search != null and OS.has_feature("web"):
+		var details := {"workMs": follow_search_work / 1000.0, "wallMs": (Time.get_ticks_usec() - follow_search_started) / 1000.0, "cancelled": not follow_search.done}
+		JavaScriptBridge.eval("window.edeniaLagCapture?.probe('chicken-follow', %s, %s); window.edeniaFrameTest?.recordProbe('chicken-follow', %s, Date.now(), %s)" % [follow_search_max_slice / 1000.0, JSON.stringify(details), follow_search_max_slice / 1000.0, JSON.stringify(details)])
+	follow_search = null
 	if following:
 		fleeing = false
 		escape_route.clear()
@@ -189,7 +193,7 @@ func route_to_tile(start: Vector2, cell: Vector2i) -> Array[Vector2]:
 		start = point
 	return route
 
-func shortest_follow_route() -> Array[Vector2]:
+func follow_targets() -> Array[Vector2]:
 	var layout = world.layout
 	var pawn_cell: Vector2i = layout.cell_at(world.pawn.position)
 	var targets: Array[Vector2] = []
@@ -204,69 +208,28 @@ func shortest_follow_route() -> Array[Vector2]:
 			targets.append(target)
 	if targets.is_empty():
 		return []
-	var nearest := targets[0]
-	for target in targets:
-		if position.distance_squared_to(target) < position.distance_squared_to(nearest):
-			nearest = target
-	if safe_follow_segment(position, nearest):
-		return [nearest]
-	# A* uses actual segment lengths, including diagonal steps. The pawn's
-	# entire tile is excluded during the search, rather than rejecting a
-	# completed route that could have gone around it.
-	var source := Vector2i(((position - layout.ORIGIN) / 8.0).floor())
-	var frontier: Array[Vector2i] = [source]
-	var previous: Dictionary = {source: source}
-	var costs: Dictionary = {source: 0.0}
-	var scores: Dictionary = {source: follow_distance(position, targets)}
-	var best_cost := INF
-	var best_node := source
-	var best_target := Vector2.INF
-	while not frontier.is_empty():
-		var selected := 0
-		for index in range(1, frontier.size()):
-			if float(scores[frontier[index]]) < float(scores[frontier[selected]]):
-				selected = index
-		var current: Vector2i = frontier[selected]
-		frontier.remove_at(selected)
-		if float(scores[current]) >= best_cost:
-			break
-		var point: Vector2 = position if current == source else layout.ORIGIN + Vector2(current) * 8.0
-		for target in targets:
-			var cost: float = float(costs[current]) + point.distance_to(target)
-			if cost < best_cost and safe_follow_segment(point, target):
-				best_cost = cost
-				best_node = current
-				best_target = target
-		for step in layout.NAV_STEPS:
-			var next: Vector2i = current + step
-			var next_point: Vector2 = layout.ORIGIN + Vector2(next) * 8.0
-			var cost: float = float(costs[current]) + point.distance_to(next_point)
-			if cost >= float(costs.get(next, INF)) or not safe_follow_segment(point, next_point):
-				continue
-			costs[next] = cost
-			scores[next] = cost + follow_distance(next_point, targets)
-			previous[next] = current
-			if not frontier.has(next):
-				frontier.append(next)
-	var route: Array[Vector2] = []
-	if not best_target.is_finite():
-		return route
-	while best_node != source:
-		route.push_front(layout.ORIGIN + Vector2(best_node) * 8.0)
-		best_node = previous[best_node]
-	route.append(best_target)
-	# Remove unnecessary navigation samples so open ground takes a direct route.
-	var start := position
-	var smoothed: Array[Vector2] = []
-	while not route.is_empty():
-		var furthest := 0
-		for index in route.size():
-			if safe_follow_segment(start, route[index]):
-				furthest = index
-		start = route[furthest]
-		smoothed.append(start)
-		route = route.slice(furthest + 1)
-	return smoothed
+	return targets
+
+func new_follow_search():
+	var targets := follow_targets()
+	if targets.is_empty():
+		return null
+	return preload("res://scripts/chicken_follow_search.gd").new(self, targets)
+
+func shortest_follow_route() -> Array[Vector2]:
+	var search = new_follow_search()
+	if search == null:
+		return []
+	while not search.done:
+		search.advance(Time.get_ticks_usec() + 1000000)
+	return search.result
+
+var follow_search
+var follow_search_geometry := 0
+var follow_search_cell := Vector2i.ZERO
+var follow_search_started := 0
+var follow_search_work := 0
+var follow_search_max_slice := 0
 
 func follow_distance(point: Vector2, targets: Array[Vector2]) -> float:
 	var distance := INF
@@ -278,7 +241,38 @@ func follow_pawn() -> void:
 	var pawn_cell: Vector2i = world.layout.cell_at(world.pawn.position)
 	if following and fleeing and pawn_cell == follow_target_cell:
 		return
-	var route := shortest_follow_route()
+	var route: Array[Vector2] = []
+	if bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
+		var began := Time.get_ticks_usec()
+		var geometry: int = world.navigation_signature()
+		if follow_search != null and (follow_search_geometry != geometry or follow_search_cell != pawn_cell or follow_search.layout != world.layout or not follow_search.start.is_equal_approx(position)):
+			follow_search = null
+		if follow_search == null:
+			clear_following()
+			follow_search = new_follow_search()
+			follow_search_started = began
+			follow_search_work = 0
+			follow_search_max_slice = 0
+			follow_search_geometry = geometry
+			follow_search_cell = pawn_cell
+		if follow_search == null:
+			return
+		follow_search.advance(began + world.navigation_budget())
+		var slice_usec := Time.get_ticks_usec() - began
+		world.navigation_spent_usec += slice_usec
+		follow_search_work += slice_usec
+		follow_search_max_slice = maxi(follow_search_max_slice, slice_usec)
+		if not follow_search.done:
+			return
+		route.assign(follow_search.result)
+		var origin := position
+		for point in route:
+			if not safe_follow_segment(origin, point):
+				follow_search = null
+				return
+			origin = point
+	else:
+		route = shortest_follow_route()
 	clear_following()
 	follow_target_cell = pawn_cell
 	if route.is_empty():

@@ -545,6 +545,12 @@ function createIntegrityPayload({ exportedAt, profile, schema, version }) {
   return { exportedAt, profile, schema, version }
 }
 
+// Content comparisons need the same canonical portable profile as exports,
+// but do not need an export timestamp, integrity hash or envelope byte-length loop.
+export function normalizePortableLearnerProfile(state) {
+  return createPortableProfile(cloneJson(state))
+}
+
 export function preparePortableLearnerProfileEnvelope(
   state,
   {

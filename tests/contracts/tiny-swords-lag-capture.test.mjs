@@ -58,6 +58,7 @@ test('capture automatically includes safe route/actions, sync and persistence wi
   f.parentEvents.get('edenia-profile-persisted')({detail:{authToken:'private-token'}})
   f.header.dataset.syncStatus='syncing';f.observers.at(-1).callback()
   f.api.probe('obstacle-search',2,{workMs:30,wallMs:500,cancelled:false,authToken:'private-token',profile:{secret:true}})
+  f.api.probe('chicken-follow',2,{workMs:12,wallMs:80,cancelled:false})
   f.api.activity('walking');f.api.activity('walking');f.api.activity('private-token')
   f.canvasEvents.get('pointermove')({});f.canvasEvents.get('pointerdown')({pointerType:'touch'})
   await f.api.stop();const report=await f.report()
@@ -68,6 +69,7 @@ test('capture automatically includes safe route/actions, sync and persistence wi
   assert.equal(report.actions.filter(action=>action.type==='gameplay').length,1)
   assert.deepEqual(report.actions.find(action=>action.type==='interaction-counts').counts,{gamePointerMoves:1,gameTouches:1})
   assert.deepEqual(report.probes[0].details,{workMs:30,wallMs:500,cancelled:false})
+  assert.deepEqual(report.probes.find(probe=>probe.operation==='chicken-follow').details,{workMs:12,wallMs:80,cancelled:false})
 })
 test('record-and-compare automatically creates two matched reports and a valid single ZIP',async()=>{
   const f=await fixture();assert.equal(f.api.startComparison({phaseMs:1000}),true)

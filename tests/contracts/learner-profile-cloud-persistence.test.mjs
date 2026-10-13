@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { createProductionSourceResolver } from '../../scripts/build-production-experience.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { preparePortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
+import { preparePortableLearnerProfileEnvelope, normalizePortableLearnerProfile } from '../../src/state/portable-learner-profile.js'
 import {
   createLearnerProfileCloudPersistenceAdapter
 } from '../../src/integrations/learner-profile-cloud-persistence.js'
@@ -130,6 +130,7 @@ function createAdapter({
   now,
   minimumWriteIntervalMs = 0,
   prepareEnvelope,
+  normalizeProfile,
   readOnboardingState,
   rpc,
   setTimer,
@@ -174,6 +175,7 @@ function createAdapter({
     isOnline: isOnline || (() => true),
     now: now || (() => 0),
     minimumWriteIntervalMs,
+    normalizeProfile,
     prepareEnvelope: prepareEnvelope || preparedEnvelope,
     hasOnboardingProfileDraft: hasOnboardingProfileDraft || (() => false),
     readOnboardingState: readOnboardingState || (() => null),
@@ -6776,7 +6778,7 @@ test('exact local animal checkpoint survives refresh without backing up and cann
     acceptedRevision: 4, generation: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
     pending: null, queued: null, version: 1
   }) })
-  const options = { storage, prepareEnvelope: prepare, rpc: async () => ({ data: [{
+  const options = { storage, prepareEnvelope: prepare, normalizeProfile: normalizePortableLearnerProfile, rpc: async () => ({ data: [{
     created: false, envelope: prepare(cloudProfile), generation: 1,
     profile_id: PROFILE_ID, revision: cloudRevision,
     status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY

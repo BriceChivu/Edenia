@@ -321,6 +321,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   now,
   minimumWriteIntervalMs = 30_000,
   prepareEnvelope,
+  normalizeProfile = profile => prepareEnvelope(profile).profile,
   readOnboardingState,
   setTimer,
   storage,
@@ -339,6 +340,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     || typeof isOnline !== 'function'
     || typeof now !== 'function'
     || typeof prepareEnvelope !== 'function'
+    || typeof normalizeProfile !== 'function'
     || typeof readOnboardingState !== 'function'
     || typeof setTimer !== 'function'
     || !storage
@@ -370,17 +372,22 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function profileDigest(profile) {
     // Envelope integrity also covers export time. A local checkpoint must
     // identify just the canonical content across separate preparations.
-    return sha256Base64UrlSync(canonicalizeJson(prepareEnvelope(profile).profile))
+    return sha256Base64UrlSync(canonicalizeJson(normalizeProfile(profile)))
   }
 
   function syncProfileDigest(profile) {
     return handoffEnabled
-      ? portableProfileChangeDigest(prepareEnvelope(profile).profile)
+      ? portableProfileChangeDigest(normalizeProfile(profile))
       : profileDigest(profile)
   }
 
+  function normalizedStudyDigest(profile) {
+    const { tinySwordsIsland, ...study } = profile
+    return sha256Base64UrlSync(canonicalizeJson(study))
+  }
+
   function studyProfileDigest(profile) {
-    try { return profileDigest({ ...profile, tinySwordsIsland: null }) }
+    try { return normalizedStudyDigest(normalizeProfile(profile)) }
     catch { return null }
   }
 
@@ -408,12 +415,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
     try {
       // The native cause cannot suppress unsaved study/config changes. Only an
       // island difference from this activation's clean profile can be marked.
+      const normalized = normalizeProfile(profile)
       if (!binding.checkpointStudyDigest
-        || studyProfileDigest(profile) !== binding.checkpointStudyDigest) return false
+        || normalizedStudyDigest(normalized) !== binding.checkpointStudyDigest) return false
       const serialized = JSON.stringify({ version: 1, ownerId: record.ownerId,
         profileId: record.profileId, generation: record.generation,
         revision: record.acceptedRevision,
-        payloadSha256: profileDigest(profile) })
+        payloadSha256: sha256Base64UrlSync(canonicalizeJson(normalized)) })
       if (!isCurrent() || !binding.isCurrent()) return false
       storage.setItem(localIslandCheckpointStorageKey, serialized)
       return storage.getItem(localIslandCheckpointStorageKey) === serialized

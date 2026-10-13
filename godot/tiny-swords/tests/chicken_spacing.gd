@@ -8,7 +8,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	seed(0)
-	var scene = preload("res://previews/level_seven.tscn").instantiate()
+	var scene = load("res://previews/level_seven.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame

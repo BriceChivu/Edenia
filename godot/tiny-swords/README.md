@@ -1318,3 +1318,15 @@ dashboard and production profile semantics. Keep the public page selected
 after release when mitigating game failures; selecting an older town bundle
 can reinterpret island claims. Existing production town claims are archived
 as `legacyCityProgress` without granting island XP or resources.
+
+## Following during the FPS trial
+
+The internal FPS trial shares the existing two-millisecond navigation allowance
+between pawn route planning and chicken following. Chicken searches retain
+Euclidean shortest-path costs, the reserved pawn tile and spacing rules, but
+cache terrain contacts and advance across frames. Terrain changes, restored
+layouts, a changed pawn tile or bird movement retire a pending request; the
+completed route is checked against current contacts before movement. Other
+animal escape and construction queries retain their existing atomic behavior.
+`tests/chicken_follow_budget.gd` covers an unreachable destination and a terrain
+change that opens a detour. Lag packages include `chicken-follow` timings.
