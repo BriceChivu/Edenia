@@ -24,6 +24,7 @@ FrameRateTest="*res://scripts/frame_rate_test.gd"
 
 chicken_carry_enabled=false
 direct_walk_routes_enabled=false
+bounded_obstacle_search_enabled=false
 
 [display]
 

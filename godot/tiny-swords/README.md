@@ -679,6 +679,56 @@ message/scroll hooks; keep it separate from the versioned integrated directory.
 Use the integration builder for every update to that preview, then refresh.
 The direct export command above applies to the separate base preview on port 4183.
 
+## Internal lag capture and frame pacing
+
+`?internal_test=1` defaults to 60 FPS; explicit
+`tiny_swords_fps=30` remains available for comparisons. Physics and gameplay clocks
+retain their original cadence. Normal URLs do not install the experiment.
+
+Open **FPS test → Lag capture** on the island. **Log lag** records actual engine
+frame intervals, loop work, supported host/game long tasks, navigation timing, sync-status changes, local persistence events and
+lag markers for up to three minutes. **Record clip** also records the game canvas
+without microphone or host-page content, for up to 60 seconds (16 MB safety limit).
+The menu closes during capture; tap **Mark lag** whenever a stutter is noticeable.
+Open the menu, stop, then use **Save lag report** and, for a recording, **Save clip**.
+Both files stay local until the learner chooses to share them. There is no upload,
+profile dump, credential capture or analytics enablement. Recording itself can add
+load: compare with Log lag alone. Unsupported video encoders show a fallback message;
+Android's screen recorder can be used alongside Log lag.
+
+The internal experiment uses asynchronous WebP encoding for the existing replay
+mirror, with one image in flight and fresh visibility/recording checks after
+encoding. Copying happens after an actual engine render. Internal-test analytics
+remain disabled, so that mirror is exercised by an isolated local benchmark stub.
+Ordinary production replay retains its existing encoder until a separate rollout.
+
+Ordinary walking obstacle searches use request-local A* contact caches and a
+shared 2 ms frame budget for incremental edge expansion and route smoothing. A
+primitive collision test may exceed the remaining slice budget; this is a
+cooperative deadline, not a hard realtime guarantee. Redirects, terrain/contact
+changes, inventory-mode changes and iframe retirement invalidate suspended work.
+Log and construction pickups wait for completed navigation and actual arrival.
+Atomic construction previews and animal queries use the accelerated synchronous
+search, since construction temporarily substitutes the world layout. Those
+queries can still stall and are not claimed to be fully time-bounded.
+
+Run `res://tests/bounded_obstacle_search.gd` for reachability, original collision
+predicates, deadline, cancellation and inventory checks. The normal integrated
+builder runs this gate. `scripts/benchmark-tiny-swords-fps.mjs --chrome --indexed-db
+--replay sync` versus `--replay async` exercises a normal feed of 1000 real video
+records/thumbnails with a moving pawn and continuous mouse movement; add
+`--obstacle-routes` for obstructed destinations, or `--phone --cpu-throttle 4` for
+explicit desktop phone emulation. `--cloud-sync` runs the actual signed-in sync
+client against local simulated responses (500ms latency, 1Mbps upload, 2Mbps
+download), with synthetic study updates every six seconds. `--replay-abba` compares
+sync/async/async/sync encoding at a fixed 60 FPS in the same browser
+(`--fixed-fps 30` selects the older comparison);
+`--legacy-navigation --obstacle-routes` supplies the navigation control.
+`--route public --study-profile --progress --replay off` supplies the matched
+accountless route, with the same synthetic study history and local persistence.
+This does not simulate 1000 video players or
+prove physical Pixel performance.
+
 ## Checks
 
 Terrain retains static draw commands and sorted base cells until geometry changes;

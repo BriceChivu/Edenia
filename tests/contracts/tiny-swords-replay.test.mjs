@@ -12,6 +12,7 @@ function harness({ analytics = true, recording = true, hidden = false, visible =
   const snapshot = { width: 0, height: 0, getContext: () => ({ drawImage() { captures++; if (error) throw new Error('buffer unavailable') } }), toDataURL: () => frame }
   const parent = { EDENIA_ANALYTICS_ENABLED: analytics, posthog: { sessionRecordingStarted: () => recording } }
   const target = {
+    location: { search: '' }, URLSearchParams, addEventListener() {}, clearTimeout() {},
     parent, document: { hidden, getElementById: () => canvas, createElement: () => snapshot },
     edeniaConflictPreviewMode: conflict, edeniaHostVisible: visible, edeniaGameLevel: ready ? 1 : undefined,
     setTimeout(fn, delay) { timers.push({ fn, delay }) }, requestAnimationFrame(fn) { fn() }

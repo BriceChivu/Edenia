@@ -1,5 +1,7 @@
 # Tiny Swords FPS and frame-stall experiment — 2026-10-12
 
+The 30 FPS default described below is historical. The [2026-10-13 stall experiment](../stalls-2026-10-13/report.md) restores the internal default to 60 FPS at the owner's request and adds cooperative searches and local lag capture.
+
 `internal_test=1` defaults to an experimental 30 FPS mode and a safe direct-walking optimization. Ordinary routes retain their existing settings. The earlier rendering policy followed display refresh (often 60 FPS, potentially 90/120 Hz), rather than imposing a fixed 60 FPS limit.
 
 ## Try it on your actual profile
