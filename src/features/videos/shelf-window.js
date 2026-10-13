@@ -126,6 +126,7 @@ export function createShelfWindow(track, { videos, render, bind, empty, isPinned
   }
 
   function reconcile(nextItems) {
+    const atNewest = track.scrollLeft <= 2
     const focus = captureWindowFocus(track)
     const oldIds = items.map(video => String(video.id))
     const nextIds = nextItems.map(video => String(video.id))
@@ -167,7 +168,9 @@ export function createShelfWindow(track, { videos, render, bind, empty, isPinned
     // Build the complete spacer geometry before assigning the new scroll offset.
     if (!pitch) measure()
     update()
-    const nextLeft = Math.max(0, nextIndex * pitch - offset)
+    // New uploads should remain visible until the learner browses older videos.
+    // Once they leave the newest end, preserve the video they were viewing.
+    const nextLeft = atNewest ? 0 : Math.max(0, nextIndex * pitch - offset)
     if (Math.abs(track.scrollLeft - nextLeft) > 1) {
       track.scrollTo({ left: nextLeft, behavior: 'instant' })
     }

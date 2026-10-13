@@ -118,3 +118,57 @@ test('player close has a focus destination after its last source card is removed
   await expect(page.locator('.video-player-overlay')).toHaveCount(0)
   await expect(page.locator('#videoGrid .empty-state')).toBeFocused()
 })
+
+async function prependUploads(page, batch) {
+  await page.evaluate(batch => {
+    const state = window.loadState()
+    for (let i = 0; i < 3; i++) state.videos[`${batch}-${i}`] = {
+      ...state.videos['anchor-0'], id: `${batch}-${i}`, title: `New ${batch} ${i}`,
+      publishedAt: new Date(Date.UTC(2026, 9, batch === 'first' ? 1 : 2, 3 - i)).toISOString()
+    }
+    window.saveState(state)
+    window.renderAll(state)
+  }, batch)
+}
+
+test('new uploads keep untouched channel timelines at the newest end, including offscreen rows', async ({ page }) => {
+  await seed(page)
+  const track = page.locator('.channel-shelf-track')
+  await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
+  await prependUploads(page, 'first')
+  await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
+  await expect(page.locator('.video-card').first()).toHaveAttribute('data-video-id', 'first-0')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await prependUploads(page, 'second')
+  await track.scrollIntoViewIfNeeded()
+  await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
+  await expect(page.locator('.video-card').first()).toHaveAttribute('data-video-id', 'second-0')
+})
+
+test('new uploads preserve older browsing positions until the learner returns to the newest end', async ({ page }) => {
+  await seed(page)
+  const track = page.locator('.channel-shelf-track')
+  await page.locator('.channel-shelf-scroll-next').click()
+  await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeGreaterThan(100)
+  // Wait for the arrow's smooth scroll to finish before capturing its anchor.
+  await expect.poll(() => track.evaluate(node => {
+    const pitch = node.querySelector('.channel-shelf-slot').getBoundingClientRect().width
+      + parseFloat(getComputedStyle(node).columnGap)
+    return Math.abs(node.scrollLeft - Math.round(node.scrollLeft / pitch) * pitch)
+  })).toBeLessThan(2)
+  const anchor = await track.evaluate(node => {
+    const rect = node.getBoundingClientRect()
+    const slot = [...node.querySelectorAll('.channel-shelf-slot')].find(slot => slot.getBoundingClientRect().left >= rect.left)
+    return { id: slot.querySelector('.video-card').dataset.videoId, left: slot.getBoundingClientRect().left }
+  })
+  await prependUploads(page, 'first')
+  const anchoredCard = page.locator(`.video-card[data-video-id="${anchor.id}"]`)
+  await expect.poll(() => anchoredCard.evaluate((node, left) => Math.abs(node.closest('.channel-shelf-slot').getBoundingClientRect().left - left), anchor.left)).toBeLessThan(2)
+  for (let i = 0; i < 5 && await page.locator('.channel-shelf-scroll-prev').isEnabled(); i++) {
+    await page.locator('.channel-shelf-scroll-prev').click()
+    await page.waitForTimeout(400)
+  }
+  await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
+  await prependUploads(page, 'second')
+  await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
+})
