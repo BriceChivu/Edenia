@@ -228,7 +228,7 @@ func _process(_delta: float) -> void:
 	if phase == Phase.HAMMERING:
 		advance_build(Time.get_unix_time_from_system())
 		return
-	if not busy() or not world.waypoints.is_empty() or world.pawn.position.distance_to(world.pawn.destination) >= 0.2:
+	if world.navigation_pending or not busy() or not world.waypoints.is_empty() or world.pawn.position.distance_to(world.pawn.destination) >= 0.2:
 		return
 	if phase == Phase.RETURNING:
 		# Inventory can reopen during movement. Recheck its destination after
@@ -248,6 +248,9 @@ func _process(_delta: float) -> void:
 		world.save_layout()
 		world.refresh()
 	elif phase == Phase.PICKUP:
+		if world.pawn.position.distance_to(world.layout.center(source)) >= 0.2:
+			phase = Phase.READY
+			return
 		if world.layout.pick_house_bundle(source):
 			# Remove the pile immediately, without a fade or dust effect.
 			world.history.clear()

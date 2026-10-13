@@ -21,7 +21,10 @@
   let status = 'Ready'
   let duration = 10000
   let warmup = 2000
-  const order = [60, 30, 30, 60]
+  let order = [60, 30, 30, 60]
+  let replayModes = null
+  let fixedFps = null
+  const roles = ['control', 'trial', 'trial', 'control']
   const originalRAF = MainLoop.requestAnimationFrame.bind(MainLoop)
   const initialSize = () => {
     const canvas = document.querySelector('#canvas')
@@ -94,6 +97,7 @@
   const setFps = fps => {
     if (![30, 60].includes(fps)) return false
     targetFps = fps
+    window.edeniaLagCapture?.probe('target-fps', 0, {fps})
     nextFrame = null
     nativeDivisor = 0
     MainLoop.requestAnimationFrame = gatedRAF
@@ -129,29 +133,32 @@
     status = `Cancelled: ${reason}. Compare again.`
     report = null
     setFps(Number(requested))
+    if (replayModes) window.edeniaReplayEncoding.setMode('async')
   }
   const complete = () => {
-    const control = summarize(rounds.filter(item => item.fps === 60).flatMap(item => item.samples), 60)
-    const trial = summarize(rounds.filter(item => item.fps === 30).flatMap(item => item.samples), 30)
+    const control = summarize(rounds.filter(item => item.role === 'control').flatMap(item => item.samples), fixedFps || 60)
+    const trial = summarize(rounds.filter(item => item.role === 'trial').flatMap(item => item.samples), fixedFps || 30)
     window.edeniaFrameTestMotion?.('finish')
     report = {
       version: 2, recordedAt: new Date().toISOString(), userAgent: navigator.userAgent,
-      canvas: comparisonSize, warmupMs: warmup, sampleMsPerRound: duration, order,
+      canvas: comparisonSize, warmupMs: warmup, sampleMsPerRound: duration, order, replayModes,
       control, trial,
       movement: window.edeniaFrameTestMotionInfo || null,
       directWalkRoutesEnabled: window.edeniaFrameTestNavigationFastPath === true,
+      boundedObstacleSearchEnabled: window.edeniaFrameTestBoundedNavigation === true,
       audioState: typeof GodotAudio === 'object' ? GodotAudio.ctx?.state || 'unavailable' : 'unavailable',
       longTaskObserverSupport: observerSupport, longTasks,
       probes,
-      stalls: rounds.flatMap(round => round.samples.filter(item => item.intervalMs > 50).map(item => ({ ...item, targetFps: round.fps }))),
+      stalls: rounds.flatMap(round => round.samples.filter(item => item.intervalMs > 50).map(item => ({ ...item, targetFps: round.fps, role: round.role }))),
       workReductionPct: 100 * (1 - trial.mainLoopWorkMsPerSecond / control.mainLoopWorkMsPerSecond),
       missedDeadlineChangePoints: trial.missedDeadlinePct - control.missedDeadlinePct,
-      rounds: rounds.map(item => summarize(item.samples, item.fps)),
+      rounds: rounds.map((item,index) => ({...summarize(item.samples, item.fps),role:item.role,replayEncoding:replayModes?.[index] || null})),
       measurement: 'Engine preMainLoop to postMainLoop synchronous work; excludes GPU completion and other page tasks. Frame deadlines use 1.5x the selected frame budget. Not a battery measurement.'
     }
     phase = -1
     status = 'Complete'
     setFps(Number(requested))
+    if (replayModes) window.edeniaReplayEncoding.setMode('async')
   }
   MainLoop.preMainLoop.push(() => {
     started = performance.now()
@@ -178,14 +185,16 @@
     if (elapsed >= warmup && intervalMs > 0) samples.push({ intervalMs, workMs: ended - started,
       previousWorkMs: priorWorkMs, atEpochMs: performance.timeOrigin + started })
     if (elapsed < warmup + duration) return
-    rounds.push({ fps: order[phase], samples })
+    rounds.push({ fps: order[phase], role:roles[phase], samples })
     samples = []
     phase++
     if (phase === order.length) { complete(); return }
     phaseStart = ended
     window.edeniaFrameTestMotion?.('round')
+    if (replayModes) window.edeniaReplayEncoding.setMode(replayModes[phase])
     setFps(order[phase])
   })
+  MainLoop.postMainLoop.push(() => window.edeniaReplayCaptureAfterFrame?.())
   addEventListener('visibilitychange', () => { if (document.hidden && phase >= 0) cancel('page hidden') })
   window.edeniaFrameTest = {
     refreshDisplay,
@@ -196,9 +205,9 @@
       await Promise.race([context.suspend(), new Promise(resolve => setTimeout(resolve, 1000))])
       return context.state
     },
-    recordProbe(operation, durationMs, atEpochMs) {
-      if (phase >= 0 && durationMs >= 10) {
-        probes.push({ operation, durationMs, atEpochMs })
+    recordProbe(operation, durationMs, atEpochMs, details = null) {
+      if (phase >= 0 && (durationMs >= 10 || operation === 'obstacle-search')) {
+        probes.push({ operation, durationMs, atEpochMs, details })
         if (probes.length > 200) probes.shift()
       }
     },
@@ -209,11 +218,18 @@
     },
     startComparison(options = {}) {
       if (document.hidden || window.edeniaPresentationSuspended || !window.edeniaLastSavePersisted) return false
-      window.edeniaFrameTestMotion?.('start')
+      window.edeniaFrameTestMotion?.(options.obstacleRoutes ? 'start-obstacles' : 'start', ...(options.obstacleCell || []))
       if (window.edeniaFrameTestMotion && !window.edeniaFrameTestMotionReady) {
         status = 'Finish current action; need a walkable route.'
         return false
       }
+      fixedFps = [30,60].includes(options.fixedFps) ? options.fixedFps : null
+      order = fixedFps ? [fixedFps,fixedFps,fixedFps,fixedFps] : [60,30,30,60]
+      replayModes = options.replayModes || null
+      if (replayModes && (replayModes.length !== 4 || replayModes.some(mode=>!['sync','async'].includes(mode)) || !window.edeniaReplayEncoding)) {
+        window.edeniaFrameTestMotion?.('finish'); status = 'Replay comparison unavailable'; return false
+      }
+      if (replayModes) window.edeniaReplayEncoding.setMode(replayModes[0])
       duration = Math.max(1000, Math.min(30000, Number(options.sampleMs) || 10000))
       warmup = Math.max(1000, Math.min(10000, Number(options.warmupMs) || 2000))
       phase = 0

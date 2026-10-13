@@ -131,6 +131,22 @@ test('hidden/resized/suspended runs are cancelled instead of reporting false gai
   }
 })
 
+test('encoding comparison holds 60 FPS across all four rounds and restores async mode', () => {
+  const game = engine('?tiny_swords_fps=60')
+  const modes = []
+  game.window.edeniaReplayEncoding = { setMode(mode) { modes.push(mode); return true } }
+  game.start(); game.advance(100)
+  assert.equal(game.window.edeniaFrameTest.startComparison({sampleMs:1000,warmupMs:1000,
+    fixedFps:60,replayModes:['sync','async','async','sync']}),true)
+  game.advance(8500)
+  const {report,targetFps} = game.window.edeniaFrameTest.getState()
+  assert.equal(targetFps,60)
+  assert.deepEqual(modes,['sync','async','async','sync','async'])
+  assert.ok(report.rounds.every(round=>round.targetFps===60))
+  assert.deepEqual(Array.from(report.rounds,round=>round.role),['control','trial','trial','control'])
+  assert.equal(report.control.targetFps,60); assert.equal(report.trial.targetFps,60)
+})
+
 test('visible stalls longer than a second are measured rather than discarded', () => {
   const game = engine()
   game.start()

@@ -41,6 +41,14 @@ var preserve_history_on_reopen := false
 var history: Array[Dictionary] = []
 var walking_bridges: Array[Vector2i] = []
 var movement_generation := 0
+var navigation_pending := false
+var navigation_request_generation := -1
+var navigation_frame := -1
+var navigation_spent_usec := 0
+const ObstacleSearch = preload("res://scripts/obstacle_search.gd")
+const NAVIGATION_BUDGET_USEC := 2000
+
+
 var waypoints: Array[Vector2] = []
 var harvesting
 var chicken_carry
@@ -257,15 +265,15 @@ func _process(_delta: float) -> void:
 		update_cursor()
 		return
 	chicken_carry.advance(Time.get_unix_time_from_system())
-	if log_pickup != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
-		if not editing and water_phase == WaterPhase.READY and layout.can_pick_log(log_pickup) and begin_pawn_action() and layout.pick_log(log_pickup):
+	if not navigation_pending and log_pickup != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
+		if not editing and water_phase == WaterPhase.READY and layout.can_pick_log(log_pickup) and pawn.position.distance_to(layout.center(log_pickup)) < 0.2 and begin_pawn_action() and layout.pick_log(log_pickup):
 			history.clear()
 			rebuild_decorations()
 			save_layout()
 		log_pickup = Vector2i(999, 999)
 	pawn.carrying_wood = (layout.carried_wood > 0 or layout.house_bundle > 0) and not pawn.axe_equipped and not pawn.hammering
-	if log_delivery != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
-		var delivered := not editing and water_phase == WaterPhase.READY and layout.can_drop_logs(log_delivery) and begin_pawn_action([log_delivery]) and layout.drop_logs(log_delivery)
+	if not navigation_pending and log_delivery != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
+		var delivered: bool = not editing and water_phase == WaterPhase.READY and layout.can_drop_logs(log_delivery) and pawn.position.distance_to(layout.center(log_delivery)) < 0.2 and begin_pawn_action([log_delivery]) and layout.drop_logs(log_delivery)
 		log_pickup = Vector2i(999, 999)
 		log_delivery = Vector2i(999, 999)
 		if delivered:
@@ -1243,6 +1251,19 @@ func continue_log_delivery() -> void:
 		walk_on_land(nearest, layout.center(nearest))
 		log_delivery = nearest
 
+func navigation_signature() -> int:
+	return hash([layout.cells, layout.elevations, layout.stair_directions, layout.trees,
+		layout.tree_types, layout.log_piles, layout.houses, layout.house_offsets,
+		layout.bridges, layout.bridges_enabled, walking_bridges])
+
+func navigation_budget() -> int:
+	var frame := Engine.get_process_frames()
+	if navigation_frame != frame:
+		navigation_frame = frame
+		navigation_spent_usec = 0
+	return maxi(0, NAVIGATION_BUDGET_USEC - navigation_spent_usec)
+
+
 func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
@@ -1252,12 +1273,93 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 		water_phase = WaterPhase.READY
 		waypoints.clear()
 		pawn.walk_to(pawn.position)
-	waypoints = land_route(pawn.position, cell, point)
+	if not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
+		waypoints = land_route(pawn.position, cell, point)
+		if not waypoints.is_empty():
+			pawn.walk_to(waypoints.pop_front())
+		return
+	var generation := movement_generation
+	var was_editing := editing
+	var origin: Vector2 = pawn.position
+	waypoints.clear()
+	pawn.walk_to(origin)
+	navigation_pending = true
+	navigation_request_generation = generation
+	var route: Array[Vector2] = await walking_route(origin, cell, point)
+	if generation != movement_generation:
+		if navigation_request_generation == generation:
+			navigation_pending = false
+		return
+	navigation_pending = false
+	if editing != was_editing or water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING] or not pawn.position.is_equal_approx(origin):
+		if water_phase == WaterPhase.APPROACHING:
+			water_phase = WaterPhase.READY
+		log_pickup = Vector2i(999, 999)
+		log_delivery = Vector2i(999, 999)
+		return
+	waypoints = route
+	if waypoints.is_empty():
+		log_pickup = Vector2i(999, 999)
+		log_delivery = Vector2i(999, 999)
+		if water_phase == WaterPhase.APPROACHING:
+			water_phase = WaterPhase.READY
 	if not waypoints.is_empty():
 		pawn.walk_to(waypoints.pop_front())
 
 func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[Vector2]:
+	var request := prepare_land_route(start_point, cell, point)
+	var empty: Array[Vector2] = []
+	if request.is_empty():
+		return empty
+	var target: Vector2 = request.target
+	var candidates: Array[Vector2] = request.candidates
+	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty():
+		if bool(ProjectSettings.get_setting("gameplay/direct_walk_routes_enabled", false)) and clear_segment(start_point, target):
+			return [target]
+		candidates = tree_navigation_path(start_point, target)
+	return smooth_land_route(start_point, candidates)
+
+func walking_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[Vector2]:
+	if not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
+		return land_route(start_point, cell, point)
+	var request := prepare_land_route(start_point, cell, point)
+	var empty: Array[Vector2] = []
+	if request.is_empty():
+		return empty
+	var target: Vector2 = request.target
+	var candidates: Array[Vector2] = request.candidates
+	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty():
+		if clear_segment(start_point, target):
+			return [target]
+		candidates = await bounded_tree_navigation_path(start_point, target)
+	# Smoothing is also budgeted; a failed long search cannot shift its stall
+	# into a large synchronous list of line-of-sight checks.
+	var generation := movement_generation
+	var geometry := navigation_signature()
+	var was_editing := editing
+	var original_layout = layout
 	var route: Array[Vector2] = []
+	var start := start_point
+	while not candidates.is_empty():
+		var furthest := 0
+		for i in range(candidates.size() - 1, -1, -1):
+			if navigation_budget() == 0:
+				await get_tree().process_frame
+				if generation != movement_generation or layout != original_layout or geometry != navigation_signature() or editing != was_editing:
+					return empty
+			var began := Time.get_ticks_usec()
+			var clear := clear_segment(start, candidates[i])
+			navigation_spent_usec += Time.get_ticks_usec() - began
+			if clear:
+				furthest = i
+				break
+		var next: Vector2 = candidates[furthest]
+		route.append(next)
+		candidates = candidates.slice(furthest + 1)
+		start = next
+	return route
+
+func prepare_land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Dictionary:
 	var from: Vector2i = layout.cell_at(start_point)
 	# When a crossing is redirected midspan, reconnect its elevated lane to
 	# the nearest bank; the grass below remains a separate ordinary route.
@@ -1272,7 +1374,7 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 		walking_bridges.append(crossing_start)
 	var path: Array[Vector2i] = layout.path(from, cell)
 	if path.is_empty() and from != cell:
-		return route
+		return {}
 	var previous_cell := from
 	for step in path:
 		for start in layout.bridges:
@@ -1293,21 +1395,20 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 	if (not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty()) and layout.walkable_point(point):
 		target = point
 	candidates.append(target)
-	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty():
-		if bool(ProjectSettings.get_setting("gameplay/direct_walk_routes_enabled", false)) and clear_segment(start_point, target):
-			route.append(target)
-			return route
-		candidates = tree_navigation_path(start_point, target)
-		if candidates.is_empty():
-			return route
+	return {"target": target, "candidates": candidates}
+
+func smooth_land_route(start_point: Vector2, points: Array[Vector2]) -> Array[Vector2]:
+	var route: Array[Vector2] = []
+	var candidates := points.duplicate()
 	# Keep only necessary bends. Clear stretches can be walked directly, without
 	# pulling the pawn back to the center of its current square on every click.
 	var start: Vector2 = start_point
 	while not candidates.is_empty():
 		var furthest := 0
-		for i in range(candidates.size()):
+		for i in range(candidates.size() - 1, -1, -1):
 			if clear_segment(start, candidates[i]):
 				furthest = i
+				break
 		var next: Vector2 = candidates[furthest]
 		route.append(next)
 		candidates = candidates.slice(furthest + 1)
@@ -1315,6 +1416,48 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 	return route
 
 func tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[Vector2i] = [], moving_sheep: bool = false, alternative_targets: Array[Vector2] = []) -> Array[Vector2]:
+	if not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
+		return legacy_tree_navigation_path(start, target, allowed_cells, moving_sheep, alternative_targets)
+	# Atomic construction previews temporarily substitute the layout. They use
+	# the same accelerated search, without suspending that temporary assignment.
+	var search = ObstacleSearch.new(self, start, target, allowed_cells, moving_sheep, alternative_targets)
+	while not search.done:
+		search.advance(Time.get_ticks_usec() + 1000000)
+	return search.result
+
+func bounded_tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
+	var request_started := Time.get_ticks_usec()
+	var work_usec := 0
+	var max_slice_usec := 0
+	var search = ObstacleSearch.new(self, start, target, [], false, [])
+	var generation := movement_generation
+	var geometry := navigation_signature()
+	var was_editing := editing
+	var original_layout = layout
+	var empty: Array[Vector2] = []
+	while not search.done:
+		if navigation_budget() == 0:
+			await get_tree().process_frame
+			if generation != movement_generation or layout != original_layout or geometry != navigation_signature() or editing != was_editing:
+				record_navigation_probe(request_started, work_usec, max_slice_usec, true)
+				return empty
+			continue
+		var began := Time.get_ticks_usec()
+		search.advance(began + navigation_budget())
+		var slice_usec := Time.get_ticks_usec() - began
+		navigation_spent_usec += slice_usec
+		work_usec += slice_usec
+		max_slice_usec = maxi(max_slice_usec, slice_usec)
+	record_navigation_probe(request_started, work_usec, max_slice_usec, false)
+	return search.result
+
+func record_navigation_probe(started: int, work_usec: int, max_slice_usec: int, cancelled: bool) -> void:
+	if not OS.has_feature("web"):
+		return
+	var details := {"workMs": work_usec / 1000.0, "wallMs": (Time.get_ticks_usec() - started) / 1000.0, "cancelled": cancelled}
+	JavaScriptBridge.eval("window.edeniaLagCapture?.probe('obstacle-search', %s, %s); window.edeniaFrameTest?.recordProbe('obstacle-search', %s, Date.now(), %s)" % [max_slice_usec / 1000.0, JSON.stringify(details), max_slice_usec / 1000.0, JSON.stringify(details)])
+
+func legacy_tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[Vector2i] = [], moving_sheep: bool = false, alternative_targets: Array[Vector2] = []) -> Array[Vector2]:
 	var result: Array[Vector2] = []
 	var targets: Array[Vector2] = []
 	for point in [target] + alternative_targets:

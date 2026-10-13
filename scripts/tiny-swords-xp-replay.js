@@ -12,8 +12,75 @@
   // can render it over the captured frame when rebuilding this WebGL element.
   canvas.textContent = ''
   let previousFrame = ''
-  function schedule(delay) { setTimeout(() => requestAnimationFrame(captureFrame), delay) }
+  const asyncEnabled = ['30', '60'].includes(new URLSearchParams(location.search).get('tiny_swords_fps'))
+  let encodingMode = asyncEnabled ? 'async' : 'sync'
+  let timer = null, due = false, busy = false, retired = false, generation = 0
+  const allowed = () => !retired && !document.hidden && window.edeniaHostVisible !== false
+    && canvas.isConnected && parent.EDENIA_ANALYTICS_ENABLED
+    && parent.posthog?.sessionRecordingStarted?.() && canvas.width && canvas.height && window.edeniaGameLevel >= 1
+  async function captureAsync() {
+    if (busy || !allowed()) return
+    busy = true
+    const version = generation
+    try {
+      const scale = Math.min(1, 960 / canvas.width, 540 / canvas.height)
+      snapshot.width = Math.max(1, Math.round(canvas.width * scale))
+      snapshot.height = Math.max(1, Math.round(canvas.height * scale))
+      const began = performance.now()
+      context.drawImage(canvas, 0, 0, snapshot.width, snapshot.height)
+      window.edeniaLagCapture?.probe('replay-copy', performance.now() - began)
+      const blob = await new Promise(resolve => snapshot.toBlob(resolve, 'image/webp', 0.4))
+      if (!blob || version !== generation || !allowed()) return
+      const frame = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(Error('Replay image read failed'))
+        reader.readAsDataURL(blob)
+      })
+      if (version !== generation || !allowed()) return
+      if (frame !== previousFrame) {
+        canvas.style.backgroundImage = `url("${frame}")`
+        canvas.style.backgroundSize = '100% 100%'
+        previousFrame = frame
+      }
+    } catch {
+      // A failed encoder or retired drawing buffer must not affect play.
+    } finally {
+      busy = false
+      if (!retired) schedule(allowed() ? 500 : 1000)
+    }
+  }
+  if (asyncEnabled) window.edeniaReplayCaptureAfterFrame = () => {
+    // Copy immediately after a real engine render, before WebGL clears its
+    // drawing buffer. Encode one image at a time, never queue missed captures.
+    if (encodingMode !== 'async' || !due || busy || !allowed()) return
+    due = false
+    void captureAsync()
+  }
+  if (asyncEnabled) window.edeniaReplayEncoding = {
+    getMode: () => encodingMode,
+    setMode(mode) {
+      if (!['sync', 'async'].includes(mode)) return false
+      encodingMode = mode; generation++; due = false; clearTimeout(timer)
+      if (!busy) schedule(500)
+      return true
+    }
+  }
+  addEventListener('pagehide', () => { retired = true; generation++; due = false; clearTimeout(timer) })
+  addEventListener('pageshow', event => { if (event.persisted) { retired = false; schedule(500) } })
+  function schedule(delay) {
+    if (retired) return
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      if (asyncEnabled && encodingMode === 'async') { due = true; if (!allowed()) schedule(1000) }
+      else {
+        const version = generation
+        requestAnimationFrame(() => { if (version === generation) captureFrame() })
+      }
+    }, delay)
+  }
   function captureFrame() {
+    if (retired) return
     try {
       if (document.hidden || window.edeniaHostVisible === false || !canvas.isConnected
         || !parent.EDENIA_ANALYTICS_ENABLED || !parent.posthog?.sessionRecordingStarted?.()) {
