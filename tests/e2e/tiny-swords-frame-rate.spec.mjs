@@ -111,6 +111,7 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
   const retainedIds = await game.evaluate(() => window.edeniaLagCapture.getState().captures.map(item => item.id))
   expect(await game.evaluate(() => window.edeniaLagCapture.startComparison({phaseMs: 2000}))).toBe(true)
   await game.evaluate(() => window.edeniaFrameTestMotion('start'))
+  expect(await game.evaluate(() => window.edeniaFrameTestMotionReady)).toBe(true)
   const bounds = await game.locator('#canvas').boundingBox()
   await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.4)
   await page.mouse.move(bounds.x + bounds.width * 0.6, bounds.y + bounds.height * 0.5, {steps: 15})
@@ -135,7 +136,7 @@ test('opt-in FPS experiment caps actual engine frames and survives host suspensi
     const diagnostic = JSON.parse(new TextDecoder().decode(files[run.reportFile]))
     expect(diagnostic.captureId).toBe(completed.selectedId)
     expect(diagnostic.frames.length).toBeGreaterThan(0)
-    expect(diagnostic.actions.some(action => action.type === 'gameplay')).toBe(true)
+    expect(diagnostic.actions.some(action => action.type === 'gameplay' && action.mode === 'walking')).toBe(true)
     expect(diagnostic.video.requested).toBe(run.phase === 'recorded')
   }
   expect(await game.evaluate(() => window.edeniaLagCapture.start(false))).toBe(true)

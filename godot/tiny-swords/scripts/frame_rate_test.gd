@@ -180,7 +180,7 @@ func _process(delta: float) -> void:
 				activity = "harvesting"
 			elif world.navigation_pending:
 				activity = "planning-route"
-			elif not world.waypoints.is_empty():
+			elif not world.waypoints.is_empty() or world.pawn.position.distance_to(world.pawn.destination) > 0.2:
 				activity = "walking"
 			elif world.pawn.carrying_chicken:
 				activity = "carrying-chicken"
