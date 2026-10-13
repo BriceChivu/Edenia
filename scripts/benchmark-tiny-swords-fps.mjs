@@ -29,9 +29,12 @@ const routeMode = arg('--route', cloudSync ? 'trial' : 'tester')
 if (!['public','tester','trial'].includes(routeMode) || routeMode === 'trial' && !cloudSync) throw Error('Trial benchmarking requires --cloud-sync; use public or tester otherwise')
 const simulateProgress = cloudSync || process.argv.includes('--progress')
 const studyProfile = cloudSync || process.argv.includes('--study-profile')
+const retainedVideoCount = Math.min(1000, Math.max(0, Number(arg('--retained-videos', '200'))))
+const checkpointProbe = process.argv.includes('--checkpoint-probe')
 const browser = await chromium.launch({ headless, ...(process.argv.includes('--chrome') ? { channel: 'chrome' } : {}) })
 const progressTimers = []
 let pointerRunning = false
+async function run() {
 try {
   const context = await browser.newContext({
     viewport: phone ? { width: 390, height: 844 } : { width: 1440, height: 900 },
@@ -62,9 +65,14 @@ try {
   await page.goto(url.href)
   const island = JSON.parse(await readFile(new URL('../tests/fixtures/tiny-swords-fps-island.json', import.meta.url), 'utf8'))
   const corpus = JSON.parse(await readFile(new URL('../tests/fixtures/tiny-swords-fps-videos.json', import.meta.url), 'utf8'))
+  if (process.argv.includes('--separated-chicken')) {
+    const count = island.tiles.length
+    island.tiles = island.tiles.filter(tile => tile[0] !== 2)
+    island.stock.meadow += count - island.tiles.length
+  }
   island.carried_wood += island.house_bundle
   island.house_bundle = 0
-  await page.evaluate(({ island, corpus, studyProfile }) => {
+  await page.evaluate(({ island, corpus, studyProfile, retainedVideoCount }) => {
     const state = defaultState(4, [], 'light', [], 'en')
     const at = new Date().toISOString()
     Object.assign(state.onboarding, { introSeenAt: at, setupCompleted: true, setupCompletedAt: at, walkthroughCompleted: true, walkthroughCompletedAt: at, levelUpGuidanceShownAt: at, islandAnnouncementSeenAt:at })
@@ -74,13 +82,13 @@ try {
     state.config.channels = corpus.channels
     state.learnerProfile.languages = ['mandarin']
     state.videos = Object.fromEntries(corpus.videos.map(video => [video.id, { ...video, thumbnail: video.thumbnailUrl, status: 'unwatched', watchProgress: [] }]))
-    if (studyProfile) for (const video of Object.values(state.videos).slice(0,200)) {
+    if (studyProfile) for (const video of Object.values(state.videos).slice(0,retainedVideoCount)) {
       const watchedAt = new Date(Date.now()-86400000).toISOString()
       Object.assign(video,{status:'partial',watchProgressTracked:true,watchProgress:[{seconds:Math.min(60,video.duration/10),experienceSeconds:0,watchedAt,studyDay:watchedAt.slice(0,10)}]})
     }
     state.channelRefreshes = Object.fromEntries(corpus.channels.map(channel => [channel.id, { lastFetchedAt: at }]))
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
-  }, { island, corpus, studyProfile })
+  }, { island, corpus, studyProfile, retainedVideoCount })
   await page.unroute('**/tiny-swords-game/*/index.html*')
   if (indexedDb) {
     await page.route('**/config.local.js*', async route => {
@@ -128,7 +136,7 @@ try {
   if (process.argv.includes('--legacy-navigation')) await game.evaluate(() => window.edeniaFrameTestMotion('navigation-control'))
   await page.locator('#videoGrid').scrollIntoViewIfNeeded()
   await page.locator('.video-card').first().waitFor({state:'visible'})
-  await page.waitForFunction(() => [...document.querySelectorAll('.video-card img')].some(image=>image.complete && image.naturalWidth>0))
+  if (!checkpointProbe) await page.waitForFunction(() => [...document.querySelectorAll('.video-card img')].some(image=>image.complete && image.naturalWidth>0))
   const warmedFeed = await page.evaluate(()=>({renderedCards:document.querySelectorAll('.video-card').length,
     loadedThumbnails:[...document.querySelectorAll('.video-card img')].filter(image=>image.complete&&image.naturalWidth>0).length}))
   await surface.scrollIntoViewIfNeeded()
@@ -166,6 +174,24 @@ try {
     loadedThumbnails: [...document.querySelectorAll('.video-card img')].filter(image => image.complete && image.naturalWidth > 0).length,
     documentNodes: document.querySelectorAll('*').length }))
   if (library.videos !== 1000 || warmedFeed.renderedCards === 0) { console.log({library, cloud:cloud?.getEvidence(), view:await page.evaluate(()=>document.body.innerText.slice(0,1200))}); throw new Error('Real-video feed was not loaded') }
+  if (checkpointProbe) {
+    const durationsMs = []
+    for (let i = 0; i < 7; i++) durationsMs.push(await page.evaluate(async () => {
+      const state = loadState()
+      state.tinySwordsIsland.chickens[0][0] += 1
+      const began = performance.now()
+      if (!await saveState(state, { syncCloud: false, syncAnalytics: false, backup: false, localIslandCheckpoint: true })) throw Error('Checkpoint did not persist')
+      return performance.now() - began
+    }))
+    const warm = durationsMs.slice(2).sort((a,b) => a-b)
+    const evidence = { durationsMs, warmMedianMs: warm[2], library, retainedVideoCount,
+      physicalPhone: false, cloudSimulation: cloud?.getEvidence(), measurement: 'Local save completion wall time, including IndexedDB and checkpoint processing; first two samples include warming.' }
+    await mkdir(dirname(output), { recursive: true })
+    await writeFile(output, JSON.stringify(evidence, null, 2))
+    console.log(JSON.stringify(evidence))
+    if (warm[2] > Number(arg('--max-warm-save-ms', '50'))) throw Error('Repeated local saves exceed the frame-stall threshold')
+    return
+  }
   const session = await context.newCDPSession(page)
   await session.send('Performance.enable')
   if (cpuProfile) {
@@ -177,7 +203,7 @@ try {
   let pointerTask = null
   const scenarios = []
   const sampleMs = Number(arg('--sample-ms', '10000'))
-  for (const scenario of ['walking', 'terrain-walking']) {
+  for (const scenario of ['walking', 'terrain-walking'].filter(name => !checkpointProbe && (!arg('--scenario', '') || name === arg('--scenario', '')))) {
     if (scenario === 'terrain-walking') {
       const box = await game.locator('#canvas').boundingBox()
       await game.locator('#canvas').click({ position: { x: box.width - 36, y: box.height - 32 } })
@@ -284,14 +310,14 @@ try {
   const replayFrames = await game.evaluate(() => window.edeniaBenchmarkReplayFrames)
   if (replayMode !== 'off' && replayFrames < 20) throw Error('Replay did not capture frames')
   const cloudSimulation = cloud?.getEvidence() || null
-  if (cloudSync && cloudSimulation.commits < 2) throw Error('Real sync pipeline did not commit simulated progress')
-  const evidence = { routeMode, studyProfile, simulateProgress, replayMode, replayFrames, replayAbba, cloudSimulation, navigationMode:process.argv.includes('--legacy-navigation')?'legacy':'bounded walking', recordedAt: new Date().toISOString(), browserVersion: browser.version(),
+  if (cloudSync && !checkpointProbe && cloudSimulation.commits < 2) throw Error('Real sync pipeline did not commit simulated progress')
+  const evidence = { routeMode, studyProfile, retainedVideoCount, simulateProgress, replayMode, replayFrames, replayAbba, cloudSimulation, navigationMode:process.argv.includes('--legacy-navigation')?'legacy':'bounded walking', recordedAt: new Date().toISOString(), browserVersion: browser.version(),
     hostModel: spawnSync('sysctl', ['-n', 'hw.model'], { encoding: 'utf8' }).stdout?.trim(),
     headless, phoneEmulation: phone, cpuThrottle: throttle, renderer, indexedDb, cpuProfile, suspendAudio,
     physicalPhone: false, fixedFps, warmedFeed, pointerMoves, pointerInput: phone ? 'Emulated mouse input; actual phone touch is a separate test' : 'Continuous mouse movement, targeting 60Hz', library, corpusFetchedAt: corpus.fetchedAt,
     fixture: { tiles: restored.tiles.length, trees: restored.tree_offsets.length, sheep: restored.sheep.length, chickens: restored.chickens.length }, errors, scenarios }
   await mkdir(dirname(output), { recursive: true })
-  await writeFile(output, JSON.stringify(evidence, null, 2) + '\n')
+  if (!checkpointProbe) await writeFile(output, JSON.stringify(evidence, null, 2) + '\n')
   await game.waitForTimeout(600)
   await page.screenshot({ path: output.replace(/\.json$/, '.png') })
   if (errors.length) throw new Error(`Browser errors: ${errors.join('; ')}`)
@@ -301,3 +327,6 @@ try {
   for (const timer of progressTimers) clearInterval(timer)
   await browser.close()
 }
+
+}
+await run()

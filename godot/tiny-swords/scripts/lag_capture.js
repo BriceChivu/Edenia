@@ -219,7 +219,7 @@
       lastActivity = mode; limit(actions, { type: 'gameplay', mode, atEpochMs: epoch() }, 600)
     },
     probe(operation, durationMs, details = null) {
-      if (!active || !['obstacle-search','replay-copy','target-fps'].includes(operation) || !Number.isFinite(durationMs)) return
+      if (!active || !['obstacle-search','chicken-follow','replay-copy','target-fps'].includes(operation) || !Number.isFinite(durationMs)) return
       const safe = {}
       for (const key of ['workMs','wallMs','fps']) if (Number.isFinite(details?.[key])) safe[key] = details[key]
       if (typeof details?.cancelled === 'boolean') safe.cancelled = details.cancelled

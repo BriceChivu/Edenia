@@ -1,3 +1,4 @@
+import { canonicalizeJson } from './state/portable-state.js'
 import { reportWindowHealth } from './integrations/health-monitor.js'
 import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
 import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
@@ -262,6 +263,7 @@ import {
   PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   preparePortableLearnerProfileEnvelope,
+  normalizePortableLearnerProfile,
   verifyPortableLearnerProfileEnvelope
 } from './state/portable-learner-profile.js'
 import {
@@ -1262,6 +1264,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     importEnvelope: importSignedInProfileEnvelope,
     isOnline: () => window.navigator.onLine !== false,
     now: () => Date.now(),
+    normalizeProfile: normalizePortableLearnerProfile,
     prepareEnvelope: profile => preparePortableLearnerProfileEnvelope(
       profile,
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
@@ -1329,9 +1332,7 @@ const persistedPortableProfileSnapshots = new WeakMap()
 function getPortableProfileSnapshot(state) {
   if (!state || typeof state !== 'object') return null
   try {
-    return JSON.stringify(
-      preparePortableLearnerProfileEnvelope(state).profile
-    )
+    return canonicalizeJson(normalizePortableLearnerProfile(state))
   } catch {
     return null
   }
@@ -1389,7 +1390,7 @@ function saveState(state, options = {}) {
     return false
   }
   try {
-    const portableSnapshot = getPortableProfileSnapshot(state)
+    const portableSnapshot = options.syncCloud === undefined ? getPortableProfileSnapshot(state) : null
     const persistenceOptions = options.syncCloud === undefined
         && portableSnapshot !== null
         && persistedPortableProfileSnapshots.get(state) === portableSnapshot
