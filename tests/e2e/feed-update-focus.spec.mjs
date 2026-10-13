@@ -148,9 +148,10 @@ test('new uploads keep untouched channel timelines at the newest end, including 
 test('new uploads preserve older browsing positions until the learner returns to the newest end', async ({ page }) => {
   await seed(page)
   const track = page.locator('.channel-shelf-track')
-  await page.locator('.channel-shelf-scroll-next').click()
+  await track.hover()
+  await page.mouse.wheel(1056, 0)
   await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeGreaterThan(100)
-  // Wait for the arrow's smooth scroll to finish before capturing its anchor.
+  // Wait for native scrolling and snapping before capturing its anchor.
   await expect.poll(() => track.evaluate(node => {
     const pitch = node.querySelector('.channel-shelf-slot').getBoundingClientRect().width
       + parseFloat(getComputedStyle(node).columnGap)
@@ -164,10 +165,8 @@ test('new uploads preserve older browsing positions until the learner returns to
   await prependUploads(page, 'first')
   const anchoredCard = page.locator(`.video-card[data-video-id="${anchor.id}"]`)
   await expect.poll(() => anchoredCard.evaluate((node, left) => Math.abs(node.closest('.channel-shelf-slot').getBoundingClientRect().left - left), anchor.left)).toBeLessThan(2)
-  for (let i = 0; i < 5 && await page.locator('.channel-shelf-scroll-prev').isEnabled(); i++) {
-    await page.locator('.channel-shelf-scroll-prev').click()
-    await page.waitForTimeout(400)
-  }
+  await track.hover()
+  await page.mouse.wheel(-10000, 0)
   await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
   await prependUploads(page, 'second')
   await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
