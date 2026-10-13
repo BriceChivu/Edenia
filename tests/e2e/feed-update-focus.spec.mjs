@@ -169,15 +169,8 @@ test('new uploads preserve older browsing positions until the learner returns to
   await prependUploads(page, 'first')
   const anchoredCard = page.locator(`.video-card[data-video-id="${anchor.id}"]`)
   await expect.poll(() => anchoredCard.evaluate((node, left) => Math.abs(node.closest('.channel-shelf-slot').getBoundingClientRect().left - left), anchor.left)).toBeLessThan(2)
-  if (arrowsVisible) {
-    for (let i = 0; i < 5 && await page.locator('.channel-shelf-scroll-prev').isEnabled(); i++) {
-      await page.locator('.channel-shelf-scroll-prev').click()
-      await page.waitForTimeout(400)
-    }
-  } else {
-    await track.hover()
-    await page.mouse.wheel(-10000, 0)
-  }
+  // Set the completed return position without racing a smooth-scroll animation.
+  await track.evaluate(node => node.scrollTo({ left: 0, behavior: 'instant' }))
   await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
   await prependUploads(page, 'second')
   await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeLessThanOrEqual(2)
