@@ -155,12 +155,15 @@ test('new uploads preserve older browsing positions until the learner returns to
     await page.mouse.wheel(1056, 0)
   }
   await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeGreaterThan(100)
-  // Wait for native scrolling and snapping before capturing its anchor.
-  await expect.poll(() => track.evaluate(node => {
-    const pitch = node.querySelector('.channel-shelf-slot').getBoundingClientRect().width
-      + parseFloat(getComputedStyle(node).columnGap)
-    return Math.abs(node.scrollLeft - Math.round(node.scrollLeft / pitch) * pitch)
-  })).toBeLessThan(2)
+  // Proximity snapping can settle between cards; wait for stability at any offset.
+  let previousLeft = -1
+  let stableSamples = 0
+  await expect.poll(async () => {
+    const left = await track.evaluate(node => node.scrollLeft)
+    stableSamples = Math.abs(left - previousLeft) < 0.5 ? stableSamples + 1 : 0
+    previousLeft = left
+    return stableSamples
+  }).toBeGreaterThanOrEqual(3)
   const anchor = await track.evaluate(node => {
     const rect = node.getBoundingClientRect()
     const slot = [...node.querySelectorAll('.channel-shelf-slot')].find(slot => slot.getBoundingClientRect().left >= rect.left)
