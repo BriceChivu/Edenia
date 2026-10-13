@@ -9,6 +9,12 @@ var toggle: Button
 var quick_mark: Button
 var capture_summary: Label
 var capture_buttons: Dictionary = {}
+var capture_picker: OptionButton
+var capture_ids: Array = []
+var quick_stop: Button
+var capture_activity_elapsed := 0.0
+var menu_scroll: ScrollContainer
+var menu_column: VBoxContainer
 var refresh_elapsed := 0.0
 var calibration_elapsed := 0.0
 var motion_callback: JavaScriptObject
@@ -34,6 +40,7 @@ func _ready() -> void:
 	JavaScriptBridge.eval("window.edeniaFrameTestNavigationFastPath = true; window.edeniaFrameTestBoundedNavigation = true")
 	motion_callback = JavaScriptBridge.create_callback(receive_motion)
 	JavaScriptBridge.get_interface("window").edeniaFrameTestMotion = motion_callback
+	JavaScriptBridge.eval(FileAccess.get_file_as_string("res://scripts/lag_capture_package.js"))
 	JavaScriptBridge.eval(FileAccess.get_file_as_string("res://scripts/lag_capture.js"))
 	layer = 100
 	panel = PanelContainer.new()
@@ -62,11 +69,26 @@ func _ready() -> void:
 	quick_mark.visible = false
 	quick_mark.pressed.connect(func(): JavaScriptBridge.eval("window.edeniaLagCapture.mark()"))
 	heading.add_child(quick_mark)
+	quick_stop = Button.new()
+	quick_stop.text = "Stop"
+	quick_stop.add_theme_font_size_override("font_size", 14)
+	quick_stop.custom_minimum_size.y = 32
+	quick_stop.visible = false
+	quick_stop.pressed.connect(func(): JavaScriptBridge.eval("window.edeniaLagCapture.stop()"))
+	heading.add_child(quick_stop)
+	menu_scroll = ScrollContainer.new()
+	menu_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	menu_scroll.visible = false
+	contents.add_child(menu_scroll)
 	var column := VBoxContainer.new()
-	contents.add_child(column)
+	menu_column = column
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	menu_scroll.add_child(column)
 	column.visible = false
 	toggle.pressed.connect(func():
 		column.visible = not column.visible
+		menu_scroll.visible = column.visible
+		refresh()
 		panel.call_deferred("reset_size"))
 	var tabs := HBoxContainer.new()
 	column.add_child(tabs)
@@ -116,18 +138,24 @@ func _ready() -> void:
 	capture_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	capture_summary.custom_minimum_size.x = 230
 	capture_column.add_child(capture_summary)
+	capture_picker = OptionButton.new()
+	capture_picker.custom_minimum_size.y = 32
+	capture_picker.add_theme_font_size_override("font_size", 14)
+	capture_picker.item_selected.connect(func(index: int):
+		JavaScriptBridge.eval("window.edeniaLagCapture.select(%s)" % JSON.stringify(capture_ids[index])))
+	capture_column.add_child(capture_picker)
 	var capture_grid := GridContainer.new()
 	capture_grid.columns = 2
 	capture_column.add_child(capture_grid)
-	for action in ["Log lag", "Record clip", "Mark lag", "Stop capture", "Save lag report", "Save clip"]:
+	for action in ["Save package", "Delete selected", "Record + compare", "Log only", "Mark lag", "Stop & keep"]:
 		var button := Button.new()
 		button.text = action
 		button.custom_minimum_size.y = 32
 		button.add_theme_font_size_override("font_size", 14)
 		button.pressed.connect(func():
-			var commands := {"Log lag": "start(false)", "Record clip": "start(true)", "Mark lag": "mark()", "Stop capture": "stop()", "Save lag report": "saveReport()", "Save clip": "saveVideo()"}
+			var commands := {"Log only": "start(false)", "Record + compare": "startComparison()", "Mark lag": "mark()", "Stop & keep": "stop()", "Save package": "savePackage()", "Delete selected": "deleteSelected()"}
 			JavaScriptBridge.eval("window.edeniaLagCapture.%s" % commands[action])
-			if action in ["Log lag", "Record clip"] and JavaScriptBridge.eval("window.edeniaLagCapture.getState().active"):
+			if action in ["Log only", "Record + compare"] and JavaScriptBridge.eval("window.edeniaLagCapture.getState().active"):
 				column.visible = false
 			refresh())
 		capture_grid.add_child(button)
@@ -136,6 +164,27 @@ func _ready() -> void:
 	refresh()
 
 func _process(delta: float) -> void:
+	capture_activity_elapsed += delta
+	if capture_activity_elapsed >= 0.5:
+		capture_activity_elapsed = 0.0
+		if JavaScriptBridge.eval("window.edeniaLagCapture.getState().active"):
+			var world := get_tree().current_scene
+			var activity := "idle"
+			if world.editing:
+				activity = "building"
+			elif world.water_phase != 0:
+				activity = "water"
+			elif world.construction.phase != 0:
+				activity = "construction"
+			elif world.harvesting.phase != 0:
+				activity = "harvesting"
+			elif world.navigation_pending:
+				activity = "planning-route"
+			elif not world.waypoints.is_empty() or world.pawn.position.distance_to(world.pawn.destination) > 0.2:
+				activity = "walking"
+			elif world.pawn.carrying_chicken:
+				activity = "carrying-chicken"
+			JavaScriptBridge.eval("window.edeniaLagCapture.activity(%s)" % JSON.stringify(activity))
 	calibration_elapsed += delta
 	if calibration_elapsed >= 5.0:
 		calibration_elapsed = 0.0
@@ -158,29 +207,50 @@ func refresh() -> void:
 	if not state is Dictionary:
 		return
 	var capture = JSON.parse_string(JavaScriptBridge.eval("JSON.stringify(window.edeniaLagCapture.getState())"))
-	compare.disabled = state.running or capture.active
-	capture_buttons["Log lag"].visible = not capture.active
-	capture_buttons["Record clip"].visible = not capture.active
+	compare.disabled = state.running or capture.active or capture.busy
+	capture_buttons["Log only"].visible = not capture.active
+	capture_buttons["Record + compare"].visible = not capture.active
 	capture_buttons["Mark lag"].visible = capture.active
-	capture_buttons["Stop capture"].visible = capture.active
-	capture_buttons["Save lag report"].visible = not capture.active and capture.hasReport
-	capture_buttons["Save clip"].visible = not capture.active and capture.hasReport
-	capture_buttons["Log lag"].disabled = capture.active or state.running or capture.status == "Finishing clip…"
-	capture_buttons["Record clip"].disabled = capture_buttons["Log lag"].disabled
+	capture_buttons["Stop & keep"].visible = capture.active
+	capture_buttons["Save package"].visible = not capture.active and capture.canSave
+	capture_buttons["Delete selected"].visible = not capture.active and not capture.captures.is_empty()
+	capture_buttons["Log only"].disabled = not capture.canStart or state.running
+	capture_buttons["Record + compare"].disabled = capture_buttons["Log only"].disabled
 	capture_buttons["Mark lag"].disabled = not capture.active
-	capture_buttons["Stop capture"].disabled = not capture.active
-	capture_buttons["Save lag report"].disabled = not capture.hasReport
-	capture_buttons["Save clip"].disabled = not capture.hasVideo
-	capture_summary.text = "%s%s\nGame only · saved locally" % [capture.status, " · %ss · %s marks" % [int(capture.elapsedSeconds), capture.markers] if capture.active else ""]
+	capture_buttons["Stop & keep"].disabled = not capture.active
+	capture_buttons["Save package"].disabled = not capture.canSave
+	capture_buttons["Delete selected"].disabled = capture.busy
+	capture_picker.visible = not capture.captures.is_empty() and not capture.active
+	capture_picker.disabled = capture.busy
+	var next_ids: Array = []
+	for saved in capture.captures:
+		next_ids.append(saved.id)
+	if next_ids != capture_ids:
+		capture_ids = next_ids
+		capture_picker.clear()
+		for saved in capture.captures:
+			capture_picker.add_item("%s · %s run%s" % [str(saved.id).trim_prefix("tiny-swords-lag-").substr(5, 14).replace("T", " "), int(saved.runs), "s" if saved.runs != 1 else ""])
+	var selected_index := capture_ids.find(capture.selectedId)
+	if selected_index >= 0:
+		capture_picker.select(selected_index)
+	capture_summary.text = "%s%s" % [capture.status, "\n%ss left · %s pauses · %s marks\nPauses and actions logged automatically" % [int(capture.remainingSeconds), int(capture.stalls), int(capture.markers)] if capture.active else ("\n20s clip + 20s log · one ZIP" if capture.captures.is_empty() else "")]
+	if not capture.active and capture.captures.size() >= 5:
+		capture_summary.text += "\nFive kept · delete one to make room"
 	download.disabled = not state.report is Dictionary
 	var width := float(JavaScriptBridge.eval("document.getElementById('canvas').getBoundingClientRect().width"))
 	var scale_ui := maxf(1.0, get_viewport().get_visible_rect().size.x / maxf(1, width))
+	menu_scroll.visible = menu_column.visible
+	var menu_height := maxf(40, get_viewport().get_visible_rect().size.y / scale_ui - 64)
+	menu_scroll.custom_minimum_size = Vector2(230, minf(menu_height, menu_column.get_combined_minimum_size().y))
 	panel.scale = Vector2.ONE * scale_ui
 	panel.position = Vector2(8, 8) * scale_ui
 	quick_mark.visible = capture.active
+	quick_stop.visible = capture.active
 	toggle.text = "FPS test · %s%s" % [state.status if state.running else "%s FPS" % state.targetFps, " · results" if state.report is Dictionary else ""]
 	if capture.active:
-		toggle.text = "%s · %ss" % ["Recording" if capture.recording else "Logging", int(capture.elapsedSeconds)]
+		toggle.text = "%s · %ss left" % [("1/2 Record" if capture.paired else "Record") if capture.recording else ("2/2 Log" if capture.paired and capture.phase == "log-only" else "Log"), int(capture.remainingSeconds)]
+	elif not capture.captures.is_empty():
+		toggle.text = "Lag capture · %s saved" % capture.captures.size()
 	summary.text = "FPS test · %s FPS\n%s" % [state.targetFps, state.status]
 	if state.report is Dictionary:
 		summary.text = "%s: %.1f FPS · late %.1f%%\n%s: %.1f FPS · late %.1f%%\nLoop work: %.1f%% less" % [state.report.control.targetFps, state.report.control.actualFps, state.report.control.missedDeadlinePct, state.report.trial.targetFps, state.report.trial.actualFps, state.report.trial.missedDeadlinePct, state.report.workReductionPct]
