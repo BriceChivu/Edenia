@@ -7,7 +7,7 @@ import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../domain/learner-profile-resolution.js'
 import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
-import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfileChangeDigest } from '../domain/portable-profile-combination.js'
+import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfileChangeDigest, portableProfilesHaveSameProgress } from '../domain/portable-profile-combination.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
@@ -2026,7 +2026,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
         ? 'waiting-cloud' : 'recovering' }
     }
     if (conflict.status === 'open') {
-      if (!chooseWhenEmpty) return { conflict, status: 'conflicting' }
+      const sameProgress = handoffEnabled
+        && conflict.device.generation === conflict.cloud.generation
+        && !readDirtyRecord().present
+        && portableProfilesHaveSameProgress(conflict.device.profile, conflict.cloud.profile)
+      if (!chooseWhenEmpty && !sameProgress) return { conflict, status: 'conflicting' }
       const deviceIsEmpty = isMeaningfullyEmptyLearnerProfile(
         conflict.device.profile
       )
@@ -2035,14 +2039,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
       )
       const profilesMatch = JSON.stringify(conflict.device.profile)
         === JSON.stringify(conflict.cloud.profile)
-      if (!deviceIsEmpty && !cloudIsEmpty && !profilesMatch) {
+      if (!sameProgress && !deviceIsEmpty && !cloudIsEmpty && !profilesMatch) {
         return { conflict, status: 'conflicting' }
       }
-      const selectedSide = deviceIsEmpty || profilesMatch ? 'cloud' : 'device'
+      const selectedSide = sameProgress || deviceIsEmpty || profilesMatch ? 'cloud' : 'device'
       const automaticallyChosen = await chooseConflict({
         confirmed: true,
         conflict,
-        selectedSide
+        selectedSide,
+        ...(sameProgress ? { automatic: true, isCurrent } : {})
       })
       if (automaticallyChosen.status === 'conflict-changed') {
         return {
@@ -2085,7 +2090,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
   async function chooseConflict({
     confirmed = false,
     conflict,
-    selectedSide
+    selectedSide,
+    automatic = false,
+    isCurrent = () => true
   } = {}) {
     if (confirmed !== true) return { status: 'confirmation-required' }
     if (
@@ -2108,6 +2115,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || record.pending.operationId !== conflict.operationId
     ) return { status: 'recovering' }
 
+    const automaticSync = automatic ? readStoredSyncRecord().serialized : null
+    if (automatic && (!isCurrent() || record.queued || readDirtyRecord().present)) return { status: 'recovering' }
     let response
     try {
       response = await getClient().rpc(
@@ -2166,6 +2175,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     )
     if (!protectedConflict) return { status: 'recovering' }
 
+    if (automatic && (!isCurrent() || readDirtyRecord().present
+      || readStoredSyncRecord().serialized !== automaticSync)) return { status: 'recovering' }
     const current = readSyncRecord()
     if (current?.pending?.operationId !== conflict.operationId) {
       return { status: 'recovering' }
@@ -2451,14 +2462,22 @@ export function createLearnerProfileCloudPersistenceAdapter({
           binding.activation,
           { includeExpired: true }
         )
-        if (conflict?.status === 'expired' || (conflict && readSyncRecord()?.queued)) {
+        const recheckHarmlessConflict = handoffEnabled && conflict?.status === 'open'
+          && conflict.device.generation === conflict.cloud.generation
+          && portableProfilesHaveSameProgress(conflict.device.profile, conflict.cloud.profile)
+        if (recheckHarmlessConflict && activeBinding === binding && binding.isCurrent()) {
+          // Reopen through the fenced handoff resolver instead of asking the
+          // learner to choose between identical progress.
+          cloudHeadKnown = false
+          publish('head-changed', { activation: binding.activation })
+        } else if (conflict?.status === 'expired' || (conflict && readSyncRecord()?.queued)) {
           const refreshed = await resolvePreservedConflict(row, operation, {
             activation: binding.activation,
             isCurrent: () => activeBinding === binding && binding.isCurrent()
           })
           conflict = refreshed.status === 'conflicting' ? refreshed.conflict : null
         }
-        if (activeBinding === binding && binding.isCurrent()) {
+        if (!recheckHarmlessConflict && activeBinding === binding && binding.isCurrent()) {
           if (conflict) publish('conflicting', { conflict })
           else publish('needs-attention')
         }
@@ -2904,12 +2923,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
       const baseRevision = accepted ? pending.revision : record.acceptedRevision
       if (!Number.isSafeInteger(receipt.last_replacement_revision) || receipt.last_replacement_revision < 0
         || receipt.last_replacement_revision > baseRevision) return null
-      const base = accepted ? acceptedEnvelope.profile
-        : latest.changes && latest.changes.baseRevision === record.acceptedRevision
-          ? restoreProfileBase(latestEnvelope.profile, latest.changes) : null
-      if (!base) return null
-      combined = combinePortableProfiles(base, latestEnvelope.profile, cloudEnvelope.profile)
-      if (!combined) return null
+      // Missing/pruned before-values need no whole-profile choice when every
+      // meaningful field already equals Cloud. The replacement fence above
+      // still prevents inferring away an import, restore or explicit choice.
+      if (portableProfilesHaveSameProgress(latestEnvelope.profile, cloudEnvelope.profile)) {
+        combined = cloudEnvelope.profile
+      } else {
+        const base = accepted ? acceptedEnvelope.profile
+          : latest.changes && latest.changes.baseRevision === record.acceptedRevision
+            ? restoreProfileBase(latestEnvelope.profile, latest.changes) : null
+        if (!base) return null
+        combined = combinePortableProfiles(base, latestEnvelope.profile, cloudEnvelope.profile)
+        if (!combined) return null
+      }
     }
     let prepared
     let profile
@@ -3257,7 +3283,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           }
           const receipt = readSingleRpcRow(preserved?.data)
           if (!preserved?.error && receipt?.status === 'conflict') {
-            return resolvePreservedConflict(receipt, operation)
+            return resolvePreservedConflict(receipt, operation, { isCurrent })
           }
           if (preserved?.error && isTransientCloudStatus(preserved.status)) {
             return waitForCloudHead()
@@ -3347,7 +3373,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           if (!currentRecord?.pending) return { status: 'recovering' }
           const receipt = readSingleRpcRow(receiptResponse?.data)
           if (!receiptResponse?.error && receipt?.status === 'conflict') {
-            return resolvePreservedConflict(receipt, currentRecord.pending)
+            return resolvePreservedConflict(receipt, currentRecord.pending, { isCurrent })
           }
           if (
             receiptResponse?.error
@@ -3394,7 +3420,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
               && replayReceipt?.status === 'conflict') {
               return resolvePreservedConflict(
                 replayReceipt,
-                readSyncRecord()?.pending
+                readSyncRecord()?.pending,
+                { isCurrent }
               )
             }
             return {

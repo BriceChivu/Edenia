@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, PROFILE_CHANGE_MAX_BYTES } from '../../src/domain/portable-profile-combination.js'
+import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfilesHaveSameProgress, PROFILE_CHANGE_MAX_BYTES } from '../../src/domain/portable-profile-combination.js'
 
 const clone = value => structuredClone(value)
 const fact = (watchedAt, seconds) => ({ watchedAt, studyDay: '2026-10-12', seconds })
@@ -112,4 +112,27 @@ test('a profile cannot declare meaningful building arrays as ambient', () => {
   local.tinySwordsIsland.buildings[0].type = 'sawmill'
   cloud.tinySwordsIsland.buildings[0].type = 'house'
   assert.equal(combinePortableProfiles(base, local, cloud), null)
+})
+
+
+test('automatic Cloud adoption ignores only diagnostics and validated Godot ambient motion', () => {
+  const base = { tinySwordsIsland: { sync_semantics: { version: 1, sha256: 'a'.repeat(64), ambient_arrays: ['chickens', 'sheep'] },
+    chickens: [], sheep: [[1, 2]], resources: { wood: 10 }, buildings: [] }, activityLog: [], anki: {}, config: { locale: 'en' } }
+  const cloud = clone(base)
+  cloud.tinySwordsIsland.sheep = [[4, 5]]
+  cloud.activityLog = [{ id: 'refresh', title: 'Channel refreshed' }]
+  assert.equal(portableProfilesHaveSameProgress(base, cloud), true)
+  for (const mutate of [
+    value => { value.tinySwordsIsland.resources.wood++ },
+    value => { value.tinySwordsIsland.buildings.push({ type: 'house' }) },
+    value => { value.tinySwordsIsland.sheep.push([6, 7]) },
+    value => { value.anki['2026-10-14'] = { reviewed: 1, experienceReviews: 1 } },
+    value => { value.config.locale = 'fr' },
+    value => { value.unknown = true },
+    value => { value.tinySwordsIsland.sync_semantics.ambient_arrays = ['buildings'] }
+  ]) {
+    const changed = clone(cloud)
+    mutate(changed)
+    assert.equal(portableProfilesHaveSameProgress(base, changed), false)
+  }
 })

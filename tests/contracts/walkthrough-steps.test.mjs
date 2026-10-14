@@ -11,12 +11,6 @@ import {
 test('main walkthrough preserves exact step order, targets, copy keys, and hooks', () => {
   assert.deepEqual(WALKTHROUGH_STEPS, [
     {
-      id: 'town',
-      target: '#tinySwordsSurface',
-      textKey: 'walkthrough.town',
-      placement: 'bottom'
-    },
-    {
       id: 'study-history',
       target: '.study-history-section',
       textKey: 'walkthrough.studyHistory',
@@ -30,6 +24,14 @@ test('main walkthrough preserves exact step order, targets, copy keys, and hooks
       textKey: 'walkthrough.videos',
       placement: 'top',
       scrollTarget: '.feed-section > .section-header',
+      hooks: { beforeEnter: 'closeTransientUi' }
+    },
+    {
+      id: 'video-archive',
+      target: '#videoArchiveSections',
+      textKey: 'walkthrough.videoArchive',
+      placement: 'top',
+      spotlightRadius: 12,
       hooks: { beforeEnter: 'closeTransientUi' }
     }
   ])
@@ -72,11 +74,11 @@ test('first-study walkthrough preserves exact steps and Other-language addition'
   )
   assert.equal(
     FIRST_STUDY_WALKTHROUGH_STEPS[1].target,
-    WALKTHROUGH_STEPS[2].target
+    WALKTHROUGH_STEPS[1].target
   )
   assert.equal(
     FIRST_STUDY_WALKTHROUGH_STEPS[1].scrollTarget,
-    WALKTHROUGH_STEPS[2].scrollTarget
+    WALKTHROUGH_STEPS[1].scrollTarget
   )
   assert.equal(
     FIRST_STUDY_WALKTHROUGH_STEPS[2].target,

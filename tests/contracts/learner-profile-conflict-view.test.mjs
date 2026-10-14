@@ -282,16 +282,14 @@ test('economy comparisons remain hidden publicly even when cloud contains intern
   }
 })
 
-test('island differences remain visible when study totals are identical', () => {
+test('island previews replace the redundant island-difference table row', () => {
   const { elements, view } = createHarness()
   assert.equal(view.renderConflict({ status: 'open',
     device: { profile: { tinySwordsIsland: { opaque: 1 } } },
     cloud: { profile: { tinySwordsIsland: { opaque: 2 } } } }), true)
   const rows = elements.get('learnerProfileConflictRows').children
-  assert.equal(rows.length, 1)
-  assert.equal(rows[0].children[0].textContent, 'profileConflict.category.island')
-  assert.equal(rows[0].children[1].children[1].textContent, 'profileConflict.value.islandDifferent')
-  assert.equal(rows[0].children[2].children[1].textContent, 'profileConflict.value.islandDifferent')
+  assert.equal(rows.length, 0)
+  assert.equal(elements.get('learnerProfileConflictIslands').children.length, 2)
   assert.equal(elements.get('learnerProfileConflictEmpty').hidden, true)
 })
 
@@ -318,6 +316,7 @@ test('previews receive isolated copies and stale captures cannot reveal a previo
   view.renderConflict(conflict)
   calls[1].onImage(0, 'data:image/png;base64,current')
   assert.equal(elements.get('learnerProfileConflictIslands').children[0].children[1].hidden, false)
+  assert.equal(elements.get('learnerProfileConflictIslands').children[0].children[2].hidden, true)
   assert.equal(elements.get('learnerProfileConflictIslands').children[1].children[2].textContent, 'profileConflict.value.islandAbsent')
   view.setBusy(true)
   assert.equal(disposed, 2)
@@ -343,4 +342,16 @@ test('lower progress uses the secondary outline while ambiguous evidence keeps b
   view.renderConflict({ status: 'open', device: { profile: {} }, cloud: { profile: {} } })
   assert.equal(device.classList.contains('btn-primary'), true)
   assert.equal(cloud.classList.contains('btn-primary'), true)
+})
+
+
+test('recent channel refresh activity names the channel instead of repeating a generic title', () => {
+  const { elements, view } = createHarness()
+  view.renderConflict({ status: 'open', cloud: { profile: {} }, device: { profile: {
+    config: { channels: [{ id: 'channel-1', name: 'Mandarin Stories' }] },
+    activityLog: [{ id: 'refresh', type: 'youtube-refresh', title: 'YouTube channel refreshed',
+      createdAt: '2026-10-14T12:20:00Z', detail: 'Fetched new videos', meta: { channelId: 'channel-1' } }]
+  } } })
+  const recent = elements.get('learnerProfileConflictRows').children.find(row => row.children[0].textContent === 'profileConflict.category.recent-activity')
+  assert.match(recent.children[1].children[1].textContent, /Mandarin Stories/)
 })

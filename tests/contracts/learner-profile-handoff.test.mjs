@@ -926,3 +926,65 @@ test('preparation keeps coalescing fresh batches while the ordinary upload inter
   await settle()
   assert.equal(server.head().revision, 3, 'Delivery still runs no later than ten seconds after the ordinary interval')
 })
+
+for (const [replacementRevision, race] of [[0, 'none'], [2, 'none'], [2, 'dirty'], [2, 'queued'], [2, 'retired']]) {
+test(`ambient sheep motion and refresh logs avoid a choice without a change journal (replacement ${replacementRevision}, race ${race})`, async () => {
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const island = { sync_semantics: { version: 1, sha256: 'a'.repeat(64), ambient_arrays: ['chickens', 'sheep'] }, chickens: [], sheep: [[1, 2]], resources: { wood: 4 } }
+  const deviceProfile = { tinySwordsIsland: island, activityLog: [{ id: 'phone-refresh', type: 'youtube-refresh', createdAt: '2026-10-14T11:19:00Z' }] }
+  const cloudProfile = structuredClone(deviceProfile)
+  cloudProfile.tinySwordsIsland.sheep = [[4, 5]]
+  cloudProfile.activityLog = [{ id: 'computer-refresh', type: 'youtube-refresh', createdAt: '2026-10-14T12:20:00Z' }]
+  const device = preparedEnvelope(deviceProfile), cloud = preparedEnvelope(cloudProfile, 'C'.repeat(43))
+  const pending = { activationId: 'before-suspension', baseRevision: 1, envelope: device, prepared: null, generation: 1,
+    integrity: device.integrity, nextRetryAt: 0, operationId, ownerId: OWNER_ID, profileId: PROFILE_ID, retryCount: 0, revision: 2 }
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID,
+    generation: 1, acceptedRevision: 1, pending, queued: null }) })
+  const calls = []
+  let chosen = false, current = true
+  const protectedUntil = '2050-10-14T00:00:00Z'
+  const adapter = createAdapter({ storage, rpc: async (name, args) => {
+    calls.push(name)
+    if (name === 'resolve_my_learner_profile') return { data: [{ status: 'profile_ready', created: false, generation: 1, profile_id: PROFILE_ID, revision: 3, envelope: cloud }], error: null }
+    if (name === 'read_my_learner_profile_write_receipt') return { data: [{ status: 'not_accepted', last_replacement_revision: replacementRevision }], error: null }
+    if (name === 'choose_my_learner_profile_conflict') {
+      assert.equal(args.p_selected_side, 'cloud')
+      if (race === 'dirty') storage.setItem(SYNC_STORAGE_KEY + '_dirty', JSON.stringify({ version: 1, ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1 }))
+      if (race === 'queued') {
+        const newer = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+        newer.queued = { ...pending, operationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' }
+        storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(newer))
+      }
+      if (race === 'retired') current = false
+      chosen = true
+      return { data: [{ status: 'chosen', conflict_id: conflictId, selected_side: 'cloud', generation: 1, profile_id: PROFILE_ID,
+        revision: 4, protected_until: protectedUntil, envelope: cloud }], error: null }
+    }
+    if (name === 'commit_my_learner_profile') return { data: [{ status: 'conflict', conflict_id: conflictId, generation: 1,
+      profile_id: PROFILE_ID, revision: 3, payload_sha256: cloud.integrity.payloadSha256 }], error: null }
+    assert.equal(name, 'read_my_learner_profile_conflict')
+    return { data: [{ status: chosen ? 'resolved' : 'open', conflict_id: conflictId, operation_id: operationId, profile_id: PROFILE_ID,
+      device_generation: 1, device_revision: 2, device_envelope: device, cloud_generation: 1, cloud_revision: 3,
+      cloud_envelope: cloud, selected_side: chosen ? 'cloud' : null, protected_until: chosen ? protectedUntil : null }], error: null }
+  } })
+  const result = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+    localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1, revision: 1, profile: deviceProfile },
+    purpose: 'resolve-signed-in-profile', isCurrent: () => current })
+  if (race !== 'none') {
+    assert.equal(result.status, 'recovering')
+    const retained = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+    assert.equal(retained.pending.operationId, operationId)
+    assert.equal(retained.acceptedRevision, 1)
+    if (race === 'dirty') assert.notEqual(storage.getItem(SYNC_STORAGE_KEY + '_dirty'), null)
+    if (race === 'queued') assert.notEqual(retained.queued, null)
+    return
+  }
+  assert.equal(result.status, 'activate')
+  assert.deepEqual(result.profile, cloudProfile)
+  if (result.commitSyncRepair) assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
+  else assert.equal(result.protectedConflicts.length, 1)
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+  assert.equal(calls.includes('commit_my_learner_profile'), replacementRevision > 0)
+})
+}

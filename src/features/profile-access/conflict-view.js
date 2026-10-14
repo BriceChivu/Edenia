@@ -22,7 +22,6 @@ export function createLearnerProfileConflictView({
   const panel = root.getElementById('learnerProfileConflict')
   const rows = root.getElementById('learnerProfileConflictRows')
   const islands = root.getElementById('learnerProfileConflictIslands')
-  const enlarge = root.getElementById('learnerProfileConflictEnlarge')
   let previewKey = null
   let previewGeneration = 0
   let disposePreviews = null
@@ -130,7 +129,8 @@ export function createLearnerProfileConflictView({
       return value.length
         ? value.map(entry => translate('profileConflict.value.activityItem', {
             time: entry.createdAt ? dateTime(entry.createdAt) : none(),
-            title: entry.title || entry.type || none()
+            title: entry.channelName ? `${entry.title || entry.type || none()} — ${entry.channelName}`
+              : entry.type === 'youtube-refresh' && entry.detail ? entry.detail : entry.title || entry.type || none()
           })).join(' · ')
         : none()
     }
@@ -202,7 +202,8 @@ export function createLearnerProfileConflictView({
       }
     }
     renderIslands(conflict)
-    const visibleComparison = comparison.filter(row => row.key !== 'town-economy' || isTownEconomyEnabled())
+    const visibleComparison = comparison.filter(row => row.key !== 'island'
+      && (row.key !== 'town-economy' || isTownEconomyEnabled()))
     const fragments = visibleComparison.map(row => {
       const tableRow = root.createElement('tr')
       const heading = root.createElement('th')
@@ -216,7 +217,7 @@ export function createLearnerProfileConflictView({
       return tableRow
     })
     rows.replaceChildren(...fragments)
-    empty.hidden = visibleComparison.length > 0
+    empty.hidden = visibleComparison.length > 0 || comparison.some(row => row.key === 'island')
     empty.classList.remove('hidden')
     feedback.textContent = ''
     confirmation.hidden = true
@@ -233,7 +234,6 @@ export function createLearnerProfileConflictView({
     previewLabels = []
     previewImages = []
     islands?.replaceChildren()
-    if (enlarge) enlarge.hidden = true
     panel.classList.add('hidden')
     confirmation.hidden = true
     confirmation.classList.add('hidden')
@@ -341,12 +341,10 @@ export function createLearnerProfileConflictView({
   }
 
   function refreshTranslations() {
-    for (const {element,key,params} of previewLabels) element.textContent = translate(key,params)
+    for (const {element,key,params} of previewLabels) if (key) element.textContent = translate(key,params)
     for (const { image, sideKey } of previewImages) {
       image.alt = translate('profileConflict.preview.alt', { side: translate(sideKey) })
     }
-    if (enlarge) enlarge.textContent = translate(islands?.classList.contains('enlarged')
-      ? 'profileConflict.preview.reduce' : 'profileConflict.preview.enlarge')
     if (protectedConflicts.length) showProtected(protectedConflicts)
   }
 
@@ -363,19 +361,6 @@ export function createLearnerProfileConflictView({
     previewLabels = []
     previewImages = []
     islands.replaceChildren()
-    islands.classList.remove('enlarged')
-    if (enlarge) {
-      enlarge.hidden = true
-      enlarge.textContent = translate('profileConflict.preview.enlarge')
-      enlarge.setAttribute('aria-expanded','false')
-      enlarge.onclick = () => {
-        const expanded = islands.classList.contains('enlarged')
-        if (expanded) islands.classList.remove('enlarged')
-        else islands.classList.add('enlarged')
-        enlarge.textContent = translate(expanded ? 'profileConflict.preview.enlarge' : 'profileConflict.preview.reduce')
-        enlarge.setAttribute('aria-expanded',String(!expanded))
-      }
-    }
     const layouts = ['device','cloud'].map(side => conflict[side].profile.tinySwordsIsland ?? null)
     const images = []
     const statuses = []
@@ -409,13 +394,13 @@ export function createLearnerProfileConflictView({
       const image = images[index]
       const status = statuses[index]
       const label = previewLabels.find(entry => entry.element === status)
-      label.key = pixels ? 'profileConflict.preview.saved' : 'profileConflict.preview.unavailable'
-      status.textContent = translate(label.key)
+      label.key = pixels ? null : 'profileConflict.preview.unavailable'
+      status.textContent = label.key ? translate(label.key) : ''
+      status.hidden = Boolean(pixels)
       image.classList.remove('saved-island-pending')
       if (pixels) {
         image.src = pixels
         image.hidden = false
-        if (enlarge) enlarge.hidden = false
       }
     }
     if (!layouts.some(layout => layout !== null)) return

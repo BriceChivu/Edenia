@@ -1,11 +1,5 @@
 export const WALKTHROUGH_STEPS = [
   {
-    id: 'town',
-    target: '#tinySwordsSurface',
-    textKey: 'walkthrough.town',
-    placement: 'bottom'
-  },
-  {
     id: 'study-history',
     target: '.study-history-section',
     textKey: 'walkthrough.studyHistory',
@@ -24,6 +18,14 @@ export const WALKTHROUGH_STEPS = [
     hooks: {
       beforeEnter: 'closeTransientUi'
     }
+  },
+  {
+    id: 'video-archive',
+    target: '#videoArchiveSections',
+    textKey: 'walkthrough.videoArchive',
+    placement: 'top',
+    spotlightRadius: 12,
+    hooks: { beforeEnter: 'closeTransientUi' }
   }
 ]
 

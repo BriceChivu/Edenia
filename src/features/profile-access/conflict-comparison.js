@@ -150,6 +150,10 @@ function summarizeRecentActivity(profile) {
   return (Array.isArray(profile?.activityLog) ? profile.activityLog : [])
     .map(entry => ({
       createdAt: entry?.createdAt || null,
+      detail: String(entry?.detail || ''),
+      channelName: String(entry?.meta?.channelName
+        || profile?.config?.channels?.find(channel => channel.id === entry?.meta?.channelId)?.name
+        || entry?.meta?.channelId || ''),
       title: String(entry?.title || ''),
       type: String(entry?.type || '')
     }))
