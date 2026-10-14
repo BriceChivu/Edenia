@@ -313,16 +313,17 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     axes.replaceChildren()
     svgElement('text', { x: left - 8, y: 12, 'text-anchor': 'end' }, axes).textContent = 'XP'
     const tickCount = width < 380 ? 3 : width < 600 ? 4 : 6
-    const lastTick = { right: -Infinity }
+    const lastTick = { right: -Infinity, label: null }
     for (let i = 0; i < tickCount; i++) {
       const day = viewport.start + span * (i + .35) / tickCount
-      const label = unit === 'year' ? String(new Date(day * DAY_MS).getUTCFullYear())
-        : (unit === 'month' || span > 370) ? monthLabels.format(new Date(day * DAY_MS)) : tickLabels.format(new Date(day * DAY_MS))
-      const node = svgElement('text', { x: x(day), y: bottom + 20, 'text-anchor': 'middle' }, axes)
+      const label = span > 730 ? String(new Date(day * DAY_MS).getUTCFullYear())
+        : span > 120 ? monthLabels.format(new Date(day * DAY_MS)) : tickLabels.format(new Date(day * DAY_MS))
+      if (label === lastTick.label) continue
+      const node = svgElement('text', { class: 'history-chart-time-tick', x: x(day), y: bottom + 20, 'text-anchor': 'middle' }, axes)
       node.textContent = label
       const box = node.getBBox()
       if (box.x < left || box.x + box.width > right || box.x < lastTick.right + 6) node.remove()
-      else lastTick.right = box.x + box.width
+      else { lastTick.right = box.x + box.width; lastTick.label = label }
     }
     svgElement('text', { x: right, y: height - 3, 'text-anchor': 'end' }, axes).textContent = t('history.chart.time')
     timeAxis.setAttribute('x', left)

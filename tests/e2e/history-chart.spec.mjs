@@ -137,6 +137,11 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width)
   expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport)
   await chart.screenshot({ path: info.outputPath('market-navigator.png') })
+  await chart.evaluate(el => { for (let i = 0; i < 15; i++) el.querySelector('[data-chart-zoom="in"]').click() })
+  await expect.poll(() => span(chart)).toBe(3)
+  const timeLabels = await chart.locator('.history-chart-time-tick').allTextContents()
+  expect(timeLabels.length).toBeGreaterThan(0)
+  expect(new Set(timeLabels).size).toBe(timeLabels.length)
 })
 
 test('Touch pan and two-finger pinch keep their captured surface and respond without cloud writes', async ({ page, context, browserName }) => {
