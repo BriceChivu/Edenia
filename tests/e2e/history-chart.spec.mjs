@@ -291,7 +291,7 @@ test('Account sign-out actions share a wrapping row in the correct order', async
 })
 
 
-test('Sign-in screens use short headings, omit redundant copy, and pad the back button', async ({ page }, info) => {
+test('Sign-in screens use short headings and omit redundant copy and the back button', async ({ page }, info) => {
   await seedChart(page, { google: true })
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const toggle = page.locator('.settings-account-toggle')
@@ -304,11 +304,6 @@ test('Sign-in screens use short headings, omit redundant copy, and pad the back 
   await expect(page.getByRole('button', { name: 'Continue with Google', exact: true })).toBeVisible()
   await expect(page.locator('#learnerProfileAccessAuthenticationBody')).toBeHidden()
   await expect(page.locator('#learnerProfileAccessAuthenticationStatus')).toBeHidden()
-  const back = page.locator('.learner-profile-access-authentication-back')
-  const padding = await back.evaluate(el => ({
-    left: parseFloat(getComputedStyle(el).paddingLeft), right: parseFloat(getComputedStyle(el).paddingRight)
-  }))
-  expect(padding.left).toBeGreaterThanOrEqual(18)
-  expect(padding.right).toBeGreaterThanOrEqual(18)
+  await expect(page.locator('.learner-profile-access-authentication-back')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('simplified-sign-in.png') })
 })

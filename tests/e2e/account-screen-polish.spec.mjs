@@ -12,6 +12,19 @@ const session = {
 }
 
 async function configure(page) {
+  // Local Auth permits the fixed callback origin, including on CI's 4173 server.
+  const servedOrigin = `http://localhost:${Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)}`
+  if (servedOrigin !== 'http://localhost:8000') {
+    await page.route('http://localhost:8000/**', async route => {
+      const requested = new URL(route.request().url())
+      const served = new URL(
+        `${requested.pathname.slice(1)}${requested.search}`,
+        `${servedOrigin}${process.env.EDENIA_TEST_BASE_PATH || '/'}`
+      )
+      const response = await route.fetch({ url: served.href })
+      await route.fulfill({ response })
+    })
+  }
   await page.addInitScript(() => {
     let configuration
     window.google = { accounts: { id: {
@@ -35,7 +48,7 @@ async function configure(page) {
 
 for (const method of ['email', 'google', 'existing session']) {
   test(`internal onboarding collapses email and continues after ${method} authentication`, async ({ page }, testInfo) => {
-    test.skip(!['desktop-standard', 'tablet-portrait', 'phone-small'].includes(testInfo.project.name))
+    test.skip(!['desktop-standard', 'tablet-portrait', 'phone-standard', 'phone-small'].includes(testInfo.project.name))
     await configure(page)
     if (method === 'existing session') {
       await page.addInitScript(({ key, session }) => localStorage.setItem(key, JSON.stringify(session)), { key: storageKey + '_plus_auth_v1', session })
@@ -57,7 +70,7 @@ for (const method of ['email', 'google', 'existing session']) {
       if (path === '/rest/v1/rpc/read_my_latest_learner_profile_reset') return route.fulfill({ json: [{ status: 'none' }] })
       return route.fulfill({ json: {} })
     })
-    await page.goto('./?internal_test=1')
+    await page.goto('http://localhost:8000/?internal_test=1')
     await expect(page.locator('#introTrailer')).toBeVisible()
     await page.evaluate(() => finishIntroTrailer())
     await page.locator('[data-language-id="mandarin"]').click()
@@ -96,7 +109,7 @@ for (const method of ['email', 'google', 'existing session']) {
 }
 
 test('internal locked sign-in removes Back and keeps email collapsed', async ({ page }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard', 'phone-small'].includes(testInfo.project.name))
   await configure(page)
   await page.addInitScript(({ storageKey, owner, profileId }) => {
     const at = '2026-10-14T00:00:00.000Z'
@@ -104,7 +117,7 @@ test('internal locked sign-in removes Back and keeps email collapsed', async ({ 
     localStorage.setItem(storageKey + '_learner_profile_access_v1', JSON.stringify({ version: 1, ownerId: owner, profileId, generation: 1, revision: 1, activatedAt: Date.now(), activationId: null, onboardingFinalizationPending: false }))
   }, { storageKey, owner, profileId })
   await page.route(`${origin}/**`, route => route.fulfill({ json: {} }))
-  await page.goto('./?internal_test=1')
+  await page.goto('http://localhost:8000/?internal_test=1')
   await page.locator('#learnerProfileAccessOpenSignIn').click()
   const authentication = page.locator('#learnerProfileAccessAuthentication')
   await expect(authentication).toBeVisible()
