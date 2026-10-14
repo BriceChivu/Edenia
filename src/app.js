@@ -2826,6 +2826,7 @@ function getWeekLabel(state = null) {
 // ════════════════════════════════════════════════════════════
 
 function initBackgroundPhysics() {
+  if (backgroundPhysics) return backgroundPhysics
   const canvas = document.getElementById('backgroundPhysics')
   const context = canvas?.getContext('2d', { alpha: true })
   if (!canvas || !context) return null
@@ -3016,6 +3017,30 @@ function initBackgroundPhysics() {
   const handleResize = () => {
     window.clearTimeout(resizeTimer)
     resizeTimer = window.setTimeout(resetParticles, 120)
+  }
+
+  if (INTERNAL_TEST_MODE === '1') {
+    // Keep one particle field above each full-screen background and below its
+    // content, including screens shown before a learner profile can open.
+    const surfaces = [...document.querySelectorAll(
+      '.legacy-progress-migration, .onboarding-panel, .intro-trailer'
+    )]
+    surfaces.forEach(surface => surface.classList.add('particle-background'))
+    const updateSurface = () => {
+      const visibleSurfaces = surfaces.filter(surface =>
+        !surface.classList.contains('hidden') && !surface.hidden
+      ).reverse()
+      visibleSurfaces.sort((a, b) =>
+        Number(getComputedStyle(b).zIndex) - Number(getComputedStyle(a).zIndex)
+      )
+      const parent = visibleSurfaces[0] || document.body
+      if (canvas.parentElement !== parent) parent.prepend(canvas)
+    }
+    const surfaceObserver = new MutationObserver(updateSurface)
+    surfaces.forEach(surface => surfaceObserver.observe(surface, {
+      attributes: true, attributeFilter: ['class', 'hidden']
+    }))
+    updateSurface()
   }
 
   window.addEventListener('pointermove', handlePointerMove, { passive: true })
@@ -3540,6 +3565,7 @@ function resumeApplicationAfterMigration() {
 }
 
 async function init() {
+  if (INTERNAL_TEST_MODE === '1') backgroundPhysics = initBackgroundPhysics()
   reportMissingI18nKeys()
   applyPermanentChannelVideoFormatUi()
   if (!stateBackupStorageReady) {

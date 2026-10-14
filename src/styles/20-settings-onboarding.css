@@ -443,6 +443,17 @@ body[data-theme="dark"] .onboarding-panel {
 body.onboarding-active { overflow: hidden; }
 body.onboarding-active #mainApp { visibility: hidden; }
 body.onboarding-active .toast { z-index: 320; }
+.particle-background:is(.legacy-progress-migration, .onboarding-panel) {
+  background: linear-gradient(145deg, rgb(223,248,255), rgb(238,251,208));
+}
+body[data-theme="dark"] .particle-background:is(.legacy-progress-migration, .onboarding-panel) {
+  background: linear-gradient(145deg, rgb(7,23,29), rgb(16,36,43));
+}
+.particle-background::before { display: none; }
+.particle-background > :is(.legacy-progress-migration-card, .onboarding-card, .intro-stage) {
+  position: relative;
+  z-index: 1;
+}
 .onboarding-card {
   background: var(--surface);
   border: 3px solid var(--planet-black);
