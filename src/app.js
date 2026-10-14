@@ -1,4 +1,5 @@
 import { canonicalizeJson } from './state/portable-state.js'
+import { createLearnerProfileSyncOpportunity } from './state/learner-profile-sync-opportunity.js'
 import { reportWindowHealth } from './integrations/health-monitor.js'
 import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
 import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
@@ -1202,6 +1203,19 @@ let learnerProfileProtectedReset = null
 let learnerProfileOpeningStartedAt = null
 let learnerProfileOpeningCompletionToastPending = false
 let learnerProfileOpeningFocusHandoffPending = false
+const learnerProfileSyncOpportunity = createLearnerProfileSyncOpportunity({
+  isHidden: () => document.hidden,
+  isWatchingVideo: () => {
+    try { return activeVideoShelfPlayer?.player?.getPlayerState?.() === 1 } catch { return false }
+  },
+  now: () => Date.now()
+})
+window.addEventListener('edenia-tiny-swords-activity', event => learnerProfileSyncOpportunity.reportGame(event.detail))
+for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) {
+  document.addEventListener(type, event => {
+    if (event.target?.closest?.('#tinySwordsSurface')) learnerProfileSyncOpportunity.reportHostInput()
+  }, { passive: true })
+}
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const ownerVerification = createLearnerProfileOwnerVerificationStore({
@@ -1260,6 +1274,8 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
     ),
     getClient: getSupabaseClient,
+    getSyncOpportunity: IS_AUTH_TRIAL && window.EDENIA_CONFIG?.tinySwordsQuietSyncEnabled !== false
+      ? learnerProfileSyncOpportunity.isQuiet : null,
     hasOnboardingProfileDraft: () => (
       onboardingProfileDraftStore.hasDraft()
       && personalizedOnboardingState.active

@@ -115,6 +115,12 @@ if (window.edeniaTinySwordsEnabled === true) {
     let legacy = false
     let intersects = true
     let reportedVisibility = null
+    let activeInteraction = true
+    function reportSyncActivity() {
+      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
+        detail: { visible: reportedVisibility === true, active: activeInteraction }
+      }))
+    }
     const layoutKey = 'edenia_tiny_swords_xp_layout_v1'
     const persistence = () => window.edeniaTinySwordsPersistence
     const accessIdentity = () => persistence()?.readAccessIdentity?.() ?? null
@@ -138,6 +144,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       const visible = intersects && !blocked && !failed && document.visibilityState !== 'hidden'
       if (visible === reportedVisibility) return
       reportedVisibility = visible
+      reportSyncActivity()
       frame?.contentWindow?.postMessage({ type: 'edenia-host-visibility', session, visible }, location.origin)
     }
     const visibilityObserver = typeof IntersectionObserver === 'function'
@@ -173,6 +180,9 @@ if (window.edeniaTinySwordsEnabled === true) {
       frame.className = 'tiny-swords-frame'
       session += 1
       restored = false
+      activeInteraction = true
+      reportedVisibility = null
+      reportSyncActivity()
       failed = false
       progressPercent = 0
       preparing = false
@@ -247,6 +257,8 @@ if (window.edeniaTinySwordsEnabled === true) {
         frame.remove()
       }
       frame = null
+      reportedVisibility = false
+      reportSyncActivity()
       session += 1
       restored = false
       preparing = false
@@ -292,6 +304,10 @@ if (window.edeniaTinySwordsEnabled === true) {
         window.scrollBy({ left: data.x, top: data.y, behavior: 'instant' })
       }
       if (data?.type === 'edenia-game-ui') {
+        if (typeof data.active === 'boolean') {
+          activeInteraction = data.active
+          reportSyncActivity()
+        }
         controls.hidden = !restored || data.celebrating === true
         controls.classList.toggle('tiny-swords-editing', data.editing === true)
       }

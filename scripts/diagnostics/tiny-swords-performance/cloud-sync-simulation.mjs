@@ -3,7 +3,7 @@
 import { createPortableLearnerProfileEnvelope } from '../../../src/state/portable-learner-profile.js'
 import { canonicalizeJson, sha256Base64UrlSync } from '../../../src/state/portable-state.js'
 
-export async function installCloudSyncSimulation(page, profile) {
+export async function installCloudSyncSimulation(page, profile, { quietSyncEnabled = true } = {}) {
   const origin = 'https://tiny-swords-sync-fixture.supabase.co'
   const owner = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
@@ -14,11 +14,35 @@ export async function installCloudSyncSimulation(page, profile) {
     user:{id:owner,email:'fps@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
   let envelope = (await createPortableLearnerProfileEnvelope(profile)).envelope
   let revision = 1
+  let lastWriteAt = -Infinity, lastSessionFlushAt = -Infinity
   const receipts = new Map(), requests = []
+  // Cloud imports intentionally omit cache timestamps. Return the supplied
+  // real catalog metadata to ordinary recovery lookups instead of blank rows
+  // that would clear titles/thumbnails and change the measured workload.
+  // This fixture consumes no YouTube Data API quota; CDN thumbnails stay live.
+  await page.route('https://www.googleapis.com/youtube/v3/**', route => {
+    const url = new URL(route.request().url())
+    const ids = (url.searchParams.get('id') || '').split(',')
+    let items = []
+    if (url.pathname.endsWith('/videos')) items = ids.flatMap(id => {
+      const video = profile.videos?.[id]
+      return video ? [{ id, contentDetails: { duration: `PT${Math.floor(video.duration || 0)}S` },
+        player: { embedWidth: Math.round((video.aspectRatio || 16 / 9) * 1080), embedHeight: 1080 },
+        snippet: { title: video.title, channelId: video.channelId, channelTitle: video.channelTitle,
+          publishedAt: video.publishedAt, thumbnails: { medium: { url: video.thumbnail || video.thumbnailUrl } } } }] : []
+    })
+    if (url.pathname.endsWith('/channels')) items = ids.flatMap(id => {
+      const channel = profile.config?.channels?.find(channel => channel.id === id)
+      return channel ? [{ id, snippet: { title: channel.name || id, thumbnails: { default: { url: channel.imageUrl || '' } } },
+        contentDetails: { relatedPlaylists: { uploads: 'UU' + id.slice(2) } } }] : []
+    })
+    return route.fulfill({ json: { items } })
+  })
   await page.route('**/config.local.js*', route => route.fulfill({contentType:'text/javascript',body:`window.EDENIA_CONFIG=${JSON.stringify({
     youtubeApiKey:'local-simulation-only',authTrialEnabled:true,accountFeaturesRollout:'off',learnerProfileLifecycleEnabled:false,
     emergencyAccountlessRollbackEnabled:true,tinySwordsEnabled:true,tinySwordsPublicEnabled:false,
     indexedDbProfileEnabled:true,indexedDbBackupsEnabled:true,indexedDbBackupCleanupEnabled:true,
+    tinySwordsQuietSyncEnabled:quietSyncEnabled,
     googleSignInMode:'off',supabaseUrl:origin,supabasePublishableKey:'simulation-key'
   })}`}))
   await page.evaluate(({key,envelope,session,owner,profileId}) => {
@@ -46,10 +70,18 @@ export async function installCloudSyncSimulation(page, profile) {
       if(receipts.has(args.p_operation_id)) response=[{...receipts.get(args.p_operation_id),status:'already_accepted'}]
       else {
         if(args.p_base_revision!==revision || args.p_generation!==1 || args.p_profile_id!==profileId) throw Error('Simulation received an invalid predecessor')
+        const early = args.p_session_boundary === true && startEpochMs - lastSessionFlushAt >= 300000
+        if (path.endsWith('_handoff') && !early && startEpochMs - lastWriteAt < 30000) {
+          response = [{ status: 'deferred', ...identity(), base_revision: args.p_base_revision,
+            retry_after_ms: 30000 - (startEpochMs - lastWriteAt) }]
+        } else {
+        lastWriteAt = startEpochMs
+        if (early) lastSessionFlushAt = startEpochMs
         envelope=args.p_envelope;revision++
         const receipt={status:'accepted',...identity(),base_revision:args.p_base_revision,payload_sha256:envelope.integrity.payloadSha256,
           request_sha256:sha256Base64UrlSync(canonicalizeJson({baseRevision:args.p_base_revision,envelope:args.p_envelope,generation:1,operationId:args.p_operation_id,ownerId:owner,profileId}))}
         receipts.set(args.p_operation_id,receipt);response=[receipt]
+        }
       }
     } else if(path==='/rest/v1/rpc/read_my_learner_profile_write_receipt') {
       const receipt=receipts.get(request.postDataJSON().p_operation_id)
@@ -64,6 +96,7 @@ export async function installCloudSyncSimulation(page, profile) {
     await route.fulfill({status:200,headers,contentType:'application/json',body})
     requests.push({path,startEpochMs,endEpochMs:Date.now(),requestBytes,responseBytes,delayMs,revision})
   })
-  return {getEvidence:()=>({simulated:true,realCloudWrites:false,transport:{latencyMs:500,uploadMbps:1,downloadMbps:2},
+  return {getEvidence:()=>({simulated:true,realCloudWrites:false,realYoutubeDataApiRequests:0,quietSyncEnabled,transport:{latencyMs:500,uploadMbps:1,downloadMbps:2},
+    budget:{ordinaryIntervalMs:30000,earlySessionFlushIntervalMs:300000},
     revision,commits:receipts.size,requests})}
 }
