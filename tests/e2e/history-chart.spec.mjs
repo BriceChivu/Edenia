@@ -11,7 +11,18 @@ const owner = fixture.session.user.id
 const profileId = '223e4567-e89b-42d3-a456-426614174001'
 const projects = new Set(['desktop-standard', 'tablet-portrait', 'phone-standard', 'phone-small', 'webkit-trial-desktop', 'webkit-trial-phone'])
 
-async function seedChart(page, { free = false } = {}) {
+async function seedChart(page, { free = false, google = false } = {}) {
+  if (google) await page.addInitScript(() => {
+    window.google = { accounts: { id: {
+      initialize() {},
+      renderButton(element) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.textContent = 'Continue with Google'
+        element.replaceChildren(button)
+      }
+    } } }
+  })
   const anki = {}, watchProgress = []
   for (let i = 0; i < 450; i++) {
     const stamp = new Date(+now - i * 86_400_000)
@@ -33,6 +44,8 @@ async function seedChart(page, { free = false } = {}) {
   const commits = []
   await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript', body: `window.EDENIA_CONFIG=${JSON.stringify({
     authTrialEnabled: true, tinySwordsEnabled: false, tinySwordsPublicEnabled: false,
+    googleSignInMode: google ? 'id_token' : 'off',
+    googleIdentityClientId: google ? '1234567890-test.apps.googleusercontent.com' : '',
     accountFeaturesRollout: 'off', learnerProfileLifecycleEnabled: false, indexedDbProfilesEnabled: false,
     indexedDbBackupsEnabled: false, studyGuidanceEnabled: false, freePlusEnabled: free,
     supabaseUrl: origin, supabasePublishableKey: 'synthetic-key'
@@ -279,7 +292,7 @@ test('Account sign-out actions share a wrapping row in the correct order', async
 
 
 test('Sign-in screens use short headings, omit redundant copy, and pad the back button', async ({ page }, info) => {
-  await seedChart(page)
+  await seedChart(page, { google: true })
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const toggle = page.locator('.settings-account-toggle')
   if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click()
@@ -288,6 +301,7 @@ test('Sign-in screens use short headings, omit redundant copy, and pad the back 
   await expect(page.locator('#learnerProfileAccessStatus')).toBeHidden()
   await page.locator('#learnerProfileAccessOpenSignIn').click()
   await expect(page.locator('#learnerProfileAccessAuthenticationTitle')).toHaveText('Sign in')
+  await expect(page.getByRole('button', { name: 'Continue with Google', exact: true })).toBeVisible()
   await expect(page.locator('#learnerProfileAccessAuthenticationBody')).toBeHidden()
   await expect(page.locator('#learnerProfileAccessAuthenticationStatus')).toBeHidden()
   const back = page.locator('.learner-profile-access-authentication-back')
