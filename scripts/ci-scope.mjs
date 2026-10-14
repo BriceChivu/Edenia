@@ -18,7 +18,7 @@ export function selectCiScope(files, { full = false } = {}) {
   const scope = { contracts: false, browser: false, game: false, catalogs: false,
     supabase: false, supabase_db: false, discovery_catalog: false,
     community_catalog: false, full_matrix: full, browser_files: [] }
-  const selected = new Set(DATA_SMOKE)
+  const selected = new Set([...DATA_SMOKE, 'preservation-smoke'])
   let broad = full
   const all = () => {
     scope.contracts = scope.browser = scope.game = scope.supabase = scope.supabase_db = true
@@ -27,7 +27,7 @@ export function selectCiScope(files, { full = false } = {}) {
   if (full) { all(); scope.catalogs = true }
   for (const file of files) {
     // CI/build infrastructure must prove the complete new graph before merging.
-    if (/^(?:\.github\/workflows\/(?:ci|deploy-pages)\.yml|\.github\/actions\/setup-godot\/|scripts\/(?:ci-|build-|setup-godot)|playwright\.config\.mjs|package(?:-lock)?\.json|\.nvmrc)/.test(file)) {
+    if (/^(?:\.github\/workflows\/(?:ci|deploy-pages)\.yml|\.github\/actions\/setup-godot\/|scripts\/(?:ci-|run-ci-|build-|setup-godot)|playwright\.config\.mjs|package(?:-lock)?\.json|\.nvmrc)/.test(file)) {
       all()
     } else if (/^(?:\.github\/workflows\/(?:learner-profile-disaster-backup|auth-health-monitor)\.yml|scripts\/(?:canary-|rehearse-canary-|watch-canary-execution|generate-owned-profile-contract-fixtures)|tests\/fixtures\/)/.test(file)) {
       all()

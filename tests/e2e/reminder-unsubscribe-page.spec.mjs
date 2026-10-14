@@ -23,7 +23,7 @@ async function routeRuntimeConfig(page) {
 test('localized confirmation redacts its capability and submits without app state', async ({
   page,
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   const requests = []
   await routeRuntimeConfig(page)
   await page.route(

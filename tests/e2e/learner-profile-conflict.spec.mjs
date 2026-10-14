@@ -474,7 +474,7 @@ test('divergent profiles require confirmed choices at every width', async ({
   test.skip(![
     'desktop-standard',
     'tablet-portrait',
-    'phone-small'
+    'phone-standard'
   ].includes(testInfo.project.name))
   const selectedSide = testInfo.project.name === 'desktop-standard'
     ? 'cloud'
@@ -780,7 +780,7 @@ test(`trial reopens a lost-choice acknowledgment as a fresh comparison (queued $
 
 
 test('trial comparison keeps saves untouched until confirmation and retains protected downloads', async ({ page }, testInfo) => {
-  test.skip(!['desktop-standard', 'tablet-portrait', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'tablet-portrait', 'phone-standard'].includes(testInfo.project.name))
   const { choiceRequests, conflictRequests } = await prepareConflictPage(page, { trial: true, acceptPostChoiceCommits: true, preserveStateOnReload: true })
   const gate = page.locator('#learnerProfileAccessGate')
   await expect(page.locator('#learnerProfileConflictTitle')).toBeVisible()
@@ -824,7 +824,7 @@ test('trial comparison keeps saves untouched until confirmation and retains prot
 
 
 test('real Godot conflict previews render both exact saves without modifying them', async ({ page }, testInfo) => {
-  test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' || !['desktop-standard', 'phone-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' || !['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   test.setTimeout(90000)
   const { choiceRequests } = await prepareConflictPage(page, { trial: true, withIslands: true })
   await expect(page.locator('#learnerProfileConflict')).toBeVisible()

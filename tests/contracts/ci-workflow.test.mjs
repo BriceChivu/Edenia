@@ -55,9 +55,23 @@ test('docs and catalog-only changes avoid builds; full regression retains all co
 })
 
 test('CI infrastructure changes exercise every required safety suite', () => {
-  for (const file of ['.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'scripts/build-ci-sites.mjs', 'playwright.config.mjs', 'package-lock.json']) {
+  for (const file of ['.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'scripts/run-ci-browser.mjs', 'scripts/build-ci-sites.mjs', 'playwright.config.mjs', 'package-lock.json']) {
     const scope = selectCiScope([file])
     for (const key of ['contracts', 'browser', 'game', 'supabase', 'supabase_db']) assert.equal(scope[key], true, `${file}: ${key}`)
+  }
+})
+
+test('routine projects retain viewport-gated safety and responsive cases', async () => {
+  const config = await readFile(new URL('../../playwright.config.mjs', import.meta.url), 'utf8')
+  assert.match(config, /responsiveChecks = .*video-organization/)
+  assert.match(config, /responsiveChecks = .*learner-profile-conflict/)
+  assert.match(config, /responsiveCases = .*a signed-out owner can authenticate/)
+  const imports = await readFile(new URL('../e2e/learner-profile-import.spec.mjs', import.meta.url), 'utf8')
+  assert.match(imports, /for \(const crossAccount of \[false, true\]\)/)
+  assert.doesNotMatch(imports, /crossAccount = testInfo\.project\.name/)
+  for (const name of ['accountless-profile-migration', 'auth-trial', 'first-signed-in-profile', 'learner-profile-access']) {
+    const source = await readFile(new URL(`../e2e/${name}.spec.mjs`, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, /phone-small/, `${name} must not encode a safety scenario in an omitted viewport`)
   }
 })
 
