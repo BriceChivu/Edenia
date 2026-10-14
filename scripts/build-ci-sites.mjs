@@ -13,6 +13,7 @@ function build(env) {
 }
 build({ EDENIA_TINY_SWORDS_ENABLED: 'false', EDENIA_TINY_SWORDS_PUBLIC_ENABLED: 'false' })
 await cp('_site', `${root}/normal`, { recursive: true })
+await cp('_legacy_migration_site', `${root}/migration-helper`, { recursive: true })
 if (process.env.EDENIA_CI_GAME === 'true') {
   // Reuse only this job's freshly exported game; configurations vary in the host.
   for (const [name, publicEnabled] of [['integrated', 'false'], ['public', 'true']]) {

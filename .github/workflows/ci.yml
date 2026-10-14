@@ -73,6 +73,11 @@ jobs:
           retention-days: 1
           compression-level: 0
       - uses: actions/upload-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: .cache/ci-sites/migration-helper
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
         if: needs.scope.outputs.game == 'true'
         with:
           name: ci-site-integrated
@@ -135,9 +140,12 @@ jobs:
           name: ci-site-normal
           path: _site
 
-      - name: Build migration helper
+      - name: Download shared migration helper
         if: needs.scope.outputs.contracts == 'true'
-        run: npm run build:migration-helper
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: _legacy_migration_site
 
       - name: Run contract tests
         if: needs.scope.outputs.contracts == 'true'
@@ -244,7 +252,12 @@ jobs:
           name: ci-site-normal
           path: _site
       - name: Install Playwright browsers
+        # Legacy import acceptance serves this helper from the second origin.
         run: npx playwright install --with-deps chromium webkit firefox
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: _legacy_migration_site
       - name: Run selected browser tests
         run: node scripts/run-ci-browser.mjs
         env:
@@ -291,6 +304,10 @@ jobs:
           name: ci-site-${{ matrix.site }}
           path: _site
       - run: npx playwright install --with-deps ${{ matrix.browsers }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: _legacy_migration_site
       - name: Require selected game persistence and progression flows
         run: node scripts/run-ci-browser.mjs
         env:

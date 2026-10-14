@@ -99,6 +99,7 @@ test('verify rejects failed/cancelled/skipped selected suites and malformed scop
 test('browser consumers download shared builds and game lanes run independently', () => {
   const consumers = workflow.slice(workflow.indexOf('\n  browser:\n'))
   assert.doesNotMatch(consumers, /run: npm run build|setup-godot/)
+  assert.equal((consumers.match(/name: ci-migration-helper/g) || []).length, 2)
   for (const lane of ['chromium', 'webkit', 'public']) assert.ok(consumers.includes(`lane: ${lane}`))
   assert.match(workflow, /needs: \[scope, build, checks, browser, tiny-swords\]/)
   assert.ok(workflow.indexOf('run: npm ci') < workflow.indexOf('run: npm run test:supabase'))
