@@ -766,6 +766,7 @@
       <div class="history-view-tabs" role="tablist" aria-label="Study history view" data-i18n-aria-label="history.viewLabel">
         <button type="button" class="history-view-btn active" data-history-view="summary" data-analytics-action="history.summary" role="tab" aria-selected="true" data-i18n="history.summary">Summary</button>
         <button type="button" class="history-view-btn" data-history-view="heatmap" data-analytics-action="history.heatmap" role="tab" aria-selected="false" data-i18n="history.heatmap">Heatmap</button>
+        <button type="button" class="history-view-btn hidden" data-history-view="chart" data-analytics-action="history.chart" role="tab" aria-selected="false" aria-controls="historyChartView" id="historyChartTab" data-i18n="history.chart">Chart</button>
       </div>
       <div id="historySummaryView">
         <div class="history-period-panel" id="historyRangeToolbar">
@@ -807,6 +808,7 @@
         <div class="history-table" id="historyTable"></div>
       </div>
       <div class="history-heatmap hidden" id="historyHeatmapView"></div>
+      <div class="history-chart hidden" id="historyChartView" role="tabpanel" aria-labelledby="historyChartTab"></div>
     </section>
 
     <!-- VIDEO FEED ──────────────────────────────────────── -->

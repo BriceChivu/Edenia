@@ -555,6 +555,8 @@ import {
   bindStudyHistoryLockedAccessActions
 } from './features/study-history/locked-access-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
+import { buildHistoryChartData } from './features/study-history/chart-data.js'
+import { createHistoryChart } from './features/study-history/chart-controller.js'
 import {
   bindStudyHistoryWatchedPopoverActions
 } from './features/study-history/watched-popover-actions.js'
@@ -591,6 +593,7 @@ const {
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
   isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
 } = RUNTIME_ENVIRONMENT
+const HISTORY_CHART_ENABLED = IS_AUTH_TRIAL && !IS_SANDBOX
 window.edeniaTinySwordsEnabled = deriveTinySwordsEnabled(window.location, window.EDENIA_CONFIG)
 window.edeniaTinySwordsLegacyPreview = IS_LOCALHOST && location.port === '8037'
   && !IS_TINY_SWORDS_TESTER && window.EDENIA_CONFIG?.tinySwordsPublicEnabled !== true
@@ -1570,6 +1573,8 @@ let isRemovedSectionCollapsed = true
 let activeVideoOrganizationTrigger = null
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
+let historyChart = null
+let historyChartLocale = null
 let selectedStudyInsightView = 'current'
 let activeStudyGuidance = null
 let lastTrackedStudyGuidanceKey = ''
@@ -2087,7 +2092,7 @@ function normalizeLoadedState(state) {
   if (normalizeAnkiTrackingConfig(state)) shouldSave = true
   if (normalizeStudyInsightConfig(state)) shouldSave = true
   if (state?.config) {
-    const historyView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
+    const historyView = normalizeHistoryView(state.config.historyView, IS_SANDBOX, HISTORY_CHART_ENABLED)
     if (state.config.historyView !== historyView) shouldSave = true
     state.config.historyView = historyView
   }
@@ -2341,7 +2346,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       includeShortVideos: getEffectiveIncludeShorts(state),
       ankiEnabled: isAnkiTrackingActive(state),
       studyInsightsEnabled: isStudyInsightsEnabled(state),
-      historyView: normalizeHistoryView(state?.config?.historyView, IS_SANDBOX),
+      historyView: normalizeHistoryView(state?.config?.historyView, IS_SANDBOX, HISTORY_CHART_ENABLED),
       channelShelfOrder: normalizeChannelShelfOrder(state?.config?.channelShelfOrder),
       learningLanguages: Array.isArray(state?.learnerProfile?.languages)
         ? state.learnerProfile.languages.map(String)
@@ -3047,7 +3052,7 @@ async function startApplicationWithState(initialState, {
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
   if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
-  selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
+  selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX, HISTORY_CHART_ENABLED)
   syncStreak(state)
   if (!await saveState(state)) {
     // Opening an existing durable profile must still work when maintenance
@@ -3119,11 +3124,14 @@ async function startApplicationWithState(initialState, {
 function renderActivatedLearnerProfile(state, {
   showMainApplication = true
 } = {}) {
+  historyChart?.destroy()
+  historyChart = null
   applyLocale(state.config.locale)
   updateDocumentTitle(state)
   selectedHistoryView = normalizeHistoryView(
     state.config.historyView,
-    IS_SANDBOX
+    IS_SANDBOX,
+    HISTORY_CHART_ENABLED
   )
   syncStreak(state)
   applyTheme(state.config.theme)
@@ -3175,6 +3183,8 @@ const protectedConflictAnnouncementIds = new Set()
 let learnerProfileAccessRenderEpoch = 0
 
 function parkLearnerProfileDom() {
+  historyChart?.destroy()
+  historyChart = null
   const parkedSelectors = new Set(
     parkedLearnerProfileDom.map(({ selector }) => selector)
   )
@@ -13192,6 +13202,10 @@ function renderRestrictedStudyHistory(accessState) {
 }
 
 function renderStudyHistoryPanel(s) {
+  if (!HISTORY_CHART_ENABLED && selectedHistoryView === 'chart') selectedHistoryView = 'summary'
+  const chartTab = document.querySelector('[data-history-view="chart"]')
+  chartTab?.classList.toggle('hidden', !HISTORY_CHART_ENABLED)
+  document.querySelector('.history-view-tabs')?.classList.toggle('has-chart', HISTORY_CHART_ENABLED)
   const historyState = s || { videos: {}, anki: {} }
   const hasHistoryActivity = getStudyActivityDateKeys(historyState).length > 0
   document.querySelectorAll('.history-range-btn').forEach(btn => {
@@ -13303,7 +13317,7 @@ function renderStudyHistoryPanel(s) {
   const heatmapView = document.getElementById('historyHeatmapView')
   const rangeToolbar = document.getElementById('historyRangeToolbar')
   if (rangeToolbar) {
-    rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
+    rangeToolbar.classList.toggle('hidden', selectedHistoryView !== 'summary')
     rangeToolbar.classList.toggle('mobile-history-empty', !hasHistoryActivity)
   }
   if (summaryView) {
@@ -13320,6 +13334,31 @@ function renderStudyHistoryPanel(s) {
     } else if (!plusAccessPolicy.featureAccess[PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY]) {
       heatmapView.replaceChildren()
     }
+  }
+
+  const chartView = document.getElementById('historyChartView')
+  if (chartView) {
+    const showChart = HISTORY_CHART_ENABLED && selectedHistoryView === 'chart'
+    chartView.classList.toggle('hidden', !showChart)
+    if (showChart) {
+      const locale = getCurrentLocale()
+      if (historyChart && historyChartLocale !== locale) {
+        historyChart.destroy()
+        historyChart = null
+      }
+      if (!historyChart) {
+        historyChart = createHistoryChart(chartView, {
+          t, locale, formatTime: formatHistoryTime, requestAccess: requestStudyHistoryAccess
+        })
+        historyChartLocale = locale
+      }
+      const access = getHistoryPeriodAccessDecision(historyState, new Date(0))
+      historyChart.update(buildHistoryChartData(historyState, {
+        todayKey: toDateKey(getCurrentAppDate(historyState)),
+        cutoffKey: access.state === STUDY_HISTORY_ACCESS_STATES.AVAILABLE ? null : access.cutoffDateKey,
+        getVideoEntries: getVideoWatchProgressEntries
+      }), access)
+    } else historyChart?.suspend()
   }
 }
 
@@ -14832,7 +14871,7 @@ function setHistoryPeriodForRange(range, periodKey) {
 }
 
 async function setHistoryView(view) {
-  const nextView = view === 'heatmap' ? 'heatmap' : 'summary'
+  const nextView = normalizeHistoryView(view, IS_SANDBOX, HISTORY_CHART_ENABLED)
   const state = loadState()
   if (state?.config) {
     state.config.historyView = nextView

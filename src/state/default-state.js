@@ -11,8 +11,8 @@ export function getDefaultHistoryView(isSandbox) {
   return isSandbox ? 'heatmap' : 'summary'
 }
 
-export function normalizeHistoryView(view, isSandbox) {
-  return view === 'heatmap' || view === 'summary'
+export function normalizeHistoryView(view, isSandbox, chartEnabled = false) {
+  return view === 'heatmap' || view === 'summary' || (chartEnabled && view === 'chart')
     ? view
     : getDefaultHistoryView(isSandbox)
 }
