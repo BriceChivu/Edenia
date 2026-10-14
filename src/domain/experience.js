@@ -18,7 +18,9 @@ export function experienceFromSeconds(seconds) {
 
 export function observeAnkiExperience(previous, rawReviewed, { eligible = true } = {}) {
   const raw = Math.max(0, Math.floor(Number(rawReviewed) || 0))
-  const watermark = previous?.experienceWatermark
+  // A new live Study day credits today’s reviews. Existing unmarked/imported
+  // records establish a baseline; resumed/old-day observations stay ineligible.
+  const watermark = previous?.experienceWatermark ?? (previous ? raw : 0)
   const earned = Math.max(0, Number(previous?.experienceReviews) || 0)
   return {
     experienceWatermark: Math.max(raw, Number(watermark) || 0),

@@ -285,11 +285,12 @@ export function createLearnerProfileAccessView({
     const isGenericRecovery = state === 'recovering' && !recoveryCopyKey
     title.hidden = state === 'conflicting'
     gate.setAttribute('aria-labelledby', state === 'conflicting' ? 'learnerProfileConflictTitle' : 'learnerProfileAccessTitle')
-    gate.setAttribute('aria-describedby', state === 'conflicting' ? '' : 'learnerProfileAccessBody learnerProfileAccessStatus')
+    gate.setAttribute('aria-describedby', state === 'conflicting' ? '' : 'learnerProfileAccessBody')
     title.textContent = translate(`${key}.title`)
     body.textContent = translate(`${key}.body`)
     body.hidden = isOpening || state === 'conflicting'
     status.hidden = isOpening || isGenericRecovery || state === 'conflicting'
+      || isLearnerProfileAuthenticationState(state)
     status.textContent = status.hidden
       ? ''
       : translate('profileAccess.noProfileVisible')

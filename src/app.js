@@ -5004,7 +5004,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
       status: 'error',
       title: t('log.channelRefreshFailed.title'),
       detail: `${channel.name}: ${fetchError.message || t('log.unknownError')}`,
-      meta: { channelId: channel.id }
+      meta: { channelId: channel.id, channelName: channel.name || channel.id }
     })
     if (!await saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
     renderAll(latestState)
@@ -5026,7 +5026,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
     status: 'success',
     title: t('log.channelRefreshed.title'),
     detail: t('log.channelRefreshed.fetched', { name: storedChannel?.name || channel.name, count: videos.length }),
-    meta: { channelId: channel.id, fetchedCount: videos.length }
+    meta: { channelId: channel.id, channelName: storedChannel?.name || channel.name, fetchedCount: videos.length }
   })
   if (!await saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
   renderAll(latestState)
@@ -5491,6 +5491,7 @@ function handleWalkthroughNextButton(event) {
 function renderWalkthroughStep() {
   if (!walkthroughState.active) return
   const step = walkthroughState.steps[walkthroughState.index]
+  document.body.classList.toggle('walkthrough-video-archive', step.id === 'video-archive')
   runWalkthroughHooks(step, 'beforeEnter')
   const target = getWalkthroughTarget(step)
   if (!target || !isWalkthroughTargetVisible(target)) {
@@ -5616,7 +5617,7 @@ async function endWalkthrough(options = {}) {
   }
   walkthroughState.elements?.layer.classList.add('hidden')
   walkthroughState.elements?.card.classList.remove('hidden', 'walkthrough-card-choice')
-  document.body.classList.remove('walkthrough-active')
+  document.body.classList.remove('walkthrough-active', 'walkthrough-video-archive')
   syncHeaderCompactState()
   window.removeEventListener('resize', scheduleWalkthroughPosition)
   window.removeEventListener('scroll', scheduleWalkthroughPosition, true)
@@ -6018,7 +6019,7 @@ async function refreshSandboxFeed() {
         name: channel.name || channel.id,
         count: videos.filter(video => video.channelId === channel.id).length
       }),
-      meta: { channelId: channel.id }
+      meta: { channelId: channel.id, channelName: channel.name || channel.id }
     })
   })
   if (!await saveState(s)) return false
@@ -7178,7 +7179,7 @@ function restoreLearnerProfileAuthenticationControls() {
   unmountTurnstileWidgets(controls.signedOut)
   accountContent.prepend(controls.loading)
   controls.signedIn.before(controls.signedOut)
-  controls.signedIn.insertBefore(controls.signOut, document.getElementById('accountSignOutEverywhereBtn'))
+  document.getElementById('accountSignOutActions').insertBefore(controls.signOut, document.getElementById('accountSignOutEverywhereBtn'))
   accountContent.append(controls.feedback)
   return true
 }
@@ -7195,7 +7196,7 @@ function closeLearnerProfileAccessSignIn({ returnFocus = true } = {}) {
   gate.setAttribute('aria-labelledby', 'learnerProfileAccessTitle')
   gate.setAttribute(
     'aria-describedby',
-    'learnerProfileAccessBody learnerProfileAccessStatus'
+    'learnerProfileAccessBody'
   )
   learnerProfileAccessView.render(
     learnerProfileLifecycleAuthority?.getState()
@@ -7226,7 +7227,7 @@ function openLearnerProfileAccessSignIn() {
   )
   gate.setAttribute(
     'aria-describedby',
-    'learnerProfileAccessAuthenticationBody learnerProfileAccessAuthenticationStatus'
+    ''
   )
   authentication.classList.remove('hidden')
   mountGoogleIdentityServicesButtons(authentication)
@@ -9355,7 +9356,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
           status: 'success',
           title: t('log.channelRefreshed.title'),
           detail: t('log.channelRefreshed.fetched', { name: ch.name, count: vids.length }),
-          meta: { channelId: ch.id, fetchedCount: vids.length }
+          meta: { channelId: ch.id, channelName: ch.name, fetchedCount: vids.length }
         })
       } catch (err) {
         console.warn(`${ch.name}:`, err.message)
@@ -9588,7 +9589,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       status: 'success',
       title: t('log.channelRefreshed.title'),
       detail: t('log.channelRefreshed.loaded', { name: channel.name || channelId, count: mergedCount }),
-      meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
+      meta: { channelId, channelName: channel.name || channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
     })
     if (!await saveState(s)) return
     if (focusVideoId && s.videos[focusVideoId]) {
