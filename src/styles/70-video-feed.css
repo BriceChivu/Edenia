@@ -1007,6 +1007,18 @@ body[data-theme="dark"] .video-card.status-watch-later { background: var(--surfa
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
+@media (hover: hover) and (pointer: fine) {
+  .watched-section > .section-header {
+    position: relative;
+  }
+  /* Extend the native toggle's hit area across its entire header. */
+  .watched-section-toggle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+  }
+}
 .watched-section-caret {
   border-bottom: 2px solid currentColor;
   border-right: 2px solid currentColor;
