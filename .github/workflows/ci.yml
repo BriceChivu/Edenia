@@ -331,6 +331,8 @@ jobs:
           retention-days: 14
 
   verify:
+    # A narrow manual benchmark must never publish the branch-protection identity.
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark == 'feed-css' && 'benchmark-verify' || 'verify' }}
     needs: [scope, build, checks, browser, tiny-swords]
     if: ${{ always() }}
     runs-on: ubuntu-latest

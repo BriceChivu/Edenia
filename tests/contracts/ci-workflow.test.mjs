@@ -61,6 +61,11 @@ test('CI infrastructure changes exercise every required safety suite', () => {
   }
 })
 
+test('manual narrow benchmarks cannot publish the required verify check name', () => {
+  const aggregate = workflow.slice(workflow.indexOf('\n  verify:\n'))
+  assert.match(aggregate, /name: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.benchmark == 'feed-css' && 'benchmark-verify' \|\| 'verify' \}\}/)
+})
+
 test('routine projects retain viewport-gated safety and responsive cases', async () => {
   const config = await readFile(new URL('../../playwright.config.mjs', import.meta.url), 'utf8')
   assert.match(config, /responsiveChecks = .*video-organization/)
