@@ -290,3 +290,34 @@ test('same-video phone-computer-phone handoff retains study from both sessions a
     expect(computer.errors).toEqual([])
   } finally { headGate.resolve(); await computer?.context.close(); await phone.context.close() }
 })
+
+test('active Tiny Swords batches durable study saves until its bounded cloud opportunity', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  try {
+    // The authentic current-frame bridge is separately covered by its contract;
+    // this drives its host activity event through the real signed-in save path.
+    await phone.page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
+      detail: { visible: true, active: true }
+    })))
+    await phone.capture(20)
+    await phone.capture(30)
+    expect(cloud.head().revision).toBe(1)
+    const pending = await phone.page.evaluate(key => ({
+      outbox: JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1')),
+      dirty: localStorage.getItem(key + '_learner_profile_sync_v1_dirty'),
+      durable: loadPersistedState({ persistCleanup: false }).videos.phone.resumeAtSeconds
+    }), key)
+    expect(pending.durable).toBe(30)
+    expect(pending.outbox.pending.prepared.profile.videos.phone.resumeAtSeconds).toBe(20)
+    expect(pending.outbox.pending.changes).toBeTruthy()
+    expect(pending.dirty).toBeTruthy()
+    cloud.advance(10_000)
+    await phone.page.clock.fastForward(10_000)
+    await expect.poll(() => cloud.head().revision).toBe(2)
+    expect(cloud.head().envelope.profile.videos.phone.resumeAtSeconds).toBe(30)
+    await expect.poll(() => phone.page.evaluate(key => localStorage.getItem(key + '_learner_profile_sync_v1_dirty'), key)).toBe(null)
+    expect(phone.errors).toEqual([])
+  } finally { await phone.context.close() }
+})
