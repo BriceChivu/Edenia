@@ -10,7 +10,8 @@ export function bindStudyHistoryViewActions(root, actions) {
 
   const bindings = [
     ['[data-history-view="summary"]', () => actions.setView('summary')],
-    ['[data-history-view="heatmap"]', () => actions.setView('heatmap')]
+    ['[data-history-view="heatmap"]', () => actions.setView('heatmap')],
+    ['[data-history-view="chart"]', () => actions.setView('chart')]
   ]
 
   let installedCount = 0

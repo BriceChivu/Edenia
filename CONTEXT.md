@@ -40,6 +40,10 @@ _Avoid_: Full browser state, database dump
 A durable record that learning activity occurred, used to calculate Study History, streaks, points, and earned town progress.
 _Avoid_: Study statistic, analytics event
 
+**Study XP**:
+Experience points earned through eligible video study and Anki reviews. One minute of credited video study or one credited Anki review earns one XP; activity without recorded XP does not retroactively earn it.
+_Avoid_: Raw activity points, watched minutes
+
 **Study day**:
 The learner-local calendar date assigned when a study fact is recorded and retained when that profile moves between timezones.
 _Avoid_: Display date, current-device date

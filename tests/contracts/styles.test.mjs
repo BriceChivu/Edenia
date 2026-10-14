@@ -13,6 +13,7 @@ const EXPECTED_STYLE_FILES = [
   '41-tiny-swords.css',
   '50-analytics.css',
   '60-study-history.css',
+  '61-study-history-chart.css',
   '70-video-feed.css',
   '80-walkthrough.css',
   '90-toast.css',
