@@ -80,7 +80,8 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   const overviewSvg = overview.querySelector('svg')
   const accessButton = container.querySelector('.history-chart-access')
   accessButton.addEventListener('click', () => requestAccess(access.state), { signal })
-  svgElement('title', {}, svg).textContent = t('history.chart.description')
+  svg.setAttribute('aria-label', t('history.chart.description'))
+  svgElement('desc', {}, svg).textContent = t('history.chart.description')
   const grid = svgElement('g', {}, svg)
   const marks = svgElement('g', {}, svg)
   const videoPath = svgElement('path', { class: 'history-chart-video-marks', 'data-chart-series': 'video' }, marks)
@@ -214,7 +215,10 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   plot.addEventListener('pointerup', event => releasePointer(event), { signal })
   plot.addEventListener('pointercancel', event => releasePointer(event, true), { signal })
   plot.addEventListener('lostpointercapture', event => releasePointer(event, true), { signal })
-  plot.addEventListener('pointerleave', () => { if (!gesture) { hover = null; queue() } }, { signal })
+  plot.addEventListener('pointerleave', event => {
+    // Touch sends pointerleave immediately after pointerup; retain the tapped day.
+    if (!gesture && event.pointerType !== 'touch') { hover = null; queue() }
+  }, { signal })
   plot.addEventListener('wheel', event => {
     if (!data || !geometry) return
     event.preventDefault()
@@ -265,6 +269,12 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   overview.addEventListener('keydown', event => {
     const edge = event.target.dataset.chartEdge
     if (!edge || !data) return
+    if (event.key === 'End') {
+      event.preventDefault()
+      stopInertia()
+      setRange(data.end - (viewport.end - viewport.start), data.end)
+      return
+    }
     const amount = event.shiftKey ? 7 : 1
     const delta = event.key === 'ArrowLeft' ? -amount : event.key === 'ArrowRight' ? amount : null
     if (delta === null) return
@@ -325,7 +335,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
       if (box.x < left || box.x + box.width > right || box.x < lastTick.right + 6) node.remove()
       else { lastTick.right = box.x + box.width; lastTick.label = label }
     }
-    svgElement('text', { x: right, y: height - 3, 'text-anchor': 'end' }, axes).textContent = t('history.chart.time')
     timeAxis.setAttribute('x', left)
     timeAxis.setAttribute('y', bottom + 1)
     timeAxis.setAttribute('width', right - left)
@@ -335,10 +344,8 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
       let path = ''
       if (index >= 0 && mode === 'bar') {
         for (const row of buckets) {
-          const a = clamp(x(row.start), left, right), b = clamp(x(row.end), left, right)
-          const bw = (b - a) * .76 / series.length
-          const bx = a + (b - a) * .12 + index * bw
-          const h = bottom - y(row[key]), w = Math.max(.4, bw - Math.min(1.3, bw * .15))
+          const { bx, w } = barGeometry(row, index, series.length, x)
+          const h = bottom - y(row[key])
           path += `M${bx.toFixed(2)},${bottom}v${(-h).toFixed(2)}h${w.toFixed(2)}v${h.toFixed(2)}Z`
         }
       } else if (index >= 0) {
@@ -367,6 +374,12 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     nav.querySelector('[data-chart-zoom="out"]').disabled = span >= data.end - data.start
     drawOverview()
     drawDetail(x, y)
+  }
+  function barGeometry(row, index, seriesCount, x) {
+    const a = clamp(x(row.start), geometry.left, geometry.right)
+    const b = clamp(x(row.end), geometry.left, geometry.right)
+    const bw = (b - a) * .76 / seriesCount
+    return { bx: a + (b - a) * .12 + index * bw, w: Math.max(.4, bw - Math.min(1.3, bw * .15)) }
   }
   function drawOverview() {
     const w = overview.clientWidth, h = 70, span = viewport.end - viewport.start
@@ -403,10 +416,19 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     })
     overviewAxis.replaceChildren()
     const count = w < 380 ? 3 : 5
+    const seen = new Set()
+    const crossesYear = new Date(overviewBounds.start * DAY_MS).getUTCFullYear() !== new Date((overviewBounds.end - 1) * DAY_MS).getUTCFullYear()
+    let lastRight = -Infinity
     for (let i = 0; i < count; i++) {
       const day = overviewBounds.start + (overviewBounds.end - overviewBounds.start) * (i + .5) / count
-      svgElement('text', { x: scale(day), y: 67, 'text-anchor': 'middle' }, overviewAxis).textContent = context > 730
-        ? String(new Date(day * DAY_MS).getUTCFullYear()) : overviewLabels.format(new Date(day * DAY_MS))
+      const label = context > 730 ? String(new Date(day * DAY_MS).getUTCFullYear())
+        : (crossesYear ? monthLabels : overviewLabels).format(new Date(day * DAY_MS))
+      if (seen.has(label)) continue
+      const node = svgElement('text', { x: scale(day), y: 67, 'text-anchor': 'middle' }, overviewAxis)
+      node.textContent = label
+      const box = node.getBBox()
+      if (box.x < 0 || box.x + box.width > w || box.x < lastRight + 6) node.remove()
+      else { seen.add(label); lastRight = box.x + box.width }
     }
   }
   function drawDetail(x, y) {
@@ -437,7 +459,9 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     guide.setAttribute('visibility', 'visible')
     markers.forEach((node, i) => {
       const key = i ? 'anki' : 'video'
-      node.setAttribute('cx', center)
+      const series = ['video', 'anki'].filter(key => visible[key])
+      const bar = mode === 'bar' && visible[key] ? barGeometry(row, series.indexOf(key), series.length, x) : null
+      node.setAttribute('cx', bar ? bar.bx + bar.w / 2 : center)
       node.setAttribute('cy', y(row[key]))
       node.setAttribute('visibility', visible[key] ? 'visible' : 'hidden')
     })

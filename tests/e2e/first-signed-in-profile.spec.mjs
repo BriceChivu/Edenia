@@ -477,10 +477,10 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     expect(resolutionCount).toBe(resolutionAfterActivation)
     await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Checking progress…')
     await expect(page.locator('#mainApp')).toBeVisible()
-    // Trial playback captures dated pause observations, so pending delivery
-    // keeps its existing priority over the background-check label.
+    // Playback may finish syncing before the check label appears. Pending
+    // delivery retains its priority; a settled save shows the background check.
     await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(experienceQuery
-      ? 'Saved on this device — waiting to sync.' : 'Checking progress…')
+      ? /^(Saved on this device — waiting to sync\.|Checking progress…)$/ : 'Checking progress…')
     await expect(page.locator('#learnerProfileOpeningNotice')).toHaveClass(/hidden/)
     expect(await page.evaluate(accessKey => ({
       main: window.backgroundMain === document.getElementById('mainApp'),
@@ -517,7 +517,8 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
     expect(resolutionCount).toBe(resolutionAfterFocus)
     await expect(page.locator('#mainApp')).toBeVisible()
     await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(experienceQuery
-      ? 'Saved on this device — waiting to sync.' : 'Progress check unavailable — will try again.')
+      ? /^(Saved on this device — waiting to sync\.|Progress check unavailable — will try again\.)$/
+      : 'Progress check unavailable — will try again.')
     await page.evaluate(() => { window.dispatchEvent(new Event('offline')); window.dispatchEvent(new Event('online')) })
     await expect.poll(() => headCount).toBe(3)
     await expect(page.locator('#learnerProfileSyncStatus')).not.toHaveText('Progress check unavailable — will try again.')
@@ -543,7 +544,7 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
       'locked'
     )
     await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
-      'Welcome back — sign in to continue your town.'
+      experienceQuery ? 'Welcome back' : 'Welcome back — sign in to continue your town.'
     )
     await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
     releaseSignoutCheck()

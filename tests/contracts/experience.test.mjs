@@ -133,3 +133,14 @@ test('daily streak uses the same 10 XP boundary as watched minutes and new Anki 
     assert.equal(state.streak.longest, expected)
   }
 })
+
+
+test('first live observation of a new study day credits today’s completed reviews exactly once', () => {
+  const first = observeAnkiExperience(undefined, 17)
+  assert.equal(first.experienceReviews, 17)
+  assert.deepEqual(observeAnkiExperience(first, 17), first)
+  assert.equal(observeAnkiExperience(first, 20).experienceReviews, 20)
+  assert.equal(observeAnkiExperience(undefined, 17, { eligible: false }).experienceReviews, 0)
+  assert.equal(observeAnkiExperience({ reviewed: 17 }, 17).experienceReviews, 0)
+  assert.equal(observeAnkiExperience({ reviewed: 17 }, 20).experienceReviews, 0)
+})
