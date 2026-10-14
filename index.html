@@ -175,14 +175,14 @@
       <h1 id="learnerProfileAccessTitle"></h1>
       <p id="learnerProfileAccessBody"></p>
       <p class="legacy-progress-migration-status" id="learnerProfileAccessStatus" role="status" aria-live="polite"></p>
-      <section class="learner-profile-access-authentication hidden" id="learnerProfileAccessAuthentication" aria-labelledby="learnerProfileAccessAuthenticationTitle" aria-describedby="learnerProfileAccessAuthenticationBody learnerProfileAccessAuthenticationStatus">
+      <section class="learner-profile-access-authentication hidden" id="learnerProfileAccessAuthentication" aria-labelledby="learnerProfileAccessAuthenticationTitle" >
         <div class="learner-profile-access-authentication-heading">
-          <h1 id="learnerProfileAccessAuthenticationTitle" data-i18n="profileAccess.authentication.title">Sign in to unlock your profile</h1>
-          <p id="learnerProfileAccessAuthenticationBody" data-i18n="profileAccess.authentication.body">Use the account that owns this learner profile.</p>
+          <h1 id="learnerProfileAccessAuthenticationTitle" data-i18n="profileAccess.authentication.title">Sign in</h1>
+          <p hidden id="learnerProfileAccessAuthenticationBody" data-i18n="profileAccess.authentication.body">Use the account that owns this learner profile.</p>
         </div>
         <div class="learner-profile-access-authentication-content" id="learnerProfileAccessAuthenticationContent"></div>
         <button class="btn-ghost learner-profile-access-authentication-back" type="button" data-profile-access-action="close-sign-in" data-i18n="profileAccess.authentication.back">Back to locked message</button>
-        <p class="legacy-progress-migration-status learner-profile-access-authentication-status" id="learnerProfileAccessAuthenticationStatus" data-i18n="profileAccess.authentication.status">Your learner profile stays hidden until ownership checks succeed.</p>
+        <p class="legacy-progress-migration-status learner-profile-access-authentication-status" id="learnerProfileAccessAuthenticationStatus" hidden data-i18n="profileAccess.authentication.status">Your learner profile stays hidden until ownership checks succeed.</p>
       </section>
       <section class="learner-profile-recovery hidden" id="learnerProfileRecovery" aria-labelledby="learnerProfileRecoveryTitle">
         <h2 id="learnerProfileRecoveryTitle" data-i18n="profileAccess.recovery.title">Available recovery copies</h2>
@@ -193,7 +193,6 @@
       <div class="learner-profile-conflict hidden" id="learnerProfileConflict" aria-labelledby="learnerProfileConflictTitle">
         <p class="learner-profile-conflict-intro" id="learnerProfileConflictTitle" data-i18n="profileConflict.intro">Your device version differs from the Cloud version. Choose which one to use.</p>
         <div class="learner-profile-conflict-islands" id="learnerProfileConflictIslands"></div>
-        <div class="learner-profile-conflict-preview-actions"><button class="btn-ghost" id="learnerProfileConflictEnlarge" type="button" data-i18n="profileConflict.preview.enlarge" aria-expanded="false" hidden>Enlarge both</button></div>
         <div class="learner-profile-conflict-table-wrap">
           <table class="learner-profile-conflict-table">
             <thead>
@@ -427,8 +426,10 @@
               </div>
             </section>
 
+            <div class="settings-account-sign-out-actions" id="accountSignOutActions">
             <button class="btn-secondary settings-account-sign-out" id="accountSignOutBtn" type="button" data-account-action="sign-out" data-i18n="settings.account.signOut">Sign out</button>
             <button class="btn-ghost settings-account-sign-out" id="accountSignOutEverywhereBtn" type="button" data-account-action="sign-out-everywhere" data-i18n="settings.account.signOutEverywhere">Sign out everywhere</button>
+            </div>
           </div>
 
           <p class="settings-account-feedback hidden" id="accountFeedback" role="status" aria-live="polite"></p>
@@ -877,6 +878,7 @@
       <div class="video-grid" id="videoGrid">
         <div class="empty-state" data-i18n="videos.empty.default">Your study feed is ready to grow. Add a YouTube channel or paste one video to begin.</div>
       </div>
+      <div id="videoArchiveSections">
       <div class="watched-section" id="watchedSection">
         <div class="section-header">
           <h2 class="section-title" data-i18n="videos.watchedSection">Watched</h2>
@@ -896,6 +898,7 @@
           </button>
         </div>
         <div class="video-grid watched-grid removed-grid" id="removedGrid"></div>
+      </div>
       </div>
     </section>
 

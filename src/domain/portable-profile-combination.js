@@ -30,6 +30,16 @@ function semanticProfile(profile) {
   return Object.hasOwn(profile, 'tinySwordsIsland')
     ? { ...profile, tinySwordsIsland: semanticIsland(profile.tinySwordsIsland) } : profile
 }
+// Diagnostic activity and Godot-declared animal motion do not change progress.
+// Compare every other field, including resources and unknown snapshot fields.
+export function portableProfilesHaveSameProgress(a, b) {
+  if (!record(a) || !record(b)) return false
+  const left = { ...semanticProfile(a) }, right = { ...semanticProfile(b) }
+  delete left.activityLog
+  delete right.activityLog
+  return equal(left, right)
+}
+
 export function portableProfileChangeDigest(profile) {
   return sha256Base64UrlSync(canonicalizeJson(semanticProfile(profile)))
 }

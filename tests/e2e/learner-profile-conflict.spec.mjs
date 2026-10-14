@@ -843,15 +843,16 @@ test('real Godot conflict previews render both exact saves without modifying the
   await expect(page.locator('iframe[title="Saved island preview renderer"]')).toHaveCount(0)
   await expect(page.locator('#learnerProfileConflictRows')).toContainText('24 total current XP')
   await expect(page.locator('#learnerProfileConflictRows')).toContainText('8 total current XP')
-  await page.locator('#learnerProfileConflictEnlarge').click()
-  await expect(page.locator('#learnerProfileConflictEnlarge')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('#learnerProfileConflictEnlarge')).toHaveCount(0)
+  await expect(page.locator('#learnerProfileConflictIslands figure > p').nth(0)).toBeHidden()
+  await expect(page.locator('#learnerProfileConflictIslands figure > p').nth(1)).toBeHidden()
+  await expect(page.locator('#learnerProfileConflictRows')).not.toContainText('Island differs')
   expect(await page.evaluate(() => ({
     saved: localStorage.getItem('edenia_v1_auth_trial_v1'),
     sync: localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'),
     conflict: structuredClone(learnerProfileLifecycleAuthority.getState().conflict)
   }))).toEqual(before)
   expect(choiceRequests).toHaveLength(0)
-  await page.locator('#learnerProfileConflictEnlarge').click()
   await page.locator('#learnerProfileAccessGate').evaluate(node => { node.scrollTop = 0 })
   expect(await page.locator('#learnerProfileConflictTitle').evaluate(node => node.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0)
   await page.screenshot({ path: testInfo.outputPath('saved-island-comparison.png'), fullPage: true })

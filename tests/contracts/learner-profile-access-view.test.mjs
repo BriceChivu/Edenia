@@ -264,7 +264,7 @@ test('the guarded profile surface contains authentication, retry, and safe sign-
 test('the signed-out returning surface uses the protected-town message', () => {
   assert.equal(
     I18N.en['profileAccess.locked.title'],
-    'Welcome back — sign in to continue your town.'
+    'Welcome back'
   )
 })
 

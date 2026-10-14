@@ -177,3 +177,7 @@ body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
     0 0 0 8px rgba(201,239,104,0.14),
     0 12px 34px rgba(0,0,0,0.36);
 }
+
+/* Show both archive headers during guidance without changing saved organization. */
+body.walkthrough-video-archive #videoArchiveSections > .watched-section { display: block !important; }
+body.walkthrough-video-archive #videoArchiveSections .video-grid { display: none; }

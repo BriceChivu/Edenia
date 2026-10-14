@@ -63,9 +63,11 @@ body[data-theme="dark"] .history-chart { --chart-video: #56bdf1; --chart-anki: #
   .history-chart { padding: 12px; }
   .history-chart-segment button { padding: 7px 10px; }
   .history-chart-heading { margin-top: 13px; gap: 8px; }
-  .history-chart-plot { height: 270px; }
+  .history-chart-plot { height: 171px; }
 }
 @media (pointer: coarse) {
   .history-chart button { min-height: 44px; }
   .history-chart-overview { height: 76px; }
 }
+
+@media (any-pointer: coarse) { .history-chart-navigation { display: none; } }
