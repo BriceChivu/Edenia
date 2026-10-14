@@ -141,10 +141,6 @@ body[data-theme="dark"] .legacy-progress-migration {
 ) > button {
   width: 100%;
 }
-.learner-profile-access-authentication-back {
-  justify-self: start;
-  padding-left: 0;
-}
 .learner-profile-access-authentication-status {
   border-top: 1px solid var(--border);
   padding-top: 14px;
@@ -1742,3 +1738,34 @@ body[data-theme="dark"] .activity-log-panel {
 .settings-account-sign-out-actions > button { max-width: 100%; }
 
 .learner-profile-access-authentication-back { padding: 10px 18px; min-height: 44px; white-space: normal; text-align: center; }
+
+.account-email-disclosure { min-width: 0; }
+.account-email-disclosure > summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  min-height: 44px;
+  padding: 10px 0;
+  text-align: center;
+}
+.account-email-disclosure > summary:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.account-email-disclosure-content { display: grid; gap: 12px; padding-top: 8px; }
+.learner-profile-access-authentication-content .settings-account-loading {
+  font-size: 1.1rem;
+  text-align: center;
+}
+.learner-profile-access-card button:disabled {
+  background: var(--surface-hi);
+  border-color: var(--border);
+  box-shadow: none;
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.learner-profile-conflict-islands[hidden] { display: none; }

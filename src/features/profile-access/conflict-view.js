@@ -22,6 +22,8 @@ export function createLearnerProfileConflictView({
   const panel = root.getElementById('learnerProfileConflict')
   const rows = root.getElementById('learnerProfileConflictRows')
   const islands = root.getElementById('learnerProfileConflictIslands')
+  let busy = false
+  const gate = root.getElementById('learnerProfileAccessGate')
   let previewKey = null
   let previewGeneration = 0
   let disposePreviews = null
@@ -107,7 +109,12 @@ export function createLearnerProfileConflictView({
         languages: formatList(
           value.languages,
           none(),
-          language => translate(`onboarding.language.${language}`)
+          language => {
+            const aliases = { 'zh-Hant': 'mandarin', 'zh-Hans': 'mandarin', zh: 'mandarin', ja: 'japanese', ko: 'korean', es: 'spanish', fr: 'french', de: 'german', en: 'english' }
+            const key = `onboarding.language.${aliases[language] || language}`
+            const label = translate(key)
+            return label === key ? language : label
+          }
         ),
         level: value.level
           ? translate(`onboarding.level.${value.level}.label`)
@@ -241,7 +248,7 @@ export function createLearnerProfileConflictView({
   }
 
   function requestChoice(side) {
-    if (!['device', 'cloud'].includes(side)) return false
+    if (busy || !['device', 'cloud'].includes(side)) return false
     confirmationText.textContent = translate(
       side === 'device'
         ? 'profileConflict.confirmDevice'
@@ -255,12 +262,14 @@ export function createLearnerProfileConflictView({
   }
 
   function cancelChoice() {
+    if (busy) return
     confirmation.hidden = true
     confirmation.classList.add('hidden')
     delete confirm.dataset.conflictSide
   }
 
-  function setBusy(busy) {
+  function setBusy(value) {
+    busy = Boolean(value)
     if (busy) {
       previewGeneration += 1
       disposePreviews?.()
@@ -273,7 +282,7 @@ export function createLearnerProfileConflictView({
       }
     }
     panel.setAttribute('aria-busy', String(busy))
-    for (const control of panel.querySelectorAll('button')) {
+    for (const control of (gate || panel).querySelectorAll('button')) {
       control.disabled = Boolean(busy)
     }
     feedback.textContent = busy
@@ -362,6 +371,11 @@ export function createLearnerProfileConflictView({
     previewImages = []
     islands.replaceChildren()
     const layouts = ['device','cloud'].map(side => conflict[side].profile.tinySwordsIsland ?? null)
+    if (layouts.every(layout => layout === null)) {
+      islands.hidden = true
+      return
+    }
+    islands.hidden = false
     const images = []
     const statuses = []
     for (const [index,side] of ['device','cloud'].entries()) {

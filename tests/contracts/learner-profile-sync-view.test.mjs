@@ -25,10 +25,12 @@ test('sync status stays quiet when idle and exposes every pending or failed stat
   const guidance = element()
   const header = element()
   const settings = element()
+  const settingsGroup = element()
   const elements = {
     learnerProfileSyncActions: actions,
     learnerProfileSyncGuidance: guidance,
     learnerProfileSyncSettingsStatus: settings,
+    learnerProfileSyncSettings: settingsGroup,
     learnerProfileSyncStatus: header
   }
   const view = createLearnerProfileSyncView({
@@ -62,6 +64,7 @@ test('sync status stays quiet when idle and exposes every pending or failed stat
     view.render({ status })
     assert.equal(header.disabled, status === 'up-to-date')
     assert.equal(header.textContent, expected)
+    assert.equal(settingsGroup.classList.contains('hidden'), !['not-backed-up', 'not-yet-backed-up', 'needs-attention', 'conflicting'].includes(status))
     assert.equal(settings.textContent, expected)
     assert.equal(header.dataset.syncStatus, status)
     assert.equal(settings.dataset.syncStatus, status)
