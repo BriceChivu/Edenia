@@ -309,7 +309,15 @@ for(const indexedDb of [false,true]) {
       await expect(page.locator('#levelUpButton')).toBeEnabled()
       expect(await page.evaluate(()=>claimCityLevelUp())).toBe(true)
       await expect.poll(()=>page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaGameLevel)).toBe(8)
-      await expect.poll(()=>commits.some(c=>c.p_envelope.profile.cityProgress.maxLevelIndex===7),{timeout:40000}).toBe(true)
+      // Allow the existing 30-second cadence, the new ten-second opportunity
+      // window, and the same ten-second transport/polling margin as before.
+      await expect.poll(()=>commits.some(c=>c.p_envelope.profile.cityProgress.maxLevelIndex===7),{timeout:50000}).toBe(true)
+      // Preferences are edited in the host drawer, which suspends the game
+      // and provides a quiet sync opportunity. Continuous-play deadlines are
+      // covered separately by the bounded-opportunity handoff tests.
+      await page.evaluate(()=>openSettings())
+      await expect(page.locator('#settingsPanel')).toBeVisible()
+      await expect.poll(()=>page.evaluate(()=>learnerProfileSyncOpportunity.isQuiet())).toBe(true)
     }
     await page.evaluate(async ()=>{const state=loadState();state.config.weeklyGoalHours=9;await saveState(state)})
     await expect.poll(()=>commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===9),{timeout:40000}).toBe(true)

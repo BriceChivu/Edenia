@@ -5,7 +5,7 @@ import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
 function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false, search = '' } = {}) {
-  const handlers = {}; const sent = []; const frames = []; const storage = new Map(); const saves = []
+  const handlers = {}; const sent = []; const frames = []; const storage = new Map(); const saves = []; const activities = []
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
   if (inactive) state = null
@@ -27,7 +27,8 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
   const context = {
     location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037',search},
     URL, URLSearchParams,
-    window:{edeniaTinySwordsEnabled:true,edeniaTinySwordsLegacyPreview:developer,EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn}},
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
+    window:{edeniaTinySwordsEnabled:true,edeniaTinySwordsLegacyPreview:developer,EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn},dispatchEvent(event){ if (event.type === 'edenia-tiny-swords-activity') activities.push(event.detail) }},
     document:{body:node,querySelectorAll(){return []},currentScript:{src:'http://localhost:8037/tiny-swords-game/test/parent.js'},documentElement:node,visibilityState:'visible',addEventListener(type,fn){handlers[type]=fn},createElement(type){
       if(type!=='iframe') return {...node}
       const frame = {...node,contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
@@ -45,7 +46,7 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
     await emit({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]})
     await emit({type:'edenia-tiny-restored', session:sent.findLast(x=>x.type==='edenia-study-level').session, accepted:true})
   }
-  return { ready, emit, sent, storage, frames, handlers, persistence, saves, document:context.document,
+  return { ready, emit, sent, storage, frames, handlers, persistence, saves, activities, document:context.document,
     attemptClaim(index, persisted) {
       state.cityProgress.maxLevelIndex = index
       if (persisted) { durable = structuredClone(state); handlers['edenia-profile-persisted']({detail:{}}) }
@@ -306,4 +307,22 @@ test('current frame animal checkpoints skip cloud writes while ordinary saves ke
     layout: { ...h.durable.tinySwordsIsland, resources: { wood: 7 } } })
   assert.equal(h.saves.at(-1).syncCloud, undefined)
   assert.equal(h.sent.findLast(message => message.type === 'edenia-tiny-saved').persisted, true)
+})
+
+test('only the current frame supplies sync activity and visibility updates retire old activity', async () => {
+  const h = harness({ island })
+  await h.ready()
+  await h.emit({ type: 'edenia-game-ui', active: true, editing: false, celebrating: false })
+  assert.deepEqual({ ...h.activities.at(-1) }, { visible: true, active: true })
+  const before = h.activities.length
+  await h.handlers.message({ origin: 'https://foreign.example', source: h.frames.at(-1).contentWindow,
+    data: { type: 'edenia-game-ui', active: false } })
+  await h.handlers.message({ origin: 'http://localhost:8037', source: {}, data: { type: 'edenia-game-ui', active: false } })
+  assert.equal(h.activities.length, before)
+  await h.emit({ type: 'edenia-game-ui', active: false, editing: false, celebrating: false })
+  assert.deepEqual({ ...h.activities.at(-1) }, { visible: true, active: false })
+  h.handlers.intersection([{ target: h.frames.at(-1), isIntersecting: false, intersectionRect: { width: 0, height: 0 } }])
+  assert.equal(h.activities.at(-1).visible, false)
+  h.lock()
+  assert.equal(h.activities.at(-1).visible, false)
 })

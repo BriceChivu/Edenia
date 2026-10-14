@@ -20,6 +20,7 @@ var study_presentation_ready := false
 var study_poll_elapsed := 0.0
 var study_celebrating := false
 var study_editing := false
+var study_active_interaction := true
 
 func _ready() -> void:
 	# Select the canonical read-only scene before initializing gameplay or saves.
@@ -120,10 +121,12 @@ func _process(delta: float) -> void:
 			if command is String:
 				camera_command(command)
 	JavaScriptBridge.eval("window.edeniaCamera = %s" % JSON.stringify({"x": game_camera.position.x, "y": game_camera.position.y, "zoom": game_camera.zoom.x, "width": get_viewport().get_visible_rect().size.x, "height": get_viewport().get_visible_rect().size.y, "pawnX": pawn.position.x, "pawnY": pawn.position.y, "editing": editing, "waterPhase": water_phase}))
-	if study_celebrating != (ui.celebration != null) or study_editing != editing:
+	var active_interaction := has_active_interaction()
+	if study_celebrating != (ui.celebration != null) or study_editing != editing or study_active_interaction != active_interaction:
 		study_celebrating = ui.celebration != null
 		study_editing = editing
-		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s,editing:%s}, location.origin)" % [str(study_celebrating), str(study_editing)])
+		study_active_interaction = active_interaction
+		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-ui',celebrating:%s,editing:%s,active:%s}, location.origin)" % [str(study_celebrating), str(study_editing), str(study_active_interaction)])
 	var claimed_level := clampi(int(JavaScriptBridge.eval("window.edeniaStudyLevel || 1")), 1, Layout.XP_THRESHOLDS.size())
 	if not study_layout_restored and JavaScriptBridge.eval("window.edeniaStudyReady === true"):
 		var saved = JavaScriptBridge.eval("JSON.stringify(window.edeniaStudyLayout)")

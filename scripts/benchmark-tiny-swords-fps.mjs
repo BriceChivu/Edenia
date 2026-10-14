@@ -30,7 +30,8 @@ if (!['public','tester','trial'].includes(routeMode) || routeMode === 'trial' &&
 const simulateProgress = cloudSync || process.argv.includes('--progress')
 const studyProfile = cloudSync || process.argv.includes('--study-profile')
 const retainedVideoCount = Math.min(1000, Math.max(0, Number(arg('--retained-videos', '200'))))
-const checkpointProbe = process.argv.includes('--checkpoint-probe')
+const saveProbe = process.argv.includes('--save-probe')
+const checkpointProbe = process.argv.includes('--checkpoint-probe') || saveProbe
 const browser = await chromium.launch({ headless, ...(process.argv.includes('--chrome') ? { channel: 'chrome' } : {}) })
 const progressTimers = []
 let pointerRunning = false
@@ -90,16 +91,19 @@ try {
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, { island, corpus, studyProfile, retainedVideoCount })
   await page.unroute('**/tiny-swords-game/*/index.html*')
-  if (indexedDb) {
+  if (indexedDb || process.argv.includes('--immediate-sync')) {
     await page.route('**/config.local.js*', async route => {
       const response = await route.fetch()
-      await route.fulfill({ response, body: (await response.text()) + '\nObject.assign(window.EDENIA_CONFIG, {tinySwordsPublicEnabled:true,indexedDbProfileEnabled:true,indexedDbBackupsEnabled:true,indexedDbBackupCleanupEnabled:true});' })
+      const config = { tinySwordsPublicEnabled: true,
+        ...(indexedDb ? { indexedDbProfileEnabled: true, indexedDbBackupsEnabled: true, indexedDbBackupCleanupEnabled: true } : {}),
+        ...(process.argv.includes('--immediate-sync') ? { tinySwordsQuietSyncEnabled: false } : {}) }
+      await route.fulfill({ response, body: (await response.text()) + `\nObject.assign(window.EDENIA_CONFIG, ${JSON.stringify(config)});` })
     })
   }
   let cloud = null
   if (cloudSync) {
     const seeded = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')))
-    cloud = await installCloudSyncSimulation(page, seeded)
+    cloud = await installCloudSyncSimulation(page, seeded, { quietSyncEnabled: !process.argv.includes('--immediate-sync') })
     url.searchParams.set('internal_test','1')
     await page.goto(url.href,{waitUntil:'domcontentloaded'})
   } else if (routeMode === 'public') {
@@ -124,8 +128,12 @@ try {
     // the ordinary local catalog cache as well, retaining all cloud progress.
     await page.evaluate(async corpus => {
       const state = loadState()
-      for (const video of corpus.videos) state.videos[video.id] ||= {...video,thumbnail:video.thumbnailUrl,status:'unwatched',watchProgress:[]}
       const at = new Date().toISOString()
+      for (const video of corpus.videos) state.videos[video.id] = {
+        status: 'unwatched', watchProgress: [], ...state.videos[video.id],
+        // Corpus fields are refetchable metadata, not learner study facts.
+        ...video, thumbnail: video.thumbnailUrl, metadataFetchedAt: at
+      }
       state.channelRefreshes = Object.fromEntries(corpus.channels.map(channel=>[channel.id,{lastFetchedAt:at}]))
       if (!await saveState(state,{syncCloud:false})) throw Error('Catalog fixture did not persist')
       renderFeed(state)
@@ -136,7 +144,7 @@ try {
   if (process.argv.includes('--legacy-navigation')) await game.evaluate(() => window.edeniaFrameTestMotion('navigation-control'))
   await page.locator('#videoGrid').scrollIntoViewIfNeeded()
   await page.locator('.video-card').first().waitFor({state:'visible'})
-  if (!checkpointProbe) await page.waitForFunction(() => [...document.querySelectorAll('.video-card img')].some(image=>image.complete && image.naturalWidth>0))
+  await page.waitForFunction(() => [...document.querySelectorAll('.video-card img')].some(image=>image.complete && image.naturalWidth>0))
   const warmedFeed = await page.evaluate(()=>({renderedCards:document.querySelectorAll('.video-card').length,
     loadedThumbnails:[...document.querySelectorAll('.video-card img')].filter(image=>image.complete&&image.naturalWidth>0).length}))
   await surface.scrollIntoViewIfNeeded()
@@ -172,27 +180,63 @@ try {
   const library = await page.evaluate(() => ({ videos: Object.keys(loadState().videos).length,
     channels: loadState().config.channels.length, renderedCards: document.querySelectorAll('.video-card').length,
     loadedThumbnails: [...document.querySelectorAll('.video-card img')].filter(image => image.complete && image.naturalWidth > 0).length,
+    metadataVideos: Object.values(loadState().videos).filter(video => video.title && video.thumbnail).length,
     documentNodes: document.querySelectorAll('*').length }))
-  if (library.videos !== 1000 || warmedFeed.renderedCards === 0) { console.log({library, cloud:cloud?.getEvidence(), view:await page.evaluate(()=>document.body.innerText.slice(0,1200))}); throw new Error('Real-video feed was not loaded') }
+  if (library.videos !== 1000 || library.metadataVideos !== 1000 || warmedFeed.renderedCards === 0 || warmedFeed.loadedThumbnails === 0) { console.log({library, cloud:cloud?.getEvidence(), view:await page.evaluate(()=>document.body.innerText.slice(0,1200))}); throw new Error('Real-video feed was not loaded') }
+  const session = await context.newCDPSession(page)
   if (checkpointProbe) {
+    let probePointer = false
+    let pointerTask = null
+    let probeMoves = 0, probeMovesAtStart = 0, probePawnStart = null, probePawnEnd = null
+    if (saveProbe) {
+      if (cloudSync) await page.waitForFunction(() => learnerProfileSyncViewState.status === 'up-to-date')
+      if (throttle !== 1) await session.send('Emulation.setCPUThrottlingRate', { rate: throttle })
+      const frameBox = await canvas.boundingBox()
+      await game.evaluate(() => window.edeniaFrameTest.startComparison({ sampleMs: 15000, fixedFps: 60 }))
+      probePointer = true
+      pointerTask = (async () => {
+        let i = 0
+        while (probePointer) {
+          await page.mouse.move(frameBox.x + frameBox.width * (0.4 + 0.08 * Math.sin(i++)), frameBox.y + frameBox.height * 0.4)
+          probeMoves++
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+      })()
+      await page.waitForFunction(() => learnerProfileSyncOpportunity.isQuiet() === false)
+      await game.waitForTimeout(2500)
+      probeMovesAtStart = probeMoves
+      probePawnStart = await game.evaluate(() => ({ x: window.edeniaCamera.pawnX, y: window.edeniaCamera.pawnY }))
+    }
     const durationsMs = []
-    for (let i = 0; i < 7; i++) durationsMs.push(await page.evaluate(async () => {
+    try { for (let i = 0; i < 7; i++) durationsMs.push(await page.evaluate(async fullSave => {
       const state = loadState()
-      state.tinySwordsIsland.chickens[0][0] += 1
+      if (fullSave) {
+        const day = new Date().toISOString().slice(0,10)
+        state.anki[day] ||= { reviewed: 0, created: 0 }
+        state.anki[day].reviewed++
+      } else state.tinySwordsIsland.chickens[0][0] += 1
       const began = performance.now()
-      if (!await saveState(state, { syncCloud: false, syncAnalytics: false, backup: false, localIslandCheckpoint: true })) throw Error('Checkpoint did not persist')
+      if (!await saveState(state, { syncCloud: fullSave, syncAnalytics: false, backup: false, localIslandCheckpoint: !fullSave })) throw Error('Checkpoint did not persist')
       return performance.now() - began
-    }))
+    }, saveProbe))
+    if (saveProbe) {
+      await game.waitForTimeout(250)
+      probePawnEnd = await game.evaluate(() => ({ x: window.edeniaCamera.pawnX, y: window.edeniaCamera.pawnY }))
+    }
+    } finally { probePointer = false; await pointerTask }
     const warm = durationsMs.slice(2).sort((a,b) => a-b)
-    const evidence = { durationsMs, warmMedianMs: warm[2], library, retainedVideoCount,
+    const evidence = { durationsMs, warmMedianMs: warm[2], library, warmedFeed, retainedVideoCount,
+      phoneEmulation: phone, cpuThrottle: throttle, saveProbe, immediateSync: process.argv.includes('--immediate-sync'),
+      targetFps: saveProbe ? 60 : fixedFps, pointerMoves: probeMoves - probeMovesAtStart,
+      pawnDisplacement: probePawnStart ? Math.hypot(probePawnEnd.x - probePawnStart.x, probePawnEnd.y - probePawnStart.y) : null,
       physicalPhone: false, cloudSimulation: cloud?.getEvidence(), measurement: 'Local save completion wall time, including IndexedDB and checkpoint processing; first two samples include warming.' }
     await mkdir(dirname(output), { recursive: true })
     await writeFile(output, JSON.stringify(evidence, null, 2))
     console.log(JSON.stringify(evidence))
+    if (saveProbe && (!(evidence.pawnDisplacement > 1) || evidence.pointerMoves < 2)) throw Error('The pawn and mouse must move during save measurements')
     if (warm[2] > Number(arg('--max-warm-save-ms', '50'))) throw Error('Repeated local saves exceed the frame-stall threshold')
     return
   }
-  const session = await context.newCDPSession(page)
   await session.send('Performance.enable')
   if (cpuProfile) {
     await session.send('Profiler.enable')
@@ -236,17 +280,21 @@ try {
     if (!started) throw new Error('Game was not ready for comparison')
     let progressTimer = null
     let progressChanges = 0
+    const progressSaveDurationsMs = []
     let progressBusy = false
     if (simulateProgress) progressTimer = setInterval(async () => {
       if (progressBusy) return
       progressBusy = true
       try {
-        await page.evaluate(async () => {
+        const duration = await page.evaluate(async () => {
           const state = loadState(), day = new Date().toISOString().slice(0,10)
           state.anki[day] ||= {reviewed:0,created:0}
           state.anki[day].reviewed++
+          const began = performance.now()
           if (!await saveState(state)) throw Error('Simulated progress did not persist')
+          return performance.now() - began
         })
+        progressSaveDurationsMs.push(duration)
         progressChanges++
       } catch (error) { errors.push(error.message) }
       finally { progressBusy = false }
@@ -275,7 +323,7 @@ try {
     clearInterval(progressTimer)
     pointerRunning = false
     await pointerTask
-    pointerMoves.push({scenario, moves, progressChanges})
+    pointerMoves.push({scenario, moves, progressChanges, progressSaveDurationsMs})
     const state = await game.evaluate(() => window.edeniaFrameTest.getState())
     if (cpuProfile) {
       const { profile } = await session.send('Profiler.stop')

@@ -256,12 +256,14 @@ export function createLearnerProfileLifecycleAuthority({
       profileId: activation.profileId
     })
     if (activation.ownerId && typeof cloudPersistence.activate === 'function') {
+      const activatedProfile = activeProfile
       cloudPersistence.activate({
         activation,
         ...(localProfile.syncBaseProfile ? { baseProfile: localProfile.syncBaseProfile } : {}),
         generation: activation.generation,
-        isCurrent: () => Boolean(getCurrentActivationFor(activeProfile)),
+        isCurrent: () => getCurrentActivationFor(activatedProfile) === activation,
         profile: activeProfile,
+        readPersistedProfile: () => readPersistedProfileFor(activatedProfile, activation),
         revision: activation.revision
       })
     }
@@ -313,12 +315,22 @@ export function createLearnerProfileLifecycleAuthority({
     try {
       Promise.resolve(cloudPersistence.save(profile, {
         activation,
-        isCurrent: () => Boolean(getCurrentActivationFor(profile))
+        isCurrent: () => Boolean(getCurrentActivationFor(profile)),
+        readPersistedProfile: () => readPersistedProfileFor(profile, activation)
       })).catch(() => {})
       return true
     } catch {
       return false
     }
+  }
+
+  function readPersistedProfileFor(profile, activation) {
+    if (pendingLocalSaves || getCurrentActivationFor(profile) !== activation) return null
+    const local = localPersistence.read()
+    if (local?.status === 'ready' && local.ownerId === activation.ownerId
+      && local.profileId === activation.profileId && local.generation === activation.generation
+    ) return local.profile
+    throw new Error('Durable profile identity changed before cloud preparation')
   }
 
   function markCloudSaveRequired(profile, activation) {
