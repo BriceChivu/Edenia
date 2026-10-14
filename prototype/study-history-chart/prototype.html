@@ -1,0 +1,183 @@
+<!-- Throwaway design study: three interactive Chart layouts, with generated sample activity. -->
+<style>
+#edenia-chart-prototypes{--ed-bg:light-dark(#e3f8f4,#172d2b);--ed-surface:light-dark(#fbfffe,#203936);--ed-text:light-dark(#123c46,#e3f5f1);--ed-muted:light-dark(#55767a,#a8c8c3);--ed-line:light-dark(#b9d6d0,#46645f);--ed-ink:light-dark(#0e252b,#b7d9d2);--ed-active:light-dark(#18b8dd,#1888a4);--ed-on-active:light-dark(#063a4a,#f2ffff);--ed-blue:light-dark(#159eda,#53b9f2);--ed-green:light-dark(#43a85f,#74d18b);--ed-soft:light-dark(#edf7f3,#2b4740);color:var(--ed-text);font:14px/1.45 ui-rounded,'Trebuchet MS',system-ui,sans-serif}
+#edenia-chart-prototypes *{box-sizing:border-box}
+#edenia-chart-prototypes .ed-stage{min-height:700px;padding:26px 24px 20px;background-color:var(--ed-bg);background-image:radial-gradient(var(--ed-line) .8px,transparent .8px);background-size:25px 25px;border-radius:18px}
+#edenia-chart-prototypes .ed-heading{font-size:29px;letter-spacing:.12em;font-weight:500;margin:0 0 20px;color:var(--ed-blue)}
+#edenia-chart-prototypes button,#edenia-chart-prototypes input,#edenia-chart-prototypes select{font:inherit;color:inherit;accent-color:var(--ed-active)}
+#edenia-chart-prototypes button{cursor:inherit}
+#edenia-chart-prototypes .ed-tabs{display:flex;max-width:430px;border:3px solid var(--ed-ink);border-radius:32px;overflow:hidden;box-shadow:0 4px 0 color-mix(in srgb,var(--ed-ink) 16%,transparent);background:var(--ed-surface);margin-bottom:27px}
+#edenia-chart-prototypes .ed-tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:12px 9px;font-weight:500;font-size:17px;white-space:nowrap}
+#edenia-chart-prototypes .ed-tabs button[aria-selected=true]{background:var(--ed-active);color:var(--ed-on-active)}
+#edenia-chart-prototypes .ed-panel{background:var(--ed-surface);border:2px solid var(--ed-ink);border-radius:19px;padding:20px;box-shadow:0 5px 0 color-mix(in srgb,var(--ed-ink) 10%,transparent);position:relative}
+#edenia-chart-prototypes .ed-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+#edenia-chart-prototypes .ed-group{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
+#edenia-chart-prototypes .ed-segment{display:inline-flex;padding:3px;background:var(--ed-soft);border-radius:10px;gap:2px;max-width:100%;flex-wrap:wrap}
+#edenia-chart-prototypes .ed-segment button{background:transparent;border:0;border-radius:7px;padding:7px 10px;min-height:34px}
+#edenia-chart-prototypes .ed-segment button[aria-pressed=true]{background:var(--ed-text);color:var(--ed-surface)}
+#edenia-chart-prototypes .ed-subtle{color:var(--ed-muted);font-size:12px}
+#edenia-chart-prototypes .ed-range{font-size:16px;font-weight:500;font-variant-numeric:tabular-nums}
+#edenia-chart-prototypes .ed-label{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ed-muted)}
+#edenia-chart-prototypes .ed-range-row{margin:19px 0 6px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+#edenia-chart-prototypes .ed-legend{display:flex;gap:15px;align-items:center;flex-wrap:wrap}
+#edenia-chart-prototypes .ed-legend button{background:none;border:0;padding:5px 0;display:flex;align-items:center;gap:7px;font-size:12px;min-height:30px}
+#edenia-chart-prototypes .ed-legend button[aria-pressed=false]{opacity:.45;text-decoration:line-through}
+#edenia-chart-prototypes .ed-swatch{width:15px;height:8px;border-radius:2px;background:var(--ed-blue);display:inline-block}
+#edenia-chart-prototypes .ed-swatch.green{background:var(--ed-green)}
+#edenia-chart-prototypes .ed-plot{position:relative;width:100%;height:274px;touch-action:pan-y;cursor:grab;user-select:none}
+#edenia-chart-prototypes .ed-plot:active{cursor:grabbing}
+#edenia-chart-prototypes .ed-svg{display:block;overflow:visible;width:100%;height:100%;font-size:12px;color:var(--ed-muted)}
+#edenia-chart-prototypes .ed-svg text{fill:var(--ed-muted);font:12px system-ui,sans-serif}
+#edenia-chart-prototypes .ed-svg .ed-grid line{stroke:var(--ed-line);stroke-opacity:.65}
+#edenia-chart-prototypes .ed-svg .domain{stroke:var(--ed-line)}
+#edenia-chart-prototypes .ed-svg .tick line{stroke:var(--ed-line)}
+#edenia-chart-prototypes .ed-axis-zone{cursor:ew-resize;fill:transparent}
+#edenia-chart-prototypes .ed-detail{min-height:39px;padding:9px 0;border-top:1px solid var(--ed-line);font-variant-numeric:tabular-nums;font-size:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+#edenia-chart-prototypes .ed-detail b{font-weight:500;color:var(--ed-text)}
+#edenia-chart-prototypes .ed-overview{height:65px;margin:12px 0 0;position:relative;touch-action:none;cursor:grab}
+#edenia-chart-prototypes .ed-overview svg{display:block;width:100%;height:100%}
+#edenia-chart-prototypes .ed-overview .ed-handle{cursor:ew-resize}
+#edenia-chart-prototypes .ed-bottom{display:flex;gap:9px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-top:10px}
+#edenia-chart-prototypes .ed-button{border:1px solid var(--ed-line);background:var(--ed-surface);border-radius:9px;padding:6px 11px;min-height:34px}
+#edenia-chart-prototypes .ed-button:hover{background:var(--ed-soft)}
+#edenia-chart-prototypes .ed-status{margin-top:13px;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;color:var(--ed-muted);font-size:11px}
+#edenia-chart-prototypes .ed-tooltip{position:absolute;z-index:3;pointer-events:none;background:var(--ed-surface);color:var(--ed-text);border:1px solid var(--ed-line);border-radius:10px;padding:9px 12px;box-shadow:0 5px 20px color-mix(in srgb,var(--ed-ink) 12%,transparent);font-size:12px;min-width:146px}
+#edenia-chart-prototypes .ed-tooltip[hidden]{display:none}
+#edenia-chart-prototypes .ed-tooltip strong{display:block;font-weight:500;margin-bottom:4px}
+#edenia-chart-prototypes .ed-direct .ed-panel{padding:0;border-radius:13px}
+#edenia-chart-prototypes .ed-direct .ed-panel-head{padding:18px 18px 12px;border-bottom:1px solid var(--ed-line)}
+#edenia-chart-prototypes .ed-direct .ed-range-row{margin:0 0 11px}
+#edenia-chart-prototypes .ed-direct .ed-plot{height:320px}
+#edenia-chart-prototypes .ed-direct .ed-plot-wrap{padding:12px 13px 0}
+#edenia-chart-prototypes .ed-direct .ed-detail{padding:10px 17px;min-height:44px}
+#edenia-chart-prototypes .ed-direct .ed-bottom{padding:0 17px 16px;margin-top:7px}
+#edenia-chart-prototypes .ed-presets{display:flex;gap:4px;flex-wrap:wrap}
+#edenia-chart-prototypes .ed-presets button{background:transparent;border:0;border-radius:6px;padding:7px 9px;color:var(--ed-muted)}
+#edenia-chart-prototypes .ed-presets button:hover{background:var(--ed-soft);color:var(--ed-text)}
+#edenia-chart-prototypes .ed-touch-layout{display:grid;grid-template-columns:92px minmax(0,1fr);gap:16px}
+#edenia-chart-prototypes .ed-rail{display:flex;flex-direction:column;gap:15px;border-right:1px solid var(--ed-line);padding-right:15px}
+#edenia-chart-prototypes .ed-rail .ed-segment{display:flex;flex-direction:column;width:100%}
+#edenia-chart-prototypes .ed-rail .ed-segment button{padding:9px 6px}
+#edenia-chart-prototypes .ed-touch .ed-panel{padding:18px}
+#edenia-chart-prototypes .ed-touch .ed-range-row{margin:0 0 3px}
+#edenia-chart-prototypes .ed-touch .ed-plot{height:272px}
+#edenia-chart-prototypes .ed-touch .ed-overview{height:62px;margin-top:4px}
+#edenia-chart-prototypes .ed-touch-sliders{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:9px 0 0}
+#edenia-chart-prototypes .ed-touch-sliders label{display:flex;flex-direction:column;font-size:11px;color:var(--ed-muted);gap:3px}
+#edenia-chart-prototypes .ed-touch-sliders input{width:100%;min-width:0;margin:0;height:25px}
+#edenia-chart-prototypes .ed-total{font-variant-numeric:tabular-nums;font-size:12px}
+#edenia-chart-prototypes .ed-total strong{font-size:18px;font-weight:500}
+#edenia-chart-prototypes .ed-other{height:420px;display:flex;align-items:center;justify-content:center;color:var(--ed-muted)}
+@media(max-width:540px){#edenia-chart-prototypes .ed-stage{padding:20px 12px;min-height:810px}#edenia-chart-prototypes .ed-heading{font-size:25px}#edenia-chart-prototypes .ed-panel{padding:13px}#edenia-chart-prototypes .ed-tabs{margin-bottom:20px}#edenia-chart-prototypes .ed-segment button{padding:8px;min-height:39px}#edenia-chart-prototypes .ed-range-row{margin-top:15px}#edenia-chart-prototypes .ed-touch-layout{grid-template-columns:1fr;gap:12px}#edenia-chart-prototypes .ed-rail{flex-direction:row;flex-wrap:wrap;gap:9px;border:0;padding:0}#edenia-chart-prototypes .ed-rail .ed-segment{flex-direction:row;width:auto}#edenia-chart-prototypes .ed-rail .ed-label{display:none}#edenia-chart-prototypes .ed-direct .ed-range-row{margin:0 0 12px}#edenia-chart-prototypes .ed-direct .ed-plot{height:290px}#edenia-chart-prototypes .ed-range{font-size:14px}#edenia-chart-prototypes .ed-touch .ed-panel{padding:12px}#edenia-chart-prototypes .ed-legend{gap:12px}}
+@media(pointer:coarse){#edenia-chart-prototypes button{min-height:44px}#edenia-chart-prototypes .ed-plot{touch-action:none}}
+</style>
+<div id="edenia-chart-prototypes" class="viz-carousel viz-dotted-background" aria-label="XP chart interaction prototypes">
+<section data-variant="Market navigator" aria-label="Market navigator" class="ed-stage ed-market"></section>
+<section data-variant="Direct canvas" aria-label="Direct canvas" class="ed-stage ed-direct" hidden></section>
+<section data-variant="Touch range" aria-label="Touch range" class="ed-stage ed-touch" hidden></section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>
+(function(){
+const root=document.getElementById('edenia-chart-prototypes');
+const DAY=86400000, first=Date.UTC(2023,0,1), last=Date.UTC(2026,9,15), extent=last-first;
+const fmtDate=d3.utcFormat('%b %d, %Y'), shortDate=d3.utcFormat('%b %d');
+const number=d3.format(',.0f'), integer=d3.format(',.0f');
+const data=d3.utcDays(new Date(first),new Date(last)).map((date,i)=>{const off=(i%11===0||i%23===0),wave=Math.sin(i*.64)+Math.cos(i*.19);return {date:+date,video:off?0:Math.round(19+Math.abs(Math.sin(i*.17))*42+wave*6),anki:off?0:Math.round(17+Math.abs(Math.cos(i*.26))*51+wave*8)}});
+const configs=[{name:'Market navigator',key:'market',mode:'bar'},{name:'Direct canvas',key:'direct',mode:'line'},{name:'Touch range',key:'touch',mode:'bar'}];
+const states=[];
+const initialSaved=window.openai?.widgetState?.privateContent?.charts;
+function controls(name,values,current){return '<div class="ed-segment" aria-label="'+name+'">'+values.map(v=>'<button type="button" class="cursor-interaction" data-'+name+'="'+v.toLowerCase()+'" aria-pressed="'+(v.toLowerCase()===current)+'">'+v+'</button>').join('')+'</div>'}
+function chrome(){return '<h2 class="ed-heading">學習紀錄</h2><div class="ed-tabs" role="tablist" aria-label="Learning record view"><button type="button" role="tab" aria-selected="false" data-tab="summary" class="cursor-interaction">摘要</button><button type="button" role="tab" aria-selected="false" data-tab="heatmap" class="cursor-interaction">熱力圖</button><button type="button" role="tab" aria-selected="true" data-tab="chart" class="cursor-interaction">Chart</button></div>'}
+function legend(){return '<div class="ed-legend" aria-label="XP sources"><button type="button" data-series="video" aria-pressed="true" class="cursor-interaction"><span class="ed-swatch"></span>Video XP</button><button type="button" data-series="anki" aria-pressed="true" class="cursor-interaction"><span class="ed-swatch green"></span>Anki XP</button></div>'}
+function range(){return '<div class="ed-range-row"><span class="ed-range" aria-live="polite"></span>'+legend()+'</div>'}
+function plot(){return '<div class="ed-plot" aria-label="XP earned over time. Drag to pan, drag the time axis to zoom, or use the zoom buttons."><svg class="ed-svg" role="img"></svg><div class="ed-tooltip" role="tooltip" hidden></div></div>'}
+function zoom(){return '<div class="ed-group"><button class="ed-button cursor-interaction" type="button" data-zoom="out" aria-label="Zoom out">−</button><button class="ed-button cursor-interaction" type="button" data-zoom="in" aria-label="Zoom in">+</button><button class="ed-button cursor-interaction" type="button" data-latest>Latest</button></div>'}
+function overview(){return '<div class="ed-overview" aria-label="History overview. Drag the selected window or its edges."><svg role="img" aria-label="All sample history with a draggable selection"></svg></div>'}
+configs.forEach((config,index)=>{
+const el=root.children[index];
+const saved=initialSaved?.[config.key]||{};
+const s={...config,el,start:last-30*DAY,end:last,unit:'day',visible:{video:true,anki:true},...saved,tab:'chart'};
+if(!['day','week','month','year'].includes(s.unit))s.unit='day';
+s.visible={video:true,anki:true,...s.visible};
+const units=controls('unit',['Day','Week','Month','Year'],s.unit),modes=controls('mode',['Bar','Line'],s.mode);
+let content;
+if(config.key==='market')content='<div class="ed-panel"><div class="ed-row">'+units+modes+'</div>'+range()+plot()+'<div class="ed-detail"></div>'+overview()+'<div class="ed-bottom"><span class="ed-subtle">Drag handles to resize · drag window to pan</span>'+zoom()+'</div></div>';
+if(config.key==='direct')content='<div class="ed-panel"><div class="ed-panel-head">'+range()+'<div class="ed-row">'+units+modes+'</div></div><div class="ed-plot-wrap">'+plot()+'</div><div class="ed-detail"></div><div class="ed-bottom"><div class="ed-presets" aria-label="Visible range presets">'+['1M','3M','6M','1Y','All'].map(x=>'<button class="cursor-interaction" type="button" data-preset="'+x+'">'+x+'</button>').join('')+'</div>'+zoom()+'</div></div>';
+if(config.key==='touch')content='<div class="ed-panel"><div class="ed-touch-layout"><div class="ed-rail"><div><div class="ed-label">Group by</div>'+units+'</div><div><div class="ed-label">Display</div>'+modes+'</div></div><div>'+range()+plot()+'<div class="ed-detail"></div>'+overview()+'<div class="ed-touch-sliders"><label>Start date<input type="range" aria-label="Start date" data-edge="start" min="0" max="1000"></label><label>End date<input type="range" aria-label="End date" data-edge="end" min="0" max="1000"></label></div></div></div><div class="ed-bottom"><span class="ed-total"></span>'+zoom()+'</div></div>';
+el.innerHTML=chrome()+'<div class="ed-content">'+content+'</div><div class="ed-status"><span>Sample data · '+config.name+'</span><span class="ed-view-state"></span></div>';
+s.content=el.querySelector('.ed-content');s.panelHTML=s.content.innerHTML;
+s.plot=el.querySelector('.ed-plot');s.svg=d3.select(s.plot.querySelector('svg'));s.tip=s.plot.querySelector('.ed-tooltip');
+s.over=el.querySelector('.ed-overview');s.detail=el.querySelector('.ed-detail');s.points=[];s.frame=0;s.pointers=new Map();
+s.setRange=(start,end)=>{let span=Math.min(extent,Math.max(6*DAY,end-start));start=Math.max(first,Math.min(start,last-span));s.start=start;s.end=start+span;queue(s)};
+s.zoom=(factor,anchor=.5)=>{const span=s.end-s.start,point=s.start+span*anchor,ns=Math.min(extent,Math.max(6*DAY,span*factor));s.setRange(point-ns*anchor,point+ns*(1-anchor))};
+function click(e){const b=e.target.closest('button');if(!b)return;
+if(b.dataset.unit){s.unit=b.dataset.unit;const span={day:30,week:98,month:365,year:1400}[s.unit]*DAY;s.setRange(s.end-span,s.end)}
+if(b.dataset.mode){s.mode=b.dataset.mode;queue(s)}
+if(b.dataset.series){s.visible[b.dataset.series]=!s.visible[b.dataset.series];queue(s)}
+if(b.dataset.zoom)s.zoom(b.dataset.zoom==='in'?.66:1.5);
+if(b.hasAttribute('data-latest'))s.setRange(last-(s.end-s.start),last);
+if(b.dataset.preset){const span=({'1M':30,'3M':90,'6M':180,'1Y':365,All:extent/DAY}[b.dataset.preset])*DAY;s.setRange(last-span,last)}
+if(b.dataset.tab){const tab=b.dataset.tab;s.tab=tab;el.querySelectorAll('[data-tab]').forEach(x=>x.setAttribute('aria-selected',String(x.dataset.tab===tab)));s.content.hidden=tab!=='chart';let other=el.querySelector('.ed-other');if(!other){other=document.createElement('div');other.className='ed-other';s.content.after(other)}other.hidden=tab==='chart';if(tab!=='chart')other.textContent=tab==='summary'?'Summary · return to Chart to explore the prototype':'Heatmap · return to Chart to explore the prototype';queue(s)}
+persist();}
+el.addEventListener('click',click);
+el.querySelectorAll('[data-edge]').forEach(input=>input.addEventListener('input',()=>{let t=first+(+input.value/1000)*extent;if(input.dataset.edge==='start')s.setRange(Math.min(t,s.end-6*DAY),s.end);else s.setRange(s.start,Math.max(t,s.start+6*DAY));persist()}));
+const xy=e=>{const r=s.plot.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
+s.plot.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=xy(e);s.pointers.set(e.pointerId,p);s.plot.setPointerCapture(e.pointerId);s.drag={origin:p,start:s.start,end:s.end,axis:p[1]>s.bottom};s.tip.hidden=true;
+if(s.pointers.size===2){const pts=[...s.pointers.values()];s.pinch={distance:Math.max(10,Math.abs(pts[1][0]-pts[0][0])),start:s.start,end:s.end};} });
+s.plot.addEventListener('pointermove',e=>{const p=xy(e);if(s.pointers.has(e.pointerId)){s.pointers.set(e.pointerId,p);if(s.pointers.size===2&&s.pinch){const pts=[...s.pointers.values()],distance=Math.max(10,Math.abs(pts[1][0]-pts[0][0])),span=(s.pinch.end-s.pinch.start)*s.pinch.distance/distance,center=(s.pinch.end+s.pinch.start)/2;s.setRange(center-span/2,center+span/2)}else if(s.drag){const dx=p[0]-s.drag.origin[0],span=s.drag.end-s.drag.start;if(s.drag.axis){const next=span*Math.exp(-dx/180);s.setRange(s.drag.end-next,s.drag.end)}else{s.setRange(s.drag.start-dx/s.plotWidth*span,s.drag.end-dx/s.plotWidth*span)}}}else if(p[0]>=s.left&&p[0]<=s.right&&p[1]<s.bottom){hover(s,p[0],p[1])}else{s.tip.hidden=true;s.svg.selectAll('[data-chart-hover-guide], [data-chart-hover-marker]').remove()}});
+const end=e=>{if(!s.pointers.has(e.pointerId))return;s.pointers.delete(e.pointerId);s.drag=null;s.pinch=null;persist()};
+s.plot.addEventListener('pointerup',end);s.plot.addEventListener('pointercancel',end);s.plot.addEventListener('pointerleave',()=>{if(!s.drag){s.tip.hidden=true;s.svg.selectAll('[data-chart-hover-guide], [data-chart-hover-marker]').remove()}});
+s.plot.addEventListener('wheel',e=>{e.preventDefault();const p=xy(e),anchor=Math.max(0,Math.min(1,(p[0]-s.left)/s.plotWidth));if(Math.abs(e.deltaX)>Math.abs(e.deltaY)){const shift=e.deltaX/s.plotWidth*(s.end-s.start);s.setRange(s.start+shift,s.end+shift)}else s.zoom(Math.exp(Math.max(-160,Math.min(160,e.deltaY))*.003),anchor);clearTimeout(s.wheelSave);s.wheelSave=setTimeout(persist,200)},{passive:false});
+if(s.over){let drag=null;const pos=e=>{const r=s.over.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left-10)/(r.width-20)))};
+s.over.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=pos(e),[lo,hi]=s.overDomain,domain=hi-lo,a=(s.start-lo)/domain,b=(s.end-lo)/domain,threshold=20/Math.max(1,s.over.clientWidth-20);let edge=Math.min(Math.abs(p-a),Math.abs(p-b))<threshold?(Math.abs(p-a)<=Math.abs(p-b)?'start':'end'):'pan';s.overLocked=[lo,hi];drag={p,start:s.start,end:s.end,edge,domain};if(p<a-threshold||p>b+threshold){const span=s.end-s.start;s.setRange(lo+p*domain-span/2,lo+p*domain+span/2);drag={p,start:s.start,end:s.end,edge:'pan',domain}}s.over.setPointerCapture(e.pointerId)});
+s.over.addEventListener('pointermove',e=>{if(!drag)return;const delta=(pos(e)-drag.p)*drag.domain;if(drag.edge==='start')s.setRange(Math.min(drag.start+delta,drag.end-6*DAY),drag.end);else if(drag.edge==='end')s.setRange(drag.start,Math.max(drag.end+delta,drag.start+6*DAY));else s.setRange(drag.start+delta,drag.end+delta)});
+s.over.addEventListener('pointerup',()=>{drag=null;s.overLocked=null;queue(s);persist()});s.over.addEventListener('pointercancel',()=>{drag=null;s.overLocked=null;queue(s);persist()})}
+states.push(s);new ResizeObserver(()=>queue(s)).observe(s.plot);draw(s);
+});
+function queue(s){if(s.frame)return;s.frame=requestAnimationFrame(()=>{s.frame=0;draw(s)})}
+function buckets(s){const interval={day:d3.utcDay,week:d3.utcMonday,month:d3.utcMonth,year:d3.utcYear}[s.unit];return Array.from(d3.group(data,d=>+interval.floor(d.date)),([date,rows])=>({date,end:+interval.offset(new Date(date),1),video:d3.sum(rows,d=>d.video),anki:d3.sum(rows,d=>d.anki)})).filter(d=>d.date<s.end&&d.end>s.start)}
+function draw(s){const width=s.plot.clientWidth;if(width<10)return;const height=s.plot.clientHeight;const left=width<360?47:55,right=width-12,top=24,bottom=height-46;s.left=left;s.right=right;s.bottom=bottom;s.plotWidth=right-left;
+s.points=buckets(s);const visible=['video','anki'].filter(k=>s.visible[k]);const max=d3.max(s.points,d=>d3.max(visible,k=>d[k]))||10;
+s.x=d3.scaleUtc().domain([s.start,s.end]).range([left,right]);s.y=d3.scaleLinear().domain([0,max*1.12]).nice(4).range([bottom,top]);
+const svg=s.svg;svg.attr('viewBox','0 0 '+width+' '+height);svg.selectAll('*').remove();svg.append('title').text('Sample '+s.unit+' XP: blue video study and green Anki reviews');
+const id='clip-'+s.key;svg.append('defs').append('clipPath').attr('id',id).append('rect').attr('x',left).attr('y',top).attr('width',s.plotWidth).attr('height',bottom-top);
+svg.append('rect').attr('data-chart-frame','').attr('x',left).attr('y',top).attr('width',s.plotWidth).attr('height',bottom-top).attr('fill','none');
+svg.append('g').attr('class','ed-grid').attr('transform','translate('+left+',0)').call(d3.axisLeft(s.y).ticks(4).tickSize(-s.plotWidth).tickFormat(integer)).call(g=>g.select('.domain').remove()).call(g=>g.selectAll('.tick text').attr('dx',-3));
+const count=width<380?3:width<500?4:6;let tickFormat=s.unit==='year'?d3.utcFormat('%Y'):s.unit==='month'?d3.utcFormat('%b %Y'):d3.utcFormat('%b %d');
+svg.append('g').attr('transform','translate(0,'+bottom+')').call(d3.axisBottom(s.x).ticks(count).tickSize(0).tickPadding(11).tickFormat(tickFormat));
+svg.append('text').attr('x',left-7).attr('y',12).attr('text-anchor','end').attr('class','axis-title').attr('data-axis','y').text('XP');
+svg.append('text').attr('x',right).attr('y',height-2).attr('text-anchor','end').attr('class','axis-title').attr('data-axis','x').text('Time · '+({day:'days',week:'weeks',month:'months',year:'years'}[s.unit]));
+const marks=svg.append('g').attr('clip-path','url(#'+id+')');
+if(s.mode==='bar'){const colors={video:'var(--ed-blue)',anki:'var(--ed-green)'};visible.forEach((key,ki)=>{marks.selectAll('.bar-'+key).data(s.points).join('rect').attr('class','bar-'+key).attr('x',d=>{const a=s.x(Math.max(s.start,d.date)),b=s.x(Math.min(s.end,d.end)),size=(b-a)*.76;return a+(b-a)*.12+(size/Math.max(1,visible.length))*ki}).attr('y',d=>s.y(d[key])).attr('width',d=>{const a=s.x(Math.max(s.start,d.date)),b=s.x(Math.min(s.end,d.end));return Math.max(.6,(b-a)*.76/Math.max(1,visible.length)-1.1)}).attr('height',d=>bottom-s.y(d[key])).attr('fill',colors[key]).attr('rx',1.5)})}
+else{visible.forEach(key=>{const line=d3.line().x(d=>s.x(Math.max(s.start,Math.min(s.end,(d.date+d.end)/2)))) .y(d=>s.y(d[key]));marks.append('path').datum(s.points).attr('fill','none').attr('stroke',key==='video'?'var(--ed-blue)':'var(--ed-green)').attr('stroke-width',2.4).attr('stroke-dasharray',key==='anki'?'5 3':null).attr('d',line);if(s.points.length<45)marks.selectAll('.dot-'+key).data(s.points).join(key==='video'?'circle':'rect').attr('class','dot-'+key).each(function(d){const m=d3.select(this),x=s.x(Math.max(s.start,Math.min(s.end,(d.date+d.end)/2))),y=s.y(d[key]);if(key==='video')m.attr('cx',x).attr('cy',y).attr('r',2.5);else m.attr('x',x-2.3).attr('y',y-2.3).attr('width',4.6).attr('height',4.6)}).attr('fill',key==='video'?'var(--ed-blue)':'var(--ed-green)')})}
+svg.append('rect').attr('class','ed-axis-zone').attr('x',left).attr('y',bottom+1).attr('width',s.plotWidth).attr('height',height-bottom-1);
+let rangeText=fmtDate(s.start)+' – '+fmtDate(s.end-1);s.el.querySelector('.ed-range').textContent=rangeText;
+s.el.querySelectorAll('[data-unit]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.unit===s.unit)));
+s.el.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===s.mode)));
+s.el.querySelectorAll('[data-series]').forEach(b=>b.setAttribute('aria-pressed',String(s.visible[b.dataset.series])));
+s.el.querySelector('.ed-view-state').textContent=Math.round((s.end-s.start)/DAY)+' days visible · '+s.unit+' buckets';
+const rows=data.filter(d=>d.date>=s.start&&d.date<s.end),v=d3.sum(rows,d=>d.video),a=d3.sum(rows,d=>d.anki);s.detail.innerHTML='<b>Visible period</b><span>Video '+number(v)+' XP</span><span>Anki '+number(a)+' XP</span>';
+const total=s.el.querySelector('.ed-total');if(total)total.innerHTML='<strong>'+number(v+a)+'</strong> XP in view';
+if(s.over)drawOverview(s);
+s.el.querySelectorAll('[data-edge]').forEach(input=>{input.value=Math.round(((s[input.dataset.edge]-first)/extent)*1000);input.setAttribute('aria-valuetext',fmtDate(s[input.dataset.edge]-(input.dataset.edge==='end'?1:0)))});
+s.tip.hidden=true;
+}
+function drawOverview(s){const width=s.over.clientWidth,height=s.over.clientHeight,svg=d3.select(s.over.querySelector('svg'));svg.attr('viewBox','0 0 '+width+' '+height);svg.selectAll('*').remove();const span=s.end-s.start,context=Math.min(extent,Math.max(180*DAY,span*3)),lo=Math.max(first,Math.min(s.start-(context-span)/2,last-context)),hi=lo+context;s.overDomain=s.overLocked||[lo,hi];const rows=data.filter(d=>d.date>=s.overDomain[0]&&d.date<=s.overDomain[1]),x=d3.scaleUtc().domain(s.overDomain).range([10,width-10]),mx=d3.max(rows,d=>d.video+d.anki),y=d3.scaleLinear().domain([0,mx]).range([height-18,8]);
+svg.append('path').datum(rows.filter((_,i)=>i%Math.max(1,Math.floor(rows.length/250))===0)).attr('d',d3.area().x(d=>x(d.date)).y0(height-18).y1(d=>y(d.video+d.anki))).attr('fill','var(--ed-line)').attr('opacity',.8);
+const a=x(s.start),b=x(s.end);svg.append('rect').attr('x',a).attr('y',4).attr('width',Math.max(3,b-a)).attr('height',height-21).attr('fill','var(--ed-active)').attr('fill-opacity',.13).attr('stroke','var(--ed-active)').attr('stroke-width',1.5).attr('rx',4);
+[a,b].forEach(px=>{svg.append('rect').attr('class','ed-handle').attr('x',px-6).attr('y',4).attr('width',12).attr('height',height-21).attr('fill','var(--ed-text)').attr('rx',4);svg.append('line').attr('x1',px).attr('x2',px).attr('y1',height*.32).attr('y2',height*.6).attr('stroke','var(--ed-surface)').attr('stroke-width',1.3)});
+x.ticks(width<400?3:5).forEach(tick=>svg.append('text').attr('x',x(tick)).attr('y',height-1).attr('fill','var(--ed-muted)').attr('font-size',11).attr('text-anchor','middle').text(d3.utcFormat(context>750*DAY?'%Y':'%b')(tick)));
+}
+function hover(s,px,py){const at=+s.x.invert(px),points=s.points;if(!points.length)return;
+let selected=points.find(d=>d.date<=at&&d.end>at)||points[points.length-1];const active=['video','anki'].filter(k=>s.visible[k]);s.svg.selectAll('[data-chart-hover-guide], [data-chart-hover-marker]').remove();s.svg.append('line').attr('data-chart-hover-guide','').attr('x1',px).attr('x2',px).attr('y1',24).attr('y2',s.bottom).attr('stroke','var(--ed-muted)').attr('stroke-width',1).attr('opacity',.7).attr('pointer-events','none');
+const values={};active.forEach(key=>{let value=selected[key];if(s.mode==='line'&&points.length>1){const centers=points.map(d=>({...d,x:(d.date+d.end)/2}));const k=d3.bisector(d=>d.x).left(centers,at),a=centers[Math.max(0,k-1)],b=centers[Math.min(centers.length-1,k)];value=a.x===b.x?a[key]:a[key]+Math.max(0,Math.min(1,(at-a.x)/(b.x-a.x)))*(b[key]-a[key]);}values[key]=value;s.svg.append('circle').attr('data-chart-hover-marker',key).attr('cx',px).attr('cy',s.y(value)).attr('r',4).attr('fill',key==='video'?'var(--ed-blue)':'var(--ed-green)').attr('pointer-events','none')});
+s.tip.hidden=false;s.tip.innerHTML='<strong>'+shortDate(selected.date)+(s.unit!=='day'?' – '+shortDate(selected.end-1):'')+'</strong>'+active.map(k=>'<div>'+ (k==='video'?'Video':'Anki')+' · '+number(values[k])+' XP</div>').join('');s.tip.style.left=Math.min(s.plot.clientWidth-162,Math.max(0,px+14))+'px';s.tip.style.top=Math.min(s.bottom-62,Math.max(3,py-45))+'px';
+s.detail.innerHTML='<b>'+shortDate(selected.date)+'</b>'+(s.visible.video?'<span>Video '+number(selected.video)+' XP · '+number(selected.video)+' min</span>':'')+(s.visible.anki?'<span>Anki '+number(selected.anki)+' XP · '+number(selected.anki)+' reviews</span>':'');
+}
+function snapshot(){return Object.fromEntries(states.map(s=>[s.key,{unit:s.unit,mode:s.mode,start:s.start,end:s.end,visible:s.visible}]))}
+function persist(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{prototype:'Edenia Chart',charts:snapshot()},privateContent:{charts:snapshot()}}).catch(()=>{})}
+window.addEventListener('openai:set_globals',e=>{const incoming=e.detail?.globals?.widgetState?.privateContent?.charts;if(!incoming)return;states.forEach(s=>{const v=incoming[s.key];if(v&&['day','week','month','year'].includes(v.unit)&&['bar','line'].includes(v.mode)){Object.assign(s,v);queue(s)}})});
+if(globalThis.Tweak){states.forEach(s=>{const design={height:s.key==='direct'?320:274};const tweak=new Tweak({container:s.el.querySelector('.ed-panel'),onChange:()=>{s.plot.style.height=design.height+'px';queue(s)}});tweak.addSlider(design,'height',{label:'Chart height',min:220,max:380,step:10,unit:'px'})})}
+})();
+</script>
