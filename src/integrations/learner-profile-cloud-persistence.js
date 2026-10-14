@@ -360,7 +360,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
   let sessionBoundaryPending = false
   let deferredSave = null
   let opportunityTimer = null
-  let opportunityWaitAt = null
+  let preparationWaitAt = null
+  let deliveryWaitAt = null
   let forceOpportunity = false
   // A quiet moment is preferred, but continuously active play gets a turn
   // after ten seconds. The server's ordinary write cadence remains unchanged.
@@ -2217,13 +2218,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }, 500)
   }
 
-  function waitForOpportunity() {
+  function waitForOpportunity(forDelivery = false) {
     if (!handoffEnabled || typeof getSyncOpportunity !== 'function' || forceOpportunity || sessionBoundaryPending) return false
     let quiet = true
     try { quiet = getSyncOpportunity() !== false } catch { /* Fall back to normal syncing. */ }
-    if (quiet) { opportunityWaitAt = null; return false }
-    opportunityWaitAt ??= now()
-    if (now() - opportunityWaitAt >= MAX_OPPORTUNITY_WAIT_MS) return false
+    if (quiet) { preparationWaitAt = null; deliveryWaitAt = null; return false }
+    if (forDelivery) deliveryWaitAt ??= now()
+    else preparationWaitAt ??= now()
+    if (now() - (forDelivery ? deliveryWaitAt : preparationWaitAt) >= MAX_OPPORTUNITY_WAIT_MS) return false
     publish('waiting')
     scheduleOpportunity()
     return true
@@ -2237,7 +2239,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return true
     }
     if (deferred.blocked && !forceOpportunity) return false
-    if (waitForOpportunity()) return false
+    // Preparation cannot add another wait after the delivery deadline.
+    const deliveryDue = deliveryWaitAt !== null && now() - deliveryWaitAt >= MAX_OPPORTUNITY_WAIT_MS
+    if (!deliveryDue && waitForOpportunity()) return false
     let profile
     try { profile = deferred.readPersistedProfile() }
     catch {
@@ -2259,6 +2263,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   async function performPump() {
     if (inFlight) return
+    // Start the delivery allowance when the existing cadence permits work,
+    // even if preparation is still batching. Retry/server budgets are checked
+    // against the fresh durable operation below; this clock grants no authority.
+    if (deferredSave && !deferredSave.blocked && activeBinding?.isCurrent() && isOnline() && now() >= nextAutomaticWriteAt) {
+      waitForOpportunity(true)
+    }
     if (!drainDeferredSave() || inFlight) return
     const binding = activeBinding
     const record = readSyncRecord()
@@ -2288,8 +2298,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
       return
     }
-    if (waitForOpportunity()) return
-    opportunityWaitAt = null
+    if (waitForOpportunity(true)) return
+    deliveryWaitAt = null
     inFlight = true
     let comparisonPending = false
     let budgetDeferred = false
@@ -3573,7 +3583,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile }) {
     deferredSave = null
-    opportunityWaitAt = null
+    preparationWaitAt = null
+    deliveryWaitAt = null
     if (
       !isRecord(activation)
       || typeof isCurrent !== 'function'
@@ -4082,6 +4093,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'not-backed-up' }
     }
     if (deferredSave?.binding === activeBinding) deferredSave = null
+    preparationWaitAt = null
     if (!skipPump) void pump()
     return { status: 'queued' }
   }

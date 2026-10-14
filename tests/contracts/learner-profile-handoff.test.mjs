@@ -888,3 +888,41 @@ test('offline reopening reconstructs deferred work from durable local progress b
   assert.equal((await openDevice(server)).profile.videos.phone.watchLater, true)
   assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
 })
+
+test('preparation keeps coalescing fresh batches while the ordinary upload interval is pending', async () => {
+  const server = sharedCloud()
+  let preparations = 0
+  const phone = await openDevice(server, { getSyncOpportunity: () => false,
+    prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  phone.setTime(10000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  phone.setTime(14000)
+  phone.profile.videos.phone.watchLater = true
+  phone.save()
+  const change = value => {
+    phone.profile.videos.phone.resumeAtSeconds = value
+    phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+    phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+      readPersistedProfile: () => structuredClone(phone.profile) })
+  }
+  phone.setTime(15000); change(10)
+  phone.setTime(25000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  const count = preparations
+  phone.setTime(26000); change(20)
+  phone.setTime(27000); change(30)
+  assert.equal(preparations, count, 'One expired preparation deadline must not disable batching until the next upload')
+  phone.setTime(40000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  phone.setTime(50000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 3, 'Delivery still runs no later than ten seconds after the ordinary interval')
+})
