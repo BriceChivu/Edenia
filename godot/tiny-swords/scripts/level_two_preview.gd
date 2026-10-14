@@ -30,6 +30,7 @@ var world_pointer_down: InputEventMouseButton
 var world_dragging := false
 var world_drag_origin := Vector2.ZERO
 var world_drag_threshold := 6.0
+var last_interaction_msec := -5000
 
 var layout = Layout.new()
 var terrain
@@ -468,7 +469,19 @@ func update_inventory_preview_state(point: Vector2, allow_hover := true) -> void
 
 signal page_focus_requested
 
+# Edenia can choose a quiet time for progress sync. Godot owns whether the
+# pawn is still working; ambient animals and cloud animation do not count.
+func has_active_interaction() -> bool:
+	return Time.get_ticks_msec() - last_interaction_msec < 5000 \
+		or world_dragging or pinch_gesture or navigation_pending or not waypoints.is_empty() \
+		or pawn.position.distance_to(pawn.destination) > 0.2 \
+		or pawn.chopping or pawn.hammering or construction.busy() \
+		or harvesting.phase != harvesting.Phase.READY \
+		or water_phase != WaterPhase.READY or pending_unlock_level > 0 or ui.celebration != null
+
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouse or event is InputEventScreenTouch or event is InputEventScreenDrag or event is InputEventKey:
+		last_interaction_msec = Time.get_ticks_msec()
 	if handle_camera_touch(event):
 		get_viewport().set_input_as_handled()
 		return

@@ -76,6 +76,7 @@ function createAdapter({
   finalizeEnvelope,
   isOnline,
   now,
+  getSyncOpportunity,
   minimumWriteIntervalMs = 0,
   prepareEnvelope,
   readOnboardingState,
@@ -87,6 +88,7 @@ function createAdapter({
 } = {}) {
   return createCloudAdapter({
     handoffEnabled,
+    getSyncOpportunity,
     clearOnboardingDraft: clearOnboardingDraft || (() => true),
     createOnboardingEnvelope: createOnboardingEnvelope || (async () => null),
     createOperationId: createOperationId || (() => crypto.randomUUID()),
@@ -314,13 +316,13 @@ function sharedCloud() {
   }
 }
 
-async function openDevice(server, { readHead, interval = 30_000, rpc = server.rpc } = {}) {
+async function openDevice(server, { readHead, interval = 30_000, rpc = server.rpc, getSyncOpportunity, prepareEnvelope = digestEnvelope } = {}) {
   let time = 0
   const timers = []
   const storage = createMemoryStorage()
   const eventTarget = createEventTarget()
   const adapter = createAdapter({ storage, eventTarget, minimumWriteIntervalMs: interval,
-    now: () => time, prepareEnvelope: digestEnvelope, rpc,
+    now: () => time, prepareEnvelope, rpc, getSyncOpportunity,
     readHead: readHead || (async () => ({ data: server.head(), error: null })),
     setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length } })
   const result = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
@@ -651,4 +653,238 @@ test('locking during an ordinary upload gives its later locally saved candidate 
   assert.equal(server.head().revision, 3)
   assert.equal(uploads, 2)
   assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+})
+
+test('active play preserves the first durable base but coalesces subsequent cloud preparation', async () => {
+  const server = sharedCloud()
+  let quiet = false
+  let preparations = 0
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
+    prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  const first = JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY))
+  assert.ok(first.pending?.changes, 'First saved edit must promptly retain before-values')
+  assert.equal(server.head().revision, 1, 'Active play should defer delivery')
+  const count = preparations
+  phone.setTime(1000)
+  phone.profile.videos.phone.watchLater = true
+  assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  assert.equal(preparations, count, 'Later saves must not rebuild the cloud envelope during play')
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending.operationId, first.pending.operationId)
+  quiet = true
+  phone.setTime(1500)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
+  const computer = await openDevice(server)
+  assert.equal(computer.profile.videos.phone.watchLater, true)
+})
+
+test('abrupt close during deferred preparation preserves compatible phone and computer changes', async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  // Destroy the tab without firing visibility/pagehide: only durable evidence survives.
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending.prepared.profile.videos.phone.watchLater, undefined)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  phone.adapter.destroy()
+  const computer = await openDevice(server)
+  computer.profile.videos.computer.favorite = true
+  computer.save()
+  await settle()
+  const resumed = createAdapter({ storage: phone.storage, minimumWriteIntervalMs: 30_000,
+    prepareEnvelope: digestEnvelope, rpc: server.rpc,
+    readHead: async () => ({ data: server.head(), error: null }) })
+  const result = await resumed.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+    localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: 1, revision: 1, profile: phone.profile }, purpose: 'resolve-signed-in-profile' })
+  assert.equal(result.status, 'activate')
+  assert.equal(result.profile.videos.phone.favorite, true)
+  assert.equal(result.profile.videos.phone.watchLater, true)
+  assert.equal(result.profile.videos.computer.favorite, true)
+  assert.equal(server.calls.filter(call => call.name === 'read_my_learner_profile_conflict').length, 0)
+})
+
+test('continuous play cannot defer delivery longer than ten seconds', async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.setTime(9999)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 1)
+  phone.setTime(10000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+})
+
+for (const allowNewUpload of [false, true]) test(`session boundary preserves deferred facts; new delivery allowed=${allowNewUpload}`, async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  await phone.adapter.flushSessionBoundary({ allowNewUpload })
+  await settle()
+  const record = JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
+  if (allowNewUpload) {
+    assert.equal(server.head().revision, 2)
+    assert.equal((await openDevice(server)).profile.videos.phone.watchLater, true)
+  } else {
+    assert.equal(server.head().revision, 1, 'Terminal pagehide must not start a new upload')
+    assert.equal(record.pending.prepared.profile.videos.phone.watchLater, true)
+    assert.ok(record.pending.changes)
+  }
+})
+
+test('deferred preparation waits for local completion and discards retired activation work', async () => {
+  const server = sharedCloud()
+  let quiet = false, persisting = true
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => persisting ? null : structuredClone(phone.profile) })
+  quiet = true
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 1)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  const before = phone.storage.getItem(SYNC_STORAGE_KEY)
+  phone.adapter.destroy()
+  persisting = false
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 1)
+  assert.equal(phone.storage.getItem(SYNC_STORAGE_KEY), before)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+})
+
+test('later batches get a fresh bounded wait after an earlier forced upload', async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  phone.setTime(10000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  phone.setTime(41000)
+  phone.profile.videos.phone.watchLater = true
+  phone.save()
+  await settle()
+  assert.equal(server.head().revision, 2, 'The expired first deadline must not disable all subsequent waits')
+  phone.setTime(51000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 3)
+})
+
+test('failed deferred preparation leaves its durable base and dirty progress protected', async () => {
+  const server = sharedCloud()
+  let quiet = false, broken = false
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
+    prepareEnvelope: profile => { if (broken) throw new Error('Cannot prepare'); return digestEnvelope(profile) } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  const before = phone.storage.getItem(SYNC_STORAGE_KEY)
+  quiet = true
+  broken = true
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 1)
+  assert.equal(phone.storage.getItem(SYNC_STORAGE_KEY), before)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  assert.equal(phone.adapter.getState().status, 'not-backed-up')
+  broken = false
+  phone.adapter.retry()
+  await settle()
+  assert.equal(server.head().revision, 2)
+  assert.equal((await openDevice(server)).profile.videos.phone.watchLater, true)
+})
+
+test('damaged base evidence cannot erase deferred dirty progress during reopening', async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  const record = JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY))
+  record.pending.changes.baseDigest = 'B'.repeat(43)
+  phone.storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(record))
+  const before = phone.storage.getItem(SYNC_STORAGE_KEY)
+  phone.adapter.destroy()
+  const reopened = createAdapter({ storage: phone.storage, prepareEnvelope: digestEnvelope,
+    rpc: server.rpc, readHead: async () => ({ data: server.head(), error: null }) })
+  const result = await reopened.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+    localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID,
+      generation: 1, revision: 1, profile: phone.profile }, purpose: 'resolve-signed-in-profile' })
+  assert.equal(result.status, 'recovering')
+  assert.equal(phone.storage.getItem(SYNC_STORAGE_KEY), before)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  assert.equal(server.head().revision, 1)
+})
+
+test('offline reopening reconstructs deferred work from durable local progress before delivery', async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  phone.adapter.destroy()
+  let online = false, time = 0
+  const timers = [], eventTarget = createEventTarget()
+  const resumed = createAdapter({ storage: phone.storage, eventTarget, prepareEnvelope: digestEnvelope,
+    getSyncOpportunity: () => false, isOnline: () => online, now: () => time,
+    minimumWriteIntervalMs: 30000, rpc: server.rpc,
+    readHead: async () => ({ data: server.head(), error: null }),
+    setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length } })
+  const activation = { ...phone.activation, id: 'offline-return' }
+  resumed.activate({ activation, generation: 1, revision: 1, profile: phone.profile,
+    isCurrent: () => true, readPersistedProfile: () => structuredClone(phone.profile) })
+  resumed.start()
+  online = true
+  eventTarget.dispatch('online')
+  time = 10000
+  timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  assert.equal((await openDevice(server)).profile.videos.phone.watchLater, true)
+  assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
 })

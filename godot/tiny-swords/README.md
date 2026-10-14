@@ -473,6 +473,17 @@ so focus refresh and reopening do not turn unchanged animal movement into an
 upload. The marker cannot suppress changed study facts, pending work or a newer
 cloud head. Edenia treats the island as an opaque snapshot throughout.
 Explicit island differences still require the existing protected conflict choice.
+The restricted authentication trial prefers cloud work when Godot reports five
+seconds without input or pawn work, the island is out of view, or a study video
+is playing. Godot reports activity; Edenia owns upload scheduling. Ambient
+animals and cloud animation do not keep the user active. Preparation and
+delivery wait at most ten extra seconds while ordinary server writes retain
+their 30-second cadence. Local saves remain immediate. The first cloud
+candidate and edits during an in-flight request still preserve their journal
+promptly; only subsequent preparation with durable base evidence coalesces.
+Abrupt-close recovery validates that evidence against the latest local profile.
+`tinySwordsQuietSyncEnabled: false` in the host runtime config restores ordinary
+trial scheduling for comparison or rollback; it does not change game FPS.
 Camera settings remain
 local to the device; selection, action queues and game undo history are transient.
 
