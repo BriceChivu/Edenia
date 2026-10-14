@@ -1,3 +1,4 @@
+import { selectCiScope } from '../../scripts/ci-scope.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -49,10 +50,7 @@ test('database verification covers two users, anonymous access, and reassignment
 test('CI always applies the migration and runs its database isolation test', async () => {
   const workflow = await readFile(new URL('.github/workflows/ci.yml', projectRoot), 'utf8')
 
-  assert.match(
-    workflow,
-    /supabase\/migrations\/\*_add_reminder_eligibility_snapshots\.sql\|supabase\/tests\/reminder_eligibility_snapshots\.test\.sql/
-  )
+  assert.equal(selectCiScope(['supabase/tests/reminder_eligibility_snapshots.test.sql']).supabase_db, true)
   assert.match(
     workflow,
     /supabase test db supabase\/tests\/reminder_eligibility_snapshots\.test\.sql --local/

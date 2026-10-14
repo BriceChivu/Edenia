@@ -423,3 +423,33 @@ The completed refactor can be reviewed through the archived
 `migration_changes.md`, `docs/current-experience-inventory.md`, and
 `docs/responsive-review-matrix.md`. New work uses ordinary commits and pull
 requests; it does not append migration ledger entries.
+
+## CI scope and shared builds
+
+PRs require the stable `verify` aggregate. `scripts/ci-scope.mjs` selects
+feature acceptance and always adds recovery-journal, profile-import and IndexedDB
+backup smoke checks to selected frontend runs. Unknown/shared app, persistence,
+ownership, domain and integration changes retain broad browser and real-game
+acceptance. All database migrations, SQL tests and database config changes run
+the complete existing pgTAP and concurrency suites; new migration names do not
+need a whitelist update.
+
+Routine behavior checks use desktop-standard and phone-standard. Preservation
+visuals and the explicitly listed responsive specs retain six Chromium sizes;
+Firefox and WebKit storage regressions remain selected by their existing project
+filters. The nightly scheduled run and default manual dispatch use the original
+full browser matrix. The manual `feed-css` benchmark measures the classifier's
+representative `src/styles/70-video-feed.css` scope; it cannot override PR scope
+or replace the required PR check.
+
+One build job validates Godot once when game acceptance is selected, exports
+one game, and produces normal/integrated/public host configurations only as
+needed. Every consumer downloads its matching same-run artifact. Chromium game
+tests are sharded across four runners, WebKit across two, and public-island
+acceptance runs independently. All selected lanes must pass `verify`.
+
+Local builds still run Godot checks by default. Pages deployment sets
+`EDENIA_VALIDATE_GAME=false` to import/export and package without repeating
+regression checks already owned by required CI. Release flags remain explicit.
+`EDENIA_GAME_ARTIFACT_DIR` is used only to share the freshly built game inside
+the CI build job, never to reuse another commit's host configuration.

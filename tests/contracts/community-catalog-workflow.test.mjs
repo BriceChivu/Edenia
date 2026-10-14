@@ -1,3 +1,4 @@
+import { selectCiScope } from '../../scripts/ci-scope.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -32,9 +33,10 @@ test('community merge workflow verifies the tested PR head, base, and current ma
 test('catalog CI invokes the strict community validator for community data changes', async () => {
   const workflow = await readRepositoryFile('.github/workflows/ci.yml')
 
-  assert.match(workflow, /data\/channel-catalog\.candidates\.json/)
-  assert.match(workflow, /data\/channel-catalog\.community\.json/)
-  assert.match(workflow, /validate-community-channel-catalog\.mjs/)
+  for (const file of ['data/channel-catalog.candidates.json', 'data/channel-catalog.community.json']) {
+    assert.equal(selectCiScope([file]).community_catalog, true)
+  }
+  assert.match(workflow, /test:catalogs:community/)
 })
 
 test('shared catalog merger rejects a changed PR head, base, or master', async () => {

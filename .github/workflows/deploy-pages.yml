@@ -43,6 +43,8 @@ jobs:
 
       - name: Build static site
         env:
+          # Required CI owns game regression tests; deployment imports/exports only.
+          EDENIA_VALIDATE_GAME: 'false'
           # Public page release is explicit; the engine can be disabled separately.
           EDENIA_TINY_SWORDS_PUBLIC_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_PUBLIC_ENABLED || 'false' }}
           EDENIA_TINY_SWORDS_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_ENABLED || 'false' }}

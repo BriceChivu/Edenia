@@ -1,3 +1,4 @@
+import { selectCiScope } from '../../scripts/ci-scope.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
@@ -644,7 +645,7 @@ test('shared backend tests remain connected to package scripts and CI', async ()
     new URL('.github/workflows/ci.yml', projectRoot),
     'utf8'
   )
-  assert.match(workflow, /supabase\/\*\)/)
+  assert.equal(selectCiScope(['supabase/migrations/20990101000000_new_policy.sql']).supabase_db, true)
   assert.match(workflow, /name: Run Supabase backend tests/)
   assert.match(workflow, /run: npm run test:supabase/)
   assert.match(workflow, /uses: denoland\/setup-deno@v2/)
@@ -663,15 +664,7 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   )
   assert.match(
     workflow,
-    /supabase\/migrations\/\*_synchronize_learner_profile_progress\.sql\|supabase\/tests\/learner_profile_progress_sync\.test\.sql/
-  )
-  assert.match(
-    workflow,
     /supabase test db supabase\/tests\/learner_profile_import\.test\.sql --local/
-  )
-  assert.match(
-    workflow,
-    /supabase\/migrations\/\*_import_learner_profile_with_rollback\.sql\|supabase\/tests\/learner_profile_import\.test\.sql/
   )
   assert.match(
     workflow,
@@ -683,22 +676,10 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   )
   assert.match(
     workflow,
-    /supabase\/migrations\/\*_optimize_account_owner_policies\.sql\|supabase\/tests\/account_owner_policies\.test\.sql/
-  )
-  assert.match(
-    workflow,
     /supabase test db supabase\/tests\/account_server_data_export\.test\.sql --local/
   )
   assert.match(
     workflow,
-    /supabase\/migrations\/\*_add_self_scoped_account_export\.sql\|supabase\/migrations\/\*_hide_account_export_definer\.sql\|supabase\/tests\/account_server_data_export\.test\.sql/
-  )
-  assert.match(
-    workflow,
     /supabase test db supabase\/tests\/account_export_rate_limit\.test\.sql --local/
-  )
-  assert.match(
-    workflow,
-    /supabase\/migrations\/\*_ensure_account_export_rate_limit\.sql\|supabase\/tests\/account_export_rate_limit\.test\.sql/
   )
 })

@@ -2,149 +2,90 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
+import { selectCiScope, DATA_SMOKE } from '../../scripts/ci-scope.mjs'
 
-const workflow = await readFile(
-  new URL('../../.github/workflows/ci.yml', import.meta.url),
-  'utf8'
-)
+const workflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
 
-function readStep(name) {
-  const marker = `      - name: ${name}\n`
-  const start = workflow.indexOf(marker)
-  assert.notEqual(start, -1, `missing CI step: ${name}`)
-  const next = workflow.indexOf('\n      - name: ', start + marker.length)
-  return workflow.slice(start, next === -1 ? undefined : next)
-}
-
-function readCaseArmContaining(step, marker) {
-  const start = step.indexOf(marker)
-  assert.notEqual(start, -1, `missing CI case marker: ${marker}`)
-  const end = step.indexOf('\n                  ;;', start)
-  assert.notEqual(end, -1, `unterminated CI case marker: ${marker}`)
-  return step.slice(start, end)
-}
-
-test('Supabase backend CI installs Node dependencies before running its tests', () => {
-  const installStep = readStep('Install dependencies')
-  const backendTestStep = readStep('Run Supabase backend tests')
-
-  assert.match(installStep, /run: npm ci/)
-  assert.match(
-    installStep,
-    /needs\.scope\.outputs\.supabase == 'true'/
-  )
-  assert.ok(workflow.indexOf(installStep) < workflow.indexOf(backendTestStep))
+test('isolated feed CSS selects feature acceptance and data smoke without game acceptance', () => {
+  const scope = selectCiScope(['src/styles/70-video-feed.css'])
+  assert.equal(scope.browser, true)
+  assert.equal(scope.game, false)
+  assert.ok(scope.browser_files.includes('large-video-library.spec.mjs'))
+  for (const name of DATA_SMOKE) assert.ok(scope.browser_files.includes(`${name}.spec.mjs`))
 })
 
-test('divergent profile database changes run their pgTAP acceptance suite', () => {
-  const scopeStep = readStep('Determine test scope')
-  const databaseStep = readStep('Verify database safety')
-  const databaseChanges = [
-    '.github/workflows/ci.yml',
-    'supabase/migrations/*_resolve_divergent_learner_profiles.sql',
-    'supabase/migrations/*_choose_divergent_learner_profile.sql',
-    'supabase/tests/learner_profile_conflict_resolution.test.sql'
-  ]
-
-  for (const change of databaseChanges) {
-    assert.match(readCaseArmContaining(scopeStep, change), /run_supabase_db=true/)
+test('learner-data and unknown shared changes retain browser and real game acceptance', () => {
+  for (const file of ['src/state/store.js', 'src/state/portable-state.js', 'src/integrations/learner-profile-cloud-persistence.js',
+    'src/domain/portable-profile-combination.js', 'src/app.js', 'src/new-shared-module.js',
+    'godot/tiny-swords/scripts/terrain.gd', 'scripts/tiny-swords-xp-parent.js', 'tests/support/network-fixture.mjs']) {
+    const scope = selectCiScope([file])
+    assert.equal(scope.browser, true, file)
+    assert.equal(scope.game, true, file)
+    assert.deepEqual(scope.browser_files, [], file)
   }
-  assert.match(
-    databaseStep,
-    /^          supabase test db supabase\/tests\/learner_profile_conflict_resolution\.test\.sql --local$/m
-  )
 })
 
-test('trusted predecessor recovery database changes run their pgTAP acceptance suite', () => {
-  const scopeStep = readStep('Determine test scope')
-  const databaseStep = readStep('Verify database safety')
-  const databaseChanges = [
-    'supabase/migrations/*_automatic_trusted_predecessor_recovery.sql',
-    'supabase/tests/learner_profile_recovery.test.sql'
-  ]
-
-  for (const change of databaseChanges) {
-    const scopeArm = readCaseArmContaining(scopeStep, change)
-    assert.match(scopeArm, /run_supabase=true/)
-    assert.match(scopeArm, /run_supabase_db=true/)
+test('all migrations and SQL tests, including new names and config, select database security', () => {
+  for (const file of ['supabase/migrations/20990101000000_unrecognized.sql', 'supabase/tests/new_policy.test.sql', 'supabase/config.toml']) {
+    const scope = selectCiScope([file])
+    assert.equal(scope.supabase, true, file)
+    assert.equal(scope.supabase_db, true, file)
+    assert.equal(scope.game, true, file)
   }
-  assert.match(
-    databaseStep,
-    /^          supabase test db supabase\/tests\/learner_profile_recovery\.test\.sql --local$/m
-  )
-})
-
-test('Start over database changes run their pgTAP acceptance suite', () => {
-  const scopeStep = readStep('Determine test scope')
-  const databaseStep = readStep('Verify database safety')
-  const databaseChanges = [
-    'supabase/migrations/*_start_over_learner_profile.sql',
-    'supabase/tests/learner_profile_start_over.test.sql'
-  ]
-
-  for (const change of databaseChanges) {
-    const scopeArm = readCaseArmContaining(scopeStep, change)
-    assert.match(scopeArm, /run_supabase=true/)
-    assert.match(scopeArm, /run_supabase_db=true/)
+  for (const suite of ['learner_profile_conflict_resolution', 'learner_profile_recovery', 'learner_profile_start_over']) {
+    assert.ok(workflow.includes(`supabase test db supabase/tests/${suite}.test.sql --local`))
   }
-  assert.match(
-    databaseStep,
-    /^          supabase test db supabase\/tests\/learner_profile_start_over\.test\.sql --local$/m
-  )
 })
 
-// Execute the actual required-check shell so skipped or failed dependencies
-// cannot accidentally turn a protected branch's CI check green.
-test('verify accepts only successful selected suites', () => {
-  const step = readStep('Require all selected suites to pass')
-  const script = step.split('        run: |\n')[1]
+test('scope unions paths without a narrow UI path hiding shared data changes', () => {
+  const scope = selectCiScope(['src/styles/70-video-feed.css', 'src/state/backups.js'])
+  assert.equal(scope.game, true)
+  assert.equal(scope.supabase_db, true)
+  assert.deepEqual(scope.browser_files, [])
+})
+
+test('docs and catalog-only changes avoid builds; full regression retains all coverage', () => {
+  assert.equal(selectCiScope(['docs/example.md']).build, false)
+  const catalog = selectCiScope(['data/channel-catalog.community.json'])
+  assert.equal(catalog.community_catalog, true)
+  assert.equal(catalog.build, false)
+  const full = selectCiScope([], { full: true })
+  for (const key of ['contracts', 'browser', 'game', 'build', 'supabase_db', 'full_matrix']) assert.equal(full[key], true)
+  assert.deepEqual(full.browser_files, [])
+})
+
+test('CI infrastructure changes exercise every required safety suite', () => {
+  for (const file of ['.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'scripts/build-ci-sites.mjs', 'playwright.config.mjs', 'package-lock.json']) {
+    const scope = selectCiScope([file])
+    for (const key of ['contracts', 'browser', 'game', 'supabase', 'supabase_db']) assert.equal(scope[key], true, `${file}: ${key}`)
+  }
+})
+
+// Execute the exact required-check shell. Skipped/failed selected dependencies
+// must never become green merely because the other jobs succeeded.
+test('verify rejects failed/cancelled/skipped selected suites and malformed scope', () => {
+  const marker = '      - name: Require all selected suites to pass\n'
+  const script = workflow.slice(workflow.indexOf(marker)).split('        run: |\n')[1]
     .split('\n').map(line => line.replace(/^          /, '')).join('\n')
-  for (const scope of ['success', 'failure', 'cancelled', 'skipped']) {
-    for (const checks of ['success', 'failure', 'cancelled', 'skipped']) {
-      for (const required of ['true', 'false', '']) {
-        for (const browser of ['success', 'failure', 'cancelled', 'skipped']) {
-          const result = spawnSync('bash', ['-c', script], {
-            env: {
-              ...process.env,
-              SCOPE_RESULT: scope,
-              CHECKS_RESULT: checks,
-              BROWSER_REQUIRED: required,
-              BROWSER_RESULT: browser,
-              TINY_SWORDS_RESULT: browser,
-            },
-            encoding: 'utf8'
-          })
-          const shouldPass = scope === 'success' && checks === 'success' && (
-            (required === 'true' && browser === 'success') ||
-            (required === 'false' && browser === 'skipped')
-          )
-          assert.equal(result.status === 0, shouldPass,
-            JSON.stringify({ scope, checks, required, browser }))
-        }
-      }
-    }
+  const good = { ...process.env, SCOPE_RESULT: 'success', CHECKS_RESULT: 'success',
+    BUILD_REQUIRED: 'true', BUILD_RESULT: 'success', BROWSER_REQUIRED: 'true', BROWSER_RESULT: 'success',
+    GAME_REQUIRED: 'true', GAME_RESULT: 'success' }
+  const run = env => spawnSync('bash', ['-c', script], { env, encoding: 'utf8' }).status
+  assert.equal(run(good), 0)
+  for (const key of ['SCOPE_RESULT', 'CHECKS_RESULT', 'BUILD_RESULT', 'BROWSER_RESULT', 'GAME_RESULT']) {
+    for (const result of ['failure', 'cancelled', 'skipped', '']) assert.notEqual(run({ ...good, [key]: result }), 0, `${key}: ${result}`)
+  }
+  for (const lane of ['BUILD', 'BROWSER', 'GAME']) {
+    assert.equal(run({ ...good, [`${lane}_REQUIRED`]: 'false', [`${lane}_RESULT`]: 'skipped' }), 0)
+    for (const result of ['success', 'failure', 'cancelled']) assert.notEqual(run({ ...good, [`${lane}_REQUIRED`]: 'false', [`${lane}_RESULT`]: result }), 0)
+    assert.notEqual(run({ ...good, [`${lane}_REQUIRED`]: '' }), 0)
   }
 })
 
-test('workflow changes exercise browser shards and verify waits for their aggregate result', () => {
-  assert.match(readCaseArmContaining(readStep('Determine test scope'),
-    '.github/workflows/ci.yml'), /run_browser=true/)
-  assert.match(workflow, /  browser:\n    needs: scope\n    if: needs\.scope\.outputs\.browser == 'true'/)
-  assert.match(workflow, /fail-fast: false\n      matrix:\n        shard: \[1, 2, 3, 4\]/)
-  assert.match(readStep('Run browser tests'), /--shard=\$\{\{ matrix\.shard \}\}\/4/)
-  assert.match(workflow, /  verify:\n    needs: \[scope, checks, browser, tiny-swords\]\n    if: \$\{\{ always\(\) \}\}/)
-  assert.match(readStep('Require all selected suites to pass'),
-    /BROWSER_RESULT: \$\{\{ needs\.browser\.result \}\}/)
-})
-
-
-test('required Tiny Swords failures cannot pass the aggregate check', () => {
-  const script = readStep('Require all selected suites to pass').split('        run: |\n')[1]
-    .split('\n').map(line => line.replace(/^          /, '')).join('\n')
-  for (const game of ['success', 'failure', 'cancelled', 'skipped']) {
-    const result = spawnSync('bash', ['-c', script], { env: { ...process.env,
-      SCOPE_RESULT: 'success', CHECKS_RESULT: 'success', BROWSER_REQUIRED: 'true',
-      BROWSER_RESULT: 'success', TINY_SWORDS_RESULT: game } })
-    assert.equal(result.status === 0, game === 'success')
-  }
+test('browser consumers download shared builds and game lanes run independently', () => {
+  const consumers = workflow.slice(workflow.indexOf('\n  browser:\n'))
+  assert.doesNotMatch(consumers, /run: npm run build|setup-godot/)
+  for (const lane of ['chromium', 'webkit', 'public']) assert.ok(consumers.includes(`lane: ${lane}`))
+  assert.match(workflow, /needs: \[scope, build, checks, browser, tiny-swords\]/)
+  assert.ok(workflow.indexOf('run: npm ci') < workflow.indexOf('run: npm run test:supabase'))
 })

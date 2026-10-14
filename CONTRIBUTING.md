@@ -50,10 +50,13 @@ Use the least expensive check that proves the change locally:
 npm test
 ```
 
-CI selects checks by changed path. Documentation and workflow-only pull requests
-skip application tests, generated catalog changes run `npm run test:catalogs`,
-contract-only changes run `npm test`, and runtime or visual changes also run the
-browser suite. Never regenerate visual baselines for architecture-only changes.
+CI selects checks by changed path using `scripts/ci-scope.mjs`. Documentation
+and catalog-only changes avoid application builds. Runtime changes run focused
+feature acceptance plus learner-data smoke checks; shared storage, ownership,
+sync and app changes retain broad acceptance. Routine behavioral checks use one
+desktop and one phone; visual/responsive checks retain the extra viewports.
+Scheduled and manual full runs preserve the exhaustive matrix. See
+`docs/deployment-and-releases.md#ci-scope-and-shared-builds`. Never regenerate visual baselines for architecture-only changes.
 For an approved visual change, isolate snapshot updates in their own commit and
 retain unchanged desktop goldens unless desktop was explicitly approved.
 
