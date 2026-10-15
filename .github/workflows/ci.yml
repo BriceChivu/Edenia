@@ -33,7 +33,7 @@ jobs:
           EDENIA_VALIDATE_GAME: 'false'
       - run: npx playwright install --with-deps chromium
       - name: Reproduce the unchanged navigation assertion without retries
-        run: npx playwright test tests/e2e/large-video-library.spec.mjs --project phone-standard --grep 'Continue watching and Study History' --repeat-each 50 --retries 0 --max-failures 1 --reporter=line
+        run: npx playwright test tests/e2e/issue-464-probe.spec.mjs --project phone-standard --repeat-each 20 --retries 0 --max-failures 1 --reporter=line
       - uses: actions/upload-artifact@v4
         if: always()
         with:
