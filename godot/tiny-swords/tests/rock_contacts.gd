@@ -46,6 +46,9 @@ func run() -> void:
 				l.cells[square] = l.kind_at_height(height)
 			for variant in range(1, 5):
 				l.decorations = {cell: {"kind": "land_rock", "variant": variant}}
+				var respawn: Dictionary = world.respawn_location(center, height)
+				check(l.walkable_point(respawn.position), "Rock-tile respawn avoids the solid face")
+				check(l.cell_at(respawn.position) == cell and respawn.height == height, "Safe respawn retains its ground tile and height")
 				l.chickens.assign([behind])
 				l.sheep.assign([behind])
 				world.rebuild_decorations()
