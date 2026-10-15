@@ -240,7 +240,10 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   }
   overview.addEventListener('pointerdown', event => {
     if (!data || !overviewBounds || event.button !== 0) return
-    if (event.pointerType === 'mouse') event.preventDefault()
+    if (event.pointerType === 'mouse') {
+      event.preventDefault()
+      event.target.closest('[data-chart-edge]')?.focus({ preventScroll: true })
+    }
     cancelGesture()
     const fraction = overviewFraction(event)
     const span = overviewBounds.end - overviewBounds.start
