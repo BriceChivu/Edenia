@@ -238,9 +238,9 @@ test('the guarded profile surface contains authentication, retry, and safe sign-
     html,
     /id="learnerProfileAccessAuthentication"[^>]*aria-labelledby="learnerProfileAccessAuthenticationTitle"/
   )
-  assert.match(
+  assert.doesNotMatch(
     html,
-    /data-profile-access-action="close-sign-in"[^>]*data-i18n="profileAccess\.authentication\.back"/
+    /data-profile-access-action="close-sign-in"/
   )
   assert.match(
     html,
@@ -414,4 +414,16 @@ test('a completed retryable cloud failure exposes retry while an in-flight check
   view.render({ status: 'waiting-cloud' })
   assert.equal(elements.get('learnerProfileAccessGate').classList.contains('hidden'), true)
   assert.equal(elements.get('learnerProfileAccessRetry').hidden, true)
+})
+
+test('migration uses compact opening status and transitions omit internal protection text', () => {
+  const { elements, view } = createHarness()
+  view.render({ status: 'migrating' })
+  assert.equal(elements.get('learnerProfileAccessGate').classList.contains('hidden'), true)
+  assert.equal(elements.get('learnerProfileOpeningNotice').classList.contains('hidden'), false)
+  for (const status of ['account-change', 'replacing', 'reloading']) {
+    view.render({ status })
+    assert.equal(elements.get('learnerProfileAccessStatus').hidden, true)
+    assert.equal(elements.get('learnerProfileAccessStatus').textContent, '')
+  }
 })

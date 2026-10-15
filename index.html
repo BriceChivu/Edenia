@@ -169,7 +169,7 @@
 
   <canvas class="background-physics" id="backgroundPhysics" aria-hidden="true"></canvas>
 
-  <section class="legacy-progress-migration hidden" id="learnerProfileAccessGate" role="dialog" aria-modal="true" aria-labelledby="learnerProfileAccessTitle" aria-describedby="learnerProfileAccessBody learnerProfileAccessStatus" tabindex="-1">
+  <section class="legacy-progress-migration hidden" id="learnerProfileAccessGate" role="dialog" aria-modal="true" aria-labelledby="learnerProfileAccessTitle" aria-describedby="learnerProfileAccessBody" tabindex="-1">
     <div class="legacy-progress-migration-card learner-profile-access-card">
       <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
       <h1 id="learnerProfileAccessTitle"></h1>
@@ -181,7 +181,6 @@
           <p hidden id="learnerProfileAccessAuthenticationBody" data-i18n="profileAccess.authentication.body">Use the account that owns this learner profile.</p>
         </div>
         <div class="learner-profile-access-authentication-content" id="learnerProfileAccessAuthenticationContent"></div>
-        <button class="btn-ghost learner-profile-access-authentication-back" type="button" data-profile-access-action="close-sign-in" data-i18n="profileAccess.authentication.back">Back to locked message</button>
         <p class="legacy-progress-migration-status learner-profile-access-authentication-status" id="learnerProfileAccessAuthenticationStatus" hidden data-i18n="profileAccess.authentication.status">Your learner profile stays hidden until ownership checks succeed.</p>
       </section>
       <section class="learner-profile-recovery hidden" id="learnerProfileRecovery" aria-labelledby="learnerProfileRecoveryTitle">
@@ -377,7 +376,9 @@
               <p data-i18n="settings.account.signedOutBody">Use Google, or request a six-digit code by email.</p>
             </div>
             <div class="account-google-identity-button hidden" id="accountGoogleIdentityButton" data-google-identity-button data-google-identity-surface="settings"></div>
-            <div class="settings-account-divider" id="accountEmailDivider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
+            <details class="account-email-disclosure" id="accountEmailDisclosure">
+              <summary id="accountEmailDivider"><span data-i18n="settings.account.emailFallback">Or use email</span></summary>
+              <div class="account-email-disclosure-content">
             <form class="settings-account-email-form" data-account-action="email-form" novalidate>
               <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
               <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
@@ -390,6 +391,8 @@
               <input class="account-auth-email-input account-auth-code-input" id="accountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-i18n-placeholder="settings.account.codePlaceholder" placeholder="123456">
               <button class="btn-primary" id="accountEmailCodeBtn" type="submit" data-analytics-action="accountEmailCodeBtn" data-i18n="settings.account.verifyCode">Verify code</button>
             </form>
+              </div>
+            </details>
           </div>
 
           <div class="settings-account-signed-in hidden" id="accountSignedIn">
@@ -398,15 +401,14 @@
               <strong id="accountUserEmail"></strong>
             </div>
 
-            <section class="settings-account-sync" aria-labelledby="learnerProfileSyncTitle">
-              <h3 id="learnerProfileSyncTitle" data-i18n="progressSync.title">Progress sync</h3>
+            <div class="settings-account-sync hidden" id="learnerProfileSyncSettings">
               <p class="learner-profile-sync-settings-status hidden" id="learnerProfileSyncSettingsStatus" role="status" aria-live="polite"></p>
               <p class="settings-note hidden" id="learnerProfileSyncGuidance" data-i18n="progressSync.backupGuidance"></p>
               <div class="sync-actions hidden" id="learnerProfileSyncActions">
                 <button class="btn-secondary" type="button" data-profile-sync-action="retry" data-i18n="progressSync.retry">Try backup again</button>
                 <button class="btn-secondary" type="button" data-profile-sync-action="export-recovery" data-i18n="progressSync.exportRecovery">Export recovery copy</button>
               </div>
-            </section>
+            </div>
 
             <section class="settings-account-reminders" aria-labelledby="accountEmailsTitle">
               <h3 id="accountEmailsTitle" data-i18n="settings.account.emailsTitle">Emails</h3>

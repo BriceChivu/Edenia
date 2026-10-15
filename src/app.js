@@ -1726,6 +1726,7 @@ const personalizedOnboardingState = {
   channelSelectionsInitialized: false,
   isApplyingChannels: false,
   accountEmail: '',
+  accountEmailExpanded: false,
   lastTrackedStep: null
 }
 let onboardingChoiceLayoutFrame = 0
@@ -4186,6 +4187,7 @@ function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
     personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
     personalizedOnboardingState.isApplyingChannels = false
     personalizedOnboardingState.accountEmail = ''
+    personalizedOnboardingState.accountEmailExpanded = false
     personalizedOnboardingState.lastTrackedStep = null
     panel.classList.remove('is-recovery', 'hidden')
     progress.classList.remove('hidden')
@@ -4531,6 +4533,19 @@ function renderOnboardingAccountStep(content) {
       === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
     && activeProfile
     && !activeProfile.onboarding?.setupCompleted
+  // Authentication success continues through the owning lifecycle. Do not show
+  // an extra account-confirmation step while it activates the profile.
+  if (signedIn) {
+    content.innerHTML = ''
+    document.getElementById('onboardingPanel')?.classList.add('hidden')
+    if (!busy && (!LEARNER_PROFILE_LIFECYCLE_ENABLED || canFinishActiveSignedInProfile)) {
+      void finishPersonalizedOnboarding()
+    }
+    return
+  }
+  document.getElementById('onboardingPanel')?.classList.remove('hidden')
+  const previousDisclosure = content.querySelector('.account-email-disclosure')
+  if (previousDisclosure) personalizedOnboardingState.accountEmailExpanded = previousDisclosure.open
   const emailCodePending = accountAuthController?.hasPendingEmailCode() === true
   const previousStep = personalizedOnboardingState.languageId === 'other'
     ? 'other'
@@ -4551,18 +4566,12 @@ function renderOnboardingAccountStep(content) {
     accountContent = `
       <p class="onboarding-account-loading" role="status" aria-live="polite">${escHtml(t('settings.account.status.loading'))}</p>
     `
-  } else if (signedIn) {
-    accountContent = `
-      <div class="onboarding-account-identity ph-no-capture">
-        <span>${escHtml(t('settings.account.signedInAs'))}</span>
-        <strong>${escHtml(state?.email || '')}</strong>
-      </div>
-      ${feedback}
-    `
   } else {
     accountContent = `
       ${googleContent}
-      ${googleAvailable ? `<div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>` : ''}
+      <details class="account-email-disclosure" ${!googleAvailable || emailCodePending || personalizedOnboardingState.accountEmailExpanded ? 'open' : ''}>
+        <summary ${!googleAvailable ? 'hidden' : ''}><span>${escHtml(t('settings.account.emailFallback'))}</span></summary>
+        <div class="account-email-disclosure-content">
       <form class="onboarding-account-email-form ph-no-capture" data-onboarding-account-action="email-form" novalidate>
         <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
         <input class="account-auth-email-input" id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
@@ -4574,6 +4583,8 @@ function renderOnboardingAccountStep(content) {
         <input class="account-auth-email-input account-auth-code-input" id="onboardingAccountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-onboarding-account-code placeholder="${escHtml(t('settings.account.codePlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
         <button class="btn-primary" type="submit" data-analytics-action="onboardingAccountEmailCode" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-verification' ? 'settings.account.verifyingCode' : 'settings.account.verifyCode'))}</button>
       </form>
+        </div>
+      </details>
       ${feedback}
     `
   }
@@ -4581,7 +4592,7 @@ function renderOnboardingAccountStep(content) {
   content.innerHTML = `
     ${renderOnboardingHeading(
       'onboarding.account.title',
-      signedIn ? 'onboarding.account.signedInSubtitle' : 'onboarding.account.subtitle'
+      'onboarding.account.subtitle'
     )}
     <div class="onboarding-account-auth" aria-busy="${loading || busy}">
       ${accountContent}
@@ -6457,6 +6468,10 @@ function renderAccountSettings(state = accountAuthViewState) {
     'hidden',
     !googleIdTokenAvailable
   )
+  const emailDisclosure = document.getElementById('accountEmailDisclosure')
+  if (emailDisclosure && (!GOOGLE_IDENTITY_SERVICES_READY || accountAuthController?.hasPendingEmailCode())) {
+    emailDisclosure.open = true
+  }
   const emailInput = document.getElementById('accountEmail')
   if (emailInput) emailInput.disabled = authBusy || unavailable
   const turnstileElement = document.getElementById('accountTurnstile')
@@ -7232,7 +7247,13 @@ function openLearnerProfileAccessSignIn() {
   authentication.classList.remove('hidden')
   mountGoogleIdentityServicesButtons(authentication)
   mountTurnstileWidgets(authentication)
-  window.setTimeout(() => document.getElementById('accountEmail')?.focus(), 0)
+  window.setTimeout(() => {
+    const disclosure = document.getElementById('accountEmailDisclosure')
+    const target = disclosure?.open
+      ? document.getElementById('accountEmail')
+      : disclosure?.querySelector('summary')
+    target?.focus()
+  }, 0)
   return true
 }
 

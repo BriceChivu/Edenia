@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { I18N } from '../../src/i18n/index.js'
 import {
   createLearnerProfileConflictView
 } from '../../src/features/profile-access/conflict-view.js'
@@ -320,7 +321,7 @@ test('previews receive isolated copies and stale captures cannot reveal a previo
   assert.equal(elements.get('learnerProfileConflictIslands').children[1].children[2].textContent, 'profileConflict.value.islandAbsent')
   view.setBusy(true)
   assert.equal(disposed, 2)
-  assert.equal(view.requestChoice('cloud'), true)
+  assert.equal(view.requestChoice('cloud'), false)
 })
 
 test('unavailable or oversized previews never block the choice', () => {
@@ -355,3 +356,44 @@ test('recent channel refresh activity names the channel instead of repeating a g
   const recent = elements.get('learnerProfileConflictRows').children.find(row => row.children[0].textContent === 'profileConflict.category.recent-activity')
   assert.match(recent.children[1].children[1].textContent, /Mandarin Stories/)
 })
+
+test('no island previews are displayed when both versions have no island', () => {
+  let captures = 0
+  const { elements, view } = createHarness({ createIslandPreviews() { captures += 1 } })
+  view.renderConflict({ status: 'open', device: { profile: {} }, cloud: { profile: {} } })
+  assert.equal(elements.get('learnerProfileConflictIslands').hidden, true)
+  assert.equal(elements.get('learnerProfileConflictIslands').children.length, 0)
+  assert.equal(captures, 0)
+  view.renderConflict({ status: 'open', device: { profile: { tinySwordsIsland: {} } }, cloud: { profile: {} } })
+  assert.equal(elements.get('learnerProfileConflictIslands').hidden, false)
+})
+
+test('busy choice disables the entire gate and rejects replacement choices', () => {
+  const controls = [element(), element(), element(), element()]
+  const gate = element()
+  gate.querySelectorAll = () => controls
+  const { elements, view } = createHarness()
+  // Test a gate root separately, including Sign out outside the comparison.
+  const root = { getElementById: id => id === 'learnerProfileAccessGate' ? gate : elements.get(id), createElement: () => element() }
+  const gated = createLearnerProfileConflictView({ root, translate: key => key })
+  gated.requestChoice('cloud')
+  gated.setBusy(true)
+  assert.equal(controls.every(control => control.disabled), true)
+  assert.equal(gated.requestChoice('device'), false)
+  gated.cancelChoice()
+  assert.equal(elements.get('learnerProfileConflictConfirm').dataset.conflictSide, 'cloud')
+  gated.setBusy(false)
+  assert.equal(controls.every(control => !control.disabled), true)
+})
+
+for (const locale of ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr']) {
+  test(`conflict language codes have readable ${locale} labels`, () => {
+    const dictionary = I18N[locale]
+    const { elements, view } = createHarness({ translate: (key, params = {}) =>
+      Object.entries(params).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, value), dictionary[key] || key) })
+    view.renderConflict({ status: 'open', device: { profile: { learnerProfile: { languages: ['zh-Hant'], level: 'beginner' } } }, cloud: { profile: { learnerProfile: { languages: ['zh-Hans'], level: 'intermediate' } } } })
+    const text = elements.get('learnerProfileConflictRows').children[0].children[1].children[1].textContent
+    assert.ok(text.includes(dictionary['onboarding.language.mandarin']))
+    assert.ok(!text.includes('onboarding.language.'))
+  })
+}

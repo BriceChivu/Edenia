@@ -21,6 +21,7 @@ export function createLearnerProfileSyncView({
   const guidance = root.getElementById('learnerProfileSyncGuidance')
   const header = root.getElementById('learnerProfileSyncStatus')
   const settings = root.getElementById('learnerProfileSyncSettingsStatus')
+  const settingsGroup = root.getElementById('learnerProfileSyncSettings')
   if (
     !actions
     || !guidance
@@ -51,6 +52,10 @@ export function createLearnerProfileSyncView({
     }
     header.disabled = status === 'up-to-date'
     const recoveryAvailable = RECOVERY_STATUSES.has(status)
+    settingsGroup?.classList.toggle(
+      'hidden',
+      !recoveryAvailable && !['needs-attention', 'conflicting'].includes(status)
+    )
     guidance.textContent = recoveryAvailable
       ? translate('progressSync.backupGuidance')
       : ''

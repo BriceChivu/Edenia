@@ -174,7 +174,8 @@ async function prepareConflictPage(page, {
   queuedLatest = false,
   previousExpired = true,
   previousResolved = false,
-  withIslands = false
+  withIslands = false,
+  choiceBarrier = null
 } = {}) {
   // Keep the mocked protected-copy deadline valid regardless of the CI date.
   await page.clock.setFixedTime(new Date('2026-08-25T12:00:00.000Z'))
@@ -424,6 +425,7 @@ async function prepareConflictPage(page, {
     if (pathname === '/rest/v1/rpc/choose_my_learner_profile_conflict') {
       const body = request.postDataJSON()
       choiceRequests.push(body)
+      if (choiceBarrier) await choiceBarrier
       selectedSide = body.p_selected_side
       const selectedEnvelope = selectedSide === 'device'
         ? deviceEnvelope
@@ -841,8 +843,8 @@ test('real Godot conflict previews render both exact saves without modifying the
   await expect.poll(() => images.evaluateAll(nodes => nodes.every(img => img.complete && img.naturalWidth === 800 && img.naturalHeight === 480))).toBe(true)
   expect(await images.evaluateAll(nodes => nodes[0].src !== nodes[1].src)).toBe(true)
   await expect(page.locator('iframe[title="Saved island preview renderer"]')).toHaveCount(0)
-  await expect(page.locator('#learnerProfileConflictRows')).toContainText('24 total current XP')
-  await expect(page.locator('#learnerProfileConflictRows')).toContainText('8 total current XP')
+  await expect(page.locator('#learnerProfileConflictRows')).toContainText('24 total XP')
+  await expect(page.locator('#learnerProfileConflictRows')).toContainText('8 total XP')
   await expect(page.locator('#learnerProfileConflictEnlarge')).toHaveCount(0)
   await expect(page.locator('#learnerProfileConflictIslands figure > p').nth(0)).toBeHidden()
   await expect(page.locator('#learnerProfileConflictIslands figure > p').nth(1)).toBeHidden()
@@ -856,4 +858,25 @@ test('real Godot conflict previews render both exact saves without modifying the
   await page.locator('#learnerProfileAccessGate').evaluate(node => { node.scrollTop = 0 })
   expect(await page.locator('#learnerProfileConflictTitle').evaluate(node => node.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0)
   await page.screenshot({ path: testInfo.outputPath('saved-island-comparison.png'), fullPage: true })
+})
+
+test('confirming a choice disables every button until the protected choice finishes', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let release
+  const choiceBarrier = new Promise(resolve => { release = resolve })
+  const { choiceRequests } = await prepareConflictPage(page, { choiceBarrier, trial: true })
+  const gate = page.locator('#learnerProfileAccessGate')
+  await expect(page.locator('#learnerProfileConflictIslands')).toBeHidden()
+  await expect(gate).not.toContainText('study facts')
+  await expect(gate).not.toContainText('total current XP')
+  await page.getByRole('button', { name: 'Use Cloud', exact: true }).click()
+  await page.getByRole('button', { name: 'Confirm this choice' }).click()
+  await expect.poll(() => choiceRequests.length).toBe(1)
+  for (const button of await gate.locator('button:visible').all()) {
+    await expect(button).toBeDisabled()
+    await expect(button).toHaveCSS('opacity', '0.55')
+  }
+  await page.screenshot({ path: testInfo.outputPath('choice-busy.png'), fullPage: true })
+  release()
+  await expect(page.locator('#mainApp')).toBeVisible()
 })

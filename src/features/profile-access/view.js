@@ -27,6 +27,7 @@ const BUSY_STATES = new Set([
 ])
 
 const OPENING_STATES = new Set([
+  'migrating',
   'resolving',
   'waiting-cloud'
 ])
@@ -282,18 +283,14 @@ export function createLearnerProfileAccessView({
         ? COPY_KEYS.recovering
         : recoveryCopyKey || COPY_KEYS[state]
     const isOpening = OPENING_STATES.has(state) && accessState.retryable !== true
-    const isGenericRecovery = state === 'recovering' && !recoveryCopyKey
     title.hidden = state === 'conflicting'
     gate.setAttribute('aria-labelledby', state === 'conflicting' ? 'learnerProfileConflictTitle' : 'learnerProfileAccessTitle')
     gate.setAttribute('aria-describedby', state === 'conflicting' ? '' : 'learnerProfileAccessBody')
     title.textContent = translate(`${key}.title`)
     body.textContent = translate(`${key}.body`)
     body.hidden = isOpening || state === 'conflicting'
-    status.hidden = isOpening || isGenericRecovery || state === 'conflicting'
-      || isLearnerProfileAuthenticationState(state)
-    status.textContent = status.hidden
-      ? ''
-      : translate('profileAccess.noProfileVisible')
+    status.hidden = true
+    status.textContent = ''
     gate.setAttribute('aria-busy', String(BUSY_STATES.has(state) && accessState.retryable !== true))
     showActions(accessState)
     renderRecovery(accessState?.recovery)

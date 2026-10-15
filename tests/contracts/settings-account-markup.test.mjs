@@ -59,7 +59,7 @@ test('Settings contains one generic internal Account surface', () => {
     html,
     /id="learnerProfileSyncSettingsStatus"[^>]*role="status"[^>]*aria-live="polite"/
   )
-  assert.match(html, /data-i18n="progressSync\.title"/)
+  assert.doesNotMatch(html, /data-i18n="progressSync\.title"/)
   assert.match(
     html,
     /id="reminderPreferenceFields"[^>]*aria-labelledby="accountEmailsTitle"[^>]*disabled/
