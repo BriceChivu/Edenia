@@ -16199,7 +16199,9 @@ function restoreFeedViewport(anchor) {
   }
   target ||= document.querySelector('#videoGrid .empty-state')
   if (!target) return
-  window.scrollBy({ top: target.getBoundingClientRect().top - top, behavior: 'instant' })
+  const offset = target.getBoundingClientRect().top - top
+  // Even an instant zero-distance scroll cancels Chromium's in-flight smooth jump.
+  if (offset !== 0) window.scrollBy({ top: offset, behavior: 'instant' })
   if (focusLost && (document.activeElement === document.body || !document.activeElement?.getClientRects().length)) {
     const control = target.querySelector('.channel-shelf-track, a, button') || target
     if (!control.hasAttribute('tabindex')) control.tabIndex = -1

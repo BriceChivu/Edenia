@@ -3,10 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 
-const source = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
-const restoreSource = source.slice(source.indexOf('function restoreFeedViewport('), source.indexOf('function renderFeed('))
-
-function restoreAfterRefresh(offset, focusLost = false) {
+function restoreAfterRefresh(restoreSource, offset, focusLost = false) {
   const calls = []
   const focused = []
   const body = {}
@@ -23,18 +20,23 @@ function restoreAfterRefresh(offset, focusLost = false) {
   return { calls, focused }
 }
 
-test('unchanged feed geometry does not interrupt an in-flight smooth scroll', () => {
-  assert.deepEqual(restoreAfterRefresh(0).calls, [])
-})
+for (const appPath of ['src/app.js', 'compat/production/src/app.js']) {
+  const source = await readFile(new URL(`../../${appPath}`, import.meta.url), 'utf8')
+  const restoreSource = source.slice(source.indexOf('function restoreFeedViewport('), source.indexOf('function renderFeed('))
 
-test('feed viewport restoration still compensates for real layout movement', () => {
-  for (const offset of [42, -18, 0.25]) {
-    assert.deepEqual(restoreAfterRefresh(offset).calls, [{ top: offset, behavior: 'instant' }])
-  }
-})
+  test(`${appPath}: unchanged feed geometry does not interrupt an in-flight smooth scroll`, () => {
+    assert.deepEqual(restoreAfterRefresh(restoreSource, 0).calls, [])
+  })
 
-test('zero-distance restoration still restores a lost keyboard focus', () => {
-  const result = restoreAfterRefresh(0, true)
-  assert.deepEqual(result.calls, [])
-  assert.deepEqual(result.focused, [{ preventScroll: true }])
-})
+  test(`${appPath}: feed viewport restoration still compensates for real layout movement`, () => {
+    for (const offset of [42, -18, 0.25]) {
+      assert.deepEqual(restoreAfterRefresh(restoreSource, offset).calls, [{ top: offset, behavior: 'instant' }])
+    }
+  })
+
+  test(`${appPath}: zero-distance restoration still restores a lost keyboard focus`, () => {
+    const result = restoreAfterRefresh(restoreSource, 0, true)
+    assert.deepEqual(result.calls, [])
+    assert.deepEqual(result.focused, [{ preventScroll: true }])
+  })
+}
