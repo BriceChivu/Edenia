@@ -133,6 +133,7 @@ func clear(start: Vector2, end: Vector2) -> bool:
 		if Geometry2D.is_point_in_polygon(start,footprint) or Geometry2D.is_point_in_polygon(end,footprint): return false
 		for i in footprint.size():
 			if Geometry2D.segment_intersects_segment(start,end,footprint[i],footprint[(i+1)%footprint.size()]) != null: return false
+	if layout.rocks_block_segment(start, end, moving_animal): return false
 	for cell in layout.log_piles:
 		if (layout.log_blocks_contact(cell,start,end) if moving_animal else layout.log_blocks_feet(cell,start,end)): return false
 	for cell in layout.houses:

@@ -110,7 +110,8 @@ and one. Any remaining carried logs are delivered automatically to the nearest
 reachable grass tile with room and no decorations; if none is available, the
 pawn keeps them. A two-log pile is centered side by side.
 A new click or opening Terrain cancels delivery without losing the carried logs. Carrying and piles
-persist across reloads; ground with logs cannot be collected or built over.
+persist across reloads. Picking up ground with logs discards those logs and removes
+them from the wood balance; logs still prevent building over that ground.
 Logs block the annotated parallelogram where their bottom row contacts the grass.
 Navigation reserves the ground contact of both soles across walking poses and checks
 the entire movement segment. Raised boot artwork does not add ground padding,
@@ -1072,7 +1073,7 @@ follow the pawn's cutting poses.
 The sheep alternates a base 2.4 seconds of idle with one complete 1.2-second
 `Sheep_Grass.png` grazing animation. After a random 10–15 complete grazing
 animations, it tries to walk to a random reachable adjacent grass tile,
-passing through bushes and rocks and using connected stair ramps between
+passing through bushes, routing around rock faces, and using connected stair ramps between
 elevations. Trees, log piles, and houses block their ground contact areas;
 the surrounding ground remains usable even within an occupied tile. Sheep
 route around these contacts and avoid the pawn’s tile.
@@ -1163,6 +1164,23 @@ houses, and free foundation grass; older layouts retain their existing state. Un
 costs and physical log piles. Level rewards remain idempotent.
 Focused check: `res://tests/level_five.gd`.
 
+## Hold interactions and losing logs
+
+Hold the pawn or a placed house to cycle Blue → Red → Purple → Yellow → Black,
+advancing every 0.7 seconds until release. Each house keeps its own color, including
+while rotated or under construction. Pawn idle, walking, carrying wood, axe and
+hammer animations use the selected authored artwork. Save version 33 retains the
+colors; earlier saves start blue. Inventory undo treats one continuous color hold
+as one change. Panning, pinching, leaving the viewport or losing focus cancels the hold.
+
+Holding a full six-log pyramid for two seconds removes all six logs immediately
+with the same Dust_01/Dust_02 animation as the first pawn arrival. A short click
+retains its existing pickup/house behavior. Pawns can fall into water carrying wood,
+keep the Wood fall poses, and respawn empty-handed. Carried logs leave the resource
+balance at respawn. Collecting a grass tile or a stair bundle also discards logs
+on each removed tile; a landing retained by another stair keeps its logs.
+Focused check: `res://tests/interaction_customization.gd`.
+
 ## Level two chicken
 
 Level two grants three grass tiles, one stair bundle and one chicken. Select Chicken in the inventory
@@ -1219,7 +1237,14 @@ Focused checks: `res://tests/chicken.gd`, `res://tests/chicken_animation.gd`,
 and `res://tests/chicken_following.gd`.
 
 Generated scenery (rocks, bushes, flowers and water decorations) never blocks
-placement or free terrain transformations. Sheep and chickens share grass with
+placement or free terrain transformations. Rock front faces block pawn and animal
+movement using the [four annotated PNG polygons](tests/fixtures/rock-contact-reference.png); the top facets remain grass
+behind the rock. Each actor sorts against the angled upper edge independently.
+Bushes remain traversable: actors behind their lower contact edge appear behind
+the foliage and actors beyond it appear in front. New placements and old saved
+animal positions settle outside rock faces on their existing grass tile.
+Focused checks: `res://tests/rock_contacts.gd`, `res://tests/land_rock_depth.gd`,
+and `res://tests/bush_depth.gd`. Sheep and chickens share grass with
 existing scenery, preserving it during placement and pickup. Conflicting scenery is cleared by
 committed edits; previews use the same rules. Player-built objects retain their
 normal protection. Focused check: `res://tests/scenery_placement.gd`.

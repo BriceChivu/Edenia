@@ -26,6 +26,7 @@ var game_camera_center := Vector2(576, 248)
 var camera_save_enabled := true
 var camera_save_path := "user://camera_view.json"
 
+var holds
 var world_pointer_down: InputEventMouseButton
 var world_dragging := false
 var world_drag_origin := Vector2.ZERO
@@ -93,6 +94,7 @@ var arrival
 
 func _ready() -> void:
 	super._ready()
+	holds = preload("res://scripts/hold_interactions.gd").new(self)
 	for name in ["Islands", "IslandShadows", "ShoreFoam"]:
 		get_node(name).hide()
 	# Player-built land and stairs cover water decorations naturally.
@@ -125,12 +127,15 @@ func _ready() -> void:
 	get_window().mouse_entered.connect(func(): pointer_inside = true)
 	get_window().mouse_exited.connect(func():
 		pointer_inside = false
+		world_pointer_down = null
+		holds.cancel()
 		set_cursor_pressed(false, true)
 		pointer.hide())
 	get_window().focus_exited.connect(func():
 		pointer_focused = false
 		set_cursor_pressed(false, true)
 		world_pointer_down = null
+		holds.cancel()
 		world_dragging = false
 		pointer.hide())
 	get_window().focus_entered.connect(func():
@@ -145,7 +150,7 @@ func _ready() -> void:
 		refresh()
 		update_inventory_preview(get_global_mouse_position(), false))
 	ui.undo_requested.connect(undo)
-	pawn.position = layout.center(layout.spawn_cell())
+	pawn.position = layout.safe_ground_point(layout.spawn_cell())
 	pawn.walk_to(pawn.position)
 	harvesting = Harvesting.new()
 	harvesting.world = self
@@ -260,6 +265,8 @@ func begin_pawn_action(excluded_cells: Array = []) -> bool:
 	return chicken_carry == null or chicken_carry.put_down(excluded_cells)
 
 func _process(_delta: float) -> void:
+	if holds != null:
+		holds.advance(_delta)
 	if terrain == null:
 		return
 	if arrival != null and arrival.blocks_gameplay():
@@ -305,7 +312,7 @@ func update_inventory_layout_revision() -> void:
 	var inputs: Array = [layout, layout.level, layout.cells, layout.elevations,
 		layout.stair_directions, layout.manual_ground_elevation, layout.trees,
 		layout.tree_types, layout.tree_stumps.keys(), layout.tree_cut_remaining.keys(),
-		layout.houses, layout.house_offsets, layout.log_piles, layout.stock,
+		layout.houses, layout.house_colors, layout.house_offsets, layout.log_piles, layout.stock,
 		layout.resources.wood, layout.carried_wood, layout.house_bundle, layout.free_house_grass,
 		layout.playground_grants, layout.bridges_enabled, layout.bridges,
 		layout.next_tree_variant, layout.flora, layout.decorations]
@@ -473,7 +480,7 @@ signal page_focus_requested
 # pawn is still working; ambient animals and cloud animation do not count.
 func has_active_interaction() -> bool:
 	return Time.get_ticks_msec() - last_interaction_msec < 5000 \
-		or world_dragging or pinch_gesture or navigation_pending or not waypoints.is_empty() \
+		or world_pointer_down != null or world_dragging or pinch_gesture or navigation_pending or not waypoints.is_empty() \
 		or pawn.position.distance_to(pawn.destination) > 0.2 \
 		or pawn.chopping or pawn.hammering or construction.busy() \
 		or harvesting.phase != harvesting.Phase.READY \
@@ -515,6 +522,7 @@ func _input(event: InputEvent) -> void:
 		var distance: Vector2 = event.position - world_pointer_down.position
 		if distance.length() >= world_drag_threshold:
 			world_dragging = true
+			holds.cancel()
 		if world_dragging:
 			game_camera.position = (world_drag_origin - distance / game_camera.zoom.x).clamp(game_camera_center - Vector2(768, 512), game_camera_center + Vector2(768, 512))
 			get_viewport().set_input_as_handled()
@@ -523,8 +531,9 @@ func _input(event: InputEvent) -> void:
 		world_pointer_down = null
 		if world_dragging:
 			save_camera_view()
-		if not world_dragging:
+		if not world_dragging and not holds.consumed:
 			handle_world_click(click)
+		holds.cancel()
 		world_dragging = false
 		get_viewport().set_input_as_handled()
 
@@ -537,9 +546,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Defer world clicks until release, after distinguishing a click from a pan.
 		# Godot GUI controls consume their own presses before this handler.
 		world_pointer_down = event
+		pointer_position = event.position
+		pointer_inside = get_viewport().get_visible_rect().has_point(event.position)
+		if OS.has_feature("web"):
+			pointer_focused = true
 		world_drag_origin = game_camera.position
 		world_dragging = false
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
+		holds.begin(point)
 		if not editing and not house_placement_active() and water_phase in [WaterPhase.READY, WaterPhase.APPROACHING] and layout.cells.has(clicked_cell(point)) and not layout.bridges.has(Layout.BridgeRules.hit(layout, point)):
 			set_cursor_pressed(true)
 		get_viewport().set_input_as_handled()
@@ -949,7 +963,7 @@ func undo() -> void:
 	layout.restore(history.pop_back())
 	reconcile_inventory_work()
 	if water_phase == WaterPhase.READY and not layout.cells.has(layout.cell_at(pawn.position)):
-		pawn.position = layout.center(layout.spawn_cell())
+		pawn.position = layout.safe_ground_point(layout.spawn_cell())
 		pawn.walk_to(pawn.position)
 	rebuild_decorations()
 	save_layout()
@@ -979,6 +993,7 @@ func animate_house_displacements() -> void:
 	layout.house_displacements.clear()
 
 func rebuild_decorations(display_layout = null) -> void:
+	pawn.set_color(layout.pawn_color)
 	if $World.get_script() == null:
 		$World.set_script(preload("res://scripts/terrain_depth.gd"))
 		$World.set_process(true)
@@ -1100,11 +1115,15 @@ func rebuild_decorations(display_layout = null) -> void:
 				decoration.hframes = 3
 				decoration.scale = Vector2.ONE * 0.8
 				decoration.flip_h = item.variant == 2
+		if item.kind == "land_rock":
+			decoration.set_meta("rock_cell", cell)
+			decoration.set_meta("rock_face", render_layout.rock_footprint(cell))
 		decoration.position = render_layout.center(item.water if in_water else cell)
 		if item.kind in ["land_rock", "bush"]:
 			# Sort from the near edge like foliage, without moving the artwork.
-			decoration.position.y += 12
-			decoration.offset.y -= 12 / decoration.scale.y
+			var depth := 1.0 if item.kind == "land_rock" else 12.0
+			decoration.position.y += depth
+			decoration.offset.y -= depth / decoration.scale.y
 		decoration.z_index = -17 if in_water else int(render_layout.height_at(cell) / 64.0)
 		if not in_water:
 			decoration.offset.y -= render_layout.height_at(cell) / decoration.scale.y
@@ -1112,7 +1131,7 @@ func rebuild_decorations(display_layout = null) -> void:
 			decoration.set_script(preload("res://scripts/environment_sprite.gd"))
 			decoration.phase = float(cell.x * 7 + cell.y * 11) / 5.0
 		decoration.set_meta("random_decoration", item.kind)
-		if item.kind in ["flowers", "bush"]:
+		if item.kind in ["flowers", "bush", "land_rock"]:
 			decoration.set_meta("foliage_depth", true)
 		$World.add_child(decoration)
 		flora_nodes.append(decoration)
@@ -1184,7 +1203,7 @@ func rebuild_decorations(display_layout = null) -> void:
 	for cell in render_layout.houses:
 		var house := Sprite2D.new()
 		var facing: int = render_layout.houses[cell]
-		house.texture = LevelFiveArt.HOUSE_TEXTURES[facing]
+		house.texture = LevelFiveArt.house_texture(render_layout, cell, facing)
 		house.flip_h = facing == 3
 		house.scale = Vector2.ONE
 		house.position = Vector2(render_layout.center(cell).x + 32 + render_layout.house_offsets.get(cell, Vector2.ZERO).x, LevelFiveArt.house_depth_y(render_layout, cell, facing))
@@ -1267,7 +1286,7 @@ func continue_log_delivery() -> void:
 func navigation_signature() -> int:
 	return hash([layout.cells, layout.elevations, layout.stair_directions, layout.trees,
 		layout.tree_types, layout.log_piles, layout.houses, layout.house_offsets,
-		layout.bridges, layout.bridges_enabled, walking_bridges])
+		layout.bridges, layout.bridges_enabled, walking_bridges, layout.decorations])
 
 func navigation_budget() -> int:
 	var frame := Engine.get_process_frames()
@@ -1326,7 +1345,7 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 		return empty
 	var target: Vector2 = request.target
 	var candidates: Array[Vector2] = request.candidates
-	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty():
+	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty() or layout.has_land_rocks():
 		if bool(ProjectSettings.get_setting("gameplay/direct_walk_routes_enabled", false)) and clear_segment(start_point, target):
 			return [target]
 		candidates = tree_navigation_path(start_point, target)
@@ -1341,7 +1360,7 @@ func walking_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Arra
 		return empty
 	var target: Vector2 = request.target
 	var candidates: Array[Vector2] = request.candidates
-	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty():
+	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty() or layout.has_land_rocks():
 		if clear_segment(start_point, target):
 			return [target]
 		candidates = await bounded_tree_navigation_path(start_point, target)
@@ -1405,7 +1424,7 @@ func prepare_land_route(start_point: Vector2, cell: Vector2i, point: Vector2) ->
 	var target := point.clamp(origin + Vector2(12, 12), origin + Vector2(52, 64 - bottom_margin))
 	# Preserve reachable ground near trunks, including the seam behind their roots.
 	# Tile insets otherwise move a click across that seam into the obstacle.
-	if (not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty()) and layout.walkable_point(point):
+	if (not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty() or layout.has_land_rocks()) and layout.walkable_point(point):
 		target = point
 	candidates.append(target)
 	return {"target": target, "candidates": candidates}
@@ -1522,6 +1541,8 @@ func clear_segment(start: Vector2, end: Vector2, moving_sheep: bool = false) -> 
 	for cell in layout.houses:
 		if layout.house_blocks_contact(cell, start, end, moving_sheep):
 			return false
+	if layout.rocks_block_segment(start, end, moving_sheep):
+		return false
 	return terrain_clear_segment(start, end, moving_sheep)
 
 func terrain_clear_segment(start: Vector2, end: Vector2, moving_animal: bool = false) -> bool:
@@ -1611,11 +1632,16 @@ func fall_into_water(point: Vector2) -> void:
 
 
 func respawn_location(spawn: Vector2, _spawn_height: float) -> Dictionary:
+	if layout.carried_wood > 0:
+		layout.lose_carried_logs()
+		pawn.carrying_wood = layout.house_bundle > 0
+		history.clear()
+		save_layout()
 	# Inventory edits can remove, raise, or occupy the chosen tile during a fall.
 	var cell: Vector2i = layout.cell_at(spawn)
 	if not layout.cells.has(cell) or layout.cells[cell] == "stairs" or layout.trees.has(cell) or layout.house_owner(cell) != Vector2i(999, 999):
 		cell = layout.random_respawn_cell()
-	return {"position": layout.center(cell), "height": layout.height_at(cell)}
+	return {"position": layout.safe_ground_point(cell), "height": layout.height_at(cell)}
 
 func saved_snapshot() -> Dictionary:
 	var data: Dictionary = layout.snapshot()
@@ -1665,7 +1691,7 @@ func restore_saved_layout(data: Dictionary, restore_checkpoint: bool = true) -> 
 	# receives its profile snapshot after those same actors are ready.
 	if construction != null:
 		rebuild_decorations()
-		pawn.position = layout.center(layout.spawn_cell())
+		pawn.position = layout.safe_ground_point(layout.spawn_cell())
 		pawn.walk_to(pawn.position)
 		if layout.house_bundle > 0:
 			construction.open_placement()

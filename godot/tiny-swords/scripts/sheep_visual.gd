@@ -182,7 +182,7 @@ func try_wandering() -> void:
 
 func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
 	# Displacement may leave a newly built house, but never solid terrain.
-	return world.terrain_clear_segment(start, target, true) if house_fleeing else world.clear_segment(start, target, true)
+	return (world.terrain_clear_segment(start, target, true) and not world.layout.rocks_block_segment(start, target, true)) if house_fleeing else world.clear_segment(start, target, true)
 
 func movement_speed() -> float:
 	return 110.0

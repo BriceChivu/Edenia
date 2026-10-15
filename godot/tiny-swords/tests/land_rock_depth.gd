@@ -15,6 +15,8 @@ func run() -> void:
 	root.add_child(scene)
 	await process_frame
 	var cell := Vector2i(0, 1)
+	scene.set_process(false)
+	scene.pawn.set_physics_process(false)
 	scene.layout.flora.clear()
 	for height in [0, 64, 128]:
 		scene.layout.elevations[cell] = height
@@ -23,12 +25,12 @@ func run() -> void:
 			scene.rebuild_decorations()
 			var rock: Sprite2D = scene.flora_nodes[0]
 			var center: Vector2 = scene.layout.center(cell)
-			scene.pawn.position = center
+			scene.pawn.position = center - Vector2(0, 20)
 			scene.pawn.z_index = int(height / 64.0)
-			check(rock.get_parent() == scene.pawn.get_parent() and rock.get_parent().y_sort_enabled and rock.z_index == scene.pawn.z_index, "Grass rocks share pawn depth sorting at every elevation")
-			check(rock.position.y > scene.pawn.position.y, "Grass rock covers a pawn standing at its tile center")
-			scene.pawn.position.y = center.y + 20
-			check(rock.position.y < scene.pawn.position.y, "Pawn draws in front after walking past the rock")
+			check(rock.get_parent() == scene.pawn.get_parent() and rock.z_index == scene.pawn.z_index, "Grass rocks share pawn depth sorting at every elevation")
+			check(not rock.get_parent().actor_in_front(scene.pawn, rock), "Rock covers pawn behind its angled front face")
+			scene.pawn.position.y = center.y + 28
+			check(rock.get_parent().actor_in_front(scene.pawn, rock), "Pawn draws in front after walking past the rock")
 			check(rock.position + rock.offset * rock.scale == center - Vector2(0, height), "Rock depth anchor keeps its artwork in place")
 			await process_frame
 	scene.queue_free()

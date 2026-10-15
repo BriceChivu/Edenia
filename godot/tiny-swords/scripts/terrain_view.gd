@@ -87,7 +87,7 @@ func refresh_drawing() -> bool:
 		inputs.append_array([source.editing, source.hover, source.valid, source.tool,
 			source.preview_position, source.ground_preview_height, source.changes,
 			source.transform_preview, current.trees, current.tree_types, current.houses,
-			current.house_offsets, current.house_bundle, current.bridges, current.next_tree_variant])
+			current.house_offsets, current.house_colors, current.house_bundle, current.bridges, current.next_tree_variant])
 		if source.editing:
 			for tree in source.outline_trees:
 				inputs.append_array([tree.get_meta("cell"), tree.frame])
@@ -590,7 +590,7 @@ func draw_change_outlines() -> void:
 					draw_art_outline(TreeArt.TEXTURES[kind], area, Rect2i(Vector2i(sprite.frame * int(size.x), 0), Vector2i(size)))
 			"house":
 				var facing: int = layout.houses[cell]
-				draw_art_outline(LevelFiveArt.HOUSE_TEXTURES[facing], LevelFiveArt.house_rect(layout, cell), Rect2i(), facing == 3)
+				draw_art_outline(LevelFiveArt.house_texture(layout, cell, facing), LevelFiveArt.house_rect(layout, cell), Rect2i(), facing == 3)
 			"stairs":
 				draw_polyline(pickup_outline(cell), InventoryOutline.COLOR, InventoryOutline.WIDTH)
 			"ground":
@@ -635,7 +635,7 @@ func draw_editor() -> void:
 				var area := house_preview_rect()
 				if facing == 3:
 					area.size.x *= -1
-				draw_texture_rect(LevelFiveArt.HOUSE_TEXTURES[facing], area, false, tint)
+				draw_texture_rect(LevelFiveArt.house_texture(layout, hover, facing), area, false, tint)
 			if tool == "chicken":
 				draw_set_transform(placement_offset())
 				draw_texture_rect(LevelFiveArt.CHICKEN, LevelFiveArt.chicken_rect(layout, hover), false, tint)

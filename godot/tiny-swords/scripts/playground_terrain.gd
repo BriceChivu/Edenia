@@ -11,6 +11,7 @@ static func fresh(level: int):
 static func generate(source, seed_value: int):
 	# Reclaim the owned pieces, then generate from a clean starting island.
 	var layout = fresh(source.level)
+	layout.pawn_color = source.pawn_color
 	layout.playground_grants = source.playground_grants.duplicate(true)
 	layout.free_house_grass = source.free_house_grass
 	var total_ground: int = layout.cells.size() + layout.ground_count() + 2 * int(layout.stock.stairs) + source.free_house_grass + int(source.playground_grants.get("ground", 0))
