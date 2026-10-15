@@ -96,10 +96,6 @@ test.beforeEach(async ({ page }, info) => {
   await page.clock.setFixedTime(now)
 })
 
-test.afterEach(async ({ page }) => {
-  if (process.env.EDENIA_CHART_PROBE) console.log('[chart-input-probe] ' + JSON.stringify(await page.evaluate(() => window.chartInputProbe || [])))
-})
-
 test('Market navigator groups earned XP and supports smooth pan, wheel, axis stretch and range handles', async ({ page }, info) => {
   const { chart, commits } = await seedChart(page)
   await expect(chart).not.toContainText('Drag handles')
@@ -118,13 +114,10 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   const plot = chart.locator('.history-chart-plot')
   await plot.scrollIntoViewIfNeeded()
   const rect = await plot.boundingBox()
-  if (process.env.EDENIA_CHART_PROBE) await plot.evaluate((el, prevent) => {
-    window.chartInputProbe = []
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'dragstart', 'dragend', 'scroll', 'gotpointercapture', 'lostpointercapture']) window.addEventListener(type, event => {
-      window.chartInputProbe.push({ type, id: event.pointerId, buttons: event.buttons, x: event.clientX, y: event.clientY, target: event.target.tagName, targetId: event.target.id, span: el.closest('#historyChartView').dataset.chartSpan, scrollY })
-    }, true)
-    if (prevent) el.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault() }, true)
-  }, process.env.EDENIA_CHART_PREVENT === '1')
+  await plot.evaluate(el => {
+    window.historyChartNativeDrags = 0
+    el.closest('#historyChartView').addEventListener('dragstart', () => window.historyChartNativeDrags++)
+  })
   const before = await chart.getAttribute('data-chart-start')
   const initialSpan = await span(chart)
   const count = commits.length
@@ -138,17 +131,10 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   await page.mouse.move(rect.x + rect.width * .5, rect.y + rect.height - 24)
   await page.mouse.down()
   await expect(plot).toHaveClass(/is-dragging/)
-  // Keep moves on distinct frames so native WebKit capture is established
-  // before the next position arrives; a protocol burst can drop later moves.
-  for (let step = 1; step <= 12; step++) {
-    await page.mouse.move(rect.x + rect.width * .5 + 65 * step / 12, rect.y + rect.height - 24)
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))
-  }
+  await page.mouse.move(rect.x + rect.width * .5 + 65, rect.y + rect.height - 24, { steps: 12 })
   await expect.poll(() => span(chart)).toBeCloseTo(initialSpan * Math.exp(-65 / 180), 3)
   await page.mouse.up()
-  // WebKit can deliver native drag events after mouse.up resolves. Wait for
-  // release and the full axis stretch, rather than sampling an intermediate
-  // frame (which can still be larger than the subsequent wheel result).
+  // Use the completed drag as the baseline for the next zoom gesture.
   await expect(plot).not.toHaveClass(/is-dragging/)
   await expect.poll(() => span(chart)).toBeCloseTo(initialSpan * Math.exp(-65 / 180), 3)
   const axisSpan = await span(chart)
@@ -168,6 +154,7 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   await page.mouse.move(target.x - 18, target.y + target.height / 2, { steps: 10 })
   await page.mouse.up()
   await expect.poll(() => span(chart)).toBeLessThan(brushBefore)
+  expect(await page.evaluate(() => window.historyChartNativeDrags)).toBe(0)
   expect(commits.length).toBe(count)
   const dimensions = await chart.evaluate(el => ({ width: el.clientWidth, scroll: el.scrollWidth,
     documentWidth: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth }))
