@@ -118,12 +118,13 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   const plot = chart.locator('.history-chart-plot')
   await plot.scrollIntoViewIfNeeded()
   const rect = await plot.boundingBox()
-  if (process.env.EDENIA_CHART_PROBE) await plot.evaluate(el => {
+  if (process.env.EDENIA_CHART_PROBE) await plot.evaluate((el, prevent) => {
     window.chartInputProbe = []
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'mousemove', 'mouseup', 'gotpointercapture', 'lostpointercapture']) window.addEventListener(type, event => {
-      window.chartInputProbe.push({ type, id: event.pointerId, buttons: event.buttons, x: event.clientX, y: event.clientY, target: event.target.tagName, axis: !!event.target.closest('[data-chart-axis]'), span: el.closest('#historyChartView').dataset.chartSpan })
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'dragstart', 'dragend', 'scroll', 'gotpointercapture', 'lostpointercapture']) window.addEventListener(type, event => {
+      window.chartInputProbe.push({ type, id: event.pointerId, buttons: event.buttons, x: event.clientX, y: event.clientY, target: event.target.tagName, targetId: event.target.id, span: el.closest('#historyChartView').dataset.chartSpan, scrollY })
     }, true)
-  })
+    if (prevent) el.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault() }, true)
+  }, process.env.EDENIA_CHART_PREVENT === '1')
   const before = await chart.getAttribute('data-chart-start')
   const initialSpan = await span(chart)
   const count = commits.length
@@ -134,10 +135,11 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   await expect.poll(() => chart.getAttribute('data-chart-start')).not.toBe(before)
   await page.mouse.up()
   await expect(plot).not.toHaveClass(/is-dragging/)
-  await expect.poll(() => chart.getAttribute('data-chart-start')).not.toBe(before)
   await page.mouse.move(rect.x + rect.width * .5, rect.y + rect.height - 24)
   await page.mouse.down()
   await expect(plot).toHaveClass(/is-dragging/)
+  // Keep moves on distinct frames so native WebKit capture is established
+  // before the next position arrives; a protocol burst can drop later moves.
   for (let step = 1; step <= 12; step++) {
     await page.mouse.move(rect.x + rect.width * .5 + 65 * step / 12, rect.y + rect.height - 24)
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))

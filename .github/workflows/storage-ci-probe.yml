@@ -14,6 +14,10 @@ jobs:
   chart-input:
     if: github.event.pull_request.number == 475
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        prevent: ['0', '1']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,4 +36,5 @@ jobs:
         env:
           EDENIA_TEST_BASE_PATH: /Edenia/
           EDENIA_CHART_PROBE: '1'
-        run: npx playwright test history-chart.spec.mjs --project=webkit-trial-desktop --project=webkit-trial-phone --grep='Market navigator groups' --reporter=line
+          EDENIA_CHART_PREVENT: ${{ matrix.prevent }}
+        run: npx playwright test history-chart.spec.mjs --project=webkit-trial-desktop --grep='Market navigator groups' --repeat-each=3 --retries=0 --max-failures=1 --reporter=line
