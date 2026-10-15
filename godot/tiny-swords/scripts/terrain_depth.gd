@@ -2,6 +2,7 @@ extends Node2D
 
 # Order every overlapping actor against every terrain piece. Ramp overrides
 # must preserve the relations to adjoining cliffs regardless of insertion order.
+const Layout = preload("res://scripts/terrain_layout.gd")
 var previous_inputs: Array = []
 
 func is_actor(node: Node) -> bool:
@@ -17,6 +18,8 @@ func depth_y(node: Node2D) -> float:
 	return node.position.y + (node.FOOT_DEPTH_Y if node == get_parent().pawn else 0.0)
 
 func actor_in_front(actor: Node2D, terrain: Node2D) -> bool:
+	if terrain.has_meta("rock_cell"):
+		return depth_y(actor) > Layout.rock_depth_y(terrain.get_meta("rock_face"), actor.position.x)
 	if not is_ramp(terrain):
 		return depth_y(actor) > depth_y(terrain)
 	var layout = terrain.display_layout()
@@ -37,12 +40,12 @@ func overlaps_terrain(actor: Node2D, terrain: Node2D) -> bool:
 func _process(_delta: float) -> void:
 	var nodes: Array[Node2D] = []
 	var inputs: Array = []
-	var ramps := false
+	var needs_sort := false
 	for child in get_children():
 		if child is Node2D and not child.is_queued_for_deletion():
 			nodes.append(child)
-			ramps = ramps or is_ramp(child)
-	if not ramps:
+			needs_sort = needs_sort or is_ramp(child) or child.has_meta("rock_cell")
+	if not needs_sort:
 		y_sort_enabled = true
 		previous_inputs.clear()
 		return

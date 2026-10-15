@@ -94,7 +94,7 @@ func run() -> void:
 	check(not layout.can_drop_logs(Layout.HOME), "Bush rejects logs")
 	check(not layout.can_drop_logs(Vector2i(3, 2)), "Rock rejects logs")
 	check(not layout.can_drop_logs(Vector2i(10, 10)), "Water rejects logs")
-	check(not layout.can_edit(delivery, "remove", Layout.HOME) and not layout.can_edit(delivery, "tree", Layout.HOME), "Pile is protected from terrain pickup and planting")
+	check(layout.can_edit(delivery, "remove", Layout.HOME) and not layout.can_edit(delivery, "tree", Layout.HOME), "Logs allow ground pickup while still preventing planting")
 	var restored = Layout.new()
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(layout.snapshot()))
 	check(restored.restore(saved) and restored.carried_wood == 1 and restored.log_piles == layout.log_piles, "Carrying and piles survive JSON save")
@@ -142,6 +142,9 @@ func run() -> void:
 	# Occupied or disconnected grass cannot receive the automatic delivery.
 	layout.log_piles = {Vector2i(1, 0): 5}
 	layout.decorations[Vector2i(2, 0)] = {"kind": "land_rock", "variant": 1}
+	# Newly solid rock faces cannot be introduced under the fixture pawn.
+	world.pawn.position = layout.safe_ground_point(Vector2i(2, 0))
+	world.pawn.walk_to(world.pawn.position)
 	layout.cells[Vector2i(1, -2)] = "meadow"
 	layout.carried_wood = 2
 	click(world, Vector2i(1, 0))

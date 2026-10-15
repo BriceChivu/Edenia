@@ -230,8 +230,10 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaCamera.waterPhase)).toBeGreaterThan(0)
   await expect.poll(() => gameFrame().evaluate(() => window.edeniaCamera.waterPhase), {timeout:10000}).toBe(0)
   const respawn = await pawn()
+  // Rock faces can occupy the tile center; Godot chooses a safe point within it.
   expect(restored.tiles.filter(tile => tile[2] !== 'stairs').some(tile =>
-    respawn[0] === 544 + tile[0] * 64 && respawn[1] === 208 + tile[1] * 64
+    Math.abs(respawn[0] - (544 + tile[0] * 64)) < 32
+      && Math.abs(respawn[1] - (208 + tile[1] * 64)) < 32
   )).toBe(true)
 })
 
