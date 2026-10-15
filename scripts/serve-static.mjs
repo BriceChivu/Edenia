@@ -76,6 +76,7 @@ const server = createServer(async (request, response) => {
 
   let servedPath = filePath
   let encoding = ''
+  const immutableAsset = /^\/(tiny-swords-engine|tiny-swords-decoder)\/[a-f0-9]{64}\//.test(requestedPath)
   if (['.wasm', '.pck', '.js'].includes(extname(filePath).toLowerCase())) {
     const accepted = new Map(String(request.headers['accept-encoding'] || '').split(',').map(value => {
       const [name, ...parameters] = value.trim().split(';')
@@ -88,7 +89,9 @@ const server = createServer(async (request, response) => {
       const variant = filePath + (candidate === 'br' ? '.br' : '.gz')
       try {
         const compressed = await stat(variant)
-        if (!compressed.isFile() || compressed.mtimeMs < (await stat(filePath)).mtimeMs) continue
+        // Downloaded CI artifacts do not preserve extraction order/timestamps.
+        // Content-addressed assets cannot have a newer body under the same URL.
+        if (!compressed.isFile() || !immutableAsset && compressed.mtimeMs < (await stat(filePath)).mtimeMs) continue
         servedPath = variant
         encoding = candidate
         break
@@ -100,7 +103,7 @@ const server = createServer(async (request, response) => {
     ...(host === 'localhost' && extname(filePath).toLowerCase() === '.html'
       ? { 'Referrer-Policy': 'no-referrer-when-downgrade' }
       : {}),
-    'Cache-Control': /^\/(tiny-swords-engine|tiny-swords-decoder)\/[a-f0-9]{64}\//.test(requestedPath)
+    'Cache-Control': immutableAsset
       ? 'public, max-age=31536000, immutable'
       : 'no-store',
     ...(encoding ? { 'Content-Encoding': encoding } : {}),

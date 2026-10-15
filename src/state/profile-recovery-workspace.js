@@ -1,11 +1,12 @@
 import { createProfileRecoveryJournal } from './profile-recovery-journal.js'
 import { sanitizeStorageDiagnosticId } from './profile-storage-recovery.js'
 import { rebaseProfileChanges } from './indexed-db-profile.js'
+import { isStorageQuotaError } from './store.js'
 
 // A separate copy of the profile and its ownership/sync fences. The original
 // namespace is never modified while it is inaccessible. Auth stays independent.
 export function createProfileRecoveryWorkspace({
-  storageKey, accessKey, keys, testRunId = null, getPrimary, getSecondary = () => null,
+  storageKey, accessKey, keys, discardableCacheKeys = [], testRunId = null, getPrimary, getSecondary = () => null,
   capture = () => ({}), onActivate = () => {}, onTierChange = () => {}, onStorageFailure = () => {},
   indexedDb, journal: suppliedJournal, eventTarget, onExternalChange = () => {}, onConflict = () => {}, onConflictCleared = () => {}
 }) {
@@ -383,10 +384,13 @@ export function createProfileRecoveryWorkspace({
     }
   }
   async function flush() {
-    if (!journalActive && tier !== 'memory') return true
+    if (!journalActive && tier !== 'memory' && !(journal && tier === 'session')) return true
     if (!journal) return false
     // Include facade metadata writes made after a repository save was queued.
     if (record) queueJournal(JSON.stringify(record))
+    return whenSettled()
+  }
+  async function whenSettled() {
     for (let attempt = 0; attempt < 4; attempt++) {
       const pending = journalPending
       await pending
@@ -398,7 +402,7 @@ export function createProfileRecoveryWorkspace({
   }
   function persistDurably() {
     const saved = persist()
-    return saved || !journal ? saved : flush()
+    return journal && (journalActive || tier === 'memory' || tier === 'session') ? flush() : saved
   }
   function activate(seed = capture(), failure = null, operation = 'recovery') {
     if (active) return
@@ -440,6 +444,11 @@ export function createProfileRecoveryWorkspace({
     notifyPendingConflict()
   }
   const storage = {
+    flush() {
+      if (!active) return true
+      return journal && (journalActive || tier === 'memory' || tier === 'session')
+        ? flush() : tier !== 'memory'
+    },
     acceptsStorageArea(area) {
       try { return area === getPrimary() || area === getSecondary() } catch { return false }
     },
@@ -453,11 +462,30 @@ export function createProfileRecoveryWorkspace({
         return record.values[key] ?? null
       }
     },
-    setItem(key, value) {
+    setItem(key, value, { canPersist = () => true } = {}) {
       refreshFromDisk()
       if (!active || !scopedKeys.has(key)) {
         try { getPrimary().setItem(key, value); return }
-        catch (error) { if (!scopedKeys.has(key)) throw error; activate(undefined, error, 'save') }
+        catch (error) {
+          if (!scopedKeys.has(key)) throw error
+          if (isStorageQuotaError(error)) {
+            let reclaimed = false
+            for (const cacheKey of discardableCacheKeys) {
+              if (scopedKeys.has(cacheKey) || cacheKey === workspaceKey) continue
+              try {
+                const target = getPrimary()
+                if (target.getItem(cacheKey) === null) continue
+                target.removeItem(cacheKey)
+                reclaimed ||= target.getItem(cacheKey) === null
+              } catch {}
+            }
+            if (reclaimed) {
+              if (!canPersist()) throw error
+              try { getPrimary().setItem(key, value); return } catch (retryError) { error = retryError }
+            }
+          }
+          activate(undefined, error, 'save')
+        }
       }
       if ((key === accessKey || key === storageKey) && record.values[key] !== String(value)) {
         protectWorkspace({ ...record, values: { ...record.values } })
@@ -536,16 +564,16 @@ export function createProfileRecoveryWorkspace({
       record.status = 'active'
       if (replace) { record.replacement = true; record.replacementId = globalThis.crypto.randomUUID() }
       epoch++
-      persist()
+      const persisted = persist()
       for (const key of Object.keys(profile)) delete profile[key]
       Object.defineProperties(profile, Object.getOwnPropertyDescriptors(desired))
       baselines.set(profile, JSON.stringify(desired))
       const savedScope = { access: record.values[accessKey] ?? null,
         originalAccess: record.originalAccess, revision: record.originalReplacementRevision,
         replacementId: record.replacementId }
-      return journal && (journalActive || tier === 'memory')
-        ? flush().then(() => {
-          if (!canPersist() || !active || (record.values[accessKey] ?? null) !== savedScope.access
+      return journal && (journalActive || tier === 'memory' || tier === 'session')
+        ? flush().then(saved => {
+          if (!saved || !canPersist() || !active || (record.values[accessKey] ?? null) !== savedScope.access
             || record.originalAccess !== savedScope.originalAccess
             || record.replacementId !== savedScope.replacementId
             || record.originalReplacementRevision !== savedScope.revision && !(savedScope.revision === null
@@ -558,7 +586,7 @@ export function createProfileRecoveryWorkspace({
           Object.defineProperties(profile, Object.getOwnPropertyDescriptors(accepted))
           baselines.set(profile, raw)
           return true
-        }) : true
+        }) : persisted
     },
     inheritRevision(profile, source) { baselines.set(profile, baselines.get(source)) },
     adoptSnapshot(profile) { baselines.set(profile, storage.getItem(storageKey)) }
@@ -566,6 +594,7 @@ export function createProfileRecoveryWorkspace({
   return {
     repository, storage, activate, flush,
     async initialize() { try { await refreshJournal() } catch (error) { onStorageFailure(error, 'open', 'recovery-journal') } },
+    whenSettled,
     async refresh() { await refreshJournal(); refreshFromDisk() },
     hasPending: () => Boolean(record),
     isActive: () => active, getTier: () => tier,
