@@ -96,6 +96,10 @@ test.beforeEach(async ({ page }, info) => {
   await page.clock.setFixedTime(now)
 })
 
+test.afterEach(async ({ page }) => {
+  if (process.env.EDENIA_CHART_PROBE) console.log('[chart-input-probe] ' + JSON.stringify(await page.evaluate(() => window.chartInputProbe || [])))
+})
+
 test('Market navigator groups earned XP and supports smooth pan, wheel, axis stretch and range handles', async ({ page }, info) => {
   const { chart, commits } = await seedChart(page)
   await expect(chart).not.toContainText('Drag handles')
@@ -114,6 +118,12 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   const plot = chart.locator('.history-chart-plot')
   await plot.scrollIntoViewIfNeeded()
   const rect = await plot.boundingBox()
+  if (process.env.EDENIA_CHART_PROBE) await plot.evaluate(el => {
+    window.chartInputProbe = []
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'mousemove', 'mouseup', 'gotpointercapture', 'lostpointercapture']) window.addEventListener(type, event => {
+      window.chartInputProbe.push({ type, id: event.pointerId, buttons: event.buttons, x: event.clientX, y: event.clientY, target: event.target.tagName, axis: !!event.target.closest('[data-chart-axis]'), span: el.closest('#historyChartView').dataset.chartSpan })
+    }, true)
+  })
   const before = await chart.getAttribute('data-chart-start')
   const initialSpan = await span(chart)
   const count = commits.length
@@ -128,7 +138,10 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   await page.mouse.move(rect.x + rect.width * .5, rect.y + rect.height - 24)
   await page.mouse.down()
   await expect(plot).toHaveClass(/is-dragging/)
-  await page.mouse.move(rect.x + rect.width * .5 + 65, rect.y + rect.height - 24, { steps: 12 })
+  for (let step = 1; step <= 12; step++) {
+    await page.mouse.move(rect.x + rect.width * .5 + 65 * step / 12, rect.y + rect.height - 24)
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))
+  }
   await expect.poll(() => span(chart)).toBeCloseTo(initialSpan * Math.exp(-65 / 180), 3)
   await page.mouse.up()
   // WebKit can deliver native drag events after mouse.up resolves. Wait for
