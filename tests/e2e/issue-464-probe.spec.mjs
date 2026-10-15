@@ -43,7 +43,7 @@ async function settle(page) {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
 }
 
-test('issue 464 instrumented navigation', async ({ page }, testInfo) => {
+test('Continue watching and Study History reach unmounted saved videos', async ({ page }, testInfo) => {
   await seedLibrary(page)
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
@@ -84,30 +84,7 @@ test('issue 464 instrumented navigation', async ({ page }, testInfo) => {
   await expect(historyItem).toBeFocused()
   await page.evaluate(() => renderStudyHistoryPanel(loadState({ persistCleanup: false })))
   await expect(historyItem).toBeFocused()
-  await page.evaluate(() => {
-    const events = window.__debug464 = []
-    const record = event => { if (events.length < 300) events.push({at:performance.now(),...event}) }
-    let lastY = scrollY
-    window.addEventListener('scroll', () => { lastY=scrollY;record({kind:'scroll',y:lastY}) })
-    const bounds = Element.prototype.getBoundingClientRect
-    Element.prototype.getBoundingClientRect = function (...args) {
-      const before = lastY
-      const rect = bounds.apply(this,args)
-      if (this.matches('#watchedGrid .video-card') && !this.parentElement.style.gridTemplateRows) {
-        record({kind:'measure',before,after:scrollY,documentHeight:document.documentElement.scrollHeight,gridHeight:bounds.call(this.parentElement).height})
-      }
-      return rect
-    }
-    const scroll = Element.prototype.scrollIntoView
-    Element.prototype.scrollIntoView = function(options) { record({kind:'scrollIntoView',id:this.dataset.videoId,y:scrollY,options});return scroll.call(this,options) }
-    const scrollBy = window.scrollBy.bind(window)
-    window.scrollBy = options => {record({kind:'scrollBy',y:scrollY,options});return scrollBy(options)}
-    const focus = HTMLElement.prototype.focus
-    HTMLElement.prototype.focus = function(options) {record({kind:'focus',id:this.id,video:this.dataset.videoId,y:scrollY,options});return focus.call(this,options)}
-  })
   await historyItem.press('Enter')
-  try {
   await expect(page.locator('#watchedGrid .video-card[data-video-id="large-6498"]')).toBeInViewport({ ratio: .98 })
-  } finally { console.log('[DEBUG-464]', JSON.stringify(await page.evaluate(() => window.__debug464))) }
   expect(await page.locator('.video-card').count()).toBeLessThan(180)
 })
