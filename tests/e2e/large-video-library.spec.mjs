@@ -322,6 +322,13 @@ test('Continue watching and Study History reach unmounted saved videos', async (
   await page.evaluate(() => renderStudyHistoryPanel(loadState({ persistCleanup: false })))
   await expect(historyItem).toBeFocused()
   await historyItem.press('Enter')
+  // A refresh must not cancel the jump while its smooth scroll is in flight.
+  await page.evaluate(() => new Promise(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      renderFeed(loadState({ persistCleanup: false }))
+      resolve()
+    }))
+  }))
   await expect(page.locator('#watchedGrid .video-card[data-video-id="large-6498"]')).toBeInViewport({ ratio: .98 })
   expect(await page.locator('.video-card').count()).toBeLessThan(180)
 })
