@@ -127,7 +127,7 @@ test('large-channel removal fits without full-library Undo copies and survives U
   expect(redone.anki).toEqual(before.anki)
 })
 
-test('quota pressure continues removal in recovery while preserving search results and protected copies', async ({ page }) => {
+test('quota pressure reclaims search metadata while preserving removal progress and protected copies', async ({ page }) => {
   await seedChannel(page, 200)
   const protectedValues = await page.evaluate(() => {
     const cacheKey = 'edenia_v1_youtube_channel_search_cache_v1'
@@ -161,10 +161,12 @@ test('quota pressure continues removal in recovery while preserving search resul
   const result = await page.evaluate(() => ({
     state: loadState(),
     cache: localStorage.getItem('edenia_v1_youtube_channel_search_cache_v1'),
-    failures: window.removalQuotaFailures
+    failures: window.removalQuotaFailures,
+    persisted: JSON.parse(localStorage.getItem('edenia_v1'))
   }))
   expect(result.failures).toBe(1)
-  expect(result.cache).not.toBeNull()
+  expect(result.persisted).toEqual(result.state)
+  expect(result.cache).toBeNull()
   expect(result.state.config.channels).toEqual([])
   expect(result.state.config.removedChannelIds).toContain(channelId)
   expect(Object.keys(result.state.videos)).toHaveLength(200)

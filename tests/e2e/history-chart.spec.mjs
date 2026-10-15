@@ -126,9 +126,11 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   await page.mouse.down()
   await page.mouse.move(rect.x + rect.width * .5 + 65, rect.y + rect.height - 24, { steps: 12 })
   await page.mouse.up()
-  await expect.poll(() => span(chart)).toBeLessThan(initialSpan)
-  // Let the last axis-drag frame render before measuring keyboard zoom.
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  // WebKit can deliver native drag events after mouse.up resolves. Wait for
+  // release and the full axis stretch, rather than sampling an intermediate
+  // frame (which can still be larger than the subsequent wheel result).
+  await expect(plot).not.toHaveClass(/is-dragging/)
+  await expect.poll(() => span(chart)).toBeCloseTo(initialSpan * Math.exp(-65 / 180), 3)
   const axisSpan = await span(chart)
   await page.mouse.move(rect.x + rect.width * .6, rect.y + 100)
   if (info.project.name === 'webkit-trial-phone') await chart.locator('[data-chart-edge="start"]').press('ArrowLeft')
