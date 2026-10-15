@@ -301,6 +301,19 @@ recovery storage tier, browser/OS versions, capabilities and viewport. They
 exclude exception payloads, learner progress, account identifiers, credentials,
 URL parameters and replay links. No Discord webhook secret is shipped.
 
+On Web Storage quota errors, the storage facade first discards only the
+replaceable YouTube channel-search cache and retries the original write. It
+does not discard study facts, account metadata, recovery copies or unknown
+storage keys. When recovery uses sessionStorage and IndexedDB is available,
+the recovery journal must acknowledge the copy before a profile save succeeds;
+sessionStorage alone does not survive closing the tab. Save acknowledgement
+also waits for follow-up configuration writes. If every durable write fails,
+the edit stays in the current tab for retry, but the save returns failure and
+the existing save-error notification appears. It cannot survive closing that
+tab until a later durable write succeeds. Diagnostics wait for already queued
+journal writes to settle before reporting the recovery tier, without starting
+another retry.
+
 Failed deliveries retain up to 20 sanitized reports per available browser store
 and retry after reload, on connectivity restoration and while the page remains
 online. Each report has its own storage key, so different tabs cannot replace

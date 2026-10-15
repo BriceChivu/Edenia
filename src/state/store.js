@@ -40,6 +40,19 @@ export function createStateStore({
     return activatedRepository.save(state, { canPersist })
   }
 
+  function acknowledge(state, canPersist, { syncAnalytics, replacement = false }) {
+    if (!canPersist()) return false
+    saveConfigCookie(state.config)
+    // Recovery's storage facade can queue another journal write for config.
+    // A successful profile write alone does not acknowledge that pending copy.
+    return mapPersistenceResult(storage.flush?.() ?? true, persisted => {
+      if (!persisted || !canPersist()) return false
+      onPersisted(state, { replacement })
+      if (syncAnalytics) syncPersistedStateToAnalytics(state)
+      return true
+    })
+  }
+
   function saveImportedState(state, {
     preserveBackupId = null,
     syncAnalytics = true
@@ -48,12 +61,8 @@ export function createStateStore({
     const repository = getRepository()
     if (repository) {
       return mapPersistenceResult(repository.save(state, { canPersist, replace: true }), persisted => {
-        if (persisted) {
-          onPersisted(state, { replacement: true })
-          saveConfigCookie(state.config)
-          if (syncAnalytics) syncPersistedStateToAnalytics(state)
-        }
-        return { persisted, error: persisted ? null : new Error('Durable profile save failed') }
+        return mapPersistenceResult(persisted && acknowledge(state, canPersist, { replacement: true, syncAnalytics }), saved =>
+          ({ persisted: saved, error: saved ? null : new Error('Durable profile save failed') }))
       })
     }
     const serializedState = JSON.stringify(state)
@@ -64,7 +73,7 @@ export function createStateStore({
         return { persisted: false, error: null }
       }
       try {
-        storage.setItem(storageKey, serializedState)
+        storage.setItem(storageKey, serializedState, { canPersist })
         persistenceError = null
         break
       } catch (error) {
@@ -78,12 +87,8 @@ export function createStateStore({
     if (persistenceError !== null || !canPersist()) return { persisted: false, error: persistenceError }
     storage.recordReplacement?.()
     return mapPersistenceResult(settleNativeWrite(state, serializedState, canPersist), persisted => {
-      if (persisted) {
-        onPersisted(state, { replacement: true })
-        saveConfigCookie(state.config)
-        if (syncAnalytics) syncPersistedStateToAnalytics(state)
-      }
-      return { persisted, error: persistenceError }
+      return mapPersistenceResult(persisted && acknowledge(state, canPersist, { replacement: true, syncAnalytics }), saved =>
+        ({ persisted: saved, error: saved ? null : persistenceError || new Error('Durable profile save failed') }))
     })
   }
 
@@ -105,19 +110,14 @@ export function createStateStore({
       // Carry this in-flight edit onto the captured acknowledged baseline.
       if (repository !== repositoryBeforeBackup) repository.adoptSnapshot?.(state)
       return mapPersistenceResult(repository.save(state, { canPersist }), persisted => {
-        if (persisted) {
-          onPersisted(state, { replacement: options.replaceIsland === true })
-          saveConfigCookie(state.config)
-          if (syncAnalytics) syncPersistedStateToAnalytics(state)
-        }
-        return persisted
+        return persisted && acknowledge(state, canPersist, { replacement: options.replaceIsland === true, syncAnalytics })
       })
     }
     const serializedState = JSON.stringify(state)
     if (!canPersist()) return false
     let persisted = false
     try {
-      storage.setItem(storageKey, serializedState)
+      storage.setItem(storageKey, serializedState, { canPersist })
       persisted = true
     } catch (error) {
       if (!canPersist()) return false
@@ -125,7 +125,7 @@ export function createStateStore({
       if (discardReplaceableCaches(canPersist)) {
         if (!canPersist()) return false
         try {
-          storage.setItem(storageKey, serializedState)
+          storage.setItem(storageKey, serializedState, { canPersist })
           persisted = true
         } catch (retryError) {
           if (!isStorageQuotaError(retryError)) return false
@@ -134,19 +134,14 @@ export function createStateStore({
       if (!persisted && pruneBackups && canPersist() && pruneOldestStateBackup()) {
         if (!canPersist()) return false
         try {
-          storage.setItem(storageKey, serializedState)
+          storage.setItem(storageKey, serializedState, { canPersist })
           persisted = true
         } catch {}
       }
     }
     if (!persisted) return false
     return mapPersistenceResult(settleNativeWrite(state, serializedState, canPersist), acknowledged => {
-      if (acknowledged) {
-        onPersisted(state, { replacement: options.replaceIsland === true })
-        saveConfigCookie(state.config)
-        if (syncAnalytics) syncPersistedStateToAnalytics(state)
-      }
-      return acknowledged
+      return acknowledged && acknowledge(state, canPersist, { replacement: options.replaceIsland === true, syncAnalytics })
     })
   }
 

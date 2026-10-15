@@ -10,6 +10,46 @@ function fixture({ denied = false } = {}) {
   const options = { storageKey: 'profile', accessKey: 'access', keys: ['access','sync'], getPrimary: () => primary, getSecondary: () => secondary, capture: () => ({ profile: primary.getItem('profile') }) }
   return { values, sessionValues, options, workspace: createProfileRecoveryWorkspace(options) }
 }
+test('a native quota retry discards replaceable search metadata before activating recovery', () => {
+  const f = fixture()
+  f.values.set('search', 'replaceable search metadata')
+  const primary = f.options.getPrimary()
+  const set = primary.setItem
+  primary.setItem = (key, value) => {
+    if (key === 'profile' && f.values.has('search')) throw new DOMException('', 'QuotaExceededError')
+    set(key, value)
+  }
+  const workspace = createProfileRecoveryWorkspace({ ...f.options, discardableCacheKeys: ['search'] })
+  workspace.storage.setItem('profile', '{"watch":8,"language":"fr"}')
+  assert.equal(f.values.has('search'), false)
+  assert.equal(workspace.isActive(), false)
+  assert.equal(JSON.parse(f.values.get('profile')).watch, 8)
+  assert.equal(f.values.get('auth'), 'SECRET')
+})
+test('cache reclamation cannot retry a profile write after its activation fence is lost', () => {
+  const f = fixture()
+  f.values.set('search', 'replaceable metadata')
+  const primary = f.options.getPrimary()
+  const set = primary.setItem
+  primary.setItem = (key, value) => {
+    if (key === 'profile' && f.values.has('search')) throw new DOMException('', 'QuotaExceededError')
+    set(key, value)
+  }
+  let allowed = true
+  primary.removeItem = key => { f.values.delete(key); allowed = false }
+  const workspace = createProfileRecoveryWorkspace({ ...f.options, discardableCacheKeys: ['search'] })
+  const store = createStateStore({ storage: workspace.storage, storageKey: 'profile',
+    getRepository: () => workspace.isActive() ? workspace.repository : null,
+    normalizeLoadedState: () => false, normalizeStateBeforeSave: () => {},
+    createStateBackup: () => {}, pruneOldestStateBackup: () => false,
+    saveConfigCookie: () => {}, syncPersistedStateToAnalytics: () => {},
+    getLatestBackupState: () => null, loadConfigCookie: () => null, createDefaultStateFromConfig: () => ({}) })
+  const edit = store.loadState()
+  edit.watch = 8
+  assert.equal(store.saveState(edit, { backup: false }, () => allowed), false)
+  assert.equal(JSON.parse(f.values.get('profile')).watch, 1)
+  assert.equal(workspace.isActive(), false)
+})
 test('a backup failure transfers the current edit onto the acknowledged recovery baseline', () => {
   const f = fixture()
   const store = createStateStore({ storage: f.workspace.storage, storageKey: 'profile',
@@ -466,7 +506,7 @@ test('a peer ownership change during the final check keeps the edit in memory wi
     const observed = f.workspace.storage.getItem('access')
     if (++checks === 3) other.storage.setItem('access', '{"ownerId":"new-owner"}')
     return observed === '{"ownerId":null}'
-  } }), true)
+  } }), false)
   assert.equal(JSON.parse(f.values.get('profile_recovery_workspace_v1')).values.access, '{"ownerId":"new-owner"}')
   assert.equal(f.workspace.getTier(), 'memory')
   assert.equal(f.workspace.repository.snapshot().watch, 1)

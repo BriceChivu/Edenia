@@ -94,8 +94,12 @@ for (const failure of ['indexeddb', 'local-read', 'writes']) for (const chooseSa
       const report = JSON.parse(payload.properties.feedback_message.split('\n').slice(1).join('\n'))
       return report.operation === (failure === 'writes' ? 'save' : 'reconcile')
         && report.code === (failure === 'writes' ? 'storage-full' : 'storage-denied')
-        && (failure !== 'writes' || report.recovery === 'memory')
+        && (failure !== 'writes' || report.recovery === 'indexed-db')
     })).toBe(true)
+    if (failure === 'writes') {
+      const retained = await readRecoveryRecord(page, key)
+      expect(JSON.parse(retained.values[key]).anki['2026-10-10'].reviewed).toBe(chooseSaved ? 9 : 7)
+    }
     expect(JSON.stringify(captured)).not.toContain('PRIVATE')
     await page.evaluate(() => {
       window.blockConfirmationStorage = false
