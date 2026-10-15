@@ -2070,3 +2070,57 @@ func safe_ground_point(cell: Vector2i, animal := false) -> Vector2:
 		if walkable_point(point, animal):
 			return point
 	return Vector2.INF
+
+# Project a blocked walking click onto the nearest exposed rock boundary.
+# Filtering against all contacts keeps indented faces and overlapping soles solid.
+func walk_click_targets(point: Vector2) -> Array[Vector2]:
+	var patches: Array[PackedVector2Array] = []
+	for cell in decorations:
+		if decorations[cell].kind != "land_rock" or absf(height_at(cell) - surface_height(point)) > 1.0 or center(cell).distance_to(point) > 96:
+			continue
+		for contact in rock_contacts(int(decorations[cell].variant), false):
+			var patch: PackedVector2Array = contact.duplicate()
+			for index in patch.size():
+				patch[index] += center(cell)
+			patches.append(patch)
+	var lower_bound := 0.0
+	var inside := false
+	for patch in patches:
+		if not Geometry2D.is_point_in_polygon(point, patch):
+			continue
+		inside = true
+		var exit_distance := INF
+		for index in range(patch.size() - 1):
+			exit_distance = minf(exit_distance, point.distance_to(Geometry2D.get_closest_point_to_segment(point, patch[index], patch[index + 1])))
+		lower_bound = maxf(lower_bound, exit_distance)
+	if not inside:
+		return []
+	var probes: Array[Vector2] = []
+	for patch in patches:
+		for index in range(patch.size() - 1):
+			probes.append(Geometry2D.get_closest_point_to_segment(point, patch[index], patch[index + 1]))
+			probes.append(patch[index])
+	# Expanding a concave face by both soles produces overlapping convex parts.
+	# Their edge intersections can be the nearest exposed corner of the union.
+	for first in patches.size():
+		for second in range(first + 1, patches.size()):
+			for a in range(patches[first].size() - 1):
+				for b in range(patches[second].size() - 1):
+					var intersection = Geometry2D.segment_intersects_segment(patches[first][a], patches[first][a + 1], patches[second][b], patches[second][b + 1])
+					if intersection != null:
+						probes.append(intersection)
+	var targets: Array[Vector2] = []
+	var distance := INF
+	for probe in probes:
+		for offset in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN, Vector2(-1,-1), Vector2(-1,1), Vector2(1,-1), Vector2(1,1)]:
+			var candidate: Vector2 = probe + offset * 0.125
+			var delta := candidate.distance_squared_to(point)
+			if delta > distance + 0.001 or not walkable_point(candidate) or absf(surface_height(candidate) - surface_height(point)) > 1.0:
+				continue
+			if delta < distance - 0.001:
+				targets.clear()
+				distance = delta
+			targets.append(candidate)
+	# Only use this fast goal when it reaches the geometric lower bound.
+	# Shore edges or overlapping contacts can require a different approach.
+	return targets if sqrt(distance) <= lower_bound + 0.2 else []

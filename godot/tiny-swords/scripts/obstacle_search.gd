@@ -24,19 +24,33 @@ var current_point := Vector2.ZERO
 var current_cost := 0
 var edge := -1
 var expanded := 0
+var nearest := false
+var requested_target := Vector2.ZERO
+var closest_node := Vector2i.ZERO
+var closest_point := Vector2.ZERO
+var closest_distance := INF
+var closest_cost := 0
 
-func _init(world, origin: Vector2, target: Vector2, cells: Array, animal: bool, alternatives: Array) -> void:
+func _init(world, origin: Vector2, target: Vector2, cells: Array, animal: bool, alternatives: Array, allow_nearest := false) -> void:
 	layout = world.layout
 	bridges.assign(world.walking_bridges)
 	start = origin
 	moving_animal = animal
 	allowed.assign(cells)
-	for point in [target] + alternatives:
+	nearest = allow_nearest
+	requested_target = target
+	var choices: Array = [target] + alternatives
+	if nearest and not layout.walkable_point(target, animal):
+		choices = layout.walk_click_targets(target)
+	for point in choices:
 		if layout.walkable_point(point, animal):
 			targets.append(point)
 	if targets.is_empty():
-		done = true
-		return
+		if not nearest:
+			done = true
+			return
+		# An unreachable exact goal still guides the search of reachable grass.
+		targets.append(target)
 	for cell in layout.trees:
 		var footprint: PackedVector2Array = layout.tree_footprint(layout.tree_position(cell), layout.tree_types.get(cell, "tree"))
 		footprints.append(footprint)
@@ -61,6 +75,8 @@ func advance(deadline_usec: int) -> void:
 		# Check the clock between edges, rather than between whole expansions.
 		if edge < 0:
 			if heap.is_empty():
+				if nearest and closest_distance < INF and not closest_point.is_equal_approx(start):
+					finish(closest_node, closest_point)
 				done = true
 				return
 			var entry := pop()
@@ -71,15 +87,11 @@ func advance(deadline_usec: int) -> void:
 			expanded += 1
 			current_point = start if current == source else Layout.ORIGIN + Vector2(current) * 8
 			for point in targets:
-				if current_point.distance_squared_to(point) <= 144 and clear(current_point, point):
-					var node := current
-					while node != source:
-						result.append(Layout.ORIGIN + Vector2(node) * 8)
-						node = previous[node]
-					result.reverse()
-					result.append(point)
-					done = true
+				if current_point.distance_squared_to(point) <= 144 and (not nearest or layout.walkable_point(point, moving_animal)) and clear(current_point, point):
+					finish(current, point)
 					return
+			if nearest:
+				consider_closest(current, current_point, current_cost)
 			edge = 0
 		var next: Vector2i = current + Layout.NAV_STEPS[edge]
 		edge += 1
@@ -151,3 +163,37 @@ func clear(start: Vector2, end: Vector2) -> bool:
 		if not point_contacts.has(point): point_contacts[point] = layout.terrain_feet_free(point,moving_animal)
 		if not point_contacts[point]: return false
 	return true
+
+func finish(node: Vector2i, point: Vector2) -> void:
+	while node != source:
+		result.append(Layout.ORIGIN + Vector2(node) * 8)
+		node = previous[node]
+	result.reverse()
+	result.append(point)
+	done = true
+
+func consider_closest(node: Vector2i, point: Vector2, cost: int) -> void:
+	var distance := point.distance_to(requested_target)
+	if distance > closest_distance + 12.0:
+		return
+	# Refine the last grid step continuously up to the collision boundary.
+	# Every candidate stays connected to an already reached navigation node.
+	var end := point.move_toward(requested_target, 12.0)
+	var low := 0.0
+	var high := 1.0
+	if clear(point, end):
+		low = 1.0
+	else:
+		for iteration in range(8):
+			var middle := (low + high) * 0.5
+			if clear(point, point.lerp(end, middle)):
+				low = middle
+			else:
+				high = middle
+	var candidate := point.lerp(end, low)
+	var remaining := candidate.distance_to(requested_target)
+	if remaining < closest_distance - 0.001 or (absf(remaining - closest_distance) <= 0.001 and cost < closest_cost):
+		closest_distance = remaining
+		closest_node = node
+		closest_point = candidate
+		closest_cost = cost

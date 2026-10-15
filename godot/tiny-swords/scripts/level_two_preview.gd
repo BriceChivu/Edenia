@@ -890,7 +890,7 @@ func handle_world_click(event: InputEvent) -> void:
 			var bridge := Layout.BridgeRules.hit(layout, point)
 			if layout.bridges.has(bridge):
 				point = layout.center(cell) - Vector2(0, layout.height_at(cell))
-			walk_on_land(cell, point + Vector2(0, ground_height(Vector2(point.x, layout.center(cell).y))))
+			walk_on_land(cell, point + Vector2(0, ground_height(Vector2(point.x, layout.center(cell).y))), true)
 		else:
 			fall_into_water(point)
 
@@ -1296,7 +1296,7 @@ func navigation_budget() -> int:
 	return maxi(0, NAVIGATION_BUDGET_USEC - navigation_spent_usec)
 
 
-func walk_on_land(cell: Vector2i, point: Vector2) -> void:
+func walk_on_land(cell: Vector2i, point: Vector2, nearest_click := false) -> void:
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
 	harvesting.cancel()
@@ -1305,7 +1305,7 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 		water_phase = WaterPhase.READY
 		waypoints.clear()
 		pawn.walk_to(pawn.position)
-	if not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
+	if not nearest_click and not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
 		waypoints = land_route(pawn.position, cell, point)
 		if not waypoints.is_empty():
 			pawn.walk_to(waypoints.pop_front())
@@ -1317,7 +1317,7 @@ func walk_on_land(cell: Vector2i, point: Vector2) -> void:
 	pawn.walk_to(origin)
 	navigation_pending = true
 	navigation_request_generation = generation
-	var route: Array[Vector2] = await walking_route(origin, cell, point)
+	var route: Array[Vector2] = await walking_route(origin, cell, point, nearest_click)
 	if generation != movement_generation:
 		if navigation_request_generation == generation:
 			navigation_pending = false
@@ -1351,19 +1351,28 @@ func land_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[V
 		candidates = tree_navigation_path(start_point, target)
 	return smooth_land_route(start_point, candidates)
 
-func walking_route(start_point: Vector2, cell: Vector2i, point: Vector2) -> Array[Vector2]:
-	if not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
-		return land_route(start_point, cell, point)
-	var request := prepare_land_route(start_point, cell, point)
+func walking_route(start_point: Vector2, cell: Vector2i, point: Vector2, nearest_click := false) -> Array[Vector2]:
 	var empty: Array[Vector2] = []
-	if request.is_empty():
-		return empty
-	var target: Vector2 = request.target
-	var candidates: Array[Vector2] = request.candidates
-	if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty() or layout.has_land_rocks():
-		if clear_segment(start_point, target):
-			return [target]
-		candidates = await bounded_tree_navigation_path(start_point, target)
+	var candidates: Array[Vector2] = []
+	if nearest_click:
+		# Retain bridge lane preparation; an unreachable target can still have
+		# a useful closest approach on the pawn's connected part of the island.
+		prepare_land_route(start_point, cell, point)
+		if layout.walkable_point(point) and clear_segment(start_point, point):
+			return [point]
+		candidates = await bounded_tree_navigation_path(start_point, point, true)
+	else:
+		if not bool(ProjectSettings.get_setting("gameplay/bounded_obstacle_search_enabled", false)):
+			return land_route(start_point, cell, point)
+		var request := prepare_land_route(start_point, cell, point)
+		if request.is_empty():
+			return empty
+		var target: Vector2 = request.target
+		candidates = request.candidates
+		if not layout.trees.is_empty() or not layout.log_piles.is_empty() or not layout.houses.is_empty() or layout.has_land_rocks():
+			if clear_segment(start_point, target):
+				return [target]
+			candidates = await bounded_tree_navigation_path(start_point, target)
 	# Smoothing is also budgeted; a failed long search cannot shift its stall
 	# into a large synchronous list of line-of-sight checks.
 	var generation := movement_generation
@@ -1457,11 +1466,11 @@ func tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[
 		search.advance(Time.get_ticks_usec() + 1000000)
 	return search.result
 
-func bounded_tree_navigation_path(start: Vector2, target: Vector2) -> Array[Vector2]:
+func bounded_tree_navigation_path(start: Vector2, target: Vector2, nearest_click := false) -> Array[Vector2]:
 	var request_started := Time.get_ticks_usec()
 	var work_usec := 0
 	var max_slice_usec := 0
-	var search = ObstacleSearch.new(self, start, target, [], false, [])
+	var search = ObstacleSearch.new(self, start, target, [], false, [], nearest_click)
 	var generation := movement_generation
 	var geometry := navigation_signature()
 	var was_editing := editing

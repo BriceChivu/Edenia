@@ -1244,7 +1244,12 @@ Bushes remain traversable: actors behind their lower contact edge appear behind
 the foliage and actors beyond it appear in front. New placements and old saved
 animal positions settle outside rock faces on their existing grass tile.
 Focused checks: `res://tests/rock_contacts.gd`, `res://tests/land_rock_depth.gd`,
-and `res://tests/bush_depth.gd`. Sheep and chickens share grass with
+and `res://tests/bush_depth.gd`. Ordinary walking clicks retain their exact
+reachable destination. A blocked click approaches the closest reachable safe
+position instead of being ignored; disconnected grass approaches the shore of
+the pawn's connected island. Movement remains bounded by the same foot contacts
+and can be cancelled with another click. Pickup, harvesting and house work keep
+their exact arrival requirements. Focused check: `res://tests/blocked_walk_click.gd`. Sheep and chickens share grass with
 existing scenery, preserving it during placement and pickup. Conflicting scenery is cleared by
 committed edits; previews use the same rules. Player-built objects retain their
 normal protection. Focused check: `res://tests/scenery_placement.gd`.
