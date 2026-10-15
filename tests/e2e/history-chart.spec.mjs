@@ -119,12 +119,17 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   const count = commits.length
   await page.mouse.move(rect.x + rect.width * .5, rect.y + 100)
   await page.mouse.down()
+  await expect(plot).toHaveClass(/is-dragging/)
   await page.mouse.move(rect.x + rect.width * .5 + 75, rect.y + 100, { steps: 12 })
+  await expect.poll(() => chart.getAttribute('data-chart-start')).not.toBe(before)
   await page.mouse.up()
+  await expect(plot).not.toHaveClass(/is-dragging/)
   await expect.poll(() => chart.getAttribute('data-chart-start')).not.toBe(before)
   await page.mouse.move(rect.x + rect.width * .5, rect.y + rect.height - 24)
   await page.mouse.down()
+  await expect(plot).toHaveClass(/is-dragging/)
   await page.mouse.move(rect.x + rect.width * .5 + 65, rect.y + rect.height - 24, { steps: 12 })
+  await expect.poll(() => span(chart)).toBeCloseTo(initialSpan * Math.exp(-65 / 180), 3)
   await page.mouse.up()
   // WebKit can deliver native drag events after mouse.up resolves. Wait for
   // release and the full axis stretch, rather than sampling an intermediate
