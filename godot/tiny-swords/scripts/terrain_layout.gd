@@ -55,6 +55,8 @@ var bridges_enabled := BridgeRules.ENABLED
 var bridges: Dictionary = {}
 var free_house_grass := 0
 var houses: Dictionary = {} # Cell -> four-way facing.
+var pawn_color := 0
+var house_colors: Dictionary = {}
 var house_offsets: Dictionary = {} # Cell -> chosen ground-plane offset.
 var house_free_tiles: Dictionary = {} # House anchor -> its removable free foundation tiles.
 var chickens: Array[Vector2] = [] # Ground-plane positions, like sheep.
@@ -351,9 +353,7 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 func can_edit_rules(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO, occupied_position: Vector2 = Vector2.INF, house_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not unlocked or not in_bounds(cell):
 		return false
-	if log_piles.has(cell):
-		return false
-	if tool == "remove" and cells.get(cell) == "stairs" and log_piles.has(cell + stair_direction(cell)):
+	if log_piles.has(cell) and tool != "remove":
 		return false
 	if tool == "house":
 		if level < 5:
@@ -365,9 +365,9 @@ func can_edit_rules(cell: Vector2i, tool: String, occupied: Vector2i, ground_hei
 		if not houses.has(owner) and cell in house_free_tiles[owner]:
 			return false
 	if tool == "chicken":
-		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell, false, true) and terrain_feet_free(center(cell), true) and cell != occupied
+		return level >= 2 and stock.chicken > 0 and asset_ground_free(cell, false, true) and safe_ground_point(cell, true).is_finite() and cell != occupied
 	if tool == "sheep":
-		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell, false, true) and terrain_feet_free(center(cell), true) and cell != occupied
+		return level >= 5 and stock.sheep > 0 and asset_ground_free(cell, false, true) and safe_ground_point(cell, true).is_finite() and cell != occupied
 	if tool != "tree" and not (tool == "remove" and trees.has(cell)) and house_owner(cell) != Vector2i(999, 999):
 		return tool == "remove" and house_refund_cell(house_owner(cell), occupied) != Vector2i(999, 999)
 	# Animals can share a tree's grass tile. Changing an existing tree's
@@ -519,7 +519,7 @@ func normalize_ground_continuations() -> void:
 		for index in sheep.size():
 			if cell_at(sheep[index]) == flat:
 				sheep[index] += Vector2(0, SIZE)
-		for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, house_offsets, flora, decorations]:
+		for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, house_colors, house_offsets, flora, decorations]:
 			if records.has(flat):
 				records[base] = records[flat]
 				records.erase(flat)
@@ -817,7 +817,7 @@ func settle_terrain_contacts() -> void:
 		var animals: Array[Vector2] = sheep if kind == "sheep" else chickens
 		for index in range(animals.size() - 1, -1, -1):
 			var original := animals[index]
-			if terrain_feet_free(original, true):
+			if terrain_feet_free(original, true) and not rocks_block_segment(original, original, true):
 				continue
 			var best := Vector2.INF
 			var distance := INF
@@ -837,6 +837,8 @@ func settle_terrain_contacts() -> void:
 
 func walkable_point(point: Vector2, moving_sheep: bool = false) -> bool:
 	if not terrain_feet_free(point, moving_sheep):
+		return false
+	if rocks_block_segment(point, point, moving_sheep):
 		return false
 	for cell in trees:
 		if tree_blocks_point(tree_position(cell), point, tree_types.get(cell, "tree")):
@@ -904,10 +906,11 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 func terrain_edit_preview(cell: Vector2i, tool: String, ground_height: float = -1):
 	var proposed = get_script().new()
 	proposed.skip_terrain_contact_validation = true
-	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build"]:
+	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_colors", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build"]:
 		proposed.set(field, get(field).duplicate(true))
 	proposed.chickens = chickens.duplicate()
 	proposed.sheep = sheep.duplicate()
+	proposed.pawn_color = pawn_color
 	proposed.level = level
 	proposed.bridges_enabled = bridges_enabled
 	proposed.manual_ground_elevation = manual_ground_elevation
@@ -937,7 +940,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			prune_decorations()
 		return true
 	if tool == "chicken":
-		chickens.append(center(cell))
+		chickens.append(safe_ground_point(cell, true))
 		stock.chicken -= 1
 		return true
 	if tool == "remove" and (chicken_at(cell) >= 0):
@@ -945,12 +948,13 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		stock.chicken += 1
 		return true
 	if tool == "sheep":
-		sheep.append(center(cell))
+		sheep.append(safe_ground_point(cell, true))
 		stock.sheep -= 1
 		return true
 	if tool == "remove" and not trees.has(cell) and houses.has(cell):
 		var refund := house_refund_cell(cell, occupied)
 		houses.erase(cell)
+		house_colors.erase(cell)
 		house_offsets.erase(cell)
 		for square in house_free_tiles.get(cell, []):
 			cells.erase(square)
@@ -992,9 +996,11 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			if cells[cell] == "stairs":
 				var landing := cell + stair_direction(cell)
 				if not landing_shared_by(landing, cell):
+					discard_logs(landing)
 					flora.erase(landing)
 					cells.erase(landing)
 					elevations.erase(landing)
+			discard_logs(cell)
 			stock[cells[cell]] += 1
 			stair_directions.erase(cell)
 			flora.erase(cell)
@@ -1028,7 +1034,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 				# shifting their owner would leave a diagonal saved reference.
 				if decorations.has(cell) and decorations[cell].kind in DecorationRules.WATER_KINDS:
 					decorations.erase(cell)
-				for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, house_offsets, flora, decorations]:
+				for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, house_colors, house_offsets, flora, decorations]:
 					if records.has(cell):
 						records[target] = records[cell]
 						records.erase(cell)
@@ -1120,7 +1126,12 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 32, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 33, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	saved.pawn_color = pawn_color
+	saved.house_colors = []
+	for cell in house_colors:
+		if houses.has(cell):
+			saved.house_colors.append([cell.x, cell.y, house_colors[cell]])
 	saved.houses = []
 	for cell in houses:
 		var offset: Vector2 = house_offsets.get(cell, Vector2.ZERO)
@@ -1163,7 +1174,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
@@ -1582,6 +1593,22 @@ func restore(data: Dictionary) -> bool:
 		var owner := Vector2i(int(next_build.x), int(next_build.y))
 		if next_build.x != owner.x or next_build.y != owner.y or next_houses.get(owner, -1) != 1 or next_build.started_at <= 0 or next_bundle != 0:
 			return false
+	var next_pawn_color = data.get("pawn_color", 0)
+	if not valid_color(next_pawn_color) or not data.get("house_colors", []) is Array:
+		return false
+	var next_house_colors := {}
+	for record in data.get("house_colors", []):
+		if not record is Array or record.size() != 3 or not valid_color(record[2]):
+			return false
+		for coordinate in record.slice(0, 2):
+			if not (coordinate is int or coordinate is float) or not is_finite(float(coordinate)) or coordinate != floorf(coordinate):
+				return false
+		var owner := Vector2i(int(record[0]), int(record[1]))
+		if not next_houses.has(owner) or next_house_colors.has(owner):
+			return false
+		next_house_colors[owner] = int(record[2])
+	pawn_color = int(next_pawn_color)
+	house_colors = next_house_colors
 	chickens = next_chickens
 	chicken_release_at = float(next_chicken_release)
 	playground_grants = next_grants
@@ -1953,3 +1980,147 @@ func pick_house_bundle(cell: Vector2i) -> bool:
 	house_bundle = HOUSE_LOG_COST
 	house_bundle_source = cell
 	return true
+
+static func valid_color(value) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and value == floorf(value) and value >= 0 and value < 5
+
+func discard_logs(cell: Vector2i) -> int:
+	var amount := int(log_piles.get(cell, 0))
+	log_piles.erase(cell)
+	resources.wood -= amount
+	return amount
+
+func lose_carried_logs() -> void:
+	resources.wood -= carried_wood
+	carried_wood = 0
+
+# Front faces traced in the original 64px PNGs. The top facet is behind
+# this contact polygon, not walkable rock: actors there remain on the grass.
+const ROCK_FACES := [
+	[Vector2(17.5, 40.5), Vector2(30.5, 39), Vector2(45, 44.5), Vector2(29.5, 49)],
+	[Vector2(9, 39), Vector2(18, 35.5), Vector2(43.5, 35.5), Vector2(54.5, 43.5), Vector2(37.5, 49), Vector2(15, 49)],
+	[Vector2(16, 37), Vector2(48.5, 35.5), Vector2(50, 42.5), Vector2(42, 46), Vector2(20, 46)],
+	[Vector2(4.5, 31.5), Vector2(13, 23), Vector2(28, 32), Vector2(54, 32), Vector2(58, 44), Vector2(47, 44), Vector2(37.5, 51.5), Vector2(20, 51.5)],
+]
+var rock_contact_cache: Dictionary = {}
+
+func rock_footprint(cell: Vector2i) -> PackedVector2Array:
+	var patch := PackedVector2Array(ROCK_FACES[clampi(int(decorations[cell].variant), 1, 4) - 1])
+	for index in patch.size():
+		patch[index] += center(cell) - Vector2(32, 32)
+	return patch
+
+static func rock_depth_y(patch: PackedVector2Array, x: float) -> float:
+	var left := INF
+	var right := -INF
+	for point in patch:
+		left = minf(left, point.x)
+		right = maxf(right, point.x)
+	x = clampf(x, left + 0.01, right - 0.01)
+	var edge := INF
+	for index in patch.size():
+		var a := patch[index]
+		var b := patch[(index + 1) % patch.size()]
+		if x >= minf(a.x, b.x) and x <= maxf(a.x, b.x) and a.x != b.x:
+			edge = minf(edge, lerpf(a.y, b.y, (x - a.x) / (b.x - a.x)))
+	return edge
+
+func rock_contacts(variant: int, animal: bool) -> Array:
+	var key := Vector2i(clampi(variant, 1, 4) - 1, int(animal))
+	if not rock_contact_cache.has(key):
+		# Preserve the indented top edges when expanding by the two soles.
+		var contacts := []
+		for face in Geometry2D.decompose_polygon_in_convex(PackedVector2Array(ROCK_FACES[key.x])):
+			var points := PackedVector2Array()
+			for vertex in face:
+				for offset in [Vector2(-7, -2 if animal else -7), Vector2(7, -2 if animal else -7), Vector2(7, 2 if animal else 7), Vector2(-7, 2 if animal else 7)]:
+					points.append(vertex + offset - Vector2(32, 32))
+			contacts.append(Geometry2D.convex_hull(points))
+		rock_contact_cache[key] = contacts
+	return rock_contact_cache[key]
+
+func rocks_block_segment(start: Vector2, end: Vector2, animal := false) -> bool:
+	for cell in decorations:
+		if decorations[cell].kind != "land_rock":
+			continue
+		var origin := center(cell)
+		if maxf(start.x, end.x) < origin.x - 40 or minf(start.x, end.x) > origin.x + 40 or maxf(start.y, end.y) < origin.y - 40 or minf(start.y, end.y) > origin.y + 40:
+			continue
+		if absf(surface_height(start) - height_at(cell)) > 1.0 and absf(surface_height(end) - height_at(cell)) > 1.0:
+			continue
+		var local_start := start - origin
+		var local_end := end - origin
+		for patch in rock_contacts(int(decorations[cell].variant), animal):
+			if Geometry2D.is_point_in_polygon(local_start, patch) or Geometry2D.is_point_in_polygon(local_end, patch):
+				return true
+			for index in patch.size():
+				if Geometry2D.segment_intersects_segment(local_start, local_end, patch[index], patch[(index + 1) % patch.size()]) != null:
+					return true
+	return false
+
+func has_land_rocks() -> bool:
+	for item in decorations.values():
+		if item.kind == "land_rock":
+			return true
+	return false
+
+func safe_ground_point(cell: Vector2i, animal := false) -> Vector2:
+	for offset in [Vector2.ZERO, Vector2(0, -16), Vector2(-20, -16), Vector2(20, -16), Vector2(0, 24), Vector2(-20, 24), Vector2(20, 24)]:
+		var point: Vector2 = center(cell) + offset
+		if walkable_point(point, animal):
+			return point
+	return Vector2.INF
+
+# Project a blocked walking click onto the nearest exposed rock boundary.
+# Filtering against all contacts keeps indented faces and overlapping soles solid.
+func walk_click_targets(point: Vector2) -> Array[Vector2]:
+	var patches: Array[PackedVector2Array] = []
+	for cell in decorations:
+		if decorations[cell].kind != "land_rock" or absf(height_at(cell) - surface_height(point)) > 1.0 or center(cell).distance_to(point) > 96:
+			continue
+		for contact in rock_contacts(int(decorations[cell].variant), false):
+			var patch: PackedVector2Array = contact.duplicate()
+			for index in patch.size():
+				patch[index] += center(cell)
+			patches.append(patch)
+	var lower_bound := 0.0
+	var inside := false
+	for patch in patches:
+		if not Geometry2D.is_point_in_polygon(point, patch):
+			continue
+		inside = true
+		var exit_distance := INF
+		for index in range(patch.size() - 1):
+			exit_distance = minf(exit_distance, point.distance_to(Geometry2D.get_closest_point_to_segment(point, patch[index], patch[index + 1])))
+		lower_bound = maxf(lower_bound, exit_distance)
+	if not inside:
+		return []
+	var probes: Array[Vector2] = []
+	for patch in patches:
+		for index in range(patch.size() - 1):
+			probes.append(Geometry2D.get_closest_point_to_segment(point, patch[index], patch[index + 1]))
+			probes.append(patch[index])
+	# Expanding a concave face by both soles produces overlapping convex parts.
+	# Their edge intersections can be the nearest exposed corner of the union.
+	for first in patches.size():
+		for second in range(first + 1, patches.size()):
+			for a in range(patches[first].size() - 1):
+				for b in range(patches[second].size() - 1):
+					var intersection = Geometry2D.segment_intersects_segment(patches[first][a], patches[first][a + 1], patches[second][b], patches[second][b + 1])
+					if intersection != null:
+						probes.append(intersection)
+	var targets: Array[Vector2] = []
+	var distance := INF
+	for probe in probes:
+		for offset in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN, Vector2(-1,-1), Vector2(-1,1), Vector2(1,-1), Vector2(1,1)]:
+			var candidate: Vector2 = probe + offset * 0.125
+			var delta := candidate.distance_squared_to(point)
+			if delta > distance + 0.001 or not walkable_point(candidate) or absf(surface_height(candidate) - surface_height(point)) > 1.0:
+				continue
+			if delta < distance - 0.001:
+				targets.clear()
+				distance = delta
+			targets.append(candidate)
+	# Only use this fast goal when it reaches the geometric lower bound.
+	# Shore edges or overlapping contacts can require a different approach.
+	return targets if sqrt(distance) <= lower_bound + 0.2 else []

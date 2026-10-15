@@ -1,5 +1,15 @@
 extends RefCounted
 
+const COLORS := ["Blue", "Red", "Purple", "Yellow", "Black"]
+static var colored_houses: Dictionary = {}
+
+static func house_texture(layout, cell: Vector2i, facing: int) -> Texture2D:
+	var color: int = layout.house_colors.get(cell, 0)
+	var key := Vector2i(color, facing)
+	if not colored_houses.has(key):
+		colored_houses[key] = load("res://Tiny Swords (Free Pack)/Buildings/%s Buildings/House%d.png" % [COLORS[color], [1, 2, 3, 2][facing]])
+	return colored_houses[key]
+
 const HOUSE_TEXTURES := [
 	preload("res://Tiny Swords (Free Pack)/Buildings/Blue Buildings/House1.png"),
 	preload("res://Tiny Swords (Free Pack)/Buildings/Blue Buildings/House2.png"),

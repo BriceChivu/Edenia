@@ -73,3 +73,29 @@ func _physics_process(delta: float) -> void:
 		if tile_step_allowed(destination):
 			position = destination
 		sprite.play("chicken_idle" if carrying_chicken else ("wood_idle" if carrying_wood else ("axe_idle" if axe_equipped else "idle")))
+
+var current_color := -1
+var color_frames: Dictionary = {}
+
+func set_color(color: int) -> void:
+	if current_color == color:
+		return
+	if color_frames.is_empty():
+		color_frames[0] = sprite.sprite_frames
+	if not color_frames.has(color):
+		var frames: SpriteFrames = color_frames.get(0, sprite.sprite_frames).duplicate(true)
+		for animation in frames.get_animation_names():
+			for index in frames.get_frame_count(animation):
+				var atlas = frames.get_frame_texture(animation, index)
+				if atlas is AtlasTexture and atlas.atlas.resource_path.contains("/Blue Units/"):
+					var replacement: AtlasTexture = atlas.duplicate()
+					replacement.atlas = load(atlas.atlas.resource_path.replace("/Blue Units/", "/%s Units/" % preload("res://scripts/level_five_art.gd").COLORS[color]))
+					frames.set_frame(animation, index, replacement, frames.get_frame_duration(animation, index))
+		color_frames[color] = frames
+	var animation := sprite.animation
+	var frame := sprite.frame
+	var progress := sprite.frame_progress
+	sprite.sprite_frames = color_frames[color]
+	sprite.animation = animation
+	sprite.set_frame_and_progress(frame, progress)
+	current_color = color
