@@ -1,3 +1,4 @@
+import { selectCiScope } from '../../scripts/ci-scope.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -26,10 +27,9 @@ test('discovery validates generic and discovery-specific contracts before publis
 })
 
 test('CI routes discovery pipeline changes through catalog and contract checks', () => {
-  const scopeRule = ciWorkflow.match(
-    /\.github\/workflows\/discover-language-channels\.yml\|scripts\/discover-language-channels\.mjs\|scripts\/validate-discovered-channel-catalog\.mjs\)[\s\S]*?;;/
-  )?.[0] || ''
-
-  assert.match(scopeRule, /run_catalogs=true/)
-  assert.match(scopeRule, /run_contracts=true/)
+  for (const file of ['.github/workflows/discover-language-channels.yml', 'scripts/discover-language-channels.mjs', 'scripts/validate-discovered-channel-catalog.mjs']) {
+    const scope = selectCiScope([file])
+    assert.equal(scope.catalogs, true)
+    assert.equal(scope.contracts, true)
+  }
 })

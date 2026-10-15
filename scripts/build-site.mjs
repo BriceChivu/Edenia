@@ -1,5 +1,5 @@
 import { generateTinySwordsProgression } from './tiny-swords-progression.mjs'
-import { buildTinySwords } from './build-tiny-swords.mjs'
+import { buildTinySwords, reuseTinySwords } from './build-tiny-swords.mjs'
 import { buildProductionExperience } from './build-production-experience.mjs'
 import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
 import { execFileSync } from 'node:child_process'
@@ -68,7 +68,10 @@ const releaseCommit = getReleaseCommit({
 const assetVersion = getReleaseAssetVersion({ releaseCommit })
 const tinySwordsEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_ENABLED, 'EDENIA_TINY_SWORDS_ENABLED')
 const tinySwordsPublicEnabled = parseRuntimeConfigFlag(process.env.EDENIA_TINY_SWORDS_PUBLIC_ENABLED, 'EDENIA_TINY_SWORDS_PUBLIC_ENABLED')
-const gameParent = await buildTinySwords(outputDir)
+const validateGame = parseRuntimeConfigFlag(process.env.EDENIA_VALIDATE_GAME ?? 'true', 'EDENIA_VALIDATE_GAME')
+const gameParent = process.env.EDENIA_GAME_ARTIFACT_DIR
+  ? await reuseTinySwords(outputDir, resolve(process.env.EDENIA_GAME_ARTIFACT_DIR))
+  : await buildTinySwords(outputDir, { validate: validateGame })
 let html = await readFile(resolve(projectRoot, 'index.html'), 'utf8')
 html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}" defer></script>`)
 html = html.replace('<!-- TINY_SWORDS_CONFLICT_PREVIEWS -->', `<script src="${gameParent.replace('parent.js', 'conflict-previews.js')}" defer></script>`)

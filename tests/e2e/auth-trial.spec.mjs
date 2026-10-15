@@ -895,7 +895,7 @@ for (const indexedDb of [false, true]) {
 }
 
 test('a changed background head waits for a pending IndexedDB checkpoint at the interaction boundary', async ({ page }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   test.setTimeout(60000)
   const fixture = await owned(page, { indexedDb: true, engine: false })
   await page.goto('./?internal_test=1')

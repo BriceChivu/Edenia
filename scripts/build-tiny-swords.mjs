@@ -19,7 +19,18 @@ async function godotExecutable() {
   throw new Error('Install the pinned Godot toolchain with npm run setup:godot, or set GODOT_BIN')
 }
 
-export async function buildTinySwords(outputDir) {
+export async function reuseTinySwords(outputDir, artifactDir) {
+  const releases = await readdir(resolve(artifactDir, GAME_DIRECTORY))
+  if (releases.length !== 1 || !/^[a-f0-9]{64}$/.test(releases[0])) throw new Error('Expected one CI game release')
+  const manifest = JSON.parse(await readFile(resolve(artifactDir, GAME_DIRECTORY, releases[0], 'release.json'), 'utf8'))
+  if (manifest.version !== releases[0] || manifest.godotVersion !== GODOT_VERSION) throw new Error('Incompatible CI game release')
+  for (const directory of [GAME_DIRECTORY, 'tiny-swords-engine', 'tiny-swords-decoder']) {
+    await cp(resolve(artifactDir, directory), resolve(outputDir, directory), { recursive: true })
+  }
+  return `${GAME_DIRECTORY}/${releases[0]}/parent.js`
+}
+
+export async function buildTinySwords(outputDir, { validate = true } = {}) {
   const source = resolve('godot/tiny-swords')
   const project = resolve('.cache/tiny-swords-xp/project')
   const staging = resolve('.cache/tiny-swords-xp/export')
@@ -37,8 +48,7 @@ export async function buildTinySwords(outputDir) {
   const config = await readFile(resolve(project, 'project.godot'), 'utf8')
   if (!config.includes('run/main_scene="res://scenes/level_two_preview.tscn"')) throw new Error('Unexpected source main scene; review the integration entry point')
   await writeFile(resolve(project, 'project.godot'), config.replace('run/main_scene="res://scenes/level_two_preview.tscn"', 'run/main_scene="res://scenes/xp_preview.tscn"'))
-  for (const args of [
-    ['--editor', '--import'],
+  const validationScripts = [
     ['--script', resolve('tests/godot/tiny-swords-export-contract.gd')],
     ['--script', 'res://tools/generate_cloud_metadata.gd', '--', '--check'],
     ['--script', 'res://tests/cloud_metadata.gd'],
@@ -53,7 +63,10 @@ export async function buildTinySwords(outputDir) {
     ['--script', 'res://tests/animal_checkpoint_saves.gd'],
     ['--script', 'res://tests/sync_semantics.gd'],
     ['--script', 'res://tests/conflict_previews.gd'],
-    ['--script', 'res://tests/progression.gd'],
+    ['--script', 'res://tests/progression.gd']]
+  for (const args of [
+    ['--editor', '--import'],
+    ...(validate ? validationScripts : []),
     ['--export-release', 'Web', resolve(staging, 'index.html')]]) {
     const result = spawnSync(godot, ['--headless', '--path', project, ...args], { stdio: 'inherit' })
     if (result.error || result.status !== 0) throw result.error || new Error('Godot export/check failed')

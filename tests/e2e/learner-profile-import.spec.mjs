@@ -393,131 +393,132 @@ async function selectImportFile(page, envelope, name) {
   })
 }
 
-test('confirmed same- and cross-account imports replace only after protection', async ({
-  page
-}, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  const crossAccount = testInfo.project.name === 'phone-small'
-  const sourceOwnerId = crossAccount ? OTHER_USER_ID : USER_ID
-  const {
-    importedEnvelope,
-    importRequests,
-    rollbackRequests
-  } = await prepareImportPage(page, { sourceOwnerId })
+for (const crossAccount of [false, true]) {
+  test(`confirmed ${crossAccount ? 'cross' : 'same'}-account import replaces only after protection`, async ({
+    page
+  }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
+    const sourceOwnerId = crossAccount ? OTHER_USER_ID : USER_ID
+    const {
+      importedEnvelope,
+      importRequests,
+      rollbackRequests
+    } = await prepareImportPage(page, { sourceOwnerId })
 
-  expect(JSON.stringify(importedEnvelope)).not.toContain(sourceOwnerId)
-  expect(JSON.stringify(importedEnvelope)).not.toContain('secret-')
-  expect(JSON.stringify(importedEnvelope)).not.toContain('password-')
+    expect(JSON.stringify(importedEnvelope)).not.toContain(sourceOwnerId)
+    expect(JSON.stringify(importedEnvelope)).not.toContain('secret-')
+    expect(JSON.stringify(importedEnvelope)).not.toContain('password-')
 
-  await page.locator('[data-settings-shell-action="open"]').click()
-  await selectImportFile(
-    page,
-    importedEnvelope,
-    crossAccount ? 'another-account.json' : 'this-account.json'
-  )
+    await page.locator('[data-settings-shell-action="open"]').click()
+    await selectImportFile(
+      page,
+      importedEnvelope,
+      crossAccount ? 'another-account.json' : 'this-account.json'
+    )
 
-  const warning = page.getByRole('alertdialog')
-  await expect(warning).toBeVisible()
-  await expect(warning).toContainText('does not merge progress automatically')
-  await expect(warning).toContainText(
-    crossAccount ? 'another-account.json' : 'this-account.json'
-  )
-  await expect(page.getByRole('button', {
-    name: 'Protect current progress and replace'
-  })).toBeFocused()
-  expect(importRequests).toHaveLength(0)
-  const beforeConfirmation = await page.evaluate(stateKey => (
-    JSON.parse(localStorage.getItem(stateKey)).config.locale
-  ), STATE_KEY)
-  expect(beforeConfirmation).toBe('en')
+    const warning = page.getByRole('alertdialog')
+    await expect(warning).toBeVisible()
+    await expect(warning).toContainText('does not merge progress automatically')
+    await expect(warning).toContainText(
+      crossAccount ? 'another-account.json' : 'this-account.json'
+    )
+    await expect(page.getByRole('button', {
+      name: 'Protect current progress and replace'
+    })).toBeFocused()
+    expect(importRequests).toHaveLength(0)
+    const beforeConfirmation = await page.evaluate(stateKey => (
+      JSON.parse(localStorage.getItem(stateKey)).config.locale
+    ), STATE_KEY)
+    expect(beforeConfirmation).toBe('en')
 
-  const geometry = await warning.evaluate(element => {
-    const rect = element.getBoundingClientRect()
-    return {
-      bottom: rect.bottom,
-      documentWidth: document.documentElement.scrollWidth,
-      left: rect.left,
-      right: rect.right,
-      top: rect.top,
-      viewportHeight: window.innerHeight,
-      viewportWidth: document.documentElement.clientWidth
-    }
+    const geometry = await warning.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      return {
+        bottom: rect.bottom,
+        documentWidth: document.documentElement.scrollWidth,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        viewportHeight: window.innerHeight,
+        viewportWidth: document.documentElement.clientWidth
+      }
+    })
+    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
+    expect(geometry.left).toBeGreaterThanOrEqual(0)
+    expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth)
+    expect(geometry.top).toBeLessThan(geometry.viewportHeight)
+
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(warning).toBeHidden()
+    await expect(page.locator(
+      '[data-settings-sync-action="choose-file"]'
+    )).toBeFocused()
+    expect(importRequests).toHaveLength(0)
+
+    await selectImportFile(
+      page,
+      importedEnvelope,
+      crossAccount ? 'another-account.json' : 'this-account.json'
+    )
+    await page.getByRole('button', {
+      name: 'Protect current progress and replace'
+    }).click()
+
+    await expect.poll(() => importRequests.length).toBe(1)
+    expect(rollbackRequests).toHaveLength(0)
+    expect(JSON.stringify(importRequests[0].p_envelope)).not.toContain(
+      sourceOwnerId
+    )
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+    const stored = await page.evaluate(({ stateKey, syncKey }) => ({
+      state: JSON.parse(localStorage.getItem(stateKey)),
+      sync: JSON.parse(localStorage.getItem(syncKey))
+    }), { stateKey: STATE_KEY, syncKey: SYNC_KEY })
+    expect(stored.state.config.locale).toBe('fr')
+    expect(stored.state.learnerProfile.languages).toEqual(['japanese'])
+    // Activity history is disposable and byte-bounded; imports retain the exact
+    // newest prefix of the source history.
+    const retainedActivity = stored.state.activityLog
+    expect(retainedActivity.length).toBeGreaterThan(0)
+    expect(retainedActivity.length).toBeLessThan(500)
+    expect(JSON.stringify(retainedActivity).length * 2).toBeLessThanOrEqual(
+      ACTIVITY_LOG_BYTE_LIMIT
+    )
+    expect(retainedActivity).toEqual(importedEnvelope.profile.activityLog
+      .toSorted((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, retainedActivity.length))
+    expect(stored.sync).toMatchObject({
+      generation: 2,
+      ownerId: USER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null
+    })
+    expect(stored.sync.acceptedRevision).toBeGreaterThanOrEqual(6)
+
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-learner-profile-access-state',
+      'active'
+    )
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+    const reloaded = await page.evaluate(stateKey => (
+      JSON.parse(localStorage.getItem(stateKey))
+    ), STATE_KEY)
+    expect(reloaded.learnerProfile.languages).toEqual(['japanese'])
+    const reloadedSourceActivity = reloaded.activityLog.filter(
+      entry => entry.id.startsWith('source-entry-')
+    )
+    // Background integration refreshes can append newer events after reload.
+    expect(reloadedSourceActivity.length).toBeGreaterThan(0)
+    expect(reloadedSourceActivity).toEqual(
+      retainedActivity.slice(0, reloadedSourceActivity.length)
+    )
+    expect(JSON.stringify(reloaded.activityLog).length * 2).toBeLessThanOrEqual(
+      ACTIVITY_LOG_BYTE_LIMIT
+    )
   })
-  expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
-  expect(geometry.left).toBeGreaterThanOrEqual(0)
-  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth)
-  expect(geometry.top).toBeLessThan(geometry.viewportHeight)
-
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await expect(warning).toBeHidden()
-  await expect(page.locator(
-    '[data-settings-sync-action="choose-file"]'
-  )).toBeFocused()
-  expect(importRequests).toHaveLength(0)
-
-  await selectImportFile(
-    page,
-    importedEnvelope,
-    crossAccount ? 'another-account.json' : 'this-account.json'
-  )
-  await page.getByRole('button', {
-    name: 'Protect current progress and replace'
-  }).click()
-
-  await expect.poll(() => importRequests.length).toBe(1)
-  expect(rollbackRequests).toHaveLength(0)
-  expect(JSON.stringify(importRequests[0].p_envelope)).not.toContain(
-    sourceOwnerId
-  )
-  await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
-  const stored = await page.evaluate(({ stateKey, syncKey }) => ({
-    state: JSON.parse(localStorage.getItem(stateKey)),
-    sync: JSON.parse(localStorage.getItem(syncKey))
-  }), { stateKey: STATE_KEY, syncKey: SYNC_KEY })
-  expect(stored.state.config.locale).toBe('fr')
-  expect(stored.state.learnerProfile.languages).toEqual(['japanese'])
-  // Activity history is disposable and byte-bounded; imports retain the exact
-  // newest prefix of the source history.
-  const retainedActivity = stored.state.activityLog
-  expect(retainedActivity.length).toBeGreaterThan(0)
-  expect(retainedActivity.length).toBeLessThan(500)
-  expect(JSON.stringify(retainedActivity).length * 2).toBeLessThanOrEqual(
-    ACTIVITY_LOG_BYTE_LIMIT
-  )
-  expect(retainedActivity).toEqual(importedEnvelope.profile.activityLog
-    .toSorted((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, retainedActivity.length))
-  expect(stored.sync).toMatchObject({
-    generation: 2,
-    ownerId: USER_ID,
-    pending: null,
-    profileId: PROFILE_ID,
-    queued: null
-  })
-  expect(stored.sync.acceptedRevision).toBeGreaterThanOrEqual(6)
-
-  await page.reload()
-  await expect(page.locator('html')).toHaveAttribute(
-    'data-learner-profile-access-state',
-    'active'
-  )
-  await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
-  const reloaded = await page.evaluate(stateKey => (
-    JSON.parse(localStorage.getItem(stateKey))
-  ), STATE_KEY)
-  expect(reloaded.learnerProfile.languages).toEqual(['japanese'])
-  const reloadedSourceActivity = reloaded.activityLog.filter(
-    entry => entry.id.startsWith('source-entry-')
-  )
-  // Background integration refreshes can append newer events after reload.
-  expect(reloadedSourceActivity.length).toBeGreaterThan(0)
-  expect(reloadedSourceActivity).toEqual(
-    retainedActivity.slice(0, reloadedSourceActivity.length)
-  )
-  expect(JSON.stringify(reloaded.activityLog).length * 2).toBeLessThanOrEqual(
-    ACTIVITY_LOG_BYTE_LIMIT
-  )
-})
+}
 
 test('a stale cloud head leaves the current local profile untouched', async ({
   page

@@ -1,3 +1,4 @@
+import { selectCiScope } from '../../scripts/ci-scope.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -117,7 +118,7 @@ test('service-only reminder metrics stay aggregate and cannot send', () => {
 })
 
 test('provider event SQL verification is mandatory for matching changes', () => {
-  assert.match(workflow, /\*_add_reminder_provider_event_ledger\.sql/)
+  assert.equal(selectCiScope(['supabase/migrations/20990101000000_add_reminder_provider_event_ledger.sql']).supabase_db, true)
   assert.match(workflow, /reminder_provider_event_ledger\.test\.sql/)
   assert.match(
     workflow,

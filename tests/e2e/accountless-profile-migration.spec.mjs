@@ -176,7 +176,7 @@ async function installRuntimeRoute(
 test('the final gate hides a returning legacy town until authentication starts', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let enabled = false
   let finalCutoverAt = ''
   await installRuntimeRoute(
@@ -464,7 +464,7 @@ test('the Public lifecycle rollout reaches the ordinary accountless path', async
 test('the grace notice snoozes early and becomes non-dismissible for the final seven days', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let enabled = false
   await installRuntimeRoute(page, () => enabled)
   await page.route('https://accountless-profile-test.supabase.co/**', route => (

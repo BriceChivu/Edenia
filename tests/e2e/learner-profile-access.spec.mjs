@@ -768,7 +768,7 @@ async function expectQuietProfileOpening(page, expectedState, storedState) {
 test('resolving profile access exposes no learner content and performs no autosave', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let releaseAuthRequest = null
   await page.route('**/config.local.js', route => route.fulfill({
@@ -1041,7 +1041,7 @@ test('matching cloud progress repairs an obsolete profile identity without askin
 })
 
 test('locked sign-in keeps an interactive security check usable after moving the form', async ({ page }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   await useAccountReturnOrigin(page)
   await page.addInitScript(() => {
@@ -1109,7 +1109,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
   test.skip(![
     'desktop-standard',
     'tablet-portrait',
-    'phone-small'
+    'phone-standard'
   ].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let profileEnvelope = null
@@ -1309,7 +1309,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
 test('a missing cloud head offers neutral local and protected recovery copies', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await page.clock.setFixedTime(new Date('2026-09-04T12:00:00.000Z'))
   let lifecycleEnabled = false
   let protectedEnvelope = null
@@ -1910,7 +1910,7 @@ test('localhost visual recovery switch opens the generic recovery gate', async (
 test('a signed-in owner can reopen and save the matching local profile while the cloud head is unavailable', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let resolutionCount = 0
   let commitCount = 0
@@ -2018,7 +2018,7 @@ test('a signed-in owner can reopen and save the matching local profile while the
   ), OWNER_VERIFICATION_STORAGE_KEY)).toBeNull()
 
   await page.locator('.gear-btn').click()
-  if (testInfo.project.name === 'phone-small') {
+  if (testInfo.project.name === 'phone-standard') {
     await page.locator('#settingsLocaleBtn').click()
     await page.locator('input[name="settingsLocale"][value="fr"]').check()
     await expect.poll(() => page.evaluate(key => (
@@ -2054,7 +2054,7 @@ test('a signed-in owner can reopen and save the matching local profile while the
   expect(committedEnvelope.profile.config.channels).toEqual([
     expect.objectContaining({ name: SECRET_CHANNEL_NAME })
   ])
-  if (testInfo.project.name === 'phone-small') {
+  if (testInfo.project.name === 'phone-standard') {
     expect(synchronizedState.config.locale).toBe('fr')
     expect(committedEnvelope.profile.config.locale).toBe('fr')
   } else {
@@ -2156,7 +2156,7 @@ test('same-page sign-out removes rendered learner content before locking access'
 test('an unverified owner replacement stays blocked and local sign-out changes no profile', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let resolutionCount = 0
   const signOutScopes = []
@@ -2250,7 +2250,7 @@ test('an unverified owner replacement stays blocked and local sign-out changes n
 test('a synchronized browser copy is replaced only after the learner continues', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let resolutionCount = 0
   const studySnapshots = []
@@ -2364,7 +2364,7 @@ test('a synchronized browser copy is replaced only after the learner continues',
 test('a different new account starts onboarding without exposing or replacing the synchronized browser copy', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let newOwnerEnvelope = null
   let resolutionCount = 0
@@ -2517,7 +2517,7 @@ test('a different new account starts onboarding without exposing or replacing th
 test('an owner with no trusted cloud predecessor is routed through fresh onboarding', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let newOwnerEnvelope = null
   let resolutionCount = 0
@@ -2918,7 +2918,7 @@ test('failed automatic Anki refresh does not write a signed-in profile diagnosti
 })
 
 test('temporary Auth failure keeps the active profile until existing verification expires', async ({ page, pageDiagnostics }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let enabled = false
   let envelope
   let refreshes = 0

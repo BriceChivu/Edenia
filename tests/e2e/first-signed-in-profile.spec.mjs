@@ -227,7 +227,7 @@ async function signInWithEmailCode(page) {
 test('public onboarding uses a temporary draft without creating a learner profile', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await installRuntimeConfig(page)
   await installEmptySupabase(page)
 
@@ -256,7 +256,7 @@ for (const experienceQuery of ['', '?internal_test=1']) {
 test(`a returning owner activates online, rechecks within bounds, and can sign out everywhere ${experienceQuery || 'retained'}`, async ({
   page, pageDiagnostics
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   const storagePrefix = experienceQuery ? 'edenia_v1_auth_trial_v1' : 'edenia_v1'
   const AUTH_STORAGE_KEY = `${storagePrefix}_plus_auth_v1`
   const DRAFT_STORAGE_KEY = `${storagePrefix}_onboarding_draft_v1`
@@ -944,7 +944,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
 test('a returning owner can retry an unresolved cloud-head check', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   const returningEnvelope = await createReturningOwnerEnvelope()
   await page.addInitScript(({ authKey, authenticated }) => {
     localStorage.setItem(authKey, JSON.stringify(authenticated))
@@ -1019,7 +1019,7 @@ test('a returning owner can retry an unresolved cloud-head check', async ({
 test('pre-authentication choices survive reload before authentication', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await installRuntimeConfig(page)
   await installEmptySupabase(page)
 
@@ -1050,7 +1050,7 @@ test('pre-authentication choices survive reload before authentication', async ({
 test('authentication creates and activates exactly one signed-in learner profile', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await installRuntimeConfig(page, { youtubeApiKey: 'fixture-key' })
   await page.route('https://www.googleapis.com/youtube/v3/**', route => {
     const endpoint = new URL(route.request().url()).pathname.split('/').at(-1)
@@ -1178,7 +1178,7 @@ test('authentication creates and activates exactly one signed-in learner profile
 test('Start over explicitly discards the onboarding draft', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await installRuntimeConfig(page)
   await installEmptySupabase(page)
 
@@ -1207,7 +1207,7 @@ test('Start over explicitly discards the onboarding draft', async ({
 test('server gate denial keeps the draft recoverable and writes no profile', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await installRuntimeConfig(page)
   let resolutionCount = 0
   await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
@@ -1258,8 +1258,8 @@ test('offline progress survives reload and activates on a second device after sy
   browser,
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  const usesPhoneLocaleChange = testInfo.project.name === 'phone-small'
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
+  const usesPhoneLocaleChange = testInfo.project.name === 'phone-standard'
   let cloudEnvelope = await createReturningOwnerEnvelope()
   let cloudRevision = 12
   const commitRequests = []
@@ -1461,7 +1461,7 @@ test('offline progress survives reload and activates on a second device after sy
 test('rejected cloud backup preserves continued local study, recovery export, and retry', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   let cloudEnvelope = await createReturningOwnerEnvelope()
   let cloudRevision = 12
   let acceptCommits = true
@@ -1524,7 +1524,7 @@ test('rejected cloud backup preserves continued local study, recovery export, an
   acceptCommits = false
   commitRequests.length = 0
   await page.locator('.gear-btn').click()
-  if (testInfo.project.name === 'phone-small') {
+  if (testInfo.project.name === 'phone-standard') {
     await page.locator('#settingsLocaleBtn').click()
     await page.locator('input[name="settingsLocale"][value="fr"]').check()
   } else {
@@ -1552,14 +1552,14 @@ test('rejected cloud backup preserves continued local study, recovery export, an
   expect(cloudEnvelope.profile.config.ankiEnabled).toBe(true)
 
   await page.locator('#settingsLocaleBtn').click()
-  const continuedLocale = testInfo.project.name === 'phone-small' ? 'es' : 'fr'
+  const continuedLocale = testInfo.project.name === 'phone-standard' ? 'es' : 'fr'
   await page.locator(
     `input[name="settingsLocale"][value="${continuedLocale}"]`
   ).check()
   await expect.poll(() => page.evaluate(key => (
     JSON.parse(localStorage.getItem(key)).config
   ), STATE_STORAGE_KEY)).toMatchObject({
-    ankiEnabled: testInfo.project.name === 'phone-small',
+    ankiEnabled: testInfo.project.name === 'phone-standard',
     locale: continuedLocale
   })
   await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveAttribute(
@@ -1576,8 +1576,8 @@ test('rejected cloud backup preserves continued local study, recovery export, an
       envelope: {
         profile: {
           config: {
-            ankiEnabled: testInfo.project.name === 'phone-small',
-            locale: testInfo.project.name === 'phone-small' ? 'fr' : 'en'
+            ankiEnabled: testInfo.project.name === 'phone-standard',
+            locale: testInfo.project.name === 'phone-standard' ? 'fr' : 'en'
           }
         }
       },
@@ -1588,7 +1588,7 @@ test('rejected cloud backup preserves continued local study, recovery export, an
       prepared: {
         profile: {
           config: {
-            ankiEnabled: testInfo.project.name === 'phone-small',
+            ankiEnabled: testInfo.project.name === 'phone-standard',
             locale: continuedLocale
           }
         }
@@ -1606,7 +1606,7 @@ test('rejected cloud backup preserves continued local study, recovery export, an
   const serialized = await readFile(downloadPath, 'utf8')
   const recoveryEnvelope = JSON.parse(serialized)
   expect(recoveryEnvelope.profile.config).toMatchObject({
-    ankiEnabled: testInfo.project.name === 'phone-small',
+    ankiEnabled: testInfo.project.name === 'phone-standard',
     locale: continuedLocale
   })
   expect(Buffer.byteLength(serialized, 'utf8')).toBe(
@@ -1621,7 +1621,7 @@ test('rejected cloud backup preserves continued local study, recovery export, an
   )
   expect(cloudRevision).toBe(startingRevision + 2)
   expect(cloudEnvelope.profile.config).toMatchObject({
-    ankiEnabled: testInfo.project.name === 'phone-small',
+    ankiEnabled: testInfo.project.name === 'phone-standard',
     locale: continuedLocale
   })
   expect(commitRequests).toHaveLength(3)

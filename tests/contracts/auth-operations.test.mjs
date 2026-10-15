@@ -1,3 +1,4 @@
+import { selectCiScope } from '../../scripts/ci-scope.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -322,10 +323,7 @@ test('fresh-browser recovery verification is exact-owner, gate-off, and metadata
     browserVerificationMigration,
     /version\.envelope|account\.email|token|cookie|credential/i
   )
-  assert.match(
-    ciWorkflow,
-    /supabase\/migrations\/\*_verify_operator_recovery_from_browser\.sql\|supabase\/tests\/auth_operations\.test\.sql/
-  )
+  assert.equal(selectCiScope(['supabase/tests/auth_operations.test.sql']).supabase_db, true)
 })
 
 test('Independent Auth monitor database bridges are service-only and CI runs their security suite', () => {

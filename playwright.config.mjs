@@ -5,6 +5,13 @@ const basePath = process.env.EDENIA_TEST_BASE_PATH || '/'
 const fixedMigrationDestinationPort = 8000
 const sandboxPort = 8001
 const legacyMigrationPort = 8002
+// Routine behavioral checks use desktop + phone. The extra Chromium sizes
+// continue covering layout/visual flows; exhaustive runs retain all tests.
+const routineCi = process.env.EDENIA_CI_ROUTINE === 'true'
+const responsiveChecks = /(preservation-smoke|experience|history-chart|history-heatmap-layout|video-card-ribbons|video-organization|channel-video-format-toggle|feed-update-focus|account-settings|account-auth-methods|onboarding-account|learner-profile-conflict|plus-upgrade|study-guidance|manual-video-reveal)\.spec\.mjs/
+// This profile suite mixes many behavioral cases with one explicit tablet form
+// geometry check. Keep that case without copying the whole ownership suite.
+const responsiveCases = new RegExp(`${responsiveChecks.source}|learner-profile-access\\.spec\\.mjs.*a signed-out owner can authenticate from locked access before cloud activation`)
 
 const responsiveProjects = [
   {
@@ -50,7 +57,7 @@ const responsiveProjects = [
 export default defineConfig({
   testDir: './tests/e2e',
   outputDir: 'test-results',
-  fullyParallel: false,
+  fullyParallel: process.env.EDENIA_CI_PARALLEL_TESTS === 'true',
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   workers: 1,
@@ -76,6 +83,8 @@ export default defineConfig({
   projects: [
     ...responsiveProjects.map(project => ({
       ...project,
+      ...(routineCi && !['desktop-standard', 'phone-standard'].includes(project.name)
+        ? { testMatch: [responsiveChecks, /learner-profile-access\.spec\.mjs/], grep: responsiveCases } : {}),
       use: {
         browserName: 'chromium',
         deviceScaleFactor: 1,

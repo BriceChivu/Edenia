@@ -2,15 +2,22 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - master
+    branches: [master]
+  schedule:
+    - cron: '23 20 * * *'
   workflow_dispatch:
+    inputs:
+      benchmark:
+        description: 'Full regression or a measured representative feed-CSS scope (manual runs only)'
+        type: choice
+        options: [full, feed-css]
+        default: full
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -19,132 +26,75 @@ jobs:
     outputs:
       contracts: ${{ steps.scope.outputs.contracts }}
       browser: ${{ steps.scope.outputs.browser }}
+      game: ${{ steps.scope.outputs.game }}
+      build: ${{ steps.scope.outputs.build }}
       catalogs: ${{ steps.scope.outputs.catalogs }}
       supabase: ${{ steps.scope.outputs.supabase }}
       supabase_db: ${{ steps.scope.outputs.supabase_db }}
       discovery_catalog: ${{ steps.scope.outputs.discovery_catalog }}
       community_catalog: ${{ steps.scope.outputs.community_catalog }}
-
+      full_matrix: ${{ steps.scope.outputs.full_matrix }}
+      browser_files: ${{ steps.scope.outputs.browser_files }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
       - name: Determine test scope
         id: scope
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
+          CI_BENCHMARK: ${{ inputs.benchmark }}
+        run: node scripts/ci-scope.mjs
 
-          run_contracts=false
-          run_browser=false
-          run_catalogs=false
-          run_supabase=false
-          run_supabase_db=false
-          run_discovery_catalog=false
-          run_community_catalog=false
-
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            run_contracts=true
-            run_browser=true
-            run_catalogs=true
-            run_supabase=true
-            run_supabase_db=true
-          else
-            mapfile -t changed_files < <(git diff --name-only "$BASE_SHA" HEAD)
-            printf 'Changed files:\n'
-            printf '  %s\n' "${changed_files[@]}"
-
-            for file in "${changed_files[@]}"; do
-              case "$file" in
-                .github/workflows/ci.yml)
-                  run_browser=true
-                  run_contracts=true
-                  run_supabase=true
-                  run_supabase_db=true
-                  ;;
-                .github/workflows/import-community-channel-catalog.yml|.github/workflows/merge-checked-community-catalog.yml|.github/workflows/merge-checked-discovery-catalog.yml)
-                  run_contracts=true
-                  run_supabase=true
-                  ;;
-                .github/workflows/discover-language-channels.yml|scripts/discover-language-channels.mjs|scripts/validate-discovered-channel-catalog.mjs)
-                  run_catalogs=true
-                  run_contracts=true
-                  ;;
-                .github/workflows/learner-profile-disaster-backup.yml|.github/workflows/auth-health-monitor.yml)
-                  run_contracts=true
-                  run_supabase=true
-                  run_supabase_db=true
-                  ;;
-                .github/actions/setup-godot/*|.github/workflows/deploy-pages.yml)
-                  run_browser=true
-                  run_contracts=true
-                  ;;
-                *.md|docs/*|.github/*)
-                  ;;
-                data/channel-catalog.discovered.json)
-                  run_catalogs=true
-                  run_discovery_catalog=true
-                  ;;
-                data/channel-catalog.candidates.json|data/channel-catalog.community.json)
-                  run_catalogs=true
-                  run_community_catalog=true
-                  ;;
-                data/channel-catalog*.json|images/channel-avatars/*)
-                  run_catalogs=true
-                  ;;
-                data/reminder-discovery-channels.json|scripts/validate-reminder-discovery-channels.mjs)
-                  run_catalogs=true
-                  run_contracts=true
-                  ;;
-                scripts/validate-channel-catalog-json.mjs|scripts/validate-community-channel-catalog.mjs|scripts/community-channel-catalog-policy.mjs)
-                  run_catalogs=true
-                  run_contracts=true
-                  ;;
-                tests/contracts/*)
-                  run_contracts=true
-                  ;;
-                supabase/migrations/*_resolve_divergent_learner_profiles.sql|supabase/migrations/*_choose_divergent_learner_profile.sql|supabase/tests/learner_profile_conflict_resolution.test.sql)
-                  run_supabase=true
-                  run_supabase_db=true
-                  ;;
-                supabase/migrations/*_start_over_learner_profile.sql|supabase/tests/learner_profile_start_over.test.sql|supabase/migrations/*_bounded_profile_handoff.sql|supabase/tests/learner_profile_handoff.test.sql)
-                  run_supabase=true
-                  run_supabase_db=true
-                  ;;
-                supabase/migrations/*_current_experience_owned_profile_contract.sql|scripts/generate-owned-profile-contract-fixtures.mjs|tests/fixtures/current-experience-owned-profile.sql|tests/fixtures/stale-generation-island-conflict.sql|supabase/migrations/*_pixel_town_economy_profile.sql|supabase/tests/pixel_town_economy.test.sql|supabase/migrations/*_create_first_signed_in_profile.sql|supabase/tests/first_signed_in_profile.test.sql|supabase/migrations/*_synchronize_learner_profile_progress.sql|supabase/tests/learner_profile_progress_sync.test.sql|supabase/migrations/*_recover_missing_learner_profile_heads.sql|supabase/migrations/*_automatic_trusted_predecessor_recovery.sql|supabase/migrations/*_allow_empty_verified_owner_onboarding.sql|supabase/tests/learner_profile_recovery.test.sql|supabase/migrations/*_import_learner_profile_with_rollback.sql|supabase/tests/learner_profile_import.test.sql|supabase/migrations/*_offer_voluntary_accountless_profile_migration.sql|supabase/tests/voluntary_accountless_profile_migration.test.sql|supabase/migrations/*_bound_free_recovery_batches.sql|supabase/migrations/*_tune_free_retention_batch_size.sql|supabase/migrations/*_reduce_write_amplification_and_restore_retention.sql|supabase/migrations/*_learner_profile_retention_capacity_maintenance.sql|supabase/tests/learner_profile_retention.test.sql|supabase/migrations/*_add_auth_monitoring_and_operator_recovery.sql|supabase/migrations/*_verify_operator_recovery_from_browser.sql|supabase/tests/auth_operations.test.sql|supabase/migrations/*_add_external_auth_monitor_bridge.sql|supabase/tests/auth_monitoring_freshness.test.sql|supabase/migrations/*_add_reminder_preferences.sql|supabase/migrations/*_replace_schedule_with_email_types.sql|supabase/tests/reminder_preferences_rls.test.sql|supabase/migrations/*_add_reminder_eligibility_snapshots.sql|supabase/tests/reminder_eligibility_snapshots.test.sql|supabase/migrations/*_add_reminder_dispatch_ledger.sql|supabase/tests/reminder_dispatch_ledger.test.sql|supabase/migrations/*_add_reminder_suppression_safety.sql|supabase/tests/reminder_suppression_safety.test.sql|supabase/migrations/*_add_reminder_provider_delivery_state.sql|supabase/tests/reminder_provider_delivery_state.test.sql|supabase/migrations/*_fence_live_reminder_prerequisites.sql|supabase/tests/reminder_live_prerequisites.test.sql|supabase/migrations/*_add_reminder_provider_event_ledger.sql|supabase/migrations/*_add_reminder_operational_metrics.sql|supabase/tests/reminder_provider_event_ledger.test.sql|supabase/migrations/*_add_typed_reminder_dry_run.sql|supabase/tests/typed_reminder_dry_run.test.sql|supabase/migrations/*_add_typed_reminder_live_canary.sql|supabase/tests/typed_reminder_live_canary.test.sql|supabase/migrations/*_optimize_account_owner_policies.sql|supabase/tests/account_owner_policies.test.sql|supabase/migrations/*_add_self_scoped_account_export.sql|supabase/migrations/*_hide_account_export_definer.sql|supabase/tests/account_server_data_export.test.sql|supabase/migrations/*_ensure_account_export_rate_limit.sql|supabase/tests/account_export_rate_limit.test.sql|supabase/migrations/*_ensure_stripe_webhook_prerequisites.sql|supabase/tests/stripe_webhook_prerequisites.test.sql|supabase/migrations/*_reconcile_plus_backup_grace_policies.sql|supabase/tests/plus_backup_grace_policies.test.sql|supabase/migrations/*_legacy_progress_transfer_relay.sql|supabase/tests/legacy_progress_transfer_relay.test.sql)
-                  run_supabase=true
-                  run_supabase_db=true
-                  ;;
-                scripts/canary-*.mjs|scripts/rehearse-canary-*.mjs|scripts/watch-canary-execution.mjs|supabase/tests/canary_deployed_schema.test.sql)
-                  run_contracts=true
-                  run_supabase=true
-                  run_supabase_db=true
-                  ;;
-                supabase/*)
-                  run_supabase=true
-                  ;;
-                *)
-                  run_contracts=true
-                  run_browser=true
-                  ;;
-              esac
-            done
-          fi
-
-          echo "contracts=$run_contracts" >> "$GITHUB_OUTPUT"
-          echo "browser=$run_browser" >> "$GITHUB_OUTPUT"
-          echo "catalogs=$run_catalogs" >> "$GITHUB_OUTPUT"
-          echo "supabase=$run_supabase" >> "$GITHUB_OUTPUT"
-          echo "supabase_db=$run_supabase_db" >> "$GITHUB_OUTPUT"
-          echo "discovery_catalog=$run_discovery_catalog" >> "$GITHUB_OUTPUT"
-          echo "community_catalog=$run_community_catalog" >> "$GITHUB_OUTPUT"
+  build:
+    needs: scope
+    if: needs.scope.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-godot
+      - name: Build shared sites and validate the game once when selected
+        run: node scripts/build-ci-sites.mjs
+        env:
+          EDENIA_CI_GAME: ${{ needs.scope.outputs.game }}
+          EDENIA_VALIDATE_GAME: ${{ needs.scope.outputs.game }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-site-normal
+          path: .cache/ci-sites/normal
+          retention-days: 1
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: .cache/ci-sites/migration-helper
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        if: needs.scope.outputs.game == 'true'
+        with:
+          name: ci-site-integrated
+          path: .cache/ci-sites/integrated
+          retention-days: 1
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: needs.scope.outputs.game == 'true'
+        with:
+          name: ci-site-public
+          path: .cache/ci-sites/public
+          retention-days: 1
+          compression-level: 0
 
   checks:
-    needs: scope
+    needs: [scope, build]
+    if: ${{ !cancelled() && needs.scope.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -183,13 +133,23 @@ jobs:
           COMMUNITY_CATALOG_MAX_PROMOTIONS: ${{ vars.COMMUNITY_CATALOG_MAX_PROMOTIONS }}
         run: npm run test:catalogs:community -- --base-ref "$BASE_SHA"
 
-      - name: Set up Godot for site build
+      - name: Download shared normal site
         if: needs.scope.outputs.contracts == 'true'
-        uses: ./.github/actions/setup-godot
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-site-normal
+          path: _site
 
-      - name: Build and run contract tests
+      - name: Download shared migration helper
         if: needs.scope.outputs.contracts == 'true'
-        run: npm run build && npm run test:contracts
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: _legacy_migration_site
+
+      - name: Run contract tests
+        if: needs.scope.outputs.contracts == 'true'
+        run: npm run test:contracts
 
       - name: Run Supabase backend tests
         if: needs.scope.outputs.supabase == 'true'
@@ -273,64 +233,42 @@ jobs:
         run: echo "Documentation or workflow-only change; no automated test suite required."
 
   browser:
-    needs: scope
+    needs: [scope, build]
     if: needs.scope.outputs.browser == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-        # Pair the heavier desktop preservation shards with lighter general shards.
-        include:
-          - shard: 1
-            preservationShard: 4
-          - shard: 2
-            preservationShard: 3
-          - shard: 3
-            preservationShard: 2
-          - shard: 4
-            preservationShard: 1
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Set up Godot
-        uses: ./.github/actions/setup-godot
-
-      - name: Build browser test site
-        run: npm run build
-
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-site-normal
+          path: _site
       - name: Install Playwright browsers
+        # Legacy import acceptance serves this helper from the second origin.
         run: npx playwright install --with-deps chromium webkit firefox
-
-      - name: Run browser tests
-        id: general
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: _legacy_migration_site
+      - name: Run selected browser tests
+        run: node scripts/run-ci-browser.mjs
         env:
-          EDENIA_TEST_NORMAL_PORT: 4173
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/general
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/general/results.json
-        run: npx playwright test --shard=${{ matrix.shard }}/4 --grep-invert='preservation-smoke\.spec\.mjs' --output=test-results/general --reporter=dot,html,json
-
-      - name: Run preservation browser tests
-        if: ${{ !cancelled() && (steps.general.outcome == 'success' || steps.general.outcome == 'failure') }}
-        env:
-          EDENIA_TEST_NORMAL_PORT: 4173
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/preservation
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/preservation/results.json
-        run: npx playwright test preservation-smoke.spec.mjs --shard=${{ matrix.preservationShard }}/4 --output=test-results/preservation --reporter=dot,html,json
-
-      - name: Upload Playwright diagnostics
+          EDENIA_TEST_NORMAL_PORT: '4173'
+          EDENIA_CI_BROWSER_FILES: ${{ needs.scope.outputs.browser_files }}
+          EDENIA_CI_ROUTINE: ${{ needs.scope.outputs.full_matrix != 'true' }}
+          EDENIA_CI_SHARD: ${{ matrix.shard }}
+          EDENIA_CI_SHARDS: '4'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
+      - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
         with:
           name: playwright-diagnostics-${{ matrix.shard }}
           path: |
@@ -340,9 +278,20 @@ jobs:
           retention-days: 14
 
   tiny-swords:
-    needs: scope
-    if: needs.scope.outputs.browser == 'true'
+    needs: [scope, build]
+    if: needs.scope.outputs.game == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { lane: chromium, shard: 1, shards: 4, site: integrated, browsers: chromium }
+          - { lane: chromium, shard: 2, shards: 4, site: integrated, browsers: chromium }
+          - { lane: chromium, shard: 3, shards: 4, site: integrated, browsers: chromium }
+          - { lane: chromium, shard: 4, shards: 4, site: integrated, browsers: chromium }
+          - { lane: webkit, shard: 1, shards: 2, site: integrated, browsers: webkit }
+          - { lane: webkit, shard: 2, shards: 2, site: integrated, browsers: webkit }
+          - { lane: public, shard: 1, shards: 1, site: public, browsers: chromium }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -350,46 +299,41 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - uses: ./.github/actions/setup-godot
-      - run: npx playwright install --with-deps chromium webkit
-      - name: Build real integrated game
-        run: npm run build
-        env:
-          EDENIA_TINY_SWORDS_ENABLED: 'true'
-      - name: Require hosted game, persistence and progression flows
-        run: npx playwright test learner-profile-conflict.spec.mjs auth-trial.spec.mjs profile-handoff.spec.mjs signin-island-handoff.spec.mjs experience-tiny-swords.spec.mjs tiny-swords-release.spec.mjs tiny-swords-delivery.spec.mjs tiny-swords-tester-mode.spec.mjs tiny-swords-dashboard.spec.mjs tiny-swords-copy.spec.mjs tiny-swords-page-scroll.spec.mjs tiny-swords-acceptance.spec.mjs tiny-swords-replay.spec.mjs tiny-swords-frame-rate.spec.mjs --project=desktop-standard --project=phone-standard
-        env:
-          EDENIA_TEST_TINY_SWORDS: 'true'
-          EDENIA_TEST_NORMAL_PORT: '4174'
-          EDENIA_TEST_BASE_PATH: '/Edenia/'
-      - name: Verify signed-in game flows in desktop and phone WebKit
-        run: npx playwright test auth-trial.spec.mjs profile-handoff.spec.mjs --project=webkit-trial-desktop --project=webkit-trial-phone --output=test-results/webkit-trial --reporter=dot,json
-        env:
-          EDENIA_TEST_TINY_SWORDS: 'true'
-          EDENIA_TEST_NORMAL_PORT: '4174'
-          EDENIA_TEST_BASE_PATH: '/Edenia/'
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/webkit-trial/results.json
-      - name: Build the explicit public island release
-        run: node scripts/build-experience-tiny-swords.mjs --project godot/tiny-swords
-        env:
-          EDENIA_TINY_SWORDS_PUBLIC_ENABLED: 'true'
-      - name: Verify production profile transition and public island controls
-        run: npx playwright test public-island.spec.mjs --project=desktop-standard --project=phone-standard
-        env:
-          EDENIA_TEST_PUBLIC_ISLAND: 'true'
-          EDENIA_TEST_NORMAL_PORT: '4174'
-          EDENIA_TEST_BASE_PATH: '/Edenia/'
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - uses: actions/download-artifact@v4
         with:
-          name: tiny-swords-evidence
+          name: ci-site-${{ matrix.site }}
+          path: _site
+      - run: npx playwright install --with-deps ${{ matrix.browsers }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-migration-helper
+          path: _legacy_migration_site
+      - name: Require selected game persistence and progression flows
+        run: node scripts/run-ci-browser.mjs
+        env:
+          EDENIA_CI_LANE: ${{ matrix.lane }}
+          EDENIA_CI_SHARD: ${{ matrix.shard }}
+          EDENIA_CI_SHARDS: ${{ matrix.shards }}
+          EDENIA_CI_PARALLEL_TESTS: 'true'
+          EDENIA_TEST_TINY_SWORDS: ${{ matrix.lane != 'public' }}
+          EDENIA_TEST_PUBLIC_ISLAND: ${{ matrix.lane == 'public' }}
+          EDENIA_TEST_NORMAL_PORT: '4174'
+          EDENIA_TEST_BASE_PATH: '/Edenia/'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: tiny-swords-${{ matrix.lane }}-${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
 
-  # Keep the branch-protection check stable and reject failed/cancelled jobs.
   verify:
-    needs: [scope, checks, browser, tiny-swords]
+    # A narrow manual benchmark must never publish the branch-protection identity.
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark == 'feed-css' && 'benchmark-verify' || 'verify' }}
+    needs: [scope, build, checks, browser, tiny-swords]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -397,17 +341,25 @@ jobs:
         env:
           SCOPE_RESULT: ${{ needs.scope.result }}
           CHECKS_RESULT: ${{ needs.checks.result }}
+          BUILD_REQUIRED: ${{ needs.scope.outputs.build }}
+          BUILD_RESULT: ${{ needs.build.result }}
           BROWSER_REQUIRED: ${{ needs.scope.outputs.browser }}
           BROWSER_RESULT: ${{ needs.browser.result }}
-          TINY_SWORDS_RESULT: ${{ needs.tiny-swords.result }}
+          GAME_REQUIRED: ${{ needs.scope.outputs.game }}
+          GAME_RESULT: ${{ needs.tiny-swords.result }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$SCOPE_RESULT" != "success" || "$CHECKS_RESULT" != "success" ]]; then
+          if [[ "$SCOPE_RESULT" != 'success' || "$CHECKS_RESULT" != 'success' ]]; then
             exit 1
           fi
-          case "$BROWSER_REQUIRED" in
-            true) [[ "$BROWSER_RESULT" == "success" && "$TINY_SWORDS_RESULT" == "success" ]] ;;
-            false) [[ "$BROWSER_RESULT" == "skipped" && "$TINY_SWORDS_RESULT" == "skipped" ]] ;;
-            *) exit 1 ;;
-          esac
+          require_selected() {
+            case "$1" in
+              true) [[ "$2" == 'success' ]] ;;
+              false) [[ "$2" == 'skipped' ]] ;;
+              *) return 1 ;;
+            esac
+          }
+          require_selected "$BUILD_REQUIRED" "$BUILD_RESULT"
+          require_selected "$BROWSER_REQUIRED" "$BROWSER_RESULT"
+          require_selected "$GAME_REQUIRED" "$GAME_RESULT"
