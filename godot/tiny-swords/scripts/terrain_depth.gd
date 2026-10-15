@@ -4,6 +4,16 @@ extends Node2D
 # must preserve the relations to adjoining cliffs regardless of insertion order.
 const Layout = preload("res://scripts/terrain_layout.gd")
 var previous_inputs: Array = []
+static var foliage_bottom_rows: Dictionary = {}
+
+static func anchor_foliage(node: Sprite2D, height: float) -> void:
+	# Horizontal animation sheets share their ground-contact row. Cache the
+	# authored alpha bounds so rebuilding scenery does not read texture pixels.
+	if not foliage_bottom_rows.has(node.texture):
+		foliage_bottom_rows[node.texture] = node.texture.get_image().get_used_rect().end.y
+	var shift: float = (node.get_rect().position.y + foliage_bottom_rows[node.texture]) * node.scale.y + height
+	node.position.y += shift
+	node.offset.y -= shift / node.scale.y
 
 func is_actor(node: Node) -> bool:
 	return node == get_parent().pawn or node.has_method("animal_positions")

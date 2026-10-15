@@ -1241,7 +1241,10 @@ placement or free terrain transformations. Rock front faces block pawn and anima
 movement using the [four annotated PNG polygons](tests/fixtures/rock-contact-reference.png); the top facets remain grass
 behind the rock. Each actor sorts against the angled upper edge independently.
 Bushes remain traversable: actors behind their lower contact edge appear behind
-the foliage and actors beyond it appear in front. New placements and old saved
+the foliage and actors beyond it appear in front. Animated bushes anchor their
+depth to the texture's visible base, preserving the artwork position. The required
+export checks cover pawn, chicken and sheep feet one pixel either side of that
+base on flat ground, near rocks and near ramps, at each floor. New placements and old saved
 animal positions settle outside rock faces on their existing grass tile.
 Focused checks: `res://tests/rock_contacts.gd`, `res://tests/land_rock_depth.gd`,
 and `res://tests/bush_depth.gd`. Ordinary walking clicks retain their exact
