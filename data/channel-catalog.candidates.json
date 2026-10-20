@@ -173,7 +173,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2007-10-03T18:07:10Z",
-      "metadataRefreshedAt": "2026-09-17T07:59:16.793Z",
+      "metadataRefreshedAt": "2026-10-18T07:26:15.177Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-09-16T15:13:42.649Z",
@@ -589,7 +589,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2017-01-08T04:14:05Z",
-      "metadataRefreshedAt": "2026-09-17T07:59:16.793Z",
+      "metadataRefreshedAt": "2026-10-18T07:26:15.177Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-09-17T04:52:44.955Z",
@@ -797,7 +797,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2023-06-28T08:06:04.950233Z",
-      "metadataRefreshedAt": "2026-09-16T07:55:24.854Z",
+      "metadataRefreshedAt": "2026-10-17T07:12:28.396Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-09-15T11:39:46.940Z",
@@ -849,7 +849,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2019-12-06T05:07:19.892873Z",
-      "metadataRefreshedAt": "2026-09-16T07:55:24.854Z",
+      "metadataRefreshedAt": "2026-10-17T07:12:28.396Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-16T16:02:58.910Z",
@@ -876,7 +876,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2025-04-23T18:51:45.142162Z",
-      "metadataRefreshedAt": "2026-09-14T08:07:07.505Z",
+      "metadataRefreshedAt": "2026-10-15T07:44:14.529Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-14T23:53:03.880Z",
@@ -976,7 +976,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2018-10-09T06:26:40Z",
-      "metadataRefreshedAt": "2026-09-14T08:07:07.505Z",
+      "metadataRefreshedAt": "2026-10-15T07:44:14.529Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-14T23:22:46.576Z",
@@ -1041,5 +1041,5 @@
       "searchText": "雷堤娜 tyna krysjensen86 advanced"
     }
   ],
-  "generatedAt": "2026-10-13T09:45:23.266Z"
+  "generatedAt": "2026-10-18T07:26:15.177Z"
 }

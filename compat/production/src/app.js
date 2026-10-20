@@ -706,6 +706,7 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
   testRunId: storageRecoveryTestRunId,
   storageKey: STORAGE_KEY,
   accessKey: LEARNER_PROFILE_ACCESS_KEY,
+  discardableCacheKeys: [YOUTUBE_CHANNEL_SEARCH_CACHE_KEY],
   keys: [`${STORAGE_KEY}_storage_probe`, STATE_BACKUP_KEY, LEARNER_PROFILE_ACCESS_KEY,
     LEARNER_PROFILE_SYNC_KEY, LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
     ACCOUNTLESS_PROFILE_MIGRATION_KEY, ONBOARDING_PROFILE_DRAFT_KEY,
@@ -772,7 +773,10 @@ function resetRecoveryBackupStore() {
   backupStorageSharesPrimaryQuota = true
 }
 
-function reportBackgroundStorageFailure(operation, failure = null, diagnosticContext = profileRecoveryWorkspace.getDiagnosticContext()) {
+async function reportBackgroundStorageFailure(operation, failure = null, diagnosticContext = profileRecoveryWorkspace.getDiagnosticContext()) {
+  // A queued IndexedDB acknowledgement is temporarily memory-only. Describe
+  // the settled recovery tier without initiating another write or retry.
+  if (profileRecoveryWorkspace.getTier() === 'memory') await profileRecoveryWorkspace.whenSettled()
   const recovered = failure?.code === 'storage-recovered'
   reportWindowHealth('storage', recovered ? 'success' : 'degraded', { reason: recovered ? 'none' : failure?.code || 'storage-unavailable', recovery: profileRecoveryWorkspace.getTier() })
   const storageState = {}

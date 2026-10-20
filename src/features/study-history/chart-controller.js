@@ -143,6 +143,8 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
 
   plot.addEventListener('pointerdown', event => {
     if (!data || !geometry || event.button !== 0 || overviewDrag) return
+    // Native SVG dragging in WebKit can steal the remaining pointer stream.
+    if (event.pointerType === 'mouse') event.preventDefault()
     stopInertia()
     const point = position(event)
     pointers.set(event.pointerId, point)
@@ -238,6 +240,10 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   }
   overview.addEventListener('pointerdown', event => {
     if (!data || !overviewBounds || event.button !== 0) return
+    if (event.pointerType === 'mouse') {
+      event.preventDefault()
+      event.target.closest('[data-chart-edge]')?.focus({ preventScroll: true })
+    }
     cancelGesture()
     const fraction = overviewFraction(event)
     const span = overviewBounds.end - overviewBounds.start

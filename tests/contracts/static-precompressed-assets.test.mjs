@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { request } from 'node:http'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -50,6 +50,26 @@ test('static assets negotiate precompression while retaining content type and by
     assert.equal(head.body.length, 0)
     const engine = await get('', 'HEAD', enginePath)
     assert.equal(engine.headers['cache-control'], 'public, max-age=31536000, immutable')
+    // Artifact extraction can restore compressed variants before their source.
+    // Immutable content-addressed assets must not depend on extraction order.
+    const old = new Date('2000-01-01T00:00:00Z')
+    for (const [encoding, suffix, compress, decompress] of [
+      ['br', '.br', brotliCompressSync, brotliDecompressSync],
+      ['gzip', '.gz', gzipSync, gunzipSync]
+    ]) {
+      const variant = resolve(root, '.' + enginePath + suffix)
+      await writeFile(variant, compress(body))
+      await utimes(variant, old, old)
+      const encoded = await get(encoding, 'GET', enginePath)
+      assert.equal(encoded.headers['content-encoding'], encoding)
+      assert.deepEqual(decompress(encoded.body), body)
+      assert.equal((await get(encoding, 'HEAD', enginePath)).headers['content-encoding'], encoding)
+    }
+    // Mutable development assets still reject stale compressed sidecars.
+    await utimes(resolve(root, 'example.js.br'), old, old)
+    const stale = await get('br')
+    assert.equal(stale.headers['content-encoding'], undefined)
+    assert.deepEqual(stale.body, body)
   } finally {
     const stopped = once(child, 'exit')
     child.kill('SIGTERM')

@@ -90,6 +90,81 @@ test('an unavailable journal does not acknowledge an archive or retire the memor
   assert.equal(f.disk.raw, previous)
 })
 
+test('a quota failure in every durable store never acknowledges a memory-only profile save', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  await f.workspace.flush()
+  const previous = f.disk.raw
+  f.disk.failure = new DOMException('', 'QuotaExceededError')
+  const edit = f.workspace.repository.snapshot()
+  edit.watch = 8
+  const saved = await f.workspace.repository.save(edit)
+  assert.equal(f.workspace.getTier(), 'memory')
+  assert.equal(f.workspace.repository.snapshot().watch, 8)
+  assert.equal(f.disk.raw, previous)
+  assert.equal(saved, false, 'memory-only edits must not be reported as safely persisted')
+  f.disk.failure = null
+  assert.equal(await f.workspace.flush(), true)
+  const reopened = createProfileRecoveryWorkspace(f.options)
+  await reopened.initialize()
+  reopened.activate()
+  assert.equal(reopened.repository.snapshot().watch, 8)
+})
+
+test('a session fallback is journaled before acknowledgement so closing the tab keeps progress', async () => {
+  const f = fixture()
+  const session = new Map()
+  const workspace = createProfileRecoveryWorkspace({ ...f.options, getSecondary: () => ({
+    getItem: key => session.get(key) ?? null,
+    setItem: (key, value) => session.set(key, value), removeItem: key => session.delete(key)
+  }) })
+  workspace.activate()
+  const edit = workspace.repository.snapshot()
+  edit.watch = 8
+  assert.equal(await workspace.repository.save(edit), true)
+  // A new tab has no access to the preceding tab's sessionStorage.
+  const reopened = createProfileRecoveryWorkspace(f.options)
+  await reopened.initialize()
+  reopened.activate()
+  assert.equal(reopened.repository.snapshot().watch, 8)
+})
+
+test('ordinary profile saves remain acknowledged after journal recovery completes', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  await f.workspace.flush()
+  assert.equal(await f.workspace.complete(), true)
+  const store = createStateStore({ storage: f.workspace.storage, storageKey: 'profile',
+    getRepository: () => ({ save: state => { f.values.set('profile', JSON.stringify(state)); return true } }),
+    normalizeLoadedState: () => false, normalizeStateBeforeSave: () => {},
+    createStateBackup: () => {}, pruneOldestStateBackup: () => false,
+    saveConfigCookie: () => {}, syncPersistedStateToAnalytics: () => {},
+    getLatestBackupState: () => null, loadConfigCookie: () => null, createDefaultStateFromConfig: () => ({}) })
+  assert.equal(await store.saveState({ watch: 8, language: 'fr' }, { backup: false }), true)
+  assert.equal(JSON.parse(f.values.get('profile')).watch, 8)
+})
+
+for (const configFailure of [false, true]) test(`profile acknowledgement ${configFailure ? 'rejects failed' : 'includes'} follow-up config writes to the recovery journal`, async () => {
+  const f = fixture()
+  f.workspace.activate()
+  await f.workspace.flush()
+  const store = createStateStore({ storage: f.workspace.storage, storageKey: 'profile',
+    getRepository: () => f.workspace.repository,
+    normalizeLoadedState: () => false, normalizeStateBeforeSave: () => {},
+    createStateBackup: () => {}, pruneOldestStateBackup: () => false,
+    saveConfigCookie: () => {
+      if (configFailure) f.disk.failure = new DOMException('', 'QuotaExceededError')
+      f.workspace.storage.setItem('sync', 'latest config')
+    },
+    syncPersistedStateToAnalytics: () => {}, getLatestBackupState: () => null,
+    loadConfigCookie: () => null, createDefaultStateFromConfig: () => ({}) })
+  const edit = store.loadState()
+  edit.watch = 8
+  assert.equal(await store.saveState(edit, { backup: false }), !configFailure)
+  assert.equal(f.workspace.getTier(), configFailure ? 'memory' : 'indexed-db')
+  assert.equal(JSON.parse(f.disk.raw).values.sync, configFailure ? null : 'latest config')
+})
+
 test('a caller cancelled while journal acknowledgement is pending does not report a successful save', async () => {
   const f = fixture()
   f.workspace.activate()
