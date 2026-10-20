@@ -808,7 +808,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   await expect(page.locator('#startOverWarning')).toContainText('across devices')
   await expect(page.locator('#startOverWarning')).toContainText('30 days')
   if (restoreCase.olderReset) {
-    await expect(page.locator('#startOverUndo')).toBeVisible()
+    await expect(page.locator('[data-backup-kind="reset"]')).toHaveCount(1)
   }
   await expect(page.getByRole('button', { name: 'Delete data' })).toHaveCount(0)
 
@@ -830,10 +830,10 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     })
     console.log('START_OVER_ATTRIBUTION', JSON.stringify(observation))
   }
-  await expect(page.locator('#startOverUndo')).toBeVisible()
+  await expect(page.locator('[data-backup-kind="reset"]')).toBeVisible()
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect(page.locator('#startOverUndoDeadline')).not.toBeEmpty()
-  await expect(page.getByRole('button', { name: 'Undo Start over' })).toBeFocused()
+  await expect(page.locator('[data-backup-kind="reset"] .backup-reason')).not.toBeEmpty()
+  await expect(page.locator('[data-backup-kind="reset"] button')).toBeFocused()
   await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
   const afterStartOver = await page.evaluate(({
     accessKey,
@@ -881,12 +881,13 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   await expect(page.locator('#introTrailer')).toBeHidden()
   await expect(page.locator('#onboardingPanel')).toBeHidden()
   await page.locator('.gear-btn').click()
+  await page.locator('.backup-toggle').click()
   if (restoreCase.expiresBeforeReload) {
-    await expect(page.locator('#startOverUndo')).toBeHidden()
+    await expect(page.locator('[data-backup-kind="reset"]')).toBeHidden()
     expect(undoRequests).toBe(0)
     return
   }
-  await expect(page.locator('#startOverUndo')).toBeVisible()
+  await expect(page.locator('[data-backup-kind="reset"]')).toBeVisible()
 
   if (restoreCase.olderReset) {
     const reloaded = await page.evaluate(({ accessKey, stateKey }) => ({
@@ -897,9 +898,17 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     expect(reloaded.state.learnerProfile.languages).toEqual([])
     expect(reloaded.state.videos).toEqual({})
   }
-  await page.getByRole('button', { name: 'Undo Start over' }).click()
+  await page.locator('[data-backup-kind="reset"] button').click()
+  await expect(page.locator('#backupRestoreDialog')).toBeVisible()
+  await expect(page.locator('#backupRestoreBody')).toContainText('other devices')
+  expect(undoRequests).toBe(0)
+  await page.locator('#backupRestoreCancel').click()
+  expect(undoRequests).toBe(0)
+  await expect(page.locator('[data-backup-kind="reset"] button')).toBeFocused()
+  await page.locator('[data-backup-kind="reset"] button').click()
+  await page.locator('#backupRestoreConfirm').click()
   await expect.poll(() => undoRequests).toBe(1)
-  await expect(page.locator('#startOverUndo')).toBeHidden()
+  await expect(page.locator('[data-backup-kind="reset"]')).toBeHidden()
   if (restoreCase.setupCompleted) {
     await expect(open).toBeFocused()
     await expect(page.locator('#mainApp')).toBeVisible()

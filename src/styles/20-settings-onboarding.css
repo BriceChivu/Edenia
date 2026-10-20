@@ -307,8 +307,7 @@ html[data-learner-profile-access-state="conflicting"] .learner-profile-access-ca
   max-width: 980px;
   width: min(980px, calc(100vw - 36px));
 }
-.learner-profile-conflict h2,
-.learner-profile-conflict-recovery h2 {
+.learner-profile-conflict h2 {
   color: var(--text);
   font-size: 1.15rem;
   line-height: 1.2;
@@ -377,41 +376,7 @@ html[data-learner-profile-access-state="conflicting"] .learner-profile-access-ca
   font-weight: 700;
   min-height: 1.3em;
 }
-.learner-profile-conflict-recovery {
-  background: var(--surface-hi);
-  border: 2px solid var(--planet-black);
-  border-radius: 14px;
-  display: grid;
-  gap: 16px;
-  margin: 0;
-  max-width: 100%;
-  min-width: 0;
-  padding: 14px 16px;
-  scroll-margin-block: 24px;
-}
-.learner-profile-conflict-recovery-list {
-  display: grid;
-  gap: 12px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.learner-profile-conflict-recovery-item {
-  align-items: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-.learner-profile-conflict-recovery p {
-  color: var(--muted);
-  flex: 1 1 auto;
-  line-height: 1.4;
-}
-.learner-profile-conflict-recovery button {
-  min-height: 44px;
-  width: 100%;
-}
+
 .legacy-progress-recovery-settings {
   display: grid;
   gap: 8px;
@@ -1477,8 +1442,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   .sync-actions,
   .settings-data-group > .settings-note,
   .settings-reset-btn,
-  .reset-confirm,
-  .start-over-undo
+  .reset-confirm
 ) {
   margin-top: -14px;
 }
@@ -1501,6 +1465,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   flex: 0 0 auto;
 }
 .backup-restore-btn {
+  flex-shrink: 0;
   border-width: 1px;
   font-size: 0.75rem;
   padding: 5px 10px;
@@ -1516,7 +1481,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   justify-content: space-between;
   gap: 10px;
   border-top: 1px solid var(--border);
-  padding-top: 7px;
+  padding-top: 10px;
 }
 .backup-item:first-child {
   border-top: 0;
@@ -1528,7 +1493,8 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   gap: 2px;
   min-width: 0;
 }
-.backup-time {
+.backup-name {
+  overflow-wrap: anywhere;
   color: var(--text);
   font-size: 0.82rem;
   font-weight: 600;
@@ -1541,6 +1507,44 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .backup-empty {
   margin: 0;
 }
+.backup-show-older {
+  font-size: 0.78rem;
+  margin-top: 10px;
+}
+.backup-restore-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 22px;
+  width: min(460px, calc(100vw - 32px));
+}
+.backup-restore-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.backup-restore-dialog h2 {
+  font-size: 1.15rem;
+  margin: 0 0 14px;
+}
+.backup-restore-dialog p {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+.backup-restore-summary {
+  color: var(--muted);
+}
+.backup-restore-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .reset-confirm {
   border: 2px solid #d96b61;
   border-radius: 12px;
@@ -1582,22 +1586,6 @@ body[data-theme="dark"] .reset-confirm {
   background: #2a1110;
   border-color: #b84a42;
   color: #ffd1cc;
-}
-.start-over-undo {
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  color: var(--text);
-  padding: 10px;
-  font-size: 0.84rem;
-}
-.start-over-undo strong {
-  display: block;
-  margin-bottom: 4px;
-}
-.start-over-undo p {
-  color: var(--muted);
-  margin-bottom: 10px;
 }
 body[data-theme="dark"] .sync-import-confirm {
   background: #2a1110;

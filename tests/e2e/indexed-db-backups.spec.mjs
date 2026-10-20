@@ -139,6 +139,8 @@ test('verified migration preserves progression and PostHog before removing legac
   await page.locator(
     '[data-settings-backup-action="restore"][data-backup-id="legacy-verified"]'
   ).click()
+  await expect(page.locator('#backupRestoreDialog')).toBeVisible()
+  await page.locator('#backupRestoreConfirm').click()
   await expect(page.locator('#toast')).toHaveText('Backup restored')
   expect(await page.evaluate(
     () => JSON.parse(localStorage.getItem('edenia_v1')).config.weeklyGoalHours

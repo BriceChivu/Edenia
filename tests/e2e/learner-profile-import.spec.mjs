@@ -712,3 +712,33 @@ test('picker return rechecks Auth without dismissing import confirmation', async
   await expect(page.locator('#syncImportConfirm')).toBeHidden()
   expect(importRequests).toHaveLength(0)
 })
+
+test('Recent backups restores a signed-in local copy through the protected import transition', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
+  const { importedEnvelope, importRequests, rollbackRequests, getCloudEnvelope } = await prepareImportPage(page)
+  await page.evaluate(({ key, state }) => {
+    localStorage.setItem(`${key}_backups`, JSON.stringify([{
+      id: 'saved-local-copy', createdAt: new Date().toISOString(),
+      reason: 'before sync import', sandbox: false, state
+    }]))
+  }, { key: STATE_KEY, state: importedEnvelope.profile })
+  await page.locator('[data-settings-shell-action="open"]').click()
+  await page.locator('.backup-toggle').click()
+  const restore = page.locator('[data-backup-id="saved-local-copy"]')
+  await restore.click()
+  await expect(page.locator('#backupRestoreBody')).toContainText('other devices')
+  await expect(page.locator('#backupRestoreBody')).toContainText('backed up first')
+  expect(importRequests).toHaveLength(0)
+  await page.screenshot({ path: testInfo.outputPath('synced-restore-confirmation.png'), fullPage: true })
+  await page.locator('#backupRestoreCancel').click()
+  expect(importRequests).toHaveLength(0)
+  await restore.click()
+  await page.locator('#backupRestoreConfirm').click()
+  await expect.poll(() => importRequests.length).toBe(1)
+  await expect(page.locator('#backupRestoreDialog')).toBeHidden()
+  expect(importRequests[0].p_confirmed).toBe(true)
+  expect(importRequests[0].p_envelope.profile.learnerProfile.languages).toEqual(['japanese'])
+  expect(getCloudEnvelope().profile.learnerProfile.languages).toEqual(['japanese'])
+  expect(rollbackRequests).toHaveLength(0)
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).learnerProfile.languages, STATE_KEY)).toEqual(['japanese'])
+})

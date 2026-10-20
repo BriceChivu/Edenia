@@ -7,8 +7,7 @@ import {
 const selectors = [
   '[data-settings-reset-confirm-action="show"]',
   '[data-settings-reset-confirm-action="hide"]',
-  '[data-settings-reset-confirm-action="confirm"]',
-  '[data-settings-reset-confirm-action="undo"]'
+  '[data-settings-reset-confirm-action="confirm"]'
 ]
 
 function createHarness(includedSelectors = selectors) {
@@ -35,11 +34,8 @@ test('Settings reset-confirm binding calls exact zero-argument actions', () => {
     },
     confirm(...args) {
       calls.push(['confirm', args])
-    },
-    undo(...args) {
-      calls.push(['undo', args])
     }
-  }), 4)
+  }), 3)
 
   selectors.forEach(selector => {
     const event = new Event('click', { cancelable: true })
@@ -49,8 +45,7 @@ test('Settings reset-confirm binding calls exact zero-argument actions', () => {
   assert.deepEqual(calls, [
     ['show', []],
     ['hide', []],
-    ['confirm', []],
-    ['undo', []]
+    ['confirm', []]
   ])
 })
 
@@ -66,9 +61,6 @@ test('Settings reset-confirm binding is idempotent and tolerates absent controls
     },
     confirm() {
       calls.push('confirm')
-    },
-    undo() {
-      calls.push('undo')
     }
   }
   assert.equal(bindSettingsResetConfirmActions(root, actions), 1)
@@ -84,13 +76,12 @@ test('Settings reset-confirm binding fails closed on invalid boundaries', () => 
     () => bindSettingsResetConfirmActions(null, {
       show() {},
       hide() {},
-      confirm() {},
-      undo() {}
+      confirm() {}
     }),
     /queryable root/
   )
   assert.throws(
     () => bindSettingsResetConfirmActions(root, { show() {} }),
-    /show, hide, confirm, and undo callbacks/
+    /show, hide, and confirm callbacks/
   )
 })

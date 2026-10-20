@@ -534,12 +534,13 @@
         </div>
         <div class="settings-accordion backup-panel">
           <button type="button" class="settings-accordion-toggle backup-toggle" data-analytics-action="settings.backups.title" aria-expanded="false" aria-controls="backupContent">
-            <span data-i18n="settings.backups.title">Recent local backups</span>
+            <span data-i18n="settings.backups.title">Recent backups</span>
             <span class="settings-accordion-caret" aria-hidden="true"></span>
           </button>
           <div class="settings-accordion-content backup-content" id="backupContent" hidden>
-            <div id="backupList" class="backup-list"></div>
-            <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
+            <div id="backupList" class="backup-list" data-profile-conflict-export-list></div>
+            <button id="backupShowOlder" class="btn-ghost backup-show-older" type="button" hidden data-i18n="backups.showOlder">Show older backups</button>
+            <p class="settings-note" data-i18n="settings.backups.note">Restore earlier progress or download a saved copy. Backups marked “This browser only” stay on this device.</p>
           </div>
         </div>
       </div>
@@ -549,10 +550,6 @@
       </div>
 
       <div class="settings-data-group" id="settingsDataGroup">
-        <section class="learner-profile-conflict-recovery hidden" id="learnerProfileConflictRecovery" aria-labelledby="learnerProfileConflictRecoveryTitle" tabindex="-1">
-          <h2 id="learnerProfileConflictRecoveryTitle" data-i18n="profileConflict.protectedTitle">Your protected profile versions</h2>
-          <ul class="learner-profile-conflict-recovery-list" id="learnerProfileConflictRecoveryList" data-profile-conflict-export-list></ul>
-        </section>
         <div class="sync-actions">
         <button class="btn-secondary" type="button" data-settings-sync-action="export" data-analytics-action="settings.sync.export" data-i18n="settings.sync.export">Export sync file</button>
         <button class="btn-secondary" type="button" data-settings-sync-action="choose-file" data-analytics-action="settings.sync.import" data-i18n="settings.sync.import">Import sync file</button>
@@ -572,11 +569,6 @@
           <button class="btn-secondary" type="button" data-settings-legacy-progress-recovery-action="recover" data-i18n="settings.legacyProgress.recover">Recover progress from the old Edenia address</button>
           <p class="settings-note" data-i18n="settings.legacyProgress.note">Use this if you studied on Edenia before it moved to edenia.study.</p>
         </div>
-        <div id="startOverUndo" class="start-over-undo hidden" aria-live="polite">
-          <strong data-i18n="settings.startOver.undoTitle">Started over</strong>
-          <p id="startOverUndoDeadline"></p>
-          <button class="btn-ghost" data-settings-reset-confirm-action="undo" data-analytics-action="settings.startOver.undo" data-i18n="settings.startOver.undo">Undo Start over</button>
-        </div>
         <button class="btn-ghost btn-danger settings-reset-btn" data-settings-reset-confirm-action="show" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
           <p id="startOverWarning" data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
@@ -586,6 +578,16 @@
           </div>
         </div>
       </div>
+
+      <dialog id="backupRestoreDialog" class="backup-restore-dialog" aria-labelledby="backupRestoreTitle" aria-describedby="backupRestoreSummary backupRestoreBody">
+        <h2 id="backupRestoreTitle" data-i18n="backups.restoreTitle">Restore this backup?</h2>
+        <p id="backupRestoreSummary" class="backup-restore-summary"></p>
+        <p id="backupRestoreBody"></p>
+        <div class="backup-restore-actions">
+          <button id="backupRestoreCancel" class="btn-ghost" type="button" data-i18n="backups.cancel">Cancel</button>
+          <button id="backupRestoreConfirm" class="btn-primary" type="button" data-i18n="backups.restoreConfirm">Restore backup</button>
+        </div>
+      </dialog>
 
       <aside class="intro-creator settings-creator" aria-label="Created by BriceLearnStuff">
         <img class="intro-creator-logo" src="images/planet.png" alt="">

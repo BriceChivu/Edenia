@@ -182,8 +182,8 @@ local-preserving backup path even when no pending candidate could be stored.
 **Start over** creates a blank revision in a new learner-profile generation.
 It keeps the Supabase account, current session, and analytics identity. The
 previous generation is protected for 30 days and remains available through an
-owner-scoped **Undo Start over** action on every device signed in to that
-account. A stale device may preserve its local copy for recovery, but it cannot
+owner-scoped **Restore…** action on the **Before starting over** entry in
+Settings → **Recent backups**, on every device signed in to that account. A stale device may preserve its local copy for recovery, but it cannot
 automatically replace the new generation.
 
 Undo verifies the protected envelope again and restores its learner data as the
@@ -193,6 +193,16 @@ checks. Backup creation, Start over, and Undo each fail transactionally, leaving
 the last accepted head and protected history unchanged. General account
 deletion remains outside the MVP; Start over neither deletes the account nor
 signs the learner out.
+
+Recent backups also lists browser-local backups and unchosen protected profile
+versions. Start-over recovery stays first, followed by protected versions and
+local backups from newest to oldest; older entries can be expanded. Protected
+versions offer Download through the existing owner-verified export path. Restore
+opens a modal confirmation explaining replacement and whether other devices are
+affected. Cancel and Escape leave progress unchanged. Local-copy restoration for
+a signed-in profile uses the protected import transition. Expired recovery copies
+are removed while Settings is open, and a pending restore is cancelled if its
+owner, profile, or generation changes.
 
 ## Google Identity Services
 
