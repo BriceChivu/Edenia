@@ -31,7 +31,7 @@ body[data-theme="dark"] .history-chart { --chart-video: #56bdf1; --chart-anki: #
 .history-chart-legend button[aria-pressed="false"] { text-decoration: line-through; opacity: .5; }
 .history-chart-swatch { width: 15px; height: 8px; border-radius: 2px; background: var(--chart-video); }
 .history-chart-swatch.history-chart-anki { background: var(--chart-anki); }
-.history-chart-plot { height: 282px; position: relative; touch-action: pan-y; user-select: none; cursor: grab; }
+.history-chart-plot { height: 197.4px; position: relative; touch-action: pan-y; user-select: none; cursor: grab; }
 .history-chart-plot.is-dragging { cursor: grabbing; }
 .history-chart-svg, .history-chart-overview svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .history-chart-svg text, .history-chart-overview text { fill: var(--muted); font: 12px 'Barlow', system-ui, sans-serif; pointer-events: none; }
@@ -69,7 +69,7 @@ body[data-theme="dark"] .history-chart { --chart-video: #56bdf1; --chart-anki: #
   .history-chart-summary { grid-template-columns: minmax(0, 1fr) auto; }
   .history-chart-detail { grid-column: 1 / -1; grid-row: 2; }
   .history-chart-summary [data-chart-modes] { grid-column: 2; grid-row: 1; }
-  .history-chart-plot { height: 171px; }
+  .history-chart-plot { height: 119.7px; }
 }
 @media (pointer: coarse) {
   .history-chart button { min-height: 44px; }
