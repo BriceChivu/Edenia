@@ -1,0 +1,1730 @@
+[
+  {
+    "id": "B001",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B002",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B003",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B004",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B005",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B006",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B007",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B008",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B009",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B010",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B011",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B012",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B013",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B014",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B015",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B016",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B017",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B018",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B019",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B020",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B021",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B022",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B023",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B024",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B025",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B026",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B027",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B028",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B029",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B030",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 0,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B031",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B032",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 0,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B033",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B034",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B035",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B036",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B037",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B038",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B039",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B040",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B041",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B042",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B043",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B044",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B045",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B046",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B047",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B048",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B049",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B050",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B051",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B052",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B053",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B054",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B055",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B056",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B057",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B058",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B059",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B060",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B061",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B062",
+    "animal": "sheep",
+    "bush": 1,
+    "x": -18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B063",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B064",
+    "animal": "chicken",
+    "bush": 1,
+    "x": -18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B065",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B066",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B067",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -1,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B068",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B069",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B070",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B071",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B072",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B073",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B074",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B075",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B076",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B077",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B078",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B079",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B080",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B081",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B082",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B083",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -1,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B084",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B085",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B086",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B087",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B088",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B089",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B090",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B091",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B092",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B093",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B094",
+    "animal": "sheep",
+    "bush": 1,
+    "x": 18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B095",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B096",
+    "animal": "chicken",
+    "bush": 1,
+    "x": 18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B097",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B098",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B099",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -1,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B100",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B101",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B102",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B103",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B104",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B105",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B106",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B107",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B108",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B109",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B110",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B111",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B112",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B113",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B114",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B115",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -1,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B116",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B117",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B118",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B119",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B120",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B121",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B122",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B123",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B124",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B125",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B126",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 0,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B127",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B128",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 0,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B129",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B130",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B131",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -1,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B132",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B133",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B134",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B135",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B136",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B137",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B138",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B139",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B140",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B141",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B142",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B143",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B144",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B145",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B146",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B147",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -1,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B148",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B149",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B150",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B151",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B152",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B153",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B154",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B155",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B156",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B157",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B158",
+    "animal": "sheep",
+    "bush": 2,
+    "x": -18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B159",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B160",
+    "animal": "chicken",
+    "bush": 2,
+    "x": -18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B161",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B162",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B163",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -1,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B164",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 1,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B165",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B166",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B167",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -6,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B168",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 6,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B169",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B170",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B171",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -12,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B172",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 12,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B173",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B174",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B175",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -18,
+    "flip_h": false,
+    "front": false
+  },
+  {
+    "id": "B176",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 18,
+    "flip_h": false,
+    "front": true
+  },
+  {
+    "id": "B177",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B178",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B179",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B180",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 1,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B181",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B182",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B183",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -6,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B184",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 6,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B185",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B186",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B187",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -12,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B188",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 12,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B189",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B190",
+    "animal": "sheep",
+    "bush": 2,
+    "x": 18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  },
+  {
+    "id": "B191",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": -18,
+    "flip_h": true,
+    "front": false
+  },
+  {
+    "id": "B192",
+    "animal": "chicken",
+    "bush": 2,
+    "x": 18,
+    "y": 18,
+    "flip_h": true,
+    "front": true
+  }
+]

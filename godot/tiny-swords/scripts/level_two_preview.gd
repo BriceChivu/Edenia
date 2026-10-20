@@ -6,6 +6,7 @@ const TreeArt = preload("res://scripts/tree_art.gd")
 const LOG_TEXTURE = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Wood Resource/Wood Resource.png")
 const LOG_SHADOW_SHADER = preload("res://shaders/log_shadow.gdshader")
 const TerrainView = preload("res://scripts/terrain_view.gd")
+const TerrainDepth = preload("res://scripts/terrain_depth.gd")
 const BuilderUI = preload("res://scripts/builder_ui.gd")
 const HOUSE_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_01.png")
 const UI_CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_01.png")
@@ -995,7 +996,7 @@ func animate_house_displacements() -> void:
 func rebuild_decorations(display_layout = null) -> void:
 	pawn.set_color(layout.pawn_color)
 	if $World.get_script() == null:
-		$World.set_script(preload("res://scripts/terrain_depth.gd"))
+		$World.set_script(TerrainDepth)
 		$World.set_process(true)
 		$World.process_priority = 100 # Sort after actor animations and movement.
 	inventory_art_revision += 1
@@ -1119,14 +1120,15 @@ func rebuild_decorations(display_layout = null) -> void:
 			decoration.set_meta("rock_cell", cell)
 			decoration.set_meta("rock_face", render_layout.rock_footprint(cell))
 		decoration.position = render_layout.center(item.water if in_water else cell)
-		if item.kind in ["land_rock", "bush"]:
-			# Sort from the near edge like foliage, without moving the artwork.
-			var depth := 1.0 if item.kind == "land_rock" else 12.0
-			decoration.position.y += depth
-			decoration.offset.y -= depth / decoration.scale.y
+		if item.kind == "land_rock":
+			decoration.position.y += 1.0
+			decoration.offset.y -= 1.0 / decoration.scale.y
 		decoration.z_index = -17 if in_water else int(render_layout.height_at(cell) / 64.0)
 		if not in_water:
 			decoration.offset.y -= render_layout.height_at(cell) / decoration.scale.y
+		if item.kind == "bush":
+			TerrainDepth.anchor_foliage(decoration, render_layout.height_at(cell))
+			decoration.set_meta("bush_contact_variant", item.variant)
 		if decoration.hframes > 1:
 			decoration.set_script(preload("res://scripts/environment_sprite.gd"))
 			decoration.phase = float(cell.x * 7 + cell.y * 11) / 5.0
