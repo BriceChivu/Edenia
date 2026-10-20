@@ -315,6 +315,7 @@ test('active Tiny Swords batches durable study saves until gameplay stops', asyn
     cloud.advance(60_000)
     await phone.page.clock.fastForward(60_000)
     expect(cloud.commits).toHaveLength(0)
+    expect(await phone.page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1')).pending, key)).toBe(null)
     await phone.page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
       detail: { visible: true, active: false }
     })))

@@ -413,14 +413,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     } catch { return false }
   }
 
-  function markLocalIslandCheckpoint(profile, { activation, isCurrent } = {}) {
+  function markLocalIslandCheckpoint(profile, { activation, isCurrent, clearingUnchangedDirty = false } = {}) {
     const binding = activeBinding
     if (!binding || binding.activation !== activation || typeof isCurrent !== 'function'
       || !isCurrent() || !binding.isCurrent()) return false
     const record = readSyncRecord()
     if (!record || record.ownerId !== activation.ownerId || record.profileId !== activation.profileId
       || record.generation !== binding.generation || record.pending || record.queued
-      || readDirtyRecord().present) return false
+      || (readDirtyRecord().present && !clearingUnchangedDirty)) return false
     try {
       // The native cause cannot suppress unsaved study/config changes. Only an
       // island difference from this activation's clean profile can be marked.
@@ -4208,6 +4208,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && activeBinding.acceptedProfileDigest) {
       try {
         if (syncProfileDigest(profile) === activeBinding.acceptedProfileDigest
+          // An ambient-only checkpoint still belongs to this accepted head.
+          // Retain its exact local content before clearing dirty bookkeeping;
+          // the full-profile hash now runs at this quiet opportunity.
+          && markLocalIslandCheckpoint(profile, { activation, isCurrent, clearingUnchangedDirty: true })
           && clearDirtyRecord(record)) {
           publish('up-to-date')
           return { status: 'queued' }
