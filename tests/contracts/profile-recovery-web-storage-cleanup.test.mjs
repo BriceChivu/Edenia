@@ -112,7 +112,7 @@ test('a fallback changed by a peer during acknowledgement is not removed', async
   assert.equal(f.local.get(key), peerRaw)
 })
 
-for (const difference of ['profile', 'owner', 'backup', 'conflict', 'protected record', 'replacement fence']) {
+for (const difference of ['profile', 'owner', 'backup', 'conflict', 'protected record', 'replacement fence', 'nested original']) {
   test(`startup preserves an unrepresented fallback ${difference}`, async () => {
     const f = fixture()
     const fallback = JSON.parse(await growIntoJournal(f))
@@ -123,6 +123,8 @@ for (const difference of ['profile', 'owner', 'backup', 'conflict', 'protected r
     if (difference === 'conflict') fallback.pendingConflicts = [{ id: 'pending', currentRaw: '{}', desiredRaw: '{"study":3}', accessRaw: null }]
     if (difference === 'protected record') fallback.protectedJournalRecords = ['unrepresented archive']
     if (difference === 'replacement fence') { fallback.replacement = true; fallback.replacementId = 'another-choice' }
+    if (difference === 'nested original') fallback.protectedWorkspaces = [{ ...fallback,
+      originalProfile: '{"study":"unique nested original"}' }]
     const raw = JSON.stringify(fallback)
     f.local.set(key, raw)
     await createProfileRecoveryWorkspace(f.options).initialize()

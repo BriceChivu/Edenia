@@ -359,7 +359,7 @@ export function createProfileRecoveryWorkspace({
       }
       addProfile(copy.unchosenProfile, access)
       addProfile(copy.promotion?.profile, access)
-      for (const conflict of pendingConflicts(copy)) conflicts.add(JSON.stringify(conflict))
+      for (const conflict of copy.pendingConflicts || []) conflicts.add(JSON.stringify(conflict))
       for (const raw of copy.protectedJournalRecords || []) archives.add(raw)
       if (copy.deferredChoice) choices.add(JSON.stringify(copy.deferredChoice))
       for (const previous of copy.protectedWorkspaces || []) visit(previous)
@@ -376,8 +376,11 @@ export function createProfileRecoveryWorkspace({
     for (const { name, target, raw } of copies) {
       try {
         if (target.getItem(workspaceKey) !== raw) continue
-        const saved = parseRecord(raw)
-        if (!saved || (saved.sequence || 0) > (acknowledged.sequence || 0)) continue
+        // Prove coverage against the original document. parseRecord compacts
+        // legacy history and could hide an otherwise unrepresented version.
+        const saved = JSON.parse(raw)
+        if (!valid({ ...saved, status: 'active' }) || !['active', 'archived'].includes(saved.status)
+          || (saved.sequence || 0) > (acknowledged.sequence || 0)) continue
         if (saved.replacement && saved.replacementId !== acknowledged.replacementId
           || saved.originalReplacementRevision !== null && saved.originalReplacementRevision !== undefined
             && saved.originalReplacementRevision !== acknowledged.originalReplacementRevision) continue
