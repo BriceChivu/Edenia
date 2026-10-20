@@ -39,8 +39,10 @@ func configure(level: int, _bridges_enabled := false) -> void:
 		sheep_icon.region = Rect2(36, 32, 56, 56)
 		$PineReward.texture = sheep_icon
 		$PineCount.text = "+1"
-	if level == 2:
-		# Three reward columns, matching the level-three popup spacing.
+	$StairsButton.visible = level in [2, 3, 6]
+	$StairsCount.visible = $StairsButton.visible
+	if level in [2, 6]:
+		# Grass, stairs and tree/chicken use the same three reward columns.
 		$GroundButton.position.x = 96
 		$GroundCount.position.x = 153
 		$StairsButton.position.x = 194

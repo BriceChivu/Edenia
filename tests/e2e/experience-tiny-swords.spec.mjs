@@ -286,6 +286,7 @@ test('high-level claims survive delayed game startup, save failure, and reload',
   const reward=await durable()
   expect(reward.stock.meadow).toBe(island.stock.meadow+3)
   expect(reward.stock.sheep).toBe(island.stock.sheep+1)
+  expect(reward.stock.stairs).toBe(island.stock.stairs+1)
   await page.reload({waitUntil:'domcontentloaded'})
   await expect.poll(()=>game()?.evaluate(()=>window.edeniaGameLevel),{timeout:60000}).toBe(8)
   expect((await progress()).maxLevelIndex).toBe(7)
@@ -312,9 +313,9 @@ test('profile replacement recreates the island, resets it, and blocks a rejected
   const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
   await expect.poll(() => game()?.evaluate(() => window.edeniaLastSavePersisted),{timeout:60000}).toBe(true)
   const populated = await durable()
-  // The retained v23 fixture predates the level-six tree and level-two
-  // chicken rewards. Godot migrates these once during its accepted restore.
-  expect(populated.stock).toEqual({...island.stock,tree:island.stock.tree+1,chicken:island.stock.chicken+1})
+  // The retained v23 fixture predates the level-six tree/staircase and
+  // level-two chicken rewards. Godot migrates these once during its accepted restore.
+  expect(populated.stock).toEqual({...island.stock,tree:island.stock.tree+1,stairs:island.stock.stairs+1,chicken:island.stock.chicken+1})
   expect(populated.house_bundle).toBe(6)
   expect(populated.tree_cut_remaining).toEqual(island.tree_cut_remaining)
   const oldFrame = game()
