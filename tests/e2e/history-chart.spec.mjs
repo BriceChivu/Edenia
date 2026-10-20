@@ -96,7 +96,7 @@ test.beforeEach(async ({ page }, info) => {
   await page.clock.setFixedTime(now)
 })
 
-test('Market navigator groups earned XP and supports smooth pan, wheel, axis stretch and range handles', async ({ page }, info) => {
+test('Market navigator shows daily XP and supports smooth pan, wheel, axis stretch and range handles', async ({ page }, info) => {
   const { chart, commits } = await seedChart(page)
   await expect(chart).not.toContainText('Drag handles')
   await expect(chart.locator('.history-chart-detail')).toContainText('Video')
@@ -105,9 +105,19 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
     return { video: style.getPropertyValue('--chart-video').trim(), anki: style.getPropertyValue('--chart-anki').trim() }
   })
   expect(colors).toEqual({ video: '#159bd3', anki: '#747b83' })
-  await chart.locator('[data-chart-unit="month"]').click()
-  await expect(chart).toHaveAttribute('data-chart-unit', 'month')
-  await chart.locator('[data-chart-unit="day"]').click()
+  await expect(chart.locator('[data-chart-units], [data-chart-zoom], .history-chart-navigation')).toHaveCount(0)
+  const chartBox = await chart.boundingBox()
+  const xpBox = await page.locator('.goal-card').boundingBox()
+  expect(Math.abs(chartBox.x - xpBox.x)).toBeLessThan(1)
+  expect(Math.abs(chartBox.width - xpBox.width)).toBeLessThan(1)
+  const summary = chart.locator('.history-chart-summary')
+  await expect(summary.locator('.history-chart-span')).toHaveText('30 days visible')
+  await expect(summary.locator('[data-chart-modes]')).toBeVisible()
+  const summaryBox = await summary.boundingBox()
+  const plotBox = await chart.locator('.history-chart-plot').boundingBox()
+  const overviewBox = await chart.locator('.history-chart-overview').boundingBox()
+  expect(summaryBox.y).toBeGreaterThanOrEqual(plotBox.y + plotBox.height - 1)
+  expect(summaryBox.y + summaryBox.height).toBeLessThanOrEqual(overviewBox.y + 1)
   await chart.locator('[data-chart-mode="line"]').filter({ hasText: 'Line' }).click()
   await expect(chart).toHaveAttribute('data-chart-mode', 'line')
   await chart.locator('[data-chart-mode="bar"]').filter({ hasText: 'Bar' }).click()
@@ -146,6 +156,11 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   const handleBefore = await span(chart)
   await handle.click()
   await expect(handle).toBeFocused()
+  await expect(handle).toHaveCSS('outline-style', 'none')
+  await chart.locator('button[data-chart-mode="line"]').focus()
+  await page.keyboard.press('Tab')
+  await expect(handle).toBeFocused()
+  await expect(handle.locator('.history-chart-handle')).toHaveCSS('stroke-width', '3px')
   await handle.press('ArrowLeft')
   await expect.poll(() => span(chart)).toBeGreaterThan(handleBefore)
   const target = await chart.locator('[data-chart-edge="end"] .history-chart-handle').boundingBox()
@@ -162,7 +177,7 @@ test('Market navigator groups earned XP and supports smooth pan, wheel, axis str
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width)
   expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport)
   await chart.screenshot({ path: info.outputPath('market-navigator.png') })
-  await chart.evaluate(el => { for (let i = 0; i < 15; i++) el.querySelector('[data-chart-zoom="in"]').click() })
+  for (let i = 0; i < 10; i++) await handle.press('Shift+ArrowRight')
   await expect.poll(() => span(chart)).toBe(3)
   const timeLabels = await chart.locator('.history-chart-time-tick').allTextContents()
   expect(timeLabels.length).toBeGreaterThan(0)
@@ -202,7 +217,7 @@ test('Touch pan and two-finger pinch keep their captured surface and respond wit
 
 test('Free history excludes old activity and dates from all Chart output', async ({ page }) => {
   const { chart } = await seedChart(page, { free: true })
-  await chart.locator('[data-chart-unit="year"]').click()
+  await chart.locator('[data-chart-edge="start"]').press('Shift+ArrowLeft')
   await expect(chart).toHaveAttribute('data-chart-start', '2026-09-14')
   await expect(chart).not.toContainText('999,999')
   await expect(chart.locator('.history-chart-access')).toBeVisible()
@@ -252,9 +267,6 @@ test('Bar markers are centered, overview labels are unique, and native tooltips 
   expect(new Set(labels).size).toBe(labels.length)
   await expect(chart.locator('svg title')).toHaveCount(0)
   await expect(chart.locator('.history-chart-svg text').filter({ hasText: /^Time$/ })).toHaveCount(0)
-  if (await page.evaluate(() => matchMedia('(any-pointer: coarse)').matches)) {
-    await expect(chart.locator('.history-chart-navigation')).not.toBeVisible()
-  }
 })
 
 test('Walkthrough starts at Study History and finishes around both archive headers', async ({ page }) => {
