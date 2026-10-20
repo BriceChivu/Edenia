@@ -651,7 +651,14 @@ export function createProfileRecoveryWorkspace({
     }
   }
   const baselines = new WeakMap()
+  async function readSyncBase(identity, { beforeRead = () => true } = {}) {
+    const base = record?.syncBase
+    if (!active || !base || JSON.stringify(base.identity) !== JSON.stringify(identity)) return null
+    if (!await beforeRead() || base !== record?.syncBase) return null
+    return JSON.parse(base.raw)
+  }
   const repository = {
+    readSyncBase,
     readRaw: () => storage.getItem(storageKey),
     snapshot() {
       const raw = storage.getItem(storageKey)
@@ -739,6 +746,13 @@ export function createProfileRecoveryWorkspace({
     getDiagnosticContext: () => record ? { incidentId: sanitizeStorageDiagnosticId(record.incidentId),
       testRunId: sanitizeStorageDiagnosticId(record.testRunId) } : null,
     getOriginalAccess: () => record?.originalAccess ?? null,
+    async retainSyncBase(identity, profile) {
+      if (!active || !identity || !profile) return false
+      const captured = record
+      record.syncBase = { identity, raw: JSON.stringify(profile) }
+      const saved = await persistDurably()
+      return saved && active && record === captured
+    },
     acceptsOriginalMetadata(key, value) {
       return value === (record?.originalValues?.[key] ?? null)
         || (record?.promotion && value === (record.promotion.values[key] ?? null))

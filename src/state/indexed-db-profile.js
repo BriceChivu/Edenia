@@ -343,7 +343,7 @@ export async function openIndexedDbProfile({
   // Retain the pre-edit version in the same transaction as the local edit.
   // Reuse its immutable JSON body: no profile parsing/hashing on island saves.
   function retainSyncBase(store, previous, identity, replaceBody = false, onFailure = () => {}) {
-    if (!previous) return
+    if (!previous || (!identity && !replaceBody)) return
     const request = store.get(SYNC_BASE)
     request.onsuccess = () => {
       try {

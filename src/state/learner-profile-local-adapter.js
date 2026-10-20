@@ -833,7 +833,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
 
   async function saveIsland(profile, layout, expected, fence, syncBase) {
     const repository = getCheckpointRepository()
-    if (!repository?.readSyncBase) return null
+    if (!repository?.readSyncBase || !repository.saveIsland) return null
     const canPersist = () => isActivationCurrent(fence) && getCheckpointRepository() === repository
     if (!canPersist()) return false
     const saved = await repository.saveIsland(layout, expected, { canPersist, syncBase })
@@ -889,7 +889,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     read,
     readIsland,
     saveIsland,
-    supportsIslandCheckpoints: () => Boolean(getCheckpointRepository()?.readSyncBase),
+    supportsIslandCheckpoints: () => Boolean(getCheckpointRepository()?.readSyncBase && getCheckpointRepository()?.saveIsland),
     reconcileSignedInProfile,
     releaseActivation,
     releaseOpeningActivation,

@@ -1078,3 +1078,92 @@ test('an upload receipt and later local edits wait when play resumes during the 
   assert.equal(queued.pending.changes.baseRevision, 2)
   assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
 })
+
+test('warm checkpoint dirty markers validate identity without parsing a large unchanged outbox', async () => {
+  const phone = await openDevice(sharedCloud(), { getSyncOpportunity: () => false })
+  phone.profile.videos.large = { title: 'Synthetic retained metadata '.repeat(10000), favorite: true }
+  phone.save()
+  await settle()
+  const raw = phone.storage.getItem(SYNC_STORAGE_KEY)
+  const parse = JSON.parse
+  let outboxParses = 0
+  JSON.parse = function (value, ...rest) { if (value === raw) outboxParses++; return parse(value, ...rest) }
+  try {
+    for (let i = 0; i < 10; i++) assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
+    assert.equal(outboxParses, 0)
+    phone.storage.setItem(SYNC_STORAGE_KEY, '{malformed peer update')
+    assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), false)
+  } finally { JSON.parse = parse }
+})
+
+test('explicit retry loads the first durable base and uploads while play remains active', async () => {
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  const base = structuredClone(phone.profile)
+  phone.profile.videos.phone.favorite = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.destroy()
+  const timers = []
+  const adapter = createAdapter({ storage: phone.storage, prepareEnvelope: digestEnvelope,
+    getSyncOpportunity: () => false,
+    readDeferredBase: async (_identity, options) => { assert.equal(await options.beforeRead(), true); return base },
+    rpc: server.rpc, readHead: async () => ({ data: server.head(), error: null }),
+    setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length } })
+  const activation = { ...phone.activation, id: 'offline-first-checkpoint-return' }
+  adapter.activate({ activation, generation: 1, revision: 1, profile: phone.profile,
+    isCurrent: () => true, readPersistedProfile: () => structuredClone(phone.profile) })
+  assert.equal(adapter.retry(), true)
+  await settle()
+  timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  assert.equal((await openDevice(server)).profile.videos.phone.favorite, true)
+})
+
+test('explicit retry releases an upload receipt already waiting for play to stop', async () => {
+  const server = sharedCloud(), receipt = deferred()
+  let quiet = true
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
+    rpc: async (name, parameters) => {
+      const result = await server.rpc(name, parameters)
+      if (name === 'commit_my_learner_profile_handoff') { await receipt.promise }
+      return result
+    } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  quiet = false
+  receipt.resolve()
+  await settle()
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 1)
+  assert.equal(phone.adapter.retry(), true)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 2)
+})
+
+test('a failed explicit request cannot keep later automatic work exempt from the play gate', async () => {
+  let preparations = 0
+  const server = sharedCloud()
+  const phone = await openDevice(server, { getSyncOpportunity: () => false,
+    prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) },
+    rpc: async (name, parameters) => {
+      if (name === 'commit_my_learner_profile_handoff') throw new TypeError('Synthetic network failure')
+      return server.rpc(name, parameters)
+    } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  assert.equal(phone.adapter.retry(), true)
+  await settle()
+  const before = preparations
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  phone.setTime(100000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(preparations, before)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  assert.equal(server.head().revision, 1)
+})
