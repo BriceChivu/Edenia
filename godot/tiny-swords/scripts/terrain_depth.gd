@@ -28,6 +28,8 @@ func depth_y(node: Node2D) -> float:
 	return node.position.y + (node.FOOT_DEPTH_Y if node == get_parent().pawn else 0.0)
 
 func actor_in_front(actor: Node2D, terrain: Node2D) -> bool:
+	if terrain.has_meta("bush_contact_variant") and actor.has_method("bush_depth_offset"):
+		return depth_y(actor) + actor.bush_depth_offset(terrain) > depth_y(terrain)
 	if terrain.has_meta("rock_cell"):
 		return depth_y(actor) > Layout.rock_depth_y(terrain.get_meta("rock_face"), actor.position.x)
 	if not is_ramp(terrain):
@@ -54,7 +56,7 @@ func _process(_delta: float) -> void:
 	for child in get_children():
 		if child is Node2D and not child.is_queued_for_deletion():
 			nodes.append(child)
-			needs_sort = needs_sort or is_ramp(child) or child.has_meta("rock_cell")
+			needs_sort = needs_sort or is_ramp(child) or child.has_meta("rock_cell") or child.has_meta("bush_contact_variant")
 	if not needs_sort:
 		y_sort_enabled = true
 		previous_inputs.clear()
@@ -66,6 +68,8 @@ func _process(_delta: float) -> void:
 	inputs.clear()
 	for node in stable:
 		inputs.append_array([node.get_instance_id(), node.position, node.z_index])
+		if node.has_method("bush_depth_offset"):
+			inputs.append(node.flip_h)
 		if is_ramp(node):
 			inputs.append_array([node.display_layout().height_at(node.piece), node.display_layout().stair_direction(node.piece)])
 	if inputs == previous_inputs:

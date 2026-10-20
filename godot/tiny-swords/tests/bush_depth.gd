@@ -63,19 +63,18 @@ func run() -> void:
 					check(is_equal_approx(world.depth_y(bush), visible_base(bush, height, frame)), "Bush depth matches the visible base throughout its animation")
 				for front in [false, true]:
 					for actor in actors:
-						var foot: float = scene.pawn.FOOT_DEPTH_Y if actor == scene.pawn else 0.0
+						var foot: float = scene.pawn.FOOT_DEPTH_Y if actor == scene.pawn else actor.bush_depth_offset(bush)
 						actor.position = Vector2(center.x + 8, contact - foot + (1 if front else -1))
 					await process_frame
 					await process_frame
 					for actor in actors:
-						check((world.depth_y(actor) > world.depth_y(bush)) == front, "Pawn and animals switch depth one pixel either side of the visible base")
-						if mode != "flat":
-							check((actor.get_index() > bush.get_index()) == front, "Ramp and rock ordering preserve actor/bush overlap at the contact edge")
+						check(world.actor_in_front(actor, bush) == front, "Pawn and animals switch depth either side of their contact contour")
+						check((actor.get_index() > bush.get_index()) == front, "Flat, ramp and rock ordering preserve actor/bush contact overlap")
 					if OS.get_cmdline_user_args().has("--capture") and mode == "ramps" and height == 0 and variant == 1:
 						await RenderingServer.frame_post_draw
 						root.get_texture().get_image().save_png("/tmp/edenia-bush-%s.png" % ("front" if front else "behind"))
 					if mode == "flat":
-						check(world.y_sort_enabled, "Flat terrain uses native Y sorting")
+						check(not world.y_sort_enabled, "Flat bushes use the same contact ordering as ramps and rocks")
 	scene.queue_free()
 	await process_frame
 	print("Bush depth checks: ", checks, "; failures=", failures)

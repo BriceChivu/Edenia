@@ -1128,6 +1128,7 @@ func rebuild_decorations(display_layout = null) -> void:
 			decoration.offset.y -= render_layout.height_at(cell) / decoration.scale.y
 		if item.kind == "bush":
 			TerrainDepth.anchor_foliage(decoration, render_layout.height_at(cell))
+			decoration.set_meta("bush_contact_variant", item.variant)
 		if decoration.hframes > 1:
 			decoration.set_script(preload("res://scripts/environment_sprite.gd"))
 			decoration.phase = float(cell.x * 7 + cell.y * 11) / 5.0

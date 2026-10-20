@@ -1,6 +1,7 @@
 extends Sprite2D
 
 const Art = preload("res://scripts/level_five_art.gd")
+const BushContact = preload("res://scripts/bush_contact.gd")
 const IDLE_SECONDS := 2.4
 const GRASS_SECONDS := 1.2
 var world
@@ -46,6 +47,9 @@ func _ready() -> void:
 
 func animal_positions() -> Array[Vector2]:
 	return world.layout.sheep
+
+func bush_depth_offset(bush: Sprite2D) -> float:
+	return BushContact.depth_offset(self, bush, false)
 
 func tile_target(cell: Vector2i) -> Vector2:
 	var center: Vector2 = world.layout.center(cell)

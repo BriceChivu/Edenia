@@ -1242,13 +1242,18 @@ movement using the [four annotated PNG polygons](tests/fixtures/rock-contact-ref
 behind the rock. Each actor sorts against the angled upper edge independently.
 Bushes remain traversable: actors behind their lower contact edge appear behind
 the foliage and actors beyond it appear in front. Animated bushes anchor their
-depth to the texture's visible base, preserving the artwork position. The required
-export checks cover pawn, chicken and sheep feet one pixel either side of that
-base on flat ground, near rocks and near ramps, at each floor. New placements and old saved
-animal positions settle outside rock faces on their existing grass tile.
+depth to the texture's visible base, preserving the artwork position. Sheep and
+chickens use authored contact contours from the 192 reviewed bush views, with
+continuous interpolation across horizontal overlaps and mirrored sheep contacts.
+The small bush has a separate chicken contour. These contacts stay stable through
+animation and facing changes invalidate the cached draw order. Flat ground, rocks
+and ramps use the same pairwise bush ordering. The required export checks cover
+all 192 reviewed cases on three floors in all three terrain modes, plus pawn and
+animal transitions one pixel either side of their contact contours. New placements
+and old saved animal positions settle outside rock faces on their existing grass tile.
 Focused checks: `res://tests/rock_contacts.gd`, `res://tests/land_rock_depth.gd`,
-and `res://tests/bush_depth.gd`. Ordinary walking clicks retain their exact
-reachable destination. A blocked click approaches the closest reachable safe
+`res://tests/bush_depth.gd`, and `res://tests/bush_review_contacts.gd`. Ordinary walking
+clicks retain their exact reachable destination. A blocked click approaches the closest reachable safe
 position instead of being ignored; disconnected grass approaches the shore of
 the pawn's connected island. Movement remains bounded by the same foot contacts
 and can be cancelled with another click. Pickup, harvesting and house work keep

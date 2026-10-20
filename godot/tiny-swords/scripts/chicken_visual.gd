@@ -18,6 +18,9 @@ func _ready() -> void:
 func animal_positions() -> Array[Vector2]:
 	return world.layout.chickens
 
+func bush_depth_offset(bush: Sprite2D) -> float:
+	return BushContact.depth_offset(self, bush, true)
+
 const CHICKEN_SPACING := 32.0
 
 func clear_of_chickens(start: Vector2, target: Vector2) -> bool:

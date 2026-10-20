@@ -55,6 +55,7 @@ export async function buildTinySwords(outputDir, { validate = true } = {}) {
     ['--script', 'res://tests/inventory_outline_assets.gd'],
     ['--script', 'res://tests/gameplay.gd'],
     ['--script', 'res://tests/bush_depth.gd'],
+    ['--script', 'res://tests/bush_review_contacts.gd'],
     ['--script', 'res://tests/direct_walk_routes.gd'],
     ['--script', 'res://tests/bounded_obstacle_search.gd'],
     ['--script', 'res://tests/chicken_follow_budget.gd'],
