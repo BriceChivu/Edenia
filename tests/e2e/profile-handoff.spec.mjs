@@ -135,7 +135,7 @@ async function createDevice(browser, cloud, device, browserName, baseURL) {
 for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acceptance', 'local-save-after-acceptance']) {
   test(`phone lock during ${stage} then computer study preserves both devices without a conflict`, async ({ browser, browserName, baseURL }, testInfo) => {
     test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
-    test.setTimeout(90_000)
+    test.setTimeout(Math.max(testInfo.timeout, 90_000))
     const cloud = await createCloud()
     const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
     let computer
@@ -224,7 +224,7 @@ for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acc
 
 test('rapid visibility changes retain a deferred server budget and coalesce the latest study', async ({ browser, browserName, baseURL }, testInfo) => {
   test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
-  test.setTimeout(90_000)
+  test.setTimeout(Math.max(testInfo.timeout, 90_000))
   const cloud = await createCloud()
   const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
   try {
@@ -291,7 +291,7 @@ test('same-video phone-computer-phone handoff retains study from both sessions a
   } finally { headGate.resolve(); await computer?.context.close(); await phone.context.close() }
 })
 
-test('active Tiny Swords batches durable study saves until its bounded cloud opportunity', async ({ browser, browserName, baseURL }, testInfo) => {
+test('active Tiny Swords batches durable study saves until gameplay stops', async ({ browser, browserName, baseURL }, testInfo) => {
   test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
   const cloud = await createCloud()
   const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
@@ -310,14 +310,185 @@ test('active Tiny Swords batches durable study saves until its bounded cloud opp
       durable: loadPersistedState({ persistCleanup: false }).videos.phone.resumeAtSeconds
     }), key)
     expect(pending.durable).toBe(30)
-    expect(pending.outbox.pending.prepared.profile.videos.phone.resumeAtSeconds).toBe(20)
-    expect(pending.outbox.pending.changes).toBeTruthy()
+    expect(pending.outbox.pending).toBe(null)
     expect(pending.dirty).toBeTruthy()
-    cloud.advance(10_000)
-    await phone.page.clock.fastForward(10_000)
+    cloud.advance(60_000)
+    await phone.page.clock.fastForward(60_000)
+    expect(cloud.commits).toHaveLength(0)
+    expect(await phone.page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1')).pending, key)).toBe(null)
+    await phone.page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
+      detail: { visible: true, active: false }
+    })))
+    await phone.page.clock.fastForward(5_000)
     await expect.poll(() => cloud.head().revision).toBe(2)
     expect(cloud.head().envelope.profile.videos.phone.resumeAtSeconds).toBe(30)
     await expect.poll(() => phone.page.evaluate(key => localStorage.getItem(key + '_learner_profile_sync_v1_dirty'), key)).toBe(null)
+    expect(phone.errors).toEqual([])
+  } finally { await phone.context.close() }
+})
+
+test('signed-in island checkpoints stay small during play and recover across an abrupt runtime stop and computer study', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  test.setTimeout(Math.max(testInfo.timeout, 90_000))
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  let computer
+  try {
+    const result = await phone.page.evaluate(async () => {
+      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } }))
+      const state = loadState()
+      const videos = state.videos
+      let reads = 0
+      Object.defineProperty(state, 'videos', { configurable: true, enumerable: true,
+        get() { reads++; return videos } })
+      const fullSave = primaryProfileRepository.save
+      primaryProfileRepository.save = () => { throw new Error('Island checkpoint attempted a full-profile save') }
+      const baseline = JSON.stringify(primaryProfileRepository.readIslandState().tinySwordsIsland) ?? 'absent'
+      const first = { version: 38, level: 1, resources: { wood: 7 } }
+      const saved = await learnerProfileLifecycleAuthority.saveActiveIsland(first, baseline)
+      let latest = first
+      for (let i = 0; i < 10; i++) {
+        const next = { ...latest, resources: { wood: 8 + i } }
+        if (!await learnerProfileLifecycleAuthority.saveActiveIsland(next, JSON.stringify(latest))) throw new Error('Warm checkpoint rejected')
+        latest = next
+      }
+      primaryProfileRepository.save = fullSave
+      return { saved, reads, wood: state.tinySwordsIsland.resources.wood,
+        body: JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1')).pending }
+    })
+    expect(result).toEqual({ saved: true, reads: 0, wood: 17, body: null })
+    await phone.page.clock.runFor(60_000)
+    expect(cloud.commits).toHaveLength(0)
+    // Retire the runtime without a session-boundary flush. Durable state alone
+    // must supply the first before-image on reopening.
+    await phone.page.evaluate(() => learnerProfileLifecycleAuthority.destroy())
+    computer = await createDevice(browser, cloud, 'computer', browserName, baseURL)
+    expect(await computer.capture(65)).toBe(true)
+    await expect.poll(() => cloud.head().revision).toBe(2)
+    cloud.advance(30_000)
+    await phone.page.reload()
+    await expect(phone.page.locator('#mainApp')).toBeVisible()
+    await expect.poll(() => phone.page.evaluate(() => loadState()?.tinySwordsIsland?.resources?.wood)).toBe(17)
+    await expect.poll(() => phone.page.evaluate(() => loadState()?.videos.computer.resumeAtSeconds)).toBe(65)
+    await expect(phone.page.locator('#learnerProfileConflictDialog')).not.toBeVisible()
+    await expect.poll(() => cloud.head().envelope.profile.tinySwordsIsland?.resources?.wood).toBe(17)
+    expect(phone.errors).toEqual([])
+    expect(computer.errors).toEqual([])
+  } finally {
+    await phone.context.close()
+    await computer?.context.close()
+  }
+})
+
+test('retiring a signed-in activation fences an island checkpoint before it can acknowledge or write', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  try {
+    const result = await phone.page.evaluate(async () => {
+      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } }))
+      const save = primaryProfileRepository.saveIsland.bind(primaryProfileRepository)
+      let release
+      const gate = new Promise(resolve => { release = resolve })
+      primaryProfileRepository.saveIsland = async (...args) => { await gate; return save(...args) }
+      const before = primaryProfileRepository.readIslandState().tinySwordsIsland
+      const pending = learnerProfileLifecycleAuthority.saveActiveIsland({ version: 38, resources: { wood: 999 } }, JSON.stringify(before) ?? 'absent')
+      learnerProfileLifecycleAuthority.destroy()
+      release()
+      return { saved: await pending, after: primaryProfileRepository.readIslandState().tinySwordsIsland ?? null, before: before ?? null }
+    })
+    expect(result.saved).toBe(false)
+    expect(result.after).toEqual(result.before)
+    expect(cloud.commits).toHaveLength(0)
+    expect(phone.errors).toEqual([])
+  } finally { await phone.context.close() }
+})
+
+for (const firstCheckpoint of [true, false]) test(`quota fallback retains the ${firstCheckpoint ? 'first' : 'existing'} island base across abrupt close and computer study`, async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  test.setTimeout(Math.max(testInfo.timeout, 120_000))
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  let computer
+  try {
+    await phone.page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
+      detail: { visible: true, active: true }
+    })))
+    if (!firstCheckpoint) {
+      // A startup study transaction may still own the local writer. The game
+      // retries a rejected checkpoint rather than replacing that transaction.
+      await expect.poll(() => phone.page.evaluate(() => learnerProfileLifecycleAuthority.saveActiveIsland(
+        { version: 38, level: 1, resources: { wood: 7 } },
+        JSON.stringify(primaryProfileRepository.readIslandState().tinySwordsIsland) ?? 'absent'
+      ))).toBe(true)
+    }
+    const saved = await phone.page.evaluate(async () => {
+      const island = primaryProfileRepository.readIslandState().tinySwordsIsland
+      const put = IDBObjectStore.prototype.put
+      IDBObjectStore.prototype.put = function (value) {
+        if (this.name === 'profiles' && value.key === 'active') throw new DOMException('Synthetic quota failure', 'QuotaExceededError')
+        return put.call(this, value)
+      }
+      const next = { version: 38, level: 1, resources: { wood: 17 } }
+      const result = await learnerProfileLifecycleAuthority.saveActiveIsland(next, JSON.stringify(island) ?? 'absent')
+      IDBObjectStore.prototype.put = put
+      if (!profileRecoveryWorkspace.isActive()) throw new Error('Expected durable recovery fallback')
+      learnerProfileLifecycleAuthority.destroy()
+      return result
+    })
+    expect(saved).toBe(true)
+    expect(cloud.commits).toHaveLength(0)
+    computer = await createDevice(browser, cloud, 'computer', browserName, baseURL)
+    expect(await computer.capture(65)).toBe(true)
+    await expect.poll(() => cloud.head().revision).toBe(2)
+    cloud.advance(30_000)
+    await phone.page.reload()
+    await expect(phone.page.locator('#mainApp')).toBeVisible()
+    await expect.poll(() => phone.page.evaluate(() => loadState()?.tinySwordsIsland?.resources?.wood)).toBe(17)
+    await expect.poll(() => phone.page.evaluate(() => loadState()?.videos.computer.resumeAtSeconds)).toBe(65)
+    await expect.poll(() => cloud.head().envelope.profile.tinySwordsIsland?.resources?.wood).toBe(17)
+    expect(phone.errors).toEqual([])
+  } finally { await phone.context.close(); await computer?.context.close() }
+})
+
+test('a stale quota fallback cannot replace study saved while its base read was pending', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  test.setTimeout(Math.max(testInfo.timeout, 120_000))
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  try {
+    const result = await phone.page.evaluate(async () => {
+      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } }))
+      const repository = primaryProfileRepository
+      const readBase = repository.readSyncBase.bind(repository)
+      let release, started
+      const gate = new Promise(resolve => { release = resolve })
+      const reading = new Promise(resolve => { started = resolve })
+      repository.readSyncBase = async (...args) => { started(); await gate; return readBase(...args) }
+      const put = IDBObjectStore.prototype.put
+      IDBObjectStore.prototype.put = function (value) {
+        if (this.name === 'profiles' && value.key === 'active') {
+          IDBObjectStore.prototype.put = put
+          throw new DOMException('Synthetic quota failure', 'QuotaExceededError')
+        }
+        return put.call(this, value)
+      }
+      const island = repository.readIslandState().tinySwordsIsland
+      const pending = learnerProfileLifecycleAuthority.saveActiveIsland({ version: 38, resources: { wood: 99 } }, JSON.stringify(island) ?? 'absent')
+      await reading
+      const state = loadState()
+      state.videos.phone.favorite = true
+      const studied = await saveState(state)
+      release()
+      return { studied, checkpoint: await pending, recovered: profileRecoveryWorkspace.isActive(),
+        favorite: repository.snapshot().videos.phone.favorite,
+        island: repository.readIslandState().tinySwordsIsland ?? null, originalIsland: island ?? null }
+    })
+    expect(result.studied).toBe(true)
+    expect(result.checkpoint).toBe(false)
+    expect(result.recovered).toBe(false)
+    expect(result.favorite).toBe(true)
+    expect(result.island).toEqual(result.originalIsland)
     expect(phone.errors).toEqual([])
   } finally { await phone.context.close() }
 })

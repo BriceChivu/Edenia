@@ -1047,3 +1047,55 @@ for (const [islandOnly, externalWinner] of [[false, false], [true, false], [fals
     expect(result.saved.tinySwordsIsland.resources.wood).toBe(islandOnly ? 7 : 6)
   })
 }
+
+test('deferred sync base is atomic, survives reopening, and warm signed-in checkpoints never read its body', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    const repository = await window.openEdgeRepository()
+    const original = { ...window.edgeState,
+      videos: Object.fromEntries(Array.from({ length: 5000 }, (_, i) => [String(i), { title: `Lesson ${i}`, favorite: true }])),
+      tinySwordsIsland: { resources: { wood: 1 } } }
+    await repository.save(original, { replace: true })
+    const identity = { ownerId: 'owner-a', profileId: 'profile-a', generation: 1, revision: 7 }
+    let island = { resources: { wood: 2 } }
+    if (!await repository.saveIsland(island, JSON.stringify(original.tinySwordsIsland), { syncBase: identity })) throw new Error('First checkpoint failed')
+    const keys = []
+    const get = IDBObjectStore.prototype.get
+    IDBObjectStore.prototype.get = function (key) { if (this.name === 'profiles') keys.push(key); return get.call(this, key) }
+    for (let i = 0; i < 5; i++) {
+      const next = { resources: { wood: 3 + i } }
+      if (!await repository.saveIsland(next, JSON.stringify(island), { syncBase: identity })) throw new Error('Warm checkpoint failed')
+      island = next
+    }
+    IDBObjectStore.prototype.get = get
+    const studied = repository.snapshot()
+    studied.videos['0'].favorite = false
+    if (!await repository.save(studied, { syncBase: identity })) throw new Error('Study save failed')
+    repository.close()
+    const reopened = await window.openEdgeRepository()
+    const base = await reopened.readSyncBase(identity)
+    const wrongOwner = await reopened.readSyncBase({ ...identity, ownerId: 'owner-b' })
+    const current = reopened.snapshot()
+    // A rejected transaction must not replace either the current head or base.
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (value) {
+      if (value.key === 'deferred-sync-base') throw new DOMException('Synthetic quota failure', 'QuotaExceededError')
+      return put.call(this, value)
+    }
+    const rejected = await reopened.saveIsland({ resources: { wood: 100 } }, JSON.stringify(island), {
+      syncBase: { ...identity, revision: 8 }
+    })
+    IDBObjectStore.prototype.put = put
+    const retained = await reopened.readSyncBase(identity)
+    const currentAfterFailure = reopened.snapshot()
+    reopened.close()
+    return { keys: [...new Set(keys)].sort(), baseWood: base.tinySwordsIsland.resources.wood,
+      baseVideos: Object.keys(base.videos).length, currentWood: current.tinySwordsIsland.resources.wood,
+      baseFavorite: base.videos['0'].favorite, currentFavorite: current.videos['0'].favorite,
+      wrongOwner, rejected, retainedWood: retained.tinySwordsIsland.resources.wood,
+      afterFailure: currentAfterFailure.tinySwordsIsland.resources.wood }
+  })
+  expect(result).toEqual({ keys: ['active', 'deferred-sync-base'], baseWood: 1, baseVideos: 5000,
+    baseFavorite: true, currentFavorite: false,
+    currentWood: 7, wrongOwner: null, rejected: false, retainedWood: 1, afterFailure: 7 })
+})

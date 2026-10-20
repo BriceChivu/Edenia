@@ -109,7 +109,7 @@ export function createStateStore({
       // A backup write can activate recovery before the profile write starts.
       // Carry this in-flight edit onto the captured acknowledged baseline.
       if (repository !== repositoryBeforeBackup) repository.adoptSnapshot?.(state)
-      return mapPersistenceResult(repository.save(state, { canPersist }), persisted => {
+      return mapPersistenceResult(repository.save(state, { canPersist, syncBase: options.syncBase }), persisted => {
         return persisted && acknowledge(state, canPersist, { replacement: options.replaceIsland === true, syncAnalytics })
       })
     }
