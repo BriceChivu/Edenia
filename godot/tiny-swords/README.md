@@ -59,8 +59,11 @@ chooses a variant in advance, so the hover preview matches the placed tree.
 After placement, the next preview randomly chooses one of the other three types.
 The pending variant stays fixed until a successful placement and is saved with
 the layout, including undo. Clicking a placed tree while the inventory is open cycles through
-all four variants for free, skipping variants whose roots would overlap a house.
-Hover and click choose the same next fitting variant. The tool stays available even with zero tree stock.
+all four variants for free. When the next type does not fit, it tries the nearest
+safe offset on a two-pixel grid, shifting at most 16 game pixels on the same tile.
+Roots must remain supported by terrain and clear of houses. Types with no safe
+nearby position are skipped.
+Hover and click choose the same type and adjusted position. The tool stays available even with zero tree stock.
 Saves and undo retain the chosen variant. Picking it up returns one
 shared tree item. Save version 15 also migrates the earlier separate tree inventory.
 

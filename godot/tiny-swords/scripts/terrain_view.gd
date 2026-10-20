@@ -476,11 +476,16 @@ func tree_preview_variant() -> String:
 
 func tree_preview_position() -> Vector2:
 	if layout.trees.has(hover):
-		return layout.center(hover) + layout.tree_offset(hover) - Vector2(0, layout.height_at(hover))
+		return layout.center(hover) + tree_preview_placement_offset() - Vector2(0, layout.height_at(hover))
 	return preview_position
 
+func tree_preview_placement_offset() -> Vector2:
+	if layout.trees.has(hover):
+		return layout.tree_swap_plan(hover).get("offset", layout.tree_offset(hover))
+	return placement_offset()
+
 func clipped_tree_preview_texture() -> Texture2D:
-	var offset: Vector2 = layout.tree_offset(hover) if layout.trees.has(hover) else placement_offset()
+	var offset := tree_preview_placement_offset()
 	offset = Vector2(clampf(offset.x, layout.TREE_OFFSET_X_MIN, layout.TREE_OFFSET_X_MAX), clampf(offset.y, layout.TREE_OFFSET_Y_MIN, layout.TREE_OFFSET_Y_MAX))
 	var ground := TreeArt.shadow_ground(layout, hover)
 	var kind := tree_preview_variant()
