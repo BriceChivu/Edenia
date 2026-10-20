@@ -57,6 +57,13 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
 }
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
 
+test('host enables the black-hole rollout only for internal_test=1', () => {
+  for (const [search, expected] of [['', null], ['?internal_test=1', '1'], ['?internal_test=2', null], ['?internal_test=true', null], ['?tiny_swords_fps=60', null]]) {
+    const h = harness({ island, search })
+    assert.equal(new URL(h.frames[0].src).searchParams.get('internal_test'), expected)
+  }
+})
+
 test('host transports only explicitly supported FPS experiment values', () => {
   for (const [search, expected] of [['', null], ['?internal_test=1', '60'], ['?internal_test=2', null], ['?internal_test=1&tiny_swords_fps=30', '30'], ['?internal_test=1&tiny_swords_fps=60', '60'], ['?tiny_swords_fps=30', '30'], ['?tiny_swords_fps=60', '60'], ['?tiny_swords_fps=20', null]]) {
     const h = harness({ island, search })

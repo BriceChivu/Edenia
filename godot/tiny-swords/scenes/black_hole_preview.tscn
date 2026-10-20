@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/level_two_preview.tscn" id="Game"]
+[ext_resource type="Script" path="res://scripts/black_hole_preview.gd" id="Demo"]
+
+[node name="BlackHoleMeadow" instance=ExtResource("Game")]
+script = ExtResource("Demo")

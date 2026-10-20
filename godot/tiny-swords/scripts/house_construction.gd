@@ -221,7 +221,7 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 	return true
 
 func _process(_delta: float) -> void:
-	if world.pawn.carrying_chicken:
+	if world.pawn.portal_absorbed or world.pawn.carrying_chicken:
 		return
 	if phase == Phase.READY and not world.layout.house_build.is_empty():
 		resume_build()
@@ -328,6 +328,7 @@ func advance_build(now: float) -> void:
 	world.refresh()
 
 func resume_build() -> void:
+	if world.pawn.portal_absorbed: return
 	var saved: Dictionary = world.layout.house_build
 	if saved.is_empty():
 		return

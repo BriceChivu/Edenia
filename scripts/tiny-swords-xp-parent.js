@@ -171,6 +171,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       const gameUrl = new URL('index.html', tinySwordsReleaseUrl)
       // Transport the explicit rendering experiment; Godot owns its policy/UI.
       const parameters = new URLSearchParams(location.search)
+      if (parameters.get('internal_test') === '1') gameUrl.searchParams.set('internal_test', '1')
       const requestedFps = parameters.get('tiny_swords_fps')
       const testFps = ['30', '60'].includes(requestedFps) ? requestedFps
         : parameters.get('internal_test') === '1' ? '60' : null

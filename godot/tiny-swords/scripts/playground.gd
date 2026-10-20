@@ -35,12 +35,12 @@ func _ready() -> void:
 	title = Label.new()
 	title.text = "Local game testing"
 	column.add_child(title)
-	for actions in [["level", "supplies"], ["terrain", "house"], ["checkpoint", "restore"], ["fresh", "previous"]]:
+	for actions in [["level", "supplies"], ["terrain", "house"], ["checkpoint", "restore"], ["fresh", "previous"], ["portal_meadow", "portal_open"], ["portal_tomorrow"]]:
 		var row := HBoxContainer.new()
 		column.add_child(row)
 		for action: String in actions:
 			var button := Button.new()
-			button.text = {"level": "Level +1", "previous": "Level −1", "supplies": "+ Supplies", "terrain": "Random terrain", "house": "6 house logs", "checkpoint": "Save checkpoint", "restore": "Restore checkpoint", "fresh": "Fresh island"}[action]
+			button.text = {"level": "Level +1", "previous": "Level −1", "supplies": "+ Supplies", "terrain": "Random terrain", "house": "6 house logs", "checkpoint": "Save checkpoint", "restore": "Restore checkpoint", "fresh": "Fresh island", "portal_meadow": "Portal meadow", "portal_open": "Open portal", "portal_tomorrow": "Next-day visit"}[action]
 			button.custom_minimum_size = Vector2(140, 28)
 			button.add_theme_font_size_override("font_size", 14)
 			button.pressed.connect(func(): run_action(action))
@@ -77,10 +77,14 @@ func _process(_delta: float) -> void:
 		buttons[action].disabled = not ready
 	buttons.level.disabled = not ready or current_level() >= world.Layout.XP_THRESHOLDS.size()
 	buttons.previous.disabled = not ready or current_level() <= 1
-	buttons.terrain.disabled = not ready or world.layout.level < 2
+	buttons.terrain.disabled = not ready or world.layout.level < 2 or not world.layout.black_hole.get("occupants", []).is_empty()
 	buttons.supplies.disabled = not ready or world.layout.level < 2
 	buttons.house.disabled = not ready or world.layout.level < 5 or world.layout.house_bundle > 0
 	buttons.restore.disabled = not ready or checkpoint.is_empty()
+	var portal_state: Dictionary = world.layout.black_hole
+	buttons.portal_meadow.disabled = not ready or not world.black_hole_enabled
+	buttons.portal_open.disabled = not ready or not world.black_hole_enabled or (not portal_state.is_empty() and portal_state.phase != "idle")
+	buttons.portal_tomorrow.disabled = not ready or not world.black_hole_enabled or portal_state.is_empty() or portal_state.phase != "hungry"
 	status.text = GameCopy.text("testStatus", {"level": current_level(), "max": world.Layout.XP_THRESHOLDS.size(), "count": world.layout.cells.size(), "message": GameCopy.text(message_key, message_params)})
 	arrange()
 
@@ -119,6 +123,20 @@ func run_action(action: String, seed_value: int = -1) -> bool:
 	if checkpoint.is_empty() and action not in ["restore", "checkpoint"]:
 		save_checkpoint()
 	match action:
+		"portal_meadow":
+			var meadow = preload("res://scripts/black_hole_meadow.gd").create()
+			if not replace_island(meadow.snapshot()): return false
+			world.playground_manual_progression = true
+			world.island_started = true
+			world.portal_event.open()
+			world.save_layout()
+			panel.hide()
+		"portal_open":
+			if not world.portal_event.open(): return false
+			panel.hide()
+		"portal_tomorrow":
+			world.portal_event.preview_tomorrow()
+			panel.hide()
 		"previous":
 			preview_level = current_level() - 1
 			message_key = "testPrevious"
@@ -211,6 +229,6 @@ func localize() -> void:
 	GameCopy.font(status)
 	var labels := {"level": "levelPlus", "previous": "levelMinus", "supplies": "supplies", "terrain": "randomTerrain", "house": "houseLogs", "checkpoint": "checkpoint", "restore": "restore", "fresh": "fresh"}
 	for action in buttons:
-		buttons[action].text = GameCopy.text(labels[action])
+		buttons[action].text = GameCopy.text(labels[action]) if labels.has(action) else {"portal_meadow": "Portal meadow", "portal_open": "Open portal", "portal_tomorrow": "Next-day visit"}[action]
 		buttons[action].accessibility_name = buttons[action].text
 		GameCopy.font(buttons[action])

@@ -293,10 +293,10 @@ func follow_pawn() -> void:
 func advance(delta: float, now: float) -> void:
 	if chicken_index >= animal_positions().size():
 		return
-	pawn_moving = not world.pawn.position.is_equal_approx(previous_pawn_position)
+	pawn_moving = not world.pawn.portal_absorbed and not world.pawn.position.is_equal_approx(previous_pawn_position)
 	# Render frames can occur between physics steps. Keep a real walking
 	# action active across those frames rather than repeatedly restarting delay.
-	if world.pawn.is_physics_processing() and not world.pawn.chopping and not world.pawn.hammering:
+	if not world.pawn.portal_absorbed and world.pawn.is_physics_processing() and not world.pawn.chopping and not world.pawn.hammering:
 		pawn_moving = pawn_moving or world.pawn.position.distance_to(world.pawn.destination) > 0.1
 	var elapsed := maxf(delta, maxf(0.0, now - updated_at))
 	# Ignore pawn movement throughout escape. Once settled, only a new pawn
@@ -326,7 +326,7 @@ func advance(delta: float, now: float) -> void:
 	else:
 		if following and not fleeing:
 			following = false
-		if world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position):
+		if not world.pawn.portal_absorbed and world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position):
 			clear_following()
 			follow_wait = -1.0
 		elif following:
