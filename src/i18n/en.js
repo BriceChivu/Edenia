@@ -819,6 +819,7 @@ export const EN_CORE = {
   'history.table.video': 'Video',
   'history.table.watched': 'Watched',
   'history.table.anki': 'Anki',
+  'history.table.ankiCounts': '{reviewed} reviewed / {created} created',
   'history.table.points': 'Experience',
   'history.emptyRange': 'No activity in this range.',
   'history.noActivityMap': 'No activity to map yet.',

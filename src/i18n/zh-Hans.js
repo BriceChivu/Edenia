@@ -1061,6 +1061,7 @@ export const ZH_HANS_LOCALIZED = {
   'history.selectMonth': '选择月份',
   'history.availableMonths': '可选月份',
   'history.table.anki': 'Anki',
+  'history.table.ankiCounts': '复习 {reviewed} 张 / 新增 {created} 张',
   'history.noActivityMap': '还没有可显示的活动。',
   'history.noActivityYet': '还没有活动',
   'history.showWatched': '显示 {date} 已观看的 {count} 个视频',
