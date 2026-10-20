@@ -483,14 +483,14 @@ test('divergent profiles require confirmed choices at every width', async ({
     : 'device'
   const unchosenSide = selectedSide === 'device' ? 'cloud' : 'device'
   const protectedToastCopy = selectedSide === 'device'
-    ? 'La versión protegida está disponible hasta'
-    : 'La version protégée est disponible jusqu’au'
+    ? 'Copia disponible hasta'
+    : 'Sauvegarde disponible jusqu’au'
   const viewInSettingsCopy = selectedSide === 'device'
     ? 'Ver en Ajustes'
     : 'Voir dans les paramètres'
   const protectedDownloadStartedCopy = selectedSide === 'device'
-    ? 'Se inició la descarga de la versión protegida.'
-    : 'Le téléchargement de la version protégée a commencé.'
+    ? 'Se inició la descarga de la copia.'
+    : 'Le téléchargement de la sauvegarde a commencé.'
   const { choiceRequests } = await prepareConflictPage(page)
 
   const gate = page.locator('#learnerProfileAccessGate')
@@ -531,14 +531,14 @@ test('divergent profiles require confirmed choices at every width', async ({
     p_selected_side: selectedSide
   })
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeHidden()
+  await expect(page.locator('#backupContent')).toBeHidden()
   await expect(page.locator('#toast')).toContainText(protectedToastCopy)
   await page.getByRole('button', { name: viewInSettingsCopy }).click()
   await expect(page.locator('#settingsPanel')).toBeVisible()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeFocused()
+  await expect(page.locator('#backupContent')).toBeVisible()
+  await expect(page.locator('.backup-toggle')).toBeFocused()
   const settingsGeometry = await page.locator(
-    '#learnerProfileConflictRecovery'
+    '#backupContent'
   ).evaluate(card => ({
     clientWidth: card.clientWidth,
     documentWidth: document.documentElement.scrollWidth,
@@ -551,6 +551,7 @@ test('divergent profiles require confirmed choices at every width', async ({
   expect(settingsGeometry.documentWidth).toBeLessThanOrEqual(
     settingsGeometry.viewportWidth
   )
+  await page.screenshot({ path: testInfo.outputPath('recent-protected-backups.png'), fullPage: true })
   await expect(page.locator(
     '[data-profile-conflict-action="export-protected"]'
   ))
@@ -571,11 +572,13 @@ test('divergent profiles require confirmed choices at every width', async ({
 
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeHidden()
+  await expect(page.locator('#backupContent')).toBeHidden()
   await expect(page.getByRole('button', { name: viewInSettingsCopy }))
     .toHaveCount(0)
   await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
+  await expect(page.locator('#backupContent')).toBeHidden()
+  await page.locator('.backup-toggle').click()
+  await expect(page.locator('#backupContent')).toBeVisible()
   await page.locator(
     '[data-profile-conflict-action="export-protected"]'
   ).click()
@@ -590,7 +593,7 @@ test('divergent profiles require confirmed choices at every width', async ({
     '[data-profile-conflict-action="export-protected"]'
   ).click()
   await expect.poll(() => downloads.length).toBe(2)
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
+  await expect(page.locator('#backupContent')).toBeVisible()
 })
 
 test('a protected-backup verification failure activates neither input', async ({
@@ -623,9 +626,9 @@ test('a protected-backup verification failure activates neither input', async ({
 
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeHidden()
+  await expect(page.locator('#backupContent')).toBeHidden()
   await page.getByRole('button', { name: 'Ver en Ajustes' }).click()
-  await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
+  await expect(page.locator('#backupContent')).toBeVisible()
   await expect.poll(() => choiceRequests.length).toBe(2)
 })
 
@@ -815,6 +818,7 @@ test('trial comparison keeps saves untouched until confirmation and retains prot
   expect(conflictRequests.at(-1).select).not.toContain('envelope')
   expect(conflictRequests.at(-1).bytes).toBeLessThan(1024)
   await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
+  await page.locator('.backup-toggle').click()
   const protectedDownload = page.waitForEvent('download')
   await page.locator('[data-profile-conflict-action="export-protected"]').click()
   const retainedDevice = await protectedDownload

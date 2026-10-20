@@ -11,12 +11,9 @@ function formatList(values, none, formatItem = value => value) {
 export function createLearnerProfileConflictView({
   createIslandPreviews = () => null,
   isTownEconomyEnabled = () => false,
-  clearTimer,
   formatDateTime,
   formatNumber,
-  now,
   root,
-  setTimer,
   translate
 }) {
   const panel = root.getElementById('learnerProfileConflict')
@@ -38,10 +35,6 @@ export function createLearnerProfileConflictView({
   )
   const confirm = root.getElementById('learnerProfileConflictConfirm')
   const feedback = root.getElementById('learnerProfileConflictFeedback')
-  const recovery = root.getElementById('learnerProfileConflictRecovery')
-  const recoveryList = root.getElementById(
-    'learnerProfileConflictRecoveryList'
-  )
   if (
     !panel
     || !rows
@@ -50,8 +43,6 @@ export function createLearnerProfileConflictView({
     || !confirmationText
     || !confirm
     || !feedback
-    || !recovery
-    || !recoveryList
     || typeof root.createElement !== 'function'
     || typeof translate !== 'function'
   ) throw new TypeError('Learner profile conflict view requires its DOM')
@@ -62,31 +53,6 @@ export function createLearnerProfileConflictView({
   const dateTime = typeof formatDateTime === 'function'
     ? formatDateTime
     : value => String(value || '')
-  const currentTime = typeof now === 'function' ? now : Date.now
-  const scheduleTimer = typeof setTimer === 'function' ? setTimer : null
-  const cancelTimer = typeof clearTimer === 'function' ? clearTimer : () => {}
-  let protectedConflicts = []
-  let protectedExpiryTimer = null
-
-  function clearProtectedExpiryTimer() {
-    if (protectedExpiryTimer === null) return
-    cancelTimer(protectedExpiryTimer)
-    protectedExpiryTimer = null
-  }
-
-  function scheduleProtectedExpiry() {
-    clearProtectedExpiryTimer()
-    if (!scheduleTimer || !protectedConflicts.length) return
-    const delay = Math.min(
-      Math.max(0, protectedConflicts[0].protectedUntil - currentTime()),
-      2_147_000_000
-    )
-    protectedExpiryTimer = scheduleTimer(() => {
-      protectedExpiryTimer = null
-      showProtected(protectedConflicts)
-    }, delay)
-  }
-
   function none() {
     return translate('profileConflict.value.none')
   }
@@ -290,71 +256,11 @@ export function createLearnerProfileConflictView({
       : ''
   }
 
-  function showProtected(conflicts) {
-    if (
-      !Array.isArray(conflicts)
-      || !conflicts.length
-      || conflicts.some(conflict => (
-        conflict?.status !== 'resolved'
-        || typeof conflict.id !== 'string'
-        || !conflict.id
-        || !['device', 'cloud'].includes(conflict.selectedSide)
-        || !Number.isFinite(conflict.protectedUntil)
-      ))
-    ) {
-      hideProtected()
-      return false
-    }
-    protectedConflicts = conflicts
-      .filter(conflict => conflict.protectedUntil > currentTime())
-      .sort((left, right) => left.protectedUntil - right.protectedUntil)
-    if (!protectedConflicts.length) {
-      hideProtected()
-      return false
-    }
-    const items = protectedConflicts.map((conflict, index) => {
-      const unchosen = conflict.selectedSide === 'device' ? 'cloud' : 'device'
-      const item = root.createElement('li')
-      const body = root.createElement('p')
-      const download = root.createElement('button')
-      item.className = 'learner-profile-conflict-recovery-item'
-      body.id = `learnerProfileConflictProtectedBody${index}`
-      body.textContent = translate('profileConflict.protectedBody', {
-        date: dateTime(conflict.protectedUntil)
-      })
-      download.className = 'btn-secondary'
-      download.type = 'button'
-      download.dataset.conflictId = conflict.id
-      download.dataset.conflictSide = unchosen
-      download.dataset.profileConflictAction = 'export-protected'
-      download.setAttribute('aria-describedby', body.id)
-      download.textContent = translate(
-        unchosen === 'device'
-          ? 'profileConflict.downloadProtectedDevice'
-          : 'profileConflict.downloadProtectedCloud'
-      )
-      item.append(body, download)
-      return item
-    })
-    recoveryList.replaceChildren(...items)
-    recovery.classList.remove('hidden')
-    scheduleProtectedExpiry()
-    return true
-  }
-
-  function hideProtected() {
-    clearProtectedExpiryTimer()
-    protectedConflicts = []
-    recoveryList.replaceChildren()
-    recovery.classList.add('hidden')
-  }
-
   function refreshTranslations() {
     for (const {element,key,params} of previewLabels) if (key) element.textContent = translate(key,params)
     for (const { image, sideKey } of previewImages) {
       image.alt = translate('profileConflict.preview.alt', { side: translate(sideKey) })
     }
-    if (protectedConflicts.length) showProtected(protectedConflicts)
   }
 
   function renderIslands(conflict) {
@@ -438,11 +344,9 @@ export function createLearnerProfileConflictView({
   return Object.freeze({
     cancelChoice,
     hideConflict,
-    hideProtected,
     refreshTranslations,
     renderConflict,
     requestChoice,
-    setBusy,
-    showProtected
+    setBusy
   })
 }

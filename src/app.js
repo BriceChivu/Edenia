@@ -494,9 +494,7 @@ import {
 import {
   bindReminderPreferenceActions
 } from './features/settings/reminder-preference-actions.js'
-import {
-  bindSettingsBackupRestoreActions
-} from './features/settings/backup-restore-actions.js'
+import { createRecentBackupsView } from './features/settings/recent-backups-view.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import {
   bindSettingsChannelRemoveActions
@@ -1176,15 +1174,12 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
 })
 const learnerProfileConflictView = createLearnerProfileConflictView({
   createIslandPreviews: options => window.edeniaCreateConflictPreviews?.(options),
-  clearTimer: timer => window.clearTimeout(timer),
   formatDateTime: value => formatLocaleDateTime(value, {
     dateStyle: 'medium',
     timeStyle: 'short'
   }),
   formatNumber: value => new Intl.NumberFormat(getCurrentLocale()).format(value),
-  now: () => Date.now(),
   root: document,
-  setTimer: (callback, delay) => window.setTimeout(callback, delay),
   translate: t
 })
 const learnerProfileSyncView = createLearnerProfileSyncView({
@@ -1204,6 +1199,16 @@ let learnerProfileReverificationController = null
 let learnerProfilePageLeaving = false
 let accountlessProfileMigrationController = null
 let learnerProfileProtectedReset = null
+let learnerProfileProtectedConflicts = []
+const recentBackupsView = createRecentBackupsView({
+  root: document, translate: t, formatDateTime: formatBackupTimestamp,
+  formatReason: formatBackupReason,
+  getContext: getBackupRestoreContext,
+  isContextCurrent: isBackupRestoreContextCurrent,
+  restore: entry => entry.kind === 'reset'
+    ? undoStartOver(entry.id) : restoreStateBackup(entry.id),
+  unavailable: () => showToast(t('toast.backupUnavailable'), 'error')
+})
 let learnerProfileOpeningStartedAt = null
 let learnerProfileOpeningCompletionToastPending = false
 let learnerProfileOpeningFocusHandoffPending = false
@@ -3417,13 +3422,7 @@ async function handleLearnerProfileAccessStateChange(accessState) {
       learnerProfileOpeningCompletionToastPending = false
       showToast(t('progressSync.upToDate'))
     }
-    if (accessState.protectedConflicts?.length) {
-      learnerProfileConflictView.showProtected(
-        accessState.protectedConflicts
-      )
-    } else {
-      learnerProfileConflictView.hideProtected()
-    }
+    learnerProfileProtectedConflicts = accessState.protectedConflicts || []
     const newlyProtectedConflict = accessState.protectedConflicts?.find(
       conflict => protectedConflictAnnouncementIds.has(conflict.id)
     )
@@ -3453,7 +3452,8 @@ async function handleLearnerProfileAccessStateChange(accessState) {
     return
   }
   renderStartOverUndo(null)
-  learnerProfileConflictView.hideProtected()
+  learnerProfileProtectedConflicts = []
+  renderBackupList()
   const publicOnboardingState = (
     !hasPersistedLearnerProfile()
     || accessState.status
@@ -7110,6 +7110,7 @@ function openSettings() {
   )
   setSettingsActivityLogOpen(false)
   setSettingsBackupsOpen(false)
+  recentBackupsView.collapse()
   closeLocaleMenu()
   renderPlusAccountSettings()
   openSettingsShell({ focusId: 'settingsCloseBtn' })
@@ -7117,16 +7118,16 @@ function openSettings() {
 
 function openProtectedProfileVersionsSettings() {
   openSettings()
-  const protectedVersions = document.getElementById(
-    'learnerProfileConflictRecovery'
-  )
+  setSettingsBackupsOpen(true)
   window.setTimeout(() => {
-    protectedVersions?.scrollIntoView({ block: 'center' })
-    protectedVersions?.focus({ preventScroll: true })
+    const backups = document.getElementById('backupContent')
+    backups?.scrollIntoView({ block: 'center' })
+    document.querySelector('.backup-toggle')?.focus({ preventScroll: true })
   }, 0)
 }
 
 function closeSettings() {
+  recentBackupsView.cancelRestore({ returnFocus: false })
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
   panel.classList.remove('account-only')
@@ -7297,6 +7298,7 @@ function handleSettingsKeydown(event) {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
   if (walkthroughState.active) return
+  if (document.getElementById('backupRestoreDialog')?.open) return
   if (event.key === 'Escape') {
     event.preventDefault()
     closeSettings()
@@ -7776,6 +7778,7 @@ function formatBackupTimestamp(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return t('backups.unknownTime')
   return formatLocaleDateTime(date, {
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -7786,7 +7789,7 @@ function formatBackupTimestamp(value) {
 function formatBackupReason(reason) {
   const key = {
     'automatic backup': 'backups.automatic',
-    'before automatic cleanup': 'backups.reason.automaticCleanup',
+    'before automatic cleanup': 'backups.automatic',
     'before sandbox reset': 'backups.reason.sandboxReset',
     'before sync import': 'backups.reason.syncImport',
     'legacy origin recovery': 'backups.reason.legacyRecovery',
@@ -7794,31 +7797,31 @@ function formatBackupReason(reason) {
     'before backup restore': 'backups.reason.backupRestore',
     'before reset': 'backups.reason.reset'
   }[String(reason || 'automatic backup')]
-  return key ? t(key) : String(reason || t('backups.automatic'))
+  return t(key || 'backups.automatic')
 }
 
 function renderBackupList() {
-  const el = document.getElementById('backupList')
-  if (!el) return
-
-  const entries = getStateBackupEntries()
-  if (!entries.length) {
-    el.innerHTML = `<p class="backup-empty">${escHtml(t('backups.empty'))}</p>`
-    return
-  }
-
-  el.innerHTML = entries.slice(0, 4).map(entry => `
-    <div class="backup-item">
-      <div class="backup-item-copy">
-        <span class="backup-time">${escHtml(formatBackupTimestamp(entry.createdAt))}</span>
-        <span class="backup-reason">${escHtml(formatBackupReason(entry.reason))}</span>
-      </div>
-      <button class="btn-ghost backup-restore-btn" type="button" data-settings-backup-action="restore" data-analytics-action="restoreStateBackup" data-backup-id="${escHtml(entry.id)}">${escHtml(t('backups.restore'))}</button>
-    </div>
-  `).join('')
-  bindSettingsBackupRestoreActions(el, {
-    restore: restoreStateBackup
+  recentBackupsView.render({
+    local: LOCAL_BACKUPS_ENABLED ? getStateBackupEntries() : [],
+    conflicts: learnerProfileProtectedConflicts,
+    reset: learnerProfileProtectedReset
   })
+}
+
+function getBackupRestoreContext() {
+  const access = learnerProfileLifecycleAuthority?.getState()
+  return { signedIn: Boolean(access?.ownerId), ownerId: access?.ownerId,
+    profileId: access?.profileId, generation: access?.activation?.generation }
+}
+
+function isBackupRestoreContextCurrent(context) {
+  if (document.getElementById('settingsPanel')?.classList.contains('hidden')) return false
+  if (!learnerProfileLifecycleAuthority) return !context.signedIn
+  const access = learnerProfileLifecycleAuthority.getState()
+  return access.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && access.ownerId === context.ownerId
+    && access.profileId === context.profileId
+    && access.activation?.generation === context.generation
 }
 
 function formatActivityLogTimestamp(value) {
@@ -8022,9 +8025,22 @@ async function restoreStateBackup(id) {
     control.dataset.backupBusy = 'true'
     control.setAttribute('aria-disabled', 'true')
   }
+  if (learnerProfileLifecycleAuthority) {
+    try {
+      const result = await learnerProfileLifecycleAuthority.importActiveProfile(
+        state, { confirmed: true }
+      )
+      showToast(t(result?.status === 'imported'
+        ? 'toast.backupRestored' : 'toast.importProtectionRequired'),
+      result?.status === 'imported' ? 'success' : 'error')
+    } finally {
+      releaseStartOverControl(control)
+    }
+    return
+  }
   const rollbackBackup = await createVerifiedStateBackup(
     'before backup restore',
-    { force: true }
+    { force: true, returnExisting: true, dedupeReason: true }
   )
   if (!rollbackBackup) {
     if (control?.isConnected) {
@@ -8049,7 +8065,8 @@ async function restoreStateBackup(id) {
     title: t('log.backupRestored.title'),
     detail: formatBackupTimestamp(entry.createdAt)
   })
-  if (!await saveState(state, { backup: false })) {
+  const restored = await saveImportedState(state, { preserveBackupId: rollbackBackup.id })
+  if (!restored.persisted) {
     if (control?.isConnected) {
       delete control.dataset.backupBusy
       control.removeAttribute('aria-disabled')
@@ -8497,27 +8514,10 @@ function renderStartOverUndo(protectedReset) {
       : 'settings.reset.warning'
     warning.textContent = t(warning.dataset.i18n)
   }
-  const root = document.getElementById('startOverUndo')
-  const deadline = document.getElementById('startOverUndoDeadline')
-  const protectedUntil = Number(protectedReset?.protectedUntil)
-  const available = Boolean(
-    LEARNER_PROFILE_LIFECYCLE_ENABLED
+  learnerProfileProtectedReset = LEARNER_PROFILE_LIFECYCLE_ENABLED
     && protectedReset?.status === 'available'
-    && Number.isFinite(protectedUntil)
-    && protectedUntil > Date.now()
-  )
-  learnerProfileProtectedReset = available ? protectedReset : null
-  root?.classList.toggle('hidden', !available)
-  if (deadline) {
-    deadline.textContent = available
-      ? t('settings.startOver.undoAvailableUntil', {
-          date: formatLocaleDateTime(protectedUntil, {
-            dateStyle: 'medium',
-            timeStyle: 'short'
-          })
-        })
-      : ''
-  }
+    && protectedReset.protectedUntil > Date.now() ? protectedReset : null
+  renderBackupList()
 }
 
 function releaseStartOverControl(control) {
@@ -8549,9 +8549,8 @@ async function resetApp() {
     }
     releaseStartOverControl(control)
     hideResetConfirm()
-    document.querySelector(
-      '[data-settings-reset-confirm-action="undo"]'
-    )?.focus()
+    setSettingsBackupsOpen(true)
+    document.querySelector('[data-backup-kind="reset"] button')?.focus()
     return
   }
   let rollbackBackup = null
@@ -8588,10 +8587,12 @@ async function resetApp() {
   location.reload()
 }
 
-async function undoStartOver() {
-  const control = document.querySelector(
-    '[data-settings-reset-confirm-action="undo"]'
-  )
+async function undoStartOver(resetId) {
+  if (learnerProfileProtectedReset?.id !== resetId) {
+    showToast(t('toast.backupUnavailable'), 'error')
+    return
+  }
+  const control = document.querySelector('[data-backup-kind="reset"] button')
   if (control?.dataset.backupBusy === 'true') return
   if (control) {
     control.dataset.backupBusy = 'true'
@@ -18703,8 +18704,7 @@ bindThemeActions(document, {
 bindSettingsResetConfirmActions(document, {
   show: showResetConfirm,
   hide: hideResetConfirm,
-  confirm: resetApp,
-  undo: undoStartOver
+  confirm: resetApp
 })
 bindFeedbackConfirmationActions(document, {
   close: closeFeedbackConfirmation

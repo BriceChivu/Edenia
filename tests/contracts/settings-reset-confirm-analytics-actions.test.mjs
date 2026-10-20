@@ -33,11 +33,6 @@ test('Settings reset-confirm controls retain analytics identities without inline
       key: 'settings.reset.delete',
       analyticsAction: 'settings.reset.delete',
       action: 'confirm'
-    },
-    {
-      key: 'settings.startOver.undo',
-      analyticsAction: 'settings.startOver.undo',
-      action: 'undo'
     }
   ]
 
