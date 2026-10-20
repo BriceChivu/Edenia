@@ -16,7 +16,7 @@ test('real Web Storage quota is reclaimed after journal acknowledgement and on l
     const workspace = RecoveryCleanup.createProfileRecoveryWorkspace({
       storageKey: 'cleanup-profile', accessKey: 'cleanup-access', keys: ['backup'],
       getPrimary: () => localStorage, getSecondary: () => sessionStorage,
-      indexedDb, eventTarget: window, capture: () => ({ profile })
+      indexedDb: indexedDB, eventTarget: window, capture: () => ({ profile })
     })
     await workspace.initialize()
     workspace.activate()
@@ -46,7 +46,7 @@ test('real Web Storage quota is reclaimed after journal acknowledgement and on l
     const workspace = RecoveryCleanup.createProfileRecoveryWorkspace({
       storageKey: 'cleanup-profile', accessKey: 'cleanup-access', keys: ['backup'],
       getPrimary: () => localStorage, getSecondary: () => sessionStorage,
-      indexedDb, eventTarget: window
+      indexedDb: indexedDB, eventTarget: window
     })
     await workspace.initialize()
     return { pending: workspace.hasPending(), local: localStorage.getItem('cleanup-profile_recovery_workspace_v1'),
