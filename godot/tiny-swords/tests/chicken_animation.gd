@@ -28,6 +28,7 @@ func run() -> void:
 		# Versions 20–21 had only the level-seven chicken and two tree rewards.
 		legacy.stock.chicken -= 1
 		legacy.stock.tree -= 1
+		legacy.stock.stairs -= 1
 		legacy.chickens = [[cell.x, cell.y]]
 		var migrated = Layout.new()
 		var accepted: bool = migrated.restore(legacy)
@@ -46,7 +47,7 @@ func run() -> void:
 	invalid.chickens = [[10000, 10000]]
 	check(not Layout.new().restore(invalid), "Reject saved position over water")
 
-	var scene = preload("res://previews/level_seven.tscn").instantiate()
+	var scene = load("res://previews/level_seven.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
