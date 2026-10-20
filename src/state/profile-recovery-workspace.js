@@ -3,6 +3,8 @@ import { sanitizeStorageDiagnosticId } from './profile-storage-recovery.js'
 import { rebaseProfileChanges } from './indexed-db-profile.js'
 import { isStorageQuotaError } from './store.js'
 
+const MAX_PROTECTED_WORKSPACES = 4
+
 // A separate copy of the profile and its ownership/sync fences. The original
 // namespace is never modified while it is inaccessible. Auth stays independent.
 export function createProfileRecoveryWorkspace({
@@ -39,12 +41,48 @@ export function createProfileRecoveryWorkspace({
       && (value.originalAccess === null || typeof value.originalAccess === 'string')
       && (value.baseline === null || typeof value.baseline === 'string')
   }
+  function protectedSnapshot(previous) {
+    // History needs the displaced progress and its owner, not another copy of
+    // the outbox, backup history, promotion or the workspace's own history.
+    return { version: 1, status: 'active',
+      originalAccess: previous.originalAccess ?? null,
+      values: { [storageKey]: previous.values?.[storageKey] ?? null,
+        [accessKey]: previous.values?.[accessKey] ?? null },
+      ...(typeof previous.unchosenProfile === 'string' ? { unchosenProfile: previous.unchosenProfile } : {}) }
+  }
+  function ownerScope(raw) {
+    try {
+      const access = JSON.parse(raw)
+      return JSON.stringify([access?.ownerId, access?.profileId, access?.generation])
+    } catch { return raw }
+  }
+  function compactHistory(copies) {
+    const retained = []
+    for (const copy of copies) {
+      if (!copy?.values || typeof copy.values[storageKey] !== 'string') continue
+      const snapshot = protectedSnapshot(copy)
+      const owner = ownerScope(snapshot.values[accessKey] ?? snapshot.originalAccess)
+      const duplicate = retained.findIndex(item => item.values[storageKey] === snapshot.values[storageKey]
+        && ownerScope(item.values[accessKey] ?? item.originalAccess) === owner && item.unchosenProfile === snapshot.unchosenProfile)
+      if (duplicate !== -1) retained.splice(duplicate, 1)
+      retained.push(snapshot)
+      if (retained.length > MAX_PROTECTED_WORKSPACES) retained.shift()
+    }
+    return retained
+  }
+  function compactRecord(value) {
+    if (Array.isArray(value.protectedWorkspaces)) value.protectedWorkspaces = compactHistory(value.protectedWorkspaces)
+    if (Array.isArray(value.protectedOriginalProfiles)) {
+      value.protectedOriginalProfiles = [...new Set(value.protectedOriginalProfiles)].slice(-MAX_PROTECTED_WORKSPACES)
+    }
+    return value
+  }
   let loaded = null
   for (const [name, getter] of [['local', getPrimary], ['session', getSecondary]]) {
     try {
       const raw = safeRead(getter, workspaceKey)
       observedRaw.set(name, raw)
-      const saved = JSON.parse(raw)
+      const saved = compactRecord(JSON.parse(raw))
       if (valid({ ...saved, status: 'active' }) && ['active', 'archived'].includes(saved.status)
         && (!loaded || (saved.sequence || 0) > (loaded.saved.sequence || 0))) loaded = { name, raw, saved }
     } catch {}
@@ -98,10 +136,9 @@ export function createProfileRecoveryWorkspace({
     onConflict({ id: pending.id, currentRaw, desiredRaw, epoch })
   }
   function protectWorkspace(previous) {
-    const { protectedWorkspaces, ...snapshot } = previous
     const retained = [...(Array.isArray(record.protectedWorkspaces) ? record.protectedWorkspaces : []),
-      ...(Array.isArray(protectedWorkspaces) ? protectedWorkspaces : []), snapshot]
-    record.protectedWorkspaces = [...new Map(retained.map(item => [JSON.stringify(item), item])).values()]
+      ...(Array.isArray(previous.protectedWorkspaces) ? previous.protectedWorkspaces : []), previous]
+    record.protectedWorkspaces = compactHistory(retained)
   }
   function refreshFromDisk() {
     if (!active) return
@@ -112,7 +149,7 @@ export function createProfileRecoveryWorkspace({
       observedRaw.set(name, raw)
       if (!raw || !changed) continue
       try {
-        const saved = JSON.parse(raw)
+        const saved = compactRecord(JSON.parse(raw))
         if (!valid({ ...saved, status: 'active' }) || !['active', 'archived'].includes(saved.status)) continue
         if (!newest || (saved.sequence || 0) > (newest.saved.sequence || 0)) newest = { name, raw, saved }
       } catch {}
@@ -200,7 +237,7 @@ export function createProfileRecoveryWorkspace({
       for (const copy of previous.protectedWorkspaces || []) protectWorkspace(copy)
       const originals = [...(record.protectedOriginalProfiles || []), ...(previous.protectedOriginalProfiles || [])]
       if (previous.originalProfile && previous.originalProfile !== record.originalProfile) originals.push(previous.originalProfile)
-      if (originals.length) record.protectedOriginalProfiles = [...new Set(originals)]
+      if (originals.length) record.protectedOriginalProfiles = [...new Set(originals)].slice(-MAX_PROTECTED_WORKSPACES)
       const unchosenRetained = !previous.unchosenProfile || previous.unchosenProfile === record.unchosenProfile
         || record.protectedWorkspaces?.some(copy => copy.unchosenProfile === previous.unchosenProfile)
       if (differentScope || !unchosenRetained) protectWorkspace(previous)
@@ -263,14 +300,16 @@ export function createProfileRecoveryWorkspace({
   }
   function parseRecord(raw) {
     try {
-      const saved = JSON.parse(raw)
+      const saved = compactRecord(JSON.parse(raw))
       return valid({ ...saved, status: 'active' }) && ['active', 'archived'].includes(saved.status) ? saved : null
     } catch { return null }
   }
   function queueJournal(raw) {
     const candidates = [...consumedCandidates]
     const queuedRecord = record
-    const snapshot = parseRecord(raw)
+    // Keep immutable strings shared instead of parsing the complete serialized
+    // archive again. A cancelled writer still retains its exact progress.
+    const snapshot = record && { ...record, values: { ...record.values } }
     const stillCurrent = () => record === queuedRecord && record
       && record.status === snapshot?.status
       && record.originalAccess === snapshot.originalAccess
@@ -559,7 +598,7 @@ export function createProfileRecoveryWorkspace({
       // No refreshing storage facade between the final scope fence and this
       // mutation: refreshing there could adopt a different owner and then put
       // the old edit into that owner's profile.
-      if (replace) protectWorkspace(started)
+      if (replace && currentRaw !== JSON.stringify(desired)) protectWorkspace(started)
       record.values[storageKey] = JSON.stringify(desired)
       record.status = 'active'
       if (replace) { record.replacement = true; record.replacementId = globalThis.crypto.randomUUID() }
@@ -654,7 +693,7 @@ export function createProfileRecoveryWorkspace({
       const raw = JSON.stringify(original)
       if (record.originalProfile && record.originalProfile !== raw) {
         const previous = Array.isArray(record.protectedOriginalProfiles) ? record.protectedOriginalProfiles : []
-        record.protectedOriginalProfiles = [...new Set([...previous, record.originalProfile])]
+        record.protectedOriginalProfiles = [...new Set([...previous, record.originalProfile])].slice(-MAX_PROTECTED_WORKSPACES)
       }
       record.originalProfile = raw
       return persistDurably()

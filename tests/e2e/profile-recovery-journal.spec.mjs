@@ -246,3 +246,63 @@ test('an archive transaction timeout preserves the head and reopens for the next
     })
   }
 })
+
+test('legacy snapshot accumulation compacts and unchanged replacements survive browser reload', async ({ page }) => {
+  const { outputFiles } = await build({
+    stdin: { contents: "export { createProfileRecoveryWorkspace } from './src/state/profile-recovery-workspace.js'; export { createStateStore } from './src/state/store.js'", resolveDir: process.cwd() },
+    bundle: true, format: 'esm', platform: 'browser', write: false
+  })
+  await page.route('**/__recovery-workspace.js', route => route.fulfill({ body: outputFiles[0].text, contentType: 'application/javascript' }))
+  const result = await page.evaluate(async () => {
+    const { createProfileRecoveryWorkspace, createStateStore } = await import('/__recovery-workspace.js')
+    const { createProfileRecoveryJournal } = await import('/__recovery-journal.js')
+    const namespace = 'bounded-history-test'
+    const profile = JSON.stringify({ watch: 30, library: 'lesson '.repeat(16000) })
+    const original = JSON.stringify({ watch: 1 })
+    const unchosen = JSON.stringify({ watch: 29 })
+    const head = { version: 1, status: 'active', baseline: original, originalAccess: null,
+      originalValues: {}, values: { profile, access: null }, sequence: 30,
+      originalProfile: original, unchosenProfile: unchosen }
+    head.protectedWorkspaces = Array.from({ length: 30 }, (_, sequence) => ({ ...head,
+      sequence, values: { profile: JSON.stringify({ watch: sequence, library: 'lesson '.repeat(16000) }), access: null },
+      promotion: { profile }, originalValues: { backup: profile } }))
+    const journal = createProfileRecoveryJournal({ namespace, indexedDb: indexedDB })
+    const legacy = JSON.stringify(head)
+    await journal.save(legacy, null)
+    const storage = { getItem: () => null, setItem() { throw new DOMException('fixture', 'QuotaExceededError') } }
+    const workspace = createProfileRecoveryWorkspace({ storageKey: 'profile', accessKey: 'access', keys: ['access'], getPrimary: () => storage, journal })
+    await workspace.initialize()
+    workspace.activate()
+    await workspace.flush()
+    const store = createStateStore({ storage: workspace.storage, storageKey: 'profile', getRepository: () => workspace.repository,
+      normalizeStateBeforeSave: () => {}, saveConfigCookie: () => {}, syncPersistedStateToAnalytics: () => {} })
+    for (let i = 0; i < 20; i++) {
+      if (!(await store.saveImportedState(JSON.parse(profile), { syncAnalytics: false })).persisted) throw new Error('Profile save failed')
+    }
+    const saved = await journal.read()
+    const archive = JSON.parse(saved.raw)
+    journal.close()
+    return { oldChars: legacy.length, newChars: saved.raw.length, copies: archive.protectedWorkspaces.length,
+      unchanged: archive.values.profile === profile, original: archive.originalProfile === original, unchosen: archive.unchosenProfile === unchosen }
+  })
+  expect(result.unchanged).toBe(true)
+  expect(result.original).toBe(true)
+  expect(result.unchosen).toBe(true)
+  expect(result.copies).toBeLessThanOrEqual(4)
+  expect(result.newChars).toBeLessThan(result.oldChars / 10)
+  await page.reload()
+  const reopened = await page.evaluate(async () => {
+    const { createProfileRecoveryWorkspace } = await import('/__recovery-workspace.js')
+    const { createProfileRecoveryJournal } = await import('/__recovery-journal.js')
+    const journal = createProfileRecoveryJournal({ namespace: 'bounded-history-test', indexedDb: indexedDB })
+    const workspace = createProfileRecoveryWorkspace({ storageKey: 'profile', accessKey: 'access', keys: ['access'],
+      getPrimary: () => ({ getItem: () => null, setItem() { throw new DOMException('fixture', 'QuotaExceededError') } }), journal })
+    await workspace.initialize()
+    workspace.activate()
+    await workspace.flush()
+    const profile = workspace.repository.snapshot()
+    journal.close()
+    return { watch: profile.watch, library: profile.library.length }
+  })
+  expect(reopened).toEqual({ watch: 30, library: 'lesson '.repeat(16000).length })
+})
