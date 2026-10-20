@@ -320,8 +320,82 @@ export function createProfileRecoveryWorkspace({
       return valid({ ...saved, status: 'active' }) && ['active', 'archived'].includes(saved.status) ? saved : null
     } catch { return null }
   }
+  function captureWebStorageCopies() {
+    const copies = []
+    for (const [name, getter] of [['local', getPrimary], ['session', getSecondary]]) {
+      try {
+        const target = getter()
+        const raw = target?.getItem(workspaceKey)
+        if (raw) copies.push({ name, target, raw })
+      } catch {}
+    }
+    return copies
+  }
+  function recoveryEvidence(saved) {
+    const profiles = []
+    const metadata = new Map()
+    const conflicts = new Set()
+    const archives = new Set()
+    const choices = new Set()
+    function addProfile(raw, access) {
+      if (typeof raw === 'string') profiles.push({ raw, owner: ownerScope(access) })
+    }
+    function addValues(values, access) {
+      if (!values) return
+      addProfile(values[storageKey], values[accessKey] ?? access)
+      for (const [key, value] of Object.entries(values)) {
+        if (key === storageKey || key === accessKey || typeof value !== 'string') continue
+        if (!metadata.has(key)) metadata.set(key, new Set())
+        metadata.get(key).add(value)
+      }
+    }
+    function visit(copy) {
+      const access = copy.values?.[accessKey] ?? copy.originalAccess
+      addValues(copy.values, access)
+      addValues(copy.originalValues, copy.originalAccess)
+      addValues(copy.promotion?.values, access)
+      for (const raw of [copy.baseline, copy.originalProfile, ...(copy.protectedOriginalProfiles || [])]) {
+        addProfile(raw, copy.originalAccess)
+      }
+      addProfile(copy.unchosenProfile, access)
+      addProfile(copy.promotion?.profile, access)
+      for (const conflict of pendingConflicts(copy)) conflicts.add(JSON.stringify(conflict))
+      for (const raw of copy.protectedJournalRecords || []) archives.add(raw)
+      if (copy.deferredChoice) choices.add(JSON.stringify(copy.deferredChoice))
+      for (const previous of copy.protectedWorkspaces || []) visit(previous)
+    }
+    visit(saved)
+    return { profiles, metadata, conflicts, archives, choices }
+  }
+  function retireWebStorageCopies(copies, acknowledged) {
+    // Sequence alone cannot prove that a stale tab's progress was incorporated.
+    // Retire a fallback only when every profile (with its owner/generation),
+    // metadata value and unresolved choice already exists in the verified head.
+    // This also reclaims covered copies left by older releases on reopening.
+    let durable
+    for (const { name, target, raw } of copies) {
+      try {
+        if (target.getItem(workspaceKey) !== raw) continue
+        const saved = parseRecord(raw)
+        if (!saved || (saved.sequence || 0) > (acknowledged.sequence || 0)) continue
+        durable ||= recoveryEvidence(acknowledged)
+        const evidence = recoveryEvidence(saved)
+        if (!evidence.profiles.every(copy => durable.profiles.some(other => other.raw === copy.raw && other.owner === copy.owner))
+          || ![...evidence.metadata].every(([key, values]) => [...values].every(value => durable.metadata.get(key)?.has(value)))
+          || ![...evidence.conflicts].every(value => durable.conflicts.has(value))
+          || ![...evidence.archives].every(value => durable.archives.has(value))
+          || ![...evidence.choices].every(value => durable.choices.has(value))) continue
+        // Web Storage has no cross-tab compare-and-delete transaction. Keep
+        // this final exact-value fence adjacent to the best-effort removal.
+        if (target.getItem(workspaceKey) !== raw) continue
+        target.removeItem(workspaceKey)
+        if (observedRaw.get(name) === raw && target.getItem(workspaceKey) === null) observedRaw.set(name, null)
+      } catch { /* Cleanup must never change a durable save's acknowledgement. */ }
+    }
+  }
   function queueJournal(raw) {
     const candidates = [...consumedCandidates]
+    const fallbacks = captureWebStorageCopies()
     const queuedRecord = record
     // Keep immutable strings shared instead of parsing the complete serialized
     // archive again. A cancelled writer still retains its exact progress.
@@ -345,6 +419,7 @@ export function createProfileRecoveryWorkspace({
         journalFailure = null
         if (result.saved) {
           journalActive = true
+          retireWebStorageCopies(fallbacks, snapshot)
           for (const id of candidates) consumedCandidates.delete(id)
           // Acknowledgement belongs to this snapshot, never to newer in-memory
           // edits queued while the transaction was still running.
@@ -407,11 +482,13 @@ export function createProfileRecoveryWorkspace({
   }
   async function refreshJournal() {
     if (!journal) return
+    const fallbacks = captureWebStorageCopies()
     const { raw, candidates } = await journal.read()
     const saved = parseRecord(raw)
     journalRaw = raw
     if (raw !== null && !saved) throw new SyntaxError('Invalid recovery archive')
     if (saved) {
+      retireWebStorageCopies(fallbacks, saved)
       journalActive = true
       if (active) adoptLatest({ name: 'indexed-db', raw, saved })
       else if (!record || (saved.sequence || 0) >= (record.sequence || 0)) {
