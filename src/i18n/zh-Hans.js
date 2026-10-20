@@ -1161,6 +1161,7 @@ export const ZH_HANS_LOCALIZED = {
   'toast.apiKeyMissing': '请先设置 YouTube API 密钥',
   'toast.nextRefresh': '可在 {time} 后再次刷新',
   'toast.refreshFailedChannels': '{count} 个频道刷新失败',
+  'toast.refreshUpdating': '正在更新视频动态…',
   'toast.refreshLoadedWithErrors': '已加载 {count} 个视频{shorts}，但有 {errors} 个频道失败',
   'toast.refreshLoaded': '已从 {channels} 个频道加载 {count} 个视频{shorts}',
   'toast.refreshFailed': '刷新失败：{message}',

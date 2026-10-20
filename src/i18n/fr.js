@@ -1161,6 +1161,7 @@ export const FR_LOCALIZED = {
   'toast.apiKeyMissing': 'Configurez d’abord la clé API YouTube',
   'toast.nextRefresh': 'Nouvelle actualisation possible dans {time}',
   'toast.refreshFailedChannels': 'Échec de l’actualisation de {count} chaînes',
+  'toast.refreshUpdating': 'Mise à jour du fil de vidéos…',
   'toast.refreshLoadedWithErrors': '{count} vidéos chargées{shorts}, mais {errors} chaînes ont échoué',
   'toast.refreshLoaded': '{count} vidéos chargées depuis {channels} chaînes{shorts}',
   'toast.refreshFailed': 'Échec de l’actualisation : {message}',

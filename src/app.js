@@ -9341,6 +9341,8 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: true, skipped: true, mergedCount: 0, successfulChannels: 0, errors: [] }
     }
 
+    if (!silent) showToast(t('toast.refreshUpdating'), 'info')
+
     attemptedChannelIds = channelsToRefresh.map(channel => channel.id)
     const all    = []
     const errors = []
