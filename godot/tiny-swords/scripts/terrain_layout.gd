@@ -146,15 +146,34 @@ func tree_house_space_free(position: Vector2, kind: String) -> bool:
 			return false
 	return true
 
-func tree_swap_variant(cell: Vector2i) -> String:
+# Small, deterministic nudges in nearest-first order. Keep the owning tile and
+# existing save format; a blocked type may move at most a quarter tile per swap.
+const TREE_SWAP_SHIFT_LIMIT := 16
+static var tree_swap_shifts: Array[Vector2] = _tree_swap_shifts()
+
+static func _tree_swap_shifts() -> Array[Vector2]:
+	var shifts: Array[Vector2] = []
+	for y in range(-TREE_SWAP_SHIFT_LIMIT, TREE_SWAP_SHIFT_LIMIT + 1, 2):
+		for x in range(-TREE_SWAP_SHIFT_LIMIT, TREE_SWAP_SHIFT_LIMIT + 1, 2):
+			var shift := Vector2(x, y)
+			if shift.length_squared() <= TREE_SWAP_SHIFT_LIMIT * TREE_SWAP_SHIFT_LIMIT:
+				shifts.append(shift)
+	shifts.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.length_squared() < b.length_squared())
+	return shifts
+
+func tree_swap_plan(cell: Vector2i) -> Dictionary:
 	var current := TREE_VARIANTS.find(tree_types.get(cell, "tree"))
-	# Different root footprints can fit beside a house. Skip blocked shapes
-	# instead of letting one unavailable variant stop the whole cycle.
+	var original := tree_offset(cell)
 	for step in range(1, TREE_VARIANTS.size()):
 		var kind: String = TREE_VARIANTS[(current + step) % TREE_VARIANTS.size()]
-		if tree_house_space_free(tree_position(cell), kind):
-			return kind
-	return ""
+		for shift in tree_swap_shifts:
+			var offset := original + shift
+			if valid_tree_offset(offset) and tree_house_space_free(center(cell) + offset, kind):
+				return {"kind": kind, "offset": offset}
+	return {}
+
+func tree_swap_variant(cell: Vector2i) -> String:
+	return tree_swap_plan(cell).get("kind", "")
 
 func tree_blocks_point(position: Vector2, point: Vector2, kind := "tree") -> bool:
 	return Geometry2D.is_point_in_polygon(point, tree_footprint(position, kind))
@@ -1008,7 +1027,9 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 			elevations.erase(cell)
 	elif tool == "tree":
 		if trees.has(cell):
-			tree_types[cell] = tree_swap_variant(cell)
+			var swap := tree_swap_plan(cell)
+			tree_types[cell] = swap.kind
+			trees[cell] = swap.offset
 		else:
 			# Trees coexist with the grass tile's bushes, rocks and foliage.
 			trees[cell] = tree_placement_offset
