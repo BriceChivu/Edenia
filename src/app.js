@@ -1243,6 +1243,8 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     inheritProfileRevision: (state, source) => getProfileRepository()?.inheritRevision(state, source),
     replaceProfile: saveImportedPersistedState,
     saveProfile: savePersistedState,
+    getCheckpointRepository: () => !primaryProfileStorageUnavailable
+      ? getProfileRepository() : null,
     storage: profileBrowserStorage
   })
   accountlessProfileMigrationController =
@@ -1283,6 +1285,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
     ),
     getClient: getSupabaseClient,
+    readDeferredBase: IS_AUTH_TRIAL ? (identity, options) => getProfileRepository()?.readSyncBase?.(identity, options) : null,
     getSyncOpportunity: IS_AUTH_TRIAL && window.EDENIA_CONFIG?.tinySwordsQuietSyncEnabled !== false
       ? learnerProfileSyncOpportunity.isQuiet : null,
     hasOnboardingProfileDraft: () => (
@@ -19268,6 +19271,10 @@ window.edeniaTranslate = t
 if (window.edeniaTinySwordsEnabled === true) {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
+    readCheckpoint: learnerProfileLifecycleAuthority
+      ? () => learnerProfileLifecycleAuthority.readActiveIsland() : null,
+    saveCheckpoint: learnerProfileLifecycleAuthority
+      ? (layout, expected) => learnerProfileLifecycleAuthority.saveActiveIsland(layout, expected) : null,
     readAccessIdentity: () => {
       const activation = learnerProfileLifecycleAuthority?.getState()?.activation
       return activation ? JSON.stringify([activation.ownerId, activation.profileId,

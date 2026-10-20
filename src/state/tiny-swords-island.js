@@ -13,19 +13,24 @@ export function islandIdentity(state) {
 }
 
 export function createTinySwordsPersistence({ read, readDurable, save,
+  readCheckpoint = null, saveCheckpoint = null,
   getCheckpointRepository = () => null, onCheckpoint = () => {}, readAccessIdentity = () => null }) {
   return {
     read,
     readAccessIdentity,
-    readIsland: () => getCheckpointRepository()?.readIslandState() ?? read(),
+    readIsland: () => readCheckpoint ? readCheckpoint() : getCheckpointRepository()?.readIslandState() ?? read(),
     // Active state can contain an in-flight claim. Publish only the durable
     // revision, using the small IndexedDB head when available.
     readClaimedLevel() {
       const repository = getCheckpointRepository()
-      const state = repository ? repository.readIslandState() : read() ? readDurable() : null
+      const state = readCheckpoint ? readCheckpoint() : repository ? repository.readIslandState() : read() ? readDurable() : null
       return state ? Math.max(1, (state.cityProgress?.maxLevelIndex || 0) + 1) : null
     },
     async save(layout, expected, { syncCloud } = {}) {
+      if (saveCheckpoint) {
+        const persisted = await saveCheckpoint(copyTinySwordsIsland(layout), expected)
+        if (persisted !== null) { if (persisted) onCheckpoint(); return persisted }
+      }
       const repository = getCheckpointRepository()
       if (repository) {
         try {

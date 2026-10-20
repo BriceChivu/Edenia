@@ -7,6 +7,8 @@ const STORE = 'profiles'
 const HEAD = 'active'
 const RECOVERY = 'legacy-recovery'
 const BODY = 'active-body'
+const SYNC_BASE = 'deferred-sync-base'
+const SYNC_BASE_BODY = 'deferred-sync-base-body'
 const HEAD_SCHEMA = 'edenia-profile-head-v2'
 const POINTER_SCHEMA = 'edenia-indexed-db-profile-v1'
 const CONFLICT = Symbol('conflicting profile changes')
@@ -338,7 +340,55 @@ export async function openIndexedDbProfile({
     signal()
   }
 
-  function save(state, { canPersist = () => true, replace = false } = {}) {
+  // Retain the pre-edit version in the same transaction as the local edit.
+  // Reuse its immutable JSON body: no profile parsing/hashing on island saves.
+  function retainSyncBase(store, previous, identity, replaceBody = false, onFailure = () => {}) {
+    if (!previous) return
+    const request = store.get(SYNC_BASE)
+    request.onsuccess = () => {
+      try {
+        let base = request.result
+        let changed = false
+        const bodyRevision = splitHead(previous) ? previous.bodyRevision : previous.revision
+        if (identity && !equal(base?.identity, identity)) {
+          base = { key: SYNC_BASE, identity, head: splitHead(previous) ? durableHead(previous) : null,
+            bodyRevision, copied: false }
+          changed = true
+        }
+        if (!base) return
+        // Island writes share the existing immutable body. Copy it only when
+        // a whole-profile write is about to replace that body.
+        if (replaceBody && !base.copied && base.bodyRevision === bodyRevision) {
+          store.put({ key: SYNC_BASE_BODY, revision: bodyRevision,
+            raw: splitHead(previous) ? previous.bodyRaw : previous.raw })
+          base = { ...base, copied: true }
+          changed = true
+        }
+        if (changed) store.put(base)
+      } catch (error) { onFailure(error); store.transaction.abort() }
+    }
+  }
+
+  async function readSyncBase(identity, { beforeRead = () => true } = {}) {
+    const transaction = profileTransaction(database, STORE, 'readonly')
+    const finished = complete(transaction)
+    const store = transaction.objectStore(STORE)
+    const request = store.get(SYNC_BASE)
+    let base = null, bodyRaw = null
+    request.onsuccess = () => {
+      base = request.result
+      if (!equal(base?.identity, identity)) return
+      const body = store.get(base.copied ? SYNC_BASE_BODY : BODY)
+      body.onsuccess = () => { if (body.result?.revision === base.bodyRevision) bodyRaw = body.result.raw }
+    }
+    await finished
+    if (!equal(base?.identity, identity)) return null
+    if (bodyRaw === null) return null
+    if (!await beforeRead()) return null
+    return JSON.parse(base.head ? hydrate(base.head, bodyRaw).raw : bodyRaw)
+  }
+
+  function save(state, { canPersist = () => true, replace = false, syncBase = null } = {}) {
     saveFailures.delete(state)
     const raw = JSON.stringify(state)
     if (!isValidState(JSON.parse(raw))) return Promise.resolve(false)
@@ -372,6 +422,7 @@ export async function openIndexedDbProfile({
             return
           }
           previous = latest || null
+          if (!replace) retainSyncBase(store, previous, syncBase, true, error => saveFailures.set(state, error))
           let nextRaw = raw
           if (baseline !== undefined && previous?.raw !== baseline) {
             if (!ownInterveningWrites) { transaction.abort(); return }
@@ -447,7 +498,7 @@ export async function openIndexedDbProfile({
     writeQueue = operation
     return operation
   }
-  function saveIsland(layout, expected, { canPersist = () => true } = {}) {
+  function saveIsland(layout, expected, { canPersist = () => true, syncBase = null } = {}) {
     const failureKey = layout && typeof layout === 'object' ? layout : emptyIslandFailureKey
     islandSaveFailures.delete(failureKey)
     const islandRaw = JSON.stringify(layout)
@@ -477,6 +528,7 @@ export async function openIndexedDbProfile({
           // The queue owns local writes. An external body change cannot pass
           // the revision fence, so the cached body is safe to reuse here.
           previous = splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest
+          retainSyncBase(store, previous, syncBase, false, error => islandSaveFailures.set(failureKey, error))
           const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
           next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latest.revision + 1,
             bodyRevision: splitHead(latest) ? latest.bodyRevision : latest.revision,
@@ -520,6 +572,7 @@ export async function openIndexedDbProfile({
     snapshot,
     readIslandState,
     saveIsland,
+    readSyncBase,
     save,
     getSaveFailure: state => saveFailures.get(state) || null,
     getIslandSaveFailure: layout => islandSaveFailures.get(layout && typeof layout === 'object' ? layout : emptyIslandFailureKey) || null,

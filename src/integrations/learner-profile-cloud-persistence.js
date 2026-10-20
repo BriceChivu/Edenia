@@ -316,6 +316,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   finalizeEnvelope,
   getClient,
   getSyncOpportunity = null,
+  readDeferredBase = null,
   hasOnboardingProfileDraft = () => false,
   importEnvelope,
   isOnline,
@@ -360,12 +361,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
   let sessionBoundaryPending = false
   let deferredSave = null
   let opportunityTimer = null
-  let preparationWaitAt = null
-  let deliveryWaitAt = null
   let forceOpportunity = false
-  // A quiet moment is preferred, but continuously active play gets a turn
-  // after ten seconds. The server's ordinary write cadence remains unchanged.
-  const MAX_OPPORTUNITY_WAIT_MS = 10_000
+  let baseLoading = false
   let syncState = Object.freeze({ status: 'idle' })
   const listeners = new Set()
   const headRequests = new Set()
@@ -1319,6 +1316,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
         baseProfile = restoreProfileBase(represented?.profile, latest.changes)
         if (!baseProfile) return false
       }
+      if (handoffEnabled && !latest && typeof readDeferredBase === 'function') {
+        baseProfile = await readDeferredBase(saveBaseIdentity(record))
+        if (!isCurrent()) return false
+        if (baseProfile) baseProfile = normalizeProfile(baseProfile)
+      }
       return isCurrent() && queueProfile(profile, record, `dirty-recovery-${createOperationId()}`, baseProfile)
     }
     // The latest complete candidate is already durable. Storing it twice can
@@ -1421,7 +1423,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  async function finalizeDurableOperation(operation) {
+  async function finalizeDurableOperation(operation, binding, force = false) {
     if (operation.envelope) {
       const verified = await verifyEnvelope(operation.envelope)
       if (
@@ -1432,6 +1434,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return verified
     }
     const finalized = await finalizeEnvelope(operation.prepared)
+    if (binding && !await responseOpportunity(binding, force)) throw new Error('Retired sync operation')
     if (
       finalized?.envelope?.integrity?.algorithm
         !== operation.integrity.algorithm
@@ -2214,8 +2217,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  function pump() {
-    const task = performPump()
+  function pump({ force = false } = {}) {
+    const task = performPump(force)
     pumpTasks.add(task)
     void task.finally(() => pumpTasks.delete(task)).catch(() => {})
     return task
@@ -2229,14 +2232,44 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }, 500)
   }
 
-  function waitForOpportunity(forDelivery = false) {
-    if (!handoffEnabled || typeof getSyncOpportunity !== 'function' || forceOpportunity || sessionBoundaryPending) return false
+  function saveBaseIdentity(record) {
+    return { ownerId: record.ownerId, profileId: record.profileId,
+      generation: record.generation, revision: record.acceptedRevision }
+  }
+
+  function getSaveBase(activation) {
+    const binding = activeBinding
+    if (!handoffEnabled || typeof readDeferredBase !== 'function'
+      || binding?.activation !== activation || !binding.isCurrent()) return null
+    return { ownerId: activation.ownerId, profileId: activation.profileId,
+      generation: binding.generation, revision: binding.revision }
+  }
+
+  function saveDeferred({ activation, isCurrent, readPersistedProfile }) {
+    const binding = activeBinding
+    if (binding?.activation !== activation || !isCurrent() || !binding.isCurrent()) return false
+    deferredSave = { binding, isCurrent, readPersistedProfile }
+    publish('waiting')
+    scheduleOpportunity()
+    return true
+  }
+
+  async function responseOpportunity(binding, force = false) {
+    while (activeBinding === binding && binding.isCurrent()) {
+      let quiet = true
+      try { quiet = !handoffEnabled || !getSyncOpportunity || force || getSyncOpportunity() !== false } catch {}
+      if (quiet) return true
+      publish('waiting')
+      await new Promise(resolve => setTimer(resolve, 500))
+    }
+    return false
+  }
+
+  function waitForOpportunity() {
+    if (!handoffEnabled || typeof getSyncOpportunity !== 'function' || forceOpportunity) return false
     let quiet = true
     try { quiet = getSyncOpportunity() !== false } catch { /* Fall back to normal syncing. */ }
-    if (quiet) { preparationWaitAt = null; deliveryWaitAt = null; return false }
-    if (forDelivery) deliveryWaitAt ??= now()
-    else preparationWaitAt ??= now()
-    if (now() - (forDelivery ? deliveryWaitAt : preparationWaitAt) >= MAX_OPPORTUNITY_WAIT_MS) return false
+    if (quiet) return false
     publish('waiting')
     scheduleOpportunity()
     return true
@@ -2250,9 +2283,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return true
     }
     if (deferred.blocked && !forceOpportunity) return false
-    // Preparation cannot add another wait after the delivery deadline.
-    const deliveryDue = deliveryWaitAt !== null && now() - deliveryWaitAt >= MAX_OPPORTUNITY_WAIT_MS
-    if (!deliveryDue && waitForOpportunity()) return false
+    if (waitForOpportunity()) return false
+    if (!deferred.binding.baseProfile && typeof readDeferredBase === 'function') {
+      if (!baseLoading) {
+        baseLoading = true
+        const binding = deferred.binding
+        void Promise.resolve(readDeferredBase(getSaveBase(binding.activation), {
+          beforeRead: () => responseOpportunity(binding)
+        })).then(async profile => {
+          if (!await responseOpportunity(binding)) return
+          if (activeBinding !== binding || !binding.isCurrent()) return
+          if (!profile) { deferred.blocked = true; publish('needs-attention'); return }
+          binding.baseProfile = normalizeProfile(profile)
+        }).catch(() => {
+          if (activeBinding === binding && binding.isCurrent()) { deferred.blocked = true; publish('needs-attention') }
+        })
+          .finally(() => { baseLoading = false; scheduleOpportunity() })
+      }
+      return false
+    }
     let profile
     try { profile = deferred.readPersistedProfile() }
     catch {
@@ -2272,14 +2321,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return true
   }
 
-  async function performPump() {
+  async function performPump(force = false) {
     if (inFlight) return
-    // Start the delivery allowance when the existing cadence permits work,
-    // even if preparation is still batching. Retry/server budgets are checked
-    // against the fresh durable operation below; this clock grants no authority.
-    if (deferredSave && !deferredSave.blocked && activeBinding?.isCurrent() && isOnline() && now() >= nextAutomaticWriteAt) {
-      waitForOpportunity(true)
-    }
+    if (!force && waitForOpportunity()) return
     if (!drainDeferredSave() || inFlight) return
     const binding = activeBinding
     const record = readSyncRecord()
@@ -2309,14 +2353,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
       return
     }
-    if (waitForOpportunity(true)) return
-    deliveryWaitAt = null
+    if (!force && waitForOpportunity()) return
     inFlight = true
     let comparisonPending = false
     let budgetDeferred = false
     publish('syncing')
     if (handoffEnabled) {
       const head = await checkActiveHead({ activation: binding.activation, isCurrent: binding.isCurrent, preflight: true })
+      if (!await responseOpportunity(binding, force)) { inFlight = false; return }
       if (activeBinding !== binding || !binding.isCurrent()) {
         inFlight = false
         if (activeBinding?.isCurrent()) void pump()
@@ -2332,7 +2376,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     nextAutomaticWriteAt = now() + Math.max(0, minimumWriteIntervalMs)
     let envelope
     try {
-      envelope = await finalizeDurableOperation(operation)
+      envelope = await finalizeDurableOperation(operation, binding, force)
     } catch {
       inFlight = false
       if (activeBinding === binding && binding.isCurrent()) {
@@ -2347,6 +2391,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     let response
     try {
+      if (!await responseOpportunity(binding, force)) { inFlight = false; return }
       response = await getClient().rpc(
         handoffEnabled ? 'commit_my_learner_profile_handoff' : 'commit_my_learner_profile',
         { ...operationParameters(operation, envelope), ...(handoffEnabled ? { p_session_boundary: sessionBoundaryPending } : {}) }
@@ -2364,6 +2409,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     try {
+      if (!await responseOpportunity(binding, force)) return
+      // Capture later durable local edits before retiring the immutable request
+      // candidate. A lost receipt can then be replayed without losing its base.
+      if (deferredSave && !drainDeferredSave()) {
+        publish('waiting')
+        return
+      }
       const row = readSingleRpcRow(response?.data)
       if (handoffEnabled && !response?.error && row?.status === 'head_changed'
         && UUID_PATTERN.test(String(row.profile_id || '')) && normalizePositiveInteger(row.generation)
@@ -2486,8 +2538,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
     } catch {
       publish('needs-attention')
+    } finally {
+      inFlight = false
     }
-    inFlight = false
     const next = readSyncRecord()
     if (budgetDeferred || (!comparisonPending && next?.pending && next.pending.operationId !== operation.operationId)) {
       void pump()
@@ -3610,8 +3663,6 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile }) {
     deferredSave = null
-    preparationWaitAt = null
-    deliveryWaitAt = null
     if (
       !isRecord(activation)
       || typeof isCurrent !== 'function'
@@ -3654,6 +3705,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
       if (!activeBinding.baseProfile && !record.pending && !dirty.present) {
         activeBinding.baseProfile = prepareEnvelope(profile).profile
       }
+      if (!record.pending && !dirty.present && activeBinding.baseProfile && minimumWriteIntervalMs > 0) {
+        activeBinding.acceptedProfileDigest = syncProfileDigest(activeBinding.baseProfile)
+      }
     }
     // Cached offline opening can bypass resolve(). Recreate the deferred work
     // from durable local state before an old candidate is allowed to advance.
@@ -3661,7 +3715,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && dirty.present && typeof readPersistedProfile === 'function') {
       const candidate = record.queued || record.pending
       deferredSave = { binding: activeBinding, isCurrent, readPersistedProfile,
-        blocked: !activeBinding.baseProfile || candidate?.changes?.baseRevision !== record.acceptedRevision }
+        blocked: (!activeBinding.baseProfile && typeof readDeferredBase !== 'function')
+          || (candidate && candidate?.changes?.baseRevision !== record.acceptedRevision) }
     }
     if (record.pending) record.pending.activationId = activation.id
     if (record.queued) record.queued.activationId = activation.id
@@ -4075,7 +4130,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return true
   }
 
-  function save(profile, { activation, isCurrent, readPersistedProfile, skipDeferral = false, skipPump = false } = {}) {
+  function save(profile, { activation, isCurrent, readPersistedProfile, deferPreparation = false, skipDeferral = false, skipPump = false } = {}) {
     if (
       !activeBinding
       || activeBinding.activation !== activation
@@ -4095,10 +4150,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
 
     const latest = record.queued || record.pending
-    if (!skipDeferral && !inFlight && handoffEnabled
+    if (!skipDeferral && handoffEnabled
       && typeof getSyncOpportunity === 'function' && typeof readPersistedProfile === 'function'
-      && activeBinding.baseProfile && latest?.changes
-      && latest.changes.baseRevision === record.acceptedRevision
+      && ((activeBinding.baseProfile && latest?.changes
+        && latest.changes.baseRevision === record.acceptedRevision) || (deferPreparation && typeof readDeferredBase === 'function'))
       && readDirtyRecord().present
       && waitForOpportunity()) {
       deferredSave = { binding: activeBinding, isCurrent, readPersistedProfile }
@@ -4120,12 +4175,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'not-backed-up' }
     }
     if (deferredSave?.binding === activeBinding) deferredSave = null
-    preparationWaitAt = null
     if (!skipPump) void pump()
     return { status: 'queued' }
   }
 
-  function resumePendingOperation({ restartBackoff }) {
+  function resumePendingOperation({ restartBackoff, force = false }) {
     const record = readSyncRecord()
     if (!record?.pending) return false
     if (!isOnline()) {
@@ -4141,13 +4195,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
       publish('needs-attention')
       return false
     }
-    void pump()
+    void pump({ force })
     return true
   }
 
   function retry() {
     forceOpportunity = true
-    try { return drainDeferredSave() && resumePendingOperation({ restartBackoff: true }) }
+    try { return drainDeferredSave() && resumePendingOperation({ restartBackoff: true, force: true }) }
     finally { forceOpportunity = false }
   }
 
@@ -4246,6 +4300,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     importProfile,
     markDirty,
     markLocalIslandCheckpoint,
+    getSaveBase,
+    saveDeferred,
     readProtectedConflict,
     readProtectedReset,
     readResetState,

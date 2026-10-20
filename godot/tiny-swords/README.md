@@ -701,6 +701,26 @@ The direct export command above applies to the separate base preview on port 418
 
 ## Internal lag capture and frame pacing
 
+Signed-in internal play uses the same small IndexedDB island head as accountless
+play, with the active profile's ownership and revision fences. Each acknowledged
+checkpoint is durable before Godot receives success. A compact sync-base record
+retains the pre-edit island and references the existing immutable profile body;
+if a later study save replaces that body, its transaction preserves the original
+body first. Failed transactions cannot advance either the island or its base.
+This evidence survives abrupt termination and supports the existing cross-device
+reconciliation rather than treating unsent island progress as a whole-profile
+replacement. Recovery-storage failures retain the existing guarded fallback.
+
+While Godot reports active interaction or the host has recent island input,
+automatic cloud preparation, delivery and expensive response processing wait.
+There is no ten-second forced-upload deadline. Work resumes once the pawn is
+idle and island input has stopped for five seconds, the island leaves view,
+a video starts playing, or the page is hidden. The existing cloud write cadence,
+conditional commits, retry limits, generation checks and conflict protection
+still apply. Explicit Sync now can override the opportunity gate. Closing a tab
+does not depend on an upload finishing: local checkpoints and their base remain
+durable, and reopening reconstructs the outbox before reconciliation.
+
 `?internal_test=1` defaults to 60 FPS; explicit
 `tiny_swords_fps=30` remains available for comparisons. Physics and gameplay clocks
 retain their original cadence. Normal URLs do not install the experiment.

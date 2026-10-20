@@ -316,7 +316,8 @@ export function createLearnerProfileLifecycleAuthority({
       Promise.resolve(cloudPersistence.save(profile, {
         activation,
         isCurrent: () => Boolean(getCurrentActivationFor(profile)),
-        readPersistedProfile: () => readPersistedProfileFor(profile, activation)
+        readPersistedProfile: () => readPersistedProfileFor(profile, activation),
+        deferPreparation: localPersistence.supportsIslandCheckpoints?.() === true
       })).catch(() => {})
       return true
     } catch {
@@ -997,6 +998,9 @@ export function createLearnerProfileLifecycleAuthority({
     if (!activation) return false
     const { syncCloud = true, localIslandCheckpoint = false, ...persistenceOptions } = options
     if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
+    if (syncCloud && localPersistence.supportsIslandCheckpoints?.()) {
+      persistenceOptions.syncBase = cloudPersistence.getSaveBase?.(activation)
+    }
     pendingLocalSaves += 1
     try {
       const persisted = localPersistence.save(profile, persistenceOptions, activation)
@@ -1022,6 +1026,36 @@ export function createLearnerProfileLifecycleAuthority({
       pendingLocalSaves -= 1
       throw error
     }
+  }
+
+  function readActiveIsland() {
+    const activation = getCurrentActivationFor(activeProfile)
+    if (!activation) return null
+    return localPersistence.readIsland?.(activation) ?? localPersistence.read()?.profile ?? null
+  }
+
+  function saveActiveIsland(layout, expected) {
+    const profile = activeProfile
+    const activation = getCurrentActivationFor(profile)
+    if (!activation || !localPersistence.supportsIslandCheckpoints?.()) return null
+    // A whole-profile write already captured its candidate. Let the game retry
+    // rather than rebasing a checkpoint over an unacknowledged study edit.
+    if (pendingLocalSaves) return false
+    const syncBase = cloudPersistence.getSaveBase?.(activation)
+    if (activation.ownerId && !syncBase) return null
+    if (!markCloudSaveRequired(profile, activation)) return false
+    pendingLocalSaves += 1
+    const transaction = Promise.resolve(localPersistence.saveIsland(profile, layout, expected, activation, syncBase))
+      .then(saved => {
+        if (!saved || getCurrentActivationFor(profile) !== activation) return false
+        if (activation.ownerId) cloudPersistence.saveDeferred?.({
+          activation, isCurrent: () => getCurrentActivationFor(profile) === activation,
+          readPersistedProfile: () => readPersistedProfileFor(profile, activation)
+        })
+        return true
+      }).finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(transaction) })
+    pendingLocalTransactions.add(transaction)
+    return transaction
   }
 
   function replaceActiveProfile(profile, options = {}) {
@@ -2056,6 +2090,8 @@ export function createLearnerProfileLifecycleAuthority({
     exportConflictVersions,
     exportRecoveryCandidate,
     flushSessionBoundary,
+    readActiveIsland,
+    saveActiveIsland,
     getState: () => currentState,
     importActiveProfile,
     readActiveProfile,

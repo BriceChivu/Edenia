@@ -321,3 +321,80 @@ test('active Tiny Swords batches durable study saves until its bounded cloud opp
     expect(phone.errors).toEqual([])
   } finally { await phone.context.close() }
 })
+
+test('signed-in island checkpoints stay small during play and recover across an abrupt runtime stop and computer study', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  test.setTimeout(90_000)
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  let computer
+  try {
+    const result = await phone.page.evaluate(async () => {
+      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } }))
+      const state = loadState()
+      const videos = state.videos
+      let reads = 0
+      Object.defineProperty(state, 'videos', { configurable: true, enumerable: true,
+        get() { reads++; return videos } })
+      const fullSave = primaryProfileRepository.save
+      primaryProfileRepository.save = () => { throw new Error('Island checkpoint attempted a full-profile save') }
+      const baseline = JSON.stringify(primaryProfileRepository.readIslandState().tinySwordsIsland) ?? 'absent'
+      const first = { version: 38, level: 1, resources: { wood: 7 } }
+      const saved = await learnerProfileLifecycleAuthority.saveActiveIsland(first, baseline)
+      let latest = first
+      for (let i = 0; i < 10; i++) {
+        const next = { ...latest, resources: { wood: 8 + i } }
+        if (!await learnerProfileLifecycleAuthority.saveActiveIsland(next, JSON.stringify(latest))) throw new Error('Warm checkpoint rejected')
+        latest = next
+      }
+      primaryProfileRepository.save = fullSave
+      return { saved, reads, wood: state.tinySwordsIsland.resources.wood,
+        body: JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1')).pending }
+    })
+    expect(result).toEqual({ saved: true, reads: 0, wood: 17, body: null })
+    await phone.page.clock.runFor(60_000)
+    expect(cloud.commits).toHaveLength(0)
+    // Retire the runtime without a session-boundary flush. Durable state alone
+    // must supply the first before-image on reopening.
+    await phone.page.evaluate(() => learnerProfileLifecycleAuthority.destroy())
+    computer = await createDevice(browser, cloud, 'computer', browserName, baseURL)
+    expect(await computer.capture(65)).toBe(true)
+    await expect.poll(() => cloud.head().revision).toBe(2)
+    cloud.advance(30_000)
+    await phone.page.reload()
+    await expect(phone.page.locator('#mainApp')).toBeVisible()
+    await expect.poll(() => phone.page.evaluate(() => loadState()?.tinySwordsIsland?.resources?.wood)).toBe(17)
+    await expect.poll(() => phone.page.evaluate(() => loadState()?.videos.computer.resumeAtSeconds)).toBe(65)
+    await expect(phone.page.locator('#learnerProfileConflictDialog')).not.toBeVisible()
+    await expect.poll(() => cloud.head().envelope.profile.tinySwordsIsland?.resources?.wood).toBe(17)
+    expect(phone.errors).toEqual([])
+    expect(computer.errors).toEqual([])
+  } finally {
+    await phone.context.close()
+    await computer?.context.close()
+  }
+})
+
+test('retiring a signed-in activation fences an island checkpoint before it can acknowledge or write', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
+  const cloud = await createCloud()
+  const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
+  try {
+    const result = await phone.page.evaluate(async () => {
+      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } }))
+      const save = primaryProfileRepository.saveIsland.bind(primaryProfileRepository)
+      let release
+      const gate = new Promise(resolve => { release = resolve })
+      primaryProfileRepository.saveIsland = async (...args) => { await gate; return save(...args) }
+      const before = primaryProfileRepository.readIslandState().tinySwordsIsland
+      const pending = learnerProfileLifecycleAuthority.saveActiveIsland({ version: 38, resources: { wood: 999 } }, JSON.stringify(before) ?? 'absent')
+      learnerProfileLifecycleAuthority.destroy()
+      release()
+      return { saved: await pending, after: primaryProfileRepository.readIslandState().tinySwordsIsland ?? null, before: before ?? null }
+    })
+    expect(result.saved).toBe(false)
+    expect(result.after).toEqual(result.before)
+    expect(cloud.commits).toHaveLength(0)
+    expect(phone.errors).toEqual([])
+  } finally { await phone.context.close() }
+})

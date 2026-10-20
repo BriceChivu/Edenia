@@ -77,6 +77,7 @@ function createAdapter({
   isOnline,
   now,
   getSyncOpportunity,
+  readDeferredBase,
   minimumWriteIntervalMs = 0,
   prepareEnvelope,
   readOnboardingState,
@@ -89,6 +90,7 @@ function createAdapter({
   return createCloudAdapter({
     handoffEnabled,
     getSyncOpportunity,
+    readDeferredBase,
     clearOnboardingDraft: clearOnboardingDraft || (() => true),
     createOnboardingEnvelope: createOnboardingEnvelope || (async () => null),
     createOperationId: createOperationId || (() => crypto.randomUUID()),
@@ -316,13 +318,13 @@ function sharedCloud() {
   }
 }
 
-async function openDevice(server, { readHead, interval = 30_000, rpc = server.rpc, getSyncOpportunity, prepareEnvelope = digestEnvelope } = {}) {
+async function openDevice(server, { readHead, interval = 30_000, rpc = server.rpc, getSyncOpportunity, readDeferredBase, prepareEnvelope = digestEnvelope } = {}) {
   let time = 0
   const timers = []
   const storage = createMemoryStorage()
   const eventTarget = createEventTarget()
   const adapter = createAdapter({ storage, eventTarget, minimumWriteIntervalMs: interval,
-    now: () => time, prepareEnvelope, rpc, getSyncOpportunity,
+    now: () => time, prepareEnvelope, rpc, getSyncOpportunity, readDeferredBase,
     readHead: readHead || (async () => ({ data: server.head(), error: null })),
     setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length } })
   const result = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
@@ -717,9 +719,10 @@ test('abrupt close during deferred preparation preserves compatible phone and co
   assert.equal(server.calls.filter(call => call.name === 'read_my_learner_profile_conflict').length, 0)
 })
 
-test('continuous play cannot defer delivery longer than ten seconds', async () => {
+test('continuous play defers cloud delivery until the game is no longer in use', async () => {
   const server = sharedCloud()
-  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  let quiet = false
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet })
   phone.profile.videos.phone.favorite = true
   phone.save()
   await settle()
@@ -727,15 +730,19 @@ test('continuous play cannot defer delivery longer than ten seconds', async () =
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
   assert.equal(server.head().revision, 1)
-  phone.setTime(10000)
+  phone.setTime(600000)
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
+  assert.equal(server.head().revision, 1, 'Continuous play has no forced upload deadline')
+  quiet = true
+  await phone.adapter.flushSessionBoundary()
   assert.equal(server.head().revision, 2)
 })
 
 for (const allowNewUpload of [false, true]) test(`session boundary preserves deferred facts; new delivery allowed=${allowNewUpload}`, async () => {
   const server = sharedCloud()
-  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  let quiet = false
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet })
   phone.profile.videos.phone.favorite = true
   phone.save()
   await settle()
@@ -743,6 +750,7 @@ for (const allowNewUpload of [false, true]) test(`session boundary preserves def
   phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
   phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
     readPersistedProfile: () => structuredClone(phone.profile) })
+  quiet = true
   await phone.adapter.flushSessionBoundary({ allowNewUpload })
   await settle()
   const record = JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY))
@@ -783,21 +791,27 @@ test('deferred preparation waits for local completion and discards retired activ
   assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
 })
 
-test('later batches get a fresh bounded wait after an earlier forced upload', async () => {
+test('later batches resume only after play stops, while retaining the ordinary cadence', async () => {
   const server = sharedCloud()
-  const phone = await openDevice(server, { getSyncOpportunity: () => false })
+  let quiet = false
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet })
   phone.profile.videos.phone.favorite = true
   phone.save()
   phone.setTime(10000)
+  quiet = true
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
   assert.equal(server.head().revision, 2)
+  quiet = false
   phone.setTime(41000)
   phone.profile.videos.phone.watchLater = true
   phone.save()
   await settle()
-  assert.equal(server.head().revision, 2, 'The expired first deadline must not disable all subsequent waits')
-  phone.setTime(51000)
+  phone.setTime(510000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(server.head().revision, 2)
+  quiet = true
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
   assert.equal(server.head().revision, 3)
@@ -868,10 +882,10 @@ test('offline reopening reconstructs deferred work from durable local progress b
   phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
     readPersistedProfile: () => structuredClone(phone.profile) })
   phone.adapter.destroy()
-  let online = false, time = 0
+  let online = false, time = 0, quiet = false
   const timers = [], eventTarget = createEventTarget()
   const resumed = createAdapter({ storage: phone.storage, eventTarget, prepareEnvelope: digestEnvelope,
-    getSyncOpportunity: () => false, isOnline: () => online, now: () => time,
+    getSyncOpportunity: () => quiet, isOnline: () => online, now: () => time,
     minimumWriteIntervalMs: 30000, rpc: server.rpc,
     readHead: async () => ({ data: server.head(), error: null }),
     setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length } })
@@ -881,6 +895,7 @@ test('offline reopening reconstructs deferred work from durable local progress b
   resumed.start()
   online = true
   eventTarget.dispatch('online')
+  quiet = true
   time = 10000
   timers.splice(0).forEach(timer => timer.callback())
   await settle()
@@ -891,15 +906,17 @@ test('offline reopening reconstructs deferred work from durable local progress b
 
 test('preparation keeps coalescing fresh batches while the ordinary upload interval is pending', async () => {
   const server = sharedCloud()
-  let preparations = 0
-  const phone = await openDevice(server, { getSyncOpportunity: () => false,
+  let preparations = 0, quiet = false
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
     prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) } })
   phone.profile.videos.phone.favorite = true
   phone.save()
+  quiet = true
   phone.setTime(10000)
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
   assert.equal(server.head().revision, 2)
+  quiet = false
   phone.setTime(14000)
   phone.profile.videos.phone.watchLater = true
   phone.save()
@@ -921,10 +938,11 @@ test('preparation keeps coalescing fresh batches while the ordinary upload inter
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
   assert.equal(server.head().revision, 2)
+  quiet = true
   phone.setTime(50000)
   phone.timers.splice(0).forEach(timer => timer.callback())
   await settle()
-  assert.equal(server.head().revision, 3, 'Delivery still runs no later than ten seconds after the ordinary interval')
+  assert.equal(server.head().revision, 3, 'Delivery resumes after play stops and the ordinary interval has elapsed')
 })
 
 for (const [replacementRevision, race] of [[0, 'none'], [2, 'none'], [2, 'dirty'], [2, 'queued'], [2, 'retired']]) {
@@ -988,3 +1006,75 @@ test(`ambient sheep motion and refresh logs avoid a choice without a change jour
   assert.equal(calls.includes('commit_my_learner_profile'), replacementRevision > 0)
 })
 }
+
+test('the first edit can wait without envelope preparation and survives abrupt close plus computer study', async () => {
+  const server = sharedCloud()
+  let base, preparations = 0
+  const phone = await openDevice(server, {
+    getSyncOpportunity: () => false,
+    readDeferredBase: async () => structuredClone(base),
+    prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) }
+  })
+  base = structuredClone(phone.profile)
+  const before = preparations
+  phone.profile.videos.phone.favorite = true
+  assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
+  phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
+    deferPreparation: true, readPersistedProfile: () => structuredClone(phone.profile) })
+  assert.equal(preparations, before)
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).pending, null)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  phone.adapter.destroy()
+  const computer = await openDevice(server)
+  computer.profile.videos.computer.favorite = true
+  computer.save()
+  await settle()
+  const resumed = createAdapter({ storage: phone.storage, prepareEnvelope: digestEnvelope,
+    readDeferredBase: async identity => {
+      assert.deepEqual(identity, { ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1, revision: 1 })
+      return structuredClone(base)
+    }, rpc: server.rpc, readHead: async () => ({ data: server.head(), error: null }) })
+  const result = await resumed.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+    localProfile: { status: 'ready', ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 1,
+      revision: 1, profile: phone.profile }, purpose: 'resolve-signed-in-profile' })
+  assert.equal(result.status, 'activate')
+  assert.equal(result.profile.videos.phone.favorite, true)
+  assert.equal(result.profile.videos.computer.favorite, true)
+})
+
+test('an upload receipt and later local edits wait when play resumes during the request', async () => {
+  const server = sharedCloud()
+  let quiet = true, accepted, preparations = 0
+  const receipt = deferred()
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
+    prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) },
+    rpc: async (name, parameters) => {
+      const response = await server.rpc(name, parameters)
+      if (name !== 'commit_my_learner_profile_handoff') return response
+      accepted = response
+      return receipt.promise
+    } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  assert.ok(accepted)
+  quiet = false
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.saveDeferred({ activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  const before = preparations
+  receipt.resolve(accepted)
+  await settle()
+  assert.equal(preparations, before, 'Receipt cannot hash/prepare the later profile during play')
+  assert.equal(JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 1)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  quiet = true
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  const queued = JSON.parse(phone.storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(queued.acceptedRevision, 2)
+  assert.equal(queued.pending.prepared.profile.videos.phone.watchLater, true)
+  assert.equal(queued.pending.changes.baseRevision, 2)
+  assert.equal(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`), null)
+})
