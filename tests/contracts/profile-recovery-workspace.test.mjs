@@ -316,7 +316,7 @@ test('memory recovery never merges across a peer ownership or reset fence and re
     const peer = f.second.repository.snapshot()
     assert.deepEqual(f.first.repository.snapshot(), peer)
     const saved = JSON.parse(f.values.get('profile_recovery_workspace_v1'))
-    assert.equal(JSON.parse(saved.protectedWorkspaces.at(-1).values.profile).watch, 7)
+    assert.ok(saved.protectedWorkspaces.some(copy => JSON.parse(copy.values.profile).watch === 7))
   }
 })
 test('a peer retirement does not discard memory progress that was never acknowledged', () => {

@@ -338,3 +338,117 @@ for (const importing of [false, true]) test(`a native ${importing ? 'import' : '
     assert.equal(notifications, 1)
   } finally { f.disk.beforeWrite = null; release() }
 })
+
+test('repeated identical profile-opening replacements do not accumulate recovery snapshots', async () => {
+  const f = fixture()
+  const large = { config: {}, study: 'x'.repeat(16000) }
+  f.values.set('profile', JSON.stringify(large))
+  f.workspace.activate()
+  await f.workspace.flush()
+  const store = createStateStore({ storage: f.workspace.storage, storageKey: 'profile',
+    getRepository: () => f.workspace.repository, normalizeStateBeforeSave: () => {},
+    saveConfigCookie: () => {}, syncPersistedStateToAnalytics: () => {} })
+  for (let attempt = 0; attempt < 20; attempt++) {
+    assert.equal((await store.saveImportedState(structuredClone(large), { syncAnalytics: false })).persisted, true)
+  }
+  const saved = JSON.parse(f.disk.raw)
+  assert.ok((saved.protectedWorkspaces || []).length <= 1)
+  assert.ok(f.disk.raw.length < JSON.stringify(large).length * 5)
+  const reopened = createProfileRecoveryWorkspace(f.options)
+  await reopened.initialize()
+  reopened.activate()
+  assert.deepEqual(reopened.repository.snapshot(), large)
+})
+
+test('legacy recovery history is compacted while current, original, unchosen and pending progress survive', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  await f.workspace.flush()
+  const saved = JSON.parse(f.disk.raw)
+  const current = JSON.stringify({ watch: 30, language: 'fr' })
+  saved.values.profile = current
+  saved.originalProfile = '{"watch":1,"language":"fr"}'
+  saved.unchosenProfile = '{"watch":29,"language":"fr"}'
+  saved.pendingConflicts = [{ id: 'pending', currentRaw: current, desiredRaw: '{"watch":31,"language":"fr"}', accessRaw: saved.values.access }]
+  saved.protectedWorkspaces = Array.from({ length: 30 }, (_, i) => ({ ...saved,
+    sequence: i, values: { ...saved.values, profile: JSON.stringify({ watch: i, language: 'fr' }) },
+    originalValues: { huge: 'x'.repeat(10000) }, promotion: { profile: 'x'.repeat(10000) } }))
+  f.disk.raw = JSON.stringify(saved)
+  const reopened = createProfileRecoveryWorkspace(f.options)
+  await reopened.initialize()
+  reopened.activate()
+  await reopened.flush()
+  const compact = JSON.parse(f.disk.raw)
+  assert.equal(compact.values.profile, current)
+  assert.equal(compact.originalProfile, saved.originalProfile)
+  assert.equal(compact.unchosenProfile, saved.unchosenProfile)
+  assert.deepEqual(compact.pendingConflicts, saved.pendingConflicts)
+  assert.ok(compact.protectedWorkspaces.length <= 4)
+  assert.ok(f.disk.raw.length < 10000)
+  for (const copy of compact.protectedWorkspaces) {
+    assert.equal(typeof copy.values.profile, 'string')
+    assert.equal(copy.originalValues, undefined)
+    assert.equal(copy.promotion, undefined)
+  }
+})
+
+test('activation-only changes deduplicate history and old original comparisons stay bounded', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  await f.workspace.flush()
+  for (let revision = 1; revision <= 20; revision++) {
+    f.workspace.storage.setItem('access', JSON.stringify({ ownerId: 'same', profileId: 'profile', generation: 1, activationId: String(revision), revision }))
+    await f.workspace.flush()
+    await f.workspace.archive({ watch: revision, language: 'fr' })
+  }
+  const saved = JSON.parse(f.disk.raw)
+  assert.ok(saved.protectedWorkspaces.length <= 2)
+  assert.deepEqual(saved.protectedOriginalProfiles.map(raw => JSON.parse(raw).watch), [16, 17, 18, 19])
+  assert.equal(JSON.parse(saved.originalProfile).watch, 20)
+  assert.equal(JSON.parse(saved.values.profile).watch, 1)
+})
+
+test('tabs do not resurrect evicted history when a peer advances a full archive', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  for (let watch = 2; watch <= 5; watch++) {
+    f.workspace.storage.setItem('profile', JSON.stringify({ watch, language: 'fr' }))
+    await f.workspace.flush()
+  }
+  const other = createProfileRecoveryWorkspace(f.options)
+  await other.initialize()
+  other.activate()
+  await other.flush()
+  await f.workspace.refresh()
+  await f.workspace.flush()
+  other.storage.setItem('profile', '{"watch":6,"language":"fr"}')
+  await other.flush()
+  const sequence = JSON.parse(f.disk.raw).sequence
+  for (let cycle = 0; cycle < 3; cycle++) {
+    await f.workspace.refresh()
+    await f.workspace.flush()
+    await other.refresh()
+    await other.flush()
+  }
+  assert.equal(JSON.parse(f.disk.raw).sequence, sequence)
+  assert.deepEqual(JSON.parse(f.disk.raw).protectedWorkspaces.map(copy => JSON.parse(copy.values.profile).watch), [2, 3, 4, 5])
+})
+
+test('one owner filling history cannot evict another owners unreconciled progress', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  f.workspace.storage.setItem('access', '{"ownerId":"first"}')
+  f.workspace.storage.setItem('profile', '{"watch":7,"language":"fr"}')
+  await f.workspace.flush()
+  f.workspace.storage.setItem('access', '{"ownerId":"second"}')
+  for (let watch = 10; watch < 20; watch++) {
+    f.workspace.storage.setItem('profile', JSON.stringify({ watch, language: 'es' }))
+    await f.workspace.flush()
+  }
+  const saved = JSON.parse(f.disk.raw)
+  const first = saved.protectedWorkspaces.filter(copy => JSON.parse(copy.values.access)?.ownerId === 'first')
+  const second = saved.protectedWorkspaces.filter(copy => JSON.parse(copy.values.access)?.ownerId === 'second')
+  assert.ok(first.some(copy => JSON.parse(copy.values.profile).watch === 7))
+  assert.ok(second.length <= 4)
+  assert.equal(JSON.parse(saved.values.profile).watch, 19)
+})

@@ -32,6 +32,24 @@ head, a protected version, or a profile's study contents. The maintenance
 function locks the profile tables while it selects and deletes candidates, so a
 concurrent profile write waits for a complete dry run or apply operation.
 
+## Browser recovery history
+
+The browser recovery workspace retains the active progress, original comparison,
+unchosen profile and unresolved conflicts separately from history. Historical
+workspace copies contain only progress and ownership metadata, deduplicate
+identical progress within an owner/profile/generation, and retain the four newest
+distinct copies per owner. A different owner's unreconciled progress is not
+evicted by the active owner's history. Previous original comparisons also retain at most four copies.
+Activation, revision and save-sequence changes do not justify duplicate progress
+snapshots. Existing archives compact on opening and persist through the same
+conditional journal write as ordinary recovery saves.
+
+Recovery history must not recursively retain outboxes, backup histories,
+promotions or other workspace histories. Journal save fences share immutable
+strings rather than parsing another complete archive for every queued write.
+The recovery journal browser suite covers legacy compaction, repeated identical
+replacements, reload, failed transactions and competing-tab edits.
+
 ## Cloud-save validation performance
 
 Profile acceptance keeps the existing canonical bytes, byte-length limit, SHA-256
