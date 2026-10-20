@@ -1063,6 +1063,7 @@ export const FR_LOCALIZED = {
   'history.selectMonth': 'Sélectionner un mois',
   'history.availableMonths': 'Mois disponibles',
   'history.table.anki': 'Anki',
+  'history.table.ankiCounts': '{reviewed} révisées / {created} créées',
   'history.noActivityMap': 'Aucune activité à afficher pour le moment.',
   'history.noActivityYet': 'Aucune activité pour le moment',
   'history.showWatched': 'Afficher les {count} vidéos vues le {date}',

@@ -25,27 +25,27 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  "en": "37a28a646cd372679dd6b1841da27ae8c1133278cd166a7848ed0672e52f4a9d",
-  "zh-Hant": "c45c3838c2cbb9fda36284e26d215454bba41c4d53bab8b1e82459b55602e615",
-  "zh-Hans": "da5277e4768ba796d095137369bc36a40227ccdf82a175f22e4d22bda3a5109e",
-  "es": "53e7cb17c1b79a8efaaa4a2450f33c444f043fe1df41270e50e7eb03ae25fc12",
-  "fr": "6bc03608e58fd150e4efb196335e64c166ee98d0210a18a2c5396d4c228dfda5"
+  "en": "eb56b06141d8e2982b7ce814aad5a871d62f0b0b05ddea66d1e3c2eb1ff171e9",
+  "zh-Hant": "9012ad76dee8da9fce8b265ee646644400c267f388d26e24028899f5741be9a5",
+  "zh-Hans": "d771cb199e99ae05b62bca5dbe804965f459cea5fdf978388249eb050c00637a",
+  "es": "f2770d3153e8ea97f782b1dc69f717492b144b7b1ef77d69563fe10f542ac880",
+  "fr": "72908e4dbfd186ca0a230c08f82400929d373b111b2fabe29955377fe7861c76"
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
-  "en": "ad302b0a3b9508266bcf636706fa808c4a5b7ad48154dc0bdd75c1852f8bfbb2",
-  "zh-Hant": "4ecf7517e06947939d16db4489170c8ce551622b5381581c70c208ccadc6a145",
-  "zh-Hans": "4ecf7517e06947939d16db4489170c8ce551622b5381581c70c208ccadc6a145",
-  "es": "4ecf7517e06947939d16db4489170c8ce551622b5381581c70c208ccadc6a145",
-  "fr": "4ecf7517e06947939d16db4489170c8ce551622b5381581c70c208ccadc6a145"
+  "en": "24669cb3fb3e5642ba6d42c7d1de26e8f4ce66db9a49e06254d5213e96822801",
+  "zh-Hant": "0e467f143a07ed16df1eeb26cb7abce47dd1ccb992b181c9308c9cd01742fef5",
+  "zh-Hans": "0e467f143a07ed16df1eeb26cb7abce47dd1ccb992b181c9308c9cd01742fef5",
+  "es": "0e467f143a07ed16df1eeb26cb7abce47dd1ccb992b181c9308c9cd01742fef5",
+  "fr": "0e467f143a07ed16df1eeb26cb7abce47dd1ccb992b181c9308c9cd01742fef5"
 }
 
 const EXPECTED_COUNTS = {
-  "en": 1240,
-  "zh-Hant": 1244,
-  "zh-Hans": 1244,
-  "es": 1244,
-  "fr": 1244
+  "en": 1241,
+  "zh-Hant": 1245,
+  "zh-Hans": 1245,
+  "es": 1245,
+  "fr": 1245
 }
 
 const LEGACY_NON_ENGLISH_EXTRA_KEYS = [

@@ -13212,7 +13212,7 @@ function renderStudyHistoryPanel(s) {
             <span data-label="${escHtml(t('history.table.date'))}">${formatHistoryDate(row.dateKey, s)}</span>
             <span data-label="${escHtml(t('history.table.video'))}">${formatHistoryTime(row.secondsWatched)}</span>
             <span data-label="${escHtml(t('history.table.watched'))}">${renderHistoryWatchedCell(row)}</span>
-            ${showAnkiColumns ? `<span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>` : ''}
+            ${showAnkiColumns ? `<span data-label="${escHtml(t('history.table.anki'))}">${escHtml(t('history.table.ankiCounts', { reviewed: row.ankiReviewed, created: row.ankiCreated }))}</span>` : ''}
             <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${renderHistoryPointsCell(row)}</span>
           </div>
         `).join('')}

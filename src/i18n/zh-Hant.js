@@ -772,6 +772,7 @@ export const ZH_HANT_LOCALIZED = {
     'history.table.video': '影片',
     'history.table.watched': '已看',
     'history.table.anki': 'Anki',
+    'history.table.ankiCounts': '複習 {reviewed} 張 / 新增 {created} 張',
     'history.table.points': '經驗',
     'history.emptyRange': '這個範圍沒有活動。',
     'history.noActivityMap': '還沒有活動可以顯示。',
