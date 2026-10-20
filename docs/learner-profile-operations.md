@@ -38,7 +38,8 @@ The browser recovery workspace retains the active progress, original comparison,
 unchosen profile and unresolved conflicts separately from history. Historical
 workspace copies contain only progress and ownership metadata, deduplicate
 identical progress within an owner/profile/generation, and retain the four newest
-distinct copies. Previous original comparisons also retain at most four copies.
+distinct copies per owner. A different owner's unreconciled progress is not
+evicted by the active owner's history. Previous original comparisons also retain at most four copies.
 Activation, revision and save-sequence changes do not justify duplicate progress
 snapshots. Existing archives compact on opening and persist through the same
 conditional journal write as ordinary recovery saves.

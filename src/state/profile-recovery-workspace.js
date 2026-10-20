@@ -45,6 +45,7 @@ export function createProfileRecoveryWorkspace({
     // History needs the displaced progress and its owner, not another copy of
     // the outbox, backup history, promotion or the workspace's own history.
     return { version: 1, status: 'active',
+      sequence: Number.isSafeInteger(previous.sequence) ? previous.sequence : 0,
       originalAccess: previous.originalAccess ?? null,
       values: { [storageKey]: previous.values?.[storageKey] ?? null,
         [accessKey]: previous.values?.[accessKey] ?? null },
@@ -56,17 +57,32 @@ export function createProfileRecoveryWorkspace({
       return JSON.stringify([access?.ownerId, access?.profileId, access?.generation])
     } catch { return raw }
   }
+  function historyOwner(snapshot) {
+    const raw = snapshot.values[accessKey] ?? snapshot.originalAccess
+    try { return JSON.parse(raw)?.ownerId ?? null } catch { return raw }
+  }
   function compactHistory(copies) {
     const retained = []
+    const compareText = (left, right) => left === right ? 0 : left < right ? -1 : 1
+    const compare = (left, right) => left.sequence - right.sequence
+      || compareText(left.values[storageKey], right.values[storageKey])
+      || compareText(left.values[accessKey] ?? '', right.values[accessKey] ?? '')
+      || compareText(left.unchosenProfile ?? '', right.unchosenProfile ?? '')
+      || compareText(left.originalAccess ?? '', right.originalAccess ?? '')
     for (const copy of copies) {
       if (!copy?.values || typeof copy.values[storageKey] !== 'string') continue
       const snapshot = protectedSnapshot(copy)
       const owner = ownerScope(snapshot.values[accessKey] ?? snapshot.originalAccess)
       const duplicate = retained.findIndex(item => item.values[storageKey] === snapshot.values[storageKey]
         && ownerScope(item.values[accessKey] ?? item.originalAccess) === owner && item.unchosenProfile === snapshot.unchosenProfile)
-      if (duplicate !== -1) retained.splice(duplicate, 1)
-      retained.push(snapshot)
-      if (retained.length > MAX_PROTECTED_WORKSPACES) retained.shift()
+      if (duplicate !== -1) {
+        if (compare(snapshot, retained[duplicate]) > 0) retained[duplicate] = snapshot
+      } else retained.push(snapshot)
+      // A stale peer may contribute an evicted copy. Order by the captured
+      // save sequence, never by which tab happened to observe it last.
+      retained.sort(compare)
+      const ownerCopies = retained.filter(item => historyOwner(item) === historyOwner(snapshot))
+      if (ownerCopies.length > MAX_PROTECTED_WORKSPACES) retained.splice(retained.indexOf(ownerCopies[0]), 1)
     }
     return retained
   }
