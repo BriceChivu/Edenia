@@ -275,12 +275,13 @@ test('fresh trial pairs mandatory entry and lifecycle without global rollout and
   await page.goto('./?internal_test=1')
   await expect(page.locator('#introTrailer')).toBeVisible()
   expect(await page.evaluate(()=>({accounts:ACCOUNT_FEATURES_ENABLED,lifecycle:LEARNER_PROFILE_LIFECYCLE_ENABLED,required:ACCOUNT_ENTRY_REQUIRED,migration:LEGACY_PROGRESS_MIGRATION_ENABLED}))).toEqual({accounts:true,lifecycle:true,required:true,migration:false})
-  // WebKit can stall pointer dispatch while the animated trailer closes.
-  // Keyboard activation exercises the same handler and full onboarding flow.
+  // Linux WebKit can stall scroll-to-click while the animated trailer closes,
+  // including on the next visible language button. Keep keyboard activation
+  // through this transition; it exercises the same full onboarding handlers.
   await page.locator('#introTrailer').getByRole('button',{name:'Continue',exact:true}).press('Enter')
-  await page.locator('[data-language-id="other"]').click()
-  await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
-  await page.locator('[data-personalized-onboarding-step="account"]').click()
+  await page.locator('[data-language-id="other"]').press('Enter')
+  await page.locator('[data-personalized-onboarding-action="continue-language"]').press('Enter')
+  await page.locator('[data-personalized-onboarding-step="account"]').press('Enter')
   await expect(page.locator('#onboardingAccountEmail')).toBeVisible()
   await expect(page.locator('[data-personalized-onboarding-action="finish"]')).toHaveCount(0)
   await expect(page.locator('#mainApp')).toBeHidden()
