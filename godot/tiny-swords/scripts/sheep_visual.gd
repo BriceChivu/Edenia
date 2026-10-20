@@ -203,13 +203,13 @@ func advance(delta: float, now: float) -> void:
 	# Hidden iframes and background tabs may suspend frames or clamp delta.
 	var elapsed := maxf(delta, maxf(0.0, now - updated_at))
 	updated_at = now
-	var pawn_movement: Vector2 = world.pawn.position - previous_pawn_position
+	var pawn_movement: Vector2 = Vector2.ZERO if world.pawn.portal_absorbed else world.pawn.position - previous_pawn_position
 	if pawn_movement.length_squared() > 0.001:
 		approach_direction = pawn_movement.normalized()
 	previous_pawn_position = world.pawn.position
 	var can_move: bool = house_fleeing or (not world.editing and world.water_phase == world.WaterPhase.READY)
 	if can_move:
-		if not fleeing and world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position):
+		if not fleeing and not world.pawn.portal_absorbed and world.layout.cell_at(world.pawn.position) == world.layout.cell_at(position):
 			destination = escape_target()
 			fleeing = destination != position
 			if fleeing:

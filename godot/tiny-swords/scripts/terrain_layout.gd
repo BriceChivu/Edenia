@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BlackHoleState = preload("res://scripts/black_hole_state.gd")
+
 const SYNC_CONTRACT = preload("res://scripts/sync_contract.gd")
 
 const BridgeRules = preload("res://scripts/bridge_rules.gd")
@@ -61,6 +63,7 @@ var house_offsets: Dictionary = {} # Cell -> chosen ground-plane offset.
 var house_free_tiles: Dictionary = {} # House anchor -> its removable free foundation tiles.
 var chickens: Array[Vector2] = [] # Ground-plane positions, like sheep.
 var chicken_release_at := 0.0 # A carried bird is outside the ground-position array.
+var black_hole: Dictionary = {} # Durable event phase, calendar deadline and FIFO occupants.
 var sheep: Array[Vector2] = [] # Ground-plane positions; rewards at levels five and eight.
 var trees: Dictionary = {}
 var tree_types: Dictionary = {}
@@ -346,6 +349,10 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 	var proposed = terrain_edit_preview(cell, tool, ground_height)
 	if proposed == null:
 		return false
+	if not black_hole.is_empty() and black_hole.phase != "idle":
+		var portal_cell := Vector2i(black_hole.cell[0], black_hole.cell[1])
+		if not proposed.cells.has(portal_cell) or proposed.cells[portal_cell] == "stairs" or proposed.height_at(portal_cell) != height_at(portal_cell):
+			return false
 	# Placing terrain next to an object must enforce the same contact boundary
 	# as placing the object next to terrain. Ignore pre-existing legacy gaps.
 	for tree in trees:
@@ -372,9 +379,13 @@ func can_edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: f
 func can_edit_rules(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float = -1, tree_placement_offset: Vector2 = Vector2.ZERO, occupied_position: Vector2 = Vector2.INF, house_placement_offset: Vector2 = Vector2.ZERO) -> bool:
 	if not unlocked or not in_bounds(cell):
 		return false
+	if not black_hole.is_empty() and black_hole.phase != "idle" and cell == Vector2i(black_hole.cell[0], black_hole.cell[1]):
+		return false
 	if log_piles.has(cell) and tool != "remove":
 		return false
 	if tool == "house":
+		if not black_hole.is_empty() and black_hole.phase != "idle" and Vector2i(black_hole.cell[0], black_hole.cell[1]) in house_cells(cell, house_placement_offset):
+			return false
 		if level < 5:
 			return false
 		if houses.has(cell):
@@ -1147,7 +1158,8 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 34, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 35, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	saved.black_hole = black_hole.duplicate(true)
 	saved.pawn_color = pawn_color
 	saved.house_colors = []
 	for cell in house_colors:
@@ -1195,7 +1207,10 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+		return false
+	var next_portal = data.get("black_hole", {}) if int(data.version) >= 35 else {}
+	if not BlackHoleState.valid(next_portal):
 		return false
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
@@ -1520,7 +1535,7 @@ func restore(data: Dictionary) -> bool:
 					return false
 			next_sheep.append(point)
 		var sheep_rewards := (1 if next_level >= 5 else 0) + (1 if int(data.version) >= 26 and next_level >= 8 else 0)
-		if next_sheep.size() + next_stock.sheep != sheep_rewards + int(next_grants.get("sheep", 0)) or (next_level < 5 and next_stock.house > 0):
+		if next_sheep.size() + next_stock.sheep + BlackHoleState.count(next_portal, "sheep") != sheep_rewards + int(next_grants.get("sheep", 0)) or (next_level < 5 and next_stock.house > 0):
 			return false
 	# Grant the new level-eight reward once when upgrading older saves.
 	if int(data.version) < 26 and next_level >= 8:
@@ -1565,7 +1580,7 @@ func restore(data: Dictionary) -> bool:
 					return false
 			next_chickens.append(point)
 	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
-	if next_chickens.size() + next_stock.chicken + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
+	if next_chickens.size() + next_stock.chicken + BlackHoleState.count(next_portal, "chicken") + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
 		return false
 	# Older islands have not received the new level-two reward.
 	if int(data.version) < 25 and next_level >= 2:
@@ -1633,6 +1648,14 @@ func restore(data: Dictionary) -> bool:
 		if not next_houses.has(owner) or next_house_colors.has(owner):
 			return false
 		next_house_colors[owner] = int(record[2])
+	if not next_portal.is_empty() and next_portal.phase != "idle":
+		var portal_cell := Vector2i(next_portal.cell[0], next_portal.cell[1])
+		if not next_cells.has(portal_cell) or next_cells[portal_cell] == "stairs" or next_trees.has(portal_cell) or next_logs.has(portal_cell):
+			return false
+		for owner in next_houses:
+			if portal_cell in house_cells(owner, next_house_offsets[owner]):
+				return false
+	black_hole = next_portal.duplicate(true)
 	pawn_color = int(next_pawn_color)
 	house_colors = next_house_colors
 	chickens = next_chickens

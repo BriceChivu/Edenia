@@ -1389,3 +1389,56 @@ completed route is checked against current contacts before movement. Other
 animal escape and construction queries retain their existing atomic behavior.
 `tests/chicken_follow_budget.gd` covers an unreachable destination and a terrain
 change that opens a detour. Lag packages include `chicken-follow` timings.
+
+## Rare black hole event
+
+Hosted availability is restricted to `internal_test=1`. The Edenia adapter passes
+that route context to Godot; other hosted modes neither schedule nor run the event.
+Native previews and the dedicated localhost meadow keep it enabled for testing.
+
+Godot owns a rare portal event using Samuel Maciel's eight-frame original GIF
+(see `assets/black-hole/README.md`) and copies of existing actor sprites. The portal stands upright and hovers over
+its tile, with a subtle vertical bob; creatures shrink toward its airborne center.
+A nearest-sampled screen shader continuously pulls a broad area of surrounding
+pixels into the visible face, and a separate
+actor shader stretches and twists the existing sprite frame during absorption
+and return. The screen copy is bounded to the lens and a small sampling margin.
+A grounded ellipse matches the animal shadows' 20% opacity. Its subtle size
+variation shares the slow hover cycle, widest when the portal is highest, and
+follows opening/closing scale. Approaching from behind mirrors the portal about its vertical axis before
+absorption, reverses its pixel flow, and saves its facing across sessions.
+Opening
+a playable island schedules the first appearance 14–28 local calendar days later.
+The next eligible visit opens it on reachable, clear grass with at least three
+same-floor grass neighbors; small islands wait until suitable land is available.
+Spawn checks reserve the full airborne effect and its grass tile against the
+visible bounds of scenery, all tree animation poses, houses and higher terrain.
+Construction, rotation or tree regrowth rechecks the position. An obscured portal
+moves to another clear spot or hides and suspends absorption/returns until a clear
+spot exists, retaining every occupant. It also hides while Terrain is open.
+A moving pawn, sheep or chicken crossing the center shrinks into it. Captured
+animals leave the live arrays; the pawn stops moving and working. Version 35
+saves a FIFO occupant queue alongside terrain, inventory and resources, and
+counts trapped animals in the same conservation checks as live animals. Carried
+wood and the pawn's color remain in the island; a carried chicken joins the queue.
+The event is a gameplay save through the existing Edenia persistence bridge.
+
+The next visit on a later device-local calendar date changes the portal to
+returning, chooses clear grass again, and restores occupants one at a time.
+Reloads retain the remaining queue without replaying already restored occupants.
+If no safe landing is available, the passenger stays saved until space is free.
+The portal cannot absorb during returns and schedules another 14–28 day cooldown
+after closing. An open island does not trigger a midnight return. Reopening the game or
+returning to a suspended tab on a later day starts the reunion.
+
+Run `node scripts/preview-tiny-swords-black-hole.mjs` from the repository root
+to export and serve **http://localhost:8047/**. This populated Godot meadow has
+a broad grass meadow, two stair bundles, nine trees, two houses, six chickens, six sheep,
+and one pawn. **Next-day visit** runs the return immediately; **Send an animal**
+routes a nearby animal into the portal using its existing movement; **Reset meadow**
+restarts the fixture. **Focus portal** gives a close view of the pixel distortion;
+**Show island** restores the wider camera. The dedicated preview stores its own local snapshot and
+never reads a learner profile. The ordinary localhost:8037 Playground also has
+Portal meadow, Open portal and Next-day visit controls. Native scene:
+`res://scenes/black_hole_preview.tscn`. Focused lifecycle/persistence check:
+`Godot --headless --path godot/tiny-swords --script res://tests/black_hole.gd`.

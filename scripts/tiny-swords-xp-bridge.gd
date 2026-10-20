@@ -33,6 +33,8 @@ func _ready() -> void:
 	# This integration has its own browser layout; standalone editor saves stay intact.
 	preview_save_enabled = false
 	study_claims_authoritative = true
+	# Transport the host's rollout context; Godot owns the event and its schedule.
+	black_hole_enabled = OS.has_feature("web") and bool(JavaScriptBridge.eval("new URLSearchParams(location.search).get('internal_test') === '1'"))
 	# Developer controls are a Godot decision; hosted releases never expose them.
 	playground_enabled = OS.has_feature("web") and bool(JavaScriptBridge.eval("['localhost','127.0.0.1'].includes(location.hostname) && location.port === '8037'"))
 	playground_ready = false

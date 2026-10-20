@@ -2,6 +2,7 @@ extends Node2D
 
 @export var speed: float = 70.0
 @onready var sprite: AnimatedSprite2D = $Sprite
+var portal_absorbed := false
 var destination: Vector2
 var axe_equipped := false
 var chopping := false
@@ -53,7 +54,7 @@ func tile_step_allowed(target: Vector2) -> bool:
 	return allowed
 
 func _physics_process(delta: float) -> void:
-	if harvesting_paused:
+	if portal_absorbed or harvesting_paused:
 		return
 	if hammering and not carrying_chicken:
 		sprite.play("hammer_interact")

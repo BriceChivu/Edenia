@@ -55,6 +55,8 @@ const NAVIGATION_BUDGET_USEC := 2000
 var waypoints: Array[Vector2] = []
 var harvesting
 var chicken_carry
+var portal_event
+var black_hole_enabled := true # Native previews; the host selects the hosted rollout.
 var construction
 var log_pickup := Vector2i(999, 999)
 var log_delivery := Vector2i(999, 999)
@@ -179,6 +181,9 @@ func _ready() -> void:
 		arrival = preload("res://scripts/island_arrival.gd").new()
 		arrival.world = self
 		add_child(arrival)
+	portal_event = preload("res://scripts/black_hole.gd").new()
+	portal_event.world = self
+	add_child(portal_event)
 	get_window().mouse_exited.connect(func():
 		if world_dragging:
 			save_camera_view()
@@ -190,7 +195,7 @@ func house_placement_active() -> bool:
 
 func refresh() -> void:
 	if arrival == null or not arrival.blocks_gameplay():
-		pawn.visible = not editing
+		pawn.visible = not editing and not pawn.portal_absorbed
 	$Clouds.visible = not editing
 	$PassingCloud.inventory_hidden = editing
 	inventory_preview_inputs.clear()
@@ -263,7 +268,7 @@ func toggle_editing() -> void:
 	update_inventory_preview(get_global_mouse_position(), false)
 
 func begin_pawn_action(excluded_cells: Array = []) -> bool:
-	return chicken_carry == null or chicken_carry.put_down(excluded_cells)
+	return not pawn.portal_absorbed and (chicken_carry == null or chicken_carry.put_down(excluded_cells))
 
 func _process(_delta: float) -> void:
 	if holds != null:
@@ -271,6 +276,10 @@ func _process(_delta: float) -> void:
 	if terrain == null:
 		return
 	if arrival != null and arrival.blocks_gameplay():
+		update_cursor()
+		return
+	if pawn.portal_absorbed:
+		update_inventory_preview(get_global_mouse_position(), pointer_inside and pointer_focused)
 		update_cursor()
 		return
 	chicken_carry.advance(Time.get_unix_time_from_system())
@@ -485,6 +494,7 @@ func has_active_interaction() -> bool:
 		or pawn.position.distance_to(pawn.destination) > 0.2 \
 		or pawn.chopping or pawn.hammering or construction.busy() \
 		or harvesting.phase != harvesting.Phase.READY \
+		or (portal_event != null and portal_event.effects_busy > 0) \
 		or water_phase != WaterPhase.READY or pending_unlock_level > 0 or ui.celebration != null
 
 func _input(event: InputEvent) -> void:
@@ -840,6 +850,8 @@ func surface_cell(point: Vector2) -> Vector2i:
 
 func handle_world_click(event: InputEvent) -> void:
 	if arrival != null and arrival.blocks_gameplay():
+		return
+	if pawn.portal_absorbed and not editing:
 		return
 	if ui == null or ui.celebration != null or (not editing and water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]):
 		return
@@ -1299,6 +1311,7 @@ func navigation_budget() -> int:
 
 
 func walk_on_land(cell: Vector2i, point: Vector2, nearest_click := false) -> void:
+	if pawn.portal_absorbed: return
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
 	harvesting.cancel()
@@ -1710,6 +1723,8 @@ func restore_saved_layout(data: Dictionary, restore_checkpoint: bool = true) -> 
 		refresh()
 		if arrival != null:
 			arrival.restore()
+	if portal_event != null:
+		portal_event.reset_visit()
 	return true
 
 func _exit_tree() -> void:
