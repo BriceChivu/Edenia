@@ -16,7 +16,7 @@ func run() -> void:
 	await process_frame
 	check(level.has_node("World/Pawn"), "Movable pawn restored on the main island")
 	check(level.get_node("Islands").get_child_count() == 5, "Small 2x2 island plus one small islet")
-	check(level.get_node("Clouds").get_child_count() == 6, "Six clouds distributed over two drifting lanes")
+	check(level.get_node("Clouds").get_child_count() == 6, "Six clouds distributed across the vertical view")
 	check(level.get_node("WaterRocks").get_child_count() == 2, "Two water rocks")
 	check(ProjectSettings.get_setting("display/window/stretch/aspect") == "expand", "Expand view fills wide frames without letterboxing")
 	check(ProjectSettings.get_setting("display/window/size/viewport_width") == 1152, "Wider logical view avoids enlarging the small patch")

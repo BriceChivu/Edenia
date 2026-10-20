@@ -840,6 +840,8 @@ A new movement click cancels a water approach until the actual step-off begins.
 Font weight is slightly strengthened to match the reference lettering. Cloud
 variants retain their native relative sizes, with no common minimum width. All
 eight original Clouds_01–08 images cycle through the regular cloud lanes off-screen.
+The same six regular clouds occupy staggered vertical bands from above the island
+to below it, with up to 40 scene units of vertical variation on each new pass.
 Regular and rare clouds have a 50% chance of mirroring left to right at startup
 and before each new pass. Bodies, shadows, and ground-depth anchors mirror together;
 orientation stays fixed throughout a visible pass.
