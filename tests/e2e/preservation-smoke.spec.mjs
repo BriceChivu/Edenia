@@ -1589,7 +1589,7 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
   })
 })
 
-test('backup Restore listeners preserve live IDs, rollback order, localization, and analytics', async ({
+test('backup Restore confirmation preserves cancellation, rollback order, localization, and analytics', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -1647,41 +1647,21 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
   const restoreSelector =
     '[data-settings-backup-action="restore"][data-backup-id="restore-target"]'
   const initialRestore = list.locator(restoreSelector)
-  await expect(initialRestore).toHaveText('Restore')
+  await expect(initialRestore).toHaveText('Restore…')
   await expect(initialRestore).not.toHaveAttribute('onclick')
 
-  const primaryBeforeMissing = await page.evaluate(
-    () => localStorage.getItem('edenia_v1')
-  )
-  const backupsBeforeMissing = await page.evaluate(
-    () => localStorage.getItem('edenia_v1_backups')
-  )
-  await initialRestore.evaluate(control => {
-    control.dataset.backupId = 'missing-live-id'
-    control.click()
-  })
-  await expect(page.locator('#toast')).toHaveText(
-    'That backup is not available anymore'
-  )
-  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
-    .toBe(primaryBeforeMissing)
-  expect(await page.evaluate(() => localStorage.getItem('edenia_v1_backups')))
-    .toBe(backupsBeforeMissing)
-  await expect(list.locator(restoreSelector)).toHaveCount(1)
-  await expect.poll(() => page.evaluate(() => (
-    window.__backupRestoreAnalytics
-      .filter(entry => entry.eventName === 'restore_state_backup_clicked')
-      .length
-  ))).toBe(1)
-
-  await page.evaluate(() => {
-    const entries = JSON.parse(
-      localStorage.getItem('edenia_v1_backups') || '[]'
-    )
-    localStorage.setItem('edenia_v1_backups', JSON.stringify(
-      entries.filter(entry => entry.id === 'restore-target')
-    ))
-  })
+  const primaryBeforeCancel = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  const backupsBeforeCancel = await page.evaluate(() => localStorage.getItem('edenia_v1_backups'))
+  await initialRestore.click()
+  await expect(page.locator('#backupRestoreDialog')).toBeVisible()
+  await expect(page.locator('#backupRestoreBody')).toContainText('in this browser')
+  await expect(page.locator('#backupRestoreCancel')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('#backupRestoreDialog')).toBeHidden()
+  await expect(page.locator('#settingsPanel')).toBeVisible()
+  await expect(initialRestore).toBeFocused()
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1'))).toBe(primaryBeforeCancel)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1_backups'))).toBe(backupsBeforeCancel)
   const restoreControl = list.locator(restoreSelector)
   const restoreLabel = await restoreControl.textContent()
   await page.evaluate(() => {
@@ -1709,10 +1689,12 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
   await expect.poll(() => page.evaluate(
     () => window.__backupRestoreAtDocumentBubble
   )).toMatchObject({
-    targetConnected: false,
+    targetConnected: true,
     clickedEventCount: 1,
     buttonName: restoreLabel
   })
+  await expect(page.locator('#backupRestoreDialog')).toBeVisible()
+  await page.locator('#backupRestoreConfirm').click()
   await expect(page.locator('#toast')).toHaveText('Sauvegarde restaurée')
 
   const restoredState = await page.evaluate(() => {
@@ -1804,12 +1786,12 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
     cookieLocale: 'fr',
     settingsHidden: false,
     backupContentHidden: false,
-    newRestoreLabel: 'Restaurer',
+    newRestoreLabel: 'Restaurer…',
     toast: 'Sauvegarde restaurée'
   })
   await expect(page.locator('#settingsIncludeShorts')).not.toBeChecked()
   await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
-  await expect(restoreControl).not.toBeFocused()
+  await expect(restoreControl).toBeFocused()
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
       window.EdeniaActions || {},

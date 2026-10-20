@@ -28,13 +28,6 @@ export function createLocalRecoveryConflict({ document, translate, choose }) {
     element.dataset.i18n = labels[key] || key
     element.textContent = t(key)
   }
-  // Protected cloud copies belong to the normal cloud view, not this dialog.
-  for (const id of ['learnerProfileConflictRecovery','learnerProfileConflictRecoveryList']) {
-    const element = document.createElement('div')
-    element.id = `localRecovery${id}`
-    element.hidden = true
-    panel.append(element)
-  }
   dialog.append(panel)
   document.body.append(dialog)
   const root = {
