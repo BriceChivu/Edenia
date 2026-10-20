@@ -378,6 +378,9 @@ export function createProfileRecoveryWorkspace({
         if (target.getItem(workspaceKey) !== raw) continue
         const saved = parseRecord(raw)
         if (!saved || (saved.sequence || 0) > (acknowledged.sequence || 0)) continue
+        if (saved.replacement && saved.replacementId !== acknowledged.replacementId
+          || saved.originalReplacementRevision !== null && saved.originalReplacementRevision !== undefined
+            && saved.originalReplacementRevision !== acknowledged.originalReplacementRevision) continue
         durable ||= recoveryEvidence(acknowledged)
         const evidence = recoveryEvidence(saved)
         if (!evidence.profiles.every(copy => durable.profiles.some(other => other.raw === copy.raw && other.owner === copy.owner))
@@ -419,7 +422,7 @@ export function createProfileRecoveryWorkspace({
         journalFailure = null
         if (result.saved) {
           journalActive = true
-          retireWebStorageCopies(fallbacks, snapshot)
+          if (result.raw === raw) retireWebStorageCopies(fallbacks, snapshot)
           for (const id of candidates) consumedCandidates.delete(id)
           // Acknowledgement belongs to this snapshot, never to newer in-memory
           // edits queued while the transaction was still running.
