@@ -1,11 +1,11 @@
 import {
-  HISTORY_CHART_UNITS, chartDateKey, clampHistoryChartRange,
+  chartDateKey, clampHistoryChartRange,
   groupHistoryChartDays, visibleHistoryChartBuckets
 } from './chart-data.js'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const DAY_MS = 86_400_000
-const spans = { day: 30, week: 91, month: 365, year: 1461 }
+const DEFAULT_SPAN = 30
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 
 function svgElement(name, attrs, parent) {
@@ -21,7 +21,8 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   const abort = new AbortController()
   const signal = abort.signal
   let data, groups = [], viewport, overviewBounds, lockedOverview, access
-  let unit = 'day', mode = 'bar', frame = 0, inertia = 0, hover = null, gesture = null
+  const unit = 'day'
+  let mode = 'bar', frame = 0, inertia = 0, hover = null, gesture = null
   let visible = { video: true, anki: true }
   let width = 0, geometry, buckets = [], yMaximum = 10
   const pointers = new Map()
@@ -42,18 +43,12 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     return node
   }
   // All translated copy is textContent; study data never becomes HTML.
-  container.innerHTML = `<div class="history-chart-controls"><div class="history-chart-segment" data-chart-units></div><div class="history-chart-segment" data-chart-modes></div></div>
-    <div class="history-chart-heading"><span class="history-chart-range" aria-live="polite"></span><div class="history-chart-legend"></div></div>
+  container.innerHTML = `<div class="history-chart-heading"><span class="history-chart-range" aria-live="polite"></span><div class="history-chart-legend"></div></div>
     <div class="history-chart-plot"><svg class="history-chart-svg" role="img"></svg><div class="history-chart-tooltip" role="tooltip" hidden></div></div>
-    <div class="history-chart-detail" aria-live="polite"></div>
+    <div class="history-chart-summary"><span class="history-chart-span"></span><div class="history-chart-detail" aria-live="polite"></div><div class="history-chart-segment" data-chart-modes></div></div>
     <div class="history-chart-overview"><svg role="img"></svg></div>
-    <div class="history-chart-footer"><span class="history-chart-span"></span><div class="history-chart-navigation"></div></div>
     <button type="button" class="history-chart-access hidden"></button>`
   container.setAttribute('aria-label', t('history.chart.title'))
-  const unitControls = container.querySelector('[data-chart-units]')
-  unitControls.setAttribute('role', 'group')
-  unitControls.setAttribute('aria-label', t('history.chart.groupBy'))
-  for (const name of HISTORY_CHART_UNITS) unitControls.append(button('chartUnit', name, t(`history.chart.${name}`)))
   const modeControls = container.querySelector('[data-chart-modes]')
   modeControls.setAttribute('role', 'group')
   modeControls.setAttribute('aria-label', t('history.chart.display'))
@@ -66,12 +61,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     swatch.setAttribute('aria-hidden', 'true')
     node.append(swatch, document.createTextNode(t(`history.chart.${key}`)))
     legend.append(node)
-  }
-  const nav = container.querySelector('.history-chart-navigation')
-  for (const [key, label] of [['out', '−'], ['in', '+'], ['latest', t('history.chart.latest')]]) {
-    const node = button('chartZoom', key, label)
-    node.setAttribute('aria-label', t(`history.chart.${key === 'latest' ? 'latestLabel' : key}`))
-    nav.append(node)
   }
   const plot = container.querySelector('.history-chart-plot')
   const svg = container.querySelector('.history-chart-svg')
@@ -123,21 +112,13 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     const control = event.target.closest('button')
     if (!control || !data) return
     stopInertia()
-    if (control.dataset.chartUnit) {
-      unit = control.dataset.chartUnit
-      groups = groupHistoryChartDays(data.days, unit)
-      setRange(viewport.end - spans[unit], viewport.end)
-    } else if (control.dataset.chartMode) {
+    if (control.dataset.chartMode) {
       mode = control.dataset.chartMode
       queue()
     } else if (control.dataset.chartSeries) {
       const key = control.dataset.chartSeries
       visible[key] = !visible[key]
       queue()
-    } else if (control.dataset.chartZoom === 'latest') {
-      setRange(data.end - (viewport.end - viewport.start), data.end)
-    } else if (control.dataset.chartZoom) {
-      zoom(control.dataset.chartZoom === 'in' ? .7 : 1 / .7)
     }
   }, { signal })
 
@@ -371,13 +352,10 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     container.dataset.chartSpan = String(span)
     container.dataset.chartUnit = unit
     container.dataset.chartMode = mode
-    container.querySelectorAll('[data-chart-unit]').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.chartUnit === unit)))
     container.querySelectorAll('button[data-chart-mode]').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.chartMode === mode)))
     container.querySelectorAll('[data-chart-series]').forEach(node => {
       if (node.tagName === 'BUTTON') node.setAttribute('aria-pressed', String(visible[node.dataset.chartSeries]))
     })
-    nav.querySelector('[data-chart-zoom="in"]').disabled = span <= 3
-    nav.querySelector('[data-chart-zoom="out"]').disabled = span >= data.end - data.start
     drawOverview()
     drawDetail(x, y)
   }
@@ -493,7 +471,7 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   return {
     update(nextData, nextAccess) {
       const wasLatest = !data || viewport.end >= data.end - .01
-      const priorSpan = viewport ? viewport.end - viewport.start : spans[unit]
+      const priorSpan = viewport ? viewport.end - viewport.start : DEFAULT_SPAN
       if (!data || data.start !== nextData.start || data.end !== nextData.end || access?.state !== nextAccess.state) cancelGesture()
       data = nextData
       access = nextAccess
