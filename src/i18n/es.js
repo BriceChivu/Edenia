@@ -1162,6 +1162,7 @@ export const ES_LOCALIZED = {
   'toast.apiKeyMissing': 'Configura primero la clave de la API de YouTube',
   'toast.nextRefresh': 'Puedes volver a actualizar en {time}',
   'toast.refreshFailedChannels': 'No se pudieron actualizar {count} canales',
+  'toast.refreshUpdating': 'Actualizando el feed de videos…',
   'toast.refreshLoadedWithErrors': 'Se cargaron {count} videos{shorts}, pero fallaron {errors} canales',
   'toast.refreshLoaded': 'Se cargaron {count} videos de {channels} canales{shorts}',
   'toast.refreshFailed': 'Falló la actualización: {message}',

@@ -1162,6 +1162,7 @@ export const ZH_HANT_LOCALIZED = {
   'toast.apiKeyMissing': '請先設定 YouTube API 金鑰',
   'toast.nextRefresh': '可在 {time} 後再次刷新',
   'toast.refreshFailedChannels': '{count} 個頻道刷新失敗',
+  'toast.refreshUpdating': '正在更新影片動態…',
   'toast.refreshLoadedWithErrors': '已載入 {count} 部影片{shorts}，但有 {errors} 個頻道失敗',
   'toast.refreshLoaded': '已從 {channels} 個頻道載入 {count} 部影片{shorts}',
   'toast.refreshFailed': '刷新失敗：{message}',

@@ -1064,6 +1064,7 @@ export const EN_CORE = {
   'toast.apiKeyMissing': 'Add the shared YouTube API key to config.local.js',
   'toast.nextRefresh': 'Next YouTube refresh in {time}',
   'toast.refreshFailedChannels': 'Refresh failed: {count} channel{plural} failed',
+  'toast.refreshUpdating': 'Updating video feed…',
   'toast.refreshLoadedWithErrors': 'Loaded {count} videos{shorts} ({errors} channel{plural} failed)',
   'toast.refreshLoaded': '{count} videos loaded from {channels} channel{plural}{shorts}',
   'toast.refreshFailed': 'Refresh failed: {message}',
