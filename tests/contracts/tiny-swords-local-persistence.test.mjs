@@ -333,3 +333,22 @@ test('only the current frame supplies sync activity and visibility updates retir
   h.lock()
   assert.equal(h.activities.at(-1).visible, false)
 })
+
+
+test('signed-in island checkpoints bypass whole-profile reads and saves', async () => {
+  let saved = 0
+  const durable = { tinySwordsIsland: island, cityProgress: { maxLevelIndex: 2 } }
+  const adapter = createTinySwordsPersistence({
+    read: () => { throw new Error('must not read the full profile') },
+    readDurable: () => { throw new Error('must not compose the full profile') },
+    save: () => { throw new Error('must not save the full profile') },
+    readCheckpoint: () => durable,
+    saveCheckpoint: async (layout, expected) => {
+      assert.equal(expected, islandIdentity(durable)); saved++; return true
+    }
+  })
+  assert.equal(adapter.readClaimedLevel(), 3)
+  assert.equal(adapter.readIsland(), durable)
+  assert.equal(await adapter.save(island, islandIdentity(durable)), true)
+  assert.equal(saved, 1)
+})

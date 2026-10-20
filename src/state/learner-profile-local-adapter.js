@@ -108,6 +108,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   inheritProfileRevision = () => {},
   replaceProfile,
   saveProfile,
+  getCheckpointRepository = () => null,
   storage
 }) {
   const openingSnapshots = new WeakMap()
@@ -825,6 +826,25 @@ export function createLearnerProfileLocalPersistenceAdapter({
     return mapPersistenceResult(persisted, saved => saved === true && isActivationCurrent(fence))
   }
 
+  function readIsland(fence) {
+    if (!isActivationCurrent(fence)) return null
+    return getCheckpointRepository()?.readIslandState?.() ?? null
+  }
+
+  async function saveIsland(profile, layout, expected, fence, syncBase) {
+    const repository = getCheckpointRepository()
+    if (!repository?.readSyncBase || !repository.saveIsland) return null
+    const canPersist = () => isActivationCurrent(fence) && getCheckpointRepository() === repository
+    if (!canPersist()) return false
+    const saved = await repository.saveIsland(layout, expected, { canPersist, syncBase })
+    if (!saved || !isActivationCurrent(fence)) return false
+    profile.tinySwordsIsland = layout
+    // The repository wrapper may have durably recovered a quota failure into
+    // the recovery journal. Continue from that acknowledged repository.
+    getCheckpointRepository()?.adoptSnapshot(profile)
+    return true
+  }
+
   function replace(profile, options, fence) {
     if (!isActivationCurrent(fence)) {
       return { persisted: false, error: null }
@@ -867,6 +887,9 @@ export function createLearnerProfileLocalPersistenceAdapter({
     installLegacyAccountlessProfile,
     isActivationCurrent,
     read,
+    readIsland,
+    saveIsland,
+    supportsIslandCheckpoints: () => Boolean(getCheckpointRepository()?.readSyncBase && getCheckpointRepository()?.saveIsland),
     reconcileSignedInProfile,
     releaseActivation,
     releaseOpeningActivation,

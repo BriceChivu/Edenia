@@ -834,8 +834,15 @@ function getProfileRepository() {
         || repository.getReplacementRevision() !== replacement) return false
       const acknowledged = repository.readRaw()
       if (!acknowledged || (JSON.stringify(JSON.parse(acknowledged).tinySwordsIsland) ?? 'absent') !== expected) return false
+      const syncBase = options.syncBase
+        ? await repository.readSyncBase(options.syncBase) ?? JSON.parse(acknowledged) : null
+      if (options.canPersist?.() === false || primaryProfileRepository !== repository
+        || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
+        || repository.getReplacementRevision() !== replacement
+        || repository.readRaw() !== acknowledged) return false
       profileRecoveryWorkspace.activate({ profile: acknowledged, replacementRevision: replacement }, failure, 'save')
       resetRecoveryBackupStore()
+      if (syncBase && !await profileRecoveryWorkspace.retainSyncBase(options.syncBase, syncBase)) return false
       const state = profileRecoveryWorkspace.repository.snapshot()
       state.tinySwordsIsland = layout
       return savePersistedState(state, { backup: false, syncAnalytics: false }, () => (
@@ -853,6 +860,10 @@ function getProfileRepository() {
       // A cancelled activation must never be converted into a new save.
       if (primaryProfileRepository !== repository) return false
       const acknowledged = repository.readRaw()
+      const syncBase = options?.syncBase
+        ? await repository.readSyncBase(options.syncBase) ?? (acknowledged ? JSON.parse(acknowledged) : null) : null
+      if (options?.canPersist?.() === false || primaryProfileRepository !== repository
+        || repository.readRaw() !== acknowledged) return false
       // A first verified cloud install has no old body, but its candidate and
       // ownership fence are already known. Keep that exact candidate and fence.
       profileRecoveryWorkspace.activate({
@@ -861,6 +872,7 @@ function getProfileRepository() {
       }, failure, 'save')
       profileRecoveryWorkspace.repository.adoptSnapshot(state)
       resetRecoveryBackupStore()
+      if (syncBase && !await profileRecoveryWorkspace.retainSyncBase(options.syncBase, syncBase)) return false
       const result = options?.replace
         ? saveImportedPersistedState(state, { syncAnalytics: false }, options.canPersist)
         : savePersistedState(state, { backup: false, syncAnalytics: false }, options.canPersist)
@@ -1243,6 +1255,8 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     inheritProfileRevision: (state, source) => getProfileRepository()?.inheritRevision(state, source),
     replaceProfile: saveImportedPersistedState,
     saveProfile: savePersistedState,
+    getCheckpointRepository: () => !primaryProfileStorageUnavailable
+      ? getProfileRepository() : null,
     storage: profileBrowserStorage
   })
   accountlessProfileMigrationController =
@@ -1283,6 +1297,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
     ),
     getClient: getSupabaseClient,
+    readDeferredBase: IS_AUTH_TRIAL ? (identity, options) => getProfileRepository()?.readSyncBase?.(identity, options) : null,
     getSyncOpportunity: IS_AUTH_TRIAL && window.EDENIA_CONFIG?.tinySwordsQuietSyncEnabled !== false
       ? learnerProfileSyncOpportunity.isQuiet : null,
     hasOnboardingProfileDraft: () => (
@@ -19268,6 +19283,10 @@ window.edeniaTranslate = t
 if (window.edeniaTinySwordsEnabled === true) {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
+    readCheckpoint: learnerProfileLifecycleAuthority
+      ? () => learnerProfileLifecycleAuthority.readActiveIsland() : null,
+    saveCheckpoint: learnerProfileLifecycleAuthority
+      ? (layout, expected) => learnerProfileLifecycleAuthority.saveActiveIsland(layout, expected) : null,
     readAccessIdentity: () => {
       const activation = learnerProfileLifecycleAuthority?.getState()?.activation
       return activation ? JSON.stringify([activation.ownerId, activation.profileId,

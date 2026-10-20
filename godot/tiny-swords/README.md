@@ -482,15 +482,17 @@ so focus refresh and reopening do not turn unchanged animal movement into an
 upload. The marker cannot suppress changed study facts, pending work or a newer
 cloud head. Edenia treats the island as an opaque snapshot throughout.
 Explicit island differences still require the existing protected conflict choice.
-The restricted authentication trial prefers cloud work when Godot reports five
-seconds without input or pawn work, the island is out of view, or a study video
-is playing. Godot reports activity; Edenia owns upload scheduling. Ambient
-animals and cloud animation do not keep the user active. Preparation and
-delivery wait at most ten extra seconds while ordinary server writes retain
-their 30-second cadence. Local saves remain immediate. The first cloud
-candidate and edits during an in-flight request still preserve their journal
-promptly; only subsequent preparation with durable base evidence coalesces.
-Abrupt-close recovery validates that evidence against the latest local profile.
+The restricted authentication trial defers automatic cloud work while Godot
+reports input or pawn work, or the host has recent island input. Godot reports
+activity; Edenia owns scheduling. Work resumes after five idle seconds, when
+the island leaves view, during video playback, or while the page is hidden.
+Ambient animals and cloud animation do not keep the user active. Preparation,
+delivery and response processing have no forced-play deadline; server writes
+retain their existing 30-second cadence. The small durable island head and its
+retained pre-edit base replace prompt full-profile candidate preparation during
+play. Abrupt-close recovery validates that evidence against the latest local
+profile before reconstructing the cloud outbox. Explicit Sync now bypasses the
+opportunity gate, including a request already waiting for receipt processing.
 `tinySwordsQuietSyncEnabled: false` in the host runtime config restores ordinary
 trial scheduling for comparison or rollback; it does not change game FPS.
 Camera settings remain
@@ -503,8 +505,9 @@ writes and cross-tab island refreshes touch only the head. Ordinary profile save
 update both atomically. Full reads, portable exports and recovery backups compose
 the latest island into the profile. Checkpoints share the profile revision queue,
 durable readback and access fences; failed acknowledgments restore only their exact
-head and retain newer writers. The legacy localStorage and signed-in lifecycle
-paths retain full-profile local writes; storage rollout flags are unchanged.
+head and retain newer writers. Signed-in trial checkpoints use that head through
+the active-profile fence and retain a durable pre-edit base. Legacy localStorage
+and recovery fallback retain full-profile writes; storage rollout flags are unchanged.
 
 Import, backup restore and reset replace the iframe, clearing transient actions.
 Study-history Undo can lower current XP, but never revokes an already claimed
@@ -700,6 +703,26 @@ Use the integration builder for every update to that preview, then refresh.
 The direct export command above applies to the separate base preview on port 4183.
 
 ## Internal lag capture and frame pacing
+
+Signed-in internal play uses the same small IndexedDB island head as accountless
+play, with the active profile's ownership and revision fences. Each acknowledged
+checkpoint is durable before Godot receives success. A compact sync-base record
+retains the pre-edit island and references the existing immutable profile body;
+if a later study save replaces that body, its transaction preserves the original
+body first. Failed transactions cannot advance either the island or its base.
+This evidence survives abrupt termination and supports the existing cross-device
+reconciliation rather than treating unsent island progress as a whole-profile
+replacement. Recovery-storage failures retain the existing guarded fallback.
+
+While Godot reports active interaction or the host has recent island input,
+automatic cloud preparation, delivery and expensive response processing wait.
+There is no ten-second forced-upload deadline. Work resumes once the pawn is
+idle and island input has stopped for five seconds, the island leaves view,
+a video starts playing, or the page is hidden. The existing cloud write cadence,
+conditional commits, retry limits, generation checks and conflict protection
+still apply. Explicit Sync now can override the opportunity gate. Closing a tab
+does not depend on an upload finishing: local checkpoints and their base remain
+durable, and reopening reconstructs the outbox before reconciliation.
 
 `?internal_test=1` defaults to 60 FPS; explicit
 `tiny_swords_fps=30` remains available for comparisons. Physics and gameplay clocks

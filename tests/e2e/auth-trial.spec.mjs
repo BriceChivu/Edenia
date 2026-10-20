@@ -311,15 +311,14 @@ for(const indexedDb of [false,true]) {
       await expect(page.locator('#levelUpButton')).toBeEnabled()
       expect(await page.evaluate(()=>claimCityLevelUp())).toBe(true)
       await expect.poll(()=>page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaGameLevel)).toBe(8)
-      // Allow the existing 30-second cadence, the new ten-second opportunity
-      // window, and the same ten-second transport/polling margin as before.
-      await expect.poll(()=>commits.some(c=>c.p_envelope.profile.cityProgress.maxLevelIndex===7),{timeout:50000}).toBe(true)
+      expect(await page.evaluate(()=>loadPersistedState({persistCleanup:false}).cityProgress.maxLevelIndex)).toBe(7)
       // Preferences are edited in the host drawer, which suspends the game
-      // and provides a quiet sync opportunity. Continuous-play deadlines are
-      // covered separately by the bounded-opportunity handoff tests.
+      // and provides a quiet sync opportunity. Automatic uploads no longer
+      // interrupt continuous play to meet a deadline.
       await page.evaluate(()=>openSettings())
       await expect(page.locator('#settingsPanel')).toBeVisible()
       await expect.poll(()=>page.evaluate(()=>learnerProfileSyncOpportunity.isQuiet())).toBe(true)
+      await expect.poll(()=>commits.some(c=>c.p_envelope.profile.cityProgress.maxLevelIndex===7),{timeout:40000}).toBe(true)
     }
     await page.evaluate(async ()=>{const state=loadState();state.config.weeklyGoalHours=9;await saveState(state)})
     await expect.poll(()=>commits.some(c=>c.p_envelope.profile.config.weeklyGoalHours===9),{timeout:40000}).toBe(true)
@@ -753,7 +752,8 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   const openingCount = fixture.requests.filter(path => path.endsWith('/resolve_my_learner_profile')).length
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect.poll(() => checks).toBe(1)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Checking progress…')
+  // A deferred local checkpoint can resume while the same head check is held.
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(/^(Checking progress|Syncing)…$/)
   await expect(page.locator('#mainApp')).toBeVisible()
   const moved = structuredClone(await page.evaluate(() => loadState().tinySwordsIsland))
   // Use another already valid ground position; Godot still owns restore validity.
@@ -767,8 +767,14 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   const sync = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1')), trial)
   expect(sync.pending).toBeNull()
   expect(sync.queued).toBeNull()
-  const checkpointMarker = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1_local_island_checkpoint')), trial)
-  expect(checkpointMarker).toMatchObject({ version: 1, revision: before.revision })
+  // The small checkpoint retains its before-image in IndexedDB without hashing
+  // the whole profile to create the legacy local-island checkpoint marker.
+  const checkpointBase = await page.evaluate(({ owner, profileId, before }) =>
+    primaryProfileRepository.readSyncBase({ ownerId: owner, profileId,
+      generation: before.generation, revision: before.revision }),
+  { owner, profileId, before })
+  expect(checkpointBase).not.toBeNull()
+  expect(checkpointBase.tinySwordsIsland).toEqual(before.envelope.profile.tinySwordsIsland)
   releaseHead()
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   expect(await page.evaluate(() => document.querySelector('.tiny-swords-frame') === window.previousTrialFrame
