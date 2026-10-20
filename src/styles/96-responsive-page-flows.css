@@ -772,7 +772,7 @@
   }
   .history-toolbar,
   .history-view-tabs {
-    width: 100%;
+    max-width: 100%;
   }
   .history-period-cell {
     flex: 1;

@@ -1,5 +1,9 @@
 /* Internal-test Chart view. Viewport interaction is independent of profile state. */
-.history-view-tabs.has-chart { width: 267px; max-width: 100%; }
+.history-view-tabs.has-chart {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: calc(3 * var(--history-control-column-width) + 4px);
+  max-width: 100%;
+}
 .history-view-tabs:not(.has-chart) [data-history-view="heatmap"] { border-right: 0; }
 .history-chart {
   --chart-video: #159bd3;
