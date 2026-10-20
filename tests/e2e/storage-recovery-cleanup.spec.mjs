@@ -18,7 +18,7 @@ test('real Web Storage quota is reclaimed after journal acknowledgement and on l
       getPrimary: () => localStorage, getSecondary: () => sessionStorage,
       indexedDb: indexedDB, eventTarget: window, capture: () => ({ profile })
     })
-    await workspace.initialize()
+    // Recreate an older client's native fallback before journal discovery.
     workspace.activate()
     const key = 'cleanup-profile_recovery_workspace_v1'
     const fallback = localStorage.getItem(key)

@@ -53,6 +53,17 @@ async function growIntoJournal(f) {
   return fallback
 }
 
+test('a successfully opened empty journal receives the first recovery write without filling Web Storage', async () => {
+  const f = fixture()
+  await f.workspace.initialize()
+  f.workspace.activate()
+  assert.equal(await f.workspace.flush(), true)
+  assert.equal(f.workspace.getTier(), 'indexed-db')
+  assert.equal(f.local.has(key), false)
+  assert.equal(f.session.has(key), false)
+  assert.equal(await f.workspace.complete(), true)
+})
+
 test('journal acknowledgement retires covered local and session copies before later backup writes', async () => {
   const f = fixture()
   await growIntoJournal(f)

@@ -490,9 +490,11 @@ export function createProfileRecoveryWorkspace({
     const saved = parseRecord(raw)
     journalRaw = raw
     if (raw !== null && !saved) throw new SyntaxError('Invalid recovery archive')
+    // An empty journal is available too. Prefer it from the first recovery
+    // write instead of filling Web Storage before discovering its quota.
+    journalActive = true
     if (saved) {
       retireWebStorageCopies(fallbacks, saved)
-      journalActive = true
       if (active) adoptLatest({ name: 'indexed-db', raw, saved })
       else if (!record || (saved.sequence || 0) >= (record.sequence || 0)) {
         const previous = record || archivedRecord
