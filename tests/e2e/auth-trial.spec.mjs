@@ -554,9 +554,15 @@ for(const indexedDb of [false,true]) {
     await expect.poll(()=>page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaGameLevel)).toBe(1)
     await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
     await retainFrame(page)
-    // The reset keeps its protected copy available; Undo must remount the exact
-    // chosen island through Godot, even though the profile identity is unchanged.
-    await page.evaluate(()=>undoStartOver())
+    // Restore the selected Start-over backup through its confirmation. Opening
+    // that dialog must leave the existing Godot frame intact; confirming must
+    // remount the exact island even though the profile identity is unchanged.
+    await page.evaluate(()=>openSettings())
+    await page.locator('.backup-toggle').click()
+    await page.locator('[data-backup-kind="reset"] button').click()
+    await expect(page.locator('#backupRestoreDialog')).toBeVisible()
+    expect(await page.evaluate(()=>window.previousTrialFrame.isConnected)).toBe(true)
+    await page.locator('#backupRestoreConfirm').click()
     await expectNewFrame(page)
     expect(fixture.head().generation).toBe(2)
     expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(()=>window.edeniaStudyLayout)).toEqual(beforeReset)
