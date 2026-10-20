@@ -291,7 +291,7 @@ test('same-video phone-computer-phone handoff retains study from both sessions a
   } finally { headGate.resolve(); await computer?.context.close(); await phone.context.close() }
 })
 
-test('active Tiny Swords batches durable study saves until its bounded cloud opportunity', async ({ browser, browserName, baseURL }, testInfo) => {
+test('active Tiny Swords batches durable study saves until gameplay stops', async ({ browser, browserName, baseURL }, testInfo) => {
   test.skip(!['desktop-standard', 'webkit-trial-phone'].includes(testInfo.project.name))
   const cloud = await createCloud()
   const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
@@ -310,11 +310,15 @@ test('active Tiny Swords batches durable study saves until its bounded cloud opp
       durable: loadPersistedState({ persistCleanup: false }).videos.phone.resumeAtSeconds
     }), key)
     expect(pending.durable).toBe(30)
-    expect(pending.outbox.pending.prepared.profile.videos.phone.resumeAtSeconds).toBe(20)
-    expect(pending.outbox.pending.changes).toBeTruthy()
+    expect(pending.outbox.pending).toBe(null)
     expect(pending.dirty).toBeTruthy()
-    cloud.advance(10_000)
-    await phone.page.clock.fastForward(10_000)
+    cloud.advance(60_000)
+    await phone.page.clock.fastForward(60_000)
+    expect(cloud.commits).toHaveLength(0)
+    await phone.page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
+      detail: { visible: true, active: false }
+    })))
+    await phone.page.clock.fastForward(5_000)
     await expect.poll(() => cloud.head().revision).toBe(2)
     expect(cloud.head().envelope.profile.videos.phone.resumeAtSeconds).toBe(30)
     await expect.poll(() => phone.page.evaluate(key => localStorage.getItem(key + '_learner_profile_sync_v1_dirty'), key)).toBe(null)
@@ -406,14 +410,19 @@ for (const firstCheckpoint of [true, false]) test(`quota fallback retains the ${
   const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
   let computer
   try {
-    const saved = await phone.page.evaluate(async first => {
-      window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } }))
-      let island = primaryProfileRepository.readIslandState().tinySwordsIsland
-      if (!first) {
-        const next = { version: 38, level: 1, resources: { wood: 7 } }
-        if (!await learnerProfileLifecycleAuthority.saveActiveIsland(next, JSON.stringify(island) ?? 'absent')) throw new Error('Initial save failed')
-        island = next
-      }
+    await phone.page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
+      detail: { visible: true, active: true }
+    })))
+    if (!firstCheckpoint) {
+      // A startup study transaction may still own the local writer. The game
+      // retries a rejected checkpoint rather than replacing that transaction.
+      await expect.poll(() => phone.page.evaluate(() => learnerProfileLifecycleAuthority.saveActiveIsland(
+        { version: 38, level: 1, resources: { wood: 7 } },
+        JSON.stringify(primaryProfileRepository.readIslandState().tinySwordsIsland) ?? 'absent'
+      ))).toBe(true)
+    }
+    const saved = await phone.page.evaluate(async () => {
+      const island = primaryProfileRepository.readIslandState().tinySwordsIsland
       const put = IDBObjectStore.prototype.put
       IDBObjectStore.prototype.put = function (value) {
         if (this.name === 'profiles' && value.key === 'active') throw new DOMException('Synthetic quota failure', 'QuotaExceededError')
@@ -425,7 +434,7 @@ for (const firstCheckpoint of [true, false]) test(`quota fallback retains the ${
       if (!profileRecoveryWorkspace.isActive()) throw new Error('Expected durable recovery fallback')
       learnerProfileLifecycleAuthority.destroy()
       return result
-    }, firstCheckpoint)
+    })
     expect(saved).toBe(true)
     expect(cloud.commits).toHaveLength(0)
     computer = await createDevice(browser, cloud, 'computer', browserName, baseURL)
