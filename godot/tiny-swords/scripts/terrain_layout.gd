@@ -41,7 +41,7 @@ const LEVEL_REWARDS := {
 	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1, "bridge": 1},
 	4: {"meadow": 3, "tree": 1},
 	5: {"meadow": 3, "sheep": 1, "house": 0},
-	6: {"meadow": 3, "tree": 1},
+	6: {"meadow": 3, "stairs": 1, "tree": 1},
 	7: {"meadow": 3, "chicken": 1},
 	8: {"meadow": 3, "sheep": 1, "tree": 1},
 	9: {"meadow": 3},
@@ -1147,7 +1147,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 33, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 34, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.pawn_color = pawn_color
 	saved.house_colors = []
 	for cell in house_colors:
@@ -1195,7 +1195,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
@@ -1337,6 +1337,8 @@ func restore(data: Dictionary) -> bool:
 	for kind in KINDS:
 		total += next_stock[kind] * (2 if kind == "stairs" and int(data.version) >= 5 else 1)
 	var expected_total: int = ({1: 5, 2: 10, 3: 15}[next_level] if next_level < 4 else 18 + (next_level - 4) * 3) if int(data.version) >= 6 else ((15 if int(data.version) >= 5 else (10 if int(data.version) == 1 else 13)) if next_level >= 3 else 5)
+	if int(data.version) >= 34 and next_level >= 6:
+		expected_total += 2 # The level-six stair bundle includes its upper landing.
 	var bonus = data.get("free_house_grass", 0) if int(data.version) >= 19 else 0
 	if not (bonus is int or bonus is float) or not is_finite(float(bonus)) or bonus < 0 or float(bonus) != floorf(float(bonus)):
 		return false
@@ -1345,6 +1347,9 @@ func restore(data: Dictionary) -> bool:
 	var tree_rewards := (0 if next_level < 3 else (1 if next_level == 3 else 2)) + (1 if int(data.version) >= 28 and next_level >= 6 else 0) + (1 if int(data.version) >= 32 and next_level >= 8 else 0)
 	if next_trees.size() + next_stock.tree != tree_rewards + int(next_grants.get("tree", 0)):
 		return false
+	# Grant the new level-six stair bundle once to existing islands.
+	if int(data.version) < 34 and next_level >= 6:
+		next_stock.stairs += 1
 	# Grant the new level-six tree once to existing islands.
 	if int(data.version) < 28 and next_level >= 6:
 		next_stock.tree += 1

@@ -36,7 +36,9 @@ func _initialize() -> void:
 		legacy.stock.chicken -= 1
 		if target >= 6:
 			legacy.stock.tree -= 1
+			legacy.stock.stairs -= 1
 		if target >= 8:
+			legacy.stock.tree -= 1
 			legacy.stock.sheep -= 1
 		var migrated = Layout.new()
 		assert(migrated.restore(legacy) and migrated.stock.chicken == expected)
