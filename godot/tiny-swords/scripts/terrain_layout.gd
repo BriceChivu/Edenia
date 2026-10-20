@@ -1212,6 +1212,7 @@ func restore(data: Dictionary) -> bool:
 	var next_portal = data.get("black_hole", {}) if int(data.version) >= 35 else {}
 	if not BlackHoleState.valid(next_portal):
 		return false
+	next_portal = BlackHoleState.normalized(next_portal)
 	var next_grants: Dictionary = {}
 	if int(data.version) >= 24:
 		if not data.get("playground_grants", {}) is Dictionary:

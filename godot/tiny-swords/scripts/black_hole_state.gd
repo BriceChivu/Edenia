@@ -40,3 +40,13 @@ static func valid(state: Variant) -> bool:
 
 static func count(state: Dictionary, kind: String) -> int:
 	return state.get("occupants", []).count(kind)
+
+static func normalized(state: Dictionary) -> Dictionary:
+	var result := state.duplicate(true)
+	if result.is_empty(): return result
+	# JSON decodes numbers as floats. Keep the same integer representation used
+	# by live events so a reload cannot change the gameplay sync fingerprint.
+	result.day = int(result.day)
+	result.next_day = int(result.next_day)
+	for index in result.cell.size(): result.cell[index] = int(result.cell[index])
+	return result
