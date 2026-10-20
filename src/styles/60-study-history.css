@@ -3,6 +3,7 @@
    STUDY HISTORY SECTION
 ═══════════════════════════════════════════════════════════ */
 .study-history-section {
+  --history-control-column-width: 89px;
   padding: var(--gap) 20px;
   display: flex;
   flex-direction: column;
@@ -36,14 +37,15 @@
 }
 .history-toolbar {
   align-items: center;
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-self: flex-start;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
   overflow: visible;
-  width: 178px;
+  width: calc(2 * var(--history-control-column-width) + 4px);
 }
 .history-period-cell {
   display: inline-flex;
@@ -170,14 +172,15 @@
   padding: 8px;
 }
 .history-view-tabs {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-self: flex-start;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
   overflow: hidden;
-  width: 178px;
+  width: calc(2 * var(--history-control-column-width) + 4px);
 }
 .history-view-btn {
   align-items: center;
@@ -213,14 +216,14 @@
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px;
+  gap: 3px;
+  padding: 4px 10px;
   text-align: center;
 }
 .history-stat-val {
   color: var(--accent);
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   letter-spacing: 0.04em;
   line-height: 1;
 }
