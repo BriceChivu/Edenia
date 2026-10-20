@@ -198,37 +198,37 @@ scale = Vector2(0.8, 0.8)
 [node name="Clouds" type="Node2D" parent="."]
 
 [node name="WestCloud" type="Sprite2D" parent="Clouds"]
-position = Vector2(60, 82)
+position = Vector2(60, -120)
 texture = ExtResource("Cloud1")
 script = ExtResource("Drift")
 drift_speed = 4.0
 
 [node name="HighCloud" type="Sprite2D" parent="Clouds"]
-position = Vector2(593.333, 55)
+position = Vector2(593.333, 0)
 texture = ExtResource("Cloud3")
 script = ExtResource("Drift")
 drift_speed = 4.0
 
 [node name="EastCloud" type="Sprite2D" parent="Clouds"]
-position = Vector2(1126.667, 94)
+position = Vector2(1126.667, 120)
 texture = ExtResource("Cloud6")
 script = ExtResource("Drift")
 drift_speed = 4.0
 
 [node name="LowWestCloud" type="Sprite2D" parent="Clouds"]
-position = Vector2(260, 420)
+position = Vector2(260, 540)
 texture = ExtResource("Cloud3")
 script = ExtResource("Drift")
 drift_speed = -3.0
 
 [node name="LowCloud" type="Sprite2D" parent="Clouds"]
-position = Vector2(793.333, 454)
+position = Vector2(793.333, 420)
 texture = ExtResource("Cloud6")
 script = ExtResource("Drift")
 drift_speed = -3.0
 
 [node name="ArrivingCloud" type="Sprite2D" parent="Clouds"]
-position = Vector2(1326.667, 435)
+position = Vector2(1326.667, 660)
 texture = ExtResource("Cloud1")
 script = ExtResource("Drift")
 drift_speed = -3.0
