@@ -19,7 +19,7 @@ func is_actor(node: Node) -> bool:
 	return node == get_parent().pawn or node.has_method("animal_positions")
 
 func is_terrain(node: Node) -> bool:
-	return node.has_meta("terrain_occluder")
+	return node.has_meta("terrain_occluder") and node.has_method("display_layout")
 
 func is_ramp(node: Node) -> bool:
 	return is_terrain(node) and node.display_layout().cells.get(node.piece) == "stairs"

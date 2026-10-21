@@ -5,10 +5,12 @@ func check(ok: bool, message: String) -> void:
 		failures+=1
 		push_error(message)
 func _initialize() -> void:
+	root.size = Vector2i(1280,720)
 	run.call_deferred()
 func run() -> void:
 	var game = load('res://previews/review_sandbox.tscn').instantiate()
 	game.review_persistence_enabled = false
+	game.review_stock_enabled = false
 	root.add_child(game)
 	await process_frame
 	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review opens with a visible system cursor')
@@ -94,6 +96,7 @@ func run() -> void:
 	game.dirty_seconds = -1
 	game.queue_free()
 	await process_frame
+	await check_stocked_island()
 	print('Precise review checks: %s'%('PASS' if failures==0 else 'FAIL'))
 	quit(0 if failures==0 else 1)
 
@@ -253,7 +256,7 @@ func check_panel_wheel(game) -> void:
 			var wheel := InputEventMouseButton.new()
 			wheel.button_index = button
 			wheel.pressed = true
-			wheel.position = Vector2(game.panel.get_global_rect().end.x-1,100)
+			wheel.position = Vector2(game.panel.get_global_rect().end.x-1,game.panel.get_global_rect().position.y+10)
 			var before: float = game.zoom_control.value
 			game.review_input(wheel)
 			game.review_unhandled_input(wheel)
@@ -284,3 +287,51 @@ func check_problem_rectangle(game) -> void:
 	check(game.problem_rect==expected,'JSON roundtrip keeps exact annotation bounds')
 	game.apply_scene(initial)
 	game.history_states.clear()
+
+func check_stocked_island() -> void:
+	var game = load('res://previews/review_sandbox.tscn').instantiate()
+	game.review_persistence_enabled = false
+	root.add_child(game)
+	await process_frame
+	for choice in game.stock_rules.needed_choices(game):
+		check(game.stock_rules.represented(game,choice),'Stocked island includes '+str(choice.name))
+	check(not game.palette.is_visible_in_tree() and not game.item_list.is_visible_in_tree(),'The library and scene list are removed from the visible sidebar')
+	check(game.mode_button.get_parent()==game.toolbar,'Play stays in the fixed top toolbar')
+	var count: int = game.items.size()
+	game.selected_id = 1
+	game.remove_item()
+	check(game.items.size()==count,'The last example of an item cannot be removed')
+	var rock: Dictionary = {}
+	var stair: Dictionary = {}
+	for item in game.items:
+		if item.kind=='land_rock' and int(item.variant)==1: rock=item
+		if item.kind=='stairs' and int(item.variant)==1: stair=item
+	check(not rock.is_empty() and not stair.is_empty(),'Movable rock and stair examples are present')
+	var original: Vector2 = game.item_point(rock)
+	game.selected_id = int(rock.id)
+	check(game.move_selected(original+Vector2(0.1,0)),'Stocked props retain subpixel positioning')
+	game.undo_review()
+	check(game.item_point(game.selected_item()).is_equal_approx(original),'Undo keeps stocked prop positions exact')
+	game.selected_id = int(stair.id)
+	var old_cell: Vector2i = game.layout.cell_at(game.item_point(game.selected_item()))
+	game.nudge(Vector2.DOWN)
+	check(game.layout.cell_at(game.item_point(game.selected_item()))==old_cell+Vector2i.DOWN,'Stair examples move by one game-grid tile')
+	check(game.layout.cells[old_cell]!='stairs' and game.layout.cells[old_cell+Vector2i.DOWN]=='stairs','Moving a stair restores its old terrain and moves its real slope')
+	game.undo_review()
+	check(game.layout.cells[old_cell]=='stairs','Undo restores the native staircase')
+	var state: Dictionary = JSON.parse_string(JSON.stringify(game.scene_state()))
+	game.apply_scene(state)
+	game.apply_items()
+	check(not game.stock_rules.populate(game),'Restoring a complete scene adds no duplicates')
+	game.notes.append({'comment':'Keep this existing review'})
+	var saved_point: Vector2 = game.item_point(game.items[0])
+	var missing_id := -1
+	for item in game.items:
+		if item.kind=='logs' and int(item.variant)==6: missing_id=int(item.id)
+	game.items = game.items.filter(func(item): return int(item.id)!=missing_id)
+	check(game.stock_rules.populate(game),'A missing example is replenished')
+	check(game.item_point(game.items[0])==saved_point and game.notes.size()==1,'Replenishing preserves existing placements and reviews')
+	game.notes.clear()
+	game.dirty_seconds = -1
+	game.queue_free()
+	await process_frame

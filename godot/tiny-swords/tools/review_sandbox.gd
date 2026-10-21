@@ -6,6 +6,12 @@ const NATIVE_FILE := 'user://precise-island-review.json'
 const ORIGIN_POINT := Vector2(544,208)
 const PANEL_WIDTH := 280.0
 var review_persistence_enabled := true
+var review_stock_enabled := true
+var stock_rules = preload('res://tools/review_stock.gd').new()
+var terrain_rules = preload('res://tools/review_terrain.gd').new()
+var toolbar: HBoxContainer
+var selected_label: Label
+var carry_control: CheckButton
 var items: Array = []
 var notes: Array = []
 var selected_id := 1
@@ -88,6 +94,7 @@ func _ready() -> void:
 	else:
 		seed_scene()
 		zoom_control.value = clampf((get_window().size.x/ui.scale_ui-PANEL_WIDTH-40)/420.0,0.4,1.6)
+	var stocked := stock_rules.populate(self) if review_stock_enabled else false
 	model_ready = true
 	var controller := preload('res://tools/review_controller.gd').new()
 	controller.review = self
@@ -98,6 +105,9 @@ func _ready() -> void:
 	refresh_review_ui()
 	get_viewport().size_changed.connect(arrange_review)
 	arrange_review()
+	if stocked:
+		show_all_items()
+		mark_dirty()
 	status_label.text = 'Select an item. Drag its ground marker or enter exact X / Y.'
 
 func seed_scene() -> void:
@@ -431,7 +441,10 @@ func review_tick(delta: float) -> void:
 func arrange_review() -> void:
 	var viewport_size := get_viewport_rect().size
 	ui_root.scale = Vector2.ONE*ui.scale_ui
-	panel.size = Vector2(PANEL_WIDTH,viewport_size.y/ui.scale_ui)
+	toolbar.position = Vector2(0,0)
+	toolbar.size = Vector2(viewport_size.x/ui.scale_ui,36)
+	panel.position.y = 40
+	panel.size = Vector2(PANEL_WIDTH,viewport_size.y/ui.scale_ui-40)
 	game_camera.zoom = Vector2.ONE * zoom_control.value * ui.scale_ui
 	game_camera.position = view_center-Vector2(PANEL_WIDTH/(2*zoom_control.value),40)
 	game_camera.force_update_scroll()
@@ -458,6 +471,7 @@ func set_playing(value: bool) -> void:
 		get_tree().paused = true
 		pawn.walk_to(pawn.position)
 		waypoints.clear()
+		if review_stock_enabled and stock_rules.populate(self): apply_items()
 	freeze_game()
 	mode_button.text = 'Pause & arrange' if playing else 'Play scene'
 	status_label.text = 'Playing: click grass to walk; click a tree to harvest. Pause to arrange or comment.' if playing else 'Paused: select, drag, or nudge an item. Your scene is saved.'
@@ -531,7 +545,7 @@ func review_input(event: InputEvent) -> void:
 func review_unhandled_input(event: InputEvent) -> void:
 	if not model_ready: return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
-		if panel.get_global_rect().has_point(event.position): return
+		if panel.get_global_rect().has_point(event.position) or toolbar.get_global_rect().has_point(event.position): return
 		zoom_control.value += 0.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.15
 		get_viewport().set_input_as_handled()
 		return
@@ -547,13 +561,14 @@ func review_unhandled_input(event: InputEvent) -> void:
 		elif placing:
 			place_at(point)
 		else:
-			var best := 24.0/zoom_control.value
+			var best := 8.0/zoom_control.value
 			var picked := -1
 			for item in items:
-				var distance := item_point(item).distance_to(point)
+				var distance := (item_point(item)-Vector2(0,contact_rules.height(layout,item_point(item)))).distance_to(get_global_mouse_position())
 				if not item.hidden and distance < best:
 					picked = int(item.id)
 					best = distance
+			if picked < 0: picked = item_at_art(get_global_mouse_position())
 			if picked >= 0:
 				selected_id = picked
 				push_history()
@@ -644,6 +659,7 @@ func reject_contact(item: Dictionary, point: Vector2, reason: String) -> void:
 func move_selected(point: Vector2, record_undo: bool = true) -> bool:
 	if playing or selected_item().is_empty(): return false
 	var item := selected_item()
+	if item.kind in terrain_rules.KINDS: return move_terrain_sample(item,layout.cell_at(point))
 	if not accept_contact(item,point,int(item.id)): return false
 	if record_undo: push_history()
 	clear_contact_warning()
@@ -653,6 +669,9 @@ func move_selected(point: Vector2, record_undo: bool = true) -> bool:
 
 func nudge(offset: Vector2) -> void:
 	if playing or selected_item().is_empty(): return
+	if selected_item().kind in terrain_rules.KINDS:
+		move_terrain_sample(selected_item(),layout.cell_at(item_point(selected_item()))+Vector2i(signf(offset.x),signf(offset.y)))
+		return
 	move_selected((item_point(selected_item())+offset).snapped(Vector2.ONE*0.1))
 
 func set_coordinate(_value: float) -> void:
@@ -662,10 +681,14 @@ func set_coordinate(_value: float) -> void:
 func remove_item() -> void:
 	if playing or selected_item().is_empty(): return
 	clear_contact_warning()
+	if review_stock_enabled and stock_rules.last_example(self,selected_item()):
+		status_label.text = 'Keep one of each item on the island. Move this example instead.'
+		return
 	if selected_item().kind == 'pawn':
 		status_label.text = 'The scene keeps one pawn. Move it or change its carry state.'
 		return
 	push_history()
+	if selected_item().kind in terrain_rules.KINDS: terrain_rules.restore(layout,selected_item(),layout.cell_at(item_point(selected_item())))
 	if selected_item().kind == 'portal':
 		for item in items:
 			if item.kind in ['pawn','sheep','chicken']: item.hidden = false
@@ -716,6 +739,7 @@ func load_comment() -> void:
 	set_playing(false)
 	push_history()
 	apply_scene(notes[index].scene)
+	if review_stock_enabled: stock_rules.populate(self)
 	rebuild_review()
 	arrange_review()
 	note_text.text = notes[index].comment
@@ -734,6 +758,10 @@ func refresh_review_ui() -> void:
 		item_list.select(chosen)
 		item_list.ensure_current_is_visible()
 	var item := selected_item()
+	selected_label.text = 'Selected: '+item_name(item) if not item.is_empty() else 'Click an item on the island'
+	carry_control.visible = item.get('kind','')=='pawn'
+	carry_control.disabled = playing
+	carry_control.set_pressed_no_signal(int(item.get('variant',1))==2)
 	if not item.is_empty():
 		var point := item_point(item)-ORIGIN_POINT
 		x_input.set_value_no_signal(point.x)
@@ -742,9 +770,10 @@ func refresh_review_ui() -> void:
 		color_input.select(int(item.color))
 	if contact_status != null:
 		contact_status.text = 'Feet: '+('clear ground' if layout.walkable_point(item_point(item),item.kind in ['sheep','chicken']) else 'overlaps solid contact / water') if item.get('kind','') in ['pawn','sheep','chicken'] else 'Ground marker: exact object anchor'
+		if item.get('kind','') in terrain_rules.KINDS: contact_status.text = 'Terrain: 64 px grid · arrows move one tile'
 		if not placement_warning.is_empty(): contact_status.text = placement_warning
 	color_input.disabled = playing or item.get('kind','') not in ['pawn','house']
-	facing_input.disabled = playing
+	facing_input.disabled = playing or item.get('kind','') in terrain_rules.KINDS
 	x_input.editable = not playing
 	y_input.editable = not playing
 	place_button.disabled = playing or selected_choice().is_empty()
@@ -758,6 +787,9 @@ func item_name(item: Dictionary) -> String:
 		'tree': return 'Tree %d%s'%[int(item.variant),' stump' if item.get('stump',false) else '']
 		'logs': return '%d logs'%int(item.variant)
 		'portal': return 'Black hole'
+		'grass': return 'Grass · floor %d'%int(item.get('floor',0))
+		'stairs': return 'Staircase · rises '+('right' if int(item.variant)==1 else 'left')
+		'bridge': return 'Rope bridge'
 		'sheep','chicken': return str(item.kind).capitalize()
 	return '%s %d'%[str(item.kind).replace('_',' ').capitalize(),int(item.variant)]
 
@@ -841,9 +873,21 @@ func build_review_ui() -> void:
 	column.add_theme_constant_override('separation',7)
 	column.add_theme_font_size_override('font_size',14)
 	margin.add_child(column)
-	label('PRECISE SCENE REVIEW',column)
-	mode_button = button('Play scene',func(): set_playing(not playing),column)
-	label('ELEMENT LIBRARY',column)
+	toolbar = HBoxContainer.new()
+	toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
+	ui_root.add_child(toolbar)
+	label('  PRECISE SCENE REVIEW',toolbar)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar.add_child(spacer)
+	mode_button = button('Play scene',func(): set_playing(not playing),toolbar)
+	var spacer_right := Control.new()
+	spacer_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar.add_child(spacer_right)
+	var library := VBoxContainer.new()
+	library.hide()
+	column.add_child(library)
+	label('ELEMENT LIBRARY',library)
 	palette_category = OptionButton.new()
 	palette_category.add_item('All elements')
 	tool_choices = catalog_choices()
@@ -852,14 +896,14 @@ func build_review_ui() -> void:
 		if not categories.has(choice.category):
 			categories.append(choice.category)
 			palette_category.add_item(choice.category)
-	column.add_child(palette_category)
+	library.add_child(palette_category)
 	palette_search = LineEdit.new()
 	palette_search.placeholder_text = 'Search: house, staircase, tree…'
-	column.add_child(palette_search)
-	palette_count = label('',column)
+	library.add_child(palette_search)
+	palette_count = label('',library)
 	palette = ItemList.new()
 	palette.custom_minimum_size = Vector2(240,116)
-	column.add_child(palette)
+	library.add_child(palette)
 	palette_category.item_selected.connect(func(_index): filter_palette())
 	palette_search.text_changed.connect(func(_text): filter_palette())
 	palette.item_selected.connect(func(_index): choose_palette_item())
@@ -872,14 +916,14 @@ func build_review_ui() -> void:
 		status_label.text = 'Click an exact location in the scene.'
 		var focus := get_viewport().gui_get_focus_owner()
 		if focus != null: focus.release_focus()
-	,column)
-	var floor_row := row(column)
+	,library)
+	var floor_row := row(library)
 	label('Terrain floor',floor_row)
 	floor_input = spin(floor_row)
 	floor_input.min_value = 0
 	floor_input.max_value = 4
 	floor_input.step = 1
-	label('Scene items · select one to arrange',column)
+	label('Scene items · select one to arrange',library)
 	item_list = ItemList.new()
 	item_list.custom_minimum_size = Vector2(240,116)
 	item_list.item_selected.connect(func(index):
@@ -887,7 +931,19 @@ func build_review_ui() -> void:
 		selected_id = int(items[index].id)
 		refresh_review_ui()
 	)
-	column.add_child(item_list)
+	library.add_child(item_list)
+	selected_label = label('Click an item on the island',column)
+	selected_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	selected_label.custom_minimum_size.x = 240
+	carry_control = CheckButton.new()
+	carry_control.text = 'Carry a log'
+	column.add_child(carry_control)
+	carry_control.toggled.connect(func(value):
+		if updating_ui or playing or selected_item().get('kind','')!='pawn': return
+		push_history()
+		selected_item().variant = 2 if value else 1
+		rebuild_review()
+	)
 	var coordinates := row(column)
 	label('X',coordinates)
 	x_input = spin(coordinates)
@@ -933,7 +989,7 @@ func build_review_ui() -> void:
 	label('Zoom',zoom_row)
 	zoom_control = HSlider.new()
 	zoom_control.scrollable = false
-	zoom_control.min_value = 0.35
+	zoom_control.min_value = 0.1
 	zoom_control.max_value = 4
 	zoom_control.step = 0.05
 	zoom_control.value = 1.6
@@ -948,19 +1004,16 @@ func build_review_ui() -> void:
 		arrange_review()
 		mark_dirty()
 	,focus_row)
-	button('Show island',func():
-		view_center = ORIGIN_POINT
-		zoom_control.value = clampf(minf((get_viewport_rect().size.x/ui.scale_ui-PANEL_WIDTH-32)/704.0,(get_viewport_rect().size.y/ui.scale_ui-32)/576.0),0.35,1.6)
-		arrange_review()
-		mark_dirty()
-	,focus_row)
+	button('Show island',show_all_items,focus_row)
 	var scene_row := row(column)
 	button('Undo',undo_review,scene_row)
 	button('New arrangement',func():
 		set_playing(false)
 		push_history()
 		seed_scene()
+		if review_stock_enabled: stock_rules.populate(self)
 		rebuild_review()
+		show_all_items()
 	,scene_row)
 	button('Next-day visit',func():
 		if layout.black_hole.is_empty(): return
@@ -1087,3 +1140,92 @@ func clear_problem_rectangle() -> void:
 	problem_rect = Rect2()
 	overlay.queue_redraw()
 	mark_dirty()
+
+func show_all_items() -> void:
+	var bounds := Rect2(ORIGIN_POINT,Vector2.ONE)
+	for cell in layout.cells: bounds = bounds.merge(layout.ground_surface_rect(cell))
+	for item in items:
+		var point := item_point(item)-Vector2(0,contact_rules.height(layout,item_point(item)))
+		bounds = bounds.merge(Rect2(point-Vector2(90,160),Vector2(180,200)))
+	view_center = bounds.get_center()+Vector2(0,40)
+	var area: Vector2 = get_viewport_rect().size/ui.scale_ui-Vector2(PANEL_WIDTH+32,80)
+	zoom_control.value = clampf(minf(area.x/bounds.size.x,area.y/bounds.size.y),0.1,1.6)
+	arrange_review()
+	mark_dirty()
+
+func item_at_art(point: Vector2) -> int:
+	var picked := -1
+	var order := -INF
+	for item in items:
+		if item.hidden: continue
+		var owner = item_nodes.get(int(item.id))
+		if not is_instance_valid(owner): continue
+		var node = pawn.sprite if owner==pawn else owner
+		var opaque := false
+		if node is Sprite2D: opaque = node.is_pixel_opaque(node.to_local(point))
+		elif node is AnimatedSprite2D:
+			var texture: Texture2D = node.sprite_frames.get_frame_texture(node.animation,node.frame)
+			var local: Vector2 = node.to_local(point)-node.offset
+			if node.centered: local+=texture.get_size()/2
+			if node.flip_h: local.x=texture.get_width()-1-local.x
+			if node.flip_v: local.y=texture.get_height()-1-local.y
+			if Rect2(Vector2.ZERO,texture.get_size()).has_point(local): opaque=texture.get_image().get_pixelv(Vector2i(local)).a>0.1
+		if opaque:
+			var rank: float = owner.z_index*100000+owner.get_index()
+			if rank>=order: picked=int(item.id); order=rank
+	return picked
+
+func terrain_change_error(previous: Dictionary) -> String:
+	for item in items:
+		if not contact_rules.active(item): continue
+		var before: String = previous.get(int(item.id),'invalid')
+		if not before.is_empty(): continue
+		var reason: String = contact_rules.error_for(layout,items,item,item_point(item),int(item.id))
+		if not reason.is_empty(): return reason
+	return ''
+
+func current_contact_errors() -> Dictionary:
+	var result := {}
+	for item in items:
+		if contact_rules.active(item): result[int(item.id)] = contact_rules.error_for(layout,items,item,item_point(item),int(item.id))
+	return result
+
+func add_terrain_sample(choice: Dictionary, cell: Vector2i) -> bool:
+	if terrain_rules.overlaps(self,choice,cell): return false
+	var before := current_contact_errors()
+	var specimen := choice.duplicate(true)
+	specimen.floor = choice.get('floor',0)
+	terrain_rules.place(layout,specimen,cell)
+	if not terrain_change_error(before).is_empty():
+		terrain_rules.restore(layout,specimen,cell)
+		return false
+	var id := insert_item(choice.kind,int(choice.variant),layout.center(cell))
+	for item in items:
+		if int(item.id)==id:
+			item.floor = specimen.floor
+			item.terrain_underlay = specimen.terrain_underlay
+	return true
+
+func move_terrain_sample(item: Dictionary, cell: Vector2i) -> bool:
+	var old: Vector2i = layout.cell_at(item_point(item))
+	if cell==old:
+		refresh_review_ui()
+		return true
+	if terrain_rules.overlaps(self,item,cell,int(item.id)):
+		reject_contact(item,layout.center(cell),'Terrain pieces cannot overlap.')
+		return false
+	var before := current_contact_errors()
+	var previous := scene_state()
+	terrain_rules.restore(layout,item,old)
+	terrain_rules.place(layout,item,cell)
+	item.point = [layout.center(cell).x,layout.center(cell).y]
+	var reason := terrain_change_error(before)
+	if not reason.is_empty():
+		apply_scene(previous)
+		apply_items()
+		reject_contact(item,layout.center(cell),reason)
+		return false
+	record_history(previous)
+	clear_contact_warning()
+	rebuild_review()
+	return true

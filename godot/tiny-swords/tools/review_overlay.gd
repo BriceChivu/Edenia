@@ -6,7 +6,7 @@ func _draw() -> void:
 	for item in review.items:
 		if item.get('hidden',false) or (item.kind=='logs' and int(item.variant)==0): continue
 		var point: Vector2 = review.item_point(item)
-		var height: float = review.ground_height(point)
+		var height: float = review.contact_rules.height(l,point)
 		var projected := point-Vector2(0,height)
 		var chosen: bool = int(item.id) == review.selected_id
 		if review.contacts.button_pressed:
