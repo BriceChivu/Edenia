@@ -741,6 +741,7 @@ func build_review_ui() -> void:
 	review_theme.set_stylebox('panel','ItemList',list_style)
 	review_theme.set_color('font_selected_color','ItemList',Color('#143e42'))
 	review_theme.set_color('font_placeholder_color','TextEdit',Color('#55766d'))
+	review_theme.set_color('font_placeholder_color','LineEdit',Color('#55766d'))
 	ui_root.theme = review_theme
 	ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
