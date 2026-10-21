@@ -1430,8 +1430,14 @@ A grounded ellipse matches the animal shadows' 20% opacity. Its subtle size
 variation shares the slow hover cycle, widest when the portal is highest, and
 follows opening/closing scale. Approaching from behind mirrors the portal about its vertical axis before
 absorption, reverses its pixel flow, and saves its facing across sessions.
-Opening
-a playable island schedules the first appearance 14–28 local calendar days later.
+Overlapping creatures and distorted sprite copies draw in front on the portal's
+facing side, and behind its opaque pixels on the back side. Mirroring reverses
+this ordering. Outside the overlap, normal island depth resumes.
+The event becomes eligible after level five (level six onward). Reaching level
+six, or first visiting an eligible island, schedules its first appearance 14–28
+local calendar days later. Levels one through five cannot open a portal, even
+if an older saved schedule has already elapsed. Existing occupants retain their
+return sequence.
 The next eligible visit opens it on reachable, clear grass with at least three
 same-floor grass neighbors; small islands wait until suitable land is available.
 Spawn checks reserve the full airborne effect and its grass tile against the
