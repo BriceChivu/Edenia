@@ -9088,6 +9088,12 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   if (maybeRefreshFeed._running) return
   maybeRefreshFeed._running = true
   const s = loadState()
+  let dismissMetadataProgress = null
+  const showMetadataProgress = () => {
+    if (!dismissMetadataProgress && !document.hidden) {
+      dismissMetadataProgress = showToast(t('toast.refreshUpdating'), 'info', { durationMs: 0 }) || (() => {})
+    }
+  }
   try {
     if (!s) return
     if (!IS_SANDBOX && hasYoutubeApiKey()) {
@@ -9099,8 +9105,12 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
       const changed = await refreshSavedYoutubeMetadata({
         state: s,
         priorityIds: visibleYoutubeMetadataIds(),
-        fetchVideos: ids => recover('videos', ids, batch => fetchVideoDetails(batch)),
+        fetchVideos: ids => {
+          showMetadataProgress()
+          return recover('videos', ids, batch => fetchVideoDetails(batch))
+        },
         fetchChannels: async channels => {
+          showMetadataProgress()
           const details = await recover('channels', channels.map(channel => channel.id), async ids => {
             const batch = channels.filter(channel => ids.includes(channel.id))
             await hydrateYoutubeChannelProfiles(batch)
@@ -9152,6 +9162,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
       showToast(t('toast.apiKeyMissing'), 'warn')
     }
   } finally {
+    dismissMetadataProgress?.()
     maybeRefreshFeed._running = false
     scheduleYoutubeAutoRefresh(loadState())
   }
@@ -9308,6 +9319,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
   const btn = document.getElementById('refreshBtn')
   let originatingState = null
   let attemptedChannelIds = []
+  let dismissRefreshProgress = null
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
     btn.classList.add('loading')
@@ -9356,7 +9368,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: true, skipped: true, mergedCount: 0, successfulChannels: 0, errors: [] }
     }
 
-    if (!silent) showToast(t('toast.refreshUpdating'), 'info')
+    if (!document.hidden) dismissRefreshProgress = showToast(t('toast.refreshUpdating'), 'info', { durationMs: 0 })
 
     attemptedChannelIds = channelsToRefresh.map(channel => channel.id)
     const all    = []
@@ -9534,6 +9546,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     })
     return { ok: false, error: err, errors: [{ message: err.message || t('log.unknownRefreshError') }] }
   } finally {
+    dismissRefreshProgress?.()
     if (btn) {
       btn.textContent = `↻ ${t('videos.refresh')}`
       btn.classList.remove('loading')
@@ -18667,6 +18680,12 @@ function showToast(msg, type = 'success', options = {}) {
     }, durationMs)
   } else {
     el._t = null
+  }
+  return () => {
+    // A completed operation must not dismiss a newer toast (success, error, or another action).
+    if (el.firstChild !== message) return
+    clearTimeout(el._t)
+    el.classList.remove('show')
   }
 }
 

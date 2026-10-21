@@ -13,7 +13,7 @@ function sourceBetween(startMarker, endMarker) {
   return appSource.slice(start, end)
 }
 
-function createRefreshHarness() {
+function createRefreshHarness(options = {}) {
   const now = Date.parse('2026-09-13T09:03:31.200Z')
   class FixedDate extends Date {
     constructor(...args) { super(...(args.length ? args : [now])) }
@@ -27,6 +27,7 @@ function createRefreshHarness() {
   const timers = new Map()
   const requests = []
   const calls = { refreshes: 0, toasts: 0 }
+  const notices = []
   let nextTimer = 0
   const events = {
     addEventListener: (type, callback) => listeners.set(type, callback),
@@ -37,8 +38,8 @@ function createRefreshHarness() {
     preparePortableLearnerProfileEnvelope,
     youtubeRequestGate: null,
     STORAGE_KEY: 'test',
-    createYoutubeMetadataBudget: () => ({ createRun: () => {}, retryAt: () => 0 }),
-    refreshSavedYoutubeMetadata: async () => false,
+    createYoutubeMetadataBudget: () => ({ createRun: () => async () => [], retryAt: () => 0 }),
+    refreshSavedYoutubeMetadata: options.refreshMetadata || (async () => false),
     isCurrentLearnerProfileOperation: state => state === activeProfile,
     IS_SANDBOX: false,
     YOUTUBE_REFRESH_INTERVAL_MS: 6 * 60 * 60 * 1000,
@@ -58,7 +59,12 @@ function createRefreshHarness() {
       calls.refreshes += 1
       context.markChannelRefreshSuccess(activeProfile, 'test-channel')
     },
-    showToast: () => { calls.toasts += 1 },
+    showToast: (message, type, options) => {
+      calls.toasts += 1
+      const notice = { message, type, options, dismissed: false }
+      notices.push(notice)
+      return () => { notice.dismissed = true }
+    },
     t: key => key
   })
   vm.runInContext([
@@ -75,6 +81,7 @@ function createRefreshHarness() {
   }
   return {
     calls,
+    notices,
     timers,
     start: () => context.startYoutubeAutoRefresh(),
     settle: () => Promise.all(requests.splice(0)),
@@ -117,4 +124,48 @@ test('hiding the page does not refresh even when a channel is due', async () => 
   harness.dispatch('visibilitychange')
   await harness.settle()
   assert.deepEqual(harness.calls, { refreshes: 0, toasts: 0 })
+})
+
+test('opening a feed announces metadata recovery before waiting for missing videos', async () => {
+  let finishMetadata
+  const pending = new Promise(resolve => { finishMetadata = resolve })
+  const harness = createRefreshHarness({
+    refreshMetadata: async ({ fetchVideos }) => {
+      await fetchVideos(['missing-metadata'])
+      return pending
+    }
+  })
+  harness.start()
+  try {
+    assert.equal(harness.calls.toasts, 1, 'Missing-video recovery must show the updating notice before network requests finish')
+    assert.equal(harness.notices[0].message, 'toast.refreshUpdating')
+    assert.equal(harness.notices[0].options.durationMs, 0, 'The notice must last for the whole operation')
+    assert.equal(harness.notices[0].dismissed, false)
+  } finally {
+    finishMetadata(false)
+    await harness.settle()
+  }
+  assert.equal(harness.notices[0].dismissed, true)
+})
+
+test('metadata recovery does not leave its notice visible after completion', async () => {
+  const harness = createRefreshHarness({ refreshMetadata: async ({ fetchChannels }) => {
+    await fetchChannels([])
+    return false
+  } })
+  harness.start()
+  await harness.settle()
+  assert.equal(harness.notices.length, 1)
+  assert.equal(harness.notices[0].dismissed, true)
+})
+
+test('hidden metadata recovery does not announce a feed update', async () => {
+  const harness = createRefreshHarness({ refreshMetadata: async ({ fetchVideos }) => {
+    await fetchVideos(['missing-metadata'])
+    return false
+  } })
+  harness.setHidden(true)
+  harness.start()
+  await harness.settle()
+  assert.equal(harness.notices.length, 0)
 })
