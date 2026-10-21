@@ -19,7 +19,10 @@ var updating_ui := false
 var dirty_seconds := -1.0
 var history_states: Array = []
 var panel: PanelContainer
-var palette: OptionButton
+var palette: ItemList
+var palette_category: OptionButton
+var palette_search: LineEdit
+var palette_count: Label
 var item_list: ItemList
 var x_input: SpinBox
 var y_input: SpinBox
@@ -53,6 +56,7 @@ func _ready() -> void:
 	island_start_enabled = false
 	black_hole_enabled = true
 	layout = ReviewLayout.new()
+	layout.bridges_enabled = true
 	super._ready()
 	set_process_input(true)
 	ui.hide()
@@ -90,6 +94,7 @@ func seed_scene() -> void:
 	layout.cells.clear()
 	layout.elevations.clear()
 	layout.stair_directions.clear()
+	layout.bridges.clear()
 	for y in range(-4,5):
 		for x in range(-5,6): layout.cells[Vector2i(x,y)] = 'meadow'
 	items.clear()
@@ -325,7 +330,9 @@ func scene_state() -> Dictionary:
 	var tiles: Array = []
 	for cell in layout.cells:
 		tiles.append([cell.x,cell.y,layout.cells[cell],layout.height_at(cell),layout.stair_directions.get(cell,Vector2i.RIGHT).x])
-	return {'items':items.duplicate(true),'tiles':tiles,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y],'effect_clock':effect_clock,'portal_clock':portal_event.frame_clock}
+	var bridges: Array = []
+	for cell in layout.bridges: bridges.append([cell.x,cell.y,layout.bridges[cell]])
+	return {'items':items.duplicate(true),'tiles':tiles,'bridges':bridges,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y],'effect_clock':effect_clock,'portal_clock':portal_event.frame_clock}
 
 func apply_scene(state: Dictionary) -> void:
 	effect_clock = float(state.get('effect_clock',0))
@@ -343,6 +350,9 @@ func apply_scene(state: Dictionary) -> void:
 		layout.cells[cell] = tile[2]
 		layout.elevations[cell] = float(tile[3])
 		if tile[2] == 'stairs': layout.stair_directions[cell] = Vector2i(int(tile[4]),0)
+	layout.bridges.clear()
+	for bridge in state.get('bridges',[]):
+		layout.bridges[Vector2i(int(bridge[0]),int(bridge[1]))] = float(bridge[2])
 	zoom_control.set_value_no_signal(float(state.get('zoom',2.0)))
 
 func mark_dirty() -> void:
@@ -521,11 +531,24 @@ func review_unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func place_at(point: Vector2) -> void:
+	var choice := selected_choice()
+	if choice.is_empty(): return
 	push_history()
-	var choice: Dictionary = tool_choices[palette.selected]
 	var cell: Vector2i = layout.cell_at(point)
-	if choice.kind in ['grass','stairs','water']:
+	if choice.kind == 'bridge':
+		var height := maxf(64,floor_input.value*64)
+		for bank in Layout.BridgeRules.ends(cell):
+			layout.cells[bank] = layout.kind_at_height(height)
+			layout.elevations[bank] = height
+			layout.stair_directions.erase(bank)
+		for gap in [cell,cell+Vector2i.RIGHT]:
+			layout.cells.erase(gap)
+			layout.elevations.erase(gap)
+			layout.stair_directions.erase(gap)
+		layout.bridges[cell] = height
+	elif choice.kind in ['grass','stairs','water']:
 		if choice.kind == 'water':
+			layout.bridges.erase(Layout.BridgeRules.owner(layout,cell))
 			layout.cells.erase(cell)
 			layout.elevations.erase(cell)
 			layout.stair_directions.erase(cell)
@@ -540,6 +563,7 @@ func place_at(point: Vector2) -> void:
 				layout.elevations[cell+direction] = height+64
 	else:
 		selected_id = insert_item(choice.kind,int(choice.variant),point.snapped(Vector2.ONE))
+		if choice.get('stump',false): selected_item().stump = true
 	placing = false
 	place_button.text = 'Place selected item'
 	rebuild_review()
@@ -645,7 +669,7 @@ func refresh_review_ui() -> void:
 	facing_input.disabled = playing
 	x_input.editable = not playing
 	y_input.editable = not playing
-	place_button.disabled = playing
+	place_button.disabled = playing or selected_choice().is_empty()
 	updating_ui = false
 	refresh_note_list()
 	if overlay != null: overlay.queue_redraw()
@@ -740,17 +764,27 @@ func build_review_ui() -> void:
 	margin.add_child(column)
 	label('PRECISE SCENE REVIEW',column)
 	mode_button = button('Play scene',func(): set_playing(not playing),column)
-	palette = OptionButton.new()
-	palette.custom_minimum_size.x = 240
+	label('ELEMENT LIBRARY',column)
+	palette_category = OptionButton.new()
+	palette_category.add_item('All elements')
+	tool_choices = catalog_choices()
+	var categories: Array = []
+	for choice in tool_choices:
+		if not categories.has(choice.category):
+			categories.append(choice.category)
+			palette_category.add_item(choice.category)
+	column.add_child(palette_category)
+	palette_search = LineEdit.new()
+	palette_search.placeholder_text = 'Search: house, staircase, tree…'
+	column.add_child(palette_search)
+	palette_count = label('',column)
+	palette = ItemList.new()
+	palette.custom_minimum_size = Vector2(240,116)
 	column.add_child(palette)
-	for choice in [['Pawn','pawn',1],['Pawn carrying a log','pawn',2],['Sheep','sheep',1],['Chicken','chicken',1],['Large bush','bush',1],['Small bush','bush',2]]:
-		add_choice(choice)
-	for kind in ['land_rock','tree','water_rock']:
-		for variant in range(1,5): add_choice(['%s %d'%[kind.replace('_',' ').capitalize(),variant],kind,variant])
-	for variant in [1,2]: add_choice(['Flowers %d'%variant,'flowers',variant])
-	for amount in range(1,7): add_choice(['%d logs'%amount,'logs',amount])
-	for facing in range(1,5): add_choice(['House · facing %d'%facing,'house',facing])
-	for choice in [['Black hole','portal',1],['Duck','ducks',1],['Grass tile','grass',1],['Stairs right','stairs',1],['Stairs left','stairs',2],['Remove grass / water','water',1]]: add_choice(choice)
+	palette_category.item_selected.connect(func(_index): filter_palette())
+	palette_search.text_changed.connect(func(_text): filter_palette())
+	palette.item_selected.connect(func(_index): choose_palette_item())
+	filter_palette()
 	place_button = button('Place selected item',func():
 		if playing: return
 		placing = true
@@ -763,7 +797,7 @@ func build_review_ui() -> void:
 	label('Terrain floor',floor_row)
 	floor_input = spin(floor_row)
 	floor_input.min_value = 0
-	floor_input.max_value = 3
+	floor_input.max_value = 4
 	floor_input.step = 1
 	label('Scene items · select one to arrange',column)
 	item_list = ItemList.new()
@@ -869,6 +903,55 @@ func build_review_ui() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status_label)
 
-func add_choice(choice: Array) -> void:
-	palette.add_item(choice[0])
-	tool_choices.append({'kind':choice[1],'variant':choice[2]})
+# The library lists game elements, rather than every unused asset in the art pack.
+func catalog_choices() -> Array:
+	var choices: Array = []
+	for facing in range(1,5):
+		choices.append({'name':'House · '+['front','right','back','left'][facing-1],'kind':'house','variant':facing,'category':'Houses'})
+	for entry in [['Staircase · rises right','stairs',1],['Staircase · rises left','stairs',2],['Rope bridge','bridge',1]]:
+		choices.append({'name':entry[0],'kind':entry[1],'variant':entry[2],'category':'Staircases & terrain'})
+	for floor in range(Layout.FLOOR_PALETTES.size()):
+		choices.append({'name':'Grass tile · floor %d'%floor,'kind':'grass','variant':1,'floor':floor,'category':'Staircases & terrain'})
+	choices.append({'name':'Water / remove terrain','kind':'water','variant':1,'category':'Staircases & terrain'})
+	for entry in [['Pawn','pawn',1],['Pawn carrying a log','pawn',2],['Sheep','sheep',1],['Chicken','chicken',1],['Duck 1','ducks',1],['Duck 2','ducks',2]]:
+		choices.append({'name':entry[0],'kind':entry[1],'variant':entry[2],'category':'Pawn & animals'})
+	for variant in range(1,Layout.TREE_VARIANTS.size()+1):
+		for stump in [false,true]:
+			choices.append({'name':'Tree %d%s'%[variant,' · stump' if stump else ''],'kind':'tree','variant':variant,'stump':stump,'category':'Trees & stumps'})
+	for kind in ['bush','flowers','land_rock','water_rock']:
+		for variant in range(1,Layout.DecorationRules.VARIANTS[kind]+1):
+			var title: String = ('Large bush' if variant==1 else 'Small bush') if kind=='bush' else '%s %d'%[kind.replace('_',' ').capitalize(),variant]
+			choices.append({'name':title,'kind':kind,'variant':variant,'category':'Rocks' if kind.ends_with('rock') else 'Bushes & flowers'})
+	for amount in range(1,7):
+		choices.append({'name':'1 log' if amount==1 else '%d logs'%amount,'kind':'logs','variant':amount,'category':'Logs'})
+	choices.append({'name':'Black hole','kind':'portal','variant':1,'category':'Black hole'})
+	return choices
+
+func selected_choice() -> Dictionary:
+	var selected_items := palette.get_selected_items()
+	return tool_choices[int(palette.get_item_metadata(selected_items[0]))] if not selected_items.is_empty() else {}
+
+func filter_palette() -> void:
+	var previous := selected_choice() if palette.item_count>0 else {}
+	palette.clear()
+	var category := palette_category.get_item_text(palette_category.selected)
+	var query := palette_search.text.strip_edges().to_lower()
+	var chosen := 0
+	for index in tool_choices.size():
+		var choice: Dictionary = tool_choices[index]
+		if palette_category.selected>0 and choice.category!=category: continue
+		if not query.is_empty() and not str(choice.name).to_lower().contains(query): continue
+		palette.add_item(choice.name)
+		palette.set_item_metadata(palette.item_count-1,index)
+		if choice==previous: chosen=palette.item_count-1
+	if palette.item_count>0: palette.select(chosen)
+	palette_count.text = '%d of %d elements'%[palette.item_count,tool_choices.size()]
+	choose_palette_item()
+
+func choose_palette_item() -> void:
+	placing = false
+	var choice := selected_choice()
+	if floor_input != null and choice.has('floor'): floor_input.value = choice.floor
+	if place_button != null:
+		place_button.disabled = playing or choice.is_empty()
+		place_button.text = 'Place selected item'

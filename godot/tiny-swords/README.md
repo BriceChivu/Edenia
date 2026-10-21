@@ -1472,9 +1472,15 @@ Run `node scripts/preview-tiny-swords-review.mjs` and open
 `http://localhost:8048/`, or run `previews/review_sandbox.tscn` with F6.
 This separate Godot editor is excluded from the normal game export. It starts
 with a populated grass island, both bush sizes, a tree, a rock, the pawn and animals.
-Choose any tree/rock variant, bush, flower, animal, log pile, house, black hole,
-water decoration or terrain piece, then click **Place selected item** and a point
-in the scene. Several objects can occupy the same tile for close comparisons.
+The searchable **Element library** groups houses (all four directions), both
+staircase directions, all five grass floors, water, the rope bridge, pawn/carry
+states, sheep, chicken, both ducks, all four trees and stumps, every rock/bush/flower
+variant, one to six logs, and the black hole. Choose an element, click
+**Place selected item**, then a point in the scene. Terrain pieces snap to the
+game grid; staircases add their landing, and bridges add banks and a water span.
+The bridge is enabled only in this review editor. The Terrain floor field sets
+the lower stair floor or bridge-bank height; cliffs render from the real terrain.
+Several objects can occupy the same tile for close comparisons.
 
 Select an item in the list or drag its ground marker. X/Y are relative to the
 island's central ground anchor, in game pixels. Arrow keys or the -X/-Y/+X/+Y

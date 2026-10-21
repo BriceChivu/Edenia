@@ -15,6 +15,7 @@ func run() -> void:
 	game.get_window().focus_exited.emit()
 	game.get_window().focus_entered.emit()
 	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review keeps the system cursor visible after regaining focus')
+	await check_library(game)
 	game.seed_scene()
 	game.apply_items()
 	game.refresh_review_ui()
@@ -76,3 +77,49 @@ func run() -> void:
 	await process_frame
 	print('Precise review checks: %s'%('PASS' if failures==0 else 'FAIL'))
 	quit(0 if failures==0 else 1)
+
+func check_library(game) -> void:
+	var origin: Vector2 = game.ORIGIN_POINT
+	game.palette_search.text = 'house'
+	game.palette_search.text_changed.emit('house')
+	check(game.palette.item_count==4,'Search exposes all four house directions')
+	game.palette_search.text = 'staircase'
+	game.palette_search.text_changed.emit('staircase')
+	check(game.palette.item_count==2,'Search exposes both staircase directions')
+	game.palette_search.text = 'does not exist'
+	game.palette_search.text_changed.emit('does not exist')
+	check(game.selected_choice().is_empty() and game.place_button.disabled,'An empty search cannot place a stale selection')
+	game.palette_search.clear()
+	game.palette_search.text_changed.emit('')
+	var initial: Dictionary = game.scene_state()
+	for i in game.palette.item_count:
+		game.apply_scene(initial)
+		game.apply_items()
+		game.palette.select(i)
+		game.choose_palette_item()
+		var choice: Dictionary = game.selected_choice()
+		var kind: String = choice.kind
+		game.place_at(origin)
+		if kind not in ['grass','stairs','water','bridge']:
+			var item: Dictionary = game.selected_item()
+			check(item.kind==kind and int(item.variant)==int(choice.variant),'Library places the selected '+str(choice.name))
+			check(is_instance_valid(game.item_nodes.get(int(item.id))),str(choice.name)+' creates real game artwork')
+			if choice.get('stump',false): check(game.layout.tree_stumps.has(game.slot_for(item)),'Stump selection uses native cut-tree artwork')
+		else:
+			var cell: Vector2i = game.layout.cell_at(origin)
+			if kind=='grass': check(game.layout.height_at(cell)==int(choice.floor)*64,'Grass choice sets the selected floor')
+			elif kind=='stairs':
+				check(game.layout.cells[cell]=='stairs' and game.layout.stair_direction(cell)==(Vector2i.RIGHT if int(choice.variant)==1 else Vector2i.LEFT),'Staircase uses the selected native slope direction')
+			elif kind=='water': check(not game.layout.cells.has(cell),'Water tool removes ground')
+			elif kind=='bridge':
+				check(game.layout.bridges.has(cell) and not game.layout.cells.has(cell) and not game.layout.cells.has(cell+Vector2i.RIGHT),'Bridge placement spans two water cells with native banks')
+				var saved: Dictionary = JSON.parse_string(JSON.stringify(game.scene_state()))
+				game.seed_scene()
+				game.apply_scene(saved)
+				check(game.layout.bridges.has(cell),'JSON roundtrip preserves bridges')
+				game.undo_review()
+				check(game.layout.bridges.is_empty(),'Undo restores the terrain before bridge placement')
+		await process_frame
+	game.apply_scene(initial)
+	game.apply_items()
+	game.history_states.clear()
