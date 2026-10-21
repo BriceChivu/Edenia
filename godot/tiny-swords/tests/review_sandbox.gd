@@ -11,6 +11,10 @@ func run() -> void:
 	game.review_persistence_enabled = false
 	root.add_child(game)
 	await process_frame
+	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review opens with a visible system cursor')
+	game.get_window().focus_exited.emit()
+	game.get_window().focus_entered.emit()
+	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review keeps the system cursor visible after regaining focus')
 	game.seed_scene()
 	game.apply_items()
 	game.refresh_review_ui()
@@ -44,6 +48,10 @@ func run() -> void:
 	game.apply_items()
 	check(game.layout.tree_position(slot).distance_to(original+Vector2(-22.5,34.25))<0.001,'JSON scene roundtrip preserves exact positions and terrain')
 	game.set_playing(true)
+	game.get_window().focus_exited.emit()
+	game.get_window().focus_entered.emit()
+	game.review_tick(0)
+	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE and not game.pointer.visible,'Play keeps one visible system cursor after regaining focus')
 	check(game.pawn.is_physics_processing(),'Play enables real pawn movement')
 	game.set_playing(false)
 	check(not game.pawn.is_physics_processing(),'Pause freezes real pawn movement')

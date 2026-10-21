@@ -75,6 +75,7 @@ var build_cursor: Texture2D
 var build_cursor_size := Vector2i.ZERO
 var cursor_mode := ""
 var pointer: Sprite2D
+var use_system_cursor := false
 var cursor_press_material: ShaderMaterial
 var cursor_press_tween: Tween
 var touch_device := DisplayServer.is_touchscreen_available()
@@ -126,7 +127,7 @@ func _ready() -> void:
 	cursor_press_material.shader = CURSOR_PRESS_SHADER
 	pointer.hide()
 	pointer_layer.add_child(pointer)
-	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if use_system_cursor else Input.MOUSE_MODE_HIDDEN)
 	get_window().mouse_entered.connect(func(): pointer_inside = true)
 	get_window().mouse_exited.connect(func():
 		pointer_inside = false
@@ -143,7 +144,7 @@ func _ready() -> void:
 		pointer.hide())
 	get_window().focus_entered.connect(func():
 		pointer_focused = true
-		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN))
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if use_system_cursor else Input.MOUSE_MODE_HIDDEN))
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
 		selected = tool
@@ -725,7 +726,7 @@ func update_cursor() -> void:
 			# The hammer artwork fills twice the span of the white hand.
 			pointer.scale *= 0.5
 	pointer.position = pointer_position - hotspot * pointer.scale
-	pointer.visible = pointer_inside and pointer_focused and not touch_device
+	pointer.visible = pointer_inside and pointer_focused and not touch_device and not use_system_cursor
 
 func set_cursor_pressed(pressed: bool, immediate: bool = false) -> void:
 	if cursor_press_material == null or (pressed and cursor_mode != "walk"):

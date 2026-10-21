@@ -47,6 +47,7 @@ var pan_origin := Vector2.ZERO
 var contact_status: Label
 
 func _ready() -> void:
+	use_system_cursor = true
 	preview_save_enabled = false
 	camera_save_enabled = false
 	island_start_enabled = false
@@ -59,7 +60,6 @@ func _ready() -> void:
 	get_node('Clouds').hide()
 	get_node('PassingCloud').hide()
 	get_node('WaterRocks').hide()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	build_review_ui()
 	overlay = preload('res://tools/review_overlay.gd').new()
 	overlay.review = self
@@ -143,7 +143,6 @@ func freeze_game() -> void:
 	get_node('PassingCloud').hide()
 	ui.hide()
 	pointer.hide()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func apply_items() -> void:
 	movement_generation += 1
