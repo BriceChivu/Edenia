@@ -39,6 +39,7 @@ var ui_root: Control
 var tool_choices: Array = []
 var item_nodes: Dictionary = {}
 var selected_note := -1
+var effect_clock := 0.0
 var view_center := ORIGIN_POINT
 var panning := false
 var pan_start := Vector2.ZERO
@@ -325,9 +326,11 @@ func scene_state() -> Dictionary:
 	var tiles: Array = []
 	for cell in layout.cells:
 		tiles.append([cell.x,cell.y,layout.cells[cell],layout.height_at(cell),layout.stair_directions.get(cell,Vector2i.RIGHT).x])
-	return {'items':items.duplicate(true),'tiles':tiles,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y]}
+	return {'items':items.duplicate(true),'tiles':tiles,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y],'effect_clock':effect_clock,'portal_clock':portal_event.frame_clock}
 
 func apply_scene(state: Dictionary) -> void:
+	effect_clock = float(state.get('effect_clock',0))
+	portal_event.frame_clock = float(state.get('portal_clock',0))
 	items = state.get('items',[]).duplicate(true)
 	next_id = int(state.get('next_id',1))
 	selected_id = int(state.get('selected',1))
@@ -379,6 +382,7 @@ func _unhandled_input(_event: InputEvent) -> void:
 func review_tick(delta: float) -> void:
 	if not model_ready: return
 	if playing:
+		effect_clock += delta
 		super._process(delta)
 		ui.hide()
 		pointer.hide()
@@ -389,6 +393,7 @@ func review_tick(delta: float) -> void:
 		portal_event.previous.clear()
 		get_node('World')._process(0)
 		overlay.queue_redraw()
+	portal_event.lens.material.set_shader_parameter('effect_time',effect_clock)
 	get_node('Clouds').hide()
 	get_node('PassingCloud').hide()
 	if dirty_seconds >= 0:
