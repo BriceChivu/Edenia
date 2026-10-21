@@ -27,3 +27,16 @@ func _draw() -> void:
 			draw_circle(projected,4.5 if chosen else 2.5,color,false,0.8)
 			draw_line(projected-Vector2(7,0),projected+Vector2(7,0),color,0.7)
 			draw_line(projected-Vector2(0,7),projected+Vector2(0,7),color,0.7)
+
+	if not review.rejected_item.is_empty():
+		var point: Vector2 = review.rejected_point
+		var patch: PackedVector2Array = review.contact_rules.patch(review.rejected_item,point)
+		var height: float = review.contact_rules.height(l,point)
+		for i in patch.size(): patch[i].y -= height
+		if not patch.is_empty():
+			draw_colored_polygon(patch,Color(1,0.15,0.1,0.4))
+			patch.append(patch[0])
+			draw_polyline(patch,Color('#ff463a'),1.5)
+		var projected := point-Vector2(0,height)
+		draw_line(projected-Vector2(5,5),projected+Vector2(5,5),Color('#ff463a'),1.5)
+		draw_line(projected-Vector2(-5,5),projected+Vector2(-5,5),Color('#ff463a'),1.5)

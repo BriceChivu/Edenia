@@ -1480,16 +1480,19 @@ variant, one to six logs, and the black hole. Choose an element, click
 game grid; staircases add their landing, and bridges add banks and a water span.
 The bridge is enabled only in this review editor. The Terrain floor field sets
 the lower stair floor or bridge-bank height; cliffs render from the real terrain.
-Several objects can occupy the same tile for close comparisons.
+Several objects can occupy the same tile when their contact areas stay clear.
 
 Select an item in the list or drag its ground marker. X/Y are relative to the
 island's central ground anchor, in game pixels. Arrow keys or the -X/-Y/+X/+Y
 buttons nudge one pixel; Shift nudges 0.1 pixels. The coordinate fields also accept
 0.1 pixels. Right-drag pans, the wheel/slider zooms, and **Focus selected** centers
 the selected item. **Contacts** shows the game's actual solid ground polygons.
-Free arrangement can intentionally overlap contacts; the actor status identifies
-blocked feet. **Play scene** uses real movement, harvesting, holds and portal
-mechanics. **Pause & arrange** freezes actors, animations and effects. Next-day
+Arrange placement, dragging, coordinates and nudges reject overlapping solid
+contact areas and unsupported land contacts. Blocked attempts keep the previous
+position and show a red contact outline. Tree canopies, rock top facets, foliage
+and other decorative pixels do not enlarge solid contacts. Terrain edits reject
+newly unsupported contacts too. Existing saved scenes and comments stay intact.
+**Play scene** uses real movement, harvesting, holds and portal mechanics. **Pause & arrange** freezes actors, animations and effects. Next-day
 visit exercises the portal's normal return flow.
 
 **Save comment + scene** stores the comment, exact scene/poses and a rendered PNG.

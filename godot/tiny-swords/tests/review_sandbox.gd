@@ -16,6 +16,7 @@ func run() -> void:
 	game.get_window().focus_entered.emit()
 	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review keeps the system cursor visible after regaining focus')
 	await check_library(game)
+	await check_contacts(game)
 	game.seed_scene()
 	game.apply_items()
 	game.refresh_review_ui()
@@ -92,8 +93,11 @@ func check_library(game) -> void:
 	game.palette_search.clear()
 	game.palette_search.text_changed.emit('')
 	var initial: Dictionary = game.scene_state()
+	var isolated: Dictionary = initial.duplicate(true)
+	isolated.items = [isolated.items[0]]
+	isolated.items[0].point = [origin.x-200,origin.y+180]
 	for i in game.palette.item_count:
-		game.apply_scene(initial)
+		game.apply_scene(isolated)
 		game.apply_items()
 		game.palette.select(i)
 		game.choose_palette_item()
@@ -120,6 +124,105 @@ func check_library(game) -> void:
 				game.undo_review()
 				check(game.layout.bridges.is_empty(),'Undo restores the terrain before bridge placement')
 		await process_frame
+	game.apply_scene(initial)
+	game.apply_items()
+	game.history_states.clear()
+
+func choose_kind(game, kind: String, variant: int = 1) -> void:
+	for i in game.palette.item_count:
+		var choice: Dictionary = game.tool_choices[int(game.palette.get_item_metadata(i))]
+		if choice.kind==kind and int(choice.variant)==variant:
+			game.palette.select(i)
+			game.choose_palette_item()
+			return
+	check(false,'Missing tool '+kind)
+
+func check_contacts(game) -> void:
+	var origin: Vector2 = game.ORIGIN_POINT
+	var initial: Dictionary = game.scene_state()
+	game.items = [game.items[0]]
+	game.items[0].point = [origin.x-200,origin.y+180]
+	game.apply_items()
+	choose_kind(game,'land_rock',4)
+	game.place_at(origin)
+	var rock: Dictionary = game.selected_item()
+	var face: PackedVector2Array = game.layout.rock_footprint(game.slot_for(rock))
+	var middle := Vector2.ZERO
+	for vertex in face: middle+=vertex
+	middle/=face.size()
+	var original_pawn: Vector2 = game.item_point(game.items[0])
+	var history_size: int = game.history_states.size()
+	choose_kind(game,'pawn')
+	game.place_at(middle)
+	check(game.item_point(game.items[0])==original_pawn,'Click placement cannot put the pawn inside a rock face')
+	check(game.history_states.size()==history_size,'Rejected placement does not consume undo history')
+	check(not game.rejected_item.is_empty(),'Rejected placement exposes a red contact preview')
+	game.selected_id = int(game.items[0].id)
+	check(not game.move_selected(middle,false),'Drag movement cannot enter a blocked rock contact')
+	game.x_input.set_value_no_signal(middle.x-origin.x)
+	game.y_input.set_value_no_signal(middle.y-origin.y)
+	game.set_coordinate(0)
+	check(game.item_point(game.items[0])==original_pawn,'Coordinate entry keeps the last valid position when blocked')
+	check(is_equal_approx(game.x_input.value,original_pawn.x-origin.x),'Rejected coordinates restore the fields to the accepted position')
+	var safe := origin+Vector2(-50,middle.y-origin.y)
+	for x in range(-50,50):
+		var candidate := Vector2(origin.x+x,middle.y)
+		if game.contact_rules.error_for(game.layout,game.items,game.items[0],candidate,int(game.items[0].id)).is_empty() and not game.contact_rules.error_for(game.layout,game.items,game.items[0],candidate+Vector2.RIGHT,int(game.items[0].id)).is_empty():
+			safe = candidate
+			break
+	check(game.move_selected(safe),'A clear point beside the footprint is accepted')
+	game.nudge(Vector2.RIGHT)
+	check(game.item_point(game.items[0])==safe,'A one-pixel nudge cannot cross a solid contact boundary')
+	check(game.move_selected(origin+Vector2(0,-25)),'The rock silhouette above its contact stays available for behind-rock perspective')
+	choose_kind(game,'land_rock',1)
+	var count: int = game.items.size()
+	game.place_at(origin+Vector2(0,3))
+	check(game.items.size()==count,'Objects cannot partially overlap another object contact')
+	choose_kind(game,'stairs')
+	var cells: Dictionary = game.layout.cells.duplicate()
+	game.place_at(origin)
+	check(game.layout.cells==cells,'A staircase cannot remove flat support from an existing object')
+	choose_kind(game,'land_rock',1)
+	game.place_at(origin+Vector2(0,90))
+	check(game.items.size()==count+1,'Clear supported object placement still succeeds')
+	var new_rock: Dictionary = game.selected_item()
+	check(game.move_selected(game.item_point(new_rock)+Vector2(0.1,0)),'Moving an object ignores its own old contact')
+	game.undo_review()
+	check(game.item_point(game.selected_item())==origin+Vector2(0,90),'Undo retains exact valid coordinates')
+	game.apply_scene(initial)
+	game.apply_items()
+	game.history_states.clear()
+	await check_contact_variants(game)
+	await process_frame
+
+func check_contact_variants(game) -> void:
+	var initial: Dictionary = game.scene_state()
+	var isolated: Dictionary = initial.duplicate(true)
+	isolated.items = [isolated.items[0]]
+	var origin: Vector2 = game.ORIGIN_POINT
+	isolated.items[0].point = [origin.x-200,origin.y+180]
+	for kind in ['land_rock','tree','house','logs']:
+		for variant in range(1,7 if kind=='logs' else 5):
+			game.apply_scene(isolated)
+			game.apply_items()
+			choose_kind(game,kind,variant)
+			game.place_at(origin)
+			var item: Dictionary = game.selected_item()
+			check(item.kind==kind,'Contact fixture placed '+kind)
+			var slot: Vector2i = game.slot_for(item)
+			var patch := PackedVector2Array()
+			match kind:
+				'land_rock': patch = game.layout.rock_footprint(slot)
+				'tree': patch = game.layout.tree_footprint(origin,game.layout.TREE_VARIANTS[variant-1])
+				'house': patch = game.layout.house_footprint(slot)
+				'logs': patch = game.layout.log_footprint(slot)
+			var inside := Vector2.ZERO
+			for vertex in patch: inside+=vertex
+			inside/=patch.size()
+			choose_kind(game,'pawn')
+			game.place_at(inside)
+			check(game.item_point(game.items[0])==Vector2(isolated.items[0].point[0],isolated.items[0].point[1]),'Pawn placement respects %s %d native contact'%[kind,variant])
+			await process_frame
 	game.apply_scene(initial)
 	game.apply_items()
 	game.history_states.clear()

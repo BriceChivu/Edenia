@@ -48,6 +48,10 @@ var panning := false
 var pan_start := Vector2.ZERO
 var pan_origin := Vector2.ZERO
 var contact_status: Label
+var contact_rules = preload('res://tools/review_contacts.gd').new()
+var placement_warning := ''
+var rejected_item: Dictionary = {}
+var rejected_point := Vector2.ZERO
 
 func _ready() -> void:
 	use_system_cursor = true
@@ -322,7 +326,10 @@ func rebuild_review() -> void:
 	mark_dirty()
 
 func push_history() -> void:
-	history_states.append(scene_state())
+	record_history(scene_state())
+
+func record_history(state: Dictionary) -> void:
+	history_states.append(state)
 	if history_states.size()>40: history_states.pop_front()
 
 func scene_state() -> Dictionary:
@@ -335,6 +342,7 @@ func scene_state() -> Dictionary:
 	return {'items':items.duplicate(true),'tiles':tiles,'bridges':bridges,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y],'effect_clock':effect_clock,'portal_clock':portal_event.frame_clock}
 
 func apply_scene(state: Dictionary) -> void:
+	clear_contact_warning()
 	effect_clock = float(state.get('effect_clock',0))
 	portal_event.frame_clock = float(state.get('portal_clock',0))
 	items = state.get('items',[]).duplicate(true)
@@ -418,6 +426,7 @@ func arrange_review() -> void:
 	game_camera.force_update_scroll()
 
 func set_playing(value: bool) -> void:
+	clear_contact_warning()
 	placing = false
 	dragging = false
 	if value == playing: return
@@ -469,8 +478,7 @@ func review_input(event: InputEvent) -> void:
 			if not item.is_empty():
 				var point := ground_from_pointer()+drag_offset
 				point = point.snapped(Vector2.ONE*(0.1 if Input.is_key_pressed(KEY_SHIFT) else 1.0))
-				item.point = [point.x,point.y]
-				rebuild_review()
+				move_selected(point,false)
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
@@ -533,7 +541,19 @@ func review_unhandled_input(event: InputEvent) -> void:
 func place_at(point: Vector2) -> void:
 	var choice := selected_choice()
 	if choice.is_empty(): return
-	push_history()
+	if choice.kind not in ['grass','stairs','water','bridge']:
+		var candidate := {'kind':choice.kind,'variant':int(choice.variant)}
+		var ignored := -1
+		if choice.kind in ['pawn','portal']:
+			for existing in items:
+				if existing.kind==choice.kind: ignored=int(existing.id)
+		if not accept_contact(candidate,point.snapped(Vector2.ONE),ignored): return
+	clear_contact_warning()
+	var previous_errors := {}
+	if choice.kind in ['grass','stairs','water','bridge']:
+		for item in items:
+			if contact_rules.active(item): previous_errors[int(item.id)] = contact_rules.error_for(layout,items,item,item_point(item),int(item.id))
+	var previous_scene := scene_state()
 	var cell: Vector2i = layout.cell_at(point)
 	if choice.kind == 'bridge':
 		var height := maxf(64,floor_input.value*64)
@@ -564,27 +584,58 @@ func place_at(point: Vector2) -> void:
 	else:
 		selected_id = insert_item(choice.kind,int(choice.variant),point.snapped(Vector2.ONE))
 		if choice.get('stump',false): selected_item().stump = true
+	for item in items:
+		if previous_errors.get(int(item.id),'invalid')!='': continue
+		var reason: String = contact_rules.error_for(layout,items,item,item_point(item),int(item.id))
+		if not reason.is_empty():
+			apply_scene(previous_scene)
+			reject_contact(choice,point,'Terrain change blocked: '+reason)
+			return
+	record_history(previous_scene)
 	placing = false
 	place_button.text = 'Place selected item'
 	rebuild_review()
-	status_label.text = 'Placed. Enter X / Y or use arrow keys (Shift = 0.1 px).'
+	status_label.text = 'Placed on the game grid.' if choice.kind in ['grass','stairs','water','bridge'] else 'Placed. Enter X / Y or use arrow keys (Shift = 0.1 px).'
+
+func clear_contact_warning() -> void:
+	placement_warning = ''
+	rejected_item.clear()
+	if overlay != null: overlay.queue_redraw()
+
+func accept_contact(item: Dictionary, point: Vector2, ignored_id: int = -1) -> bool:
+	var reason: String = contact_rules.error_for(layout,items,item,point,ignored_id)
+	if reason.is_empty(): return true
+	reject_contact(item,point,reason)
+	return false
+
+func reject_contact(item: Dictionary, point: Vector2, reason: String) -> void:
+	placement_warning = reason
+	rejected_item = item.duplicate(true)
+	rejected_point = point
+	refresh_review_ui()
+	status_label.text = reason+' Choose a clear contact area.'
+
+func move_selected(point: Vector2, record_undo: bool = true) -> bool:
+	if playing or selected_item().is_empty(): return false
+	var item := selected_item()
+	if not accept_contact(item,point,int(item.id)): return false
+	if record_undo: push_history()
+	clear_contact_warning()
+	item.point = [point.x,point.y]
+	rebuild_review()
+	return true
 
 func nudge(offset: Vector2) -> void:
 	if playing or selected_item().is_empty(): return
-	push_history()
-	var item := selected_item()
-	var point := item_point(item)+offset
-	item.point = [snappedf(point.x,0.1),snappedf(point.y,0.1)]
-	rebuild_review()
+	move_selected((item_point(selected_item())+offset).snapped(Vector2.ONE*0.1))
 
 func set_coordinate(_value: float) -> void:
 	if updating_ui or playing or selected_item().is_empty(): return
-	push_history()
-	selected_item().point = [x_input.value+ORIGIN_POINT.x,y_input.value+ORIGIN_POINT.y]
-	rebuild_review()
+	move_selected(Vector2(x_input.value+ORIGIN_POINT.x,y_input.value+ORIGIN_POINT.y))
 
 func remove_item() -> void:
 	if playing or selected_item().is_empty(): return
+	clear_contact_warning()
 	if selected_item().kind == 'pawn':
 		status_label.text = 'The scene keeps one pawn. Move it or change its carry state.'
 		return
@@ -665,6 +716,7 @@ func refresh_review_ui() -> void:
 		color_input.select(int(item.color))
 	if contact_status != null:
 		contact_status.text = 'Feet: '+('clear ground' if layout.walkable_point(item_point(item),item.kind in ['sheep','chicken']) else 'overlaps solid contact / water') if item.get('kind','') in ['pawn','sheep','chicken'] else 'Ground marker: exact object anchor'
+		if not placement_warning.is_empty(): contact_status.text = placement_warning
 	color_input.disabled = playing or item.get('kind','') not in ['pawn','house']
 	facing_input.disabled = playing
 	x_input.editable = not playing
@@ -950,6 +1002,8 @@ func filter_palette() -> void:
 	choose_palette_item()
 
 func choose_palette_item() -> void:
+	clear_contact_warning()
+	if model_ready: refresh_review_ui()
 	placing = false
 	var choice := selected_choice()
 	if floor_input != null and choice.has('floor'): floor_input.value = choice.floor
