@@ -19,8 +19,11 @@ static func frame_bounds(texture: Texture2D, columns: int, rows: int) -> Rect2:
 	return bounds
 
 static func sprite_bounds(world, sprite: Sprite2D) -> Rect2:
-	var bounds := frame_bounds(sprite.texture, sprite.hframes, sprite.vframes)
-	var size := sprite.texture.get_size() / Vector2(sprite.hframes, sprite.vframes)
+	return texture_bounds(world, sprite, sprite.texture, sprite.hframes, sprite.vframes)
+
+static func texture_bounds(world, sprite, texture: Texture2D, columns: int, rows: int) -> Rect2:
+	var bounds := frame_bounds(texture, columns, rows)
+	var size := texture.get_size() / Vector2(columns, rows)
 	if sprite.flip_h: bounds.position.x = size.x - bounds.end.x
 	if sprite.flip_v: bounds.position.y = size.y - bounds.end.y
 	bounds.position += sprite.offset - (size / 2.0 if sprite.centered else Vector2.ZERO)
