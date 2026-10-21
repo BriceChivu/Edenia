@@ -20,6 +20,7 @@ function harness({ signedIn = true, change = false, fail = false, retire = false
   const before = snapshot(current)
   const context = vm.createContext({
     IS_SANDBOX: false, STORAGE_KEY: 'test', youtubeMetadataBudget: null,
+    document: { hidden: false }, showToast: () => () => {},
     learnerProfileLifecycleAuthority: signedIn ? {} : null,
     getPortableProfileSnapshot: unavailableSnapshot ? () => null : snapshot,
     loadState: () => structuredClone(current),

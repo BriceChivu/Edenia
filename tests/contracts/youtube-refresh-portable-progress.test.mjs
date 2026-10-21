@@ -41,6 +41,7 @@ function createRefreshHarness(options = {}) {
   const savedEnvelopes = []
   const saveOptions = []
   const renders = []
+  const notices = []
   const context = vm.createContext({
     IS_SANDBOX: false,
     learnerProfileLifecycleAuthority: options.signedIn ? {} : null,
@@ -90,7 +91,11 @@ function createRefreshHarness(options = {}) {
     formatSkippedShortsMessage: () => '',
     trackEdeniaEvent() {},
     trackRefreshCompleted() {},
-    showToast() {},
+    showToast: (message, type, options) => {
+      const notice = { message, type, options, dismissed: false }
+      notices.push(notice)
+      return () => { notice.dismissed = true }
+    },
     scheduleYoutubeAutoRefresh() {},
     t: key => key
   })
@@ -99,7 +104,7 @@ function createRefreshHarness(options = {}) {
     sourceBetween('function mergeFetchedVideos(', '\nfunction formatSkippedShortsMessage('),
     sourceBetween('async function refreshFeed(', '\nasync function refreshAddedChannel(')
   ].join('\n'), context)
-  return { profile, savedEnvelopes, saveOptions, renders,
+  return { profile, savedEnvelopes, saveOptions, renders, notices,
     refresh: options => context.refreshFeed({ silent: true, ...options }) }
 }
 
@@ -178,4 +183,12 @@ test('manual unchanged feed refreshes retain their explicit diagnostic history',
   await h.refresh({ trigger: 'manual' })
   assert.notEqual(h.saveOptions[0].syncCloud, false)
   assert.equal(h.profile.activityLog.length, 1)
+})
+
+test('automatic channel refresh shows and clears a persistent updating notice', async () => {
+  const harness = createRefreshHarness()
+  await harness.refresh({ silent: true })
+  assert.equal(harness.notices[0].message, 'toast.refreshUpdating')
+  assert.equal(harness.notices[0].options.durationMs, 0)
+  assert.equal(harness.notices[0].dismissed, true)
 })
