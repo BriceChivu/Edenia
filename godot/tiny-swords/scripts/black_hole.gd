@@ -12,6 +12,7 @@ const ATLAS = preload("res://assets/black-hole/portal.png")
 const NO_CELL := Vector2i(999, 999)
 const BASE_SCALE := Vector2(0.24, 0.24)
 const HOVER_HEIGHT := 48.0
+const MIN_LEVEL := 6
 const ABSORPTION_SECONDS := 0.9
 const RADIUS := 21.0
 var world
@@ -102,6 +103,7 @@ func start_visit(day: int = State.today()) -> void:
 	visited = true
 	var state: Dictionary = world.layout.black_hole
 	if state.is_empty():
+		if world.layout.level < MIN_LEVEL: return
 		world.layout.black_hole = State.initial(day, randi_range(14, 28))
 		world.save_layout()
 		return
@@ -170,7 +172,7 @@ func choose_cell() -> Vector2i:
 	return candidates.pick_random()
 
 func open(day: int = State.today(), cell: Vector2i = NO_CELL) -> bool:
-	if not world.black_hole_enabled: return false
+	if not world.black_hole_enabled or world.layout.level < MIN_LEVEL: return false
 	if not world.layout.black_hole.is_empty() and world.layout.black_hole.phase != "idle": return false
 	if cell == NO_CELL: cell = choose_cell()
 	if not clear_cells().has(cell): return false
@@ -227,7 +229,8 @@ func _process(delta: float) -> void:
 	var now := Time.get_unix_time_from_system()
 	# The host/browser can suspend this same scene while the island is away.
 	# Treat a resumed visit like reopening, without a midnight interruption.
-	if not visited or (last_process_at > 0 and now - last_process_at > 60): start_visit()
+	var newly_eligible: bool = world.layout.level >= MIN_LEVEL and world.layout.black_hole.is_empty()
+	if not visited or newly_eligible or (last_process_at > 0 and now - last_process_at > 60): start_visit()
 	last_process_at = now
 	var state: Dictionary = world.layout.black_hole
 	if state.is_empty() or state.phase == "idle":

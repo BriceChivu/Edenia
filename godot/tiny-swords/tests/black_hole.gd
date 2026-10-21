@@ -25,6 +25,19 @@ func run() -> void:
 	check(game.layout.black_hole.is_empty(), "Disabled rollout does not schedule an event")
 	check(not portal.open(20000), "Disabled rollout cannot open a portal")
 	game.black_hole_enabled = true
+	for level in range(1, 6):
+		game.layout.level = level
+		portal.start_visit(20000)
+		check(game.layout.black_hole.is_empty() and not portal.open(20000), "Level %d neither schedules nor opens the event" % level)
+		game.layout.black_hole = State.initial(19000, 0)
+		portal.start_visit(20000)
+		check(game.layout.black_hole.phase == "idle", "Level %d cannot open an older expired schedule" % level)
+		game.layout.black_hole = {}
+	game.layout.level = 6
+	portal._process(0.0)
+	check(game.layout.black_hole.get("phase") == "idle" and game.layout.black_hole.next_day >= State.today() + 14 and game.layout.black_hole.next_day <= State.today() + 28, "Reaching level six during a visit starts the rare schedule")
+	check(portal.open(20000), "Level six is eligible to open a portal")
+	check(game.restore_saved_layout(meadow.snapshot()), "Level gate checks retain the populated meadow")
 	check(not portal.spot_visible(Vector2i(2, 2)), "Grass behind a tree canopy cannot host the floating portal")
 	check(not portal.spot_visible(Vector2i(-4, -3)), "Grass behind a house cannot host the floating portal")
 	check(portal.open(20000), "Portal opens on clear reachable grass")
