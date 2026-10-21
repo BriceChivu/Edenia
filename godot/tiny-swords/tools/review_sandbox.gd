@@ -446,7 +446,7 @@ func arrange_review() -> void:
 	panel.position.y = 40
 	panel.size = Vector2(PANEL_WIDTH,viewport_size.y/ui.scale_ui-40)
 	game_camera.zoom = Vector2.ONE * zoom_control.value * ui.scale_ui
-	game_camera.position = view_center-Vector2(PANEL_WIDTH/(2*zoom_control.value),40)
+	game_camera.position = view_center-Vector2(panel.size.x/(2*zoom_control.value),40)
 	game_camera.force_update_scroll()
 
 func set_playing(value: bool) -> void:
@@ -494,8 +494,8 @@ func review_input(event: InputEvent) -> void:
 			finish_problem_rectangle(get_global_mouse_position())
 			get_viewport().set_input_as_handled()
 			return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and (panning or event.position.x > PANEL_WIDTH*ui.scale_ui):
-		if event.pressed and event.position.x > PANEL_WIDTH*ui.scale_ui:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and (panning or event.position.x > panel.get_global_rect().end.x):
+		if event.pressed and event.position.x > panel.get_global_rect().end.x:
 			panning = true
 			pan_start = event.position
 			pan_origin = view_center
@@ -1035,6 +1035,8 @@ func build_review_ui() -> void:
 	column.add_child(note_text)
 	button('Save comment + scene',save_comment,column)
 	note_list = OptionButton.new()
+	note_list.fit_to_longest_item = false
+	note_list.clip_text = true
 	column.add_child(note_list)
 	button('Load selected comment scene',load_comment,column)
 	button('Export scene & reviews',export_reviews,column)
@@ -1148,7 +1150,7 @@ func show_all_items() -> void:
 		var point := item_point(item)-Vector2(0,contact_rules.height(layout,item_point(item)))
 		bounds = bounds.merge(Rect2(point-Vector2(90,160),Vector2(180,200)))
 	view_center = bounds.get_center()+Vector2(0,40)
-	var area: Vector2 = get_viewport_rect().size/ui.scale_ui-Vector2(PANEL_WIDTH+32,80)
+	var area: Vector2 = get_viewport_rect().size/ui.scale_ui-Vector2(panel.size.x+32,80)
 	zoom_control.value = clampf(minf(area.x/bounds.size.x,area.y/bounds.size.y),0.1,1.6)
 	arrange_review()
 	mark_dirty()
