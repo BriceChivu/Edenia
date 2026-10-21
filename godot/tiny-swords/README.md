@@ -1465,3 +1465,35 @@ never reads a learner profile. The ordinary localhost:8037 Playground also has
 Portal meadow, Open portal and Next-day visit controls. Native scene:
 `res://scenes/black_hole_preview.tscn`. Focused lifecycle/persistence check:
 `Godot --headless --path godot/tiny-swords --script res://tests/black_hole.gd`.
+
+## Precise local scene review
+
+Run `node scripts/preview-tiny-swords-review.mjs` and open
+`http://localhost:8048/`, or run `previews/review_sandbox.tscn` with F6.
+This separate Godot editor is excluded from the normal game export. It starts
+with a populated grass island, both bush sizes, a tree, a rock, the pawn and animals.
+Choose any tree/rock variant, bush, flower, animal, log pile, house, black hole,
+water decoration or terrain piece, then click **Place selected item** and a point
+in the scene. Several objects can occupy the same tile for close comparisons.
+
+Select an item in the list or drag its ground marker. X/Y are relative to the
+island's central ground anchor, in game pixels. Arrow keys or the -X/-Y/+X/+Y
+buttons nudge one pixel; Shift nudges 0.1 pixels. The coordinate fields also accept
+0.1 pixels. Right-drag pans, the wheel/slider zooms, and **Focus selected** centers
+the selected item. **Contacts** shows the game's actual solid ground polygons.
+Free arrangement can intentionally overlap contacts; the actor status identifies
+blocked feet. **Play scene** uses real movement, harvesting, holds and portal
+mechanics. **Pause & arrange** freezes actors, animations and effects. Next-day
+visit exercises the portal's normal return flow.
+
+**Save comment + scene** stores the comment, exact scene/poses and a rendered PNG.
+Saved comments can restore their scene. **Export scene & reviews** downloads JSON
+with the current scene, all notes and screenshots. Browser persistence uses the
+separate `edenia-precise-island-review-v1` key, and native persistence uses
+`user://precise-island-review.json`; neither writes Edenia learner profiles or
+production island saves. The local audit server may additionally archive that
+same review document on disk through its loopback-only review endpoint.
+
+Focused checks: `res://tests/review_sandbox.gd` (fractional placement, two rocks on
+one tile, native collisions, receiving tree shadows, JSON restore, pause, undo,
+and, with a renderer, comment screenshot capture and scene restore).

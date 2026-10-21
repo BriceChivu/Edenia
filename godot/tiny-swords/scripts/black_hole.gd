@@ -436,7 +436,7 @@ func release_one() -> bool:
 	var token := generation
 	var actor_ref: WeakRef = weakref(actor)
 	animate_copy(copy, visual_center(), copy.position, true)
-	get_tree().create_timer(ABSORPTION_SECONDS).timeout.connect(func():
+	get_tree().create_timer(ABSORPTION_SECONDS, false).timeout.connect(func():
 		var live = actor_ref.get_ref()
 		if token != generation or live == null or live.is_queued_for_deletion(): return
 		live.set_process(true)

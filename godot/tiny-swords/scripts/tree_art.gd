@@ -38,7 +38,7 @@ static func shadow_ground(layout: Layout, cell: Vector2i) -> Dictionary:
 	for y in range(-2, 3):
 		for x in range(-2, 3):
 			var delta := Vector2i(x, y)
-			var neighbor := cell + delta
+			var neighbor := layout.cell_at(layout.tree_position(cell)) + delta
 			if layout.cells.has(neighbor) and layout.cells[neighbor] != "stairs" and layout.height_at(neighbor) == height:
 				ground[delta] = true
 	return ground

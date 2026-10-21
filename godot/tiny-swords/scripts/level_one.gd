@@ -12,6 +12,7 @@ const WaterFall = preload("res://scripts/water_fall.gd")
 const SPAWN := Vector2(576, 240)
 const CURSOR := preload("res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_02.png")
 var water_phase: WaterPhase = WaterPhase.READY
+var water_fall_generation := 0
 @onready var pawn = $World/Pawn
 @onready var splash: AnimatedSprite2D = $WaterSplash
 
@@ -54,6 +55,8 @@ func fall_into_water(point: Vector2) -> void:
 	await perform_water_fall(edge, direction, 0.0, SPAWN, 0.0)
 
 func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn: Vector2, spawn_height: float) -> void:
+	water_fall_generation += 1
+	var generation := water_fall_generation
 	water_phase = WaterPhase.FALLING
 	pawn.set_physics_process(false)
 	pawn.sprite.stop()
@@ -73,10 +76,13 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 			splash_started.emit()
 	, 0.0, 7 * WaterFall.FRAME_SECONDS, 7 * WaterFall.FRAME_SECONDS)
 	await motion.finished
+	if generation != water_fall_generation: return
 	await splash.animation_finished
+	if generation != water_fall_generation: return
 	splash.hide()
 	water_phase = WaterPhase.WAITING
-	await get_tree().create_timer(RESPAWN_DELAY).timeout
+	await get_tree().create_timer(RESPAWN_DELAY, false).timeout
+	if generation != water_fall_generation or water_phase != WaterPhase.WAITING: return
 	water_phase = WaterPhase.RESPAWNING
 	var location := respawn_location(spawn, spawn_height)
 	spawn = location.position
@@ -90,6 +96,7 @@ func perform_water_fall(start: Vector2, direction: Vector2, height: float, spawn
 	var appear := create_tween()
 	appear.tween_property(pawn.sprite, "modulate:a", 1.0, 0.25)
 	await appear.finished
+	if generation != water_fall_generation: return
 	pawn.set_physics_process(true)
 	water_phase = WaterPhase.READY
 	respawned.emit()
