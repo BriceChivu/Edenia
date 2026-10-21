@@ -436,7 +436,7 @@ func ground_from_pointer() -> Vector2:
 
 func review_input(event: InputEvent) -> void:
 	if not model_ready: return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and (panning or event.position.x > PANEL_WIDTH*ui.scale_ui):
 		if event.pressed and event.position.x > PANEL_WIDTH*ui.scale_ui:
 			panning = true
 			pan_start = event.position
@@ -467,7 +467,7 @@ func review_input(event: InputEvent) -> void:
 			return
 	if event is InputEventKey and event.pressed and not event.echo and not playing:
 		var focus := get_viewport().gui_get_focus_owner()
-		if focus is LineEdit or focus is TextEdit or focus is ItemList or focus is OptionButton: return
+		if focus is LineEdit or focus is TextEdit or focus is ItemList or focus is OptionButton or focus is Range: return
 		var offset := Vector2.ZERO
 		match event.keycode:
 			KEY_LEFT: offset.x = -1
@@ -494,6 +494,8 @@ func review_unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var point := ground_from_pointer()
+		var ui_focus := get_viewport().gui_get_focus_owner()
+		if ui_focus != null: ui_focus.release_focus()
 		if placing:
 			place_at(point)
 		else:
