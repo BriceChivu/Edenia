@@ -40,3 +40,8 @@ func _draw() -> void:
 		var projected := point-Vector2(0,height)
 		draw_line(projected-Vector2(5,5),projected+Vector2(5,5),Color('#ff463a'),1.5)
 		draw_line(projected-Vector2(-5,5),projected+Vector2(-5,5),Color('#ff463a'),1.5)
+
+	if review.problem_rect.has_area():
+		var width: float = 2.0/review.game_camera.zoom.x
+		draw_rect(review.problem_rect,Color(1,0.18,0.1,0.08),true)
+		draw_rect(review.problem_rect,Color('#ff463a'),false,width)

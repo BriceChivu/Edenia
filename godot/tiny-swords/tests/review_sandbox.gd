@@ -15,6 +15,8 @@ func run() -> void:
 	game.get_window().focus_exited.emit()
 	game.get_window().focus_entered.emit()
 	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review keeps the system cursor visible after regaining focus')
+	check_panel_wheel(game)
+	check_problem_rectangle(game)
 	await check_library(game)
 	await check_contacts(game)
 	game.seed_scene()
@@ -64,14 +66,30 @@ func run() -> void:
 	check(game.layout.decorations.has(b),'Undo restores the removed object')
 	check(paused,'Pause freezes scene tweens and animations as well as actors')
 	if DisplayServer.get_name() != 'headless':
+		game.toggle_annotation_mode()
+		game.begin_problem_rectangle(game.ORIGIN_POINT-Vector2(55,30))
+		game.finish_problem_rectangle(game.ORIGIN_POINT+Vector2(75,80))
+		var saved_rectangle: Rect2 = game.problem_rect
 		game.note_text.text = 'Review test: exact placement and captured frame'
 		await game.save_comment()
 		check(game.notes.size()==1 and str(game.notes[0].screenshot_png).length()>100,'A comment captures a rendered PNG and restorable scene')
+		var captured := Image.new()
+		captured.load_png_from_buffer(Marshalls.base64_to_raw(game.notes[0].screenshot_png))
+		var corner: Vector2 = game.overlay.get_global_transform_with_canvas()*saved_rectangle.position
+		var visible_outline := false
+		for y in range(int(corner.y)-2,int(corner.y)+3):
+			for x in range(int(corner.x)-2,int(corner.x)+3):
+				if x>=0 and y>=0 and x<captured.get_width() and y<captured.get_height():
+					var pixel := captured.get_pixel(x,y)
+					visible_outline = visible_outline or (pixel.r>0.85 and pixel.g<0.4 and pixel.b<0.35)
+		check(visible_outline,'Saved comment PNG visibly contains the problem rectangle')
 		var saved_point: Vector2 = game.item_point(game.selected_item())
 		game.nudge(Vector2(10,0))
+		game.clear_problem_rectangle()
 		game.note_list.select(1)
 		game.load_comment()
 		check(game.item_point(game.selected_item()).is_equal_approx(saved_point),'Loading a comment restores its exact placement')
+		check(game.problem_rect==saved_rectangle,'Loading a comment restores its annotated rectangle')
 	game.notes.clear()
 	game.dirty_seconds = -1
 	game.queue_free()
@@ -225,4 +243,44 @@ func check_contact_variants(game) -> void:
 			await process_frame
 	game.apply_scene(initial)
 	game.apply_items()
+	game.history_states.clear()
+
+func check_panel_wheel(game) -> void:
+	var original: float = game.zoom_control.value
+	for playing in [false,true]:
+		game.set_playing(playing)
+		for button in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+			var wheel := InputEventMouseButton.new()
+			wheel.button_index = button
+			wheel.pressed = true
+			wheel.position = Vector2(game.panel.get_global_rect().end.x-1,100)
+			var before: float = game.zoom_control.value
+			game.review_input(wheel)
+			game.review_unhandled_input(wheel)
+			check(is_equal_approx(game.zoom_control.value,before),'Panel wheel never changes island zoom in Arrange or Play')
+			wheel.position.x = game.panel.get_global_rect().end.x+1
+			game.review_unhandled_input(wheel)
+			check(not is_equal_approx(game.zoom_control.value,before),'Scene wheel still changes island zoom')
+	game.set_playing(false)
+	game.zoom_control.value = original
+	game.history_states.clear()
+
+func check_problem_rectangle(game) -> void:
+	var initial: Dictionary = game.scene_state()
+	var origin: Vector2 = game.ORIGIN_POINT
+	game.toggle_annotation_mode()
+	check(game.marking_problem and not game.playing,'Marking a problem pauses the scene')
+	game.begin_problem_rectangle(origin+Vector2(60,50))
+	game.update_problem_rectangle(origin-Vector2(30,40))
+	game.finish_problem_rectangle(origin-Vector2(30,40))
+	var expected := Rect2(origin-Vector2(30,40),Vector2(90,90))
+	check(game.problem_rect==expected and not game.marking_problem,'Reverse-direction dragging produces a normalized problem rectangle')
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(game.scene_state()))
+	game.clear_problem_rectangle()
+	check(not game.problem_rect.has_area(),'Clear removes the current annotation')
+	game.undo_review()
+	check(game.problem_rect==expected,'Undo restores an annotation')
+	game.apply_scene(saved)
+	check(game.problem_rect==expected,'JSON roundtrip keeps exact annotation bounds')
+	game.apply_scene(initial)
 	game.history_states.clear()

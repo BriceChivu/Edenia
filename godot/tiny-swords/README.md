@@ -1486,7 +1486,9 @@ Select an item in the list or drag its ground marker. X/Y are relative to the
 island's central ground anchor, in game pixels. Arrow keys or the -X/-Y/+X/+Y
 buttons nudge one pixel; Shift nudges 0.1 pixels. The coordinate fields also accept
 0.1 pixels. Right-drag pans, the wheel/slider zooms, and **Focus selected** centers
-the selected item. **Contacts** shows the game's actual solid ground polygons.
+the selected item. Scrolling over the sidebar only scrolls its controls; wheel
+zoom is limited to the scene (drag the zoom slider to adjust it from the panel).
+**Contacts** shows the game's actual solid ground polygons.
 Arrange placement, dragging, coordinates and nudges reject overlapping solid
 contact areas and unsupported land contacts. Blocked attempts keep the previous
 position and show a red contact outline. Tree canopies, rock top facets, foliage
@@ -1495,7 +1497,10 @@ newly unsupported contacts too. Existing saved scenes and comments stay intact.
 **Play scene** uses real movement, harvesting, holds and portal mechanics. **Pause & arrange** freezes actors, animations and effects. Next-day
 visit exercises the portal's normal return flow.
 
-**Save comment + scene** stores the comment, exact scene/poses and a rendered PNG.
+**Mark problem area** pauses the scene and lets you drag a rectangle around an
+issue. **Clear box** removes it, and Undo restores the previous annotation.
+Write your comment, then **Save comment + scene** stores the rectangle, comment,
+exact scene/poses and a rendered PNG with the rectangle visible.
 Saved comments can restore their scene. **Export scene & reviews** downloads JSON
 with the current scene, all notes and screenshots. Browser persistence uses the
 separate `edenia-precise-island-review-v1` key, and native persistence uses

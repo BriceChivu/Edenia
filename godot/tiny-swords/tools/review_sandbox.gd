@@ -52,6 +52,12 @@ var contact_rules = preload('res://tools/review_contacts.gd').new()
 var placement_warning := ''
 var rejected_item: Dictionary = {}
 var rejected_point := Vector2.ZERO
+var problem_rect := Rect2()
+var problem_start := Vector2.ZERO
+var problem_previous := Rect2()
+var marking_problem := false
+var drawing_problem := false
+var annotation_button: Button
 
 func _ready() -> void:
 	use_system_cursor = true
@@ -95,6 +101,8 @@ func _ready() -> void:
 	status_label.text = 'Select an item. Drag its ground marker or enter exact X / Y.'
 
 func seed_scene() -> void:
+	stop_annotation_mode()
+	problem_rect = Rect2()
 	layout.cells.clear()
 	layout.elevations.clear()
 	layout.stair_directions.clear()
@@ -339,9 +347,12 @@ func scene_state() -> Dictionary:
 		tiles.append([cell.x,cell.y,layout.cells[cell],layout.height_at(cell),layout.stair_directions.get(cell,Vector2i.RIGHT).x])
 	var bridges: Array = []
 	for cell in layout.bridges: bridges.append([cell.x,cell.y,layout.bridges[cell]])
-	return {'items':items.duplicate(true),'tiles':tiles,'bridges':bridges,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y],'effect_clock':effect_clock,'portal_clock':portal_event.frame_clock}
+	return {'items':items.duplicate(true),'tiles':tiles,'bridges':bridges,'selected':selected_id,'next_id':next_id,'zoom':zoom_control.value if zoom_control != null else 2.0,'view_center':[view_center.x,view_center.y],'effect_clock':effect_clock,'portal_clock':portal_event.frame_clock,'problem_rect':[problem_rect.position.x,problem_rect.position.y,problem_rect.size.x,problem_rect.size.y]}
 
 func apply_scene(state: Dictionary) -> void:
+	stop_annotation_mode()
+	var rectangle: Array = state.get('problem_rect',[0,0,0,0])
+	problem_rect = Rect2(float(rectangle[0]),float(rectangle[1]),float(rectangle[2]),float(rectangle[3])).abs()
 	clear_contact_warning()
 	effect_clock = float(state.get('effect_clock',0))
 	portal_event.frame_clock = float(state.get('portal_clock',0))
@@ -426,6 +437,7 @@ func arrange_review() -> void:
 	game_camera.force_update_scroll()
 
 func set_playing(value: bool) -> void:
+	stop_annotation_mode()
 	clear_contact_warning()
 	placing = false
 	dragging = false
@@ -459,6 +471,15 @@ func ground_from_pointer() -> Vector2:
 
 func review_input(event: InputEvent) -> void:
 	if not model_ready: return
+	if drawing_problem:
+		if event is InputEventMouseMotion:
+			update_problem_rectangle(get_global_mouse_position())
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed:
+			finish_problem_rectangle(get_global_mouse_position())
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and (panning or event.position.x > PANEL_WIDTH*ui.scale_ui):
 		if event.pressed and event.position.x > PANEL_WIDTH*ui.scale_ui:
 			panning = true
@@ -497,6 +518,8 @@ func review_input(event: InputEvent) -> void:
 			KEY_UP: offset.y = -1
 			KEY_DOWN: offset.y = 1
 			KEY_ESCAPE:
+				if drawing_problem: problem_rect = problem_previous
+				stop_annotation_mode()
 				placing = false
 				place_button.text = 'Place selected item'
 		if offset != Vector2.ZERO:
@@ -508,6 +531,7 @@ func review_input(event: InputEvent) -> void:
 func review_unhandled_input(event: InputEvent) -> void:
 	if not model_ready: return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+		if panel.get_global_rect().has_point(event.position): return
 		zoom_control.value += 0.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.15
 		get_viewport().set_input_as_handled()
 		return
@@ -518,7 +542,9 @@ func review_unhandled_input(event: InputEvent) -> void:
 		var point := ground_from_pointer()
 		var ui_focus := get_viewport().gui_get_focus_owner()
 		if ui_focus != null: ui_focus.release_focus()
-		if placing:
+		if marking_problem:
+			begin_problem_rectangle(get_global_mouse_position())
+		elif placing:
 			place_at(point)
 		else:
 			var best := 24.0/zoom_control.value
@@ -840,6 +866,7 @@ func build_review_ui() -> void:
 	filter_palette()
 	place_button = button('Place selected item',func():
 		if playing: return
+		stop_annotation_mode()
 		placing = true
 		place_button.text = 'Click the scene to place · Esc cancels'
 		status_label.text = 'Click an exact location in the scene.'
@@ -905,6 +932,7 @@ func build_review_ui() -> void:
 	var zoom_row := row(column)
 	label('Zoom',zoom_row)
 	zoom_control = HSlider.new()
+	zoom_control.scrollable = false
 	zoom_control.min_value = 0.35
 	zoom_control.max_value = 4
 	zoom_control.step = 0.05
@@ -939,7 +967,13 @@ func build_review_ui() -> void:
 		portal_event.preview_tomorrow()
 		mark_dirty()
 	, column)
-	label('Arrows: 1 px · Shift: 0.1 px\nRight-drag: pan. Wheel: zoom.',column)
+	label('Arrows: 1 px · Shift: 0.1 px\nRight-drag: pan. Scene wheel: zoom.',column)
+	var annotation_row := row(column)
+	annotation_button = button('Mark problem area',toggle_annotation_mode,annotation_row)
+	button('Clear box',clear_problem_rectangle,annotation_row)
+	var annotation_help := label('Drag a box, write a comment, then save.',column)
+	annotation_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	annotation_help.custom_minimum_size.x = 240
 	note_text = TextEdit.new()
 	note_text.custom_minimum_size = Vector2(240,76)
 	note_text.placeholder_text = 'What happened? What did you expect?'
@@ -1010,3 +1044,46 @@ func choose_palette_item() -> void:
 	if place_button != null:
 		place_button.disabled = playing or choice.is_empty()
 		place_button.text = 'Place selected item'
+
+func stop_annotation_mode() -> void:
+	marking_problem = false
+	drawing_problem = false
+	if annotation_button != null: annotation_button.text = 'Mark problem area'
+	if overlay != null: overlay.queue_redraw()
+
+func toggle_annotation_mode() -> void:
+	var enabled := not marking_problem
+	set_playing(false)
+	marking_problem = enabled
+	annotation_button.text = 'Draw box · Esc cancels' if enabled else 'Mark problem area'
+	status_label.text = 'Drag a rectangle around the problem, then write and save your comment.' if enabled else 'Rectangle tool cancelled.'
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus != null: focus.release_focus()
+
+func begin_problem_rectangle(point: Vector2) -> void:
+	push_history()
+	problem_previous = problem_rect
+	problem_start = point
+	problem_rect = Rect2(point,Vector2.ZERO)
+	drawing_problem = true
+	overlay.queue_redraw()
+
+func update_problem_rectangle(point: Vector2) -> void:
+	problem_rect = Rect2(problem_start,point-problem_start).abs()
+	overlay.queue_redraw()
+
+func finish_problem_rectangle(point: Vector2) -> void:
+	update_problem_rectangle(point)
+	if problem_rect.size.x*game_camera.zoom.x<3 or problem_rect.size.y*game_camera.zoom.y<3:
+		problem_rect = problem_previous
+	stop_annotation_mode()
+	persist_review()
+	status_label.text = 'Problem area marked. Write your comment, then Save comment + scene.'
+
+func clear_problem_rectangle() -> void:
+	stop_annotation_mode()
+	if not problem_rect.has_area(): return
+	push_history()
+	problem_rect = Rect2()
+	overlay.queue_redraw()
+	mark_dirty()
