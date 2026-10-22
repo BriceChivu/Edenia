@@ -6,6 +6,7 @@ const Layout = preload("res://scripts/terrain_layout.gd")
 var layout
 var bridges: Array[Vector2i] = []
 var moving_animal := false
+var contact_half_size := Vector2.ZERO
 var allowed: Array[Vector2i] = []
 var targets: Array[Vector2] = []
 var start := Vector2.ZERO
@@ -160,7 +161,7 @@ func clear(start: Vector2, end: Vector2) -> bool:
 			if not crossings.has(key): crossings[key] = layout.can_cross(previous,current)
 			if not crossings[key]: return false
 		previous = current
-		if not point_contacts.has(point): point_contacts[point] = layout.terrain_feet_free(point,moving_animal)
+		if not point_contacts.has(point): point_contacts[point] = layout.terrain_feet_free(point,moving_animal,contact_half_size)
 		if not point_contacts[point]: return false
 	return true
 

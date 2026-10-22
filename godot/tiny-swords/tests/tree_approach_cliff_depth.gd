@@ -10,6 +10,9 @@ func capture() -> Image:
 func run() -> void:
 	root.size = Vector2i(1152,496)
 	var w = load("res://previews/level_four.tscn").instantiate()
+	w.camera_save_enabled=false
+	w.preview_save_enabled=false
+	w.island_start_enabled=false
 	root.add_child(w)
 	await process_frame
 	w.set_process(false)
@@ -17,6 +20,7 @@ func run() -> void:
 	w.terrain.editing = false
 	w.harvesting.set_process(false)
 	w.pawn.set_physics_process(false)
+	w.game_camera.position=Vector2(576,248)
 	w.game_camera.zoom = Vector2.ONE
 	w.game_camera.force_update_scroll()
 	for node in w.find_children("*", "", true, false):

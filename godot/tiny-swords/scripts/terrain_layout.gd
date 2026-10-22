@@ -801,12 +801,12 @@ func terrain_supports_contact(patch: PackedVector2Array, height: float, allow_mi
 				return false
 	return true
 
-func terrain_feet_free(point: Vector2, moving_animal: bool = false) -> bool:
+func terrain_feet_free(point: Vector2, moving_animal: bool = false, contact_half_size := Vector2.ZERO) -> bool:
 	if not cells.has(cell_at(point)):
 		return false
-	var half_depth := 2.0 if moving_animal else 7.0
-	var first := cell_at(point - Vector2(7, half_depth))
-	var last := cell_at(point + Vector2(7, half_depth))
+	var feet := contact_half_size if contact_half_size!=Vector2.ZERO else Vector2(7,2 if moving_animal else 7)
+	var first := cell_at(point-feet)
+	var last := cell_at(point+feet)
 	if first == last:
 		return true
 	var height := surface_height(point)
@@ -817,7 +817,7 @@ func terrain_feet_free(point: Vector2, moving_animal: bool = false) -> bool:
 		if can_cross(cell_at(point), cell_at(point) + diagonal):
 			low_corner = true
 			break
-	for offset in [Vector2(-7, -half_depth), Vector2(7, -half_depth), Vector2(-7, half_depth), Vector2(7, half_depth)]:
+	for offset in [Vector2(-feet.x,-feet.y),Vector2(feet.x,-feet.y),Vector2(-feet.x,feet.y),feet]:
 		var sole: Vector2 = point + offset
 		if not cells.has(cell_at(sole)):
 			return false
@@ -853,19 +853,28 @@ func settle_terrain_contacts() -> void:
 			tree_stumps.erase(cell)
 			tree_cut_remaining.erase(cell)
 			stock.tree += 1
+	settle_animal_contacts()
+
+func settle_animal_contacts() -> void:
 	for kind in ["sheep", "chicken"]:
 		var animals: Array[Vector2] = sheep if kind == "sheep" else chickens
 		for index in range(animals.size() - 1, -1, -1):
 			var original := animals[index]
-			if terrain_feet_free(original, true) and not rocks_block_segment(original, original, true):
+			var feet: Vector2 = preload("res://scripts/animal_contact.gd").SHEEP if kind=="sheep" else preload("res://scripts/animal_contact.gd").CHICKEN
+			if terrain_feet_free(original,true,feet) and not rocks_block_segment(original, original, true):
 				continue
 			var best := Vector2.INF
 			var distance := INF
-			var origin := ORIGIN + Vector2(cell_at(original)) * SIZE
+			var owner := cell_at(original)
+			var origin := ORIGIN + Vector2(owner)*SIZE
+			# A rear foot outside an upper landing belongs on the lower ground
+			# behind it, rather than being lifted onto a cliff by its center.
+			if original.y-feet.y<origin.y and cells.has(owner+Vector2i.UP) and height_at(owner+Vector2i.UP)<height_at(owner):
+				origin-=Vector2(0,SIZE)
 			for y in range(4, SIZE, 4):
 				for x in range(8, SIZE - 7, 4):
 					var candidate := origin + Vector2(x, y)
-					if candidate.distance_squared_to(original) >= distance or not walkable_point(candidate, true):
+					if candidate.distance_squared_to(original) >= distance or not walkable_point(candidate, true) or not terrain_feet_free(candidate,true,feet):
 						continue
 					best = candidate
 					distance = candidate.distance_squared_to(original)

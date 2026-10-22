@@ -2,6 +2,7 @@ extends Sprite2D
 
 const Art = preload("res://scripts/level_five_art.gd")
 const BushContact = preload("res://scripts/bush_contact.gd")
+const AnimalContact = preload("res://scripts/animal_contact.gd")
 const IDLE_SECONDS := 2.4
 const GRASS_SECONDS := 1.2
 var world
@@ -39,7 +40,7 @@ func _ready() -> void:
 	scale = Vector2.ONE * art_scale
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	position = animal_positions()[sheep_index]
-	var height: float = world.ground_height(position)
+	var height: float = AnimalContact.standing_height(world.layout,position,foot_contact_size())
 	offset = art_offset - Vector2(0, height / art_scale)
 	z_index = int(ceil(height / 64.0))
 	destination = position
@@ -48,6 +49,18 @@ func _ready() -> void:
 
 func animal_positions() -> Array[Vector2]:
 	return world.layout.sheep
+
+func foot_contact_size() -> Vector2:
+	return AnimalContact.SHEEP
+
+func feet_supported(point: Vector2) -> bool:
+	return world.layout.terrain_feet_free(point,true,foot_contact_size())
+
+func feet_supported_segment(start: Vector2, target: Vector2) -> bool:
+	var samples := maxi(1,ceili(start.distance_to(target)/4.0))
+	for index in range(samples+1):
+		if not feet_supported(start.lerp(target,float(index)/samples)): return false
+	return true
 
 func bush_depth_offset(bush: Sprite2D) -> float:
 	return BushContact.depth_offset(self, bush, false)
@@ -58,7 +71,7 @@ func tile_target(cell: Vector2i) -> Vector2:
 	# contact footprint, including variants planted off-center.
 	for offset in [Vector2.ZERO, Vector2(0, 20), Vector2(0, -20), Vector2(-20, 0), Vector2(20, 0), Vector2(-20, 20), Vector2(20, 20), Vector2(-20, -20), Vector2(20, -20)]:
 		var target: Vector2 = center + offset
-		if world.layout.walkable_point(target, true):
+		if world.layout.walkable_point(target, true) and feet_supported(target):
 			return target
 	return Vector2.INF
 
@@ -67,7 +80,7 @@ func route_to_tile(start: Vector2, cell: Vector2i) -> Array[Vector2]:
 	var route: Array[Vector2] = []
 	if not target.is_finite():
 		return route
-	if world.clear_segment(start, target, true):
+	if world.clear_segment(start, target, true) and feet_supported_segment(start,target):
 		route.append(target)
 	else:
 		# Restrict the fine path to this one tile step so trunk detours do not
@@ -186,6 +199,7 @@ func try_wandering() -> void:
 			face_destination()
 
 func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
+	if not feet_supported_segment(start,target): return false
 	# Displacement may leave a newly built house, but never solid terrain.
 	return (world.terrain_clear_segment(start, target, true) and not world.layout.rocks_block_segment(start, target, true)) if house_fleeing else world.clear_segment(start, target, true)
 
@@ -286,7 +300,7 @@ func advance(delta: float, now: float) -> void:
 		hframes = 12 if grazing else 6
 		var phase_time := resting_time - idle_seconds if grazing else animation_time
 		frame = int(phase_time * 10) % hframes
-	var height: float = world.ground_height(position)
+	var height: float = AnimalContact.standing_height(world.layout,position,foot_contact_size())
 	offset = art_offset - Vector2(0, height / art_scale)
 	z_index = int(ceil(height / 64.0))
 

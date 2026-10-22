@@ -117,6 +117,8 @@ func start_visit(day: int = State.today()) -> void:
 		if cell != NO_CELL: state.cell = [cell.x, cell.y]
 		world.save_layout()
 	elif state.phase == "idle" and day >= int(state.next_day):
+		# The deadline can pass while absent. Its first appearance belongs to
+		# this actual visit, not the missed scheduled day.
 		open(day)
 	apply_pawn_state()
 	update_portal()
@@ -450,7 +452,7 @@ func release_one() -> bool:
 	var actor_ref: WeakRef = weakref(actor)
 	animate_copy(copy, visual_center(), copy.position, true)
 	depth.update(world, portal, effects)
-	get_tree().create_timer(ABSORPTION_SECONDS).timeout.connect(func():
+	get_tree().create_timer(ABSORPTION_SECONDS, false).timeout.connect(func():
 		var live = actor_ref.get_ref()
 		if token != generation or live == null or live.is_queued_for_deletion(): return
 		live.set_process(true)

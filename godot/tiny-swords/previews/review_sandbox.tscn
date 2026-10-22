@@ -1,0 +1,5 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="PackedScene" path="res://scenes/level_two_preview.tscn" id="Base"]
+[ext_resource type="Script" path="res://tools/review_sandbox.gd" id="Review"]
+[node name="ReviewSandbox" instance=ExtResource("Base")]
+script = ExtResource("Review")

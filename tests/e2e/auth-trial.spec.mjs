@@ -697,7 +697,10 @@ test('switching verified trial owners requires explicit replacement and remounts
   const fixture=await owned(page,{indexedDb:true,engine:true})
   await page.goto('./?internal_test=1')
   await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  // The legacy island first migrates inside Godot. Its startup save must be
+  // protected before this synchronized-owner replacement scenario begins.
+  await expect.poll(()=>fixture.commits.length,{timeout:40000}).toBeGreaterThan(0)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   const previous=await page.evaluate(()=>JSON.stringify(loadState()))
   const nextOwner='923e4567-e89b-42d3-a456-426614174009'
   const nextState=structuredClone(fixture.head().envelope.profile)

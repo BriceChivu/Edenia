@@ -5,6 +5,8 @@ uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_n
 uniform vec2 screen_span_uv = vec2(0.1);
 uniform float motion = 1.0;
 uniform float facing = -1.0;
+// Negative keeps the normal engine clock; local review can freeze a frame.
+uniform float effect_time = -1.0;
 
 vec4 flowing_pixels(vec2 screen_uv, vec2 p, float radius, float age, float front) {
 	// Inverse advection: sample farther out as time advances, so the actual
@@ -21,7 +23,7 @@ void fragment() {
 	float radius = length(p);
 	if (radius >= 1.0) { discard; }
 	float front = smoothstep(-0.35, 0.15, p.x * facing);
-	float phase = fract(TIME * 0.5);
+	float phase = fract((effect_time < 0.0 ? TIME : effect_time) * 0.5);
 	float other_phase = fract(phase + 0.5);
 	float weight = 1.0 - abs(phase * 2.0 - 1.0);
 	// Two staggered streams hide their resets. Each screen sample stays nearest

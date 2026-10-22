@@ -404,6 +404,34 @@ After Godot edits, with the preview server already running, update only the game
 
 Refresh Edenia to load the new export.
 
+## Precise scene movement review
+
+The isolated `previews/review_sandbox.tscn` editor has a Movement review panel.
+Choose a pawn, sheep, or chicken and select **Walk around each element**.
+The actor visits every other active scene item in ascending item-ID order,
+circling its contact outline where reachable. Water, unsupported feet, cliffs,
+and other solid contacts constrain the route; disconnected objects receive the
+closest reachable approach. Planning runs in small batches so it can be cancelled.
+
+Speed ranges from 0.25× to 8×. **Pause**, **Rewind**, **Start**, the timeline,
+and **Jump to an element** inspect the same deterministic route. Follow mode
+focuses the camera on the actor. The other scene elements stay still; harvesting
+and black-hole absorption remain part of the separate **Play scene** mode.
+Marking a problem rectangle pauses movement without discarding the route, and
+comments retain the exact native pose. Arranging or rebuilding the scene ends
+the route. **End route** retains the current position; **Undo** restores its
+starting scene. Playback is an editor session, not a gameplay save format.
+
+The pawn stays in the actor selector even after absorption. Selecting it restores
+it to the closest clear supported location and removes it from the portal queue.
+The eleven completed October scene comments are archived by exact ID, timestamp,
+and text; newer feedback stays active. Exports retain those originals under
+`resolved_notes`, and new comment IDs continue above both active and archived IDs.
+
+Build with `node scripts/preview-tiny-swords-review.mjs --build-only`. Focused
+checks: `tests/review_tour.gd` (set `TINY_SWORDS_TOUR_STOCK=1` to include the
+fully populated island) and `tests/review_sandbox.gd`.
+
 ## Game ownership and Edenia integration
 
 All Tiny Swords game changes must be implemented in the Godot project at
@@ -1448,6 +1476,9 @@ six, or first visiting an eligible island, schedules its first appearance 14–2
 local calendar days later. Levels one through five cannot open a portal, even
 if an older saved schedule has already elapsed. Existing occupants retain their
 return sequence.
+The due date remains pending when the user does not visit. For example, an event
+due Sunday first appears on the next actual visit and records that day as its
+opening day; the missed days never simulate captures or consume the event.
 The next eligible visit opens it on reachable, clear grass with at least three
 same-floor grass neighbors; small islands wait until suitable land is available.
 Spawn checks reserve the full airborne effect and its grass tile against the
@@ -1481,3 +1512,54 @@ never reads a learner profile. The ordinary localhost:8037 Playground also has
 Portal meadow, Open portal and Next-day visit controls. Native scene:
 `res://scenes/black_hole_preview.tscn`. Focused lifecycle/persistence check:
 `Godot --headless --path godot/tiny-swords --script res://tests/black_hole.gd`.
+
+## Precise local scene review
+
+Run `node scripts/preview-tiny-swords-review.mjs` and open
+`http://localhost:8048/`, or run `previews/review_sandbox.tscn` with F6.
+This separate Godot editor is excluded from the normal game export. It starts
+with a stocked island: one example of every house direction, both staircase
+directions, all five grass floors, the rope bridge, sheep, chicken, both ducks,
+all four trees and stumps, each rock/bush/flower variant, one to six logs, and the
+black hole. The unique pawn has a **Carry a log** switch. Missing examples are
+added around an existing arrangement without changing its items or comments.
+Play/Pause stays in the fixed top toolbar. The element library and scene list
+are hidden; click artwork or a ground marker to select an item directly.
+The last example of each item cannot be removed. Pausing after gameplay restores
+missing samples. The bridge is enabled only in this review editor.
+
+Terrain samples can be dragged or positioned with X/Y and snap to the native
+64-pixel grid; arrows move them one tile. Moving them restores the underlying
+terrain. Other objects retain fractional placement. Several objects can occupy
+the same tile when their contact areas stay clear. **Show island** fits the full
+stocked island, and **Focus selected** zooms in for detailed review.
+
+Select an item in the list or drag its ground marker. X/Y are relative to the
+island's central ground anchor, in game pixels. Arrow keys or the -X/-Y/+X/+Y
+buttons nudge one pixel; Shift nudges 0.1 pixels. The coordinate fields also accept
+0.1 pixels. Right-drag pans, the wheel/slider zooms, and **Focus selected** centers
+the selected item. Scrolling over the sidebar only scrolls its controls; wheel
+zoom is limited to the scene (drag the zoom slider to adjust it from the panel).
+**Contacts** shows the game's actual solid ground polygons.
+Arrange placement, dragging, coordinates and nudges reject overlapping solid
+contact areas and unsupported land contacts. Blocked attempts keep the previous
+position and show a red contact outline. Tree canopies, rock top facets, foliage
+and other decorative pixels do not enlarge solid contacts. Terrain edits reject
+newly unsupported contacts too. Existing saved scenes and comments stay intact.
+**Play scene** uses real movement, harvesting, holds and portal mechanics. **Pause & arrange** freezes actors, animations and effects. Next-day
+visit exercises the portal's normal return flow.
+
+**Mark problem area** pauses the scene and lets you drag a rectangle around an
+issue. **Clear box** removes it, and Undo restores the previous annotation.
+Write your comment, then **Save comment + scene** stores the rectangle, comment,
+exact scene/poses and a rendered PNG with the rectangle visible.
+Saved comments can restore their scene. **Export scene & reviews** downloads JSON
+with the current scene, all notes and screenshots. Browser persistence uses the
+separate `edenia-precise-island-review-v1` key, and native persistence uses
+`user://precise-island-review.json`; neither writes Edenia learner profiles or
+production island saves. The local audit server may additionally archive that
+same review document on disk through its loopback-only review endpoint.
+
+Focused checks: `res://tests/review_sandbox.gd` (fractional placement, two rocks on
+one tile, native collisions, receiving tree shadows, JSON restore, pause, undo,
+and, with a renderer, comment screenshot capture and scene restore).
