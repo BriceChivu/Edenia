@@ -4,7 +4,7 @@ const Visibility = preload("res://scripts/portal_visibility.gd")
 const Depth = preload("res://scripts/portal_depth.gd")
 const LENS_SHADER = preload("res://shaders/black_hole_lens.gdshader")
 const ACTOR_SHADER = preload("res://shaders/black_hole_actor.gdshader")
-const LENS_SIZE := Vector2(320, 240)
+const LENS_SIZE := Vector2(136.08, 136.08) # Original 567px frame at BASE_SCALE.
 const PORTAL_CLEARANCE := Vector2(144, 160)
 const State = preload("res://scripts/black_hole_state.gd")
 const SHEEP = preload("res://scripts/sheep_visual.gd")
@@ -49,14 +49,16 @@ func _ready() -> void:
 	var outline := PackedVector2Array()
 	for index in 32:
 		var angle := TAU * index / 32.0
-		outline.append(Vector2(cos(angle) * 30.0, sin(angle) * 6.0))
+		outline.append(Vector2(cos(angle) * 22.5, sin(angle) * 6.0))
 	ground_shadow.polygon = outline
 	ground_shadow.color = Color(0, 0, 0, 0.2) # Match the existing animal ground shadows.
 	ground_shadow.z_index = 91 # Grounded shadow stays outside the screen warp.
 	ground_shadow.hide()
 	add_child(ground_shadow)
 	backbuffer = BackBufferCopy.new()
-	backbuffer.copy_mode = BackBufferCopy.COPY_MODE_RECT
+	# Screen-space samples must remain valid through canvas zoom and stretch.
+	# A tight regional copy can return transparent pixels in Compatibility.
+	backbuffer.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
 	backbuffer.z_index = 89
 	backbuffer.hide()
 	add_child(backbuffer)
@@ -66,6 +68,7 @@ func _ready() -> void:
 	lens.z_index = 90
 	lens.material = ShaderMaterial.new()
 	lens.material.shader = LENS_SHADER
+	lens.material.set_shader_parameter("particle_mask", preload("res://assets/black-hole/particle_flow_mask.png"))
 	lens.hide()
 	add_child(lens)
 
@@ -257,13 +260,12 @@ func _process(delta: float) -> void:
 	frame_clock += delta
 	portal.position = visual_center()
 	lens.position = portal.position - LENS_SIZE / 2.0
-	# Copy only the local lens plus its sampling margin, not the whole canvas.
-	backbuffer.rect = Rect2(lens.position, LENS_SIZE).grow(24.0)
 	var lens_transform := lens.get_global_transform_with_canvas()
 	var viewport_size := get_viewport_rect().size
 	lens.material.set_shader_parameter("screen_span_uv", LENS_SIZE * Vector2(lens_transform.x.length(), lens_transform.y.length()) / viewport_size)
 	lens.material.set_shader_parameter("facing", -1.0 if state.get("facing_left", true) else 1.0)
 	lens.material.set_shader_parameter("motion", 0.0 if GamePresentation.reduced_motion else 1.0)
+	lens.material.set_shader_parameter("flow_time", frame_clock)
 	portal.frame = 0 if GamePresentation.reduced_motion else int(frame_clock * 10) % 8
 	update_shadow()
 	depth.update(world, portal, effects)
@@ -321,6 +323,9 @@ func sprite_copy(actor: Node2D) -> Sprite2D:
 	copy.flip_h = source.flip_h
 	copy.offset = source.offset
 	copy.position = source.global_position
+	# Preserve the original foot contact even when the sprite's origin sits
+	# above it (pawn) or its frame includes transparent padding (animals).
+	copy.set_meta("portal_contact_offset_y", actor.global_position.y - world.ground_height(actor.position) - source.global_position.y)
 	copy.scale = source.global_scale
 	copy.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	# Do not inherit a temporary front-of-portal elevation from a live animal.

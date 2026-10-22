@@ -33,6 +33,8 @@ func update(world, portal: Sprite2D, effects: Array) -> void:
 	for actor in actors:
 		if not is_instance_valid(actor) or actor.is_queued_for_deletion() or not actor.visible: continue
 		if (actor.position.x - portal.position.x) * direction < 0.0: continue
+		# The intake side alone does not make an actor foreground: a creature
+		# crossing above the airborne center passes behind the upper rim.
 		var source = world.pawn.sprite if actor == world.pawn else actor
 		var bounds := Rect2()
 		if source is AnimatedSprite2D:
@@ -42,6 +44,10 @@ func update(world, portal: Sprite2D, effects: Array) -> void:
 			# Distorted copies can use the whole frame, beyond its original ink.
 			bounds = (world.global_transform.affine_inverse() * source.global_transform) * source.get_rect() if effects.has(actor) else Visibility.sprite_bounds(world, source)
 		if not area.intersects(bounds): continue
+		var contact: Vector2 = actor.position
+		# Copies use the sprite origin, which can sit above its foot contact.
+		contact.y += float(actor.get_meta("portal_contact_offset_y", 0.0)) if effects.has(actor) else -world.ground_height(actor.position)
+		if contact.y < portal.position.y: continue
 		var parent_depth := effective_z(actor.get_parent()) if actor.z_as_relative else 0
 		var raised := effective_z(portal) + 1 - parent_depth
 		overrides.append({"actor": weakref(actor), "normal": actor.z_index, "raised": raised})

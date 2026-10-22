@@ -1,0 +1,197 @@
+extends SceneTree
+
+# Run with a real renderer: Godot --path godot/tiny-swords --script res://tests/black_hole_lens_render.gd
+var game
+
+func _initialize() -> void:
+	run.call_deferred()
+
+func freeze(node: Node) -> void:
+	node.process_mode = Node.PROCESS_MODE_DISABLED
+	node.set_process(false)
+	node.set_physics_process(false)
+	for child in node.get_children(): freeze(child)
+
+func capture() -> Image:
+	await process_frame
+	await process_frame
+	await RenderingServer.frame_post_draw
+	return root.get_texture().get_image()
+
+func run() -> void:
+	seed(123)
+	root.size = Vector2i(960, 640)
+	game = load("res://scenes/level_two_preview.tscn").instantiate()
+	game.preview_save_enabled = false
+	game.camera_save_enabled = false
+	root.add_child(game)
+	await process_frame
+	game.restore_saved_layout(preload("res://scripts/black_hole_meadow.gd").create().snapshot())
+	await process_frame
+	await process_frame
+	game.portal_event.open()
+	game.black_hole_enabled = true
+	game.portal_event.visited = false
+	game.portal_event.last_process_at = Time.get_unix_time_from_system()
+	for tween in get_processed_tweens():
+		if tween.is_valid(): tween.kill()
+	freeze(game)
+	for node in game.asset_nodes + game.tree_nodes + game.flora_nodes: node.hide()
+	game.pawn.hide()
+	game.get_node("Clouds").hide()
+	game.get_node("PassingCloud").hide()
+	game.ui.root.hide()
+	var event = game.portal_event
+	event.portal.scale = event.BASE_SCALE
+	game.game_camera.position = event.visual_center()
+	game.game_camera.zoom = Vector2.ONE * 2.0
+	game.game_camera.force_update_scroll()
+	await process_frame
+	# Keep the native focus/next-day visit callbacks outside this rendering fixture.
+	event.visited = false
+	event.lens.position = event.portal.position - event.LENS_SIZE / 2.0
+	var transform: Transform2D = event.lens.get_global_transform_with_canvas()
+	event.lens.material.set_shader_parameter("screen_span_uv", event.LENS_SIZE * Vector2(transform.x.length(), transform.y.length()) / root.get_visible_rect().size)
+	event.portal.hide()
+	event.ground_shadow.hide()
+	event.lens.hide()
+	var before := await capture()
+	event.lens.show()
+	event.lens.material.set_shader_parameter("facing", -1.0)
+	var after := await capture()
+	var center: Vector2 = root.get_stretch_transform() * event.lens.get_global_transform_with_canvas() * (event.LENS_SIZE / 2.0)
+	var failures := 0
+	var mask: Image = preload("res://assets/black-hole/particle_flow_mask.png").get_image()
+	var screen_transform: Transform2D = root.get_stretch_transform() * event.lens.get_global_transform_with_canvas()
+	var inverse := screen_transform.affine_inverse()
+	for facing in [-1.0, 1.0]:
+		event.lens.material.set_shader_parameter("facing", facing)
+		var rendered := await capture()
+		for side in [-1, 1]:
+			var changed := 0
+			var total := 0
+			for y in range(int(center.y) - 65, int(center.y) + 65):
+				for distance in range(55, 125):
+					var x: int = int(center.x) + side * distance
+					total += 1
+					if not before.get_pixel(x, y).is_equal_approx(rendered.get_pixel(x, y)): changed += 1
+			print("Facing %s, side %d: %d / %d distorted grass pixels" % [facing, side, changed, total])
+			var intake: bool = float(side) == facing
+			if (intake and changed < total / 10) or (not intake and changed > total / 100):
+				failures += 1
+				push_error("Only the grass in front of the portal may distort, in either facing")
+		var missing_background := 0
+		for y in range(int(center.y) - 65, int(center.y) + 65):
+			for x in range(int(center.x) - 125, int(center.x) + 125):
+				var original := before.get_pixel(x, y)
+				var pulled := rendered.get_pixel(x, y)
+				if original.g > 0.2 and pulled.r < 0.05 and pulled.g < 0.05 and pulled.b < 0.05:
+					missing_background += 1
+		print("Missing background samples: %d" % missing_background)
+		if missing_background > 10:
+			failures += 1
+			push_error("The lens must pull real grass, never transparent or black buffer edges")
+		var outside_trails := 0
+		for y in range(int(center.y) - 105, int(center.y) + 105):
+			for x in range(int(center.x) - 105, int(center.x) + 105):
+				var uv: Vector2 = (inverse * Vector2(x + 0.5, y + 0.5)) / event.LENS_SIZE
+				if facing > 0.0: uv.x = 1.0 - uv.x
+				var mx := clampi(int(uv.x * mask.get_width()), 2, mask.get_width() - 3)
+				var my := clampi(int(uv.y * mask.get_height()), 2, mask.get_height() - 3)
+				var near_trail := false
+				for dy in range(-2, 3):
+					for dx in range(-2, 3):
+						if mask.get_pixel(mx + dx, my + dy).r > 0.0: near_trail = true
+				if not near_trail and not before.get_pixel(x, y).is_equal_approx(rendered.get_pixel(x, y)):
+					outside_trails += 1
+		print("Outside the actual particle trails: %d changed pixels" % outside_trails)
+		if outside_trails > 10:
+			failures += 1
+			push_error("Grass between and beyond the particle trails must stay unchanged")
+		var outside_changes := 0
+		for y in range(int(center.y) - 70, int(center.y) + 70):
+			for distance in range(130, 180):
+				var x: int = int(center.x) + int(facing) * distance
+				if not before.get_pixel(x, y).is_equal_approx(rendered.get_pixel(x, y)): outside_changes += 1
+		print("Outside the incoming particle field: %d changed pixels" % outside_changes)
+		if outside_changes > 70:
+			failures += 1
+			push_error("Grass beyond the incoming particles must stay undistorted")
+	event.lens.material.set_shader_parameter("facing", -1.0)
+	var folder := ProjectSettings.globalize_path("res://../../test-results/black-hole-lens")
+	DirAccess.make_dir_recursive_absolute(folder)
+	before.save_png(folder.path_join("before.png"))
+	after.save_png(folder.path_join("after.png"))
+	event.portal.show()
+	event.ground_shadow.show()
+	var complete := await capture()
+	complete.save_png(folder.path_join("portal.png"))
+	# Save a close view at the user's screenshot scale, with real grass and
+	# the original particles. Keep this isolated from camera/input callbacks.
+	for node in game.asset_nodes + game.tree_nodes + game.flora_nodes: node.hide()
+	game.pawn.hide()
+	game.get_node("Clouds").hide()
+	game.get_node("PassingCloud").hide()
+	game.game_camera.zoom = Vector2.ONE * 5.0
+	game.game_camera.force_update_scroll()
+	await process_frame
+	transform = event.lens.get_global_transform_with_canvas()
+	event.lens.material.set_shader_parameter("screen_span_uv", event.LENS_SIZE * Vector2(transform.x.length(), transform.y.length()) / root.get_visible_rect().size)
+	event.lens.hide()
+	var close_before := await capture()
+	close_before.save_png(folder.path_join("close-before.png"))
+	event.lens.show()
+	for index in 24:
+		event.lens.material.set_shader_parameter("flow_time", index / 12.0)
+		event.portal.frame = int(index * 10.0 / 12.0) % 8
+		var frame := await capture()
+		frame.save_png(folder.path_join("flow-%02d.png" % index))
+	event.portal.frame = 0 # Compare the same GIF pose, excluding its jagged-rim animation.
+	var close_after := await capture()
+	close_after.save_png(folder.path_join("close-after.png"))
+	var dark_spots := 0
+	for y in range(60, 540):
+		for x in range(220, 370):
+			if close_before.get_pixel(x, y).g > 0.4 and close_after.get_pixel(x, y).g < 0.32:
+				dark_spots += 1
+	print("Dark spots introduced into the close-up grass: %d" % dark_spots)
+	if dark_spots > 10:
+		failures += 1
+		push_error("The grass lens must not pull dark scenery into the incoming trails")
+	var sheep: Sprite2D
+	for node in game.asset_nodes:
+		if node.get_script() == preload("res://scripts/sheep_visual.gd") and not node.is_queued_for_deletion():
+			sheep = node
+			break
+	sheep.position = event.portal.position + Vector2(-4, -18)
+	sheep.offset = sheep.art_offset
+	sheep.z_index = 0
+	sheep.show()
+	event.depth.update(game, event.portal, [])
+	var overlap := await capture()
+	overlap.save_png(folder.path_join("sheep-behind.png"))
+	# A dark source outside the particle mask represents nearby rock/actor ink.
+	# It may remain in the world, but it must not be imported into grass trails.
+	sheep.hide()
+	var dark_source := ColorRect.new()
+	dark_source.color = Color(0.06, 0.10, 0.09, 1.0)
+	dark_source.position = event.portal.position + Vector2(-82, 24)
+	dark_source.size = Vector2(14, 14)
+	dark_source.z_index = 1
+	game.get_node("World").add_child(dark_source)
+	event.lens.hide()
+	var source_baseline := await capture()
+	event.lens.material.set_shader_parameter("flow_time", 0.0)
+	event.lens.show()
+	var source_result := await capture()
+	var imported_dark := 0
+	for y in range(60, 540):
+		for x in range(220, 360):
+			if source_baseline.get_pixel(x, y).g > 0.4 and source_result.get_pixel(x, y).g < 0.32:
+				imported_dark += 1
+	print("Dark scenery imported from outside the field: %d pixels" % imported_dark)
+	if imported_dark > 10:
+		failures += 1
+		push_error("Dark source scenery must not become black spots in the grass")
+	dark_source.queue_free()
+	quit(0 if failures == 0 else 1)
