@@ -20,7 +20,7 @@ function svgElement(name, attrs, parent) {
 export function createHistoryChart(container, { t, locale, formatTime, requestAccess }) {
   const abort = new AbortController()
   const signal = abort.signal
-  let data, groups = [], viewport, overviewBounds, lockedOverview, access
+  let data, groups = [], viewport, access
   const unit = 'day'
   let mode = 'bar', frame = 0, inertia = 0, hover = null, gesture = null
   let visible = { video: true, anki: true }
@@ -30,9 +30,7 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   const labels = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })
   const tickLabels = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', month: 'short', day: 'numeric' })
   const monthLabels = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', month: 'short', year: 'numeric' })
-  const overviewLabels = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', month: 'short' })
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
-  const axisNumber = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 })
   const date = day => labels.format(new Date(Math.floor(day) * DAY_MS))
   const text = (selector, value) => { container.querySelector(selector).textContent = value }
   const button = (key, value, label) => {
@@ -43,16 +41,28 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     return node
   }
   // All translated copy is textContent; study data never becomes HTML.
-  container.innerHTML = `<div class="history-chart-heading"><span class="history-chart-range" aria-live="polite"></span><div class="history-chart-legend"></div></div>
-    <div class="history-chart-plot"><svg class="history-chart-svg" role="img"></svg><div class="history-chart-tooltip" role="tooltip" hidden></div></div>
-    <div class="history-chart-summary"><span class="history-chart-span"></span><div class="history-chart-detail" aria-live="polite"></div><div class="history-chart-segment" data-chart-modes></div></div>
-    <div class="history-chart-overview"><svg role="img"></svg></div>
+  container.innerHTML = `<div class="history-chart-heading"><span class="history-chart-range" aria-live="polite"></span><div class="history-chart-heading-controls"><div class="history-chart-segment" data-chart-modes></div><div class="history-chart-legend"></div></div></div>
+    <div class="history-chart-plot" tabindex="0"><svg class="history-chart-svg" role="img"></svg><div class="history-chart-tooltip" role="tooltip" hidden></div></div>
+    <div class="history-chart-summary"><span class="history-chart-span"></span><div class="history-chart-detail" aria-live="polite"></div></div>
     <button type="button" class="history-chart-access hidden"></button>`
   container.setAttribute('aria-label', t('history.chart.title'))
   const modeControls = container.querySelector('[data-chart-modes]')
   modeControls.setAttribute('role', 'group')
   modeControls.setAttribute('aria-label', t('history.chart.display'))
-  for (const name of ['bar', 'line']) modeControls.append(button('chartMode', name, t(`history.chart.${name}`)))
+  for (const name of ['bar', 'line']) {
+    const node = button('chartMode', name, '')
+    node.setAttribute('aria-label', t(`history.chart.${name}`))
+    node.title = t(`history.chart.${name}`)
+    const icon = svgElement('svg', { viewBox: '0 0 24 24', width: 23, height: 23, 'aria-hidden': 'true' }, node)
+    if (name === 'bar') {
+      for (const [x, y, h] of [[3, 12, 9], [10, 3, 18], [17, 8, 13]]) {
+        svgElement('rect', { x, y, width: 4, height: h, rx: 1, fill: 'currentColor' }, icon)
+      }
+    } else {
+      svgElement('path', { d: 'M3 18L9 11L14 14L21 5', fill: 'none', stroke: 'currentColor', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, icon)
+    }
+    modeControls.append(node)
+  }
   const legend = container.querySelector('.history-chart-legend')
   for (const key of ['video', 'anki']) {
     const node = button('chartSeries', key, '')
@@ -65,8 +75,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   const plot = container.querySelector('.history-chart-plot')
   const svg = container.querySelector('.history-chart-svg')
   const tooltip = container.querySelector('.history-chart-tooltip')
-  const overview = container.querySelector('.history-chart-overview')
-  const overviewSvg = overview.querySelector('svg')
   const accessButton = container.querySelector('.history-chart-access')
   accessButton.addEventListener('click', () => requestAccess(access.state), { signal })
   svg.setAttribute('aria-label', t('history.chart.description'))
@@ -79,7 +87,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   const timeAxis = svgElement('rect', { fill: 'transparent', 'data-chart-axis': '', class: 'history-chart-axis-drag' }, svg)
   const guide = svgElement('line', { class: 'history-chart-guide', visibility: 'hidden' }, svg)
   const markers = ['video', 'anki'].map(key => svgElement('circle', { r: 4, class: `history-chart-${key}-dot`, visibility: 'hidden' }, svg))
-  let overviewDrag = null
 
   function queue() {
     if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw() })
@@ -103,8 +110,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   function cancelGesture() {
     pointers.clear()
     gesture = null
-    overviewDrag = null
-    lockedOverview = null
     stopInertia()
     plot.classList.remove('is-dragging')
   }
@@ -123,7 +128,7 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
   }, { signal })
 
   plot.addEventListener('pointerdown', event => {
-    if (!data || !geometry || event.button !== 0 || overviewDrag) return
+    if (!data || !geometry || event.button !== 0) return
     // Native SVG dragging in WebKit can steal the remaining pointer stream.
     if (event.pointerType === 'mouse') event.preventDefault()
     stopInertia()
@@ -215,81 +220,31 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     } else zoom(Math.exp(clamp(event.deltaY * multiplier, -160, 160) * (event.ctrlKey ? .008 : .003)), anchor)
   }, { signal, passive: false })
 
-  const overviewFraction = event => {
-    const point = position(event, overview)
-    return clamp((point.x - 12) / Math.max(1, overview.clientWidth - 24), 0, 1)
-  }
-  overview.addEventListener('pointerdown', event => {
-    if (!data || !overviewBounds || event.button !== 0) return
-    if (event.pointerType === 'mouse') {
-      event.preventDefault()
-      event.target.closest('[data-chart-edge]')?.focus({ preventScroll: true })
-    }
-    cancelGesture()
-    const fraction = overviewFraction(event)
-    const span = overviewBounds.end - overviewBounds.start
-    const start = (viewport.start - overviewBounds.start) / span
-    const end = (viewport.end - overviewBounds.start) / span
-    const threshold = (event.pointerType === 'touch' ? 24 : 16) / (overview.clientWidth - 24)
-    const edge = Math.min(Math.abs(fraction - start), Math.abs(fraction - end)) <= threshold
-      ? Math.abs(fraction - start) < Math.abs(fraction - end) ? 'start' : 'end' : 'pan'
-    lockedOverview = { ...overviewBounds }
-    if (edge === 'pan' && (fraction < start || fraction > end)) {
-      const range = viewport.end - viewport.start
-      setRange(overviewBounds.start + span * fraction - range / 2, overviewBounds.start + span * fraction + range / 2)
-    }
-    overviewDrag = { fraction, span, edge, range: { ...viewport } }
-    overview.setPointerCapture(event.pointerId)
-  }, { signal })
-  overview.addEventListener('pointermove', event => {
-    if (!overviewDrag) return
-    const delta = (overviewFraction(event) - overviewDrag.fraction) * overviewDrag.span
-    const { range, edge } = overviewDrag
-    if (edge === 'start') setRange(Math.min(range.start + delta, range.end - 3), range.end)
-    else if (edge === 'end') setRange(range.start, Math.max(range.end + delta, range.start + 3))
-    else setRange(range.start + delta, range.end + delta)
-  }, { signal })
-  function releaseOverview() { overviewDrag = null; lockedOverview = null; queue() }
-  overview.addEventListener('pointerup', releaseOverview, { signal })
-  overview.addEventListener('pointercancel', releaseOverview, { signal })
-  overview.addEventListener('lostpointercapture', releaseOverview, { signal })
-  overview.addEventListener('keydown', event => {
-    const edge = event.target.dataset.chartEdge
-    if (!edge || !data) return
-    if (event.key === 'End') {
-      event.preventDefault()
-      stopInertia()
-      setRange(data.end - (viewport.end - viewport.start), data.end)
-      return
-    }
+  // Keep pan/zoom available to keyboard users after removing the navigator.
+  plot.addEventListener('keydown', event => {
+    if (!data) return
+    const span = viewport.end - viewport.start
     const amount = event.shiftKey ? 7 : 1
-    const delta = event.key === 'ArrowLeft' ? -amount : event.key === 'ArrowRight' ? amount : null
-    if (delta === null) return
+    if (!['ArrowLeft', 'ArrowRight', '+', '=', '-', 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
     stopInertia()
-    if (edge === 'start') setRange(Math.min(viewport.start + delta, viewport.end - 3), viewport.end)
-    else setRange(viewport.start, Math.max(viewport.end + delta, viewport.start + 3))
+    if (event.key === 'Home') setRange(data.start, data.start + span)
+    else if (event.key === 'End') setRange(data.end - span, data.end)
+    else if (event.key === '+' || event.key === '=') zoom(.8)
+    else if (event.key === '-') zoom(1.25)
+    else {
+      const delta = event.key === 'ArrowLeft' ? -amount : amount
+      setRange(viewport.start + delta, viewport.end + delta)
+    }
   }, { signal })
   const observer = new ResizeObserver(() => queue())
   observer.observe(plot)
-
-  const overviewArea = svgElement('path', { class: 'history-chart-overview-area' }, overviewSvg)
-  const selection = svgElement('rect', { class: 'history-chart-selection', rx: 5 }, overviewSvg)
-  const handles = ['start', 'end'].map(edge => {
-    const node = svgElement('g', { role: 'slider', tabindex: 0, 'data-chart-edge': edge,
-      'aria-label': t(`history.chart.${edge}Date`) }, overviewSvg)
-    svgElement('rect', { class: 'history-chart-handle-hit', width: 44, height: 48, y: 0 }, node)
-    svgElement('rect', { class: 'history-chart-handle', width: 12, height: 40, y: 4, rx: 4 }, node)
-    svgElement('line', { class: 'history-chart-handle-grip', y1: 16, y2: 32 }, node)
-    return node
-  })
-  const overviewAxis = svgElement('g', {}, overviewSvg)
 
   function draw() {
     if (!data || container.classList.contains('hidden')) return
     width = plot.clientWidth
     if (width < 10) return
-    const height = plot.clientHeight, left = width < 380 ? 48 : 60, right = width - 13, top = 24, bottom = height - 47
+    const height = plot.clientHeight, left = 0, right = width - 13, top = 24, bottom = height - 47
     geometry = { width, height, left, right, top, bottom, innerWidth: right - left }
     const span = viewport.end - viewport.start
     const x = day => left + (day - viewport.start) / span * (right - left)
@@ -305,10 +260,8 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     grid.replaceChildren()
     for (let value = 0; value <= yMaximum + niceStep / 2; value += niceStep) {
       svgElement('line', { x1: left, x2: right, y1: y(value), y2: y(value), class: 'history-chart-grid-line' }, grid)
-      svgElement('text', { x: left - 8, y: y(value) + 4, 'text-anchor': 'end' }, grid).textContent = axisNumber.format(value)
     }
     axes.replaceChildren()
-    svgElement('text', { x: left - 8, y: 12, 'text-anchor': 'end' }, axes).textContent = 'XP'
     const tickCount = width < 380 ? 3 : width < 600 ? 4 : 6
     const lastTick = { right: -Infinity, label: null }
     for (let i = 0; i < tickCount; i++) {
@@ -356,7 +309,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     container.querySelectorAll('[data-chart-series]').forEach(node => {
       if (node.tagName === 'BUTTON') node.setAttribute('aria-pressed', String(visible[node.dataset.chartSeries]))
     })
-    drawOverview()
     drawDetail(x, y)
   }
   function barGeometry(row, index, seriesCount, x) {
@@ -364,56 +316,6 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     const b = clamp(x(row.end), geometry.left, geometry.right)
     const bw = (b - a) * .76 / seriesCount
     return { bx: a + (b - a) * .12 + index * bw, w: Math.max(.4, bw - Math.min(1.3, bw * .15)) }
-  }
-  function drawOverview() {
-    const w = overview.clientWidth, h = 70, span = viewport.end - viewport.start
-    const context = Math.min(data.end - data.start, Math.max(120, span * 3))
-    const start = clamp(viewport.start - (context - span) / 2, data.start, data.end - context)
-    overviewBounds = lockedOverview || { start, end: start + context }
-    const scale = day => 12 + (day - overviewBounds.start) / (overviewBounds.end - overviewBounds.start) * (w - 24)
-    overviewSvg.setAttribute('viewBox', `0 0 ${w} ${h}`)
-    const from = Math.max(data.start, Math.floor(overviewBounds.start)), to = Math.min(data.end, Math.ceil(overviewBounds.end))
-    const stride = Math.max(1, Math.ceil((to - from) / w))
-    const points = []
-    for (let day = from; day < to; day += stride) {
-      let sum = 0
-      for (let offset = 0; offset < stride && day + offset < to; offset++) {
-        const row = data.days[day + offset - data.start]
-        sum += (visible.video ? row.video : 0) + (visible.anki ? row.anki : 0)
-      }
-      points.push({ day, value: sum / stride })
-    }
-    const peak = Math.max(1, ...points.map(row => row.value))
-    overviewArea.setAttribute('d', `M12,49${points.map(row => `L${scale(row.day).toFixed(1)},${(49 - row.value / peak * 38).toFixed(1)}`).join('')}L${w - 12},49Z`)
-    const a = scale(viewport.start), b = scale(viewport.end)
-    for (const [name, value] of Object.entries({ x: a, y: 4, width: Math.max(1, b - a), height: 44 })) selection.setAttribute(name, value)
-    handles.forEach((node, i) => {
-      const px = i ? b : a, edge = i ? 'end' : 'start'
-      node.querySelector('.history-chart-handle-hit').setAttribute('x', px - 22)
-      node.querySelector('.history-chart-handle').setAttribute('x', px - 6)
-      node.querySelector('line').setAttribute('x1', px)
-      node.querySelector('line').setAttribute('x2', px)
-      node.setAttribute('aria-valuemin', String(data.start))
-      node.setAttribute('aria-valuemax', String(data.end))
-      node.setAttribute('aria-valuenow', String(Math.round(viewport[edge])))
-      node.setAttribute('aria-valuetext', date(viewport[edge] - (i ? 1 : 0)))
-    })
-    overviewAxis.replaceChildren()
-    const count = w < 380 ? 3 : 5
-    const seen = new Set()
-    const crossesYear = new Date(overviewBounds.start * DAY_MS).getUTCFullYear() !== new Date((overviewBounds.end - 1) * DAY_MS).getUTCFullYear()
-    let lastRight = -Infinity
-    for (let i = 0; i < count; i++) {
-      const day = overviewBounds.start + (overviewBounds.end - overviewBounds.start) * (i + .5) / count
-      const label = context > 730 ? String(new Date(day * DAY_MS).getUTCFullYear())
-        : (crossesYear ? monthLabels : overviewLabels).format(new Date(day * DAY_MS))
-      if (seen.has(label)) continue
-      const node = svgElement('text', { x: scale(day), y: 67, 'text-anchor': 'middle' }, overviewAxis)
-      node.textContent = label
-      const box = node.getBBox()
-      if (box.x < 0 || box.x + box.width > w || box.x < lastRight + 6) node.remove()
-      else { seen.add(label); lastRight = box.x + box.width }
-    }
   }
   function drawDetail(x, y) {
     const inside = hover && hover.x >= geometry.left && hover.x <= geometry.right && hover.y <= geometry.bottom && hover.y >= geometry.top
@@ -426,7 +328,7 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     const summary = [t('history.chart.videoValue', { count: number.format(totals.video) }), t('history.chart.ankiValue', { count: number.format(totals.anki) })]
     const detail = container.querySelector('.history-chart-detail')
     // Hover is intentionally not a live-region announcement on every frame.
-    detail.setAttribute('aria-live', row || gesture || overviewDrag || inertia ? 'off' : 'polite')
+    detail.setAttribute('aria-live', row || gesture || inertia ? 'off' : 'polite')
     detail.textContent = row ? `${date(row.clipStart)} · ${summary.join(' · ')} · ${formatTime(row.seconds)} · ${t('history.chart.reviews', { count: number.format(row.reviews) })}`
       : `${t('history.chart.visibleXP')} · ${summary.join(' · ')}`
     if (!row) {
