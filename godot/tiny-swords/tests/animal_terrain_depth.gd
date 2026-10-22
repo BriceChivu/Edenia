@@ -14,9 +14,10 @@ func _initialize() -> void:
 	run.call_deferred()
 
 func capture() -> Image:
+	world.get_node("World")._process(0)
 	await process_frame
 	await process_frame
-	RenderingServer.force_draw()
+	await RenderingServer.frame_post_draw
 	return root.get_texture().get_image()
 
 func differences(a: Image, b: Image, mask: Image) -> int:
@@ -88,6 +89,7 @@ func terrain_mask(cell: Vector2i) -> Image:
 func run() -> void:
 	root.size = Vector2i(1152, 496)
 	world = load("res://scenes/level_two_preview.tscn").instantiate()
+	world.camera_save_enabled = false
 	world.island_start_enabled = false
 	world.preview_save_enabled = false
 	root.add_child(world)
@@ -95,6 +97,9 @@ func run() -> void:
 	world.set_process(false)
 	world.harvesting.set_process(false)
 	world.pawn.set_physics_process(false)
+	world.pawn.sprite.pause()
+	world.get_node("Clouds").hide()
+	world.get_node("PassingCloud").hide()
 	world.pawn.hide()
 	world.editing = false
 	world.terrain.editing = false
@@ -117,6 +122,9 @@ func run() -> void:
 	l.trees.clear()
 	l.flora.clear()
 	l.decorations.clear()
+	# Compare frozen frames: idle poses, foam and cloud motion must not
+	# masquerade as animal pixels changing beneath the terrain mask.
+	paused=true
 	for species in ["sheep", "chicken"]:
 		for direction in [Vector2i.RIGHT, Vector2i.LEFT]:
 			for landing_first in [false, true]:
@@ -159,7 +167,7 @@ func run() -> void:
 								point.x = l.ORIGIN.x + (-12 if direction.x > 0 else 76)
 							if situation == "front":
 								point.y = l.ORIGIN.y + 68
-							await probe(animal, ramp, ramp_mask, point, situation != "slope_behind", (prefix % "ramp") + situation)
+							await probe(animal, ramp, ramp_mask, point, situation not in ["slope_behind","slope_front"], (prefix % "ramp") + situation)
 						await probe(animal, cliff, cliff_mask, l.center(direction + Vector2i.UP) + Vector2(0, 20), false, (prefix % "cliff") + "lower_behind_landing")
 						var side: Vector2 = l.center(direction) + Vector2(direction.x * 36, 0)
 						await probe(animal, cliff, cliff_mask, side, false, (prefix % "cliff") + "lower_side")
@@ -181,7 +189,9 @@ func run() -> void:
 	for swap in [false, true]:
 		for index in actors.size():
 			var actor = actors[index]
-			actor.position = Vector2(l.ORIGIN.x + (12 if index == 0 else 52), l.ORIGIN.y - (52 if index == 0 else 12) + (12 if (index == 0) != swap else -2))
+			# One animal has supported feet on the ramp; the other stands
+			# on the lower ground behind it. Swap their roles independently.
+			actor.position = Vector2(l.ORIGIN.x+(12 if index==0 else 52),l.ORIGIN.y+(32 if (index==0)!=swap else -18))
 			var height: float = world.ground_height(actor.position)
 			actor.offset = actor.art_offset - Vector2(0, height / actor.art_scale)
 			actor.z_index = int(ceil(height / 64.0))

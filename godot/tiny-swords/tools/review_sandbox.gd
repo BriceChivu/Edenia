@@ -455,6 +455,7 @@ func arrange_review() -> void:
 	game_camera.force_update_scroll()
 
 func set_playing(value: bool) -> void:
+	if value and not playing: repair_review_animal_contacts()
 	stop_annotation_mode()
 	clear_contact_warning()
 	placing = false
@@ -774,6 +775,21 @@ func refresh_note_list() -> void:
 	note_list.add_item('Saved comments (%d)'%notes.size())
 	for note in notes: note_list.add_item('#%d · %s'%[int(note.id),str(note.comment).split('\n')[0].left(38)])
 
+func repair_review_animal_contacts() -> void:
+	layout.settle_animal_contacts()
+	for item in items:
+		if item.kind not in ['sheep','chicken'] or item.hidden: continue
+		var node = item_nodes.get(int(item.id))
+		if not is_instance_valid(node): continue
+		var positions: Array = layout.chickens if item.kind=='chicken' else layout.sheep
+		if node.sheep_index>=positions.size(): continue
+		var point: Vector2 = positions[node.sheep_index]
+		var previous := item_point(item)
+		if point.is_equal_approx(previous): continue
+		item.point=[point.x,point.y]
+		motion_rules.move(self,item,previous)
+	mark_dirty()
+
 func load_comment() -> void:
 	var index := note_list.selected-1
 	if index<0 or index>=notes.size(): return
@@ -783,6 +799,7 @@ func load_comment() -> void:
 	if review_stock_enabled: stock_rules.populate(self)
 	rebuild_review()
 	arrange_review()
+	repair_review_animal_contacts()
 	note_text.text = notes[index].comment
 	status_label.text = 'Loaded comment #%d and its saved scene.'%int(notes[index].id)
 

@@ -25,17 +25,25 @@ func is_ramp(node: Node) -> bool:
 	return is_terrain(node) and node.display_layout().cells.get(node.piece) == "stairs"
 
 func depth_y(node: Node2D) -> float:
+	if node.has_meta("cell") and node.get_script()==preload("res://scripts/tree_visual.gd"):
+		var front := -INF
+		for root in Layout.TREE_CONTACT[node.kind]: front=maxf(front,root.y)
+		return node.position.y+front
 	return node.position.y + (node.FOOT_DEPTH_Y if node == get_parent().pawn else 0.0)
 
 func actor_in_front(actor: Node2D, terrain: Node2D) -> bool:
 	if terrain.has_meta("bush_contact_variant") and actor.has_method("bush_depth_offset"):
 		return depth_y(actor) + actor.bush_depth_offset(terrain) > depth_y(terrain)
 	if terrain.has_meta("rock_cell"):
-		return depth_y(actor) > Layout.rock_depth_y(terrain.get_meta("rock_face"), actor.position.x)
+		var foot: float = actor.foot_contact_size().y if actor.has_method("foot_contact_size") else 0.0
+		return depth_y(actor)+foot > Layout.rock_depth_y(terrain.get_meta("rock_face"), actor.position.x)
 	if not is_ramp(terrain):
-		return depth_y(actor) > depth_y(terrain)
+		var foot: float = actor.foot_contact_size().y if terrain.has_meta("foliage_depth") and actor.has_method("foot_contact_size") else 0.0
+		return depth_y(actor)+foot > depth_y(terrain)
 	var layout = terrain.display_layout()
 	var origin: Vector2 = layout.ORIGIN + Vector2(terrain.piece) * 64.0
+	if actor.has_method("foot_contact_size") and actor.position.y-actor.foot_contact_size().y<origin.y:
+		return false
 	var progress := clampf((actor.position.x - origin.x) / 64.0, 0.0, 1.0)
 	if layout.stair_direction(terrain.piece).x < 0:
 		progress = 1.0 - progress

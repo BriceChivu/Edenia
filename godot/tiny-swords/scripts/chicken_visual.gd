@@ -16,6 +16,9 @@ func _ready() -> void:
 	faces_left = true
 	super._ready()
 
+func foot_contact_size() -> Vector2:
+	return AnimalContact.CHICKEN
+
 func animal_positions() -> Array[Vector2]:
 	return world.layout.chickens
 
@@ -47,7 +50,7 @@ func tile_target(cell: Vector2i) -> Vector2:
 	var center: Vector2 = world.layout.center(cell)
 	for offset in [Vector2.ZERO, Vector2(0, 24), Vector2(0, -24), Vector2(-24, 0), Vector2(24, 0), Vector2(-24, 24), Vector2(24, 24), Vector2(-24, -24), Vector2(24, -24)]:
 		var target: Vector2 = center + offset
-		if not world.layout.walkable_point(target, true):
+		if not world.layout.walkable_point(target, true) or not feet_supported(target):
 			continue
 		var available := true
 		for index in world.layout.chickens.size():
@@ -173,6 +176,7 @@ func safe_follow_segment(start: Vector2, target: Vector2) -> bool:
 	return clear_of_chickens(start, target) and not segment_enters_cell(start, target, world.layout.cell_at(world.pawn.position)) and world.clear_segment(start, target, true)
 
 func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
+	if not feet_supported_segment(start,target): return false
 	if not clear_of_chickens(start, target):
 		return false
 	if house_fleeing:

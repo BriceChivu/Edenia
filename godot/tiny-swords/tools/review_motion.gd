@@ -27,7 +27,7 @@ func move(review, item: Dictionary, previous: Vector2) -> void:
 			node.escape_route.clear()
 			node.tile_destinations.clear()
 			node.previous_pawn_position = review.pawn.position
-			node.offset.y += floor_shift/node.art_scale
+			node.offset = node.art_offset-Vector2(0,height/node.art_scale)
 			node.z_index = int(ceil(height/64.0))
 			var shadow = node.get_node_or_null('GroundShadow')
 			if shadow != null: shadow.position.y = -height/node.art_scale

@@ -38,7 +38,8 @@ func support_error(layout, item: Dictionary, point: Vector2) -> String:
 	if item.kind in ACTORS:
 		var bridge: Vector2i = layout.BridgeRules.owner(layout,layout.cell_at(point))
 		if layout.bridges.has(bridge) and absf(point.y-layout.center(bridge).y)<=7: return ''
-		if not layout.terrain_feet_free(point,item.kind!='pawn'): return 'Feet need supported ground; avoid water and cliff edges.'
+		var feet := preload('res://scripts/animal_contact.gd').SHEEP if item.kind=='sheep' else (preload('res://scripts/animal_contact.gd').CHICKEN if item.kind=='chicken' else Vector2.ZERO)
+		if not layout.terrain_feet_free(point,item.kind!='pawn',feet): return 'Feet need supported ground; avoid water and cliff edges.'
 	elif item.kind in SOLIDS:
 		if not layout.terrain_supports_contact(patch(item,point),layout.surface_height(point)):
 			return 'The whole contact area needs flat ground on the same floor.'
