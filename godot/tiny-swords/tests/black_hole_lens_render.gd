@@ -146,8 +146,18 @@ func run() -> void:
 		event.portal.frame = int(index * 10.0 / 12.0) % 8
 		var frame := await capture()
 		frame.save_png(folder.path_join("flow-%02d.png" % index))
+	event.portal.frame = 0 # Compare the same GIF pose, excluding its jagged-rim animation.
 	var close_after := await capture()
 	close_after.save_png(folder.path_join("close-after.png"))
+	var dark_spots := 0
+	for y in range(60, 540):
+		for x in range(220, 370):
+			if close_before.get_pixel(x, y).g > 0.4 and close_after.get_pixel(x, y).g < 0.32:
+				dark_spots += 1
+	print("Dark spots introduced into the close-up grass: %d" % dark_spots)
+	if dark_spots > 10:
+		failures += 1
+		push_error("The grass lens must not pull dark scenery into the incoming trails")
 	var sheep: Sprite2D
 	for node in game.asset_nodes:
 		if node.get_script() == preload("res://scripts/sheep_visual.gd") and not node.is_queued_for_deletion():
@@ -160,4 +170,28 @@ func run() -> void:
 	event.depth.update(game, event.portal, [])
 	var overlap := await capture()
 	overlap.save_png(folder.path_join("sheep-behind.png"))
+	# A dark source outside the particle mask represents nearby rock/actor ink.
+	# It may remain in the world, but it must not be imported into grass trails.
+	sheep.hide()
+	var dark_source := ColorRect.new()
+	dark_source.color = Color(0.06, 0.10, 0.09, 1.0)
+	dark_source.position = event.portal.position + Vector2(-82, 24)
+	dark_source.size = Vector2(14, 14)
+	dark_source.z_index = 1
+	game.get_node("World").add_child(dark_source)
+	event.lens.hide()
+	var source_baseline := await capture()
+	event.lens.material.set_shader_parameter("flow_time", 0.0)
+	event.lens.show()
+	var source_result := await capture()
+	var imported_dark := 0
+	for y in range(60, 540):
+		for x in range(220, 360):
+			if source_baseline.get_pixel(x, y).g > 0.4 and source_result.get_pixel(x, y).g < 0.32:
+				imported_dark += 1
+	print("Dark scenery imported from outside the field: %d pixels" % imported_dark)
+	if imported_dark > 10:
+		failures += 1
+		push_error("Dark source scenery must not become black spots in the grass")
+	dark_source.queue_free()
 	quit(0 if failures == 0 else 1)

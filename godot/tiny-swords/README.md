@@ -1433,7 +1433,10 @@ Godot owns a rare portal event using Samuel Maciel's eight-frame original GIF
 (see `assets/black-hole/README.md`) and copies of existing actor sprites. The portal stands upright and hovers over
 its tile, with a subtle vertical bob; creatures shrink toward its airborne center.
 A nearest-sampled screen shader pulls background grass toward the visible face
-only along the incoming particle trails on its facing side. A soft mask baked
+only along the incoming particle trails on its facing side. Symmetric funnel
+curves guide upper and lower streams inward, with a gentler pull at both ends.
+Source samples accept the green ground palette so dark scenery is not pulled
+into the grass. A soft mask baked
 from the original animation bounds that field and mirrors with the portal; grass
 behind it and beyond the particles stays unchanged. Regenerate the mask with
 `python3 tools/generate_black_hole_particle_mask.py` from this project directory

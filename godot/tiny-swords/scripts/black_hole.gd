@@ -49,7 +49,7 @@ func _ready() -> void:
 	var outline := PackedVector2Array()
 	for index in 32:
 		var angle := TAU * index / 32.0
-		outline.append(Vector2(cos(angle) * 30.0, sin(angle) * 6.0))
+		outline.append(Vector2(cos(angle) * 22.5, sin(angle) * 6.0))
 	ground_shadow.polygon = outline
 	ground_shadow.color = Color(0, 0, 0, 0.2) # Match the existing animal ground shadows.
 	ground_shadow.z_index = 91 # Grounded shadow stays outside the screen warp.
