@@ -17,7 +17,9 @@ func capture() -> Image:
 	world.get_node("World")._process(0)
 	await process_frame
 	await process_frame
-	await RenderingServer.frame_post_draw
+	# Frozen, identical baselines may not request another redraw. Draw now
+	# rather than waiting indefinitely for a frame that the renderer can skip.
+	RenderingServer.force_draw()
 	return root.get_texture().get_image()
 
 func differences(a: Image, b: Image, mask: Image) -> int:

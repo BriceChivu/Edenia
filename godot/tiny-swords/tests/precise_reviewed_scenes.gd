@@ -63,6 +63,34 @@ func run() -> void:
 			game.arrange_review()
 			await process_frame
 			await RenderingServer.frame_post_draw
+			if id==10:
+				var chicken: Sprite2D=game.item_nodes[7]
+				var art: Image=chicken.texture.get_image().get_region(Rect2i(chicken.frame*128,0,128,128))
+				var bottom := 0
+				for y in range(90,128):
+					for x in 128:
+						var color := art.get_pixel(x,y)
+						if color.a>0.99 and maxf(color.r,maxf(color.g,color.b))<0.36: bottom=maxi(bottom,y)
+				chicken.hide()
+				await process_frame
+				await RenderingServer.frame_post_draw
+				var ground: Image=root.get_texture().get_image()
+				var pixel_scale: Vector2=Vector2(ground.get_size())/game.get_viewport_rect().size
+				var dry := true
+				for y in range(bottom-2,bottom+1):
+					for x in 128:
+						var color := art.get_pixel(x,y)
+						if color.a<0.99 or maxf(color.r,maxf(color.g,color.b))>=0.36: continue
+						var local:=Vector2(127-x if chicken.flip_h else x,y)-Vector2(64,64)+chicken.offset
+						var pixel: Vector2i=Vector2i((chicken.get_global_transform_with_canvas()*local)*pixel_scale)
+						var floor_color:=ground.get_pixelv(pixel)
+						# Grass includes its dark green shore outline; water and foam
+						# have nearly equal green/blue channels in this exact fixture.
+						if floor_color.g-floor_color.b<0.04: dry=false
+				check(dry,'Comment 10: actual rendered run-pose feet stand on green grass, not water or foam')
+				chicken.show()
+				await process_frame
+				await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png(capture_dir+'/fixed-%02d.png'%id)
 		await process_frame
 	game.dirty_seconds=-1
