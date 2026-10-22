@@ -9,6 +9,7 @@ var review_persistence_enabled := true
 var review_stock_enabled := true
 var stock_rules = preload('res://tools/review_stock.gd').new()
 var terrain_rules = preload('res://tools/review_terrain.gd').new()
+var motion_rules = preload('res://tools/review_motion.gd').new()
 var toolbar: HBoxContainer
 var selected_label: Label
 var carry_control: CheckButton
@@ -20,6 +21,7 @@ var playing := false
 var placing := false
 var dragging := false
 var drag_offset := Vector2.ZERO
+var pending_drag_point := Vector2(INF,INF)
 var model_ready := false
 var updating_ui := false
 var dirty_seconds := -1.0
@@ -173,6 +175,7 @@ func freeze_game() -> void:
 	pointer.hide()
 
 func apply_items() -> void:
+	pending_drag_point = Vector2(INF,INF)
 	movement_generation += 1
 	water_fall_generation += 1
 	navigation_pending = false
@@ -420,6 +423,7 @@ func _unhandled_input(_event: InputEvent) -> void:
 
 func review_tick(delta: float) -> void:
 	if not model_ready: return
+	flush_review_drag()
 	if playing:
 		effect_clock += delta
 		super._process(delta)
@@ -435,7 +439,7 @@ func review_tick(delta: float) -> void:
 	portal_event.lens.material.set_shader_parameter('effect_time',effect_clock)
 	get_node('Clouds').hide()
 	get_node('PassingCloud').hide()
-	if dirty_seconds >= 0:
+	if dirty_seconds >= 0 and not dragging:
 		dirty_seconds -= delta
 		if dirty_seconds <= 0: persist_review()
 
@@ -455,6 +459,7 @@ func set_playing(value: bool) -> void:
 	clear_contact_warning()
 	placing = false
 	dragging = false
+	pending_drag_point = Vector2(INF,INF)
 	panning = false
 	if value == playing: return
 	if value:
@@ -519,11 +524,12 @@ func review_input(event: InputEvent) -> void:
 			if not item.is_empty():
 				var point := ground_from_pointer()+drag_offset
 				point = point.snapped(Vector2.ONE*(0.1 if Input.is_key_pressed(KEY_SHIFT) else 1.0))
-				move_selected(point,false)
+				pending_drag_point = point
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		if dragging:
+			flush_review_drag()
 			dragging = false
 			persist_review()
 			get_viewport().set_input_as_handled()
@@ -551,6 +557,12 @@ func review_input(event: InputEvent) -> void:
 		# Play mode pans the native camera directly. Retain that location when
 		# zooming or returning to Arrange mode.
 		view_center = game_camera.position+Vector2(panel.size.x/(2*zoom_control.value),40)
+
+func flush_review_drag() -> void:
+	if not pending_drag_point.is_finite(): return
+	var point := pending_drag_point
+	pending_drag_point = Vector2(INF,INF)
+	if dragging and not playing: move_selected(point,false)
 
 func over_review_ui(point: Vector2) -> bool:
 	return panel.get_global_rect().has_point(point) or toolbar.get_global_rect().has_point(point)
@@ -687,8 +699,13 @@ func move_selected(point: Vector2, record_undo: bool = true) -> bool:
 	if not accept_contact(item,point,int(item.id)): return false
 	if record_undo: push_history()
 	clear_contact_warning()
+	var previous := item_point(item)
+	if point.is_equal_approx(previous): return true
 	item.point = [point.x,point.y]
-	rebuild_review()
+	motion_rules.move(self,item,previous)
+	x_input.set_value_no_signal(point.x-ORIGIN_POINT.x)
+	y_input.set_value_no_signal(point.y-ORIGIN_POINT.y)
+	mark_dirty()
 	return true
 
 func nudge(offset: Vector2) -> void:
