@@ -1,6 +1,7 @@
 extends "res://scripts/level_two_preview.gd"
 
 const ReviewLayout = preload('res://tools/review_layout.gd')
+const Resolutions = preload('res://tools/review_resolutions.gd')
 const STORAGE_KEY := 'edenia-precise-island-review-v1'
 const NATIVE_FILE := 'user://precise-island-review.json'
 const ORIGIN_POINT := Vector2(544,208)
@@ -16,6 +17,7 @@ var selected_label: Label
 var carry_control: CheckButton
 var items: Array = []
 var notes: Array = []
+var resolved_notes: Array = []
 var selected_id := 1
 var next_id := 1
 var playing := false
@@ -92,8 +94,12 @@ func _ready() -> void:
 	overlay.z_index = 120
 	add_child(overlay)
 	var loaded = load_review()
+	var reviews_archived := false
 	if loaded is Dictionary and loaded.get('scene') is Dictionary:
-		notes = loaded.get('notes',[])
+		var review_groups := Resolutions.partition(loaded.get('notes',[]),loaded.get('resolved_notes',[]))
+		notes = review_groups.pending
+		resolved_notes = review_groups.resolved
+		reviews_archived = notes.size()!=loaded.get('notes',[]).size()
 		note_text.text = loaded.get('draft_comment','')
 		apply_scene(loaded.scene)
 	else:
@@ -110,6 +116,7 @@ func _ready() -> void:
 	refresh_review_ui()
 	get_viewport().size_changed.connect(arrange_review)
 	arrange_review()
+	if reviews_archived: mark_dirty()
 	if stocked:
 		show_all_items()
 		mark_dirty()
@@ -158,6 +165,42 @@ func selected_item() -> Dictionary:
 	for item in items:
 		if int(item.id) == selected_id: return item
 	return {}
+
+func pawn_review_id() -> int:
+	for item in items:
+		if item.kind=='pawn': return int(item.id)
+	return -1
+
+func restore_review_pawn() -> bool:
+	var item: Dictionary={}
+	for candidate in items:
+		if candidate.kind=='pawn': item=candidate; break
+	if item.is_empty(): return false
+	if not item.hidden: return true
+	var original := item_point(item)
+	var point := original
+	var distance := INF
+	if not contact_rules.error_for(layout,items,item,point,int(item.id)).is_empty():
+		point=Vector2.INF
+		for cell in layout.cells:
+			for offset in [Vector2.ZERO,Vector2(-16,0),Vector2(16,0),Vector2(0,-16),Vector2(0,16)]:
+				var target: Vector2=layout.center(cell)+offset
+				if original.distance_squared_to(target)>=distance: continue
+				if not contact_rules.error_for(layout,items,item,target,int(item.id)).is_empty(): continue
+				distance=original.distance_squared_to(target)
+				point=target
+	if not point.is_finite(): return false
+	push_history()
+	item.hidden=false
+	item.point=[point.x,point.y]
+	for field in ['pose','frame','alpha','sprite_y']: item.erase(field)
+	for other in items:
+		if other.kind=='portal': other.get('occupants',[]).erase('pawn')
+	selected_id=int(item.id)
+	rebuild_review()
+	view_center=point-Vector2(0,ground_height(point))
+	arrange_review()
+	return true
 
 func freeze_game() -> void:
 	pawn.set_physics_process(playing)
@@ -403,7 +446,7 @@ func persist_review() -> void:
 	if not review_persistence_enabled:
 		dirty_seconds = -1
 		return
-	var data := JSON.stringify({'version':1,'scene':scene_state(),'notes':notes,'draft_comment':note_text.text})
+	var data := JSON.stringify({'version':1,'scene':scene_state(),'notes':notes,'resolved_notes':resolved_notes,'draft_comment':note_text.text})
 	if OS.has_feature('web'):
 		var result = JavaScriptBridge.eval("(()=>{const data=%s; if(location.hostname==='localhost'&&document.querySelector('meta[name=review-local-archive]'))fetch('/__precise-review-store',{method:'POST',headers:{'Content-Type':'application/json'},body:data}).catch(()=>{});try{localStorage.setItem('%s',data);return true}catch(e){return false}})()"%[JSON.stringify(data),STORAGE_KEY])
 		if result != true: status_label.text = 'Browser storage is full. Export your reviews to keep them.'
@@ -762,16 +805,17 @@ func save_comment() -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var screenshot := get_viewport().get_texture().get_image().save_png_to_buffer()
-	notes.append({'id':notes.size()+1,'comment':note_text.text.strip_edges(),'created_at':Time.get_datetime_string_from_system(),'scene':scene_state(),'screenshot_png':Marshalls.raw_to_base64(screenshot)})
+	var id := Resolutions.next_id(notes,resolved_notes)
+	notes.append({'id':id,'comment':note_text.text.strip_edges(),'created_at':Time.get_datetime_string_from_system(),'scene':scene_state(),'screenshot_png':Marshalls.raw_to_base64(screenshot)})
 	note_text.text = ''
 	persist_review()
 	refresh_note_list()
-	status_label.text = 'Comment %d saved with this exact scene and a screenshot.'%notes.size()
+	status_label.text = 'Comment %d saved with this exact scene and a screenshot.'%id
 
 func export_reviews() -> void:
 	movement_review.pause()
 	set_playing(false)
-	var payload := {'format':'tiny-swords-precise-review','version':1,'scene':scene_state(),'notes':notes}
+	var payload := {'format':'tiny-swords-precise-review','version':1,'scene':scene_state(),'notes':notes,'resolved_notes':resolved_notes}
 	var bytes := JSON.stringify(payload,'  ').to_utf8_buffer()
 	if OS.has_feature('web'): JavaScriptBridge.download_buffer(bytes,'tiny-swords-scene-reviews.json','application/json')
 	else:

@@ -38,7 +38,11 @@ func build_ui(parent: Node) -> void:
 	actor_picker.fit_to_longest_item = false
 	actor_picker.clip_text = true
 	parent.add_child(actor_picker)
-	actor_picker.item_selected.connect(func(_index): stop(false))
+	actor_picker.item_selected.connect(func(_index):
+		var id := actor_picker.get_selected_id()
+		stop(false)
+		if id==review.pawn_review_id(): review.restore_review_pawn()
+	)
 	start_button = review.button('Walk around each element',start,parent)
 	var transport: HBoxContainer = review.row(parent)
 	review.button('Start',func(): seek(0),transport)
@@ -97,7 +101,7 @@ func refresh_actors() -> void:
 	var chosen := actor_picker.get_selected_id()
 	actor_picker.clear()
 	for item in review.items:
-		if item.kind in review.contact_rules.ACTORS and review.contact_rules.active(item):
+		if item.kind in review.contact_rules.ACTORS and (item.kind=='pawn' or review.contact_rules.active(item)):
 			actor_picker.add_item('%d · %s'%[int(item.id),review.item_name(item)],int(item.id))
 	var index := actor_picker.get_item_index(chosen)
 	if index<0: index=actor_picker.get_item_index(review.selected_id)
@@ -138,6 +142,10 @@ func start() -> void:
 	review.stop_annotation_mode()
 	review.dragging=false
 	review.placing=false
+	if id==review.pawn_review_id() and not review.restore_review_pawn():
+		readout.text='The pawn needs clear, supported ground before it can return.'
+		readout.show()
+		return
 	for item in review.items:
 		if int(item.id)==id: actor=item.duplicate(true)
 	if actor.is_empty(): return

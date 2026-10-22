@@ -412,6 +412,12 @@ comments retain the exact native pose. Arranging or rebuilding the scene ends
 the route. **End route** retains the current position; **Undo** restores its
 starting scene. Playback is an editor session, not a gameplay save format.
 
+The pawn stays in the actor selector even after absorption. Selecting it restores
+it to the closest clear supported location and removes it from the portal queue.
+The nine completed October scene comments are archived by exact ID, timestamp,
+and text; newer feedback stays active. Exports retain those originals under
+`resolved_notes`, and new comment IDs continue above both active and archived IDs.
+
 Build with `node scripts/preview-tiny-swords-review.mjs --build-only`. Focused
 checks: `tests/review_tour.gd` (set `TINY_SWORDS_TOUR_STOCK=1` to include the
 fully populated island) and `tests/review_sandbox.gd`.
