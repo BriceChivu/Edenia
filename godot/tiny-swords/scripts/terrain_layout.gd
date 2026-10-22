@@ -29,7 +29,7 @@ const KINDS := ["meadow", "gold", "violet", "high_meadow", "high_gold", "stairs"
 const COLORS := {"meadow": 3, "gold": 3, "violet": 3, "high_meadow": 1, "high_gold": 1, "stairs": 1}
 const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1, "bridge": 1, "sheep": 0, "chicken": 1, "house": 0}
 # Total XP = 15 * level * (level - 1) / 2; each next upgrade costs 15 XP more.
-const XP_THRESHOLDS := [0, 15, 45, 90, 150, 225, 315, 420, 540, 675]
+const XP_THRESHOLDS := [0, 15, 45, 90, 150, 225, 315, 420, 540, 675, 825, 990, 1170, 1365, 1575, 1800, 2040, 2295, 2565, 2850]
 
 static func level_for_xp(xp: int) -> int:
 	var earned := 1
@@ -48,6 +48,16 @@ const LEVEL_REWARDS := {
 	8: {"meadow": 3, "sheep": 1, "tree": 1},
 	9: {"meadow": 3},
 	10: {"meadow": 3},
+	11: {"meadow": 3, "tree": 1},
+	12: {"meadow": 3, "chicken": 1, "stairs": 1},
+	13: {"meadow": 3, "sheep": 1},
+	14: {"meadow": 3, "stairs": 1},
+	15: {"meadow": 3, "tree": 1},
+	16: {"meadow": 3, "sheep": 1},
+	17: {"meadow": 3, "chicken": 1},
+	18: {"meadow": 3, "tree": 2},
+	19: {"meadow": 4},
+	20: {"meadow": 3, "tree": 1},
 }
 const TREE_VARIANTS := ["tree", "tree2", "tree3", "tree4"]
 const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
@@ -1364,12 +1374,18 @@ func restore(data: Dictionary) -> bool:
 	var expected_total: int = ({1: 5, 2: 10, 3: 15}[next_level] if next_level < 4 else 18 + (next_level - 4) * 3) if int(data.version) >= 6 else ((15 if int(data.version) >= 5 else (10 if int(data.version) == 1 else 13)) if next_level >= 3 else 5)
 	if int(data.version) >= 34 and next_level >= 6:
 		expected_total += 2 # The level-six stair bundle includes its upper landing.
+	# Later levels add their terrain and stair landings to the legacy budget.
+	for reward_level in range(11, next_level + 1):
+		expected_total += int(LEVEL_REWARDS[reward_level].get("meadow", 0)) - 3
+		expected_total += int(LEVEL_REWARDS[reward_level].get("stairs", 0)) * 2
 	var bonus = data.get("free_house_grass", 0) if int(data.version) >= 19 else 0
 	if not (bonus is int or bonus is float) or not is_finite(float(bonus)) or bonus < 0 or float(bonus) != floorf(float(bonus)):
 		return false
 	if total != expected_total + int(bonus) + int(next_grants.get("ground", 0)):
 		return false
 	var tree_rewards := (0 if next_level < 3 else (1 if next_level == 3 else 2)) + (1 if int(data.version) >= 28 and next_level >= 6 else 0) + (1 if int(data.version) >= 32 and next_level >= 8 else 0)
+	for reward_level in range(11, next_level + 1):
+		tree_rewards += int(LEVEL_REWARDS[reward_level].get("tree", 0))
 	if next_trees.size() + next_stock.tree != tree_rewards + int(next_grants.get("tree", 0)):
 		return false
 	# Grant the new level-six stair bundle once to existing islands.
@@ -1545,6 +1561,8 @@ func restore(data: Dictionary) -> bool:
 					return false
 			next_sheep.append(point)
 		var sheep_rewards := (1 if next_level >= 5 else 0) + (1 if int(data.version) >= 26 and next_level >= 8 else 0)
+		for reward_level in range(11, next_level + 1):
+			sheep_rewards += int(LEVEL_REWARDS[reward_level].get("sheep", 0))
 		if next_sheep.size() + next_stock.sheep + BlackHoleState.count(next_portal, "sheep") != sheep_rewards + int(next_grants.get("sheep", 0)) or (next_level < 5 and next_stock.house > 0):
 			return false
 	# Grant the new level-eight reward once when upgrading older saves.
@@ -1590,6 +1608,8 @@ func restore(data: Dictionary) -> bool:
 					return false
 			next_chickens.append(point)
 	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
+	for reward_level in range(11, next_level + 1):
+		chicken_rewards += int(LEVEL_REWARDS[reward_level].get("chicken", 0))
 	if next_chickens.size() + next_stock.chicken + BlackHoleState.count(next_portal, "chicken") + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
 		return false
 	# Older islands have not received the new level-two reward.

@@ -1,6 +1,7 @@
 extends Node2D
 
 const Visibility = preload("res://scripts/portal_visibility.gd")
+const Depth = preload("res://scripts/portal_depth.gd")
 const LENS_SHADER = preload("res://shaders/black_hole_lens.gdshader")
 const ACTOR_SHADER = preload("res://shaders/black_hole_actor.gdshader")
 const LENS_SIZE := Vector2(320, 240)
@@ -12,6 +13,7 @@ const ATLAS = preload("res://assets/black-hole/portal.png")
 const NO_CELL := Vector2i(999, 999)
 const BASE_SCALE := Vector2(0.24, 0.24)
 const HOVER_HEIGHT := 48.0
+const MIN_LEVEL := 6
 const ABSORPTION_SECONDS := 0.9
 const RADIUS := 21.0
 var world
@@ -29,6 +31,7 @@ var effects: Array[Node] = []
 var effects_busy := 0
 var generation := 0
 var tweens: Array[Tween] = []
+var depth = Depth.new()
 
 func _ready() -> void:
 	process_priority = 50 # Observe actors after their normal movement.
@@ -74,6 +77,7 @@ func pawn_absorbed() -> bool:
 	return State.count(world.layout.black_hole, "pawn") > 0
 
 func reset_visit() -> void:
+	depth.restore()
 	generation += 1
 	for tween in tweens:
 		if tween.is_valid(): tween.kill()
@@ -102,6 +106,7 @@ func start_visit(day: int = State.today()) -> void:
 	visited = true
 	var state: Dictionary = world.layout.black_hole
 	if state.is_empty():
+		if world.layout.level < MIN_LEVEL: return
 		world.layout.black_hole = State.initial(day, randi_range(14, 28))
 		world.save_layout()
 		return
@@ -170,7 +175,7 @@ func choose_cell() -> Vector2i:
 	return candidates.pick_random()
 
 func open(day: int = State.today(), cell: Vector2i = NO_CELL) -> bool:
-	if not world.black_hole_enabled: return false
+	if not world.black_hole_enabled or world.layout.level < MIN_LEVEL: return false
 	if not world.layout.black_hole.is_empty() and world.layout.black_hole.phase != "idle": return false
 	if cell == NO_CELL: cell = choose_cell()
 	if not clear_cells().has(cell): return false
@@ -207,6 +212,7 @@ func update_shadow() -> void:
 
 func update_portal() -> void:
 	if portal == null: return
+	depth.restore()
 	var state: Dictionary = world.layout.black_hole
 	portal.visible = world.black_hole_enabled and not state.is_empty() and state.phase != "idle"
 	lens.visible = portal.visible
@@ -220,20 +226,24 @@ func update_portal() -> void:
 	# The trigger stays on its grass tile; the upright artwork floats above it.
 	z_index = int(ceil(world.ground_height(point) / 64.0)) - 1
 	portal.scale = BASE_SCALE
+	depth.update(world, portal, effects)
 
 func _process(delta: float) -> void:
+	depth.restore()
 	if not world.black_hole_enabled: return
 	if not world.playground_ready or (world.arrival != null and world.arrival.blocks_gameplay()): return
 	var now := Time.get_unix_time_from_system()
 	# The host/browser can suspend this same scene while the island is away.
 	# Treat a resumed visit like reopening, without a midnight interruption.
-	if not visited or (last_process_at > 0 and now - last_process_at > 60): start_visit()
+	var newly_eligible: bool = world.layout.level >= MIN_LEVEL and world.layout.black_hole.is_empty()
+	if not visited or newly_eligible or (last_process_at > 0 and now - last_process_at > 60): start_visit()
 	last_process_at = now
 	var state: Dictionary = world.layout.black_hole
 	if state.is_empty() or state.phase == "idle":
 		lens.hide()
 		backbuffer.hide()
 		update_shadow()
+		depth.update(world, portal, effects)
 		return
 	if world.editing:
 		portal.hide()
@@ -256,6 +266,7 @@ func _process(delta: float) -> void:
 	lens.material.set_shader_parameter("motion", 0.0 if GamePresentation.reduced_motion else 1.0)
 	portal.frame = 0 if GamePresentation.reduced_motion else int(frame_clock * 10) % 8
 	update_shadow()
+	depth.update(world, portal, effects)
 	if world.editing or world.ui.celebration != null:
 		previous.clear()
 		return
@@ -312,7 +323,8 @@ func sprite_copy(actor: Node2D) -> Sprite2D:
 	copy.position = source.global_position
 	copy.scale = source.global_scale
 	copy.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	copy.z_index = source.z_index + 2
+	# Do not inherit a temporary front-of-portal elevation from a live animal.
+	copy.z_index = int(ceil(world.ground_height(actor.position) / 64.0)) + 2
 	world.get_node("World").add_child(copy)
 	return copy
 
@@ -390,6 +402,7 @@ func absorb(actor: Node2D, approach: Vector2 = Vector2.INF, rebuild_now: bool = 
 	previous.clear()
 	previous[world.pawn.get_instance_id()] = world.pawn.position
 	animate_copy(copy, start, visual_center(), false)
+	depth.update(world, portal, effects)
 	pulse()
 	return true
 
@@ -436,6 +449,7 @@ func release_one() -> bool:
 	var token := generation
 	var actor_ref: WeakRef = weakref(actor)
 	animate_copy(copy, visual_center(), copy.position, true)
+	depth.update(world, portal, effects)
 	get_tree().create_timer(ABSORPTION_SECONDS, false).timeout.connect(func():
 		var live = actor_ref.get_ref()
 		if token != generation or live == null or live.is_queued_for_deletion(): return
@@ -474,3 +488,6 @@ func preview_tomorrow() -> void:
 	state.day = State.today() - 1
 	world.save_layout()
 	start_visit()
+
+func _exit_tree() -> void:
+	depth.restore()

@@ -25,9 +25,77 @@ func run() -> void:
 	check(game.layout.black_hole.is_empty(), "Disabled rollout does not schedule an event")
 	check(not portal.open(20000), "Disabled rollout cannot open a portal")
 	game.black_hole_enabled = true
+	for level in range(1, 6):
+		game.layout.level = level
+		portal.start_visit(20000)
+		check(game.layout.black_hole.is_empty() and not portal.open(20000), "Level %d neither schedules nor opens the event" % level)
+		game.layout.black_hole = State.initial(19000, 0)
+		portal.start_visit(20000)
+		check(game.layout.black_hole.phase == "idle", "Level %d cannot open an older expired schedule" % level)
+		game.layout.black_hole = {}
+	game.layout.level = 6
+	portal._process(0.0)
+	check(game.layout.black_hole.get("phase") == "idle" and game.layout.black_hole.next_day >= State.today() + 14 and game.layout.black_hole.next_day <= State.today() + 28, "Reaching level six during a visit starts the rare schedule")
+	check(portal.open(20000), "Level six is eligible to open a portal")
+	check(game.restore_saved_layout(meadow.snapshot()), "Level gate checks retain the populated meadow")
 	check(not portal.spot_visible(Vector2i(2, 2)), "Grass behind a tree canopy cannot host the floating portal")
 	check(not portal.spot_visible(Vector2i(-4, -3)), "Grass behind a house cannot host the floating portal")
 	check(portal.open(20000), "Portal opens on clear reachable grass")
+	var pawn_point: Vector2 = game.pawn.position
+	var pawn_depth: int = game.pawn.z_index
+	game.pawn.z_index = 7
+	portal.portal.scale = portal.BASE_SCALE
+	game.pawn.position = portal.portal.position + Vector2(-12, 16)
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(portal.Depth.effective_z(game.pawn) > portal.Depth.effective_z(portal.portal), "An overlapping pawn on the front side draws over the portal")
+	game.pawn.position.x = portal.portal.position.x - 240
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(game.pawn.z_index == 7, "Leaving the portal overlap restores normal pawn depth")
+	game.pawn.position.x = portal.portal.position.x + 12
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(game.pawn.z_index == 7, "A pawn behind the portal stays beneath its opaque pixels")
+	game.layout.black_hole.facing_left = false
+	portal.update_portal()
+	check(portal.Depth.effective_z(game.pawn) > portal.Depth.effective_z(portal.portal), "Mirroring the portal also reverses front-side occlusion")
+	game.pawn.position.x = portal.portal.position.x - 12
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(game.pawn.z_index == 7, "The mirrored back side stays behind the portal")
+	game.pawn.position.x = portal.portal.position.x + 12
+	var copy: Sprite2D = portal.sprite_copy(game.pawn)
+	portal.effects.append(copy)
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(portal.Depth.effective_z(copy) > portal.Depth.effective_z(portal.portal), "Distorted sprite copies share the portal's front ordering")
+	copy.position.x = portal.portal.position.x - 12
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(portal.Depth.effective_z(copy) < portal.Depth.effective_z(portal.portal), "A distorted copy behind the portal is occluded")
+	game.editing = true
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(game.pawn.z_index == 7, "Hiding the portal for editing restores actor depth")
+	game.editing = false
+	portal.effects.erase(copy)
+	copy.free()
+	game.pawn.position = pawn_point
+	game.pawn.z_index = pawn_depth
+	game.layout.black_hole.facing_left = true
+	portal.update_portal()
+	# Earlier portal updates may already have raised an animal at the random spot.
+	# Capture its natural depth before testing front/back ordering in isolation.
+	portal.depth.restore()
+	var animal: Sprite2D
+	for node in game.asset_nodes:
+		if node.has_method("animal_positions") and not node.is_queued_for_deletion():
+			animal = node
+			break
+	var animal_point := animal.position
+	var animal_depth := animal.z_index
+	animal.position = portal.portal.position + Vector2(-12, 16)
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(portal.Depth.effective_z(animal) > portal.Depth.effective_z(portal.portal), "An overlapping animal draws in front on the facing side")
+	animal.position.x = portal.portal.position.x + 12
+	portal.depth.update(game, portal.portal, portal.effects)
+	check(animal.z_index == animal_depth, "An animal on the back side keeps normal depth beneath the portal")
+	animal.position = animal_point
+	animal.z_index = animal_depth
 	check(not game.layout.can_edit(Vector2i(game.layout.black_hole.cell[0], game.layout.black_hole.cell[1]), "remove", Vector2i.ZERO), "Active portal grass is protected")
 	var chicken_total: int = game.layout.chickens.size()
 	var sheep_total: int = game.layout.sheep.size()

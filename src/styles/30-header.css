@@ -101,6 +101,9 @@ body[data-theme="dark"] .sandbox-version-label {
   color: var(--muted);
   letter-spacing: 0.04em;
 }
+.week-label-compact {
+  display: none;
+}
 .header-right {
   align-items: center;
   display: flex;

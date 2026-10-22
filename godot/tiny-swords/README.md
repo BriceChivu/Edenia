@@ -8,6 +8,7 @@ Mac uses the function keys for system controls):
 
 | Scene | Starts with |
 | --- | --- |
+| `previews/chicken_run_sandbox.tscn` | Two chickens, two sheep, houses, trees, rocks, bushes, and a raised terrace reached by two stairs; fresh on every run. |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Playground → Level +1** to run the real unlock, rewards and animated ribbon, then **Start building**. |
 | `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles, one stair bundle and one chicken; toolbar open. |
@@ -46,7 +47,7 @@ simulate the two local upgrades using the same reward and celebration code:
 | Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
 | Level 3 → 4 | 3 ground tiles + 1 tree | 4 |
 
-Godot owns XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675**.
+Godot owns levels **1–20**, with XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675 / 825 / 990 / 1170 / 1365 / 1575 / 1800 / 2040 / 2295 / 2565 / 2850**.
 The existing curve is `15 × level × (level − 1) / 2` total XP: each upgrade costs
 15 XP more than the previous one. Levels six through ten each grant three new
 grass tiles; level six also grants a third stair bundle and a third tree,
@@ -57,6 +58,15 @@ level-six-or-higher islands. Save version 32 adds the level-eight tree once to
 existing level-eight-or-higher islands. Fresh editor scenes
 `previews/level_six.tscn` through `previews/level_ten.tscn` start at those levels;
 choose **Done**, then **Playground → Level +1** to preview the next upgrade.
+Levels eleven through twenty grant three grass tiles each, except level nineteen,
+which grants four. Additional rewards are: level eleven one tree; twelve one
+chicken and one stair bundle; thirteen one sheep; fourteen one stair bundle;
+fifteen one tree; sixteen one sheep; seventeen one chicken; eighteen two trees;
+twenty one tree. They reuse the existing artwork and grass reward popup. Stair
+bundles include their existing upper landing. Save format 35 is unchanged: the
+extended inventory budgets validate all earned rewards, while level-one-through-ten
+saves retain their existing migrations. Fresh editor scenes
+`previews/level_eleven.tscn` through `previews/level_twenty.tscn` cover the new levels.
 Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
 The axe unlocks tree cutting at level four; the inventory rewards are the three grass tiles and shared tree.
 The level-three tree icon represents all four tree atlases. Each placement randomly
@@ -1247,7 +1257,7 @@ Focused check: `res://tests/interaction_customization.gd`.
 Level two grants three grass tiles, one stair bundle and one chicken. Select Chicken in the inventory
 to place it on free grass; Pick up returns it to inventory. The CHICKEN4.0 animation
 sheets in `assets/chicken/` use 128×128 cells at 10 fps: six idle frames, twelve eating
-frames, and four run frames. The chicken alternates 2.4 seconds of idle with a complete
+frames, and six run frames. The idle, eating, and running sheets use the supplied replacement artwork. The chicken alternates 2.4 seconds of idle with a complete
 1.2-second pecking sequence. Two seconds after the pawn starts moving, it follows the shortest reachable
 route to a grass tile beside the pawn, updating its route as the pawn changes tiles.
 It stops one tile before the pawn and its routes avoid the pawn’s current tile.
@@ -1458,8 +1468,14 @@ A grounded ellipse matches the animal shadows' 20% opacity. Its subtle size
 variation shares the slow hover cycle, widest when the portal is highest, and
 follows opening/closing scale. Approaching from behind mirrors the portal about its vertical axis before
 absorption, reverses its pixel flow, and saves its facing across sessions.
-Opening
-a playable island schedules the first appearance 14–28 local calendar days later.
+Overlapping creatures and distorted sprite copies draw in front on the portal's
+facing side, and behind its opaque pixels on the back side. Mirroring reverses
+this ordering. Outside the overlap, normal island depth resumes.
+The event becomes eligible after level five (level six onward). Reaching level
+six, or first visiting an eligible island, schedules its first appearance 14–28
+local calendar days later. Levels one through five cannot open a portal, even
+if an older saved schedule has already elapsed. Existing occupants retain their
+return sequence.
 The next eligible visit opens it on reachable, clear grass with at least three
 same-floor grass neighbors; small islands wait until suitable land is available.
 Spawn checks reserve the full airborne effect and its grass tile against the
