@@ -751,6 +751,11 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   })
   await expect.poll(() => canvas.evaluate(() => window.edeniaHostVisible)).toBe(false)
   await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
+  // The old fixture first migrates in Godot. A faster opening can expose the
+  // initial up-to-date status before that gameplay save is queued. Establish an
+  // acknowledged migration before isolating an ambient-only checkpoint.
+  await expect.poll(() => fixture.commits.length, { timeout: 40000 }).toBeGreaterThan(0)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
   const before = fixture.head()
   const commitCount = fixture.commits.length
   await retainFrame(page)

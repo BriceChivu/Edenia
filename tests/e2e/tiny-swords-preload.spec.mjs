@@ -1,5 +1,6 @@
 import { createServer } from 'node:http'
-import { readFile, readdir } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { extname, relative, resolve } from 'node:path'
 import { test, expect } from '@playwright/test'
 
@@ -67,11 +68,31 @@ for (const missingCompressed of [false, true]) test(`assets preload before profi
     await page.evaluate(() => window.revokeProfile())
     await expect(page.locator('iframe')).toHaveCount(0)
     expect(await page.evaluate(() => window.current)).toBe(null)
-    if (!missingCompressed) {
+  } finally { await page.goto('about:blank'); await host.close() }
+})
+
+// WebKit's nonpersistent test context can discard even a simple Cache API entry
+// on navigation. Model regular visits with a disposable disk-backed profile,
+// as the existing engine-delivery cache suite does. Private cold visits above
+// still prove that each prefetched response is consumed exactly once.
+test('regular repeat visits reuse the validated engine cache', async ({ playwright, browserName }, testInfo) => {
+  test.setTimeout(60000)
+  const host = await hostGame()
+  const directory = await mkdtemp(resolve(tmpdir(), 'edenia-preload-cache-'))
+  const context = await playwright[browserName].launchPersistentContext(directory, {
+    headless: true, viewport: testInfo.project.use.viewport, serviceWorkers: 'block'
+  })
+  const page = await context.newPage()
+  try {
+    for (let visit = 0; visit < 2; visit++) {
       await page.goto(host.url)
       await page.evaluate(() => window.activateProfile())
       await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 30000 })
       expect(host.requests.filter(path => /index\.wasm\.br$/.test(path))).toHaveLength(1)
     }
-  } finally { await page.goto('about:blank'); await host.close() }
+  } finally {
+    await context.close()
+    await host.close()
+    await rm(directory, { recursive: true, force: true })
+  }
 })
