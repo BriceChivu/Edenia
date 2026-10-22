@@ -78,6 +78,9 @@ func run() -> void:
 	game.pawn.z_index = pawn_depth
 	game.layout.black_hole.facing_left = true
 	portal.update_portal()
+	# Earlier portal updates may already have raised an animal at the random spot.
+	# Capture its natural depth before testing front/back ordering in isolation.
+	portal.depth.restore()
 	var animal: Sprite2D
 	for node in game.asset_nodes:
 		if node.has_method("animal_positions") and not node.is_queued_for_deletion():
