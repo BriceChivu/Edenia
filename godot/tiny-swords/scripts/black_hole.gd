@@ -4,7 +4,7 @@ const Visibility = preload("res://scripts/portal_visibility.gd")
 const Depth = preload("res://scripts/portal_depth.gd")
 const LENS_SHADER = preload("res://shaders/black_hole_lens.gdshader")
 const ACTOR_SHADER = preload("res://shaders/black_hole_actor.gdshader")
-const LENS_SIZE := Vector2(320, 240)
+const LENS_SIZE := Vector2(136.08, 136.08) # Original 567px frame at BASE_SCALE.
 const PORTAL_CLEARANCE := Vector2(144, 160)
 const State = preload("res://scripts/black_hole_state.gd")
 const SHEEP = preload("res://scripts/sheep_visual.gd")
@@ -66,6 +66,7 @@ func _ready() -> void:
 	lens.z_index = 90
 	lens.material = ShaderMaterial.new()
 	lens.material.shader = LENS_SHADER
+	lens.material.set_shader_parameter("particle_mask", preload("res://assets/black-hole/particle_flow_mask.png"))
 	lens.hide()
 	add_child(lens)
 
@@ -257,13 +258,14 @@ func _process(delta: float) -> void:
 	frame_clock += delta
 	portal.position = visual_center()
 	lens.position = portal.position - LENS_SIZE / 2.0
-	# Copy only the local lens plus its sampling margin, not the whole canvas.
+	# Copy the particle field and its source sampling margin.
 	backbuffer.rect = Rect2(lens.position, LENS_SIZE).grow(24.0)
 	var lens_transform := lens.get_global_transform_with_canvas()
 	var viewport_size := get_viewport_rect().size
 	lens.material.set_shader_parameter("screen_span_uv", LENS_SIZE * Vector2(lens_transform.x.length(), lens_transform.y.length()) / viewport_size)
 	lens.material.set_shader_parameter("facing", -1.0 if state.get("facing_left", true) else 1.0)
 	lens.material.set_shader_parameter("motion", 0.0 if GamePresentation.reduced_motion else 1.0)
+	lens.material.set_shader_parameter("flow_time", frame_clock)
 	portal.frame = 0 if GamePresentation.reduced_motion else int(frame_clock * 10) % 8
 	update_shadow()
 	depth.update(world, portal, effects)
