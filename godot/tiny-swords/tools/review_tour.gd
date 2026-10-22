@@ -82,7 +82,7 @@ func build_ui(parent: Node) -> void:
 	visit_picker.clip_text=true
 	visit_picker.add_item('Jump to an element…')
 	visit_picker.item_selected.connect(func(index):
-		if index>0 and index<=visits.size(): seek(visits[index-1].start)
+		if index>0 and index<=visits.size(): seek(visits[index-1].arrival)
 	)
 	parent.add_child(visit_picker)
 	follow = CheckButton.new()
@@ -164,6 +164,7 @@ func start() -> void:
 	targets.sort_custom(func(a,b): return int(a.id)<int(b.id))
 	for target in targets:
 		var begin := duration
+		var arrival := -1.0
 		var limited := false
 		var bounds := target_bounds(target)
 		var center := bounds.get_center()
@@ -182,10 +183,11 @@ func start() -> void:
 				if not segment_free(refined,candidate): break
 				refined=candidate
 			append_point(refined,int(target.id))
+			if arrival<0: arrival=duration+0.175
 			append_point(refined,int(target.id),0.35)
 			append_point(closest,int(target.id))
 			current=goal
-		visits.append({'id':int(target.id),'name':review.item_name(target),'start':begin,'end':duration,'limited':limited})
+		visits.append({'id':int(target.id),'name':review.item_name(target),'start':begin,'arrival':arrival,'end':duration,'limited':limited})
 		await review.get_tree().process_frame
 		if token!=generation: return
 	planning=false
@@ -422,7 +424,7 @@ func refresh() -> void:
 	var visit := {}
 	var number := 0
 	for index in visits.size():
-		if elapsed<=visits[index].end:
+		if elapsed<visits[index].end:
 			visit=visits[index]
 			number=index+1
 			break

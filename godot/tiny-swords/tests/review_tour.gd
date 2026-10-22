@@ -58,6 +58,9 @@ func run() -> void:
 		for visit in tour.visits:
 			if visit.name.begins_with('Flowers'): limited=visit.limited
 		check(limited,'Disconnected high ground gets a closest reachable approach')
+		tour.visit_picker.item_selected.emit(4)
+		check(is_equal_approx(tour.elapsed,tour.visits[3].arrival) and not tour.running,'Jump to an element pauses at its first close approach')
+		check(tour.readout.text.contains(tour.visits[3].name),'Jump readout identifies the chosen encounter')
 		var safe := true
 		for index in range(1,tour.points.size()):
 			var a: Vector2=tour.points[index-1]
