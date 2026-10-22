@@ -51,6 +51,7 @@ var selected_note := -1
 var effect_clock := 0.0
 var view_center := ORIGIN_POINT
 var panning := false
+var pan_button := MOUSE_BUTTON_NONE
 var pan_start := Vector2.ZERO
 var pan_origin := Vector2.ZERO
 var contact_status: Label
@@ -108,7 +109,7 @@ func _ready() -> void:
 	if stocked:
 		show_all_items()
 		mark_dirty()
-	status_label.text = 'Select an item. Drag its ground marker or enter exact X / Y.'
+	status_label.text = 'Drag an item to arrange it. Drag empty ground to pan; scroll gently to zoom.'
 
 func seed_scene() -> void:
 	stop_annotation_mode()
@@ -294,7 +295,7 @@ func bind_item_nodes() -> void:
 			var node = item_nodes[int(item.id)]
 			var pose: String = item.get('pose','idle')
 			node.texture = node.run_texture if pose=='run' else (node.grass_texture if pose=='grass' else node.idle_texture)
-			node.hframes = 4 if pose=='run' else (12 if pose=='grass' else 6)
+			node.hframes = node.run_frames if pose=='run' else (12 if pose=='grass' else 6)
 			node.frame = mini(int(item.frame),node.hframes-1)
 
 func rebuild_decorations(display_layout = null) -> void:
@@ -454,6 +455,7 @@ func set_playing(value: bool) -> void:
 	clear_contact_warning()
 	placing = false
 	dragging = false
+	panning = false
 	if value == playing: return
 	if value:
 		push_history()
@@ -494,16 +496,20 @@ func review_input(event: InputEvent) -> void:
 			finish_problem_rectangle(get_global_mouse_position())
 			get_viewport().set_input_as_handled()
 			return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and (panning or event.position.x > panel.get_global_rect().end.x):
-		if event.pressed and event.position.x > panel.get_global_rect().end.x:
-			panning = true
-			pan_start = event.position
-			pan_origin = view_center
-		elif not event.pressed: panning = false; mark_dirty()
-		get_viewport().set_input_as_handled()
-		return
+	if event is InputEventMouseButton:
+		if panning and event.button_index == pan_button and not event.pressed:
+			panning = false
+			pan_button = MOUSE_BUTTON_NONE
+			mark_dirty()
+			get_viewport().set_input_as_handled()
+			return
+		if event.pressed and event.button_index == MOUSE_BUTTON_RIGHT and not over_review_ui(event.position):
+			begin_review_pan(event)
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseMotion:
 		if panning:
+			if event.position.distance_to(pan_start) < world_drag_threshold: return
 			view_center = pan_origin-(event.position-pan_start)/game_camera.zoom.x
 			arrange_review()
 			get_viewport().set_input_as_handled()
@@ -540,13 +546,29 @@ func review_input(event: InputEvent) -> void:
 			nudge(offset*(0.1 if event.shift_pressed else 1.0))
 			get_viewport().set_input_as_handled()
 			return
-	if playing: super._input(event)
+	if playing:
+		super._input(event)
+		# Play mode pans the native camera directly. Retain that location when
+		# zooming or returning to Arrange mode.
+		view_center = game_camera.position+Vector2(panel.size.x/(2*zoom_control.value),40)
+
+func over_review_ui(point: Vector2) -> bool:
+	return panel.get_global_rect().has_point(point) or toolbar.get_global_rect().has_point(point)
+
+func begin_review_pan(event: InputEventMouseButton) -> void:
+	panning = true
+	pan_button = event.button_index
+	pan_start = event.position
+	pan_origin = view_center
 
 func review_unhandled_input(event: InputEvent) -> void:
 	if not model_ready: return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
-		if panel.get_global_rect().has_point(event.position) or toolbar.get_global_rect().has_point(event.position): return
-		zoom_control.value += 0.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.15
+		if over_review_ui(event.position): return
+		# Fractional trackpad events must stay fractional. Multiplicative steps
+		# keep the same gentle speed at every zoom level.
+		var direction := 1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -1.0
+		zoom_control.value *= exp(direction*minf(absf(event.factor),2.0)*0.035)
 		get_viewport().set_input_as_handled()
 		return
 	if playing:
@@ -577,6 +599,8 @@ func review_unhandled_input(event: InputEvent) -> void:
 				refresh_review_ui()
 				var focus := get_viewport().gui_get_focus_owner()
 				if focus != null: focus.release_focus()
+			else:
+				begin_review_pan(event)
 		get_viewport().set_input_as_handled()
 
 func place_at(point: Vector2) -> void:
@@ -932,7 +956,10 @@ func build_review_ui() -> void:
 		refresh_review_ui()
 	)
 	library.add_child(item_list)
-	selected_label = label('Click an item on the island',column)
+	var selection_details := VBoxContainer.new()
+	selection_details.hide()
+	column.add_child(selection_details)
+	selected_label = label('Click an item on the island',selection_details)
 	selected_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	selected_label.custom_minimum_size.x = 240
 	carry_control = CheckButton.new()
@@ -944,17 +971,17 @@ func build_review_ui() -> void:
 		selected_item().variant = 2 if value else 1
 		rebuild_review()
 	)
-	var coordinates := row(column)
+	var coordinates := row(selection_details)
 	label('X',coordinates)
 	x_input = spin(coordinates)
 	label('Y',coordinates)
 	y_input = spin(coordinates)
 	x_input.value_changed.connect(set_coordinate)
 	y_input.value_changed.connect(set_coordinate)
-	contact_status = label('',column)
+	contact_status = label('',selection_details)
 	contact_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	contact_status.custom_minimum_size.x = 240
-	var nudges := row(column)
+	var nudges := row(selection_details)
 	for entry in [['-X',Vector2.LEFT],['-Y',Vector2.UP],['+Y',Vector2.DOWN],['+X',Vector2.RIGHT]]:
 		button(entry[0],func(): nudge(entry[1]*(0.1 if Input.is_key_pressed(KEY_SHIFT) else 1.0)),nudges)
 	button('Remove',remove_item,nudges)
@@ -991,7 +1018,7 @@ func build_review_ui() -> void:
 	zoom_control.scrollable = false
 	zoom_control.min_value = 0.1
 	zoom_control.max_value = 4
-	zoom_control.step = 0.05
+	zoom_control.step = 0.0
 	zoom_control.value = 1.6
 	zoom_control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	zoom_control.value_changed.connect(func(_value): arrange_review(); mark_dirty())
@@ -1020,13 +1047,9 @@ func build_review_ui() -> void:
 		portal_event.preview_tomorrow()
 		mark_dirty()
 	, column)
-	label('Arrows: 1 px · Shift: 0.1 px\nRight-drag: pan. Scene wheel: zoom.',column)
 	var annotation_row := row(column)
 	annotation_button = button('Mark problem area',toggle_annotation_mode,annotation_row)
 	button('Clear box',clear_problem_rectangle,annotation_row)
-	var annotation_help := label('Drag a box, write a comment, then save.',column)
-	annotation_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	annotation_help.custom_minimum_size.x = 240
 	note_text = TextEdit.new()
 	note_text.custom_minimum_size = Vector2(240,76)
 	note_text.placeholder_text = 'What happened? What did you expect?'
@@ -1041,6 +1064,7 @@ func build_review_ui() -> void:
 	button('Load selected comment scene',load_comment,column)
 	button('Export scene & reviews',export_reviews,column)
 	status_label = Label.new()
+	status_label.hide()
 	status_label.custom_minimum_size = Vector2(240,60)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status_label)

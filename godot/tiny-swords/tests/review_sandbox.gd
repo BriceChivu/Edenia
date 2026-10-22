@@ -17,6 +17,8 @@ func run() -> void:
 	game.get_window().focus_exited.emit()
 	game.get_window().focus_entered.emit()
 	check(Input.get_mouse_mode()==Input.MOUSE_MODE_VISIBLE,'Review keeps the system cursor visible after regaining focus')
+	check_gentle_zoom(game)
+	check_background_pan(game)
 	check_panel_wheel(game)
 	check_problem_rectangle(game)
 	await check_library(game)
@@ -335,3 +337,58 @@ func check_stocked_island() -> void:
 	game.dirty_seconds = -1
 	game.queue_free()
 	await process_frame
+
+func check_gentle_zoom(game) -> void:
+	var original: float=game.zoom_control.value
+	var wheel:=InputEventMouseButton.new()
+	wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed=true
+	wheel.factor=0.05
+	wheel.position=Vector2(game.panel.get_global_rect().end.x+100,game.panel.get_global_rect().position.y+100)
+	game.zoom_control.value=0.5
+	game.review_unhandled_input(wheel)
+	var fractional: float = game.zoom_control.value
+	check(fractional>0.5 and fractional<=0.51,'A small trackpad step changes zoom by less than two percent')
+	wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN
+	game.review_unhandled_input(wheel)
+	check(is_equal_approx(game.zoom_control.value,0.5),'Opposite trackpad steps return to the original zoom')
+	wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+	wheel.factor=1.0
+	game.review_unhandled_input(wheel)
+	check(game.zoom_control.value>fractional and game.zoom_control.value<0.52,'Full wheel steps remain proportional and gentle')
+	game.zoom_control.value=original
+
+func check_background_pan(game) -> void:
+	var saved: Dictionary = game.scene_state()
+	var original_items: Array = game.items.duplicate(true)
+	# Empty scene isolates background hit testing from artwork selection.
+	game.items.clear()
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(game.panel.get_global_rect().end.x+100,200)
+	game.review_unhandled_input(press)
+	check(game.panning and not game.dragging,'Left drag on empty ground starts camera panning')
+	var origin: Vector2 = game.view_center
+	var motion := InputEventMouseMotion.new()
+	motion.position = press.position+Vector2(80,40)
+	var expected: Vector2 = origin-Vector2(80,40)/game.game_camera.zoom.x
+	game.review_input(motion)
+	check(game.view_center.is_equal_approx(expected),'Arrange drag pans by screen distance divided by zoom')
+	press.pressed = false
+	press.position = Vector2(10,100)
+	game.review_input(press)
+	check(not game.panning,'Releasing a pan over the sidebar stops the gesture')
+	game.items = original_items
+	game.apply_scene(saved)
+	var chicken: Dictionary = {}
+	for item in game.items:
+		if item.kind=='chicken': chicken=item
+	if not chicken.is_empty():
+		chicken.pose='run'
+		chicken.frame=5
+		game.apply_items()
+		var node = game.item_nodes[int(chicken.id)]
+		check(node.hframes==6 and node.frame==5,'Review restoration retains all six new chicken run frames')
+	game.apply_scene(saved)
+	game.history_states.clear()
