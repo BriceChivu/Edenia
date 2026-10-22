@@ -2,7 +2,7 @@ extends "res://scripts/level_two_preview.gd"
 
 ## Fresh editor entry points. Never load or write the persistent local preview.
 enum StartMode { LEVEL_ONE, LEVEL_ONE_TO_TWO, LEVEL_TWO, LEVEL_TWO_TO_THREE, LEVEL_THREE, LEVEL_THREE_TO_FOUR, LEVEL_FOUR, LEVEL_FOUR_TO_FIVE, LEVEL_FIVE }
-@export_range(0, 10) var starting_level := 0
+@export_range(0, 20) var starting_level := 0
 @export var start_mode: StartMode = StartMode.LEVEL_ONE
 
 func _ready() -> void:

@@ -8,9 +8,9 @@ import {
   normalizeCityProgress
 } from '../../src/features/city/model.js'
 
-test('study levels use all ten Godot thresholds without town artwork metadata', () => {
-  assert.deepEqual(CITY_LEVELS.map(level => level.threshold), [0,15,45,90,150,225,315,420,540,675])
-  assert.deepEqual(CITY_LEVELS.map(level => level.level), [1,2,3,4,5,6,7,8,9,10])
+test('study levels use all twenty Godot thresholds without town artwork metadata', () => {
+  assert.deepEqual(CITY_LEVELS.map(level => level.threshold), [0,15,45,90,150,225,315,420,540,675,825,990,1170,1365,1575,1800,2040,2295,2565,2850])
+  assert.deepEqual(CITY_LEVELS.map(level => level.level), Array.from({length:20}, (_, index) => index + 1))
 })
 
 test('city level lookups preserve thresholds, coercion, and shared object identity', () => {
@@ -20,9 +20,9 @@ test('city level lookups preserve thresholds, coercion, and shared object identi
   assert.equal(getCityLevelIndex(15), 1)
   assert.equal(getCityLevelIndex(44.99), 1)
   assert.equal(getCityLevelIndex(45), 2)
-  assert.equal(getCityLevelIndex(1049), 9)
-  assert.equal(getCityLevelIndex(1050), 9)
-  assert.equal(getCityLevelIndex(Infinity), 9)
+  assert.equal(getCityLevelIndex(1049), 11)
+  assert.equal(getCityLevelIndex(1050), 11)
+  assert.equal(getCityLevelIndex(Infinity), 19)
   assert.equal(getCityLevelIndex(NaN), 0)
   assert.equal(getCityLevelIndex('15'), 1)
   assert.equal(getCityLevel(45), CITY_LEVELS[2])
@@ -32,7 +32,7 @@ test('city score lookup preserves clamping and invalid-index fallbacks', () => {
   assert.equal(getCityScoreForLevelIndex(-1), 0)
   assert.equal(getCityScoreForLevelIndex(0), 0)
   assert.equal(getCityScoreForLevelIndex(1), 15)
-  assert.equal(getCityScoreForLevelIndex(99), 675)
+  assert.equal(getCityScoreForLevelIndex(99), 2850)
   assert.equal(getCityScoreForLevelIndex(1.5), 0)
   assert.equal(getCityScoreForLevelIndex(NaN), 0)
 })
@@ -65,7 +65,7 @@ test('city progress normalization clamps indices and clears already revealed pen
   }
   normalizeCityProgress(clamped)
   assert.deepEqual(clamped.cityProgress, {
-    maxLevelIndex: 9,
+    maxLevelIndex: 19,
     pendingLevelIndex: null,
     scoringVersion: 7,
     experienceVersion: 0
@@ -97,12 +97,12 @@ test('city progress normalization preserves null handling and mutation errors', 
 })
 
 // This import/normalization happens before any iframe handshake.
-test('all ten Godot thresholds are available before profile normalization', async () => {
+test('all twenty Godot thresholds are available before profile normalization', async () => {
   const { readFile } = await import('node:fs/promises')
   const godot = await readFile('godot/tiny-swords/scripts/terrain_layout.gd', 'utf8')
   const thresholds = JSON.parse(godot.match(/^const XP_THRESHOLDS := (\[[^\n]+\])$/m)[1])
   assert.deepEqual(CITY_LEVELS.map(level => level.threshold), thresholds)
-  assert.equal(CITY_LEVELS.length, 10)
+  assert.equal(CITY_LEVELS.length, 20)
   const state = {cityProgress:{maxLevelIndex:8,pendingLevelIndex:9,experienceVersion:1}}
   normalizeCityProgress(state)
   assert.equal(state.cityProgress.maxLevelIndex,8)

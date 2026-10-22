@@ -56,7 +56,7 @@ func run() -> void:
  check(not game.restore_study_layout({"version": 999}), "Bridge must reject unsupported snapshots")
  check(game.layout.snapshot() == before, "Rejected bridge restore preserves live island")
  check(game.restore_study_layout(before), "Bridge restores a valid snapshot")
- game.ui.max_preview_level = 10
+ game.ui.max_preview_level = game.Layout.XP_THRESHOLDS.size()
  game.study_requires_save_acknowledgment = true
  game.playground_manual_progression = true
  game.apply_study_level(3)
@@ -77,6 +77,21 @@ func run() -> void:
  game.complete_level_unlock(3, true)
  game.ui.celebration.queue_free()
  game.ui.celebration = null
+ # A claimed level twenty still grants and persists each intervening reward once.
+ for target in range(4, 21):
+  game.apply_study_level(20)
+  check(game.layout.level == target and game.pending_unlock_level == target, "Study catch-up grants exactly one reward at level %s" % target)
+  check(game.ui.celebration == null, "Catch-up waits for persistence before celebrating")
+  var claimed: Dictionary = game.layout.snapshot()
+  check(game.Layout.new().restore(JSON.parse_string(JSON.stringify(claimed))), "Catch-up reward saves at level %s" % target)
+  game.apply_study_level(20)
+  check(game.layout.snapshot() == claimed, "Pending acknowledgment cannot duplicate rewards")
+  game.receive_layout_saved([target, true])
+  check(game.ui.celebration != null and game.pending_unlock_level == 0, "Catch-up celebrates persisted level %s" % target)
+  game.ui.celebration.free()
+  game.ui.celebration = null
+ game.apply_study_level(99)
+ check(game.layout.level == 20 and game.pending_unlock_level == 0, "Study claims respect level twenty cap")
  check(game.restore_study_layout(before), "Restore the original fixture after unlock checks")
  check(game.layout.MAX_CELL - game.layout.MIN_CELL + Vector2i.ONE == Vector2i(37, 20), "Integrated export must retain the expanded build grid")
  game.layout.cells[Vector2i.ZERO] = "high_meadow"

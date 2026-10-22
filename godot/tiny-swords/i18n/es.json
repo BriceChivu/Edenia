@@ -15,6 +15,8 @@
   "ok": "Aceptar",
   "level": "Nivel {level}",
   "available": "{item}: {count} disponibles",
+  "fourGroundReward": "4 parcelas de suelo",
+  "twoTreesReward": "2 árboles",
   "groundReward": "3 parcelas de suelo",
   "stairsReward": "1 escalera con su plataforma superior",
   "treeReward": "1 árbol",

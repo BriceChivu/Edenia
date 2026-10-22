@@ -7,7 +7,7 @@ export async function generateTinySwordsProgression(root) {
   const declaration = source.match(/^const XP_THRESHOLDS := (\[[^\n]+\])$/m)
   if (!declaration) throw new Error('Missing Godot XP_THRESHOLDS declaration')
   const thresholds = JSON.parse(declaration[1])
-  if (thresholds.length !== 10 || thresholds[0] !== 0
+  if (thresholds.length !== 20 || thresholds[0] !== 0
     || thresholds.some((value, index) => !Number.isInteger(value) || value < 0
       || (index > 0 && value <= thresholds[index - 1]))) {
     throw new Error('Invalid Tiny Swords progression thresholds')
