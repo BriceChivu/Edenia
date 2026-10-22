@@ -85,6 +85,21 @@ This behavior applies to signed-in production users. The ordinary accountless
 public route remains unchanged, and changing the current rollout exposure is a
 separate release decision.
 
+October 23, 2026 performance refinement for the restricted authentication trial:
+`open_my_learner_profile` wraps the existing owner-verified resolver and returns
+the reset receipt in the same transaction. A clean local copy may reuse its
+durable body only when the server confirms its exact profile identity,
+generation, accepted revision and canonical content digest. Pending edits,
+protected conflicts, recovery/import journals and unfinished onboarding retain
+the full resolution path. Changed cloud state is returned in that same response;
+revision equality alone never authorizes a cached copy. The opening activation
+fence still checks the captured local body/access record, and a final sync fence
+retires the result if local bookkeeping changes during opening. Cached contents
+remain inactive until this response and the ordinary ownership checks complete.
+The old resolver remains available for older clients and staged database rollout.
+This refinement does not change public account availability, device-handoff
+combination rules, reset boundaries or save cadence.
+
 ## Consequences
 
 Positive consequences:

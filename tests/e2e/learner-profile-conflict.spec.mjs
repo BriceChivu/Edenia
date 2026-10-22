@@ -313,7 +313,8 @@ async function prepareConflictPage(page, {
       await route.fulfill({ json: authenticatedSession(), status: 200 })
       return
     }
-    if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+    if (pathname === '/rest/v1/rpc/resolve_my_learner_profile'
+      || pathname === '/rest/v1/rpc/open_my_learner_profile') {
       resolutionRequests.push(true)
       await route.fulfill({
         json: [{
@@ -322,6 +323,7 @@ async function prepareConflictPage(page, {
           generation: 4,
           profile_id: PROFILE_ID,
           revision: resolvedRevision,
+          reset_state: { status: 'none' },
           status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
         }],
         status: 200

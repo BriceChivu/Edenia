@@ -1,6 +1,75 @@
 // Resolve every game asset beside this exact version of the parent adapter.
 const tinySwordsReleaseUrl = new URL('.', document.currentScript.src)
+// The builder supplies only disposable assets from this exact game release.
+const tinySwordsPreloadAssets = []
 if (window.edeniaTinySwordsEnabled === true) {
+  // Start only disposable downloads while profile opening runs. Hand their
+  // streams to the worker once, including in private browsers whose HTTP cache
+  // may not retain the engine. No learner data or game frame is needed here.
+  const preloads = new Map()
+  const canPreload = typeof Worker === 'function' && typeof MessageChannel === 'function'
+  for (const asset of canPreload ? tinySwordsPreloadAssets : []) {
+    const url = new URL(asset, tinySwordsReleaseUrl).href
+    preloads.set(url, (async () => {
+      if (url.includes('/tiny-swords-engine/')) {
+        let timer
+        try {
+          const cached = await Promise.race([
+            caches.open('edenia-tiny-swords-engine-v1').then(cache => cache.match(url)),
+            new Promise(resolve => { timer = setTimeout(resolve, 1000) })
+          ])
+          if (cached) return { response: cached, cached: true }
+        } catch {} finally { clearTimeout(timer) }
+      }
+      const abort = new AbortController()
+      const timer = setTimeout(() => abort.abort(), 15000)
+      try { return { response: await fetch(url, { priority: 'low', signal: abort.signal }), cached: false } }
+      finally { clearTimeout(timer) }
+    })().catch(() => null))
+  }
+  window.edeniaTakeTinySwordsPreload = url => {
+    const prepared = preloads.get(url)
+    if (!prepared) return null
+    preloads.delete(url)
+    const channel = new MessageChannel()
+    let reader, remaining, offset = 0, canceled = false
+    const cancel = () => {
+      canceled = true
+      reader?.cancel().catch(() => {})
+      remaining = null
+      prepared.then(source => { if (!reader) source?.response.body?.cancel().catch(() => {}) })
+      channel.port1.close()
+    }
+    channel.port1.onmessage = async ({ data }) => {
+      if (data.type === 'cancel') { cancel(); return }
+      try {
+        if (data.type === 'headers') {
+          const source = await prepared
+          if (!source?.response.body) throw new Error('Asset preload unavailable')
+          if (canceled) { source.response.body.cancel().catch(() => {}); return }
+          reader = source.response.body.getReader()
+          channel.port1.postMessage({ type: 'headers', status: source.response.status,
+            headers: [...source.response.headers], cached: source.cached })
+        } else if (data.type === 'pull') {
+          if (!remaining) {
+            const chunk = await reader.read()
+            if (chunk.done) { channel.port1.postMessage({ type: 'done' }); channel.port1.close(); return }
+            remaining = chunk.value; offset = 0
+          }
+          const end = Math.min(offset + 64 * 1024, remaining.byteLength)
+          const buffer = remaining.slice(offset, end).buffer
+          offset = end
+          if (offset === remaining.byteLength) remaining = null
+          if (!canceled) channel.port1.postMessage({ type: 'chunk', buffer }, [buffer])
+        }
+      } catch {
+        reader?.cancel().catch(() => {})
+        channel.port1.postMessage({ type: 'error' })
+        channel.port1.close()
+      }
+    }
+    return { port: channel.port2, cancel }
+  }
   document.documentElement.classList.add('tiny-swords-integrated')
   const initializeIsland = () => {
     const surface = document.getElementById('tinySwordsSurface')

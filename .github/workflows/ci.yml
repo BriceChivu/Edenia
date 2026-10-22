@@ -197,6 +197,7 @@ jobs:
           supabase test db supabase/tests/pixel_town_economy.test.sql --local
           supabase test db supabase/tests/first_signed_in_profile.test.sql --local
           supabase test db supabase/tests/learner_profile_progress_sync.test.sql --local
+          supabase test db supabase/tests/conditional_profile_opening.test.sql --local
           supabase test db supabase/tests/learner_profile_handoff.test.sql --local
           supabase test db supabase/tests/learner_profile_conflict_resolution.test.sql --local
           supabase test db supabase/tests/voluntary_accountless_profile_migration.test.sql --local

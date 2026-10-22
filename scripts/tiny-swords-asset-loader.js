@@ -63,6 +63,8 @@
   }
   async function compressedResponse(asset) {
     const worker = new Worker(new URL(config.worker, base), { type: 'module' })
+    let preloadHandle
+    try { preloadHandle = parent.edeniaTakeTinySwordsPreload?.(new URL(asset.url + '.br', base).href) } catch {}
     let pending
     let timer
     let stopped = false
@@ -81,6 +83,7 @@
       if (stopped) return
       stopped = true
       worker.terminate()
+      preloadHandle?.cancel()
       if (pending) settle(new Error('Game asset delivery canceled'))
       clearTimeout(timer)
     }
@@ -92,19 +95,20 @@
       else if (data.type === 'done') settle(null, { done: true })
       else if (data.type === 'ready' || data.type === 'chunk') settle(null, { done: false, value: new Uint8Array(data.buffer) })
     }
-    function readWorker(message) {
+    function readWorker(message, transfer = []) {
       return new Promise((resolve, reject) => {
         pending = { resolve, reject }
         arm()
-        worker.postMessage(message)
+        worker.postMessage(message, transfer)
       })
     }
     let first
     try {
       first = await readWorker({
         type: 'start', url: new URL(asset.url + '.br', base).href,
-        bytes: asset.bytes, cacheEngine: asset.type === 'application/wasm', decoderUrl: new URL(config.decoder, base).href
-      })
+        bytes: asset.bytes, cacheEngine: asset.type === 'application/wasm', decoderUrl: new URL(config.decoder, base).href,
+        ...(preloadHandle ? { preloaded: preloadHandle.port } : {})
+      }, preloadHandle ? [preloadHandle.port] : [])
     } catch (error) { stop(); throw error }
     let delivered = first.value?.byteLength || 0
     let fallbackReader

@@ -1232,6 +1232,43 @@ test('an explicit signed-in profile resolution fences delayed work from an earli
   assert.equal(harness.getOwnerVerification(), null)
 })
 
+test('a server-confirmed unchanged profile reuses local storage and the bundled reset receipt', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { learnerProfile: { languages: ['mandarin'] }, onboarding: { setupCompleted: true } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile },
+    cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 7,
+      profile, profileUnchanged: true, resetState: { status: 'none' } },
+    cloudProtectedReset: () => { throw new Error('Bundled receipt must avoid the second request') }
+  })
+  harness.authority.start()
+  for (let tick = 0; tick < 10; tick++) await Promise.resolve()
+  assert.equal(harness.authority.getState().status, LEARNER_PROFILE_ACCESS_STATES.ACTIVE)
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(harness.calls.some(([name]) => ['reconcile', 'install', 'cloud-read-protected-reset'].includes(name)), false)
+  assert.equal(harness.authority.saveActiveProfile(profile), true, 'activation still installs the normal save fence')
+})
+
+test('a bundled reset receipt cannot skip the reset boundary of an empty later generation', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { onboarding: { setupCompleted: false } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 2, revision: 7, profile },
+    cloudResolution: { status: 'activate', ownerId, profileId, generation: 2, revision: 7,
+      profile, profileUnchanged: true, resetState: { status: 'invalid' } },
+    cloudResetState: () => { throw new Error('Use the bundled result') }
+  })
+  harness.authority.start()
+  for (let tick = 0; tick < 10; tick++) await Promise.resolve()
+  assert.notEqual(harness.authority.getState().status, LEARNER_PROFILE_ACCESS_STATES.ACTIVE)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(profile), false)
+})
+
 test('cloud revision identity is installed and activated before signed-in saves can synchronize', async () => {
   const signedInProfile = {
     learnerProfile: { languages: ['mandarin'] },

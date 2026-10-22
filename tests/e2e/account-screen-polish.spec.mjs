@@ -59,12 +59,12 @@ for (const method of ['email', 'google', 'existing session']) {
       const path = new URL(route.request().url()).pathname
       if (path === '/auth/v1/verify' || path === '/auth/v1/token') return route.fulfill({ json: session })
       if (path === '/auth/v1/user') return route.fulfill({ json: session.user })
-      if (path === '/rest/v1/rpc/resolve_my_learner_profile') {
+      if (['/rest/v1/rpc/resolve_my_learner_profile', '/rest/v1/rpc/open_my_learner_profile'].includes(path)) {
         const body = route.request().postDataJSON()
         openingRequests.push(body)
         envelope = body.p_onboarding_profile || envelope
         if (!envelope) return route.fulfill({ json: [{ status: 'onboarding_required' }] })
-        return route.fulfill({ json: [{ status: 'profile_ready', created: true, profile_id: profileId, generation: 1, revision: 1, envelope }] })
+        return route.fulfill({ json: [{ status: 'profile_ready', created: true, profile_id: profileId, generation: 1, revision: 1, envelope, reset_state: { status: 'none' } }] })
       }
       if (path === '/rest/v1/learner_profile_heads') return route.fulfill({ json: { user_id: owner, profile_id: profileId, generation: 1, revision: 1 } })
       if (path === '/rest/v1/rpc/read_my_latest_learner_profile_reset') return route.fulfill({ json: [{ status: 'none' }] })

@@ -434,7 +434,8 @@ export function createLearnerProfileLifecycleAuthority({
         && result.revision > 0
       ) {
         const reset = !result.protectedReset && (
-          typeof cloudPersistence.readProtectedReset === 'function'
+          result.resetState
+          || typeof cloudPersistence.readProtectedReset === 'function'
           || typeof cloudPersistence.readResetState === 'function'
         ) ? await readProfileReset(result) : {
           protectedReset: result.protectedReset || null,
@@ -524,7 +525,17 @@ export function createLearnerProfileLifecycleAuthority({
             profileId: result.profileId,
             revision: result.revision
           }
-          let reconciled = result.backupRequired === true
+          const unchanged = result.profileUnchanged === true
+          if (unchanged && (result.profile !== localProfile.profile
+            || localProfile.ownerId !== result.ownerId || localProfile.profileId !== result.profileId
+            || localProfile.generation !== result.generation || localProfile.revision !== result.revision)) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          // releaseOpeningActivation above checked the exact durable body and
+          // access fence captured before the cloud request. Reuse that body only
+          // after the server also confirmed its content and current revision.
+          let reconciled = unchanged ? true : result.backupRequired === true
             ? localPersistence.adoptCloudIdentity?.({
                 ...identity,
                 previousProfileId: localProfile.profileId
@@ -1410,10 +1421,10 @@ export function createLearnerProfileLifecycleAuthority({
     // An empty later generation may be an intentional reset even after Undo
     // expires. Never infer that intent from an unavailable or malformed receipt.
     if (result.generation > 1 && result.profile.onboarding?.setupCompleted === false
-      && typeof cloudPersistence.readResetState === 'function') {
+      && (result.resetState || typeof cloudPersistence.readResetState === 'function')) {
       let reset
       try {
-        reset = await cloudPersistence.readResetState(identity)
+        reset = result.resetState || await cloudPersistence.readResetState(identity)
       } catch {
         return { status: 'unavailable' }
       }
@@ -1429,7 +1440,9 @@ export function createLearnerProfileLifecycleAuthority({
       return { protectedReset: null, resetIntent: false }
     }
     try {
-      const protectedReset = await cloudPersistence.readProtectedReset?.(identity) || null
+      const protectedReset = result.resetState
+        ? result.resetState.protectedReset || null
+        : await cloudPersistence.readProtectedReset?.(identity) || null
       return { protectedReset, resetIntent: Boolean(protectedReset) }
     } catch {
       return { protectedReset: null, resetIntent: false }

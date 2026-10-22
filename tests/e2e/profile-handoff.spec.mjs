@@ -44,6 +44,15 @@ async function createCloud() {
         return route.fulfill({ json: identity() })
       }
       if (path === '/rest/v1/rpc/resolve_my_learner_profile') return route.fulfill({ json: [{ status: 'profile_ready', created: false, ...identity(), envelope }] })
+      if (path === '/rest/v1/rpc/open_my_learner_profile') {
+        const args = request.postDataJSON()
+        const digest = sha256Base64UrlSync(canonicalizeJson(envelope.profile))
+        const unchanged = args.p_cached_profile_id === profileId && args.p_cached_generation === 1
+          && args.p_cached_revision === revision && args.p_cached_profile_sha256 === digest
+        return route.fulfill({ json: [{ status: unchanged ? 'profile_unchanged' : 'profile_ready',
+          created: false, ...identity(), envelope: unchanged ? null : envelope,
+          profile_sha256: unchanged ? digest : null, reset_state: { status: 'none' } }] })
+      }
       if (path === '/rest/v1/rpc/read_my_latest_learner_profile_reset') return route.fulfill({ json: [{ status: 'none' }] })
       if (path.startsWith('/rest/v1/') && !path.includes('learner_profile')) return route.fulfill({ json: [] })
       const args = request.postDataJSON()

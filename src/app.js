@@ -1292,6 +1292,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     createOperationId: createLearnerProfileActivationId,
     eventTarget: window,
     handoffEnabled: IS_AUTH_TRIAL,
+    conditionalOpeningEnabled: IS_AUTH_TRIAL,
     finalizeEnvelope: prepared => finalizePortableLearnerProfileEnvelope(
       prepared,
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }

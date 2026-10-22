@@ -66,7 +66,7 @@ from pg_proc proc join pg_namespace ns on ns.oid=proc.pronamespace
 where ns.nspname='learner_profile_rpc';
 grant select on trial_calls to authenticated;
 set local role authenticated;
-select is((select count(*) from trial_calls),16::bigint,'every learner profile RPC participates');
+select is((select count(*) from trial_calls),17::bigint,'every learner profile RPC participates');
 select throws_ok(call,'42501','Learner profile tester access disabled',proname || ' rejects a non-admitted UUID') from trial_calls order by proname;
 select is((select count(*) from public.learner_profile_heads),0::bigint,'non-admitted owner cannot read even their existing head');
 select is((select count(*) from public.learner_profile_versions),0::bigint,'non-admitted owner cannot read existing versions');

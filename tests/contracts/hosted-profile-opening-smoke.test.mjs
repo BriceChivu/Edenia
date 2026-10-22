@@ -6,6 +6,36 @@ const origin = 'https://synthetic.supabase.co'
 const resolveUrl = origin + '/rest/v1/rpc/resolve_my_learner_profile'
 const request = (body = '{"p_onboarding_profile":null}') => ({ method: 'POST', url: resolveUrl, body })
 
+test('trial opening guard allows exactly one read with bounded cache evidence', () => {
+  for (const cached of [false, true]) {
+    const policy = createOpeningPolicy({ providerOrigin: origin, conditionalOpening: true })
+    policy.beginPhase('activation')
+    const body = JSON.stringify({ p_onboarding_profile: null,
+      p_cached_profile_id: cached ? '123e4567-e89b-42d3-a456-426614174000' : null,
+      p_cached_generation: cached ? 1 : null, p_cached_revision: cached ? 7 : null,
+      p_cached_profile_sha256: cached ? 'A'.repeat(43) : null })
+    assert.equal(policy.classify({ method: 'POST', url: origin + '/rest/v1/rpc/open_my_learner_profile', body }), 'resolve')
+    assert.equal(policy.finishPhase().complete, true)
+  }
+})
+
+test('trial opening guard rejects duplicate, partial and non-read request bodies', () => {
+  const payload = { p_onboarding_profile: null, p_cached_profile_id: null,
+    p_cached_generation: null, p_cached_revision: null, p_cached_profile_sha256: null }
+  for (const body of [
+    JSON.stringify({ ...payload, p_onboarding_profile: {} }),
+    JSON.stringify({ ...payload, p_cached_generation: 1 }),
+    JSON.stringify({ ...payload, p_cached_profile_id: ['123e4567-e89b-42d3-a456-426614174000'],
+      p_cached_generation: 1, p_cached_revision: 7, p_cached_profile_sha256: 'A'.repeat(43) }),
+    JSON.stringify(payload).replace('{', '{"p_cached_revision":null,')
+  ]) {
+    const policy = createOpeningPolicy({ providerOrigin: origin, conditionalOpening: true })
+    policy.beginPhase('activation')
+    assert.equal(policy.classify({ method: 'POST', url: origin + '/rest/v1/rpc/open_my_learner_profile', body }), 'deny')
+    assert.equal(policy.finishPhase().complete, false)
+  }
+})
+
 test('opening permits exactly one null-onboarding resolver per declared phase', () => {
   const policy = createOpeningPolicy({ providerOrigin: origin })
   policy.beginPhase('activation')

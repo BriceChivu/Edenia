@@ -12,8 +12,9 @@ const PHASES = new Set(['activation', 'reload', 'injected-failure', 'retry'])
 // These application reads do not choose, restore, or commit learner state.
 const READS = new Set(['read_my_latest_learner_profile_reset'])
 
-export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
+export function createOpeningPolicy({ providerOrigin, now = Date.now, conditionalOpening = false }) {
   const provider = new URL(providerOrigin)
+  const resolverPath = '/rest/v1/rpc/' + (conditionalOpening ? 'open_my_learner_profile' : 'resolve_my_learner_profile')
   if (provider.origin !== providerOrigin || provider.protocol !== 'https:') throw new Error('Invalid opening provider')
   let active = null
   let failed = false
@@ -30,7 +31,7 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
       reads = 0
       ancillaryBlocked = 0
       active = createCanaryOperationGuard({ startedAt: now(), timeoutMs: 300000, now,
-        rules: [{ id: 'resolve', method: 'POST', url: providerOrigin + '/rest/v1/rpc/resolve_my_learner_profile', expected: 1 }] })
+        rules: [{ id: 'resolve', method: 'POST', url: providerOrigin + resolverPath, expected: 1 }] })
     },
     classify({ method, url, body }) {
       if (failed || !active) return deny()
@@ -46,14 +47,24 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
         ancillaryBlocked += 1
         return 'ancillary-block'
       }
-      if (method === 'POST' && target.pathname === '/rest/v1/rpc/resolve_my_learner_profile' && !target.search) {
+      if (method === 'POST' && target.pathname === resolverPath && !target.search) {
         // Compare parsed shape AND reject duplicate JSON keys by requiring the
         // SDK's canonical single-field body after whitespace normalization.
         let payload
         try { payload = JSON.parse(body) } catch { return deny() }
-        if (!payload || Array.isArray(payload) || Object.keys(payload).length !== 1
-          || !Object.hasOwn(payload, 'p_onboarding_profile') || payload.p_onboarding_profile !== null
-          || typeof body !== 'string' || body.replace(/\s/gu, '') !== '{"p_onboarding_profile":null}') return deny()
+        const keys = conditionalOpening
+          ? ['p_onboarding_profile', 'p_cached_profile_id', 'p_cached_generation', 'p_cached_revision', 'p_cached_profile_sha256']
+          : ['p_onboarding_profile']
+        if (!payload || Array.isArray(payload) || Object.keys(payload).length !== keys.length
+          || !keys.every(key => Object.hasOwn(payload, key)) || payload.p_onboarding_profile !== null
+          || typeof body !== 'string' || body.replace(/\s/gu, '') !== JSON.stringify(payload)) return deny()
+        if (conditionalOpening && !keys.slice(1).every(key => payload[key] === null)) {
+          if (typeof payload.p_cached_profile_id !== 'string'
+            || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/iu.test(payload.p_cached_profile_id)
+            || ![payload.p_cached_generation, payload.p_cached_revision].every(value => Number.isSafeInteger(value) && value > 0)
+            || typeof payload.p_cached_profile_sha256 !== 'string'
+            || !/^[A-Za-z0-9_-]{43}$/u.test(payload.p_cached_profile_sha256)) return deny()
+        }
         return active.allow({ method, url }) ? 'resolve' : deny()
       }
       if (method === 'POST' && !target.search && target.pathname.startsWith('/rest/v1/rpc/')
@@ -87,7 +98,7 @@ export async function installOpeningGuard(context, {
 }) {
   if (serviceWorkers !== 'block') throw new Error('Opening requires blocked service workers')
   const targetSurface = openingTarget(applicationOrigin, surface)
-  const policy = createOpeningPolicy({ providerOrigin })
+  const policy = createOpeningPolicy({ providerOrigin, conditionalOpening: surface === 'trial' })
   let stopped = false
   let injectFailure = false
   await context.routeWebSocket('**/*', socket => { policy.fail(); socket.close() })
@@ -108,7 +119,8 @@ export async function installOpeningGuard(context, {
           return await route.abort('failed')
         }
         if (synthetic) {
-          const json = classification === 'resolve' ? [synthetic.resolution]
+          const json = classification === 'resolve' ? [{ ...synthetic.resolution,
+            ...(target.pathname.endsWith('/open_my_learner_profile') ? { reset_state: { status: 'none' } } : {}) }]
             : classification === 'auth-read' ? synthetic.session.user : [{ status: 'none' }]
           return await route.fulfill({ status: 200, json })
         }
@@ -120,7 +132,7 @@ export async function installOpeningGuard(context, {
         }
         if (classification === 'resolve' && response.status() === 200) {
           const data = await response.json()
-          if (Array.isArray(data) && data.length === 1 && data[0]?.status === 'profile_ready') onResolutionComplete()
+          if (Array.isArray(data) && data.length === 1 && ['profile_ready', 'profile_unchanged'].includes(data[0]?.status)) onResolutionComplete()
         }
         return await route.fulfill({ response })
       }
