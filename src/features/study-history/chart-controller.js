@@ -244,7 +244,7 @@ export function createHistoryChart(container, { t, locale, formatTime, requestAc
     if (!data || container.classList.contains('hidden')) return
     width = plot.clientWidth
     if (width < 10) return
-    const height = plot.clientHeight, left = 0, right = width - 13, top = 24, bottom = height - 47
+    const height = plot.clientHeight, left = 0, right = width - 13, top = 6, bottom = height - 28
     geometry = { width, height, left, right, top, bottom, innerWidth: right - left }
     const span = viewport.end - viewport.start
     const x = day => left + (day - viewport.start) / span * (right - left)
