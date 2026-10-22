@@ -909,6 +909,7 @@ export const ZH_HANT_LOCALIZED = {
     'time.watchedWeeksAgo': '{count} 週前觀看',
     'time.watchedDate': '{date} 觀看',
     'time.weekLabel': '第 {week} 週 · {start} - {end}',
+    'time.weekNumber': '第 {week} 週',
     'time.hoursMinutes': '{hours} 小時 {minutes} 分鐘',
     'time.hours': '{hours} 小時',
     'time.minutes': '{minutes} 分鐘',

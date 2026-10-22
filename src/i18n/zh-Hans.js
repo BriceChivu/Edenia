@@ -889,6 +889,7 @@ export const ZH_HANS_LOCALIZED = {
     'time.watchedWeeksAgo': '{count} 周前观看',
     'time.watchedDate': '{date} 观看',
     'time.weekLabel': '第 {week} 周 · {start} - {end}',
+    'time.weekNumber': '第 {week} 周',
     'time.hoursMinutes': '{hours} 小时 {minutes} 分钟',
     'time.hours': '{hours} 小时',
     'time.minutes': '{minutes} 分钟',

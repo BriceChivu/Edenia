@@ -891,6 +891,7 @@ export const FR_LOCALIZED = {
     'time.watchedWeeksAgo': 'Vue il y a {count} sem',
     'time.watchedDate': 'Vue le {date}',
     'time.weekLabel': 'Semaine {week} · {start} - {end}',
+    'time.weekNumber': 'Semaine {week}',
     'time.hoursMinutes': '{hours} h {minutes} min',
     'time.hours': '{hours} h',
     'time.minutes': '{minutes} min',

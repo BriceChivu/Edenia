@@ -2836,12 +2836,13 @@ function formatResumeTimestamp(seconds) {
   return `${z(h)}:${z(m)}:${z(s)}`
 }
 
-function getWeekLabel(state = null) {
+function getWeekLabel(state = null, { compact = false } = {}) {
   const start = getWeekStart(getCurrentAppDate(state))
   const end   = new Date(start)
   end.setDate(end.getDate() + 6)
   const jan4  = new Date(start.getFullYear(), 0, 4)
   const wk    = Math.ceil(((start - jan4) / 86_400_000 + jan4.getDay() + 1) / 7)
+  if (compact) return t('time.weekNumber', { week: wk })
   const fmt   = d => formatLocaleDate(d, { month: 'short', day: 'numeric' })
   return t('time.weekLabel', { week: wk, start: fmt(start), end: fmt(end) })
 }
@@ -3640,12 +3641,18 @@ function syncHeaderCompactState() {
   }
 
   const isCompact = header.classList.contains('is-compact')
-  const collapseAt = header.offsetHeight + 24
+  const collapseAt = 24
   const expandAt = 16
   const shouldCompact = isCompact
     ? window.scrollY > expandAt
     : window.scrollY > collapseAt
-  if (shouldCompact !== isCompact) header.classList.toggle('is-compact', shouldCompact)
+  if (shouldCompact !== isCompact) {
+    const scrollY = window.scrollY
+    header.classList.toggle('is-compact', shouldCompact)
+    // Early collapse can shrink more than we've scrolled. Preserve the scroll
+    // position instead of letting browser anchoring immediately expand it again.
+    if (window.scrollY !== scrollY) window.scrollTo({ top: scrollY, behavior: 'instant' })
+  }
 }
 
 function maybeStartOnboarding(state, { startImmediately = false } = {}) {
@@ -14328,7 +14335,8 @@ function renderAll(s) {
 }
 
 function renderHeader(s) {
-  document.getElementById('weekLabel').textContent  = getWeekLabel(s)
+  document.getElementById('weekLabelFull').textContent = getWeekLabel(s)
+  document.getElementById('weekLabelCompact').textContent = getWeekLabel(s, { compact: true })
   document.getElementById('streakCount').textContent = s.streak.current
   const pill = document.getElementById('streakDisplay')
   const streakCount = Math.max(0, Number(s.streak.current) || 0)
@@ -14993,6 +15001,34 @@ async function renderCity(score, s) {
   renderCityProgress(getCurrentCityProgress(score, s), s)
 }
 
+let cityProgressLabelsObserver = null
+
+function syncCityProgressLabels() {
+  const progress = document.getElementById('cityLevelProgress')
+  const current = document.getElementById('cityCurrentPoints')
+  const start = document.getElementById('cityCurrentMilestonePoints')
+  const end = document.getElementById('cityNextMilestonePoints')
+  if (!progress || !current || !start || !end) return
+  if (!cityProgressLabelsObserver) {
+    cityProgressLabelsObserver = new ResizeObserver(syncCityProgressLabels)
+    for (const element of [progress, current, start, end]) {
+      cityProgressLabelsObserver.observe(element)
+    }
+  }
+  const width = current.getBoundingClientRect().width
+  if (!width) return
+  progress.style.setProperty('--city-current-xp-half-width', `${width / 2}px`)
+  const currentRect = current.getBoundingClientRect()
+  for (const endpoint of [start, end]) {
+    const rect = endpoint.getBoundingClientRect()
+    const overlaps = Boolean(endpoint.textContent)
+      && currentRect.left < rect.right + 4
+      && currentRect.right > rect.left - 4
+    // Keep hidden endpoints measurable so they can return after XP or size changes.
+    endpoint.classList.toggle('is-overlapping-current', overlaps)
+  }
+}
+
 function renderCityProgress(snapshot, s) {
   document.getElementById('cityScore').textContent = formatHistoryPointNumber(snapshot.score)
   document.getElementById('cityLabel').textContent = getCityLevelLabel(CITY_LEVELS[snapshot.visualLevelIndex])
@@ -15035,10 +15071,7 @@ function renderCityProgress(snapshot, s) {
   const currentPoints = document.getElementById('cityCurrentPoints')
   if (currentPoints) {
     currentPoints.textContent = `${formatHistoryPointNumber(snapshot.score)} ${t('points.short')}`
-    // Reserve space for all three labels when the fill reaches either end.
-    progress?.style.setProperty('--city-current-xp-half-width', `${currentPoints.textContent.length / 2}ch`)
-    progress?.style.setProperty('--city-start-xp-width', `${document.getElementById('cityCurrentMilestonePoints').textContent.length}ch`)
-    progress?.style.setProperty('--city-end-xp-width', `${document.getElementById('cityNextMilestonePoints').textContent.length}ch`)
+    syncCityProgressLabels()
   }
   const pointsToNextLevel = nextLevel ? Math.max(0, nextLevel.threshold - snapshot.score) : 0
   document.getElementById('cityNextLevel').textContent = nextLevel
