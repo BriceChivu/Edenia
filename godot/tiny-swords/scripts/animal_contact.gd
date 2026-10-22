@@ -1,9 +1,10 @@
 extends RefCounted
 
 # Stable ground-space foot envelopes, independent of idle/eating/run poses.
-# Sheep need their rear and front pairs supported; chickens use two close feet.
+# Include the chicken's full authored foot sweep and shore clearance, so a
+# raised running pose cannot put its visible feet over water at a safe anchor.
 const SHEEP := Vector2(17, 6)
-const CHICKEN := Vector2(7, 3)
+const CHICKEN := Vector2(11, 9)
 
 static func standing_height(layout, point: Vector2, half_size: Vector2) -> float:
 	var height: float = layout.surface_height(point)

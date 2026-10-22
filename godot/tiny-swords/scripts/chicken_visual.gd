@@ -173,7 +173,7 @@ func segment_enters_cell(start: Vector2, target: Vector2, cell: Vector2i) -> boo
 	return false
 
 func safe_follow_segment(start: Vector2, target: Vector2) -> bool:
-	return clear_of_chickens(start, target) and not segment_enters_cell(start, target, world.layout.cell_at(world.pawn.position)) and world.clear_segment(start, target, true)
+	return clear_of_chickens(start, target) and not segment_enters_cell(start, target, world.layout.cell_at(world.pawn.position)) and world.clear_segment(start, target, true) and feet_supported_segment(start,target)
 
 func movement_segment_allowed(start: Vector2, target: Vector2) -> bool:
 	if not feet_supported_segment(start,target): return false

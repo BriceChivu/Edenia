@@ -17,6 +17,7 @@ var smooth_furthest := 0
 
 func _init(chicken, destinations: Array[Vector2]) -> void:
 	bird = chicken
+	contact_half_size = bird.foot_contact_size()
 	pawn_cell = bird.world.layout.cell_at(bird.world.pawn.position)
 	super(bird.world, bird.position, destinations[0], [], true, destinations.slice(1))
 	best_node = source

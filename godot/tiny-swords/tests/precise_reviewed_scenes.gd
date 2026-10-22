@@ -40,11 +40,20 @@ func run() -> void:
 				check(ramp!=null and not in_front(actor,ramp),'Comment %d: animal behind staircase without full foot support'%id)
 			7: check(sheep.get_index()>game.item_nodes[4].get_index(),'Comment 7: sheep draws in front of rock')
 			9: check(game.item_nodes[40].get_index()<game.item_nodes[11].get_index(),'Comment 9: stump draws behind flowers')
+			10:
+				var chicken=game.item_nodes[7]
+				check(not chicken.feet_supported(chicken.position),'Comment 10: run-pose feet cannot overhang the water edge')
+				game.selected_id=7
+				check(not game.move_selected(chicken.position,false),'Comment 10: Arrange blocks this water-edge placement')
+				check(not chicken.movement_segment_allowed(chicken.position,chicken.position),'Comment 10: gameplay rejects this water-edge position')
 		game.repair_review_animal_contacts()
+		game.clear_contact_warning()
 		if id in [3,4]:
 			check(sheep.feet_supported(sheep.position),'Comment %d: restored sheep has all four feet supported'%id)
 		if id==5:
 			check(is_zero_approx(sheep.z_index),'Comment 5: repaired landing-edge pose remains behind the stairs')
+		if id==10:
+			check(game.item_nodes[7].feet_supported(game.item_nodes[7].position),'Comment 10: restored chicken feet are fully on grass')
 		var capture_dir := OS.get_environment('TINY_SWORDS_REVIEW_CAPTURE')
 		if not capture_dir.is_empty() and DisplayServer.get_name()!='headless':
 			var rectangle: Array=sample.scene.problem_rect
@@ -59,5 +68,5 @@ func run() -> void:
 	game.dirty_seconds=-1
 	game.queue_free()
 	await process_frame
-	print('Nine reviewed scenes: ','PASS' if failures==0 else 'FAIL','; failures=',failures)
+	print('Reviewed scenes: ','PASS' if failures==0 else 'FAIL','; cases=',cases.size(),'; failures=',failures)
 	quit(0 if failures==0 else 1)

@@ -66,6 +66,7 @@ func probe(animal, occluder, mask: Image, point: Vector2, expected_front: bool, 
 		no_overlap += 1
 		return
 	checked += 1
+	if checked%100==0: print('Rendered animal overlaps checked: ',checked)
 	var group: String = label.get_slice("/", 0) + "/" + label.get_slice("/", 1)
 	if not totals.has(group):
 		totals[group] = {"checked": 0, "failed": 0}

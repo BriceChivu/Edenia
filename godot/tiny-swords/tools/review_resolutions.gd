@@ -1,6 +1,6 @@
 extends RefCounted
 
-# Exact identities from the nine implemented scene reviews. New feedback with
+# Exact identities from the implemented scene reviews. New feedback with
 # the same wording or a reused ID must stay in the active list.
 const COMPLETED := [
 	{
@@ -47,6 +47,11 @@ const COMPLETED := [
 		"id": 9,
 		"comment": "the tree trunk should be behind the bush/flowers",
 		"created_at": "2026-10-22T11:38:38"
+	},
+	{
+		"id": 10,
+		"comment": "the chicken can't be in water.",
+		"created_at": "2026-10-22T13:42:12"
 	}
 ]
 

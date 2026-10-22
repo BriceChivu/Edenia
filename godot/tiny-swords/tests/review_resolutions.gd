@@ -7,6 +7,6 @@ func _initialize() -> void:
 	notes.append(newer)
 	var result:=Resolutions.partition(notes,[])
 	var again:=Resolutions.partition(result.pending,result.resolved)
-	var ok: bool=result.pending==[newer] and result.resolved.size()==9 and again.resolved==result.resolved and Resolutions.next_id(result.pending,result.resolved)==10
+	var ok: bool=result.pending==[newer] and result.resolved.size()==10 and again.resolved==result.resolved and Resolutions.next_id(result.pending,result.resolved)==11
 	print('Resolved review archive: ','PASS' if ok else 'FAIL')
 	quit(0 if ok else 1)
