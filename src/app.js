@@ -3649,9 +3649,12 @@ function syncHeaderCompactState() {
   if (shouldCompact !== isCompact) {
     const scrollY = window.scrollY
     header.classList.toggle('is-compact', shouldCompact)
-    // Early collapse can shrink more than we've scrolled. Preserve the scroll
-    // position instead of letting browser anchoring immediately expand it again.
-    if (window.scrollY !== scrollY) window.scrollTo({ top: scrollY, behavior: 'instant' })
+    // Early collapse can shrink more than we've scrolled and immediately reopen
+    // the header. Otherwise let anchoring keep the visible page content steady.
+    const anchoredScrollY = window.scrollY
+    if (anchoredScrollY !== scrollY && (!shouldCompact || anchoredScrollY <= expandAt)) {
+      window.scrollTo({ top: scrollY, behavior: 'instant' })
+    }
   }
 }
 
