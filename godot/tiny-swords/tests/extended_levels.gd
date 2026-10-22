@@ -91,5 +91,57 @@ func run() -> void:
 		check(world.ui.celebration == null and not world.editing, "Confirmation closes popup and toggles editing")
 		world.queue_free()
 		await process_frame
+	# All new levels conserve the exact approved inventory through JSON saves.
+	var extended = preload("res://scripts/terrain_layout.gd").new()
+	for target in range(2, 11):
+		extended.unlock(target)
+	var approved := {
+		11: {"meadow": 3, "tree": 1},
+		12: {"meadow": 3, "chicken": 1, "stairs": 1},
+		13: {"meadow": 3, "sheep": 1},
+		14: {"meadow": 3, "stairs": 1},
+		15: {"meadow": 3, "tree": 1},
+		16: {"meadow": 3, "sheep": 1},
+		17: {"meadow": 3, "chicken": 1},
+		18: {"meadow": 3, "tree": 2},
+		19: {"meadow": 4},
+		20: {"meadow": 3, "tree": 1},
+	}
+	var entries := ["eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"]
+	for target in range(11, 21):
+		var previous: Dictionary = extended.stock.duplicate()
+		check(extended.unlock(target), "Unlock level %s" % target)
+		for kind in previous:
+			check(extended.stock[kind] == previous[kind] + int(approved[target].get(kind, 0)), "Exact level %s reward: %s" % [target, kind])
+		check(not extended.unlock(target), "New reward cannot repeat")
+		var threshold: int = 15 * target * (target - 1) / 2
+		check(extended.XP_THRESHOLDS[target - 1] == threshold and extended.level_for_xp(threshold - 1) == target - 1 and extended.level_for_xp(threshold) == target, "Existing XP curve reaches level %s" % target)
+		var saved: Dictionary = JSON.parse_string(JSON.stringify(extended.snapshot()))
+		check(restored.restore(saved) and restored.snapshot() == extended.snapshot(), "Level %s retains island and inventory through JSON reload" % target)
+		for kind in ["meadow", "stairs", "tree", "sheep", "chicken"]:
+			var invalid: Dictionary = saved.duplicate(true)
+			invalid.stock[kind] += 1
+			check(not restored.restore(invalid), "Reject extra %s at level %s" % [kind, target])
+			check(restored.snapshot() == extended.snapshot(), "Rejected restore retains island")
+		var world = load("res://previews/level_%s.tscn" % entries[target - 11]).instantiate()
+		root.add_child(world)
+		check(world.layout.level == target, "New editor scene starts at correct level")
+		world.ui.celebrate()
+		var popup: Control = world.ui.celebration
+		check(popup.get_node("Title").text == root.get_node("GameCopy").text("level", {"level": target}), "New reward popup title")
+		check(popup.get_node("GroundCount").text == "+%s" % approved[target].meadow, "New grass reward count")
+		check(popup.get_node("GroundButton").accessibility_name == root.get_node("GameCopy").text("fourGroundReward" if target == 19 else "groundReward"), "Ground reward accessible name")
+		check(popup.get_node("StairsButton").visible == approved[target].has("stairs"), "Staircase reward visibility")
+		var secondary := "chicken" if approved[target].has("chicken") else "sheep" if approved[target].has("sheep") else "tree"
+		check(popup.get_node("PineReward").visible == approved[target].has(secondary), "Secondary reward visibility")
+		if approved[target].has(secondary):
+			check(popup.get_node("PineCount").text == "+%s" % approved[target][secondary], "Secondary reward count")
+			check(popup.get_node("PineReward").accessibility_name == root.get_node("GameCopy").text("twoTreesReward" if target == 18 else secondary + "Reward"), "Secondary reward accessible name")
+		if target == 12:
+			check(popup.get_node("StairsButton").position.x == 194 and popup.get_node("PineReward").position.x == 290, "Level twelve shows three separate reward columns")
+		check(not popup.get_node("TreeReward").visible, "No extra unearned tree column")
+		world.queue_free()
+		await process_frame
+	check(not extended.unlock(21) and extended.level_for_xp(99999) == 20, "Level twenty is the new cap")
 	print("Extended level scene checks: ", "PASS" if failures == 0 else "FAIL")
 	quit(0 if failures == 0 else 1)

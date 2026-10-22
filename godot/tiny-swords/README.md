@@ -47,7 +47,7 @@ simulate the two local upgrades using the same reward and celebration code:
 | Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
 | Level 3 → 4 | 3 ground tiles + 1 tree | 4 |
 
-Godot owns XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675**.
+Godot owns levels **1–20**, with XP thresholds **0 / 15 / 45 / 90 / 150 / 225 / 315 / 420 / 540 / 675 / 825 / 990 / 1170 / 1365 / 1575 / 1800 / 2040 / 2295 / 2565 / 2850**.
 The existing curve is `15 × level × (level − 1) / 2` total XP: each upgrade costs
 15 XP more than the previous one. Levels six through ten each grant three new
 grass tiles; level six also grants a third stair bundle and a third tree,
@@ -58,6 +58,15 @@ level-six-or-higher islands. Save version 32 adds the level-eight tree once to
 existing level-eight-or-higher islands. Fresh editor scenes
 `previews/level_six.tscn` through `previews/level_ten.tscn` start at those levels;
 choose **Done**, then **Playground → Level +1** to preview the next upgrade.
+Levels eleven through twenty grant three grass tiles each, except level nineteen,
+which grants four. Additional rewards are: level eleven one tree; twelve one
+chicken and one stair bundle; thirteen one sheep; fourteen one stair bundle;
+fifteen one tree; sixteen one sheep; seventeen one chicken; eighteen two trees;
+twenty one tree. They reuse the existing artwork and grass reward popup. Stair
+bundles include their existing upper landing. Save format 35 is unchanged: the
+extended inventory budgets validate all earned rewards, while level-one-through-ten
+saves retain their existing migrations. Fresh editor scenes
+`previews/level_eleven.tscn` through `previews/level_twenty.tscn` cover the new levels.
 Its editable popup is `scenes/level_four_popup.tscn`, including `assets/ui/axe_level_up.png`.
 The axe unlocks tree cutting at level four; the inventory rewards are the three grass tiles and shared tree.
 The level-three tree icon represents all four tree atlases. Each placement randomly

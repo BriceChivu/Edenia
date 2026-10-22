@@ -18,7 +18,7 @@ export const ZH_HANT_LOCALIZED = {
   "walkthrough.town": "學習可獲得 XP，再按小島下方的「升級」領取獎勵。第 2 級起，「地形」可開啟建造；選擇物品放置，再按關閉按鈕返回行走。拖曳可移動鏡頭；視角按鈕可縮放或重設。",
   "walkthrough.firstStudyFeed": "觀看影片，每分鐘獲得 1 XP。學習時，歷史紀錄與小島進度會更新。",
   "settings.scoring.anki": "每次新的 Anki 複習可獲得 1 XP。每天第一次更新只建立基準。",
-  "city.maxLevel": "已達第 10 級",
+  "city.maxLevel": "已達第 20 級",
   "island.frameTitle": "學習小島：累積 XP 解鎖建造",
   "island.profileRequired": "請開啟學習者檔案以儲存小島。",
   "island.saveFailed": "無法儲存小島變更。",
@@ -34,7 +34,7 @@ export const ZH_HANT_LOCALIZED = {
   "city.level.7": "3 塊草地和 1 隻雞",
   "city.level.8": "3 塊草地和 1 隻綿羊",
   "city.level.9": "3 塊草地",
-  "city.level.10": "3 塊草地，已達第 10 級",
+  "city.level.10": "3 塊草地",
 
   "island.loading": "正在載入你的島嶼⋯⋯你可以繼續學習。",
   "island.downloading": "正在下載島嶼⋯⋯",

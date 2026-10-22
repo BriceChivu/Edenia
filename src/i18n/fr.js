@@ -18,7 +18,7 @@ export const FR_LOCALIZED = {
   "walkthrough.town": "Étudiez pour gagner des XP, puis cliquez sur Monter de niveau sous l’île pour obtenir vos récompenses. Dès le niveau 2, Terrain ouvre la construction : sélectionnez un objet à placer, puis fermez le panneau pour revenir à la marche. Faites glisser la caméra ; les commandes permettent de zoomer ou de réinitialiser la vue.",
   "walkthrough.firstStudyFeed": "Regardez une vidéo pour gagner 1 XP par minute. Votre historique et votre île progressent avec vos études.",
   "settings.scoring.anki": "Chaque nouvelle révision Anki rapporte 1 XP. La première actualisation du jour établit une référence.",
-  "city.maxLevel": "Niveau 10 atteint",
+  "city.maxLevel": "Niveau 20 atteint",
   "island.frameTitle": "Île d’étude : gagnez des XP pour débloquer la construction",
   "island.profileRequired": "Ouvrez un profil d’apprentissage pour enregistrer l’île.",
   "island.saveFailed": "Les changements de l’île n’ont pas pu être enregistrés.",
@@ -34,7 +34,7 @@ export const FR_LOCALIZED = {
   "city.level.7": "3 parcelles et une poule",
   "city.level.8": "3 parcelles et un mouton",
   "city.level.9": "3 parcelles",
-  "city.level.10": "3 parcelles : niveau 10 atteint",
+  "city.level.10": "3 parcelles",
 
   "island.loading": "Chargement de votre île… Vous pouvez continuer à étudier.",
   "island.downloading": "Téléchargement de l’île…",

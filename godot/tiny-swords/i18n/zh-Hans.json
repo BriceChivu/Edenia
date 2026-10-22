@@ -15,6 +15,8 @@
   "ok": "确定",
   "level": "第 {level} 级",
   "available": "{item}，剩余 {count} 个",
+  "fourGroundReward": "4 块草地",
+  "twoTreesReward": "2 棵树",
   "groundReward": "3 块草地",
   "stairsReward": "1 组阶梯，含上方平台",
   "treeReward": "1 棵树",
