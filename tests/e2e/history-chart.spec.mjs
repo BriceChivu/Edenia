@@ -202,6 +202,11 @@ test('Touch pan and two-finger pinch keep their captured surface and respond wit
   for (let i = 1; i <= 10; i++) await touch([{ x: x - 20 - i * 3, y, id: 1 }, { x: x + 20 + i * 3, y, id: 2 }])
   await touch([])
   await expect.poll(() => span(chart)).toBeLessThan(initialSpan * .8)
+  // Pinch updates are painted on animation frames. Capture the final range,
+  // rather than an intermediate pinch frame, before checking vertical scrolling.
+  await page.evaluate(() => new Promise(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  }))
   expect(commits.length).toBe(count)
   const scrollBefore = await page.evaluate(() => scrollY)
   const dateBefore = await chart.getAttribute('data-chart-start')

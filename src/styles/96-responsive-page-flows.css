@@ -634,22 +634,24 @@
   .app-header.is-compact .app-title {
     font-size: 1.35rem;
   }
-  .app-header.is-compact .week-label,
+  .app-header.is-compact .week-label-full,
+  .app-header.is-compact .learner-profile-sync-status,
   .app-header.is-compact .sandbox-version-label,
-  .app-header.is-compact .streak-text {
+  .app-header.is-compact .streak-pill {
     display: none;
+  }
+  .app-header.is-compact .week-label-compact {
+    display: inline;
+  }
+  .app-header.is-compact .week-label {
+    font-size: 0.62rem;
+    line-height: 1.1;
   }
   .app-header.is-compact .header-right {
     flex: 0 1 auto;
     flex-wrap: nowrap;
     gap: 4px;
     margin-left: auto;
-  }
-  .app-header.is-compact .streak-pill {
-    padding: 5px 8px;
-  }
-  body[data-sandbox="true"] .app-header.is-compact .streak-pill {
-    display: none;
   }
 }
 @media (max-width: 480px) {
