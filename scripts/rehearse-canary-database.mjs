@@ -12,6 +12,7 @@ import { rehearseCanaryContainment } from './rehearse-canary-containment.mjs'
 const repository = fileURLToPath(new URL('../', import.meta.url))
 const suites = [
   'first_signed_in_profile', 'learner_profile_progress_sync',
+  'conditional_profile_opening', 'learner_profile_handoff',
   'learner_profile_conflict_resolution', 'voluntary_accountless_profile_migration',
   'learner_profile_recovery', 'learner_profile_import', 'learner_profile_start_over',
   'learner_profile_retention', 'auth_operations', 'auth_monitoring_freshness',

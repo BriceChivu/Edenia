@@ -305,11 +305,11 @@ test(`a returning owner activates online, rechecks within bounds, and can sign o
   })
   await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
     const url = new URL(route.request().url())
-    if (url.pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+    if (['/rest/v1/rpc/resolve_my_learner_profile', '/rest/v1/rpc/open_my_learner_profile'].includes(url.pathname)) {
       resolutionCount += 1
       if (resolutionCount === 1) await resolutionBarrier
       await route.fulfill({
-        json: [returningOwnerResolutionRow(returningEnvelope, headRevision)],
+        json: [{ ...returningOwnerResolutionRow(returningEnvelope, headRevision), reset_state: { status: 'none' } }],
         status: 200
       })
       return

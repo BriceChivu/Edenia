@@ -68,6 +68,7 @@ async function seedChart(page, { free = false, google = false } = {}) {
     if (path === '/auth/v1/token') return reply(fixture.session)
     if (path === '/rest/v1/learner_profile_heads') return reply({ user_id: owner, ...identity() })
     if (path === '/rest/v1/rpc/resolve_my_learner_profile') return reply([{ status: 'profile_ready', created: false, ...identity(), envelope }])
+    if (path === '/rest/v1/rpc/open_my_learner_profile') return reply([{ status: 'profile_ready', created: false, ...identity(), envelope, reset_state: { status: 'none' } }])
     if (path.endsWith('/commit_my_learner_profile') || path.endsWith('/commit_my_learner_profile_handoff')) {
       const args = route.request().postDataJSON()
       commits.push(args)

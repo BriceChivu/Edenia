@@ -60,18 +60,38 @@ async function engineResponse(data) {
     try {
       const cached = await cacheDeadline(async () => {
         const cache = await caches.open('edenia-tiny-swords-engine-v1')
-        const response = await cache.match(assetUrl)
+        const response = data.preloaded ? null : await cache.match(assetUrl)
         return { cache, response }
       })
       engineCache = cached.cache
       if (cached.response) return cached.response
     } catch { engineCache = null }
   }
-  const response = await fetch(assetUrl)
+  const source = data.preloaded ? await preloadedResponse(data.preloaded) : null
+  const response = source ? source.response : await fetch(assetUrl)
   // Keep only the small, opaque Brotli artifact in origin storage. A host that
   // already HTTP-decodes Brotli would otherwise put the 40-MB engine here.
-  if (response.ok && engineCache && response.headers.get('content-encoding') !== 'br') cacheCopy = response.clone()
+  if (response.ok && engineCache && !source?.cached && response.headers.get('content-encoding') !== 'br') cacheCopy = response.clone()
   return response
+}
+function preloadedResponse(port) {
+  return new Promise((resolve, reject) => {
+    let stream, completePull
+    const close = () => { port.postMessage({ type: 'cancel' }); port.close() }
+    port.onmessage = ({ data }) => {
+      if (data.type === 'headers') {
+        const body = new ReadableStream({
+          start(controller) { stream = controller },
+          pull() { return new Promise(resolve => { completePull = resolve; port.postMessage({ type: 'pull' }) }) },
+          cancel: close
+        })
+        resolve({ response: new Response(body, { status: data.status, headers: data.headers }), cached: data.cached })
+      } else if (data.type === 'chunk') { stream.enqueue(new Uint8Array(data.buffer)); completePull?.() }
+      else if (data.type === 'done') { stream.close(); completePull?.(); port.close() }
+      else { const error = new Error('Asset preload unavailable'); stream?.error(error); completePull?.(); reject(error); close() }
+    }
+    port.postMessage({ type: 'headers' })
+  })
 }
 async function commitEngineCache() {
   if (!cacheCopy) return

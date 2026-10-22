@@ -89,5 +89,6 @@ export async function prepareTinySwordsDelivery(staging, outputDir) {
   if (html.split(script).length !== 2) throw new Error('Godot engine-script hook changed')
   await writeFile(resolve(staging, 'index.html'), html.replace(script,
     `<script>window.edeniaGameAssets=${JSON.stringify(config)};</script><script src="asset-loader.js"></script>${script}`))
-  return { engineHash, decoderHash, engineBytes: engine.length }
+  return { engineHash, decoderHash, engineBytes: engine.length,
+    preloadAssets: Object.values(config.files).map(asset => asset.url + '.br') }
 }

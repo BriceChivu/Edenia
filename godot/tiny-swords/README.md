@@ -452,6 +452,17 @@ preview from that source after changes.
 
 ### Web asset delivery
 
+The parent begins low-priority engine/pack retrieval while Edenia verifies the
+learner profile. Only build-supplied immutable asset URLs participate. An exact
+response can be claimed once and is streamed to the decoder worker over a
+bounded MessagePort transport, avoiding duplicate large downloads in private
+browsers. The worker still validates all decoded bytes before caching an engine.
+The existing validated engine cache is checked first with a one-second deadline;
+storage failures fall back to retrieval. Preloading never creates a game frame
+or exposes learner data. The active profile, accepted restoration and first draw
+still gate gameplay and saves. Coverage: `tiny-swords-preload.spec.mjs` and
+`tests/contracts/tiny-swords-preload.test.mjs`.
+
 The integrated builder publishes the unchanged engine binary at
 `tiny-swords-engine/<engine-sha256>/index.wasm`, independently of the game's
 release directory. Pack, UI, locale and adapter changes retain that URL; changing

@@ -85,10 +85,12 @@ function createAdapter({
   setTimer,
   storage,
   verifyEnvelope,
-  handoffEnabled = true
+  handoffEnabled = true,
+  conditionalOpeningEnabled = false
 } = {}) {
   return createCloudAdapter({
     handoffEnabled,
+    conditionalOpeningEnabled,
     getSyncOpportunity,
     readDeferredBase,
     clearOnboardingDraft: clearOnboardingDraft || (() => true),
@@ -292,8 +294,15 @@ function sharedCloud() {
     head: () => ({ user_id: OWNER_ID, profile_id: PROFILE_ID, generation: 1, revision }),
     rpc: async (name, p) => {
       calls.push({ name, operation: p?.p_operation_id, base: p?.p_base_revision, revision })
-      if (name === 'resolve_my_learner_profile') return { data: [{ created: false, envelope: structuredClone(envelope), generation: 1,
-        profile_id: PROFILE_ID, revision, status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY }], error: null }
+      if (['resolve_my_learner_profile', 'open_my_learner_profile'].includes(name)) {
+        const combined = name === 'open_my_learner_profile'
+        const digest = sha256Base64UrlSync(canonicalizeJson(envelope.profile))
+        const unchanged = combined && p.p_cached_profile_id === PROFILE_ID && p.p_cached_generation === 1
+          && p.p_cached_revision === revision && p.p_cached_profile_sha256 === digest
+        return { data: [{ created: false, envelope: unchanged ? null : structuredClone(envelope), generation: 1,
+          profile_id: PROFILE_ID, revision, status: unchanged ? 'profile_unchanged' : LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
+          ...(combined ? { reset_state: { status: 'none' }, profile_sha256: unchanged ? digest : null } : {}) }], error: null }
+      }
       if (name === 'read_my_learner_profile_conflict') return { data: [conflicts.get(p.p_conflict_id)], error: null }
       if (name === 'read_my_learner_profile_write_receipt') return { data: [receipts.has(p.p_operation_id)
         ? { ...receipts.get(p.p_operation_id), status: 'already_accepted', last_replacement_revision: 0 } : { status: 'not_accepted', last_replacement_revision: 0 }], error: null }
@@ -324,6 +333,7 @@ async function openDevice(server, { readHead, interval = 30_000, rpc = server.rp
   const storage = createMemoryStorage()
   const eventTarget = createEventTarget()
   const adapter = createAdapter({ storage, eventTarget, minimumWriteIntervalMs: interval,
+    conditionalOpeningEnabled: rpc === server.rpc,
     now: () => time, prepareEnvelope, rpc, getSyncOpportunity, readDeferredBase,
     readHead: readHead || (async () => ({ data: server.head(), error: null })),
     setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length } })

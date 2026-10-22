@@ -90,6 +90,17 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
     if(path==='/auth/v1/user'){await reply({json:authenticated.user});return}
     if(path==='/rest/v1/learner_profile_heads'){await reply({json:{user_id:authenticated.user.id,...identity()}});return}
     if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await reply({json:[{status:'profile_ready',created:false,...identity(),envelope}]});return}
+    if(path==='/rest/v1/rpc/open_my_learner_profile'){
+      const args=route.request().postDataJSON()
+      const digest=sha256Base64UrlSync(canonicalizeJson(envelope.profile))
+      const unchanged=args.p_cached_profile_id===profileId&&args.p_cached_generation===generation
+        &&args.p_cached_revision===revision&&args.p_cached_profile_sha256===digest
+      const resetState=reset?{status:reset.status,reset_id:resetId,profile_id:profileId,
+        prior_generation:reset.generation,prior_revision:reset.revision,prior_envelope:reset.envelope,
+        reset_generation:generation,protected_until:protectedUntil}:{status:'none'}
+      await reply({json:[{status:unchanged?'profile_unchanged':'profile_ready',created:false,...identity(),
+        envelope:unchanged?null:envelope,profile_sha256:unchanged?digest:null,reset_state:resetState}]});return
+    }
     if(path==='/rest/v1/rpc/read_my_latest_learner_profile_reset'){
       await reply({json:[reset ? {status:reset.status,reset_id:resetId,profile_id:profileId,
         prior_generation:reset.generation,prior_revision:reset.revision,prior_envelope:reset.envelope,
@@ -487,7 +498,7 @@ test('trial lifecycle and pause preserve exact primary/backups bytes in other In
 
 test('backend admission denial keeps a cached owned island hidden and performs no commits',async ({page,pageDiagnostics})=>{
   const {commits}=await owned(page,{indexedDb:true,engine:true})
-  await page.route(origin+'/rest/v1/rpc/resolve_my_learner_profile',route=>route.fulfill({status:403,json:{code:'42501',message:'Learner profile tester access disabled'}}))
+  await page.route(origin+'/rest/v1/rpc/{resolve_my_learner_profile,open_my_learner_profile}',route=>route.fulfill({status:403,json:{code:'42501',message:'Learner profile tester access disabled'}}))
   await page.goto('./?internal_test=1')
   await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
   await expect(page.locator('#mainApp')).toBeHidden()
@@ -753,7 +764,7 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
     await route.fulfill({ json: { user_id: owner, profile_id: profileId,
       generation: head.generation, revision: head.revision } })
   })
-  const openingCount = fixture.requests.filter(path => path.endsWith('/resolve_my_learner_profile')).length
+  const openingCount = fixture.requests.filter(path => /\/(?:resolve|open)_my_learner_profile$/.test(path)).length
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect.poll(() => checks).toBe(1)
   // A deferred local checkpoint can resume while the same head check is held.
@@ -783,7 +794,7 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   expect(await page.evaluate(() => document.querySelector('.tiny-swords-frame') === window.previousTrialFrame
     && window.previousTrialFrame.contentWindow === window.previousTrialWindow)).toBe(true)
-  expect(fixture.requests.filter(path => path.endsWith('/resolve_my_learner_profile')).length).toBe(openingCount)
+  expect(fixture.requests.filter(path => /\/(?:resolve|open)_my_learner_profile$/.test(path)).length).toBe(openingCount)
   await page.evaluate(() => learnerProfileLifecycleAuthority.refresh())
   await readyGame(page)
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})

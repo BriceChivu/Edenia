@@ -313,6 +313,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   createOperationId,
   eventTarget,
   handoffEnabled = false,
+  conditionalOpeningEnabled = false,
   finalizeEnvelope,
   getClient,
   getSyncOpportunity = null,
@@ -1239,7 +1240,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (response?.error) {
       return { status: isTransientCloudStatus(response.status) ? 'unavailable' : 'invalid' }
     }
-    const row = readSingleRpcRow(response?.data)
+    return verifyResetState(readSingleRpcRow(response?.data), { generation, ownerId, profileId })
+  }
+
+  async function verifyResetState(row, { generation, ownerId, profileId }) {
     if (row?.status === 'none') return { status: 'none' }
     const priorGeneration = normalizePositiveInteger(row?.prior_generation)
     const priorRevision = normalizePositiveInteger(row?.prior_revision)
@@ -3080,6 +3084,41 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  function openingCandidate(authentication, localProfile, purpose, storedSync) {
+    const record = storedSync.record
+    if (!conditionalOpeningEnabled || purpose !== 'resolve-signed-in-profile'
+      || localProfile?.status !== 'ready' || localProfile.onboardingFinalizationPending
+      || localProfile.ownerId !== authentication.userId
+      || !record || record.ownerId !== authentication.userId
+      || record.profileId !== localProfile.profileId
+      || record.generation !== localProfile.generation
+      || record.acceptedRevision !== localProfile.revision
+      || record.pending || record.queued || record.protectedConflictIds?.length
+      || readDirtyRecord().present || hasExplicitOnboardingProfileDraft()) return null
+    try {
+      if (storage.getItem(recoveryStorageKey) !== null
+        || storage.getItem(importStorageKey) !== null
+        || storage.getItem(handoffRepairStorageKey) !== null) return null
+      // Hash the actual saved content, not just its revision. A matching revision
+      // cannot prove that a local copy is complete or free of unqueued edits.
+      const profile = normalizeProfile(localProfile.profile)
+      const canonical = canonicalizeJson(profile)
+      return { profile, canonical, digest: sha256Base64UrlSync(canonical), serialized: storedSync.serialized }
+    } catch { return null }
+  }
+
+  function openingCandidateIsCurrent(candidate, localProfile, isCurrent) {
+    try {
+      return isCurrent() && readStoredSyncRecord().serialized === candidate.serialized
+        && !readDirtyRecord().present
+        && storage.getItem(recoveryStorageKey) === null
+        && storage.getItem(importStorageKey) === null
+        && storage.getItem(handoffRepairStorageKey) === null
+        && !hasExplicitOnboardingProfileDraft()
+        && canonicalizeJson(normalizeProfile(localProfile.profile)) === candidate.canonical
+    } catch { return false }
+  }
+
   async function resolve({
     authentication,
     connectivity,
@@ -3132,12 +3171,27 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
     }
 
+    let candidate = !malformedImportRepair
+      ? openingCandidate(authentication, localProfile, purpose, storedSyncBeforeRequest) : null
     let response
+    let combinedOpening = conditionalOpeningEnabled
     try {
       response = await getClient().rpc(
-        'resolve_my_learner_profile',
-        { p_onboarding_profile: onboardingEnvelope }
+        combinedOpening ? 'open_my_learner_profile' : 'resolve_my_learner_profile',
+        { p_onboarding_profile: onboardingEnvelope, ...(combinedOpening ? {
+          p_cached_profile_id: candidate ? localProfile.profileId : null,
+          p_cached_generation: candidate ? localProfile.generation : null,
+          p_cached_revision: candidate ? localProfile.revision : null,
+          p_cached_profile_sha256: candidate?.digest || null
+        } : {}) }
       )
+      // Support a staged database/client release. Other errors must keep their
+      // existing retry/recovery behavior rather than trying a different writer.
+      if (combinedOpening && ['PGRST202', '42883'].includes(response?.error?.code)) {
+        combinedOpening = false
+        candidate = null
+        response = await getClient().rpc('resolve_my_learner_profile', { p_onboarding_profile: onboardingEnvelope })
+      }
     } catch {
       return waitForCloudHead()
     }
@@ -3150,6 +3204,29 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     const row = readSingleRpcRow(data)
     if (!row) return { status: 'recovering' }
+    if (combinedOpening && ['profile_unchanged', 'profile_ready'].includes(row.status)
+      && !isRecord(row.reset_state)) return { status: 'recovering' }
+    if (row.status === 'profile_unchanged') {
+      if (!combinedOpening || !candidate || row.created !== false || row.envelope !== null
+        || row.profile_id !== localProfile.profileId || row.generation !== localProfile.generation
+        || row.revision !== localProfile.revision || row.profile_sha256 !== candidate.digest) {
+        return { status: 'recovering' }
+      }
+      const resetState = await verifyResetState(row.reset_state, {
+        ownerId: authentication.userId, profileId: row.profile_id, generation: row.generation
+      })
+      if (!openingCandidateIsCurrent(candidate, localProfile, isCurrent)) return { status: 'recovering' }
+      cloudHeadKnown = true
+      return {
+        status: 'activate', ownerId: authentication.userId, profileId: row.profile_id,
+        generation: row.generation, revision: row.revision, profile: localProfile.profile,
+        profileUnchanged: true, syncBaseProfile: candidate.profile, resetState,
+        backupRequired: false, protectedConflicts: [], protectedReset: resetState.protectedReset || null,
+        commitSyncRepair({ isCurrent: current } = {}) {
+          return typeof current === 'function' && openingCandidateIsCurrent(candidate, localProfile, current)
+        }
+      }
+    }
     if (
       row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.ACCESS_DISABLED
     ) return { status: 'locked' }
@@ -3208,6 +3285,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
     let envelope = await verifyEnvelope(row.envelope)
     let cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
+    const openingResetState = combinedOpening ? await verifyResetState(row.reset_state, {
+      ownerId: authentication.userId, profileId, generation
+    }) : null
     let recoveryFinalizationOperation = null
     const resumedRecovery = await resumeRecoveryOperation(
       authentication.userId,
@@ -3614,6 +3694,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     cloudHeadKnown = true
     return {
       backupRequired,
+      ...(openingResetState && row.profile_id === profileId
+        && row.generation === generation ? { resetState: openingResetState } : {}),
       ...(handoffEnabled ? { syncBaseProfile: envelope.profile } : {}),
       ...(syncRepairs.length ? {
         commitSyncRepair({ isCurrent } = {}) {

@@ -48,6 +48,7 @@ select results_eq(
       ('learner_profile_rpc.import_my_learner_profile(uuid,uuid,bigint,bigint,jsonb,boolean)'::text),
       ('learner_profile_rpc.list_my_learner_profile_recovery_candidates()'::text),
       ('learner_profile_rpc.migrate_my_accountless_profile(uuid,jsonb)'::text),
+      ('learner_profile_rpc.open_my_learner_profile(jsonb,uuid,bigint,bigint,text)'::text),
       ('learner_profile_rpc.read_my_latest_learner_profile_reset()'::text),
       ('learner_profile_rpc.read_my_learner_profile_conflict(uuid)'::text),
       ('learner_profile_rpc.read_my_learner_profile_import_backup(uuid)'::text),

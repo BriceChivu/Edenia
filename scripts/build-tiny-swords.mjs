@@ -92,12 +92,16 @@ parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
   const replay = await readFile('scripts/tiny-swords-xp-replay.js', 'utf8')
   game = game.replace('</head>', `<script>${receiver}</script><script>${visibility}</script></head>`)
   await writeFile(resolve(staging, 'index.html'), game.replace('</body>', `<script>${replay}</script></body>`))
-  await cp('scripts/tiny-swords-xp-parent.js', resolve(staging, 'parent.js'))
   await cp('scripts/tiny-swords-conflict-previews.js', resolve(staging, 'conflict-previews.js'))
   await cp(resolve(source, 'Tiny Swords (Free Pack)/UI Elements/UI Elements/Cursors/Cursor_02.png'), resolve(staging, 'Cursor_02.png'))
   await cp(resolve(source, 'notices'), resolve(staging, 'notices'), { recursive: true })
   await cp('assets/tiny-swords/README.md', resolve(staging, 'notices/ASSET-PROVENANCE.md'))
-  const delivery = await prepareTinySwordsDelivery(staging, outputDir)
+  const { preloadAssets, ...delivery } = await prepareTinySwordsDelivery(staging, outputDir)
+  const parent = await readFile('scripts/tiny-swords-xp-parent.js', 'utf8')
+  const preloadHook = 'const tinySwordsPreloadAssets = []'
+  if (parent.split(preloadHook).length !== 2) throw new Error('Godot asset-preload hook changed')
+  await writeFile(resolve(staging, 'parent.js'), parent.replace(preloadHook,
+    `const tinySwordsPreloadAssets = ${JSON.stringify(preloadAssets)}`))
   // Hash parent, hooks, pack and the exact engine/decoder references. Engine bytes
   // have their own immutable URL, so game updates reuse the browser's engine cache.
   const hash = createHash('sha256')
