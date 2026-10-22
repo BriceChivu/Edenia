@@ -56,6 +56,7 @@ export async function buildTinySwords(outputDir, { validate = true } = {}) {
     ['--script', 'res://tests/gameplay.gd'],
     ['--script', 'res://tests/black_hole.gd'],
     ['--script', 'res://tests/precise_reviewed_scenes.gd'],
+    ['--script', 'res://tests/terrain_depth_order.gd'],
     ['--script', 'res://tests/review_sandbox.gd'],
     ['--script', 'res://tests/review_tour.gd'],
     ['--script', 'res://tests/review_actor_restore.gd'],

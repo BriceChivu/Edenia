@@ -61,9 +61,8 @@ func run() -> void:
 				depth._process(0)
 				for actor in actors:
 					check(world.ground_height(actor.position) == height, "Behind-landing actor remains on receiving floor")
-					# These probes are north of the ramp, on lower ground. Animals
-					# need their full foot area on a ramp before drawing over its top.
-					check((actor.get_index()>ramp.get_index()) == (actor==world.pawn), "Animals behind the ramp stay behind; pawn slope behavior is preserved")
+					# A lower-ground actor north of the ramp cannot stand on its top.
+					check(actor.get_index()<ramp.get_index(), "Pawn and animals behind the ramp stay behind its top")
 					check(actor.get_index() < cliff.get_index(), "Pawn, sheep and chicken behind landing draw before it in either insertion order")
 	print("Terrain depth order: ", "PASS" if failures == 0 else "FAIL", "; checks=", checks, " failures=", failures)
 	quit(0 if failures == 0 else 1)

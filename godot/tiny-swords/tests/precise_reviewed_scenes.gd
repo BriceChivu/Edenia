@@ -46,6 +46,11 @@ func run() -> void:
 				game.selected_id=7
 				check(not game.move_selected(chicken.position,false),'Comment 10: Arrange blocks this water-edge placement')
 				check(not chicken.movement_segment_allowed(chicken.position,chicken.position),'Comment 10: gameplay rejects this water-edge position')
+			11:
+				var ramp=null
+				for node in game.get_node('World').get_children():
+					if node.has_method('display_layout') and node.piece==Vector2i(3,1): ramp=node
+				check(ramp!=null and not in_front(game.pawn,ramp),'Comment 11: pawn on lower ground north of a staircase stays behind it')
 		game.repair_review_animal_contacts()
 		game.clear_contact_warning()
 		if id in [3,4]:

@@ -52,6 +52,11 @@ const COMPLETED := [
 		"id": 10,
 		"comment": "the chicken can't be in water.",
 		"created_at": "2026-10-22T13:42:12"
+	},
+	{
+		"id": 11,
+		"comment": "looks like a new bug?",
+		"created_at": "2026-10-22T14:04:59"
 	}
 ]
 

@@ -42,7 +42,8 @@ func actor_in_front(actor: Node2D, terrain: Node2D) -> bool:
 		return depth_y(actor)+foot > depth_y(terrain)
 	var layout = terrain.display_layout()
 	var origin: Vector2 = layout.ORIGIN + Vector2(terrain.piece) * 64.0
-	if actor.has_method("foot_contact_size") and actor.position.y-actor.foot_contact_size().y<origin.y:
+	var support_depth: float = actor.foot_contact_size().y if actor.has_method("foot_contact_size") else 7.0
+	if actor.position.y-support_depth<origin.y:
 		return false
 	var progress := clampf((actor.position.x - origin.x) / 64.0, 0.0, 1.0)
 	if layout.stair_direction(terrain.piece).x < 0:

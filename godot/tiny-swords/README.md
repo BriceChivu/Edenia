@@ -424,7 +424,7 @@ starting scene. Playback is an editor session, not a gameplay save format.
 
 The pawn stays in the actor selector even after absorption. Selecting it restores
 it to the closest clear supported location and removes it from the portal queue.
-The ten completed October scene comments are archived by exact ID, timestamp,
+The eleven completed October scene comments are archived by exact ID, timestamp,
 and text; newer feedback stays active. Exports retain those originals under
 `resolved_notes`, and new comment IDs continue above both active and archived IDs.
 
