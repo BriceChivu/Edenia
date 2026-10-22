@@ -8,6 +8,8 @@
 .history-chart {
   --chart-video: #159bd3;
   --chart-anki: #747b83;
+  --chart-plot-top: 24px;
+  --chart-plot-bottom: 47px;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: 16px;
@@ -58,11 +60,11 @@ body[data-theme="dark"] .history-chart { --chart-video: #56bdf1; --chart-anki: #
 .history-chart-tooltip strong { display: block; margin-bottom: 4px; }
 .history-chart-tooltip[hidden] { display: none; }
 @media (max-width: 640px) {
-  .history-chart { padding: 12px; }
-  .history-chart-heading { gap: 8px; }
+  .history-chart { padding: 12px; --chart-plot-top: 0px; --chart-plot-bottom: 33.5px; }
+  .history-chart-heading { column-gap: 8px; row-gap: 0; margin-bottom: 0; }
   .history-chart-heading-controls { margin-left: 0; justify-content: space-between; width: 100%; gap: 12px; }
   .history-chart-legend { gap: 12px; }
-  .history-chart-plot { height: 119.7px; }
+  .history-chart-plot { height: 134.3px; }
 }
 @media (pointer: coarse) {
   .history-chart button { min-height: 44px; }
