@@ -117,6 +117,8 @@ func start_visit(day: int = State.today()) -> void:
 		if cell != NO_CELL: state.cell = [cell.x, cell.y]
 		world.save_layout()
 	elif state.phase == "idle" and day >= int(state.next_day):
+		# The deadline can pass while absent. Its first appearance belongs to
+		# this actual visit, not the missed scheduled day.
 		open(day)
 	apply_pawn_state()
 	update_portal()

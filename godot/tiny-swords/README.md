@@ -1476,6 +1476,9 @@ six, or first visiting an eligible island, schedules its first appearance 14–2
 local calendar days later. Levels one through five cannot open a portal, even
 if an older saved schedule has already elapsed. Existing occupants retain their
 return sequence.
+The due date remains pending when the user does not visit. For example, an event
+due Sunday first appears on the next actual visit and records that day as its
+opening day; the missed days never simulate captures or consume the event.
 The next eligible visit opens it on reachable, clear grass with at least three
 same-floor grass neighbors; small islands wait until suitable land is available.
 Spawn checks reserve the full airborne effect and its grass tile against the
