@@ -38,7 +38,7 @@ window.addEventListener('message',e=>{
  if(e.data.type==='edenia-study-level')window.session=e.data.session;
 });
 window.ready=()=>{
- parent.postMessage({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]},location.origin);
+ parent.postMessage({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675,825,990,1170,1365,1575,1800,2040,2295,2565,2850]},location.origin);
 };
 </script>`
 
@@ -214,8 +214,8 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await page.clock.fastForward(21000)
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'slow')
   await expect(page.locator('#tinySwordsRetry')).toBeVisible()
-  await expect(page.locator('#cityFollowingLevel')).toHaveText('Level 10 reached')
-  await expect(page.locator('#cityNextLevel')).toHaveText('Level 10 reached')
+  await expect(page.locator('#cityFollowingLevel')).toHaveText('Level 11')
+  await expect(page.locator('#cityNextLevel')).toHaveText('810 XP to next level')
   await expect(page.locator('#cityLevelProgress')).toHaveAttribute('aria-valuenow', '675')
   await expect(page.locator('#historySummaryView')).toContainText('15')
   expect(await durable(page)).toEqual(retained)
