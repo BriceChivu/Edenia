@@ -171,6 +171,13 @@ func pawn_review_id() -> int:
 		if item.kind=='pawn': return int(item.id)
 	return -1
 
+func review_pawn_return_free(item: Dictionary, point: Vector2) -> bool:
+	if not contact_rules.error_for(layout,items,item,point,int(item.id)).is_empty(): return false
+	for other in items:
+		if other.kind=='portal' and other.get('phase','hungry')=='hungry':
+			if absf(ground_height(point)-ground_height(item_point(other)))<=1 and point.distance_to(item_point(other))<portal_event.RADIUS+24: return false
+	return true
+
 func restore_review_pawn() -> bool:
 	var item: Dictionary={}
 	for candidate in items:
@@ -180,13 +187,13 @@ func restore_review_pawn() -> bool:
 	var original := item_point(item)
 	var point := original
 	var distance := INF
-	if not contact_rules.error_for(layout,items,item,point,int(item.id)).is_empty():
+	if not review_pawn_return_free(item,point):
 		point=Vector2.INF
 		for cell in layout.cells:
 			for offset in [Vector2.ZERO,Vector2(-16,0),Vector2(16,0),Vector2(0,-16),Vector2(0,16)]:
 				var target: Vector2=layout.center(cell)+offset
 				if original.distance_squared_to(target)>=distance: continue
-				if not contact_rules.error_for(layout,items,item,target,int(item.id)).is_empty(): continue
+				if not review_pawn_return_free(item,target): continue
 				distance=original.distance_squared_to(target)
 				point=target
 	if not point.is_finite(): return false

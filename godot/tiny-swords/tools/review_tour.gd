@@ -35,6 +35,7 @@ var follow: CheckButton
 
 func build_ui(parent: Node) -> void:
 	actor_picker = OptionButton.new()
+	actor_picker.allow_reselect = true
 	actor_picker.fit_to_longest_item = false
 	actor_picker.clip_text = true
 	parent.add_child(actor_picker)

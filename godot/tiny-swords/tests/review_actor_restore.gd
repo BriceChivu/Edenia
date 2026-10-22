@@ -30,6 +30,15 @@ func run() -> void:
 		check(game.contact_rules.error_for(game.layout,game.items,game.selected_item(),game.pawn.position,1).is_empty(),'Restored pawn avoids the tree contact area')
 		for item in game.items:
 			if item.kind=='portal': check(not item.occupants.has('pawn'),'Restoration removes the pawn from portal occupants')
+		var portal: Dictionary={}
+		for item in game.items:
+			if item.kind=='portal': portal=item
+		game.selected_item().hidden=true
+		game.selected_item().point=portal.point.duplicate()
+		portal.occupants=['pawn']
+		game.apply_items()
+		check(game.restore_review_pawn(),'Pawn returns when saved at the portal center')
+		check(game.pawn.position.distance_to(game.item_point(portal))>=game.portal_event.RADIUS+24,'Returned pawn starts outside the absorption trigger')
 	game.queue_free()
 	await process_frame
 	print('Review pawn restoration: ','PASS' if failures==0 else 'FAIL')
