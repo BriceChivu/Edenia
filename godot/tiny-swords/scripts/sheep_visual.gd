@@ -9,6 +9,7 @@ var sheep_index := 0
 var idle_texture: Texture2D = Art.SHEEP_IDLE
 var grass_texture: Texture2D = Art.SHEEP_GRASS
 var run_texture: Texture2D = Art.SHEEP_RUN
+var run_frames := 4
 var art_scale := 1.0
 var art_offset := Vector2(0, -8)
 var faces_left := false
@@ -277,7 +278,7 @@ func advance(delta: float, now: float) -> void:
 	frame = 0
 	if fleeing:
 		texture = run_texture
-		hframes = 4
+		hframes = run_frames
 		frame = int(animation_time * 10) % hframes
 	else:
 		var grazing := resting_time >= idle_seconds

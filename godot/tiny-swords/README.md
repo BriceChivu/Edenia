@@ -8,6 +8,7 @@ Mac uses the function keys for system controls):
 
 | Scene | Starts with |
 | --- | --- |
+| `previews/chicken_run_sandbox.tscn` | Two chickens, two sheep, houses, trees, rocks, bushes, and a raised terrace reached by two stairs; fresh on every run. |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Playground → Level +1** to run the real unlock, rewards and animated ribbon, then **Start building**. |
 | `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles, one stair bundle and one chicken; toolbar open. |
@@ -1219,7 +1220,7 @@ Focused check: `res://tests/interaction_customization.gd`.
 Level two grants three grass tiles, one stair bundle and one chicken. Select Chicken in the inventory
 to place it on free grass; Pick up returns it to inventory. The CHICKEN4.0 animation
 sheets in `assets/chicken/` use 128×128 cells at 10 fps: six idle frames, twelve eating
-frames, and four run frames. The chicken alternates 2.4 seconds of idle with a complete
+frames, and six run frames. The idle, eating, and running sheets use the supplied replacement artwork. The chicken alternates 2.4 seconds of idle with a complete
 1.2-second pecking sequence. Two seconds after the pawn starts moving, it follows the shortest reachable
 route to a grass tile beside the pawn, updating its route as the pawn changes tiles.
 It stops one tile before the pawn and its routes avoid the pawn’s current tile.

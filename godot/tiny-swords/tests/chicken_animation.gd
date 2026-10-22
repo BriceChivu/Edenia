@@ -79,7 +79,10 @@ func run() -> void:
 		animal.updated_at = 100.0
 		animal.grazing_target = 10
 	# Identical seeds must produce identical timing, route choice and movement.
+	check(chicken.run_frames == 6 and sheep.run_frames == 4, "Chicken uses six run frames while sheep keeps four")
+	check(chicken.idle_texture.get_size() == Vector2(768, 128) and chicken.grass_texture.get_size() == Vector2(1536, 128) and chicken.run_texture.get_size() == Vector2(768, 128), "Replacement sheets retain 128-pixel cells for all authored poses")
 	var seen := {}
+	var seen_run_frames := {}
 	for tick in 1200:
 		seed(tick + 12345)
 		sheep.advance(0.1, 100.0)
@@ -88,6 +91,9 @@ func run() -> void:
 		chicken.advance(0.1, 100.0)
 		check(chicken.position.is_equal_approx(sheep.position) and chicken.fleeing == sheep.fleeing and chicken.grazing_cycles == sheep.grazing_cycles and is_equal_approx(chicken.resting_time, sheep.resting_time) and chicken.grazing_target == sheep.grazing_target, "Chicken matches sheep state at tick " + str(tick))
 		seen[chicken.texture] = true
+		if chicken.texture == chicken.run_texture:
+			seen_run_frames[chicken.frame] = true
+	check(seen_run_frames.size() == 6, "Real chicken movement plays all six replacement run poses")
 	check(seen.has(chicken.Art.CHICKEN_IDLE) and seen.has(chicken.Art.CHICKEN_EATING) and seen.has(chicken.Art.CHICKEN_RUN), "All three sheets play during real behavior")
 	chicken.position = origin
 	scene.layout.chickens[0] = origin
