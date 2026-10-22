@@ -1018,6 +1018,7 @@ export const EN_CORE = {
   'time.watchedWeeksAgo': 'Watched {count}w ago',
   'time.watchedDate': 'Watched {date}',
   'time.weekLabel': 'Week {week} · {start} - {end}',
+  'time.weekNumber': 'Week {week}',
   'time.hoursMinutes': '{hours}h {minutes} min',
   'time.hours': '{hours}h',
   'time.minutes': '{minutes} min',
