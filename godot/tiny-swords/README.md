@@ -394,6 +394,28 @@ After Godot edits, with the preview server already running, update only the game
 
 Refresh Edenia to load the new export.
 
+## Precise scene movement review
+
+The isolated `previews/review_sandbox.tscn` editor has a Movement review panel.
+Choose a pawn, sheep, or chicken and select **Circle all elements in order**.
+The actor visits every other active scene item in ascending item-ID order,
+circling its contact outline where reachable. Water, unsupported feet, cliffs,
+and other solid contacts constrain the route; disconnected objects receive the
+closest reachable approach. Planning runs in small batches so it can be cancelled.
+
+Speed ranges from 0.25× to 8×. **Pause**, **Rewind**, **Start**, the timeline,
+and **Jump to an element** inspect the same deterministic route. Follow mode
+focuses the camera on the actor. The other scene elements stay still; harvesting
+and black-hole absorption remain part of the separate **Play scene** mode.
+Marking a problem rectangle pauses movement without discarding the route, and
+comments retain the exact native pose. Arranging or rebuilding the scene ends
+the route. **End route** retains the current position; **Undo** restores its
+starting scene. Playback is an editor session, not a gameplay save format.
+
+Build with `node scripts/preview-tiny-swords-review.mjs --build-only`. Focused
+checks: `tests/review_tour.gd` (set `TINY_SWORDS_TOUR_STOCK=1` to include the
+fully populated island) and `tests/review_sandbox.gd`.
+
 ## Game ownership and Edenia integration
 
 All Tiny Swords game changes must be implemented in the Godot project at

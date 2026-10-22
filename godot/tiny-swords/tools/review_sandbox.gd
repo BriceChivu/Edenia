@@ -10,6 +10,7 @@ var review_stock_enabled := true
 var stock_rules = preload('res://tools/review_stock.gd').new()
 var terrain_rules = preload('res://tools/review_terrain.gd').new()
 var motion_rules = preload('res://tools/review_motion.gd').new()
+var movement_review = preload('res://tools/review_tour.gd').new()
 var toolbar: HBoxContainer
 var selected_label: Label
 var carry_control: CheckButton
@@ -83,6 +84,7 @@ func _ready() -> void:
 	get_node('Clouds').hide()
 	get_node('PassingCloud').hide()
 	get_node('WaterRocks').hide()
+	movement_review.review = self
 	build_review_ui()
 	overlay = preload('res://tools/review_overlay.gd').new()
 	overlay.review = self
@@ -175,6 +177,7 @@ func freeze_game() -> void:
 	pointer.hide()
 
 func apply_items() -> void:
+	movement_review.stop(false)
 	pending_drag_point = Vector2(INF,INF)
 	movement_generation += 1
 	water_fall_generation += 1
@@ -424,6 +427,7 @@ func _unhandled_input(_event: InputEvent) -> void:
 func review_tick(delta: float) -> void:
 	if not model_ready: return
 	flush_review_drag()
+	movement_review.tick(delta)
 	if playing:
 		effect_clock += delta
 		super._process(delta)
@@ -455,6 +459,7 @@ func arrange_review() -> void:
 	game_camera.force_update_scroll()
 
 func set_playing(value: bool) -> void:
+	if value: movement_review.stop(false)
 	if value and not playing: repair_review_animal_contacts()
 	stop_annotation_mode()
 	clear_contact_warning()
@@ -605,6 +610,7 @@ func review_unhandled_input(event: InputEvent) -> void:
 					best = distance
 			if picked < 0: picked = item_at_art(get_global_mouse_position())
 			if picked >= 0:
+				movement_review.stop(false)
 				selected_id = picked
 				push_history()
 				dragging = true
@@ -695,6 +701,7 @@ func reject_contact(item: Dictionary, point: Vector2, reason: String) -> void:
 
 func move_selected(point: Vector2, record_undo: bool = true) -> bool:
 	if playing or selected_item().is_empty(): return false
+	if movement_review.planning or not movement_review.points.is_empty(): movement_review.stop(false)
 	var item := selected_item()
 	if item.kind in terrain_rules.KINDS: return move_terrain_sample(item,layout.cell_at(point))
 	if not accept_contact(item,point,int(item.id)): return false
@@ -747,6 +754,7 @@ func undo_review() -> void:
 	status_label.text = 'Restored the previous scene.'
 
 func save_comment() -> void:
+	movement_review.pause()
 	if note_text.text.strip_edges().is_empty():
 		status_label.text = 'Write what happened and what you expected, then Save comment.'
 		return
@@ -761,6 +769,7 @@ func save_comment() -> void:
 	status_label.text = 'Comment %d saved with this exact scene and a screenshot.'%notes.size()
 
 func export_reviews() -> void:
+	movement_review.pause()
 	set_playing(false)
 	var payload := {'format':'tiny-swords-precise-review','version':1,'scene':scene_state(),'notes':notes}
 	var bytes := JSON.stringify(payload,'  ').to_utf8_buffer()
@@ -837,6 +846,8 @@ func refresh_review_ui() -> void:
 	place_button.disabled = playing or selected_choice().is_empty()
 	updating_ui = false
 	refresh_note_list()
+	movement_review.refresh_actors()
+	movement_review.select_actor(selected_id)
 	if overlay != null: overlay.queue_redraw()
 
 func item_name(item: Dictionary) -> String:
@@ -931,6 +942,7 @@ func build_review_ui() -> void:
 	column.add_theme_constant_override('separation',7)
 	column.add_theme_font_size_override('font_size',14)
 	margin.add_child(column)
+	movement_review.build_ui(column)
 	toolbar = HBoxContainer.new()
 	toolbar.mouse_filter = Control.MOUSE_FILTER_STOP
 	ui_root.add_child(toolbar)
@@ -1165,6 +1177,7 @@ func stop_annotation_mode() -> void:
 	if overlay != null: overlay.queue_redraw()
 
 func toggle_annotation_mode() -> void:
+	movement_review.pause()
 	var enabled := not marking_problem
 	set_playing(false)
 	marking_problem = enabled
