@@ -96,6 +96,33 @@ func run() -> void:
 	check(animal.z_index == animal_depth, "An animal on the back side keeps normal depth beneath the portal")
 	animal.position = animal_point
 	animal.z_index = animal_depth
+	# A sheep crossing above the airborne face is behind it even when its x
+	# coordinate lies on the intake side (the reported upper-rim overlap).
+	var sheep: Sprite2D
+	for node in game.asset_nodes:
+		if not node.is_queued_for_deletion() and node.get_script() == preload("res://scripts/sheep_visual.gd"):
+			sheep = node
+			break
+	portal.depth.restore()
+	var sheep_point := sheep.position
+	var sheep_depth := sheep.z_index
+	for facing_left in [true, false]:
+		game.layout.black_hole.facing_left = facing_left
+		portal.update_portal()
+		sheep.position = portal.portal.position + Vector2(-12 if facing_left else 12, -12)
+		portal.depth.update(game, portal.portal, portal.effects)
+		check(portal.Depth.effective_z(sheep) < portal.Depth.effective_z(portal.portal), "A sheep above the portal face stays behind its upper rim in either facing")
+		var sheep_copy: Sprite2D = portal.sprite_copy(sheep)
+		portal.effects.append(sheep_copy)
+		portal.depth.update(game, portal.portal, portal.effects)
+		check(portal.Depth.effective_z(sheep_copy) < portal.Depth.effective_z(portal.portal), "An upper-rim sheep copy also stays behind the portal")
+		portal.depth.restore()
+		portal.effects.erase(sheep_copy)
+		sheep_copy.free()
+	sheep.position = sheep_point
+	sheep.z_index = sheep_depth
+	game.layout.black_hole.facing_left = true
+	portal.update_portal()
 	check(not game.layout.can_edit(Vector2i(game.layout.black_hole.cell[0], game.layout.black_hole.cell[1]), "remove", Vector2i.ZERO), "Active portal grass is protected")
 	var chicken_total: int = game.layout.chickens.size()
 	var sheep_total: int = game.layout.sheep.size()

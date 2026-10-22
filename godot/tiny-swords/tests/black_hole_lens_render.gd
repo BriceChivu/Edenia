@@ -36,6 +36,10 @@ func run() -> void:
 	for tween in get_processed_tweens():
 		if tween.is_valid(): tween.kill()
 	freeze(game)
+	for node in game.asset_nodes + game.tree_nodes + game.flora_nodes: node.hide()
+	game.pawn.hide()
+	game.get_node("Clouds").hide()
+	game.get_node("PassingCloud").hide()
 	game.ui.root.hide()
 	var event = game.portal_event
 	event.portal.scale = event.BASE_SCALE
@@ -46,7 +50,6 @@ func run() -> void:
 	# Keep the native focus/next-day visit callbacks outside this rendering fixture.
 	event.visited = false
 	event.lens.position = event.portal.position - event.LENS_SIZE / 2.0
-	event.backbuffer.rect = Rect2(event.lens.position, event.LENS_SIZE).grow(24.0)
 	var transform: Transform2D = event.lens.get_global_transform_with_canvas()
 	event.lens.material.set_shader_parameter("screen_span_uv", event.LENS_SIZE * Vector2(transform.x.length(), transform.y.length()) / root.get_visible_rect().size)
 	event.portal.hide()
@@ -77,6 +80,17 @@ func run() -> void:
 			if (intake and changed < total / 10) or (not intake and changed > total / 100):
 				failures += 1
 				push_error("Only the grass in front of the portal may distort, in either facing")
+		var missing_background := 0
+		for y in range(int(center.y) - 65, int(center.y) + 65):
+			for x in range(int(center.x) - 125, int(center.x) + 125):
+				var original := before.get_pixel(x, y)
+				var pulled := rendered.get_pixel(x, y)
+				if original.g > 0.2 and pulled.r < 0.05 and pulled.g < 0.05 and pulled.b < 0.05:
+					missing_background += 1
+		print("Missing background samples: %d" % missing_background)
+		if missing_background > 10:
+			failures += 1
+			push_error("The lens must pull real grass, never transparent or black buffer edges")
 		var outside_trails := 0
 		for y in range(int(center.y) - 105, int(center.y) + 105):
 			for x in range(int(center.x) - 105, int(center.x) + 105):
@@ -112,4 +126,38 @@ func run() -> void:
 	event.ground_shadow.show()
 	var complete := await capture()
 	complete.save_png(folder.path_join("portal.png"))
+	# Save a close view at the user's screenshot scale, with real grass and
+	# the original particles. Keep this isolated from camera/input callbacks.
+	for node in game.asset_nodes + game.tree_nodes + game.flora_nodes: node.hide()
+	game.pawn.hide()
+	game.get_node("Clouds").hide()
+	game.get_node("PassingCloud").hide()
+	game.game_camera.zoom = Vector2.ONE * 5.0
+	game.game_camera.force_update_scroll()
+	await process_frame
+	transform = event.lens.get_global_transform_with_canvas()
+	event.lens.material.set_shader_parameter("screen_span_uv", event.LENS_SIZE * Vector2(transform.x.length(), transform.y.length()) / root.get_visible_rect().size)
+	event.lens.hide()
+	var close_before := await capture()
+	close_before.save_png(folder.path_join("close-before.png"))
+	event.lens.show()
+	for index in 24:
+		event.lens.material.set_shader_parameter("flow_time", index / 12.0)
+		event.portal.frame = int(index * 10.0 / 12.0) % 8
+		var frame := await capture()
+		frame.save_png(folder.path_join("flow-%02d.png" % index))
+	var close_after := await capture()
+	close_after.save_png(folder.path_join("close-after.png"))
+	var sheep: Sprite2D
+	for node in game.asset_nodes:
+		if node.get_script() == preload("res://scripts/sheep_visual.gd") and not node.is_queued_for_deletion():
+			sheep = node
+			break
+	sheep.position = event.portal.position + Vector2(-4, -18)
+	sheep.offset = sheep.art_offset
+	sheep.z_index = 0
+	sheep.show()
+	event.depth.update(game, event.portal, [])
+	var overlap := await capture()
+	overlap.save_png(folder.path_join("sheep-behind.png"))
 	quit(0 if failures == 0 else 1)

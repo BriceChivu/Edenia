@@ -56,7 +56,9 @@ func _ready() -> void:
 	ground_shadow.hide()
 	add_child(ground_shadow)
 	backbuffer = BackBufferCopy.new()
-	backbuffer.copy_mode = BackBufferCopy.COPY_MODE_RECT
+	# Screen-space samples must remain valid through canvas zoom and stretch.
+	# A tight regional copy can return transparent pixels in Compatibility.
+	backbuffer.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
 	backbuffer.z_index = 89
 	backbuffer.hide()
 	add_child(backbuffer)
@@ -258,8 +260,6 @@ func _process(delta: float) -> void:
 	frame_clock += delta
 	portal.position = visual_center()
 	lens.position = portal.position - LENS_SIZE / 2.0
-	# Copy the particle field and its source sampling margin.
-	backbuffer.rect = Rect2(lens.position, LENS_SIZE).grow(24.0)
 	var lens_transform := lens.get_global_transform_with_canvas()
 	var viewport_size := get_viewport_rect().size
 	lens.material.set_shader_parameter("screen_span_uv", LENS_SIZE * Vector2(lens_transform.x.length(), lens_transform.y.length()) / viewport_size)
@@ -323,6 +323,9 @@ func sprite_copy(actor: Node2D) -> Sprite2D:
 	copy.flip_h = source.flip_h
 	copy.offset = source.offset
 	copy.position = source.global_position
+	# Preserve the original foot contact even when the sprite's origin sits
+	# above it (pawn) or its frame includes transparent padding (animals).
+	copy.set_meta("portal_contact_offset_y", actor.global_position.y - world.ground_height(actor.position) - source.global_position.y)
 	copy.scale = source.global_scale
 	copy.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	# Do not inherit a temporary front-of-portal elevation from a live animal.
