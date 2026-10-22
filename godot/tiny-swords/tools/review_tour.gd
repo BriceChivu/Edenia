@@ -34,13 +34,12 @@ var visit_picker: OptionButton
 var follow: CheckButton
 
 func build_ui(parent: Node) -> void:
-	review.label('MOVEMENT REVIEW',parent)
 	actor_picker = OptionButton.new()
 	actor_picker.fit_to_longest_item = false
 	actor_picker.clip_text = true
 	parent.add_child(actor_picker)
 	actor_picker.item_selected.connect(func(_index): stop(false))
-	start_button = review.button('Circle all elements in order',start,parent)
+	start_button = review.button('Walk around each element',start,parent)
 	var transport: HBoxContainer = review.row(parent)
 	review.button('Start',func(): seek(0),transport)
 	reverse_button = review.button('Rewind',func():
@@ -74,7 +73,8 @@ func build_ui(parent: Node) -> void:
 	timeline.step = 0.0
 	timeline.value_changed.connect(seek)
 	parent.add_child(timeline)
-	readout = review.label('Choose an actor, then start a route.',parent)
+	readout = review.label('',parent)
+	readout.hide()
 	readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	readout.custom_minimum_size.x = 240
 	visit_picker=OptionButton.new()
@@ -120,7 +120,8 @@ func stop(_unused: bool = false) -> void:
 	duration=0
 	elapsed=0
 	if is_instance_valid(readout):
-		readout.text='Choose an actor, then start a route.'
+		readout.text=''
+		readout.hide()
 		visit_picker.clear()
 		visit_picker.add_item('Jump to an element…')
 		refresh()
@@ -140,6 +141,7 @@ func start() -> void:
 	for item in review.items:
 		if int(item.id)==id: actor=item.duplicate(true)
 	if actor.is_empty(): return
+	readout.show()
 	review.selected_id=id
 	if not review.contact_rules.error_for(review.layout,review.items,actor,review.item_point(actor),id).is_empty():
 		readout.text='Move this actor onto clear, supported ground first.'

@@ -397,7 +397,7 @@ Refresh Edenia to load the new export.
 ## Precise scene movement review
 
 The isolated `previews/review_sandbox.tscn` editor has a Movement review panel.
-Choose a pawn, sheep, or chicken and select **Circle all elements in order**.
+Choose a pawn, sheep, or chicken and select **Walk around each element**.
 The actor visits every other active scene item in ascending item-ID order,
 circling its contact outline where reachable. Water, unsupported feet, cliffs,
 and other solid contacts constrain the route; disconnected objects receive the
