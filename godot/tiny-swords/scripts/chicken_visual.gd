@@ -10,6 +10,7 @@ func _ready() -> void:
 	idle_texture = Art.CHICKEN_IDLE
 	grass_texture = Art.CHICKEN_EATING
 	run_texture = Art.CHICKEN_RUN
+	run_frames = 6
 	art_scale = Art.CHICKEN_SCALE
 	art_offset = Art.CHICKEN_OFFSET
 	faces_left = true
