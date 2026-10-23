@@ -1235,9 +1235,8 @@ pawn is stationary. Pawn contact interrupts following and triggers escape over 3
 including shorter and sideways fallbacks. It follows the same paths through bushes,
 rocks and connected stairs, avoiding tree, log and house contact footprints.
 If the pawn shares the chicken's tile and floor and no safe first step leads away
-or sideways, the pawn picks it up. The original Wood carrying poses now have
-chicken idle/run sheets composed from the existing pawn and chicken pixels; the
-chicken retains its 59.5% scale. The pawn carries one chicken for one minute,
+or sideways, the pawn picks it up. The supplied carrying-chicken sheets use eight idle frames and twelve run frames
+at 10 fps, with 192×192 cells. The pawn carries one chicken for one minute,
 then puts it on nearby reachable grass, using the same tile on a tiny island.
 It waits for a safe landing if the pawn is on a ramp without room. A bird put down
 on the pawn's tile cannot be picked up again until the pawn leaves that tile.
@@ -1250,12 +1249,11 @@ Unreachable actions and ordinary walking retain the bird. Water falls use the
 same chicken-carrying frames, so it shares the pawn's fall, fade and respawn.
 An expired carry deadline waits until the pawn returns to land before put-down.
 Focused action/water check: `res://tests/chicken_carry_actions.gd`.
-Chicken carrying is currently disabled by `gameplay/chicken_carry_enabled=false`
-in `project.godot`. Cornered birds stay on the ground. Existing carried birds are
-put down on the first safe landing, preserving them across reloads and falls.
-To reactivate carrying, set that setting to `true` and rebuild the integrated
-preview. The carry scripts, animations and enabled-mode checks remain intact.
-Regenerate the composite sheets with `tools/generate_chicken_carry.py` (Pillow).
+Chicken carrying is enabled by `gameplay/chicken_carry_enabled=true` in
+`project.godot`. The supplied artwork lives in `assets/pawn/chicken_carry_idle.png`
+and `chicken_carry_run.png`; the older composite generator is not their source.
+Run `previews/chicken_carry_sandbox.tscn` with F6 for a fresh meadow that starts
+with a carried bird. Reload to restart the one-minute carry timer.
 
 When a sheep enters its grass tile, the chicken moves one reachable adjacent grass
 tile away, avoiding tiles occupied by sheep or the pawn. If none is available, it waits.

@@ -21,7 +21,7 @@ GamePresentation="*res://scripts/game_presentation.gd"
 
 [gameplay]
 
-chicken_carry_enabled=false
+chicken_carry_enabled=true
 direct_walk_routes_enabled=false
 bounded_obstacle_search_enabled=false
 
