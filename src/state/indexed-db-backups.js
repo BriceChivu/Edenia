@@ -95,7 +95,10 @@ function requestResult(request) {
 function transactionComplete(transaction) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      try { transaction.abort() } catch {}
+      try { transaction.abort() } catch (error) {
+        // Completion/abort delivery can lag behind the native outcome.
+        if (error.name === 'InvalidStateError') return
+      }
       reject(annotateStorageFailure(new Error('IndexedDB backup transaction timed out'), 'backup', 'transaction-complete'))
     }, 8000)
     transaction.addEventListener('complete', () => {

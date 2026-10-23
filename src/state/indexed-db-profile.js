@@ -68,7 +68,10 @@ function profileTransaction(database, ...args) {
 function complete(transaction) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      try { transaction.abort() } catch {}
+      try { transaction.abort() } catch (error) {
+        // Completion/abort delivery can lag behind the native outcome.
+        if (error.name === 'InvalidStateError') return
+      }
       reject(annotateStorageFailure(new Error('Profile transaction timed out'), 'primary-profile', 'transaction-complete'))
     }, 8000)
     transaction.oncomplete = () => { clearTimeout(timeout); resolve() }

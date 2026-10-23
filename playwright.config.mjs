@@ -93,7 +93,7 @@ export default defineConfig({
     })),
     {
       name: 'firefox-storage',
-      testMatch: /(profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
+      testMatch: /(indexed-db-transaction-timeout|profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
       use: {
         browserName: 'firefox',
         deviceScaleFactor: 1,
@@ -102,7 +102,7 @@ export default defineConfig({
     },
     {
       name: 'webkit-storage',
-      testMatch: /(indexed-db-backups|indexed-db-profile|legacy-migration-helper|legacy-origin-storage|legacy-progress-migration)\.spec\.mjs/,
+      testMatch: /(indexed-db-transaction-timeout|indexed-db-backups|indexed-db-profile|legacy-migration-helper|legacy-origin-storage|legacy-progress-migration)\.spec\.mjs/,
       use: {
         browserName: 'webkit',
         deviceScaleFactor: 1,

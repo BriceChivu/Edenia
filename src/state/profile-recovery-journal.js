@@ -79,7 +79,11 @@ export function createProfileRecoveryJournal({
       let result
       let failure
       const timer = setTimeout(() => {
-        try { tx.abort() } catch {}
+        try { tx.abort() } catch (error) {
+          // A finished transaction can still have its outcome event queued.
+          // Let that native event settle the operation, including an abort.
+          if (error.name === 'InvalidStateError') return
+        }
         // Leave the head untouched and reopen on the next attempt. A timed-out
         // transaction may have an uncertain outcome and must not be replayed.
         discardConnection(db)
