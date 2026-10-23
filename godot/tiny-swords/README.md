@@ -751,7 +751,7 @@ message/scroll hooks; keep it separate from the versioned integrated directory.
 Use the integration builder for every update to that preview, then refresh.
 The direct export command above applies to the separate base preview on port 4183.
 
-## Internal lag capture and frame pacing
+## Internal island persistence and navigation
 
 Signed-in internal play uses the same small IndexedDB island head as accountless
 play, with the active profile's ownership and revision fences. Each acknowledged
@@ -773,43 +773,10 @@ still apply. Explicit Sync now can override the opportunity gate. Closing a tab
 does not depend on an upload finishing: local checkpoints and their base remain
 durable, and reopening reconstructs the outbox before reconciliation.
 
-`?internal_test=1` defaults to 60 FPS; explicit
-`tiny_swords_fps=30` remains available for comparisons. Physics and gameplay clocks
-retain their original cadence. Normal URLs do not install the experiment.
-
-The diagnostic overlay is hidden by default, including when saved captures exist.
-Add `&tiny_swords_diagnostics=1` to an FPS-enabled URL to show it, then open
-**FPS test → Lag capture** on the island. **Record + compare** runs a 20-second
-game-only recording, then automatically runs another 20 seconds without recording.
-The status asks the learner to repeat similar actions in the second phase; this
-sequential comparison does not replay identical inputs or prove recorder causality.
-**Log only** remains available for up to three minutes. **Stop & keep**, or the
-compact **Stop** button, ends early and keeps the available evidence.
-
-Frame intervals over 50 ms are marked automatically; **Mark lag** adds optional
-felt-lag markers. Reports include actual engine intervals/loop work, supported
-host/game long tasks, navigation timing, sync-status changes, local persistence,
-allowlisted gameplay modes and aggregate pointer/click/scroll/video-event counts.
-The parent page URL retains the path and numeric experiment parameters only;
-arbitrary query strings/fragments, typed text and video/profile content are omitted.
-
-**Save package** downloads one ZIP containing the matching clip, phase reports,
-summary and reading instructions. Completed packages are kept in a separate local
-IndexedDB capture archive (five packages maximum); a new run does not replace them.
-The picker selects earlier captures; **Delete selected** explicitly makes room.
-Storage failure retains the package in memory and warns to download before leaving.
-An in-progress capture is best effort on page exit; completed durable packages
-survive reload. ZIP work uses a worker, with a yielding fallback after capture ends.
-
-The clip has no microphone or host page, with a 16 MB recording safety limit. There
-is no upload, learner-profile dump, credential capture or analytics enablement.
-Unsupported encoders still produce diagnostic packages and report the missing clip.
-
-The internal experiment uses asynchronous WebP encoding for the existing replay
-mirror, with one image in flight and fresh visibility/recording checks after
-encoding. Copying happens after an actual engine render. Internal-test analytics
-remain disabled, so that mirror is exercised by an isolated local benchmark stub.
-Ordinary production replay retains its existing encoder until a separate rollout.
+The FPS comparison and lag-capture tools have been retired. Their autoload,
+recording UI, browser instrumentation, benchmark driver and URL controls are
+removed. Frame rendering uses the shared Godot web rendering policy. The
+`internal_test=1` navigation rollout remains enabled independently.
 
 Ordinary walking obstacle searches use request-local A* contact caches and a
 shared 2 ms frame budget for incremental edge expansion and route smoothing. A
@@ -823,20 +790,7 @@ queries can still stall and are not claimed to be fully time-bounded.
 
 Run `res://tests/bounded_obstacle_search.gd` for reachability, original collision
 predicates, deadline, cancellation and inventory checks. The normal integrated
-builder runs this gate. `scripts/benchmark-tiny-swords-fps.mjs --chrome --indexed-db
---replay sync` versus `--replay async` exercises a normal feed of 1000 real video
-records/thumbnails with a moving pawn and continuous mouse movement; add
-`--obstacle-routes` for obstructed destinations, or `--phone --cpu-throttle 4` for
-explicit desktop phone emulation. `--cloud-sync` runs the actual signed-in sync
-client against local simulated responses (500ms latency, 1Mbps upload, 2Mbps
-download), with synthetic study updates every six seconds. `--replay-abba` compares
-sync/async/async/sync encoding at a fixed 60 FPS in the same browser
-(`--fixed-fps 30` selects the older comparison);
-`--legacy-navigation --obstacle-routes` supplies the navigation control.
-`--route public --study-profile --progress --replay off` supplies the matched
-accountless route, with the same synthetic study history and local persistence.
-This does not simulate 1000 video players or
-prove physical Pixel performance.
+builder runs this gate.
 
 ## Checks
 
@@ -1452,9 +1406,9 @@ after release when mitigating game failures; selecting an older town bundle
 can reinterpret island claims. Existing production town claims are archived
 as `legacyCityProgress` without granting island XP or resources.
 
-## Following during the FPS trial
+## Internal chicken-following navigation
 
-The internal FPS trial shares the existing two-millisecond navigation allowance
+Internal play shares the existing two-millisecond navigation allowance
 between pawn route planning and chicken following. Chicken searches retain
 Euclidean shortest-path costs, the reserved pawn tile and spacing rules, but
 cache terrain contacts and advance across frames. Terrain changes, restored
@@ -1462,7 +1416,7 @@ layouts, a changed pawn tile or bird movement retire a pending request; the
 completed route is checked against current contacts before movement. Other
 animal escape and construction queries retain their existing atomic behavior.
 `tests/chicken_follow_budget.gd` covers an unreachable destination and a terrain
-change that opens a detour. Lag packages include `chicken-follow` timings.
+change that opens a detour.
 
 ## Rare black hole event
 
