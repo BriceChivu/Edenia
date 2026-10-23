@@ -97,6 +97,10 @@ var island_started := false
 var arrival
 
 func _ready() -> void:
+	# Retain the internal navigation rollout independently of retired diagnostics.
+	if OS.has_feature("web") and JavaScriptBridge.eval("new URLSearchParams(location.search).get('internal_test') === '1'"):
+		ProjectSettings.set_setting("gameplay/direct_walk_routes_enabled", true)
+		ProjectSettings.set_setting("gameplay/bounded_obstacle_search_enabled", true)
 	super._ready()
 	holds = preload("res://scripts/hold_interactions.gd").new(self)
 	for name in ["Islands", "IslandShadows", "ShoreFoam"]:
@@ -1483,9 +1487,6 @@ func tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[
 	return search.result
 
 func bounded_tree_navigation_path(start: Vector2, target: Vector2, nearest_click := false) -> Array[Vector2]:
-	var request_started := Time.get_ticks_usec()
-	var work_usec := 0
-	var max_slice_usec := 0
 	var search = ObstacleSearch.new(self, start, target, [], false, [], nearest_click)
 	var generation := movement_generation
 	var geometry := navigation_signature()
@@ -1496,23 +1497,13 @@ func bounded_tree_navigation_path(start: Vector2, target: Vector2, nearest_click
 		if navigation_budget() == 0:
 			await get_tree().process_frame
 			if generation != movement_generation or layout != original_layout or geometry != navigation_signature() or editing != was_editing:
-				record_navigation_probe(request_started, work_usec, max_slice_usec, true)
 				return empty
 			continue
 		var began := Time.get_ticks_usec()
 		search.advance(began + navigation_budget())
 		var slice_usec := Time.get_ticks_usec() - began
 		navigation_spent_usec += slice_usec
-		work_usec += slice_usec
-		max_slice_usec = maxi(max_slice_usec, slice_usec)
-	record_navigation_probe(request_started, work_usec, max_slice_usec, false)
 	return search.result
-
-func record_navigation_probe(started: int, work_usec: int, max_slice_usec: int, cancelled: bool) -> void:
-	if not OS.has_feature("web"):
-		return
-	var details := {"workMs": work_usec / 1000.0, "wallMs": (Time.get_ticks_usec() - started) / 1000.0, "cancelled": cancelled}
-	JavaScriptBridge.eval("window.edeniaLagCapture?.probe('obstacle-search', %s, %s); window.edeniaFrameTest?.recordProbe('obstacle-search', %s, Date.now(), %s)" % [max_slice_usec / 1000.0, JSON.stringify(details), max_slice_usec / 1000.0, JSON.stringify(details)])
 
 func legacy_tree_navigation_path(start: Vector2, target: Vector2, allowed_cells: Array[Vector2i] = [], moving_sheep: bool = false, alternative_targets: Array[Vector2] = []) -> Array[Vector2]:
 	var result: Array[Vector2] = []

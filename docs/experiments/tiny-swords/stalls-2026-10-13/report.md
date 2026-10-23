@@ -1,5 +1,8 @@
 # Tiny Swords stalls at 60 FPS
 
+Historical experiment: the FPS comparison, lag-capture tools, and benchmark driver
+were removed on 2026-10-23. Commands and URLs below document the original trial.
+
 Experiment: #453. Gate: measured improvements with the real application and isolated profiles, then internal-test deployment. The internal default returns to **60 FPS**. Public URLs without an explicit FPS experiment retain their existing rendering and replay policy.
 
 ## Workload and measurement
