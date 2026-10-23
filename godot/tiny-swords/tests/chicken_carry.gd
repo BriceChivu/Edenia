@@ -36,7 +36,8 @@ func run() -> void:
 	chicken.set_process(false)
 	chicken.updated_at = 100.0
 	scene.construction.phase = scene.construction.Phase.PICKUP
-	check(not ProjectSettings.get_setting("gameplay/chicken_carry_enabled", true), "Chicken carrying is disabled in the shipped project")
+	check(ProjectSettings.get_setting("gameplay/chicken_carry_enabled", false), "Chicken carrying is enabled in the shipped project")
+	ProjectSettings.set_setting("gameplay/chicken_carry_enabled", false)
 	chicken.advance(0.1, 100.05)
 	check(scene.layout.chickens.size() == 1 and not scene.pawn.carrying_chicken and scene.layout.chicken_release_at == 0.0, "Disabled cornered contact leaves the chicken on the ground")
 	check(scene.construction.phase == scene.construction.Phase.PICKUP, "Disabled pickup preserves pending work")
@@ -113,7 +114,7 @@ func run() -> void:
 	bad = scene.layout.snapshot()
 	bad.chickens.append([scene.pawn.position.x, scene.pawn.position.y])
 	check(not Layout.new().restore(bad), "Reject duplicating a carried chicken")
-	check(scene.pawn.sprite.sprite_frames.get_frame_count("chicken_idle") == 24, "Carry idle combines original eight pawn and six bird frames")
+	check(scene.pawn.sprite.sprite_frames.get_frame_count("chicken_idle") == 8, "Carry idle uses the supplied eight-frame sheet")
 	check(scene.pawn.sprite.sprite_frames.get_frame_count("chicken_run") == 12, "Carry run keeps original six-step stride")
 	ProjectSettings.set_setting("gameplay/chicken_carry_enabled", false)
 	var carried_save: Dictionary = scene.layout.snapshot()

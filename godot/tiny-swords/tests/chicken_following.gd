@@ -171,6 +171,8 @@ func run() -> void:
 	chicken.advance(0.01, 122.01)
 	check(scene.layout.cell_at(chicken.position) != scene.layout.cell_at(scene.pawn.position), "Build-mode settling stays outside pawn tile")
 	scene.editing = false
+	# Exercise the retained disabled-mode fallback explicitly.
+	ProjectSettings.set_setting("gameplay/chicken_carry_enabled", false)
 	# A boxed-in chicken stays grounded while the pawn completes its walk.
 	var saved_cells: Dictionary = scene.layout.cells.duplicate()
 	scene.layout.cells.clear()
@@ -186,6 +188,7 @@ func run() -> void:
 		chicken.advance(0.5, 123.0 + tick * 0.5)
 	check(scene.pawn.position.is_equal_approx(scene.pawn.destination), "Pawn reaches destination even when chicken cannot escape")
 	check(scene.layout.chickens.size() == 1 and not scene.pawn.carrying_chicken, "Boxed-in same-tile contact keeps the chicken grounded while carrying is disabled")
+	ProjectSettings.set_setting("gameplay/chicken_carry_enabled", true)
 	scene.layout.cells.assign(saved_cells)
 	# A short walk retains the delay and finishes following after the pawn stops.
 	chicken.clear_following()
