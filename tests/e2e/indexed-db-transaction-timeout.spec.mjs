@@ -1,5 +1,6 @@
 import { build } from 'esbuild'
 import { expect, test } from '../support/network-fixture.mjs'
+import { createProductionSourceResolver } from '../../scripts/build-production-experience.mjs'
 
 test.beforeEach(async ({ page }) => {
   const bundle = await build({ stdin: {
@@ -7,25 +8,29 @@ test.beforeEach(async ({ page }) => {
     resolveDir: process.cwd()
   }, bundle: true, format: 'esm', platform: 'browser', write: false })
   await page.route('**/__transaction-timeout.js', route => route.fulfill({ body: bundle.outputFiles[0].text, contentType: 'text/javascript' }))
+  const { sourcePath, plugin } = await createProductionSourceResolver(process.cwd())
+  const retained = await build({ entryPoints: [sourcePath('src/state/indexed-db-profile.js')],
+    plugins: [plugin], bundle: true, format: 'esm', platform: 'browser', write: false })
+  await page.route('**/__retained-timeout.js', route => route.fulfill({ body: retained.outputFiles[0].text, contentType: 'text/javascript' }))
   await page.route('**/__transaction-timeout.html', route => route.fulfill({ body: '<!doctype html><title>Storage fixture</title>', contentType: 'text/html' }))
   await page.goto('/__transaction-timeout.html')
   await page.clock.install()
   await page.clock.pauseAt(new Date(Date.now() + 1000))
 })
 
-for (const boundary of ['primary', 'recovery', 'backup']) {
+for (const boundary of ['primary', 'retained-primary', 'recovery', 'backup']) {
   for (const nativeOutcome of ['complete', 'abort', 'stalled']) {
     test(`${boundary} respects native ${nativeOutcome} when the transaction deadline expires`, async ({ page }) => {
       await page.evaluate(async ({ boundary, nativeOutcome }) => {
-        const modules = await import('/__transaction-timeout.js')
+        const modules = await import(boundary === 'retained-primary' ? '/__retained-timeout.js' : '/__transaction-timeout.js')
         const databaseName = boundary === 'recovery' ? 'edenia_profile_recovery_v1' : `timeout-${boundary}`
-        const storeName = boundary === 'primary' ? 'profiles' : boundary === 'backup' ? 'backups' : 'heads'
+        const storeName = boundary.endsWith('primary') ? 'profiles' : boundary === 'backup' ? 'backups' : 'heads'
         const options = { indexedDb: indexedDB, storage: localStorage, storageKey: 'timeout-profile', accessKey: 'timeout-access',
           databaseName, eventTarget: null, isValidState: state => Number.isSafeInteger(state.points) }
         const backupOptions = { indexedDb: indexedDB, databaseName, backupKey: 'timeout-backup',
           legacyStorage: localStorage, isValidEntry: entry => typeof entry.id === 'string' && Number.isSafeInteger(entry.points) }
         let api, write, verify
-        if (boundary === 'primary') {
+        if (boundary.endsWith('primary')) {
           localStorage.setItem(options.storageKey, JSON.stringify({ points: 1 }))
           api = await modules.openIndexedDbProfile(options)
           write = async () => {
