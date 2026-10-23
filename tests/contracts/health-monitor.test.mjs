@@ -98,7 +98,8 @@ for (const source of ['src/app.js', 'compat/production/src/app.js']) {
       profileRecoveryWorkspace: { getTier: () => 'none', getDiagnosticContext: () => ({ incidentId: 'recovery-1' }),
         getDiagnosticState: () => outcome },
       window: { localStorage: { getItem: () => null } }, STORAGE_KEY: 'profile', LEARNER_PROFILE_ACCESS_KEY: 'access', LEARNER_PROFILE_SYNC_KEY: 'sync',
-      IS_AUTH_TRIAL: false, IS_TINY_SWORDS_TESTER: false, getFeedbackAssetVersion: () => 'abc123', getBrowserDefaultLocale: () => 'en',
+      ...(source === 'src/app.js' ? { IS_AUTH_TRIAL: false, IS_TINY_SWORDS_TESTER: false } : {}),
+      getFeedbackAssetVersion: () => 'abc123', getBrowserDefaultLocale: () => 'en',
       navigator: {}, automaticStorageFeedback: async details => { diagnostics.push(details); return 'sent' } })
     vm.runInContext(fn + '\nthis.report = reportBackgroundStorageFailure', context)
     await context.report('save', { code: 'storage-unavailable' })

@@ -786,7 +786,7 @@ const storageRecoveryReporter = createStorageRecoveryReporter({
     } catch {}
     return {
       storageState,
-      mode: IS_AUTH_TRIAL ? 'auth-trial' : IS_TINY_SWORDS_TESTER ? 'tiny-swords-test' : 'public',
+      mode: 'public',
       release: getFeedbackAssetVersion(),
       locale: getBrowserDefaultLocale(), width: window.innerWidth, height: window.innerHeight,
       capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
