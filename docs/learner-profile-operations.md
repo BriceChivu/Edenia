@@ -325,10 +325,13 @@ Storage diagnostics distinguish a failed attempt from its settled outcome:
 recovery journal; `recovered` means promotion back to primary storage completed.
 A failed attempt followed by a successful queued retry retains its error but
 is headed **Progress saved in recovery storage**, with category `other`.
-Later durable recovery emits one matching incident notice; ordinary successful
-saves do not repeat that notice. **Primary storage restored** remains separate.
+Each return to durable recovery emits a matching incident notice, including
+retries whose storage tier stayed the same. Ordinary successful saves do not
+repeat that notice. **Primary storage restored** remains separate.
 An absent promotion report does not imply that all fallback saves failed.
 Offline diagnostics retain their original UUID and outcome and replay in order.
+Each outcome change creates a new report occurrence; retries keep that
+occurrence's original UUID.
 
 The eight-second transaction bound still aborts a genuinely stalled write.
 If the native transaction already finished, its delayed completion or abort

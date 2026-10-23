@@ -729,8 +729,8 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
     else { failure.storageTarget ||= 'web-storage'; failure.phase ||= 'workspace-write' }
     queueMicrotask(() => reportBackgroundStorageFailure(operation, failure))
   },
-  onTierChange(tier) {
-    if (tier === 'indexed-db' || tier === 'local') queueMicrotask(() => { void storageRecoveryReporter.recoverySaved() })
+  onDurableSave() {
+    queueMicrotask(() => { void storageRecoveryReporter.recoverySaved() })
   },
   onConflictCleared(id) { recoveryConflictView?.hide(id) },
   onConflict({ id, currentRaw, desiredRaw, epoch }) {

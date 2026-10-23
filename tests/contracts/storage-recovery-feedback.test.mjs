@@ -260,6 +260,8 @@ test('offline failure and durable recovery replay in order with their original o
     now: () => `2026-10-23T00:00:0${n}.000Z`, fetch: async () => ({ ok: false }) })
   await first({ ...details, recovery: 'memory', incidentId: 'ordered-incident' })
   await first({ ...details, failure: { code: 'storage-fallback-saved' }, recovery: 'indexed-db', incidentId: 'ordered-incident' })
+  await first({ ...details, recovery: 'memory', incidentId: 'ordered-incident' }, { newOccurrence: true })
+  await first({ ...details, failure: { code: 'storage-fallback-saved' }, recovery: 'indexed-db', incidentId: 'ordered-incident' }, { newOccurrence: true })
   const calls = []
   let active = 0
   const replay = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
@@ -269,8 +271,8 @@ test('offline failure and durable recovery replay in order with their original o
       calls.push(JSON.parse(options.body)); active--; return { ok: true }
     } })
   await replay.retryPending()
-  assert.deepEqual(calls.map(call => call.uuid), ['ordered-1', 'ordered-2'])
-  assert.deepEqual(calls.map(call => call.properties.storage_recovery_outcome), ['failure', 'fallback-saved'])
+  assert.deepEqual(calls.map(call => call.uuid), ['ordered-1', 'ordered-2', 'ordered-3', 'ordered-4'])
+  assert.deepEqual(calls.map(call => call.properties.storage_recovery_outcome), ['failure', 'fallback-saved', 'failure', 'fallback-saved'])
   assert.match(calls[1].properties.feedback_message, /^Progress saved in recovery storage/)
   assert.equal(store.length, 0)
 })

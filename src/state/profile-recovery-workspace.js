@@ -9,7 +9,7 @@ const MAX_PROTECTED_WORKSPACES = 4
 // namespace is never modified while it is inaccessible. Auth stays independent.
 export function createProfileRecoveryWorkspace({
   storageKey, accessKey, keys, discardableCacheKeys = [], testRunId = null, getPrimary, getSecondary = () => null,
-  capture = () => ({}), onActivate = () => {}, onTierChange = () => {}, onStorageFailure = () => {},
+  capture = () => ({}), onActivate = () => {}, onTierChange = () => {}, onStorageFailure = () => {}, onDurableSave = () => {},
   indexedDb, journal: suppliedJournal, eventTarget, onExternalChange = () => {}, onConflict = () => {}, onConflictCleared = () => {}
 }) {
   const workspaceKey = `${storageKey}_recovery_workspace_v1`
@@ -30,6 +30,10 @@ export function createProfileRecoveryWorkspace({
     onChange() { void refreshJournal().catch(error => onStorageFailure(error, 'open', 'recovery-journal')) }
   }))
   const observedRaw = new Map()
+  function notifyDurableSave() {
+    // Diagnostic observers cannot change an acknowledged persistence result.
+    try { onDurableSave() } catch {}
+  }
   const safeRead = (getStorage, key) => {
     try { return getStorage()?.getItem(key) ?? null } catch { return null }
   }
@@ -306,6 +310,7 @@ export function createProfileRecoveryWorkspace({
         persistedRaw = raw
         if (tier !== name) { tier = name; onTierChange(tier) }
         notifyPendingConflict()
+        if (name === 'local') notifyDurableSave()
         if (failure) onStorageFailure(failure)
         return true
       } catch (error) { failure = error }
@@ -432,6 +437,7 @@ export function createProfileRecoveryWorkspace({
           if (record === queuedRecord) persistedRaw = raw
           if (record && JSON.stringify(record) === raw) {
             if (tier !== 'indexed-db') { tier = 'indexed-db'; onTierChange(tier) }
+            notifyDurableSave()
           }
           return true
         }

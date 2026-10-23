@@ -142,10 +142,12 @@ export function createStorageRecoveryFeedback({
     persist()
     return entry.status
   }
-  async function report(details, { retry = false } = {}) {
+  async function report(details, { retry = false, newOccurrence = false } = {}) {
     if (!enabled) return 'unavailable'
     const diagnostic = createStorageRecoveryReport({ ...details, testRunId: sanitizeStorageDiagnosticId(Object.hasOwn(details, 'testRunId') ? details.testRunId : testRunId) })
-    let entry = [...reports.values()].find(value => value.diagnostic === diagnostic)
+    // Returning to an earlier outcome is a new occurrence, even when its
+    // diagnostic matches a report already sent earlier in this incident.
+    let entry = newOccurrence ? null : [...reports.values()].find(value => value.diagnostic === diagnostic)
     if (entry && (!retry || entry.status !== 'failed')) return entry.pending || entry.status
     if (!entry) {
       entry = { id: createId(), diagnostic, locale: details.locale,

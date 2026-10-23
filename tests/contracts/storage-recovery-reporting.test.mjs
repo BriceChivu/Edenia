@@ -5,7 +5,7 @@ import { createStorageRecoveryReporter } from '../../src/integrations/storage-re
 import { createStorageRecoveryFeedback } from '../../src/integrations/storage-recovery-feedback.js'
 import { describeProfileStorageFailure } from '../../src/state/profile-storage-recovery.js'
 
-function fixture() {
+function fixture({ onDurableSave = () => {} } = {}) {
   const values = new Map([['profile', '{"points":1}']])
   const disk = { raw: null, fail: false, failOnce: false, stallNext: null }
   const storage = { getItem: key => values.get(key) ?? null,
@@ -30,7 +30,7 @@ function fixture() {
     onStorageFailure(error, operation = 'save') {
       pending.push(reporter.report(operation, describeProfileStorageFailure(error)))
     },
-    onTierChange(tier) { if (tier === 'indexed-db' || tier === 'local') pending.push(reporter.recoverySaved()) }
+    onDurableSave() { onDurableSave(); pending.push(reporter.recoverySaved()) }
   })
   reporter = createStorageRecoveryReporter({ workspace, deliver: feedback,
     getDetails: () => ({ mode: 'auth-trial', release: 'test', locale: 'en' }),
@@ -121,6 +121,33 @@ test('pending journal edits cannot inherit an earlier durable outcome', async ()
   assert.equal(f.reports.at(-1).properties.storage_recovery_outcome, 'failure')
 })
 
+test('a durable retry corrects a failure even when the IndexedDB tier never changed', async () => {
+  const f = fixture()
+  f.workspace.activate(); await f.workspace.flush(); await f.settle()
+  const incident = f.workspace.getDiagnosticContext().incidentId
+  f.disk.fail = true
+  assert.equal(await f.workspace.flush(), false)
+  await f.settle()
+  assert.equal(f.workspace.getTier(), 'indexed-db')
+  assert.equal(f.reports.at(-1).properties.storage_recovery_outcome, 'failure')
+  f.disk.fail = false
+  assert.equal(await f.workspace.flush(), true)
+  await f.settle()
+  assert.equal(f.reports.at(-1).properties.storage_recovery_outcome, 'fallback-saved')
+  assert.equal(f.reports.at(-1).properties.storage_recovery_incident_id, incident)
+  assert.equal(JSON.parse(f.disk.raw).values.profile, '{"points":1}')
+  const before = f.reports.length
+  f.disk.fail = true
+  assert.equal(await f.workspace.flush(), false)
+  await f.settle()
+  assert.equal(f.reports.at(-1).properties.storage_recovery_outcome, 'failure')
+  f.disk.fail = false
+  assert.equal(await f.workspace.flush(), true)
+  await f.settle()
+  assert.equal(f.reports.at(-1).properties.storage_recovery_outcome, 'fallback-saved')
+  assert.equal(f.reports.length, before + 2, 'each real outcome transition has its own report occurrence')
+})
+
 test('diagnostic delivery failure cannot change durable recovery acknowledgement', async () => {
   const f = fixture()
   const reporter = createStorageRecoveryReporter({ workspace: f.workspace,
@@ -129,6 +156,23 @@ test('diagnostic delivery failure cannot change durable recovery acknowledgement
   assert.equal(await reporter.report('save', { code: 'storage-unavailable' }), 'failed')
   const edit = f.workspace.repository.snapshot(); edit.points = 2
   assert.equal(await f.workspace.repository.save(edit), true)
+})
+
+test('a failing durable-save observer cannot reject verified journal or local saves', async () => {
+  const fail = () => { throw new Error('Diagnostic failure') }
+  const f = fixture({ onDurableSave: fail })
+  f.workspace.activate()
+  assert.equal(await f.workspace.flush(), true)
+  const edit = f.workspace.repository.snapshot(); edit.points = 2
+  assert.equal(await f.workspace.repository.save(edit), true)
+  const values = new Map()
+  const local = createProfileRecoveryWorkspace({ storageKey: 'profile', accessKey: 'access', keys: ['access'],
+    getPrimary: () => ({ getItem: key => values.get(key) ?? null, setItem: (key, raw) => values.set(key, raw) }),
+    capture: () => ({ profile: '{"points":1}' }), onDurableSave: fail })
+  local.activate()
+  const localEdit = local.repository.snapshot(); localEdit.points = 2
+  assert.equal(local.repository.save(localEdit), true)
+  assert.equal(local.getDiagnosticState(local.getDiagnosticContext().incidentId).outcome, 'fallback-saved')
 })
 
 test('a delayed failure cannot borrow another incident’s durable copy', async () => {

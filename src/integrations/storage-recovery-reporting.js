@@ -14,6 +14,7 @@ export function createStorageRecoveryReporter({ workspace, deliver, getDetails, 
     if (fallbackNotice && (preparing.has(key) || outcomes.get(key) === 'fallback-saved' || outcomes.get(key) === 'recovered')) return 'skipped'
     preparing.set(key, (preparing.get(key) || 0) + 1)
     let details
+    let newOccurrence = false
     try {
       if (['memory', 'session', 'indexed-db'].includes(workspace.getTier())) await workspace.whenSettled()
       const state = workspace.getDiagnosticState(context?.incidentId)
@@ -21,6 +22,7 @@ export function createStorageRecoveryReporter({ workspace, deliver, getDetails, 
       if (promoted ? state.outcome !== 'recovered' : state.outcome === 'recovered') return 'skipped'
       if (fallbackNotice && state.outcome !== 'fallback-saved') return 'skipped'
       details = { ...getDetails(), ...context, operation, failure: failure || { code: 'storage-unavailable' }, ...state }
+      newOccurrence = outcomes.has(key) && outcomes.get(key) !== state.outcome
       remember(key, state.outcome)
       onOutcome({ ...state, failure: details.failure })
     } catch { return 'failed' }
@@ -30,7 +32,7 @@ export function createStorageRecoveryReporter({ workspace, deliver, getDetails, 
       else preparing.delete(key)
     }
     // Network delivery must not hold up a later durable-outcome notification.
-    try { return await deliver(details) } catch { return 'failed' }
+    try { return await deliver(details, { newOccurrence }) } catch { return 'failed' }
   }
   return {
     report,
