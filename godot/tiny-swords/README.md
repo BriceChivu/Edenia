@@ -777,7 +777,9 @@ durable, and reopening reconstructs the outbox before reconciliation.
 `tiny_swords_fps=30` remains available for comparisons. Physics and gameplay clocks
 retain their original cadence. Normal URLs do not install the experiment.
 
-Open **FPS test → Lag capture** on the island. **Record + compare** runs a 20-second
+The diagnostic overlay is hidden by default, including when saved captures exist.
+Add `&tiny_swords_diagnostics=1` to an FPS-enabled URL to show it, then open
+**FPS test → Lag capture** on the island. **Record + compare** runs a 20-second
 game-only recording, then automatically runs another 20 seconds without recording.
 The status asks the learner to repeat similar actions in the second phase; this
 sequential comparison does not replay identical inputs or prove recorder causality.

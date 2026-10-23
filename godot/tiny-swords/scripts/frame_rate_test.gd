@@ -44,6 +44,8 @@ func _ready() -> void:
 	JavaScriptBridge.eval(FileAccess.get_file_as_string("res://scripts/lag_capture.js"))
 	layer = 100
 	panel = PanelContainer.new()
+	# Keep diagnostics available on request without covering ordinary island play.
+	panel.visible = JavaScriptBridge.eval("(() => { try { return new URLSearchParams(window.parent.location.search).get('tiny_swords_diagnostics') === '1'; } catch { return false; } })()")
 	panel.position = Vector2(8, 8)
 	panel.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	var style := StyleBoxFlat.new()
