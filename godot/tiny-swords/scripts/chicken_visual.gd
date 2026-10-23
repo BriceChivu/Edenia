@@ -149,9 +149,6 @@ func movement_speed() -> float:
 	return world.pawn.speed if following else super.movement_speed()
 
 func clear_following() -> void:
-	if follow_search != null and OS.has_feature("web"):
-		var details := {"workMs": follow_search_work / 1000.0, "wallMs": (Time.get_ticks_usec() - follow_search_started) / 1000.0, "cancelled": not follow_search.done}
-		JavaScriptBridge.eval("window.edeniaLagCapture?.probe('chicken-follow', %s, %s); window.edeniaFrameTest?.recordProbe('chicken-follow', %s, Date.now(), %s)" % [follow_search_max_slice / 1000.0, JSON.stringify(details), follow_search_max_slice / 1000.0, JSON.stringify(details)])
 	follow_search = null
 	if following:
 		fleeing = false
@@ -235,9 +232,6 @@ func shortest_follow_route() -> Array[Vector2]:
 var follow_search
 var follow_search_geometry := 0
 var follow_search_cell := Vector2i.ZERO
-var follow_search_started := 0
-var follow_search_work := 0
-var follow_search_max_slice := 0
 
 func follow_distance(point: Vector2, targets: Array[Vector2]) -> float:
 	var distance := INF
@@ -258,9 +252,6 @@ func follow_pawn() -> void:
 		if follow_search == null:
 			clear_following()
 			follow_search = new_follow_search()
-			follow_search_started = began
-			follow_search_work = 0
-			follow_search_max_slice = 0
 			follow_search_geometry = geometry
 			follow_search_cell = pawn_cell
 		if follow_search == null:
@@ -268,8 +259,6 @@ func follow_pawn() -> void:
 		follow_search.advance(began + world.navigation_budget())
 		var slice_usec := Time.get_ticks_usec() - began
 		world.navigation_spent_usec += slice_usec
-		follow_search_work += slice_usec
-		follow_search_max_slice = maxi(follow_search_max_slice, slice_usec)
 		if not follow_search.done:
 			return
 		route.assign(follow_search.result)

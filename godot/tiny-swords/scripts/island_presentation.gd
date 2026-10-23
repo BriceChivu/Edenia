@@ -9,7 +9,6 @@ func set_presented(world: Node, presented: bool) -> void:
 	if presented == (not suspended) or not OS.has_feature("web"):
 		return
 	if not presented:
-		JavaScriptBridge.eval("window.edeniaFrameTest?.cancel('island hidden'); window.edeniaLagCapture?.pause('island hidden')")
 		world.world_pointer_down = null
 		world.world_dragging = false
 		world.pointer_inside = false
@@ -22,5 +21,3 @@ func set_presented(world: Node, presented: bool) -> void:
 	# JavaScriptBridge.eval returns JS booleans as an integer in this engine.
 	if applied:
 		suspended = not presented
-		if presented:
-			JavaScriptBridge.eval("window.edeniaFrameTest?.refreshDisplay()")

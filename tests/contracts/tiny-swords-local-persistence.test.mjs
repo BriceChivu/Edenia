@@ -64,10 +64,12 @@ test('host enables the black-hole rollout only for internal_test=1', () => {
   }
 })
 
-test('host transports only explicitly supported FPS experiment values', () => {
-  for (const [search, expected] of [['', null], ['?internal_test=1', '60'], ['?internal_test=2', null], ['?internal_test=1&tiny_swords_fps=30', '30'], ['?internal_test=1&tiny_swords_fps=60', '60'], ['?tiny_swords_fps=30', '30'], ['?tiny_swords_fps=60', '60'], ['?tiny_swords_fps=20', null]]) {
+test('host ignores retired FPS and diagnostic URL parameters', () => {
+  for (const search of ['?internal_test=1', '?internal_test=2', '?internal_test=1&tiny_swords_fps=30', '?tiny_swords_fps=60&tiny_swords_diagnostics=1']) {
     const h = harness({ island, search })
-    assert.equal(new URL(h.frames[0].src).searchParams.get('tiny_swords_fps'), expected)
+    const parameters = new URL(h.frames[0].src).searchParams
+    assert.equal(parameters.has('tiny_swords_fps'), false)
+    assert.equal(parameters.has('tiny_swords_diagnostics'), false)
   }
 })
 
