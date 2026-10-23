@@ -20,7 +20,7 @@ test('temporary failures offer one real storage check and then an actionable ter
 })
 test('diagnostics exclude exception payloads, URLs, credentials and identifiers', () => {
   const report = createStorageRecoveryReport({ failure: describeProfileStorageFailure(new Error('SECRET PROFILE')), checked: true, mode: 'auth-trial', release: 'https://secret/token' })
-  assert.deepEqual(JSON.parse(report), { diagnostic: 'edenia-storage-recovery-v1', code: 'storage-unavailable', storageCheckedAgain: true, mode: 'auth-trial', release: null, error: { name: 'Error', message: null }, storageState: { migrationMarker: null, accessMetadataPresent: false, cloudOperationPresent: false }, operation: null, recovery: null, capabilities: { indexedDb: false, secureContext: false, online: true, browser: null, platform: null } })
+  assert.deepEqual(JSON.parse(report), { diagnostic: 'edenia-storage-recovery-v1', code: 'storage-unavailable', outcome: 'failure', storageCheckedAgain: true, mode: 'auth-trial', release: null, error: { name: 'Error', message: null }, storageState: { migrationMarker: null, accessMetadataPresent: false, cloudOperationPresent: false }, operation: null, recovery: null, capabilities: { indexedDb: false, secureContext: false, online: true, browser: null, platform: null } })
   assert.ok(!report.includes('SECRET'))
 })
 test('diagnostics retain known storage errors while discarding arbitrary exception text', () => {
@@ -70,4 +70,15 @@ test('native failures retain the first storage boundary without leaking arbitrar
   assert.equal(report.error.message, null)
   const unsafe = annotateStorageFailure(new Error('PRIVATE'), 'PRIVATE TARGET', 'PRIVATE PHASE')
   assert.ok(!createStorageRecoveryReport({ failure: describeProfileStorageFailure(unsafe) }).includes('PRIVATE'))
+})
+
+test('durable outcome fields cannot promote memory-only or arbitrary saved diagnostics', () => {
+  for (const recovery of ['none', 'memory', 'session', 'PRIVATE']) {
+    const parsed = JSON.parse(createStorageRecoveryReport({ failure: { code: 'storage-unavailable' }, outcome: 'fallback-saved', recovery }))
+    assert.equal(parsed.outcome, 'failure')
+  }
+  const old = JSON.parse(createStorageRecoveryReport({ failure: { code: 'storage-unavailable' }, recovery: 'indexed-db' }))
+  assert.equal(old.outcome, 'failure', 'a legacy error report is not proof of a settled durable outcome')
+  const unsafe = createStorageRecoveryReport({ outcome: 'PRIVATE', failure: { code: 'storage-unavailable' } })
+  assert.ok(!unsafe.includes('PRIVATE'))
 })

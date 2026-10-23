@@ -97,7 +97,10 @@ export function createStorageRecoveryFeedback({
   async function deliver(entry) {
     const diagnostic = JSON.parse(entry.diagnostic)
     const testPrefix = diagnostic.testRunId ? `[TEST: ${diagnostic.testRunId}] ` : ''
-    const completed = diagnostic.code === 'storage-recovered'
+    const completed = diagnostic.outcome !== 'failure'
+    const heading = diagnostic.outcome === 'recovered' ? 'Primary storage restored'
+      : diagnostic.outcome === 'fallback-saved' ? 'Progress saved in recovery storage'
+        : 'Automatic storage recovery report'
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
     try {
@@ -113,10 +116,10 @@ export function createStorageRecoveryFeedback({
             storage_recovery_is_test: Boolean(diagnostic.testRunId),
             storage_recovery_test_run_id: diagnostic.testRunId || null,
             storage_recovery_incident_id: diagnostic.incidentId || null,
-            storage_recovery_outcome: completed ? 'recovered' : 'failure',
+            storage_recovery_outcome: diagnostic.outcome,
             feedback_source: 'automatic_storage_recovery',
             feedback_name: null, feedback_email: null,
-            feedback_message: `${testPrefix}${completed ? 'Storage recovery completed' : 'Automatic storage recovery report'}\n${entry.diagnostic}`,
+            feedback_message: `${testPrefix}${heading}\n${entry.diagnostic}`,
             app_version: diagnostic.release,
             page_url: `${location.origin}/`, session_replay_url: null,
             locale: /^[a-zA-Z-]{2,12}$/.test(entry.locale || '') ? entry.locale : 'en',
@@ -139,10 +142,12 @@ export function createStorageRecoveryFeedback({
     persist()
     return entry.status
   }
-  async function report(details, { retry = false } = {}) {
+  async function report(details, { retry = false, newOccurrence = false } = {}) {
     if (!enabled) return 'unavailable'
     const diagnostic = createStorageRecoveryReport({ ...details, testRunId: sanitizeStorageDiagnosticId(Object.hasOwn(details, 'testRunId') ? details.testRunId : testRunId) })
-    let entry = [...reports.values()].find(value => value.diagnostic === diagnostic)
+    // Returning to an earlier outcome is a new occurrence, even when its
+    // diagnostic matches a report already sent earlier in this incident.
+    let entry = newOccurrence ? null : [...reports.values()].find(value => value.diagnostic === diagnostic)
     if (entry && (!retry || entry.status !== 'failed')) return entry.pending || entry.status
     if (!entry) {
       entry = { id: createId(), diagnostic, locale: details.locale,
@@ -153,7 +158,13 @@ export function createStorageRecoveryFeedback({
   }
   report.retryPending = async () => {
     if (!enabled) return []
-    return Promise.all([...reports.values()].filter(entry => entry.status === 'failed').map(sendEntry))
+    const results = []
+    // Preserve attempt/outcome order when an offline incident is replayed.
+    for (const entry of [...reports.values()].filter(entry => entry.status === 'failed')
+      .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.id.localeCompare(b.id))) {
+      results.push(await sendEntry(entry))
+    }
+    return results
   }
   return report
 }

@@ -57,7 +57,10 @@ export function isIndexedDbProfilePointer(raw) {
 function complete(transaction) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      try { transaction.abort() } catch {}
+      try { transaction.abort() } catch (error) {
+        // Completion/abort delivery can lag behind the native outcome.
+        if (error.name === 'InvalidStateError') return
+      }
       reject(new Error('Profile transaction timed out'))
     }, 8000)
     transaction.oncomplete = () => { clearTimeout(timeout); resolve() }

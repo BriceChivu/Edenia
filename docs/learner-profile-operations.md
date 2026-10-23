@@ -319,6 +319,26 @@ recovery storage tier, browser/OS versions, capabilities and viewport. They
 exclude exception payloads, learner progress, account identifiers, credentials,
 URL parameters and replay links. No Discord webhook secret is shipped.
 
+Storage diagnostics distinguish a failed attempt from its settled outcome:
+`failure` means current progress has no verified durable recovery copy;
+`fallback-saved` means progress is verified in local storage or the IndexedDB
+recovery journal; `recovered` means promotion back to primary storage completed.
+A failed attempt followed by a successful queued retry retains its error but
+is headed **Progress saved in recovery storage**, with category `other`.
+Each return to durable recovery emits a matching incident notice, including
+retries whose storage tier stayed the same. Ordinary successful saves do not
+repeat that notice. **Primary storage restored** remains separate.
+An absent promotion report does not imply that all fallback saves failed.
+Offline diagnostics retain their original UUID and outcome and replay in order.
+Each outcome change creates a new report occurrence; retries keep that
+occurrence's original UUID.
+
+The eight-second transaction bound still aborts a genuinely stalled write.
+If the native transaction already finished, its delayed completion or abort
+event settles the operation instead of fabricating a timeout. Primary profiles,
+recovery journals and backup banks use this same outcome rule. Reads and writes
+still complete their existing readback, revision and ownership checks.
+
 On Web Storage quota errors, the storage facade first discards only the
 replaceable YouTube channel-search cache and retries the original write. It
 does not discard study facts, account metadata, recovery copies or unknown

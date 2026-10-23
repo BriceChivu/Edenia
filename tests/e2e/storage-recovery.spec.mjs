@@ -222,15 +222,21 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   }, { databaseName, key })
   await page.goto('https://edenia.study/?internal_test=2&private=SECRET')
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
-  await expect.poll(() => captured.length).toBe(1)
-  const event = captured[0]
-  expect(event.event).toBe('feedback_submitted')
-  expect(event.properties.feedback_source).toBe('automatic_storage_recovery')
+  const denied = () => captured.find(event => event.properties?.feedback_message?.includes('storage-denied'))
+  await expect.poll(() => Boolean(denied())).toBe(true)
+  await expect.poll(() => captured.at(-1)?.properties?.storage_recovery_outcome).toBe('fallback-saved')
+  const event = denied()
   expect(event.properties.feedback_message).toContain('storage-denied')
   expect(event.properties.feedback_message).toContain('local')
-  expect(event.properties.feedback_message).toContain(browserName === 'webkit' ? 'Version/' : 'Chrome/')
-  expect(event.properties.page_url).toBe('https://edenia.study/')
-  expect(JSON.stringify(event)).not.toContain('SECRET')
+  for (const report of captured) {
+    expect(report.event).toBe('feedback_submitted')
+    expect(report.properties.feedback_source).toBe('automatic_storage_recovery')
+    expect(['failure', 'fallback-saved']).toContain(report.properties.storage_recovery_outcome)
+    expect(report.properties.feedback_category).toBe(report.properties.storage_recovery_outcome === 'failure' ? 'bug' : 'other')
+    expect(report.properties.feedback_message).toContain(browserName === 'webkit' ? 'Version/' : 'Chrome/')
+    expect(report.properties.page_url).toBe('https://edenia.study/')
+    expect(JSON.stringify(report)).not.toContain('SECRET')
+  }
   await expect(page.locator('#onboardingPanel.is-recovery')).toBeHidden()
 })
 
