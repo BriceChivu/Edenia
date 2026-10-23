@@ -32,7 +32,7 @@ export function describeProfileStorageFailure(error) {
 }
 
 export function getStorageRecoveryPresentation(failure, { checked = false } = {}) {
-  const code = ['profile-missing','profile-invalid','profile-conflict','storage-full','storage-denied','storage-unavailable','storage-recovered'].includes(failure?.code) ? failure.code : 'storage-unavailable'
+  const code = ['profile-missing','profile-invalid','profile-conflict','storage-full','storage-denied','storage-unavailable','storage-fallback-saved','storage-recovered'].includes(failure?.code) ? failure.code : 'storage-unavailable'
   const needsRepair = failure?.retryable === false
   return {
     code,
@@ -46,11 +46,16 @@ export function getStorageRecoveryPresentation(failure, { checked = false } = {}
 }
 
 export function createStorageRecoveryReport({ failure, checked, mode, release,
-  operation, recovery, incidentId, testRunId, capabilities = {}, storageState = {} }) {
+  operation, recovery, outcome, incidentId, testRunId, capabilities = {}, storageState = {} }) {
   // Deliberately excludes URLs, credentials, profile contents and account identifiers.
+  const code = getStorageRecoveryPresentation(failure).code
+  const finalOutcome = code === 'storage-recovered' ? 'recovered'
+    : (outcome === 'fallback-saved' || code === 'storage-fallback-saved') && ['local', 'indexed-db'].includes(recovery)
+      ? 'fallback-saved' : 'failure'
   return JSON.stringify({
     diagnostic: 'edenia-storage-recovery-v1',
-    code: getStorageRecoveryPresentation(failure).code,
+    code,
+    outcome: finalOutcome,
     storageCheckedAgain: checked === true,
     error: {
       name: SAFE_ERROR_NAMES.includes(failure?.errorName) ? failure.errorName : null,

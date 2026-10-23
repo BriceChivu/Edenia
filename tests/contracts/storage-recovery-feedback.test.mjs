@@ -238,7 +238,7 @@ test('internal trial failures remain real by default and completion shares the i
   assert.equal(payloads[0].properties.storage_recovery_is_test, false)
   assert.doesNotMatch(payloads[0].properties.feedback_message, /\[TEST/)
   assert.equal(payloads[1].properties.storage_recovery_incident_id, 'incident-real')
-  assert.match(payloads[1].properties.feedback_message, /Storage recovery completed/)
+  assert.match(payloads[1].properties.feedback_message, /Primary storage restored/)
   assert.equal(payloads[1].properties.feedback_category, 'other')
   assert.notEqual(payloads[0].uuid, payloads[1].uuid)
 })
@@ -250,4 +250,27 @@ test('untrusted diagnostic provenance and phase fields cannot replay arbitrary d
   await report({ ...details, incidentId: 'PRIVATE@EMAIL', testRunId: 'SECRET TOKEN', failure: { code: 'storage-denied', phase: 'SECRET TOKEN', storageTarget: 'PRIVATE@EMAIL' } })
   assert.doesNotMatch(JSON.stringify(payloads), /PRIVATE|SECRET|TOKEN/)
   assert.equal(payloads[0].properties.storage_recovery_is_test, false)
+})
+
+test('offline failure and durable recovery replay in order with their original outcome and UUID', async () => {
+  const store = nativeLikeStore()
+  let n = 0
+  const first = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' },
+    getStores: () => [() => store], createId: () => `ordered-${++n}`,
+    now: () => `2026-10-23T00:00:0${n}.000Z`, fetch: async () => ({ ok: false }) })
+  await first({ ...details, recovery: 'memory', incidentId: 'ordered-incident' })
+  await first({ ...details, failure: { code: 'storage-fallback-saved' }, recovery: 'indexed-db', incidentId: 'ordered-incident' })
+  const calls = []
+  let active = 0
+  const replay = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    fetch: async (_, options) => {
+      assert.equal(active++, 0, 'a later outcome must not overtake its earlier attempt')
+      await Promise.resolve()
+      calls.push(JSON.parse(options.body)); active--; return { ok: true }
+    } })
+  await replay.retryPending()
+  assert.deepEqual(calls.map(call => call.uuid), ['ordered-1', 'ordered-2'])
+  assert.deepEqual(calls.map(call => call.properties.storage_recovery_outcome), ['failure', 'fallback-saved'])
+  assert.match(calls[1].properties.feedback_message, /^Progress saved in recovery storage/)
+  assert.equal(store.length, 0)
 })

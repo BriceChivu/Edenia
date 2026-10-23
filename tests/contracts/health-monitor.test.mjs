@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 import { createHealthMonitor, healthMonitoringAllowed } from '../../src/integrations/health-monitor.js'
+import { createStorageRecoveryReporter } from '../../src/integrations/storage-recovery-reporting.js'
 
 function fixture(options = {}) {
   const events = []
@@ -88,18 +89,21 @@ test('routine cooldowns, empty feeds and skipped refreshes do not create inciden
 for (const source of ['src/app.js', 'compat/production/src/app.js']) {
   test(`${source}: storage recovery completion is healthy and retains diagnostic context`, async () => {
     const code = await readFile(source, 'utf8')
-    const start = code.indexOf('async function reportBackgroundStorageFailure(')
+    const start = code.indexOf('const storageRecoveryReporter = createStorageRecoveryReporter(')
     const fn = code.slice(start, code.indexOf('\n// Retry network delivery', start))
     const reports = []
     const diagnostics = []
-    const context = vm.createContext({ reportWindowHealth: (...args) => reports.push(args),
-      profileRecoveryWorkspace: { getTier: () => 'none', getDiagnosticContext: () => ({ incidentId: 'recovery-1' }) },
+    let outcome = { outcome: 'failure', recovery: 'none' }
+    const context = vm.createContext({ createStorageRecoveryReporter, reportWindowHealth: (...args) => reports.push(args),
+      profileRecoveryWorkspace: { getTier: () => 'none', getDiagnosticContext: () => ({ incidentId: 'recovery-1' }),
+        getDiagnosticState: () => outcome },
       window: { localStorage: { getItem: () => null } }, STORAGE_KEY: 'profile', LEARNER_PROFILE_ACCESS_KEY: 'access', LEARNER_PROFILE_SYNC_KEY: 'sync',
       IS_AUTH_TRIAL: false, IS_TINY_SWORDS_TESTER: false, getFeedbackAssetVersion: () => 'abc123', getBrowserDefaultLocale: () => 'en',
-      navigator: {}, pendingStorageFeedback: new Map(), automaticStorageFeedback: async details => { diagnostics.push(details); return 'sent' } })
+      navigator: {}, automaticStorageFeedback: async details => { diagnostics.push(details); return 'sent' } })
     vm.runInContext(fn + '\nthis.report = reportBackgroundStorageFailure', context)
     await context.report('save', { code: 'storage-unavailable' })
     assert.equal(reports.at(-1)[1], 'degraded')
+    outcome = { outcome: 'recovered', recovery: 'none' }
     await context.report('reconcile', { code: 'storage-recovered', phase: 'promotion' }, { incidentId: 'original-incident' })
     assert.equal(reports.at(-1)[1], 'success')
     assert.equal(reports.at(-1)[2].reason, 'none')
@@ -108,6 +112,7 @@ for (const source of ['src/app.js', 'compat/production/src/app.js']) {
     context.profileRecoveryWorkspace.getTier = () => 'memory'
     context.profileRecoveryWorkspace.whenSettled = async () => {
       context.profileRecoveryWorkspace.getTier = () => 'indexed-db'
+      outcome = { outcome: 'fallback-saved', recovery: 'indexed-db' }
     }
     await context.report('save', { code: 'storage-full' })
     assert.equal(diagnostics.at(-1).recovery, 'indexed-db')

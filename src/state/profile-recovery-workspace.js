@@ -743,6 +743,17 @@ export function createProfileRecoveryWorkspace({
     async refresh() { await refreshJournal(); refreshFromDisk() },
     hasPending: () => Boolean(record),
     isActive: () => active, getTier: () => tier,
+    getDiagnosticState(incidentId) {
+      if (incidentId && archivedRecord?.incidentId === incidentId && archivedRecord.status === 'archived') {
+        return { outcome: 'recovered', recovery: 'none' }
+      }
+      // Never attach another incident's durable copy to a delayed failure.
+      if ((record?.incidentId ?? null) !== (incidentId ?? null)) return { outcome: 'failure', recovery: 'none' }
+      const raw = record && typeof record.values[storageKey] === 'string' ? JSON.stringify(record) : null
+      const durable = raw !== null && (tier === 'indexed-db' ? !journalFailure && journalRaw === raw
+        : tier === 'local' && persistedRaw === raw && safeRead(getPrimary, workspaceKey) === raw)
+      return { outcome: durable ? 'fallback-saved' : 'failure', recovery: tier }
+    },
     getDiagnosticContext: () => record ? { incidentId: sanitizeStorageDiagnosticId(record.incidentId),
       testRunId: sanitizeStorageDiagnosticId(record.testRunId) } : null,
     getOriginalAccess: () => record?.originalAccess ?? null,

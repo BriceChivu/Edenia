@@ -3,6 +3,7 @@ import { createLearnerProfileSyncOpportunity } from './state/learner-profile-syn
 import { reportWindowHealth } from './integrations/health-monitor.js'
 import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
 import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
+import { createStorageRecoveryReporter } from './integrations/storage-recovery-reporting.js'
 import { createLocalRecoveryConflict } from './features/profile-access/local-recovery-conflict.js'
 import { describeProfileStorageFailure } from './state/profile-storage-recovery.js'
 import { createPortableLearnerProfileConflictArchive } from './state/portable-learner-profile-archive.js'
@@ -701,7 +702,6 @@ let recoveryReconciliationPending = false
 let queuedRecoveryReconciliation = null
 const storageRecoveryTestRunId = window.EDENIA_CONFIG?.storageRecoveryTestRunId
 const automaticStorageFeedback = createStorageRecoveryFeedback({ location: window.location, testRunId: storageRecoveryTestRunId })
-const pendingStorageFeedback = new Map()
 const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
   testRunId: storageRecoveryTestRunId,
   storageKey: STORAGE_KEY,
@@ -730,6 +730,9 @@ const profileRecoveryWorkspace = createProfileRecoveryWorkspace({
     if (target === 'recovery-journal') failure.storageTarget = target
     else { failure.storageTarget ||= 'web-storage'; failure.phase ||= 'workspace-write' }
     queueMicrotask(() => reportBackgroundStorageFailure(operation, failure))
+  },
+  onTierChange(tier) {
+    if (tier === 'indexed-db' || tier === 'local') queueMicrotask(() => { void storageRecoveryReporter.recoverySaved() })
   },
   onConflictCleared(id) { recoveryConflictView?.hide(id) },
   onConflict({ id, currentRaw, desiredRaw, epoch }) {
@@ -773,44 +776,39 @@ function resetRecoveryBackupStore() {
   backupStorageSharesPrimaryQuota = true
 }
 
-async function reportBackgroundStorageFailure(operation, failure = null, diagnosticContext = profileRecoveryWorkspace.getDiagnosticContext()) {
-  // A queued IndexedDB acknowledgement is temporarily memory-only. Describe
-  // the settled recovery tier without initiating another write or retry.
-  if (profileRecoveryWorkspace.getTier() === 'memory') await profileRecoveryWorkspace.whenSettled()
-  const recovered = failure?.code === 'storage-recovered'
-  reportWindowHealth('storage', recovered ? 'success' : 'degraded', { reason: recovered ? 'none' : failure?.code || 'storage-unavailable', recovery: profileRecoveryWorkspace.getTier() })
-  const storageState = {}
-  try {
-    storageState.migrationMarker = window.localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`)
-    storageState.accessMetadataPresent = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== null
-    storageState.cloudOperationPresent = window.localStorage.getItem(LEARNER_PROFILE_SYNC_KEY) !== null
-  } catch {}
-  const details = {
-    failure: failure || { code: 'storage-unavailable', retryable: true },
-    operation, storageState, ...diagnosticContext,
-    mode: IS_AUTH_TRIAL ? 'auth-trial' : IS_TINY_SWORDS_TESTER ? 'tiny-swords-test' : 'public',
-    release: getFeedbackAssetVersion(),
-    locale: getBrowserDefaultLocale(), width: window.innerWidth, height: window.innerHeight,
-    recovery: profileRecoveryWorkspace.getTier(),
-    capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
-      online: navigator.onLine !== false, browser: navigator.userAgent }
+const storageRecoveryReporter = createStorageRecoveryReporter({
+  workspace: profileRecoveryWorkspace,
+  deliver: automaticStorageFeedback,
+  getDetails() {
+    const storageState = {}
+    try {
+      storageState.migrationMarker = window.localStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`)
+      storageState.accessMetadataPresent = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== null
+      storageState.cloudOperationPresent = window.localStorage.getItem(LEARNER_PROFILE_SYNC_KEY) !== null
+    } catch {}
+    return {
+      storageState,
+      mode: IS_AUTH_TRIAL ? 'auth-trial' : IS_TINY_SWORDS_TESTER ? 'tiny-swords-test' : 'public',
+      release: getFeedbackAssetVersion(),
+      locale: getBrowserDefaultLocale(), width: window.innerWidth, height: window.innerHeight,
+      capabilities: { indexedDb: Boolean(window.indexedDB), secureContext: window.isSecureContext === true,
+        online: navigator.onLine !== false, browser: navigator.userAgent }
+    }
+  },
+  onOutcome({ outcome, failure, recovery }) {
+    reportWindowHealth('storage', outcome === 'recovered' ? 'success' : 'degraded', {
+      reason: outcome === 'recovered' ? 'none' : outcome === 'fallback-saved' ? 'recovery-copy' : failure.code,
+      recovery
+    })
   }
-  const key = `${details.incidentId || 'standalone'}:${operation}:${details.failure.code}:${details.failure.storageTarget || 'profile'}`
-  if (pendingStorageFeedback.has(key)) return
-  pendingStorageFeedback.set(key, details)
-  void automaticStorageFeedback(details).then(status => {
-    if (status === 'sent' || status === 'unavailable') pendingStorageFeedback.delete(key)
-  })
+})
+function reportBackgroundStorageFailure(operation, failure = null, diagnosticContext = profileRecoveryWorkspace.getDiagnosticContext()) {
+  return storageRecoveryReporter.report(operation, failure, diagnosticContext)
 }
 
 // Retry network delivery quietly; ingestion deduplicates the stable report UUID.
 window.addEventListener('online', () => {
   void automaticStorageFeedback.retryPending()
-  for (const [key, details] of pendingStorageFeedback) {
-    void automaticStorageFeedback(details, { retry: true }).then(status => {
-      if (status === 'sent' || status === 'unavailable') pendingStorageFeedback.delete(key)
-    })
-  }
 })
 
 const profileRepositoryWrappers = new WeakMap()
