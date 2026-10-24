@@ -1,0 +1,452 @@
+[gd_scene format=3]
+[ext_resource type="Script" path="res://previews/achievements/achievements_draft.gd" id="Script"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_11.png" id="Icon"]
+[ext_resource type="Texture2D" path="res://previews/achievements/parchment_atlas.png" id="Paper"]
+[ext_resource type="FontFile" path="res://fonts/MedievalSharp.ttf" id="Font"]
+[sub_resource type="StyleBoxEmpty" id="Empty"]
+[sub_resource type="Theme" id="Theme"]
+default_font = ExtResource("Font")
+default_font_size = 18
+
+[sub_resource type="AtlasTexture" id="Patch00"]
+atlas = ExtResource("Paper")
+region = Rect2(0, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="Patch01"]
+atlas = ExtResource("Paper")
+region = Rect2(192, 0, 64, 128)
+
+[sub_resource type="AtlasTexture" id="Patch02"]
+atlas = ExtResource("Paper")
+region = Rect2(320, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="Patch10"]
+atlas = ExtResource("Paper")
+region = Rect2(0, 192, 128, 64)
+
+[sub_resource type="AtlasTexture" id="Patch11"]
+atlas = ExtResource("Paper")
+region = Rect2(192, 192, 64, 64)
+
+[sub_resource type="AtlasTexture" id="Patch12"]
+atlas = ExtResource("Paper")
+region = Rect2(320, 192, 128, 64)
+
+[sub_resource type="AtlasTexture" id="Patch20"]
+atlas = ExtResource("Paper")
+region = Rect2(0, 320, 128, 128)
+
+[sub_resource type="AtlasTexture" id="Patch21"]
+atlas = ExtResource("Paper")
+region = Rect2(192, 320, 64, 128)
+
+[sub_resource type="AtlasTexture" id="Patch22"]
+atlas = ExtResource("Paper")
+region = Rect2(320, 320, 128, 128)
+
+[node name="AchievementsDraftUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 0.0
+offset_bottom = 0.0
+mouse_filter = 2
+theme = SubResource("Theme")
+script = ExtResource("Script")
+
+[node name="AchievementButton" type="Button" parent="."]
+texture_filter = 1
+custom_minimum_size = Vector2(45, 45)
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -94.0
+offset_right = -49.0
+offset_top = -49.0
+offset_bottom = -4.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Achievements"
+accessibility_name = "Achievements"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/focus = SubResource("Empty")
+theme_override_constants/icon_max_width = 36
+icon = ExtResource("Icon")
+icon_alignment = 1
+expand_icon = true
+
+[node name="Modal" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+
+[node name="Backdrop" type="ColorRect" parent="Modal"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.08, 0.16, 0.17, 0.25)
+
+[node name="Sheet" type="Control" parent="Modal"]
+offset_left = 346.0
+offset_top = 16.0
+offset_right = 806.0
+offset_bottom = 516.0
+mouse_filter = 0
+
+[node name="Paper00" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 128.0
+offset_bottom = 128.0
+mouse_filter = 2
+texture = SubResource("Patch00")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper01" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 128.0
+offset_top = 0.0
+offset_right = 332.0
+offset_bottom = 128.0
+mouse_filter = 2
+texture = SubResource("Patch01")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper02" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 332.0
+offset_top = 0.0
+offset_right = 460.0
+offset_bottom = 128.0
+mouse_filter = 2
+texture = SubResource("Patch02")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper10" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 0.0
+offset_top = 128.0
+offset_right = 128.0
+offset_bottom = 372.0
+mouse_filter = 2
+texture = SubResource("Patch10")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper11" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 128.0
+offset_top = 128.0
+offset_right = 332.0
+offset_bottom = 372.0
+mouse_filter = 2
+texture = SubResource("Patch11")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper12" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 332.0
+offset_top = 128.0
+offset_right = 460.0
+offset_bottom = 372.0
+mouse_filter = 2
+texture = SubResource("Patch12")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper20" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 0.0
+offset_top = 372.0
+offset_right = 128.0
+offset_bottom = 500.0
+mouse_filter = 2
+texture = SubResource("Patch20")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper21" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 128.0
+offset_top = 372.0
+offset_right = 332.0
+offset_bottom = 500.0
+mouse_filter = 2
+texture = SubResource("Patch21")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Paper22" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 332.0
+offset_top = 372.0
+offset_right = 460.0
+offset_bottom = 500.0
+mouse_filter = 2
+texture = SubResource("Patch22")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Title" type="Label" parent="Modal/Sheet"]
+offset_left = 60.0
+offset_top = 80.0
+offset_right = 400.0
+offset_bottom = 114.0
+theme_override_colors/font_color = Color(0.26, 0.21, 0.16, 1)
+theme_override_font_sizes/font_size = 28
+text = "Achievements"
+horizontal_alignment = 1
+
+[node name="Close" type="Button" parent="Modal/Sheet"]
+offset_left = 370.0
+offset_top = 76.0
+offset_right = 402.0
+offset_bottom = 108.0
+text = "×"
+tooltip_text = "Close achievements"
+accessibility_name = "Close achievements"
+theme_override_colors/font_color = Color(0.26, 0.21, 0.16, 1)
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+
+[node name="Rows" type="Control" parent="Modal/Sheet"]
+offset_left = 60.0
+offset_top = 132.0
+offset_right = 400.0
+offset_bottom = 396.0
+mouse_filter = 2
+
+[node name="Tree" type="Button" parent="Modal/Sheet/Rows"]
+offset_top = 0.0
+offset_right = 340.0
+offset_bottom = 44.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Draft: click to toggle completion"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+
+[node name="Title" type="Label" parent="Modal/Sheet/Rows/Tree"]
+offset_right = 300.0
+offset_bottom = 28.0
+mouse_filter = 2
+text = "Cut a tree"
+theme_override_font_sizes/font_size = 18
+
+[node name="Status" type="Label" parent="Modal/Sheet/Rows/Tree"]
+offset_top = 25.0
+offset_right = 280.0
+offset_bottom = 41.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Tree"]
+position = Vector2(312, 9)
+polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
+color = Color(0.20, 0.47, 0.22, 1)
+
+[node name="House" type="Button" parent="Modal/Sheet/Rows"]
+offset_top = 44.0
+offset_right = 340.0
+offset_bottom = 88.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Draft: click to toggle completion"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+
+[node name="Title" type="Label" parent="Modal/Sheet/Rows/House"]
+offset_right = 300.0
+offset_bottom = 28.0
+mouse_filter = 2
+text = "Build a house"
+theme_override_font_sizes/font_size = 18
+
+[node name="Status" type="Label" parent="Modal/Sheet/Rows/House"]
+offset_top = 25.0
+offset_right = 280.0
+offset_bottom = 41.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/House"]
+position = Vector2(312, 9)
+polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
+color = Color(0.20, 0.47, 0.22, 1)
+
+[node name="Chicken" type="Button" parent="Modal/Sheet/Rows"]
+offset_top = 88.0
+offset_right = 340.0
+offset_bottom = 132.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Draft: click to toggle completion"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+
+[node name="Title" type="Label" parent="Modal/Sheet/Rows/Chicken"]
+offset_right = 300.0
+offset_bottom = 28.0
+mouse_filter = 2
+text = "Pick up a chicken"
+theme_override_font_sizes/font_size = 18
+
+[node name="Status" type="Label" parent="Modal/Sheet/Rows/Chicken"]
+offset_top = 25.0
+offset_right = 280.0
+offset_bottom = 41.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Chicken"]
+position = Vector2(312, 9)
+polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
+color = Color(0.20, 0.47, 0.22, 1)
+
+[node name="Duck" type="Button" parent="Modal/Sheet/Rows"]
+offset_top = 132.0
+offset_right = 340.0
+offset_bottom = 176.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Draft: click to toggle completion"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+
+[node name="Title" type="Label" parent="Modal/Sheet/Rows/Duck"]
+offset_right = 300.0
+offset_bottom = 28.0
+mouse_filter = 2
+text = "Unlock the rubber duck"
+theme_override_font_sizes/font_size = 18
+
+[node name="Status" type="Label" parent="Modal/Sheet/Rows/Duck"]
+offset_top = 25.0
+offset_right = 280.0
+offset_bottom = 41.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Duck"]
+position = Vector2(312, 9)
+polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
+color = Color(0.20, 0.47, 0.22, 1)
+
+[node name="Egg" type="Button" parent="Modal/Sheet/Rows"]
+offset_top = 176.0
+offset_right = 340.0
+offset_bottom = 220.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Draft: click to toggle completion"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+
+[node name="Title" type="Label" parent="Modal/Sheet/Rows/Egg"]
+offset_right = 300.0
+offset_bottom = 28.0
+mouse_filter = 2
+text = "Have a chicken lay an egg"
+theme_override_font_sizes/font_size = 18
+
+[node name="Status" type="Label" parent="Modal/Sheet/Rows/Egg"]
+offset_top = 25.0
+offset_right = 280.0
+offset_bottom = 41.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Egg"]
+position = Vector2(312, 9)
+polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
+color = Color(0.20, 0.47, 0.22, 1)
+
+[node name="BlackHole" type="Button" parent="Modal/Sheet/Rows"]
+offset_top = 220.0
+offset_right = 340.0
+offset_bottom = 264.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Draft: click to toggle completion"
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+
+[node name="Title" type="Label" parent="Modal/Sheet/Rows/BlackHole"]
+offset_right = 300.0
+offset_bottom = 28.0
+mouse_filter = 2
+text = "Disappear inside a black hole"
+theme_override_font_sizes/font_size = 18
+
+[node name="Status" type="Label" parent="Modal/Sheet/Rows/BlackHole"]
+offset_top = 25.0
+offset_right = 280.0
+offset_bottom = 41.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/BlackHole"]
+position = Vector2(312, 9)
+polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
+color = Color(0.20, 0.47, 0.22, 1)
+
+[node name="Progress" type="Label" parent="Modal/Sheet"]
+offset_left = 60.0
+offset_top = 410.0
+offset_right = 400.0
+offset_bottom = 436.0
+theme_override_colors/font_color = Color(0.40, 0.36, 0.28, 1)
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+
+[node name="DraftControls" type="HBoxContainer" parent="."]
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 330.0
+offset_bottom = 38.0
+theme_override_constants/separation = 8
+[node name="State" type="Label" parent="DraftControls"]
+text = "Draft · level"
+theme_override_font_sizes/font_size = 14
+[node name="Level" type="SpinBox" parent="DraftControls"]
+custom_minimum_size = Vector2(65, 28)
+min_value = 1.0
+max_value = 20.0
+value = 5.0
+[node name="AllDone" type="Button" parent="DraftControls"]
+text = "All done"
+theme_override_font_sizes/font_size = 14
+[node name="Reset" type="Button" parent="DraftControls"]
+text = "Reset"
+theme_override_font_sizes/font_size = 14
