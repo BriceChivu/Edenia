@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_11.png" id="Icon"]
 [ext_resource type="Texture2D" path="res://previews/achievements/parchment_atlas.png" id="Paper"]
 [ext_resource type="FontFile" path="res://fonts/MedievalSharp.ttf" id="Font"]
+[ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Blue.png" id="Ribbon"]
 [sub_resource type="StyleBoxEmpty" id="Empty"]
 [sub_resource type="Theme" id="Theme"]
 default_font = ExtResource("Font")
@@ -43,6 +44,23 @@ region = Rect2(192, 320, 64, 128)
 [sub_resource type="AtlasTexture" id="Patch22"]
 atlas = ExtResource("Paper")
 region = Rect2(320, 320, 128, 128)
+
+
+[sub_resource type="AtlasTexture" id="RibbonLeft"]
+atlas = ExtResource("Ribbon")
+region = Rect2(0, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="RibbonMiddle"]
+atlas = ExtResource("Ribbon")
+region = Rect2(192, 0, 64, 128)
+
+[sub_resource type="AtlasTexture" id="RibbonRight"]
+atlas = ExtResource("Ribbon")
+region = Rect2(256, 128, 192, 128)
+
+[sub_resource type="AtlasTexture" id="RibbonTail"]
+atlas = ExtResource("Ribbon")
+region = Rect2(0, 448, 192, 128)
 
 [node name="AchievementsDraftUI" type="Control"]
 layout_mode = 3
@@ -88,22 +106,32 @@ mouse_filter = 0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0.08, 0.16, 0.17, 0.25)
+color = Color(0, 0, 0, 0)
 
 [node name="Sheet" type="Control" parent="Modal"]
 offset_left = 346.0
 offset_top = 16.0
 offset_right = 806.0
-offset_bottom = 516.0
+offset_bottom = 674.0
 mouse_filter = 0
+
+[node name="RibbonTail" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+offset_left = 260.0
+offset_top = 530.0
+offset_right = 452.0
+offset_bottom = 658.0
+mouse_filter = 2
+texture = SubResource("RibbonTail")
+expand_mode = 1
 
 [node name="Paper00" type="TextureRect" parent="Modal/Sheet"]
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 0.0
+offset_top = 76.0
 offset_right = 128.0
-offset_bottom = 128.0
+offset_bottom = 204.0
 mouse_filter = 2
 texture = SubResource("Patch00")
 expand_mode = 1
@@ -113,9 +141,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 0.0
+offset_top = 76.0
 offset_right = 332.0
-offset_bottom = 128.0
+offset_bottom = 204.0
 mouse_filter = 2
 texture = SubResource("Patch01")
 expand_mode = 1
@@ -125,9 +153,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 0.0
+offset_top = 76.0
 offset_right = 460.0
-offset_bottom = 128.0
+offset_bottom = 204.0
 mouse_filter = 2
 texture = SubResource("Patch02")
 expand_mode = 1
@@ -137,9 +165,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 128.0
+offset_top = 204.0
 offset_right = 128.0
-offset_bottom = 372.0
+offset_bottom = 448.0
 mouse_filter = 2
 texture = SubResource("Patch10")
 expand_mode = 1
@@ -149,9 +177,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 128.0
+offset_top = 204.0
 offset_right = 332.0
-offset_bottom = 372.0
+offset_bottom = 448.0
 mouse_filter = 2
 texture = SubResource("Patch11")
 expand_mode = 1
@@ -161,9 +189,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 128.0
+offset_top = 204.0
 offset_right = 460.0
-offset_bottom = 372.0
+offset_bottom = 448.0
 mouse_filter = 2
 texture = SubResource("Patch12")
 expand_mode = 1
@@ -173,9 +201,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 372.0
+offset_top = 448.0
 offset_right = 128.0
-offset_bottom = 500.0
+offset_bottom = 576.0
 mouse_filter = 2
 texture = SubResource("Patch20")
 expand_mode = 1
@@ -185,9 +213,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 372.0
+offset_top = 448.0
 offset_right = 332.0
-offset_bottom = 500.0
+offset_bottom = 576.0
 mouse_filter = 2
 texture = SubResource("Patch21")
 expand_mode = 1
@@ -197,29 +225,67 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 372.0
+offset_top = 448.0
 offset_right = 460.0
-offset_bottom = 500.0
+offset_bottom = 576.0
 mouse_filter = 2
 texture = SubResource("Patch22")
 expand_mode = 1
 stretch_mode = 1
 
+[node name="RibbonLeft" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 0.0
+offset_top = 8.0
+offset_right = 128.0
+offset_bottom = 136.0
+mouse_filter = 2
+texture = SubResource("RibbonLeft")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="RibbonMiddle" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 128.0
+offset_top = 8.0
+offset_right = 268.0
+offset_bottom = 136.0
+mouse_filter = 2
+texture = SubResource("RibbonMiddle")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="RibbonRight" type="TextureRect" parent="Modal/Sheet"]
+texture_filter = 1
+texture_repeat = 2
+offset_left = 268.0
+offset_top = 8.0
+offset_right = 460.0
+offset_bottom = 136.0
+mouse_filter = 2
+texture = SubResource("RibbonRight")
+expand_mode = 1
+stretch_mode = 1
+
 [node name="Title" type="Label" parent="Modal/Sheet"]
-offset_left = 60.0
-offset_top = 80.0
-offset_right = 400.0
-offset_bottom = 114.0
-theme_override_colors/font_color = Color(0.26, 0.21, 0.16, 1)
+offset_left = 80.0
+offset_top = 46.0
+offset_right = 340.0
+offset_bottom = 84.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.12, 0.22, 0.25, 1)
+theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 28
 text = "Achievements"
 horizontal_alignment = 1
 
 [node name="Close" type="Button" parent="Modal/Sheet"]
 offset_left = 370.0
-offset_top = 76.0
+offset_top = 178.0
 offset_right = 402.0
-offset_bottom = 108.0
+offset_bottom = 210.0
 text = "×"
 tooltip_text = "Close achievements"
 accessibility_name = "Close achievements"
@@ -230,21 +296,17 @@ theme_override_styles/pressed = SubResource("Empty")
 
 [node name="Rows" type="Control" parent="Modal/Sheet"]
 offset_left = 60.0
-offset_top = 132.0
+offset_top = 208.0
 offset_right = 400.0
-offset_bottom = 396.0
+offset_bottom = 472.0
 mouse_filter = 2
 
-[node name="Tree" type="Button" parent="Modal/Sheet/Rows"]
+[node name="Tree" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 0.0
 offset_right = 340.0
 offset_bottom = 44.0
-mouse_default_cursor_shape = 2
-tooltip_text = "Draft: click to toggle completion"
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-theme_override_styles/disabled = SubResource("Empty")
+
+mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Tree"]
 offset_right = 300.0
@@ -266,16 +328,12 @@ position = Vector2(312, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
-[node name="House" type="Button" parent="Modal/Sheet/Rows"]
+[node name="House" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 44.0
 offset_right = 340.0
 offset_bottom = 88.0
-mouse_default_cursor_shape = 2
-tooltip_text = "Draft: click to toggle completion"
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-theme_override_styles/disabled = SubResource("Empty")
+
+mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/House"]
 offset_right = 300.0
@@ -297,16 +355,12 @@ position = Vector2(312, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
-[node name="Chicken" type="Button" parent="Modal/Sheet/Rows"]
+[node name="Chicken" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 88.0
 offset_right = 340.0
 offset_bottom = 132.0
-mouse_default_cursor_shape = 2
-tooltip_text = "Draft: click to toggle completion"
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-theme_override_styles/disabled = SubResource("Empty")
+
+mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Chicken"]
 offset_right = 300.0
@@ -328,16 +382,12 @@ position = Vector2(312, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
-[node name="Duck" type="Button" parent="Modal/Sheet/Rows"]
+[node name="Duck" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 132.0
 offset_right = 340.0
 offset_bottom = 176.0
-mouse_default_cursor_shape = 2
-tooltip_text = "Draft: click to toggle completion"
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-theme_override_styles/disabled = SubResource("Empty")
+
+mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Duck"]
 offset_right = 300.0
@@ -359,16 +409,12 @@ position = Vector2(312, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
-[node name="Egg" type="Button" parent="Modal/Sheet/Rows"]
+[node name="Egg" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 176.0
 offset_right = 340.0
 offset_bottom = 220.0
-mouse_default_cursor_shape = 2
-tooltip_text = "Draft: click to toggle completion"
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-theme_override_styles/disabled = SubResource("Empty")
+
+mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Egg"]
 offset_right = 300.0
@@ -390,16 +436,12 @@ position = Vector2(312, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
-[node name="BlackHole" type="Button" parent="Modal/Sheet/Rows"]
+[node name="BlackHole" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 220.0
 offset_right = 340.0
 offset_bottom = 264.0
-mouse_default_cursor_shape = 2
-tooltip_text = "Draft: click to toggle completion"
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-theme_override_styles/disabled = SubResource("Empty")
+
+mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/BlackHole"]
 offset_right = 300.0
@@ -423,30 +465,9 @@ color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="Progress" type="Label" parent="Modal/Sheet"]
 offset_left = 60.0
-offset_top = 410.0
+offset_top = 486.0
 offset_right = 400.0
-offset_bottom = 436.0
+offset_bottom = 512.0
 theme_override_colors/font_color = Color(0.40, 0.36, 0.28, 1)
 theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
-
-[node name="DraftControls" type="HBoxContainer" parent="."]
-offset_left = 12.0
-offset_top = 8.0
-offset_right = 330.0
-offset_bottom = 38.0
-theme_override_constants/separation = 8
-[node name="State" type="Label" parent="DraftControls"]
-text = "Draft · level"
-theme_override_font_sizes/font_size = 14
-[node name="Level" type="SpinBox" parent="DraftControls"]
-custom_minimum_size = Vector2(65, 28)
-min_value = 1.0
-max_value = 20.0
-value = 5.0
-[node name="AllDone" type="Button" parent="DraftControls"]
-text = "All done"
-theme_override_font_sizes/font_size = 14
-[node name="Reset" type="Button" parent="DraftControls"]
-text = "Reset"
-theme_override_font_sizes/font_size = 14

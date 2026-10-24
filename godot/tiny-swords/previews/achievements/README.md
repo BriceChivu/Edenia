@@ -16,7 +16,8 @@ Open `res://previews/achievements/achievements_draft.tscn` in the 2D editor.
 Select **AchievementsDraftUI**. Its Inspector exposes:
 
 - **Preview Level**: controls grey locked rows.
-- **Achievement Titles**: the six labels, in their displayed order.
+- **Preview Locale**: English, Traditional Chinese, Simplified Chinese, Spanish or French.
+- **Achievement Keys**: translation keys for the six rows in `i18n/*.json`.
 - **Unlock Levels**: one threshold per row.
 - **Completed**: six values, 0 = unfinished, 1 = green tick.
 - **Start Open**: show the parchment immediately when running.
@@ -26,10 +27,18 @@ checkmarks, close button, progress label and all nine parchment pieces are
 ordinary editable nodes. Move or resize them in 2D, save, then run the island
 fixture with F6. Re-run the command above to rebuild the browser version.
 
-While running: change the level in the top-left draft controls; click any
-available row to toggle its tick; **All done** previews completion;
-**Reset** clears ticks. Close with ×, Escape or a backdrop click. The icon
-immediately left of the cogwheel reopens the list.
+The running game has no completion editing controls; rows are read-only. The
+**Completed** Inspector values above are authoring fixtures for this draft only.
+Close with ×, Escape or a click outside the parchment. The icon immediately left
+of the cogwheel reopens the list. The compact parchment sits above that icon and
+does not dim the island. The ribbon uses a left flag, slanted right end and
+lower-right hanging tail, matching the supplied reference. These pieces and
+the translated title remain ordinary editable nodes.
+
+Browser locale previews: append `?locale=en`, `?locale=zh-Hant`,
+`?locale=zh-Hans`, `?locale=es` or `?locale=fr` to the preview URL. Text, tooltips,
+accessibility descriptions and Chinese fonts follow the existing `GameCopy`
+locale system. Rebuild after editing catalog text or fonts.
 
 ## Assets and provisional rules
 

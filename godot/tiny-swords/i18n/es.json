@@ -49,5 +49,16 @@
   "placementHelp": "Elige dónde colocar: {item}.",
   "pickupUnavailable": "No se puede recoger. Recoge la escalera antes que su plataforma.",
   "spotUnavailable": "Lugar no disponible. Prueba otra parcela.",
-  "houseUnavailable": "Elige un lugar al que pueda llegar el personaje."
+  "houseUnavailable": "Elige un lugar al que pueda llegar el personaje.",
+  "achievements": "Logros",
+  "closeAchievements": "Cerrar los logros",
+  "achievementTree": "Talar un árbol",
+  "achievementHouse": "Construir una casa",
+  "achievementChicken": "Recoger una gallina",
+  "achievementDuck": "Desbloquear el pato de goma",
+  "achievementEgg": "Hacer que una gallina ponga un huevo",
+  "achievementBlackHole": "Desaparecer en un agujero negro",
+  "achievementProgress": "{count} / {total} completados",
+  "achievementCompleted": "Completado",
+  "achievementPending": "Sin completar"
 }
