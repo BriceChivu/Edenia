@@ -197,6 +197,7 @@ func _on_axe_swing_finished() -> void:
 	world.pawn.carrying_wood = true
 	world.layout.tree_cut_remaining.erase(target)
 	world.layout.tree_stumps[target] = cutting_updated_at + regrowth_duration(kind)
+	world.layout.complete_achievement("cut_tree")
 	world.history.clear()
 	world.rebuild_decorations()
 	_stop()

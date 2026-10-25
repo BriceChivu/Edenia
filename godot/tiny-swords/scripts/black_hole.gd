@@ -402,6 +402,7 @@ func absorb(actor: Node2D, approach: Vector2 = Vector2.INF, rebuild_now: bool = 
 		world.construction.phase = world.construction.Phase.READY
 		world.pawn.hammering = false
 		state.occupants.append("pawn")
+		world.layout.complete_achievement("black_hole")
 		if world.layout.chicken_release_at > 0:
 			state.occupants.append("chicken")
 			world.layout.chicken_release_at = 0.0

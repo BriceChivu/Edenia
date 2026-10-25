@@ -60,5 +60,6 @@
   "achievementBlackHole": "Desaparecer en un agujero negro",
   "achievementProgress": "{count} / {total} completados",
   "achievementCompleted": "Completado",
-  "achievementPending": "Sin completar"
+  "achievementPending": "Sin completar",
+  "achievementComingSoon": "Próximamente"
 }

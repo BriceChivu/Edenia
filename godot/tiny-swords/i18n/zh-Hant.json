@@ -60,5 +60,6 @@
   "achievementBlackHole": "消失在黑洞中",
   "achievementProgress": "已完成 {count} / {total} 項",
   "achievementCompleted": "已完成",
-  "achievementPending": "尚未完成"
+  "achievementPending": "尚未完成",
+  "achievementComingSoon": "即將推出"
 }

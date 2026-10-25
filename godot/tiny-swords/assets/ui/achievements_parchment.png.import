@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cyitlxq1jlgbj"
-path="res://.godot/imported/parchment_atlas.png-6b1e775e2a982b95c51a844326268ee6.ctex"
+uid="uid://dsxulm7yj7wbm"
+path="res://.godot/imported/achievements_parchment.png-742b45782c82a16528045cc286730c07.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://previews/achievements/parchment_atlas.png"
-dest_files=["res://.godot/imported/parchment_atlas.png-6b1e775e2a982b95c51a844326268ee6.ctex"]
+source_file="res://assets/ui/achievements_parchment.png"
+dest_files=["res://.godot/imported/achievements_parchment.png-742b45782c82a16528045cc286730c07.ctex"]
 
 [params]
 

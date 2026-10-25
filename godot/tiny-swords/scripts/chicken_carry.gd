@@ -28,6 +28,7 @@ func pickup(index: int, now: float) -> bool:
 	world.layout.chickens.remove_at(index)
 	world.layout.chicken_release_at = now + HOLD_SECONDS
 	world.pawn.carrying_chicken = true
+	world.layout.complete_achievement("pick_chicken")
 	world.history.clear()
 	world.rebuild_decorations.call_deferred()
 	world.save_layout()

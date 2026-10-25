@@ -16,7 +16,7 @@ for (const args of [['--editor', '--import'], ['--export-release', 'Web', resolv
   const result = spawnSync(godot, ['--headless', '--path', project, ...args], { stdio: 'inherit' })
   if (result.status !== 0) throw new Error('Achievements draft export failed')
 }
-console.log('Editable achievements draft: http://localhost:8051/')
+console.log('Editable achievements draft: http://localhost:8051/?internal_test=1')
 if (!process.argv.includes('--build-only')) {
   const server = spawn(process.execPath, ['scripts/serve-static.mjs', '--root', output, '--host', 'localhost', '--port', '8051'], { stdio: 'inherit' })
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.kill(signal))

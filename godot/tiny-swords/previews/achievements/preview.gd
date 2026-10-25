@@ -1,13 +1,10 @@
 extends "res://previews/chicken_run_sandbox.gd"
 
+@export_enum("en", "zh-Hant", "zh-Hans", "es", "fr") var preview_locale := "en"
+
 func _ready() -> void:
+	achievements_enabled = true
+	var language := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('locale') || 'en'")) if OS.has_feature("web") else preview_locale
+	GameCopy.set_locale(language)
 	super._ready()
-	playground_enabled = false
-	var draft := preload("res://previews/achievements/achievements_draft.tscn").instantiate()
-	ui.root.add_child(draft)
-	# Match the real cogwheel, including its idle opacity and hover treatment.
-	var button: Button = draft.get_node("AchievementButton")
-	button.visible = ui.launch.visible
-	ui.launch.visibility_changed.connect(func(): button.visible = ui.launch.visible)
-	for state in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
-		button.add_theme_color_override("icon_" + state + "_color", ui.launch.get_theme_color("icon_" + state + "_color"))
+	if ui.achievements != null: ui.achievements.set_open(true)

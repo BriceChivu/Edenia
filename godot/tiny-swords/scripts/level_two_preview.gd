@@ -34,6 +34,7 @@ var world_drag_origin := Vector2.ZERO
 var world_drag_threshold := 6.0
 var last_interaction_msec := -5000
 
+@export var achievements_enabled := false
 var layout = Layout.new()
 var terrain
 var ui
@@ -98,6 +99,9 @@ var island_started := false
 var arrival
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		achievements_enabled = Layout.AchievementRules.requested()
+	layout.achievements_enabled = achievements_enabled
 	# Retain the internal navigation rollout independently of retired diagnostics.
 	if OS.has_feature("web") and JavaScriptBridge.eval("new URLSearchParams(location.search).get('internal_test') === '1'"):
 		ProjectSettings.set_setting("gameplay/direct_walk_routes_enabled", true)
@@ -122,6 +126,7 @@ func _ready() -> void:
 	add_child(build_overlay)
 	ui = BuilderUI.new()
 	ui.layout = layout
+	ui.achievements_enabled = achievements_enabled
 	add_child(ui)
 	var pointer_layer := CanvasLayer.new()
 	pointer_layer.layer = 100
@@ -508,6 +513,10 @@ func has_active_interaction() -> bool:
 		or water_phase != WaterPhase.READY or pending_unlock_level > 0 or ui.celebration != null
 
 func _input(event: InputEvent) -> void:
+	if ui != null and ui.achievements != null and ui.achievements.is_open() and event.is_action_pressed("ui_cancel"):
+		ui.achievements.set_open(false)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouse or event is InputEventScreenTouch or event is InputEventScreenDrag or event is InputEventKey:
 		last_interaction_msec = Time.get_ticks_msec()
 	if handle_camera_touch(event):
@@ -585,6 +594,11 @@ func _unhandled_input(event: InputEvent) -> void:
 # Keep pinch interpretation in Godot so native and embedded games share it.
 # A completed pinch suppresses its emulated mouse release until a new touch.
 func handle_camera_touch(event: InputEvent) -> bool:
+	if ui != null and ui.achievements != null and ui.achievements.is_open():
+		camera_touches.clear()
+		pinch_distance = 0.0
+		pinch_gesture = false
+		return false
 	if event is InputEventScreenTouch:
 		touch_device = true
 		pointer.hide()
@@ -993,7 +1007,10 @@ func relocate_pawn_after_pickup(picked_cells: Array[Vector2i]) -> void:
 func undo() -> void:
 	if not editing or history.is_empty():
 		return
+	var earned: Dictionary = layout.achievements.duplicate()
 	layout.restore(history.pop_back())
+	layout.achievements.merge(earned, true)
+	layout.achievements_changed.emit()
 	reconcile_inventory_work()
 	if water_phase == WaterPhase.READY and not layout.cells.has(layout.cell_at(pawn.position)):
 		pawn.position = layout.safe_ground_point(layout.spawn_cell())

@@ -1,7 +1,7 @@
 [gd_scene format=3]
-[ext_resource type="Script" path="res://previews/achievements/achievements_draft.gd" id="Script"]
+[ext_resource type="Script" path="res://scripts/achievements_ui.gd" id="Script"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/UI Elements/UI Elements/Icons/Icon_11.png" id="Icon"]
-[ext_resource type="Texture2D" path="res://previews/achievements/parchment_atlas.png" id="Paper"]
+[ext_resource type="Texture2D" path="res://assets/ui/achievements_parchment.png" id="Paper"]
 [ext_resource type="FontFile" path="res://fonts/MedievalSharp.ttf" id="Font"]
 [ext_resource type="Texture2D" path="res://Tiny Swords (Free Pack)/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Blue.png" id="Ribbon"]
 [sub_resource type="StyleBoxEmpty" id="Empty"]
@@ -58,7 +58,7 @@ region = Rect2(192, 0, 64, 128)
 atlas = ExtResource("Ribbon")
 region = Rect2(256, 128, 192, 128)
 
-[node name="AchievementsDraftUI" type="Control"]
+[node name="AchievementsUI" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -93,6 +93,7 @@ icon_alignment = 1
 expand_icon = true
 
 [node name="Modal" type="Control" parent="."]
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
