@@ -23,7 +23,7 @@ Egg laying is greyed out as “Coming soon” because that mechanic does not exi
 Earned progress is read-only. Close the parchment with Escape, its icon or an
 outside click. The button follows the cogwheel's size, anchor and visibility.
 
-Save version 36 retains a bounded dictionary of stable achievement IDs. Old
+Save version 37 retains a bounded dictionary of stable achievement IDs. Old
 islands backfill only actions evidenced by their current saved objects/state;
 history that leaves no evidence cannot be inferred. Undo keeps earned
 achievements; full island/profile replacement restores that island's own ledger.
