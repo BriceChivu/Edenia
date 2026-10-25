@@ -108,16 +108,16 @@ color = Color(0, 0, 0, 0)
 offset_left = 346.0
 offset_top = 16.0
 offset_right = 806.0
-offset_bottom = 576.0
+offset_bottom = 601.0
 mouse_filter = 0
 
 [node name="Paper00" type="TextureRect" parent="Modal/Sheet"]
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 22.0
+offset_top = 47.0
 offset_right = 128.0
-offset_bottom = 150.0
+offset_bottom = 175.0
 mouse_filter = 2
 texture = SubResource("Patch00")
 expand_mode = 1
@@ -127,9 +127,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 22.0
+offset_top = 47.0
 offset_right = 332.0
-offset_bottom = 150.0
+offset_bottom = 175.0
 mouse_filter = 2
 texture = SubResource("Patch01")
 expand_mode = 1
@@ -139,9 +139,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 22.0
+offset_top = 47.0
 offset_right = 460.0
-offset_bottom = 150.0
+offset_bottom = 175.0
 mouse_filter = 2
 texture = SubResource("Patch02")
 expand_mode = 1
@@ -151,9 +151,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 150.0
+offset_top = 175.0
 offset_right = 128.0
-offset_bottom = 354.0
+offset_bottom = 379.0
 mouse_filter = 2
 texture = SubResource("Patch10")
 expand_mode = 1
@@ -163,9 +163,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 150.0
+offset_top = 175.0
 offset_right = 332.0
-offset_bottom = 368.0
+offset_bottom = 393.0
 mouse_filter = 2
 texture = SubResource("Patch11")
 expand_mode = 1
@@ -175,9 +175,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 150.0
+offset_top = 175.0
 offset_right = 460.0
-offset_bottom = 368.0
+offset_bottom = 393.0
 mouse_filter = 2
 texture = SubResource("Patch12")
 expand_mode = 1
@@ -187,9 +187,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 354.0
+offset_top = 379.0
 offset_right = 128.0
-offset_bottom = 482.0
+offset_bottom = 507.0
 mouse_filter = 2
 texture = SubResource("Patch20")
 expand_mode = 1
@@ -199,9 +199,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 354.0
+offset_top = 379.0
 offset_right = 244.0
-offset_bottom = 482.0
+offset_bottom = 507.0
 mouse_filter = 2
 texture = SubResource("Patch21")
 expand_mode = 1
@@ -211,67 +211,77 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 244.0
-offset_top = 368.0
+offset_top = 393.0
 offset_right = 436.0
-offset_bottom = 560.0
+offset_bottom = 585.0
 mouse_filter = 2
 texture = SubResource("Patch22")
 expand_mode = 1
 stretch_mode = 1
 
-[node name="RibbonLeft" type="TextureRect" parent="Modal/Sheet"]
+[node name="Ribbon" type="Control" parent="Modal/Sheet"]
+offset_left = 38.0
+offset_top = 0.0
+offset_right = 514.0
+offset_bottom = 128.0
+scale = Vector2(0.8333333, 0.8333333)
+mouse_filter = 2
+
+[node name="RibbonLeft" type="TextureRect" parent="Modal/Sheet/Ribbon"]
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 8.0
+offset_top = 0.0
 offset_right = 128.0
-offset_bottom = 96.0
+offset_bottom = 128.0
 mouse_filter = 2
 texture = SubResource("RibbonLeft")
 expand_mode = 1
-stretch_mode = 0
+stretch_mode = 1
 
-[node name="RibbonMiddle" type="TextureRect" parent="Modal/Sheet"]
+[node name="RibbonMiddle" type="TextureRect" parent="Modal/Sheet/Ribbon"]
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 8.0
-offset_right = 268.0
-offset_bottom = 96.0
+offset_top = 0.0
+offset_right = 284.0
+offset_bottom = 128.0
 mouse_filter = 2
 texture = SubResource("RibbonMiddle")
 expand_mode = 1
-stretch_mode = 0
+stretch_mode = 1
 
-[node name="RibbonRight" type="TextureRect" parent="Modal/Sheet"]
+[node name="RibbonRight" type="TextureRect" parent="Modal/Sheet/Ribbon"]
 texture_filter = 1
 texture_repeat = 2
-offset_left = 268.0
-offset_top = 8.0
-offset_right = 460.0
-offset_bottom = 96.0
+offset_left = 284.0
+offset_top = 0.0
+offset_right = 476.0
+offset_bottom = 128.0
 mouse_filter = 2
 texture = SubResource("RibbonRight")
 expand_mode = 1
-stretch_mode = 0
+stretch_mode = 1
 
-[node name="Title" type="Label" parent="Modal/Sheet"]
-offset_left = 80.0
-offset_top = 28.0
-offset_right = 340.0
-offset_bottom = 66.0
+[node name="Title" type="Label" parent="Modal/Sheet/Ribbon"]
+offset_left = 96.0
+offset_top = 26.0
+offset_right = 376.0
+offset_bottom = 108.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_shadow_color = Color(0.12, 0.22, 0.25, 1)
 theme_override_constants/shadow_offset_y = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 48
 text = "Achievements"
+clip_text = true
 horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Close" type="Button" parent="Modal/Sheet"]
 offset_left = 370.0
-offset_top = 96.0
+offset_top = 121.0
 offset_right = 402.0
-offset_bottom = 120.0
+offset_bottom = 145.0
 text = "×"
 tooltip_text = "Close achievements"
 accessibility_name = "Close achievements"
@@ -282,9 +292,9 @@ theme_override_styles/pressed = SubResource("Empty")
 
 [node name="Rows" type="Control" parent="Modal/Sheet"]
 offset_left = 60.0
-offset_top = 114.0
+offset_top = 139.0
 offset_right = 400.0
-offset_bottom = 378.0
+offset_bottom = 403.0
 mouse_filter = 2
 
 [node name="Tree" type="Control" parent="Modal/Sheet/Rows"]
@@ -451,9 +461,9 @@ color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="Progress" type="Label" parent="Modal/Sheet"]
 offset_left = 60.0
-offset_top = 392.0
+offset_top = 417.0
 offset_right = 400.0
-offset_bottom = 418.0
+offset_bottom = 443.0
 theme_override_colors/font_color = Color(0.40, 0.36, 0.28, 1)
 theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1

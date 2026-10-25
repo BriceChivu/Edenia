@@ -65,7 +65,17 @@ func refresh_rows() -> void:
 	else:
 		GameCopy.theme(self)
 	var title := copy_text("achievements")
-	$Modal/Sheet/Title.text = title
+	var heading: Label = $Modal/Sheet/Ribbon/Title
+	heading.text = title
+	# The reference uses a bold, centered title inside the original ribbon face.
+	var heading_font := FontVariation.new()
+	heading_font.base_font = theme.default_font
+	heading_font.variation_embolden = 1.0
+	heading.add_theme_font_override("font", heading_font)
+	var heading_size := 56
+	while heading_size > 28 and heading_font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, heading_size).x > heading.size.x - 12.0:
+		heading_size -= 1
+	heading.add_theme_font_size_override("font_size", heading_size)
 	$AchievementButton.tooltip_text = title
 	$AchievementButton.accessibility_name = title
 	$Modal/Sheet/Close.tooltip_text = copy_text("closeAchievements")
