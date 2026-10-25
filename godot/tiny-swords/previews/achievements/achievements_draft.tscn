@@ -115,9 +115,9 @@ mouse_filter = 0
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 47.0
+offset_top = 45.0
 offset_right = 128.0
-offset_bottom = 175.0
+offset_bottom = 173.0
 mouse_filter = 2
 texture = SubResource("Patch00")
 expand_mode = 1
@@ -127,9 +127,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 47.0
+offset_top = 45.0
 offset_right = 332.0
-offset_bottom = 175.0
+offset_bottom = 173.0
 mouse_filter = 2
 texture = SubResource("Patch01")
 expand_mode = 1
@@ -139,9 +139,9 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 47.0
+offset_top = 45.0
 offset_right = 460.0
-offset_bottom = 175.0
+offset_bottom = 173.0
 mouse_filter = 2
 texture = SubResource("Patch02")
 expand_mode = 1
@@ -151,7 +151,7 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 0.0
-offset_top = 175.0
+offset_top = 173.0
 offset_right = 128.0
 offset_bottom = 379.0
 mouse_filter = 2
@@ -163,7 +163,7 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 128.0
-offset_top = 175.0
+offset_top = 173.0
 offset_right = 332.0
 offset_bottom = 393.0
 mouse_filter = 2
@@ -175,7 +175,7 @@ stretch_mode = 1
 texture_filter = 1
 texture_repeat = 2
 offset_left = 332.0
-offset_top = 175.0
+offset_top = 173.0
 offset_right = 460.0
 offset_bottom = 393.0
 mouse_filter = 2
@@ -271,27 +271,14 @@ offset_bottom = 108.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_shadow_color = Color(0.12, 0.22, 0.25, 1)
 theme_override_constants/shadow_offset_y = 2
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 44
 text = "Achievements"
 clip_text = true
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Close" type="Button" parent="Modal/Sheet"]
-offset_left = 370.0
-offset_top = 121.0
-offset_right = 402.0
-offset_bottom = 145.0
-text = "×"
-tooltip_text = "Close achievements"
-accessibility_name = "Close achievements"
-theme_override_colors/font_color = Color(0.26, 0.21, 0.16, 1)
-theme_override_styles/normal = SubResource("Empty")
-theme_override_styles/hover = SubResource("Empty")
-theme_override_styles/pressed = SubResource("Empty")
-
 [node name="Rows" type="Control" parent="Modal/Sheet"]
-offset_left = 60.0
+offset_left = 68.0
 offset_top = 139.0
 offset_right = 400.0
 offset_bottom = 403.0
@@ -299,13 +286,13 @@ mouse_filter = 2
 
 [node name="Tree" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 0.0
-offset_right = 340.0
+offset_right = 332.0
 offset_bottom = 44.0
 
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Tree"]
-offset_right = 300.0
+offset_right = 292.0
 offset_bottom = 28.0
 mouse_filter = 2
 text = "Cut a tree"
@@ -313,26 +300,26 @@ theme_override_font_sizes/font_size = 18
 
 [node name="Status" type="Label" parent="Modal/Sheet/Rows/Tree"]
 offset_top = 25.0
-offset_right = 280.0
+offset_right = 272.0
 offset_bottom = 41.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
 theme_override_font_sizes/font_size = 12
 
 [node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Tree"]
-position = Vector2(312, 9)
+position = Vector2(304, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="House" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 44.0
-offset_right = 340.0
+offset_right = 332.0
 offset_bottom = 88.0
 
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/House"]
-offset_right = 300.0
+offset_right = 292.0
 offset_bottom = 28.0
 mouse_filter = 2
 text = "Build a house"
@@ -340,26 +327,26 @@ theme_override_font_sizes/font_size = 18
 
 [node name="Status" type="Label" parent="Modal/Sheet/Rows/House"]
 offset_top = 25.0
-offset_right = 280.0
+offset_right = 272.0
 offset_bottom = 41.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
 theme_override_font_sizes/font_size = 12
 
 [node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/House"]
-position = Vector2(312, 9)
+position = Vector2(304, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="Chicken" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 88.0
-offset_right = 340.0
+offset_right = 332.0
 offset_bottom = 132.0
 
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Chicken"]
-offset_right = 300.0
+offset_right = 292.0
 offset_bottom = 28.0
 mouse_filter = 2
 text = "Pick up a chicken"
@@ -367,26 +354,26 @@ theme_override_font_sizes/font_size = 18
 
 [node name="Status" type="Label" parent="Modal/Sheet/Rows/Chicken"]
 offset_top = 25.0
-offset_right = 280.0
+offset_right = 272.0
 offset_bottom = 41.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
 theme_override_font_sizes/font_size = 12
 
 [node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Chicken"]
-position = Vector2(312, 9)
+position = Vector2(304, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="Duck" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 132.0
-offset_right = 340.0
+offset_right = 332.0
 offset_bottom = 176.0
 
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Duck"]
-offset_right = 300.0
+offset_right = 292.0
 offset_bottom = 28.0
 mouse_filter = 2
 text = "Unlock the rubber duck"
@@ -394,26 +381,26 @@ theme_override_font_sizes/font_size = 18
 
 [node name="Status" type="Label" parent="Modal/Sheet/Rows/Duck"]
 offset_top = 25.0
-offset_right = 280.0
+offset_right = 272.0
 offset_bottom = 41.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
 theme_override_font_sizes/font_size = 12
 
 [node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Duck"]
-position = Vector2(312, 9)
+position = Vector2(304, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="Egg" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 176.0
-offset_right = 340.0
+offset_right = 332.0
 offset_bottom = 220.0
 
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/Egg"]
-offset_right = 300.0
+offset_right = 292.0
 offset_bottom = 28.0
 mouse_filter = 2
 text = "Have a chicken lay an egg"
@@ -421,26 +408,26 @@ theme_override_font_sizes/font_size = 18
 
 [node name="Status" type="Label" parent="Modal/Sheet/Rows/Egg"]
 offset_top = 25.0
-offset_right = 280.0
+offset_right = 272.0
 offset_bottom = 41.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
 theme_override_font_sizes/font_size = 12
 
 [node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/Egg"]
-position = Vector2(312, 9)
+position = Vector2(304, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 
 [node name="BlackHole" type="Control" parent="Modal/Sheet/Rows"]
 offset_top = 220.0
-offset_right = 340.0
+offset_right = 332.0
 offset_bottom = 264.0
 
 mouse_filter = 2
 
 [node name="Title" type="Label" parent="Modal/Sheet/Rows/BlackHole"]
-offset_right = 300.0
+offset_right = 292.0
 offset_bottom = 28.0
 mouse_filter = 2
 text = "Disappear inside a black hole"
@@ -448,14 +435,14 @@ theme_override_font_sizes/font_size = 18
 
 [node name="Status" type="Label" parent="Modal/Sheet/Rows/BlackHole"]
 offset_top = 25.0
-offset_right = 280.0
+offset_right = 272.0
 offset_bottom = 41.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.54, 0.52, 0.47, 1)
 theme_override_font_sizes/font_size = 12
 
 [node name="Tick" type="Polygon2D" parent="Modal/Sheet/Rows/BlackHole"]
-position = Vector2(312, 9)
+position = Vector2(304, 9)
 polygon = PackedVector2Array(0, 7, 4, 3, 9, 8, 19, -5, 23, -1, 9, 16)
 color = Color(0.20, 0.47, 0.22, 1)
 

@@ -23,13 +23,13 @@ Select **AchievementsDraftUI**. Its Inspector exposes:
 - **Start Open**: show the parchment immediately when running.
 
 The `@tool` script updates these states in the editor. The title, rows,
-checkmarks, close button, progress label and all nine parchment pieces are
+checkmarks, progress label and all nine parchment pieces are
 ordinary editable nodes. Move or resize them in 2D, save, then run the island
 fixture with F6. Re-run the command above to rebuild the browser version.
 
 The running game has no completion editing controls; rows are read-only. The
 **Completed** Inspector values above are authoring fixtures for this draft only.
-Close with ×, Escape or a click outside the parchment. The icon immediately left
+Close with Escape, the achievement icon, or a click outside the parchment. The icon immediately left
 of the cogwheel reopens the list. The compact parchment sits above that icon and
 does not dim the island. The ribbon uses a left flag, slanted right end and
 lower-right hanging tail, matching the supplied reference. These pieces and

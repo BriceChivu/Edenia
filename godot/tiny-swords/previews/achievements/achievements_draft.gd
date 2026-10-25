@@ -37,7 +37,6 @@ func _ready() -> void:
 	if Engine.is_editor_hint(): return
 	$Modal.visible = start_open
 	$AchievementButton.pressed.connect(func(): $Modal.visible = not $Modal.visible)
-	$Modal/Sheet/Close.pressed.connect(func(): $Modal.hide())
 	$Modal/Backdrop.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed: $Modal.hide())
 	resized.connect(arrange)
@@ -75,11 +74,9 @@ func refresh_rows() -> void:
 	var heading_size := 56
 	while heading_size > 28 and heading_font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, heading_size).x > heading.size.x - 12.0:
 		heading_size -= 1
-	heading.add_theme_font_size_override("font_size", heading_size)
+	heading.add_theme_font_size_override("font_size", maxi(24, roundi(heading_size * 0.92)))
 	$AchievementButton.tooltip_text = title
 	$AchievementButton.accessibility_name = title
-	$Modal/Sheet/Close.tooltip_text = copy_text("closeAchievements")
-	$Modal/Sheet/Close.accessibility_name = copy_text("closeAchievements")
 	var done_count := 0
 	for index in 6:
 		var row := $Modal/Sheet/Rows.get_child(index)
@@ -101,7 +98,7 @@ func refresh_rows() -> void:
 		done_count += 1 if done else 0
 	$Modal/Sheet/Progress.text = copy_text("achievementProgress", {"count": done_count, "total": 6})
 
-func _unhandled_key_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
+func _input(event: InputEvent) -> void:
+	if not Engine.is_editor_hint() and $Modal.visible and event.is_action_pressed("ui_cancel"):
 		$Modal.hide()
 		get_viewport().set_input_as_handled()
