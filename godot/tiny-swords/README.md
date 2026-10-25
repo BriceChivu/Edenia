@@ -436,7 +436,7 @@ fully populated island) and `tests/review_sandbox.gd`.
 
 The achievements button and event tracking are enabled only for the exact Web
 URL flag `internal_test=1`. The parent already forwards that context; Godot owns
-the restriction, UI, completion rules and version-36 island ledger. Other routes
+the restriction, UI, completion rules and version-37 island ledger. Other routes
 retain previously saved achievements without displaying or earning new ones.
 Native review scenes can opt in with `achievements_enabled` in the Inspector.
 

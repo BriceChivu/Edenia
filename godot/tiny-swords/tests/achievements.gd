@@ -110,6 +110,19 @@ func run() -> void:
 	await process_frame
 
 	game = fixture("res://previews/level_two.tscn")
+	game.editing = false
+	game.layout.stock.sheep -= 1
+	game.layout.sheep.append(game.pawn.position)
+	game.layout.sheep_chickens[0] = 100
+	game.rebuild_decorations()
+	for actor in game.asset_nodes:
+		if actor.get_script() == game.sheep_chicken.Sheep:
+			check(game.sheep_chicken.transfer(actor, 100.0, 100) and game.layout.achievements.get("pick_chicken", false), "Retrieving a sheep passenger is a real chicken pickup")
+			break
+	game.queue_free()
+	await process_frame
+
+	game = fixture("res://previews/level_two.tscn")
 	var seed_value := -1
 	for candidate in 10000:
 		var rng := RandomNumberGenerator.new()

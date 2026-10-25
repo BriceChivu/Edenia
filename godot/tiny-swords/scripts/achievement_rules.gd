@@ -34,7 +34,7 @@ static func backfill(layout) -> void:
 	for cell in layout.houses:
 		if layout.house_build.is_empty() or cell != Vector2i(int(layout.house_build.x), int(layout.house_build.y)):
 			layout.complete_achievement("build_house")
-	if layout.chicken_release_at > 0.0:
+	if layout.chicken_release_at > 0.0 or not layout.sheep_chickens.is_empty():
 		layout.complete_achievement("pick_chicken")
 	if layout.has_ducks():
 		layout.complete_achievement("rubber_duck")
