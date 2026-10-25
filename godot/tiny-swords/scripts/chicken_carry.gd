@@ -33,9 +33,10 @@ func pickup(index: int, now: float) -> bool:
 	world.save_layout()
 	return true
 
-func drop_target(excluded_cells: Array = []) -> Vector2:
+func drop_target(excluded_cells: Array = [], origin_point: Vector2 = Vector2.INF) -> Vector2:
 	var layout = world.layout
-	var origin: Vector2i = layout.cell_at(world.pawn.position)
+	if not origin_point.is_finite(): origin_point = world.pawn.position
+	var origin: Vector2i = layout.cell_at(origin_point)
 	var candidates: Array[Vector2i] = []
 	# Put it beside the pawn first; a one-tile island can use the same tile.
 	for step in layout.STEPS:
@@ -48,7 +49,7 @@ func drop_target(excluded_cells: Array = []) -> Vector2:
 			continue
 		for offset in [Vector2.ZERO, Vector2(0, 24), Vector2(0, -24), Vector2(-24, 0), Vector2(24, 0)]:
 			var point: Vector2 = layout.center(cell) + offset
-			if not layout.walkable_point(point, true) or not world.clear_segment(world.pawn.position, point, true):
+			if not layout.walkable_point(point, true) or not world.clear_segment(origin_point, point, true):
 				continue
 			var clear := true
 			for other in layout.chickens + layout.sheep:

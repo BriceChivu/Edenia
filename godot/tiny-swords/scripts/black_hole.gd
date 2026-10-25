@@ -394,9 +394,9 @@ func absorb(actor: Node2D, approach: Vector2 = Vector2.INF, rebuild_now: bool = 
 			world.pawn.carrying_chicken = false
 	else:
 		var kind := "chicken" if actor.get_script() == CHICKEN else "sheep"
-		var animals: Array[Vector2] = world.layout.chickens if kind == "chicken" else world.layout.sheep
-		animals.remove_at(actor.sheep_index)
+		var passenger: bool = world.layout.remove_animal(kind, actor.sheep_index, false)
 		state.occupants.append(kind)
+		if passenger: state.occupants.append("chicken")
 	world.history.clear()
 	apply_pawn_state()
 	world.save_layout() # The durable queue replaces the live actor atomically.

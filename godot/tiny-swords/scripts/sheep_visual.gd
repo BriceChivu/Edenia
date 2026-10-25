@@ -3,6 +3,9 @@ extends Sprite2D
 const Art = preload("res://scripts/level_five_art.gd")
 const BushContact = preload("res://scripts/bush_contact.gd")
 const AnimalContact = preload("res://scripts/animal_contact.gd")
+const CHICKEN_IDLE = preload("res://assets/sheep/chicken_idle.png")
+const CHICKEN_RUN_SHEET = preload("res://assets/sheep/chicken_run.png")
+static var chicken_run: AtlasTexture
 const IDLE_SECONDS := 2.4
 const GRASS_SECONDS := 1.2
 var world
@@ -40,6 +43,7 @@ func _ready() -> void:
 	scale = Vector2.ONE * art_scale
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	position = animal_positions()[sheep_index]
+	update_chicken_pose()
 	var height: float = AnimalContact.standing_height(world.layout,position,foot_contact_size())
 	offset = art_offset - Vector2(0, height / art_scale)
 	z_index = int(ceil(height / 64.0))
@@ -300,6 +304,7 @@ func advance(delta: float, now: float) -> void:
 		hframes = 12 if grazing else 6
 		var phase_time := resting_time - idle_seconds if grazing else animation_time
 		frame = int(phase_time * 10) % hframes
+	update_chicken_pose()
 	var height: float = AnimalContact.standing_height(world.layout,position,foot_contact_size())
 	offset = art_offset - Vector2(0, height / art_scale)
 	z_index = int(ceil(height / 64.0))
@@ -307,3 +312,19 @@ func advance(delta: float, now: float) -> void:
 	var shadow := get_node_or_null("GroundShadow") as Polygon2D
 	if shadow != null:
 		shadow.position.y = -height / art_scale
+
+func update_chicken_pose() -> void:
+	if get_script() != preload("res://scripts/sheep_visual.gd") or not world.layout.sheep_chickens.has(sheep_index): return
+	frame = 0
+	if fleeing:
+		if chicken_run == null:
+			chicken_run = AtlasTexture.new()
+			chicken_run.atlas = CHICKEN_RUN_SHEET
+			# The supplied run sheet has one empty cell at either end.
+			chicken_run.region = Rect2(128, 0, 512, 128)
+		texture = chicken_run
+		hframes = 4
+	else:
+		texture = CHICKEN_IDLE
+		hframes = 6
+	frame = int(animation_time * 10) % hframes

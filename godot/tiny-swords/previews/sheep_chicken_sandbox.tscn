@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://previews/chicken_carry_sandbox.tscn" id="Base"]
+[ext_resource type="Script" path="res://previews/sheep_chicken_sandbox.gd" id="Entry"]
+
+[node name="SheepChickenSandbox" instance=ExtResource("Base")]
+script = ExtResource("Entry")

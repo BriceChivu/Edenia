@@ -1255,6 +1255,23 @@ and `chicken_carry_run.png`; the older composite generator is not their source.
 Run `previews/chicken_carry_sandbox.tscn` with F6 for a fresh meadow that starts
 with a carried bird. Reload to restart the one-minute carry timer.
 
+While carrying a chicken, click a reachable sheep to approach and place the bird
+on its back. Click that sheep again with empty hands to retrieve the chicken and
+restart the ordinary one-minute carry timer. Both actions use the log-pickup
+cursor. Sheep retain their ordinary movement, escape and grazing clocks, with
+the supplied six idle and four moving chicken-on-sheep poses. Each sheep holds
+one chicken. A perched bird stays for the current device-local calendar date,
+including reloads, then returns to nearby safe grass; it waits on the sheep if
+no landing is available. Version 36 saves passengers and their dates and counts
+them in chicken conservation. Removing a sheep returns both animals to inventory;
+a portal captures both into its existing return queue.
+
+Run `node scripts/preview-tiny-swords-sheep-chicken.mjs` for a fresh local meadow
+at **http://localhost:8048/**, or F6 on `previews/sheep_chicken_sandbox.tscn`.
+The pawn starts carrying; **Carry chicken** picks up another available bird or
+renews the current timer, **Next day** tests safe release, and **Restart** resets
+the fixture. Focused check: `res://tests/sheep_chicken.gd`.
+
 When a sheep enters its grass tile, the chicken moves one reachable adjacent grass
 tile away, avoiding tiles occupied by sheep or the pawn. If none is available, it waits.
 Building pauses movement at the current step's safe destination. Background time

@@ -55,6 +55,7 @@ const NAVIGATION_BUDGET_USEC := 2000
 var waypoints: Array[Vector2] = []
 var harvesting
 var chicken_carry
+var sheep_chicken
 var portal_event
 var black_hole_enabled := true # Native previews; the host selects the hosted rollout.
 var construction
@@ -170,6 +171,8 @@ func _ready() -> void:
 		construction.open_placement()
 	chicken_carry = preload("res://scripts/chicken_carry.gd").new()
 	chicken_carry.world = self
+	sheep_chicken = preload("res://scripts/sheep_chicken.gd").new()
+	sheep_chicken.world = self
 	rebuild_decorations()
 	construction.resume_build()
 	refresh()
@@ -258,6 +261,7 @@ func toggle_editing() -> void:
 		return
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
+	sheep_chicken.cancel()
 	editing = not editing
 	harvesting.set_inventory_open(editing)
 	if not editing:
@@ -288,6 +292,7 @@ func _process(_delta: float) -> void:
 		update_cursor()
 		return
 	chicken_carry.advance(Time.get_unix_time_from_system())
+	sheep_chicken.advance(Time.get_unix_time_from_system())
 	if not navigation_pending and log_pickup != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 		if not editing and water_phase == WaterPhase.READY and layout.can_pick_log(log_pickup) and pawn.position.distance_to(layout.center(log_pickup)) < 0.2 and begin_pawn_action() and layout.pick_log(log_pickup):
 			history.clear()
@@ -706,6 +711,8 @@ func update_cursor() -> void:
 		mode = "ui"
 	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and layout.level >= 5 and int(layout.log_piles.get(log_at(get_global_mouse_position()), 0)) == 6:
 		mode = "house"
+	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and sheep_chicken.hover_available(get_global_mouse_position()):
+		mode = "ui"
 	var hovered := get_viewport().gui_get_hovered_control()
 	if arrival != null and arrival.blocks_gameplay():
 		mode = "ui"
@@ -861,9 +868,17 @@ func handle_world_click(event: InputEvent) -> void:
 	if ui == null or ui.celebration != null or (not editing and water_phase not in [WaterPhase.READY, WaterPhase.APPROACHING]):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		sheep_chicken.cancel()
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
 		var change := inventory_change_at(point, inventory_changes()) if editing and selected != "remove" and layout.house_bundle == 0 else {}
 		var cell: Vector2i = change.cell if not change.is_empty() else clicked_cell(point)
+		if not editing:
+			var sheep: Sprite2D = sheep_chicken.hit(point)
+			if sheep != null:
+				log_pickup = Vector2i(999, 999)
+				log_delivery = Vector2i(999, 999)
+				sheep_chicken.request(sheep)
+				return
 		if (not editing or (selected == "house" and water_phase == WaterPhase.READY and not construction.busy())) and construction.handle_click(cell, point):
 			return
 		log_pickup = Vector2i(999, 999)

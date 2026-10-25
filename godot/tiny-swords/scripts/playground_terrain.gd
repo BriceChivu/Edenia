@@ -21,7 +21,7 @@ static func generate(source, seed_value: int):
 	layout.stock.meadow = total_ground - layout.cells.size() - 2 * int(layout.stock.stairs)
 	layout.stock.tree = source.stock.tree + source.trees.size()
 	layout.stock.sheep = source.stock.sheep + source.sheep.size()
-	layout.stock.chicken = source.stock.chicken + source.chickens.size()
+	layout.stock.chicken = source.stock.chicken + source.chickens.size() + source.sheep_chickens.size() + (1 if source.chicken_release_at > 0 else 0)
 	layout.stock.bridge = source.stock.bridge + source.bridges.size()
 	layout.stock.house = source.stock.house
 	layout.resources.wood = source.resources.wood + source.houses.size() * Layout.HOUSE_LOG_COST
