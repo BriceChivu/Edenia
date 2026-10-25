@@ -49,5 +49,17 @@
   "placementHelp": "Choisissez où placer : {item}.",
   "pickupUnavailable": "Impossible de ramasser. Ramassez les escaliers avant leur palier.",
   "spotUnavailable": "Emplacement indisponible. Essayez une autre parcelle.",
-  "houseUnavailable": "Choisissez un emplacement accessible au personnage."
+  "houseUnavailable": "Choisissez un emplacement accessible au personnage.",
+  "achievements": "Succès",
+  "closeAchievements": "Fermer les succès",
+  "achievementTree": "Abattre un arbre",
+  "achievementHouse": "Construire une maison",
+  "achievementChicken": "Ramasser une poule",
+  "achievementDuck": "Débloquer le canard en plastique",
+  "achievementEgg": "Faire pondre un œuf à une poule",
+  "achievementBlackHole": "Disparaître dans un trou noir",
+  "achievementProgress": "{count} / {total} terminés",
+  "achievementCompleted": "Terminé",
+  "achievementPending": "Non terminé",
+  "achievementComingSoon": "Bientôt disponible"
 }

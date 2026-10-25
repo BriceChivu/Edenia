@@ -49,5 +49,17 @@
   "placementHelp": "請選擇放置{item}的位置。",
   "pickupUnavailable": "無法收回。請先收回階梯，再收回平台。",
   "spotUnavailable": "無法放置。請嘗試其他位置。",
-  "houseUnavailable": "請選擇角色可到達的建屋位置。"
+  "houseUnavailable": "請選擇角色可到達的建屋位置。",
+  "achievements": "成就",
+  "closeAchievements": "關閉成就",
+  "achievementTree": "砍倒一棵樹",
+  "achievementHouse": "建造一間房子",
+  "achievementChicken": "抱起一隻雞",
+  "achievementDuck": "解鎖小黃鴨",
+  "achievementEgg": "讓一隻雞下蛋",
+  "achievementBlackHole": "消失在黑洞中",
+  "achievementProgress": "已完成 {count} / {total} 項",
+  "achievementCompleted": "已完成",
+  "achievementPending": "尚未完成",
+  "achievementComingSoon": "即將推出"
 }

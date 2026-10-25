@@ -6,6 +6,8 @@ signal undo_requested
 signal reset_requested
 
 const NAMES := {"meadow": "Meadow", "gold": "Golden", "violet": "Teal", "high_meadow": "High green", "high_gold": "High gold", "tree": "Tree", "stairs": "Stairs", "ground": "Ground", "bridge": "Bridge", "chicken": "Chicken", "sheep": "Sheep", "house": "House", "remove": "Pick up"}
+var achievements_enabled := false
+var achievements: Control
 var root: Control
 var panel: Control
 var launch: Button
@@ -33,6 +35,10 @@ func _ready() -> void:
 	root.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED
 	add_child(root)
 	launch = root.get_node("TerrainButton")
+	if achievements_enabled:
+		achievements = preload("res://scenes/achievements_ui.tscn").instantiate()
+		root.add_child(achievements)
+		achievements.bind(layout, launch)
 	panel = root.get_node("TerrainButton2")
 	undo_button = root.get_node("TerrainButton2/Tools/UndoButton")
 	done_button = root.get_node("TerrainButton2/CloseButton")
@@ -104,6 +110,7 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	launch.accessibility_name = GameCopy.text("inventory" if editing and collapsed else "terrain")
 	launch.tooltip_text = launch.accessibility_name
 	launch.visible = (not editing or collapsed) and celebration == null and layout.unlocked
+	if achievements != null: achievements.refresh()
 	panel.visible = editing and not collapsed and celebration == null
 	done_button.visible = panel.visible
 	for kind in buttons:

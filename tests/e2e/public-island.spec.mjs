@@ -221,3 +221,28 @@ test('tester progress moves only through deliberate portable export and producti
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1_internal_test_2'))).toBe(tester)
   expect(await page.evaluate(() => getStateBackupEntries().length)).toBeGreaterThan(0)
 })
+
+
+test('public island keeps achievement tracking and its rollout disabled', async ({ page }) => {
+  test.setTimeout(120000)
+  await configure(page, { game: true })
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Seed public learner</title>' }))
+  await page.goto('./')
+  const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json', import.meta.url), 'utf8'))
+  await seed(page, { island })
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.cityProgress = { maxLevelIndex: 6, pendingLevelIndex: null, experienceVersion: 1 }
+    state.onboarding.islandAnnouncementSeenAt = new Date().toISOString()
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.unroute('**/tiny-swords-game/*/index.html*')
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  const frame = page.frameLocator('.tiny-swords-frame')
+  await expect(frame.locator('#canvas')).toBeVisible({ timeout: 60000 })
+  await expect(frame.locator('#status')).toBeHidden({ timeout: 90000 })
+  await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(37)
+  const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  expect(new URL(game.url()).searchParams.has('internal_test')).toBe(false)
+  expect(await page.evaluate(() => loadState().tinySwordsIsland.achievements)).toEqual({})
+})

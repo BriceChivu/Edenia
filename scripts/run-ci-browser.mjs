@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 
 const lane = process.env.EDENIA_CI_LANE || 'browser'
 const gameFiles = ['learner-profile-conflict', 'auth-trial', 'profile-handoff', 'signin-island-handoff',
-  'experience-tiny-swords', 'tiny-swords-release', 'tiny-swords-delivery', 'tiny-swords-preload', 'tiny-swords-tester-mode',
+  'experience-tiny-swords', 'tiny-swords-achievements', 'tiny-swords-release', 'tiny-swords-delivery', 'tiny-swords-preload', 'tiny-swords-tester-mode',
   'tiny-swords-dashboard', 'tiny-swords-copy', 'tiny-swords-page-scroll', 'tiny-swords-acceptance',
   'tiny-swords-replay', 'tiny-swords-frame-rate']
 const files = lane === 'chromium' ? gameFiles.map(name => `${name}.spec.mjs`)

@@ -1,5 +1,17 @@
 extends RefCounted
 
+signal achievements_changed
+const AchievementRules = preload("res://scripts/achievement_rules.gd")
+var achievements_enabled := false
+var achievements: Dictionary = {}
+
+func complete_achievement(id: String) -> bool:
+	if not achievements_enabled or AchievementRules.minimum_level(id) == 0 or level < AchievementRules.minimum_level(id) or achievements.has(id):
+		return false
+	achievements[id] = true
+	achievements_changed.emit()
+	return true
+
 const BlackHoleState = preload("res://scripts/black_hole_state.gd")
 
 const SYNC_CONTRACT = preload("res://scripts/sync_contract.gd")
@@ -325,6 +337,7 @@ func add_flora(cell: Vector2i) -> void:
 	if kind in DecorationRules.WATER_KINDS:
 		item.water = spaces[flora_rng.randi_range(0, spaces.size() - 1)]
 	decorations[cell] = item
+	if kind == "ducks": complete_achievement("rubber_duck")
 
 func prune_decorations() -> void:
 	for owner in decorations.keys():
@@ -956,7 +969,7 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 func terrain_edit_preview(cell: Vector2i, tool: String, ground_height: float = -1):
 	var proposed = get_script().new()
 	proposed.skip_terrain_contact_validation = true
-	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_colors", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build"]:
+	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_colors", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build", "achievements"]:
 		proposed.set(field, get(field).duplicate(true))
 	proposed.chickens = chickens.duplicate()
 	proposed.sheep = sheep.duplicate()
@@ -1178,7 +1191,8 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 36, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 37, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	saved.achievements = achievements.duplicate()
 	saved.black_hole = black_hole.duplicate(true)
 	saved.pawn_color = pawn_color
 	saved.house_colors = []
@@ -1230,7 +1244,10 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+		return false
+	var next_achievements = data.get("achievements", {})
+	if not AchievementRules.valid(next_achievements):
 		return false
 	var next_portal = data.get("black_hole", {}) if int(data.version) >= 35 else {}
 	if not BlackHoleState.valid(next_portal):
@@ -1699,6 +1716,7 @@ func restore(data: Dictionary) -> bool:
 		for owner in next_houses:
 			if portal_cell in house_cells(owner, next_house_offsets[owner]):
 				return false
+	achievements = next_achievements.duplicate()
 	black_hole = next_portal.duplicate(true)
 	pawn_color = int(next_pawn_color)
 	house_colors = next_house_colors
@@ -1750,6 +1768,8 @@ func restore(data: Dictionary) -> bool:
 				cells[landing] = "high_gold"
 	normalize_cliff_terraces()
 	settle_terrain_contacts()
+	AchievementRules.backfill(self)
+	achievements_changed.emit()
 	return true
 
 func can_pick_log(cell: Vector2i) -> bool:

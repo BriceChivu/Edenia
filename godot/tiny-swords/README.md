@@ -432,6 +432,27 @@ Build with `node scripts/preview-tiny-swords-review.mjs --build-only`. Focused
 checks: `tests/review_tour.gd` (set `TINY_SWORDS_TOUR_STOCK=1` to include the
 fully populated island) and `tests/review_sandbox.gd`.
 
+## Achievements (internal test)
+
+The achievements button and event tracking are enabled only for the exact Web
+URL flag `internal_test=1`. The parent already forwards that context; Godot owns
+the restriction, UI, completion rules and version-37 island ledger. Other routes
+retain previously saved achievements without displaying or earning new ones.
+Native review scenes can opt in with `achievements_enabled` in the Inspector.
+
+The icon sits left of the cogwheel and follows its visibility. The parchment
+retains the approved blue ribbon, read-only rows, grey level locks and green
+ticks in all five locales. Tree cutting, completed house construction, chicken
+pickup, a naturally discovered rubber duck and the pawn entering a black hole
+award once at their real completion boundary. Egg laying stays unavailable as
+“Coming soon.” Achievements travel with ordinary island saves, portable profiles
+and existing sync/backup paths. Undo cannot revoke an earned achievement; a full
+profile reset/import/restore carries the replacement island's own progress.
+Old islands backfill only actions evidenced by their current saved state.
+
+The editable UI is `scenes/achievements_ui.tscn`; the fresh review fixture is
+`previews/achievements/preview.tscn`. Focused check: `res://tests/achievements.gd`.
+
 ## Game ownership and Edenia integration
 
 All Tiny Swords game changes must be implemented in the Godot project at

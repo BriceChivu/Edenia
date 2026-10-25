@@ -325,6 +325,7 @@ func advance_build(now: float) -> void:
 	world.pawn.sprite.play("wood_idle" if world.pawn.carrying_wood else "idle")
 	phase = Phase.READY
 	world.layout.house_build.clear()
+	world.layout.complete_achievement("build_house")
 	world.save_layout()
 	world.refresh()
 

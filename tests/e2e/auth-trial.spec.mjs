@@ -978,3 +978,33 @@ test('a changed background head waits for a pending IndexedDB checkpoint at the 
   await expect(page.locator('#mainApp')).toBeVisible()
   expect(await page.evaluate(() => loadState().tinySwordsIsland)).toEqual(island)
 })
+
+
+for (const indexedDb of [false, true]) {
+  test(`internal achievements persist with the owned island and portable profile (${indexedDb ? 'IndexedDB' : 'localStorage'})`, async ({ page }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-standard', 'webkit-trial-desktop', 'webkit-trial-phone'].includes(testInfo.project.name))
+    test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
+    test.setTimeout(180000)
+    const fixture = await owned(page, { indexedDb, engine: true })
+    await page.goto('./?internal_test=1')
+    await readyGame(page)
+    const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+    expect(new URL(game.url()).searchParams.get('internal_test')).toBe('1')
+    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(37)
+    const earned = await page.evaluate(() => loadState().tinySwordsIsland.achievements)
+    expect(earned.cut_tree).toBe(true)
+    expect(earned.build_house).toBeUndefined() // This fixture contains logs, not a completed house.
+    expect(earned.lay_egg).toBeUndefined()
+    const portable = JSON.parse(await page.evaluate(async () => (await createPortableLearnerProfileEnvelope(loadState())).serialized))
+    expect(portable.profile.tinySwordsIsland.achievements).toEqual(earned)
+    const canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')
+    const bounds = await canvas.boundingBox()
+    await canvas.click({ position: { x: bounds.width - 72, y: bounds.height - 27 } })
+    await page.screenshot({ path: testInfo.outputPath('saved-achievements-panel.png') })
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
+    expect(fixture.head().envelope.profile.tinySwordsIsland.achievements).toEqual(earned)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await readyGame(page)
+    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.achievements)).toEqual(earned)
+  })
+}

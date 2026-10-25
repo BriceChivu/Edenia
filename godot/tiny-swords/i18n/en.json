@@ -49,5 +49,17 @@
   "placementHelp": "Choose a square for {item}.",
   "pickupUnavailable": "That pickup is unavailable. Pick up stairs before their landing.",
   "spotUnavailable": "That spot is unavailable. Try another square.",
-  "houseUnavailable": "Choose a house site the pawn can reach."
+  "houseUnavailable": "Choose a house site the pawn can reach.",
+  "achievements": "Achievements",
+  "closeAchievements": "Close achievements",
+  "achievementTree": "Cut a tree",
+  "achievementHouse": "Build a house",
+  "achievementChicken": "Pick up a chicken",
+  "achievementDuck": "Unlock the rubber duck",
+  "achievementEgg": "Have a chicken lay an egg",
+  "achievementBlackHole": "Disappear inside a black hole",
+  "achievementProgress": "{count} / {total} completed",
+  "achievementCompleted": "Completed",
+  "achievementPending": "Not completed",
+  "achievementComingSoon": "Coming soon"
 }

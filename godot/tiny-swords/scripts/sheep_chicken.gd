@@ -88,6 +88,7 @@ func transfer(sheep: Sprite2D, now: float, day: int = Calendar.today()) -> bool:
 		world.layout.sheep_chickens.erase(index)
 		world.layout.chicken_release_at = now + world.chicken_carry.HOLD_SECONDS
 		world.pawn.carrying_chicken = true
+		world.layout.complete_achievement("pick_chicken")
 	world.history.clear()
 	world.save_layout()
 	return true
