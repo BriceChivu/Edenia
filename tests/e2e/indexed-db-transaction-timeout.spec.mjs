@@ -19,6 +19,27 @@ test.beforeEach(async ({ page }) => {
 })
 
 for (const boundary of ['primary', 'retained-primary', 'recovery', 'backup']) {
+  test(`${boundary} records an asynchronous database opening error as a response`, async ({ page }) => {
+    const result = await page.evaluate(async boundary => {
+      const modules = await import(boundary === 'retained-primary' ? '/__retained-timeout.js' : '/__transaction-timeout.js')
+      const name = boundary === 'recovery' ? 'edenia_profile_recovery_v1' : `opening-${boundary}`
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.open(name, 2)
+        request.onsuccess = () => { request.result.close(); resolve() }
+        request.onerror = () => reject(request.error)
+      })
+      let error
+      try {
+        if (boundary.endsWith('primary')) await modules.openIndexedDbProfile({ indexedDb: indexedDB, databaseName: name,
+          storage: localStorage, storageKey: 'opening-profile', accessKey: 'opening-access', eventTarget: null, isValidState: () => true })
+        else if (boundary === 'recovery') await modules.createProfileRecoveryJournal({ namespace: 'opening', indexedDb: indexedDB }).read()
+        else error = (await modules.readIndexedDbBackupEntries({ indexedDb: indexedDB, databaseName: name, isValidEntry: () => true })).error
+      } catch (failure) { error = failure }
+      return modules.describeProfileStorageFailure(error)
+    }, boundary)
+    expect(result.errorName).toBe('VersionError')
+    expect(result.storageOperation).toMatchObject({ mode: 'open', eventType: 'database-error', requestState: 'responded' })
+  })
   test(`${boundary} retains a native request error before transaction.error is set`, async ({ page }) => {
     const result = await page.evaluate(async boundary => {
       const shared = await import('/__transaction-timeout.js')

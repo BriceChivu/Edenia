@@ -76,6 +76,7 @@ function openProfileDatabase(indexedDb, name) {
   const diagnostic = createStorageOperationMonitor({ storageTarget: 'primary-profile', mode: 'open' })
   return new Promise((resolve, reject) => {
     const request = indexedDb.open(name, 1)
+    diagnostic.observe(request)
     let settled = false
     const timeout = setTimeout(() => {
       settled = true

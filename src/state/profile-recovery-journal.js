@@ -25,6 +25,7 @@ export function createProfileRecoveryJournal({
     const diagnostic = createStorageOperationMonitor({ storageTarget: 'recovery-journal', timeoutMs, mode: 'open' })
     opening = new Promise((resolve, reject) => {
       const request = indexedDb.open(DATABASE, 1)
+      diagnostic.observe(request)
       let missing = false
       let settled = false
       const timer = setTimeout(() => {

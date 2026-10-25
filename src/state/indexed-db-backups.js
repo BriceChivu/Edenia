@@ -124,6 +124,7 @@ function openBackupDatabase(indexedDb, databaseName) {
       databaseName,
       STATE_BACKUP_DATABASE_VERSION
     )
+    diagnostic.observe(request)
     let settled = false
     const timeout = setTimeout(() => {
       settled = true
@@ -163,6 +164,7 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
       databaseName,
       STATE_BACKUP_DATABASE_VERSION
     )
+    diagnostic.observe(request)
     let missing = false
     let settled = false
     const timeout = setTimeout(() => {
