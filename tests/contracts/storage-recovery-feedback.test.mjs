@@ -69,6 +69,34 @@ test('offline diagnostics survive reload and retry with the original report UUID
   assert.equal(data.size, 0)
 })
 
+test('offline replay preserves bounded operation timing and lifecycle without trusting saved diagnostic data', async () => {
+  const store = nativeLikeStore()
+  const operation = { elapsedMs: 18200, timeoutMs: 8000, timerLatenessMs: 10200, mode: 'readwrite',
+    eventType: 'timeout', requestState: 'responded',
+    lifecycle: { visibilityAtStart: 'visible', visibilityAtEnd: 'hidden', hiddenDuringOperation: true,
+      frozenDuringOperation: true, resumedDuringOperation: true, pageHiddenDuringOperation: false, pageRestoredDuringOperation: false, wasDiscarded: false } }
+  const first = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    createId: () => 'timing-report', fetch: async () => ({ ok: false }) })
+  await first({ ...details, failure: { code: 'storage-unavailable', errorName: 'ConstraintError', storageOperation: operation } })
+  const key = store.key(0)
+  const entry = JSON.parse(store.getItem(key))
+  const parsed = JSON.parse(entry.diagnostic)
+  parsed.storageOperation.secret = 'PRIVATE profile'
+  parsed.storageOperation.lifecycle.url = 'PRIVATE token'
+  parsed.storageOperation.profile = { contents: 'PRIVATE' }
+  entry.diagnostic = JSON.stringify(parsed)
+  store.setItem(key, JSON.stringify(entry))
+  const calls = []
+  const replay = createStorageRecoveryFeedback({ location: { origin: 'https://edenia.study' }, getStores: () => [() => store],
+    fetch: async (_, options) => { calls.push(JSON.parse(options.body)); return { ok: true } } })
+  assert.deepEqual(await replay.retryPending(), ['sent'])
+  assert.equal(calls[0].uuid, 'timing-report')
+  assert.doesNotMatch(JSON.stringify(calls), /PRIVATE|secret|contents/)
+  const diagnostic = JSON.parse(calls[0].properties.feedback_message.split('\n').slice(1).join('\n'))
+  assert.deepEqual(diagnostic.storageOperation, operation)
+  assert.equal(diagnostic.error.name, 'ConstraintError')
+})
+
 function nativeLikeStore() {
   const data = new Map()
   return {

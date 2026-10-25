@@ -1,3 +1,4 @@
+import { createStorageOperationMonitor } from './storage-operation-diagnostics.js'
 import { annotateStorageFailure } from './profile-storage-recovery.js'
 const DATABASE = 'edenia_profile_recovery_v1'
 
@@ -21,13 +22,15 @@ export function createProfileRecoveryJournal({
   function open(create) {
     if (database) return Promise.resolve(database)
     if (opening) return opening.then(value => value || (create ? open(true) : null))
+    const diagnostic = createStorageOperationMonitor({ storageTarget: 'recovery-journal', timeoutMs, mode: 'open' })
     opening = new Promise((resolve, reject) => {
       const request = indexedDb.open(DATABASE, 1)
+      diagnostic.observe(request)
       let missing = false
       let settled = false
       const timer = setTimeout(() => {
         settled = true
-        reject(new Error('Recovery archive opening timed out'))
+        reject(diagnostic.failure(new Error('Recovery archive opening timed out'), 'database-open', 'timeout'))
       }, timeoutMs)
       request.onupgradeneeded = event => {
         if (settled) { request.transaction.abort(); return }
@@ -54,9 +57,9 @@ export function createProfileRecoveryJournal({
         if (settled) return
         settled = true
         if (missing && request.error?.name === 'AbortError') resolve(null)
-        else reject(request.error || new Error('Recovery archive opening blocked'))
+        else reject(diagnostic.failure(request.error || new Error('Recovery archive opening blocked'), 'database-open', event === 'blocked' ? 'database-blocked' : 'database-error'))
       }, { once: true })
-    }).catch(error => { throw annotateStorageFailure(error, 'recovery-journal', 'database-open') }).finally(() => { opening = null })
+    }).catch(error => { throw diagnostic.failure(error, 'database-open', 'database-error') }).finally(() => { opening = null })
     return opening
   }
   async function transaction(db, mode, run, canReconnect = true) {
@@ -75,6 +78,8 @@ export function createProfileRecoveryJournal({
       }
       throw annotateStorageFailure(error, 'recovery-journal', 'transaction-open')
     }
+    const diagnostic = createStorageOperationMonitor({ storageTarget: 'recovery-journal', timeoutMs, mode })
+    diagnostic.observe(tx)
     return new Promise((resolve, reject) => {
       let result
       let failure
@@ -87,16 +92,16 @@ export function createProfileRecoveryJournal({
         // Leave the head untouched and reopen on the next attempt. A timed-out
         // transaction may have an uncertain outcome and must not be replayed.
         discardConnection(db)
-        reject(annotateStorageFailure(new Error('Recovery archive transaction timed out'), 'recovery-journal', 'transaction-complete'))
+        reject(diagnostic.failure(new Error('Recovery archive transaction timed out'), 'transaction-complete', 'timeout'))
       }, timeoutMs)
       tx.oncomplete = () => { clearTimeout(timer); resolve(result) }
-      tx.onabort = tx.onerror = () => {
+      tx.onabort = tx.onerror = event => {
         clearTimeout(timer)
-        reject(annotateStorageFailure(failure || tx.error || new Error('Recovery archive transaction failed'), 'recovery-journal', 'transaction-complete'))
+        reject(diagnostic.failure(failure || event.target?.error || tx.error || new Error('Recovery archive transaction failed'), event.type === 'error' ? 'request' : 'transaction-complete', event.type === 'error' ? 'request-error' : 'abort'))
       }
       const fail = error => { failure = error; try { tx.abort() } catch {} }
       try { run(tx, value => { result = value }, fail) }
-      catch (error) { failure = error; try { tx.abort() } catch {}; clearTimeout(timer); reject(annotateStorageFailure(error, 'recovery-journal', 'request')) }
+      catch (error) { failure = error; try { tx.abort() } catch {}; clearTimeout(timer); reject(diagnostic.failure(error, 'request', 'request-exception')) }
     })
   }
   async function read() {

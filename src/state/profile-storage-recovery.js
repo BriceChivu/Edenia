@@ -3,17 +3,45 @@ const STORAGE_TARGETS = ['primary-profile', 'backup', 'recovery-journal', 'web-s
 const STORAGE_PHASES = ['database-open', 'transaction-open', 'transaction-complete', 'request', 'readback', 'workspace-write', 'promotion']
 export const sanitizeStorageDiagnosticId = value => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(value) ? value : null
 // Attach only internal, bounded context. Native exception messages can contain data.
-export function annotateStorageFailure(error, storageTarget, phase) {
-  if (error && typeof error === 'object' && !FAILURE_CONTEXTS.has(error)) {
+export function annotateStorageFailure(error, storageTarget, phase, storageOperation) {
+  if (error && typeof error === 'object') {
+    const previous = FAILURE_CONTEXTS.get(error)
     FAILURE_CONTEXTS.set(error, {
       storageTarget: STORAGE_TARGETS.includes(storageTarget) ? storageTarget : undefined,
-      phase: STORAGE_PHASES.includes(phase) ? phase : undefined
+      phase: STORAGE_PHASES.includes(phase) ? phase : undefined,
+      ...previous,
+      ...(!previous?.storageOperation && storageOperation ? { storageOperation: sanitizeStorageOperation(storageOperation) } : {})
     })
   }
   return error
 }
 
-const SAFE_ERROR_NAMES = ['Error','SyntaxError','SecurityError','NotAllowedError','QuotaExceededError','NS_ERROR_DOM_QUOTA_REACHED','NotFoundError','AbortError','UnknownError','InvalidStateError','TransactionInactiveError','DataError','VersionError']
+const SAFE_ERROR_NAMES = ['Error','SyntaxError','SecurityError','NotAllowedError','QuotaExceededError','NS_ERROR_DOM_QUOTA_REACHED','NotFoundError','AbortError','UnknownError','InvalidStateError','TransactionInactiveError','DataError','VersionError','ConstraintError','ReadOnlyError','DataCloneError']
+const OPERATION_EVENTS = ['request-error', 'abort', 'timeout', 'request-exception', 'database-error', 'database-blocked']
+export function sanitizeStorageOperation(value) {
+  if (!value || typeof value !== 'object') return undefined
+  // Coarse, capped durations cannot be used to smuggle arbitrary data or exact
+  // wall-clock times through an offline outbox entry.
+  const duration = number => typeof number === 'number' && Number.isFinite(number)
+    ? Math.round(Math.max(0, Math.min(86400000, number)) / 100) * 100 : undefined
+  const visibility = state => ['visible', 'hidden'].includes(state) ? state : 'unknown'
+  const lifecycle = value.lifecycle || {}
+  return {
+    elapsedMs: duration(value.elapsedMs), timeoutMs: duration(value.timeoutMs), timerLatenessMs: duration(value.timerLatenessMs),
+    mode: ['readonly', 'readwrite', 'versionchange', 'open'].includes(value.mode) ? value.mode : 'unknown',
+    requestState: ['pending', 'responded'].includes(value.requestState) ? value.requestState : 'unknown',
+    eventType: OPERATION_EVENTS.includes(value.eventType) ? value.eventType : 'unknown',
+    lifecycle: {
+      visibilityAtStart: visibility(lifecycle.visibilityAtStart), visibilityAtEnd: visibility(lifecycle.visibilityAtEnd),
+      hiddenDuringOperation: lifecycle.hiddenDuringOperation === true,
+      frozenDuringOperation: lifecycle.frozenDuringOperation === true,
+      resumedDuringOperation: lifecycle.resumedDuringOperation === true,
+      pageHiddenDuringOperation: lifecycle.pageHiddenDuringOperation === true,
+      pageRestoredDuringOperation: lifecycle.pageRestoredDuringOperation === true,
+      wasDiscarded: lifecycle.wasDiscarded === true
+    }
+  }
+}
 const SAFE_ERROR_MESSAGES = ['The migrated learner profile is missing','Invalid durable learner profile','Invalid legacy learner profile','Invalid durable profile body','Missing durable profile body','Profile migration has conflicting durable copies','Profile database opening timed out','Profile database opening blocked','Profile transaction timed out','Profile transaction failed','IndexedDB is unavailable','Profile migration readback failed or became stale','Profile opening marker readback failed','IndexedDB request failed','IndexedDB backup transaction timed out','IndexedDB backup transaction failed','IndexedDB backup database opening timed out','Could not open IndexedDB backup database','IndexedDB existing backup database opening timed out','IndexedDB backup database open was blocked','Could not open the existing IndexedDB backup database','IndexedDB backup store is missing','IndexedDB contains an invalid state backup','IndexedDB backup change verification failed','Recovery archive opening timed out','Recovery archive opening blocked','Recovery archive transaction timed out','Recovery archive transaction failed','Invalid recovery archive']
 // Only these stable categories leave the storage boundary. Exception text can
 // include saved data; never put it in the UI, clipboard report, or analytics.
@@ -68,6 +96,7 @@ export function createStorageRecoveryReport({ failure, checked, mode, release,
     testRunId: sanitizeStorageDiagnosticId(testRunId) || undefined,
     storageTarget: STORAGE_TARGETS.includes(failure?.storageTarget) ? failure.storageTarget : undefined,
     phase: STORAGE_PHASES.includes(failure?.phase) ? failure.phase : undefined,
+    storageOperation: sanitizeStorageOperation(failure?.storageOperation),
     recovery: ['local','session','indexed-db','memory','none'].includes(recovery) ? recovery : null,
     storageState: {
       migrationMarker: ['1','empty'].includes(storageState.migrationMarker) ? storageState.migrationMarker : null,

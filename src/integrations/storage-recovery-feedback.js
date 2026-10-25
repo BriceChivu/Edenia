@@ -20,7 +20,7 @@ export function createStorageRecoveryFeedback({
       const parsed = JSON.parse(entry.diagnostic)
       // Rebuild every field before replay; saved outbox data is untrusted.
       const diagnostic = createStorageRecoveryReport({ ...parsed,
-        failure: { code: parsed.code, errorName: parsed.error?.name, errorMessage: parsed.error?.message, storageTarget: parsed.storageTarget, phase: parsed.phase },
+        failure: { code: parsed.code, errorName: parsed.error?.name, errorMessage: parsed.error?.message, storageTarget: parsed.storageTarget, phase: parsed.phase, storageOperation: parsed.storageOperation },
         checked: parsed.storageCheckedAgain, capabilities: { ...parsed.capabilities,
           browser: [parsed.capabilities?.browser, parsed.capabilities?.platform].filter(Boolean).join(' ') } })
       const dimension = value => Number.isFinite(Number(value)) ? Math.max(0, Math.min(10000, Number(value))) : 0

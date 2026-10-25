@@ -1,3 +1,4 @@
+import { createStorageOperationMonitor } from './storage-operation-diagnostics.js'
 import { annotateStorageFailure } from './profile-storage-recovery.js'
 export const STATE_BACKUP_DATABASE_NAME = 'edenia_state_backups_v1'
 export const STATE_BACKUP_DATABASE_VERSION = 1
@@ -93,37 +94,41 @@ function requestResult(request) {
 }
 
 function transactionComplete(transaction) {
+  const diagnostic = createStorageOperationMonitor({ storageTarget: 'backup', mode: transaction.mode })
+  diagnostic.observe(transaction)
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { transaction.abort() } catch (error) {
         // Completion/abort delivery can lag behind the native outcome.
         if (error.name === 'InvalidStateError') return
       }
-      reject(annotateStorageFailure(new Error('IndexedDB backup transaction timed out'), 'backup', 'transaction-complete'))
+      reject(diagnostic.failure(new Error('IndexedDB backup transaction timed out'), 'transaction-complete', 'timeout'))
     }, 8000)
     transaction.addEventListener('complete', () => {
       clearTimeout(timeout)
       resolve()
     }, { once: true })
     for (const event of ['abort', 'error']) {
-      transaction.addEventListener(event, () => {
+      transaction.addEventListener(event, nativeEvent => {
         clearTimeout(timeout)
-        reject(annotateStorageFailure(transaction.error || new Error('IndexedDB backup transaction failed'), 'backup', 'transaction-complete'))
+        reject(diagnostic.failure(nativeEvent.target?.error || transaction.error || new Error('IndexedDB backup transaction failed'), event === 'error' ? 'request' : 'transaction-complete', event === 'error' ? 'request-error' : 'abort'))
       }, { once: true })
     }
   })
 }
 
 function openBackupDatabase(indexedDb, databaseName) {
+  const diagnostic = createStorageOperationMonitor({ storageTarget: 'backup', mode: 'open' })
   return new Promise((resolve, reject) => {
     const request = indexedDb.open(
       databaseName,
       STATE_BACKUP_DATABASE_VERSION
     )
+    diagnostic.observe(request)
     let settled = false
     const timeout = setTimeout(() => {
       settled = true
-      reject(new Error('IndexedDB backup database opening timed out'))
+      reject(diagnostic.failure(new Error('IndexedDB backup database opening timed out'), 'database-open', 'timeout'))
     }, 8000)
     request.addEventListener('upgradeneeded', () => {
       const database = request.result
@@ -146,23 +151,25 @@ function openBackupDatabase(indexedDb, databaseName) {
       request.addEventListener(event, () => {
         clearTimeout(timeout)
         settled = true
-        reject(request.error || new Error('Could not open IndexedDB backup database'))
+        reject(diagnostic.failure(request.error || new Error('Could not open IndexedDB backup database'), 'database-open', event === 'blocked' ? 'database-blocked' : 'database-error'))
       }, { once: true })
     }
-  }).catch(error => { throw annotateStorageFailure(error, 'backup', 'database-open') })
+  }).catch(error => { throw diagnostic.failure(error, 'database-open', 'database-error') })
 }
 
 function openExistingBackupDatabase(indexedDb, databaseName) {
+  const diagnostic = createStorageOperationMonitor({ storageTarget: 'backup', mode: 'open' })
   return new Promise((resolve, reject) => {
     const request = indexedDb.open(
       databaseName,
       STATE_BACKUP_DATABASE_VERSION
     )
+    diagnostic.observe(request)
     let missing = false
     let settled = false
     const timeout = setTimeout(() => {
       settled = true
-      reject(new Error('IndexedDB existing backup database opening timed out'))
+      reject(diagnostic.failure(new Error('IndexedDB existing backup database opening timed out'), 'database-open', 'timeout'))
     }, 8000)
     request.addEventListener('upgradeneeded', event => {
       if (event.oldVersion === 0) {
@@ -186,7 +193,7 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
     request.addEventListener('blocked', () => {
       clearTimeout(timeout)
       settled = true
-      reject(new Error('IndexedDB backup database open was blocked'))
+      reject(diagnostic.failure(new Error('IndexedDB backup database open was blocked'), 'database-open', 'database-blocked'))
     }, { once: true })
     request.addEventListener('error', () => {
       clearTimeout(timeout)
@@ -195,11 +202,9 @@ function openExistingBackupDatabase(indexedDb, databaseName) {
         resolve(null)
         return
       }
-      reject(request.error || new Error(
-        'Could not open the existing IndexedDB backup database'
-      ))
+      reject(diagnostic.failure(request.error || new Error('Could not open the existing IndexedDB backup database'), 'database-open', 'database-error'))
     }, { once: true })
-  }).catch(error => { throw annotateStorageFailure(error, 'backup', 'database-open') })
+  }).catch(error => { throw diagnostic.failure(error, 'database-open', 'database-error') })
 }
 
 async function readBackupEntries(database) {
