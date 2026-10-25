@@ -888,6 +888,33 @@
       "searchText": "zhen into chinese intochinese into chinese"
     },
     {
+      "catalogId": "community-UC3OAvZbMjwvtwCTePkwZiCg",
+      "channelId": "UC3OAvZbMjwvtwCTePkwZiCg",
+      "handle": "@shengfm",
+      "name": "声动活泼",
+      "thumbnailUrl": "https://yt3.ggpht.com/vhO5HH_H9KJMPZgXy-TOYUp-3Ci1436eghfHstLY4KcKMlCd0G4396hlaS9k1NJYecWTLFD9=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "intermediate"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-02-14T06:24:23.650674Z",
+      "metadataRefreshedAt": "2026-10-25T07:49:21.542Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-10-24T13:38:29.114Z",
+      "lastSeenAt": "2026-10-24T13:38:29.114Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "声动活泼 shengfm intermediate"
+    },
+    {
       "catalogId": "community-UCiWXd0nmBjlKROwzMyPV-Nw",
       "channelId": "UCiWXd0nmBjlKROwzMyPV-Nw",
       "handle": "@shasha77",
@@ -1041,5 +1068,5 @@
       "searchText": "雷堤娜 tyna krysjensen86 advanced"
     }
   ],
-  "generatedAt": "2026-10-22T07:58:18.055Z"
+  "generatedAt": "2026-10-25T07:49:21.542Z"
 }
