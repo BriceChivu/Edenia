@@ -59,7 +59,22 @@ func run() -> void:
 	check(not Layout.new().restore(bad), "Reject duplicating perched bird in pawn carry")
 	interaction.advance(100000.0, 20000)
 	check(scene.layout.sheep_chickens.size() == 1, "Perch survives the entire local date beyond carry timeout")
-	check(interaction.transfer(sheep, 150.0, 20000) and scene.pawn.carrying_chicken and scene.layout.chicken_release_at == 210.0 and scene.layout.sheep_chickens.is_empty(), "Retrieve restarts normal one-minute carrying")
+	# Saved construction must not teleport the pawn back while approaching a
+	# perched bird. Retrieval pauses work just like the existing carry action.
+	scene.pawn.position = sheep.position - Vector2(64, 0)
+	scene.pawn.walk_to(scene.pawn.position)
+	scene.layout.house_build = {"x": 1, "y": 1, "pawn_x": sheep.position.x, "pawn_y": sheep.position.y, "started_at": Time.get_unix_time_from_system()}
+	interaction.request(sheep)
+	var approach_origin: Vector2 = scene.pawn.position
+	var approach_destination: Vector2 = scene.pawn.destination
+	scene.construction._process(0.0)
+	check(scene.pawn.position == approach_origin and scene.pawn.destination == approach_destination and not scene.pawn.hammering, "Saved house work cannot interrupt chicken retrieval approach")
+	scene.layout.house_build.clear()
+	scene.construction.phase = scene.construction.Phase.READY
+	scene.pawn.hammering = false
+	scene.pawn.position = approach_destination
+	interaction.advance(150.0, 20000)
+	check(scene.pawn.carrying_chicken and scene.layout.chicken_release_at == 210.0 and scene.layout.sheep_chickens.is_empty(), "Retrieve restarts normal one-minute carrying")
 	check(interaction.transfer(sheep, 151.0, 20000), "Retrieved bird can be placed again")
 	# Same sheep AI and route are retained while the authored pose runs.
 	sheep.fleeing = true
