@@ -4,6 +4,7 @@ const Visibility = preload("res://scripts/portal_visibility.gd")
 const Depth = preload("res://scripts/portal_depth.gd")
 const LENS_SHADER = preload("res://shaders/black_hole_lens.gdshader")
 const ACTOR_SHADER = preload("res://shaders/black_hole_actor.gdshader")
+const WATER_SHADER = preload("res://shaders/black_hole_water.gdshader")
 const LENS_SIZE := Vector2(320, 240)
 const PORTAL_CLEARANCE := Vector2(144, 160)
 const State = preload("res://scripts/black_hole_state.gd")
@@ -32,9 +33,13 @@ var effects_busy := 0
 var generation := 0
 var tweens: Array[Tween] = []
 var depth = Depth.new()
+var water_material: ShaderMaterial
 
 func _ready() -> void:
 	process_priority = 50 # Observe actors after their normal movement.
+	water_material = ShaderMaterial.new()
+	water_material.shader = WATER_SHADER
+	world.get_node("Water").material = water_material
 	portal = Sprite2D.new()
 	portal.texture = ATLAS
 	portal.hframes = 4
@@ -212,8 +217,16 @@ func update_shadow() -> void:
 	var reveal := minf(portal.scale.x / BASE_SCALE.x, 1.0)
 	ground_shadow.scale = Vector2(1.0 + hover_phase() * 0.025, 1.0 + hover_phase() * 0.0125) * reveal
 
+func update_water_edges() -> void:
+	if water_material == null: return
+	var active: bool = world.black_hole_enabled and world.playground_ready and not world.editing \
+		and world.layout.black_hole.get("phase", "idle") in ["hungry", "returning"] \
+		and (world.arrival == null or not world.arrival.blocks_gameplay())
+	water_material.set_shader_parameter("event_active", active)
+
 func update_portal() -> void:
 	if portal == null: return
+	update_water_edges()
 	depth.restore()
 	var state: Dictionary = world.layout.black_hole
 	portal.visible = world.black_hole_enabled and not state.is_empty() and state.phase != "idle"
@@ -232,6 +245,7 @@ func update_portal() -> void:
 
 func _process(delta: float) -> void:
 	depth.restore()
+	update_water_edges()
 	if not world.black_hole_enabled: return
 	if not world.playground_ready or (world.arrival != null and world.arrival.blocks_gameplay()): return
 	var now := Time.get_unix_time_from_system()
@@ -474,6 +488,7 @@ func finish() -> void:
 	lens.hide()
 	backbuffer.hide()
 	world.layout.black_hole = State.initial(State.today(), randi_range(14, 28))
+	update_water_edges()
 	world.history.clear()
 	world.save_layout()
 	var tween := create_tween()
