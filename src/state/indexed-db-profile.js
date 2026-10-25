@@ -1,3 +1,4 @@
+import { createStorageOperationMonitor } from './storage-operation-diagnostics.js'
 import { annotateStorageFailure } from './profile-storage-recovery.js'
 import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
 import { mergeActivityLogAdditions } from './activity-log.js'
@@ -66,31 +67,34 @@ function profileTransaction(database, ...args) {
   catch (error) { throw annotateStorageFailure(error, 'primary-profile', 'transaction-open') }
 }
 function complete(transaction) {
+  const diagnostic = createStorageOperationMonitor({ storageTarget: 'primary-profile', mode: transaction.mode })
+  diagnostic.observe(transaction)
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { transaction.abort() } catch (error) {
         // Completion/abort delivery can lag behind the native outcome.
         if (error.name === 'InvalidStateError') return
       }
-      reject(annotateStorageFailure(new Error('Profile transaction timed out'), 'primary-profile', 'transaction-complete'))
+      reject(diagnostic.failure(new Error('Profile transaction timed out'), 'transaction-complete', 'timeout'))
     }, 8000)
     transaction.oncomplete = () => { clearTimeout(timeout); resolve() }
-    transaction.onabort = () => { clearTimeout(timeout); reject(annotateStorageFailure(transaction.error || new Error('Profile transaction aborted'), 'primary-profile', 'transaction-complete')) }
-    transaction.onerror = () => { clearTimeout(timeout); reject(annotateStorageFailure(transaction.error || new Error('Profile transaction failed'), 'primary-profile', 'transaction-complete')) }
+    transaction.onabort = () => { clearTimeout(timeout); reject(diagnostic.failure(transaction.error || new Error('Profile transaction aborted'), 'transaction-complete', 'abort')) }
+    transaction.onerror = event => { clearTimeout(timeout); reject(diagnostic.failure(event.target?.error || transaction.error || new Error('Profile transaction failed'), 'request', 'request-error')) }
   })
 }
 
 function openProfileDatabase(indexedDb, name) {
+  const diagnostic = createStorageOperationMonitor({ storageTarget: 'primary-profile', mode: 'open' })
   return new Promise((resolve, reject) => {
     const request = indexedDb.open(name, 1)
     let settled = false
     const timeout = setTimeout(() => {
       settled = true
-      reject(new Error('Profile database opening timed out'))
+      reject(diagnostic.failure(new Error('Profile database opening timed out'), 'database-open', 'timeout'))
     }, 8000)
     request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'key' })
-    request.onerror = () => { clearTimeout(timeout); settled = true; reject(request.error) }
-    request.onblocked = () => { clearTimeout(timeout); settled = true; reject(new Error('Profile database opening blocked')) }
+    request.onerror = () => { clearTimeout(timeout); settled = true; reject(diagnostic.failure(request.error, 'database-open', 'database-error')) }
+    request.onblocked = () => { clearTimeout(timeout); settled = true; reject(diagnostic.failure(new Error('Profile database opening blocked'), 'database-open', 'database-blocked')) }
     request.onsuccess = () => {
       clearTimeout(timeout)
       if (settled) { request.result.close(); return }
@@ -98,7 +102,7 @@ function openProfileDatabase(indexedDb, name) {
       database.onversionchange = () => database.close()
       resolve(database)
     }
-  }).catch(error => { throw annotateStorageFailure(error, 'primary-profile', 'database-open') })
+  }).catch(error => { throw diagnostic.failure(error, 'database-open', 'database-error') })
 }
 
 function splitHead(value) { return value?.schema === HEAD_SCHEMA }
