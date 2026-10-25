@@ -228,12 +228,15 @@ test('a failure on the apex production origin automatically sends sanitized Disc
   const event = denied()
   expect(event.properties.feedback_message).toContain('storage-denied')
   expect(event.properties.feedback_message).toContain('local')
+  const diagnostic = JSON.parse(event.properties.feedback_message.split('\n').slice(1).join('\n'))
+  expect(diagnostic.storageOperation).toMatchObject({ mode: 'open', eventType: 'database-error', elapsedMs: expect.any(Number),
+    lifecycle: { visibilityAtStart: 'visible', visibilityAtEnd: 'visible' } })
   for (const report of captured) {
     expect(report.event).toBe('feedback_submitted')
     expect(report.properties.feedback_source).toBe('automatic_storage_recovery')
     expect(['failure', 'fallback-saved']).toContain(report.properties.storage_recovery_outcome)
     expect(report.properties.feedback_category).toBe(report.properties.storage_recovery_outcome === 'failure' ? 'bug' : 'other')
-    expect(report.properties.feedback_message).toContain(browserName === 'webkit' ? 'Version/' : 'Chrome/')
+    expect(report.properties.feedback_message).toContain(browserName === 'webkit' ? 'Version/' : browserName === 'firefox' ? 'Firefox/' : 'Chrome/')
     expect(report.properties.page_url).toBe('https://edenia.study/')
     expect(JSON.stringify(report)).not.toContain('SECRET')
   }
@@ -347,7 +350,9 @@ test('offline diagnostics from two tabs survive reload and acknowledge independe
   // Another tab may retry the same offline outbox record. UUIDs identify the
   // two independent reports; request counts depend on retry scheduling.
   await expect.poll(() => reportIds().length).toBe(2)
-  const expectedOffline = 'console: Failed to load resource: net::ERR_INTERNET_DISCONNECTED'
+  const expectedOffline = browserName === 'firefox'
+    ? 'console: [JavaScript Error: "Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://us.i.posthog.com/capture/. (Reason: CORS request did not succeed). Status code: (null)."]'
+    : 'console: Failed to load resource: net::ERR_INTERNET_DISCONNECTED'
   // WebKit logs an inspector info message for an intercepted offline request.
   if (browserName === 'chromium') await expect.poll(() => pageDiagnostics.includes(expectedOffline)).toBe(true)
   expect(pageDiagnostics.filter(message => message !== expectedOffline)).toEqual([])
