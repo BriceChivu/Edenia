@@ -74,6 +74,7 @@ var house_free_tiles: Dictionary = {} # House anchor -> its removable free found
 var chickens: Array[Vector2] = [] # Ground-plane positions, like sheep.
 var chicken_release_at := 0.0 # A carried bird is outside the ground-position array.
 var black_hole: Dictionary = {} # Durable event phase, calendar deadline and FIFO occupants.
+var sheep_chickens: Dictionary = {} # Sheep index -> local calendar day of perching.
 var sheep: Array[Vector2] = [] # Ground-plane positions; rewards at levels five and eight.
 var trees: Dictionary = {}
 var tree_types: Dictionary = {}
@@ -881,7 +882,7 @@ func settle_animal_contacts() -> void:
 			if best.is_finite():
 				animals[index] = best
 			else:
-				animals.remove_at(index)
+				remove_animal(kind, index)
 				stock[kind] += 1
 
 func walkable_point(point: Vector2, moving_sheep: bool = false) -> bool:
@@ -1015,7 +1016,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 				var animals: Array[Vector2] = sheep if kind == "sheep" else chickens
 				for index in range(animals.size() - 1, -1, -1):
 					if cell_at(animals[index]) == square:
-						animals.remove_at(index)
+						remove_animal(kind, index)
 						stock[kind] += 1
 		house_free_tiles.erase(cell)
 		clear_generated_scenery(refund)
@@ -1023,7 +1024,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		resources.wood += HOUSE_LOG_COST
 		return true
 	if tool == "remove" and sheep_at(cell) >= 0:
-		sheep.remove_at(sheep_at(cell))
+		remove_animal("sheep", sheep_at(cell))
 		stock.sheep += 1
 		return true
 	if tool == "bridge":
@@ -1177,7 +1178,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 35, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 36, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.black_hole = black_hole.duplicate(true)
 	saved.pawn_color = pawn_color
 	saved.house_colors = []
@@ -1194,6 +1195,9 @@ func snapshot() -> Dictionary:
 		for square in house_free_tiles[owner]:
 			squares.append([square.x, square.y])
 		saved.house_free_tiles.append([owner.x, owner.y, squares])
+	saved.sheep_chickens = []
+	for index in sheep_chickens:
+		saved.sheep_chickens.append([index, sheep_chickens[index]])
 	saved.chicken_release_at = chicken_release_at
 	saved.chickens = []
 	for point in chickens:
@@ -1226,7 +1230,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_portal = data.get("black_hole", {}) if int(data.version) >= 35 else {}
 	if not BlackHoleState.valid(next_portal):
@@ -1573,6 +1577,16 @@ func restore(data: Dictionary) -> bool:
 		return false
 	if next_chicken_release > 0 and next_level < 2:
 		return false
+	var next_sheep_chickens := {}
+	var perched = data.get("sheep_chickens", []) if int(data.version) >= 36 else []
+	if not perched is Array: return false
+	for record in perched:
+		if not record is Array or record.size() != 2: return false
+		for value in record:
+			if not (value is int or value is float) or not is_finite(float(value)) or float(value) != floorf(float(value)): return false
+		var index := int(record[0])
+		if index < 0 or index >= next_sheep.size() or next_sheep_chickens.has(index) or record[1] < 0 or record[1] > 10000000: return false
+		next_sheep_chickens[index] = int(record[1])
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
 		if not data.get("chickens") is Array:
@@ -1610,7 +1624,7 @@ func restore(data: Dictionary) -> bool:
 	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
 	for reward_level in range(11, next_level + 1):
 		chicken_rewards += int(LEVEL_REWARDS[reward_level].get("chicken", 0))
-	if next_chickens.size() + next_stock.chicken + BlackHoleState.count(next_portal, "chicken") + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
+	if next_chickens.size() + next_sheep_chickens.size() + next_stock.chicken + BlackHoleState.count(next_portal, "chicken") + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
 		return false
 	# Older islands have not received the new level-two reward.
 	if int(data.version) < 25 and next_level >= 2:
@@ -1696,6 +1710,7 @@ func restore(data: Dictionary) -> bool:
 	houses = next_houses
 	house_offsets = next_house_offsets
 	house_free_tiles = next_house_free_tiles
+	sheep_chickens = next_sheep_chickens
 	sheep = next_sheep
 	house_bundle = int(next_bundle)
 	house_bundle_source = next_bundle_source
@@ -1974,7 +1989,7 @@ func clear_house_occupants(cell: Vector2i, facing: int, placement: Vector2, pawn
 				continue
 			var route := house_escape_route(start, patch, pawn_point)
 			if route.is_empty():
-				animals.remove_at(index)
+				remove_animal(kind, index)
 				stock[kind] += 1
 				for displaced in house_displacements:
 					if displaced.kind == kind:
@@ -2203,3 +2218,18 @@ func walk_click_targets(point: Vector2) -> Array[Vector2]:
 	# Only use this fast goal when it reaches the geometric lower bound.
 	# Shore edges or overlapping contacts can require a different approach.
 	return targets if sqrt(distance) <= lower_bound + 0.2 else []
+
+# Every removal remaps passenger indices with the sheep array. Construction and
+# inventory reclaim both creatures; portals transfer the passenger separately.
+func remove_animal(kind: String, index: int, refund_passenger: bool = true) -> bool:
+	var passenger := kind == "sheep" and sheep_chickens.has(index)
+	if kind == "sheep":
+		var shifted := {}
+		for owner in sheep_chickens:
+			if owner != index: shifted[owner - 1 if owner > index else owner] = sheep_chickens[owner]
+		sheep_chickens = shifted
+		sheep.remove_at(index)
+		if passenger and refund_passenger: stock.chicken += 1
+	else:
+		chickens.remove_at(index)
+	return passenger
