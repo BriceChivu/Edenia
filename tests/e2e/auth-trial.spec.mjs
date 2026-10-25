@@ -982,7 +982,7 @@ test('a changed background head waits for a pending IndexedDB checkpoint at the 
 
 for (const indexedDb of [false, true]) {
   test(`internal achievements persist with the owned island and portable profile (${indexedDb ? 'IndexedDB' : 'localStorage'})`, async ({ page }, testInfo) => {
-    test.skip(!desktopTrialProjects.has(testInfo.project.name))
+    test.skip(!['desktop-standard', 'phone-standard', 'webkit-trial-desktop', 'webkit-trial-phone'].includes(testInfo.project.name))
     test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
     test.setTimeout(180000)
     const fixture = await owned(page, { indexedDb, engine: true })
