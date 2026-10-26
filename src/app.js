@@ -1408,7 +1408,8 @@ function saveState(state, options = {}) {
     if (persisted) {
       const recovery = profileRecoveryWorkspace.isActive()
       reportWindowHealth('save', recovery ? 'degraded' : 'success', { reason: recovery ? 'recovery-copy' : 'none', recovery: profileRecoveryWorkspace.getTier(), duration: performance.now() - healthStartedAt })
-      rememberPersistedPortableProfile(state)
+      if (shouldDeferAutomaticProfileWork()) persistedPortableProfileSnapshots.delete(state)
+      else rememberPersistedPortableProfile(state)
       return true
     }
     // Retired profile work was cancelled by its activation fence. Its late
@@ -1452,6 +1453,19 @@ function saveState(state, options = {}) {
 function recordCheckpointsEnabled() {
   return Boolean(learnerProfileLifecycleAuthority?.saveActiveRecords
     && deriveLearnerProfileRecordSyncEnabled(RUNTIME_ENVIRONMENT, ACCOUNT_FEATURES_ENABLED, window.EDENIA_CONFIG))
+}
+
+function shouldDeferAutomaticProfileWork() {
+  return IS_AUTH_TRIAL && window.EDENIA_CONFIG?.tinySwordsQuietSyncEnabled !== false
+    && !learnerProfileSyncOpportunity.isQuiet()
+}
+
+async function waitForYoutubeRefreshOpportunity(state, automatic = true) {
+  while (automatic && shouldDeferAutomaticProfileWork()) {
+    if (!isCurrentLearnerProfileOperation(state)) return false
+    await new Promise(resolve => window.setTimeout(resolve, 500))
+  }
+  return isCurrentLearnerProfileOperation(state)
 }
 
 async function saveRecordCheckpoint(state, units, options = {}) {
@@ -2457,6 +2471,10 @@ function getEdeniaAnalyticsSnapshot(state) {
 }
 
 function syncPersistedStateToAnalytics(state) {
+  if (shouldDeferAutomaticProfileWork()) {
+    if (isCurrentLearnerProfileOperation(state)) scheduleStudyDerivedRefresh(state, { syncAnalytics: true })
+    return
+  }
   if (ACCOUNT_FEATURES_ENABLED && !IS_SANDBOX && state) {
     accountStudySnapshotController?.synchronizeState(state)
   }
@@ -8728,8 +8746,12 @@ async function undoStartOver(resetId) {
 
 let youtubeRequestGate
 
-async function recordYoutubeQuotaError(error) {
+async function recordYoutubeQuotaError(error, expectedState) {
   if (!isYoutubeQuotaError(error)) return false
+  if (expectedState !== undefined && !isCurrentLearnerProfileOperation(expectedState)) return true
+  // The request gate already persisted the provider cooldown. This optional
+  // diagnostic must not delay an explicit provider error or save during play.
+  if (shouldDeferAutomaticProfileWork()) return true
   const state = loadState()
   if (!state) return true
   const quotaId = `${error.bucket}:${error.retryAt}`
@@ -8740,13 +8762,14 @@ async function recordYoutubeQuotaError(error) {
       detail: error.message,
       meta: { youtubeQuotaId: quotaId, reasons: error.reasons, retryAt: error.retryAt, bucket: error.bucket }
     })
-    if (!await saveState(state, { backup: false })) return false
+    if (!await saveState(state, { backup: false, ...(IS_AUTH_TRIAL ? { syncCloud: false } : {}) })) return false
     renderActivityLog(state)
   }
   return true
 }
 
 async function ytFetch(url) {
+  const quotaProfile = IS_AUTH_TRIAL ? loadState() : undefined
   youtubeRequestGate ||= createYoutubeRequestGate({
     namespace: `${STORAGE_KEY}_youtube_quota`, timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS
   })
@@ -8755,7 +8778,7 @@ async function ytFetch(url) {
   } catch (error) {
     if (isYoutubeQuotaError(error)) {
       error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
-      if (!await recordYoutubeQuotaError(error)) return false
+      if (!await recordYoutubeQuotaError(error, quotaProfile)) return false
     }
     if (error?.name === 'AbortError') throw Object.assign(new Error(t('toast.youtubeRequestTimeout')), { kind: 'timeout' })
     throw error
@@ -9191,6 +9214,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   }
   try {
     if (!s) return
+    if (!await waitForYoutubeRefreshOpportunity(s)) return
     if (!IS_SANDBOX && hasYoutubeApiKey()) {
       youtubeMetadataBudget ||= createYoutubeMetadataBudget({ namespace: `${STORAGE_KEY}_youtube_metadata_recovery` })
       const recover = youtubeMetadataBudget.createRun()
@@ -9216,6 +9240,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
           channels.forEach(channel => Object.assign(channel, details[channel.id]))
         },
         isCurrent: () => isCurrentLearnerProfileOperation(s),
+        beforeApply: () => waitForYoutubeRefreshOpportunity(s),
         readCurrent: () => {
           const latest = loadState()
           primaryProfileRepository?.inheritRevision(s, latest)
@@ -9224,10 +9249,10 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
         },
         // Persist each batch without rebuilding the feed during an active card reveal.
         onChange: async current => {
-          if (!isCurrentLearnerProfileOperation(s)) return false
+          if (!await waitForYoutubeRefreshOpportunity(s)) return false
           const snapshot = keepUnchangedMetadataLocal ? getPortableProfileSnapshot(current) : null
           const unchanged = keepUnchangedMetadataLocal && snapshot !== null && snapshot === metadataBaseline
-          if (!await saveState(current, unchanged ? { cloud: false } : {})) return false
+          if (!await saveState(current, unchanged ? { syncCloud: false } : {})) return false
           if (keepUnchangedMetadataLocal) {
             metadataChanged ||= !unchanged
             metadataBaseline = snapshot
@@ -9248,7 +9273,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
           })
         }
       })
-      if (!isCurrentLearnerProfileOperation(s)) return
+      if (!await waitForYoutubeRefreshOpportunity(s)) return
       if (changed) renderAll(s)
     }
     if (shouldRefreshYoutubeFeed(s)) {
@@ -9259,7 +9284,11 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   } finally {
     dismissMetadataProgress?.()
     maybeRefreshFeed._running = false
-    scheduleYoutubeAutoRefresh(loadState())
+    const current = loadState()
+    if (IS_AUTH_TRIAL && current && !isCurrentLearnerProfileOperation(s)) {
+      clearTimeout(startYoutubeAutoRefresh._timer)
+      startYoutubeAutoRefresh._timer = window.setTimeout(maybeRefreshFeed, 0)
+    } else scheduleYoutubeAutoRefresh(current)
   }
 }
 
@@ -9400,6 +9429,11 @@ function trackRefreshCompleted(startedAtMs, properties = {}) {
 }
 
 async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
+  const automatic = trigger === 'automatic'
+  const initialState = loadState()
+  if (!await waitForYoutubeRefreshOpportunity(initialState, automatic)) {
+    return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+  }
   if (starterFeedPreparationPromise) {
     const task = getActiveStarterFeed(loadState())
     if (task) showStarterFeedProgress(task)
@@ -9449,9 +9483,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: false, reason: 'no-channels', errors: [] }
     }
     const requestedChannelIds = Array.isArray(channelIds) ? new Set(channelIds) : null
-    const channelsToRefresh = requestedChannelIds
+    const channelsToRefresh = (requestedChannelIds
       ? s.config.channels.filter(channel => requestedChannelIds.has(channel.id))
-      : getDueYoutubeChannels(s)
+      : getDueYoutubeChannels(s)).map(channel => ({ ...channel }))
     if (!channelsToRefresh.length) {
       if (!silent) showToast(t('toast.nextRefresh', { time: formatRefreshWait(getYoutubeRefreshRemainingMs(s)) }), 'warn')
       trackRefreshCompleted(refreshStartedAtMs, {
@@ -9482,7 +9516,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     } catch (err) {
       console.warn('Channel profile pictures:', err.message)
     }
-    if (!isCurrentLearnerProfileOperation(s)) {
+    if (!await waitForYoutubeRefreshOpportunity(s, automatic)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
 
@@ -9490,8 +9524,12 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const detailsById = {}
     for (const ch of channelsToRefresh) {
       try {
+        if (!await waitForYoutubeRefreshOpportunity(s, automatic)) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
         const { videos: vids, filteredShorts, coverage } = await fetchChannelVideos(ch, s.videos, s.channelRefreshes?.[ch.id])
+        if (!await waitForYoutubeRefreshOpportunity(s, automatic)) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+        s = loadState()
         Object.assign(detailsById, await getFetchedVideoDetails(s, vids, includeShorts))
+        if (!await waitForYoutubeRefreshOpportunity(s, automatic)) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
         successfulChannels += 1
         all.push(...vids)
         filteredShortsDuringFetch += filteredShorts
@@ -9509,6 +9547,8 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
           meta: { channelId: ch.id, channelName: ch.name, fetchedCount: vids.length }
         })
       } catch (err) {
+        if (!await waitForYoutubeRefreshOpportunity(s, automatic)) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+        s = loadState()
         console.warn(`${ch.name}:`, err.message)
         markChannelRefreshError(s, ch.id, err)
         pendingActivity.push({
@@ -9522,7 +9562,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
         errors.push({ channelId: ch.id, name: ch.name, kind: err.kind, message: err.message || t('log.unknownError') })
       }
     }
-    if (!isCurrentLearnerProfileOperation(s)) {
+    if (!await waitForYoutubeRefreshOpportunity(s, automatic)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
 
@@ -9588,6 +9628,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     if (!await saveState(s, { syncCloud: unchanged ? false : undefined })) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
+    if (!await waitForYoutubeRefreshOpportunity(s, automatic)) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     renderAll(s)
 
     const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
@@ -9618,6 +9659,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     ) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
+    if (originatingState && !await waitForYoutubeRefreshOpportunity(originatingState, automatic)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
     console.error(err)
     const s = loadState()
     if (s) {
@@ -9631,7 +9675,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       })
       if (!await saveState(s)) return false
     }
-    if (!await recordYoutubeQuotaError(err)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    if (!await recordYoutubeQuotaError(err, s)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: 'failure',
@@ -15101,6 +15145,13 @@ async function setHistoryView(view) {
 }
 
 async function renderCity(score, s) {
+  if (!isCurrentLearnerProfileOperation(s)) return
+  // Async feed renders can request this local-only derived update during play.
+  // The quiet refresh recomputes its score from the latest acknowledged facts.
+  if (shouldDeferAutomaticProfileWork()) {
+    scheduleStudyDerivedRefresh(s)
+    return
+  }
   if (await updatePersistentCityLevel(s, score) === false) {
     s = loadState({ persistCleanup: false })
     if (!s) return

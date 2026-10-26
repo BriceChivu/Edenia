@@ -126,7 +126,7 @@ for (const source of ['src/app.js', 'compat/production/src/app.js']) {
     const state = {}
     let persisted = true
     let recovery = false
-    const context = vm.createContext({ performance: { now: () => 20 }, primaryProfileStorageUnavailable: false,
+    const context = vm.createContext({ IS_AUTH_TRIAL: false, performance: { now: () => 20 }, primaryProfileStorageUnavailable: false,
       profileRecoveryWorkspace: { isActive: () => recovery, getTier: () => recovery ? 'memory' : 'none' },
       reportWindowHealth: (...args) => reports.push(args), rememberPersistedPortableProfile: () => {},
       isCurrentLearnerProfileOperation: () => true, loadPersistedState: () => null,

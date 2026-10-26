@@ -9,6 +9,7 @@ const section = (a, b) => source.slice(source.indexOf(a), source.indexOf(b, sour
 function harness(videos = {}, channels = []) {
   const requests = []
   const context = vm.createContext({
+    IS_AUTH_TRIAL: false,
     isYoutubeMetadataFresh,
     loadState: () => ({ videos, config: { channels } }),
     getYoutubeApiKey: () => 'mock',

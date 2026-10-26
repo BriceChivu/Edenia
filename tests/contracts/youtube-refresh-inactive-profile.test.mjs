@@ -34,6 +34,8 @@ function createRefreshHarness(options = {}) {
     removeEventListener: type => listeners.delete(type)
   }
   const context = vm.createContext({
+    IS_AUTH_TRIAL: false,
+    waitForYoutubeRefreshOpportunity: async state => state === activeProfile,
     Date: FixedDate,
     preparePortableLearnerProfileEnvelope,
     youtubeRequestGate: null,
@@ -128,15 +130,19 @@ test('hiding the page does not refresh even when a channel is due', async () => 
 
 test('opening a feed announces metadata recovery before waiting for missing videos', async () => {
   let finishMetadata
+  let metadataStarted
+  const started = new Promise(resolve => { metadataStarted = resolve })
   const pending = new Promise(resolve => { finishMetadata = resolve })
   const harness = createRefreshHarness({
     refreshMetadata: async ({ fetchVideos }) => {
       await fetchVideos(['missing-metadata'])
+      metadataStarted()
       return pending
     }
   })
   harness.start()
   try {
+    await started
     assert.equal(harness.calls.toasts, 1, 'Missing-video recovery must show the updating notice before network requests finish')
     assert.equal(harness.notices[0].message, 'toast.refreshUpdating')
     assert.equal(harness.notices[0].options.durationMs, 0, 'The notice must last for the whole operation')
