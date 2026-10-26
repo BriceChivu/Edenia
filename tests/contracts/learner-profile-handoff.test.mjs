@@ -749,6 +749,50 @@ test('continuous play defers cloud delivery until the game is no longer in use',
   assert.equal(server.head().revision, 2)
 })
 
+test('a session event cannot force deferred profile preparation during visible gameplay', async () => {
+  const server = sharedCloud()
+  let quiet = false, preparations = 0
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
+    prepareEnvelope: profile => { preparations++; return digestEnvelope(profile) } })
+  phone.profile.videos.phone.favorite = true
+  phone.save()
+  await settle()
+  phone.profile.videos.phone.watchLater = true
+  phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true })
+  phone.adapter.saveDeferred({ activation: phone.activation, isCurrent: () => true,
+    readPersistedProfile: () => structuredClone(phone.profile) })
+  const before = preparations
+  assert.equal(phone.adapter.flushSessionBoundary(), false)
+  assert.equal(preparations, before)
+  assert.ok(phone.storage.getItem(`${SYNC_STORAGE_KEY}_dirty`))
+  assert.equal(server.head().revision, 1)
+  quiet = true
+  await phone.adapter.flushSessionBoundary()
+  assert.equal(server.head().revision, 2)
+  assert.equal((await openDevice(server)).profile.videos.phone.watchLater, true)
+})
+
+test('head response processing waits if gameplay resumes during the network read', async () => {
+  const server = sharedCloud(), response = deferred()
+  let quiet = true, completed = false
+  const phone = await openDevice(server, { getSyncOpportunity: () => quiet,
+    readHead: () => response.promise })
+  const checking = phone.adapter.checkActiveHead({ activation: phone.activation, isCurrent: () => true })
+    .then(result => { completed = true; return result })
+  await settle()
+  quiet = false
+  response.resolve({ data: server.head(), error: null })
+  await settle()
+  assert.equal(completed, false)
+  phone.setTime(600_000)
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  await settle()
+  assert.equal(completed, false, 'There is no active-play processing deadline')
+  quiet = true
+  phone.timers.splice(0).forEach(timer => timer.callback())
+  assert.equal((await checking).status, 'unchanged')
+})
+
 for (const allowNewUpload of [false, true]) test(`session boundary preserves deferred facts; new delivery allowed=${allowNewUpload}`, async () => {
   const server = sharedCloud()
   let quiet = false

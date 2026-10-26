@@ -1,6 +1,6 @@
-// The host supplies visibility/playback; Godot supplies gameplay activity.
+// The host supplies visibility/input; Godot supplies gameplay activity.
 // This is an opportunity signal only, never persistence or upload authority.
-export function createLearnerProfileSyncOpportunity({ isHidden, isWatchingVideo, now }) {
+export function createLearnerProfileSyncOpportunity({ isHidden, now }) {
   let visible = false
   let active = true
   let lastHostInputAt = -Infinity
@@ -13,8 +13,9 @@ export function createLearnerProfileSyncOpportunity({ isHidden, isWatchingVideo,
     },
     reportHostInput() { lastHostInputAt = now() },
     isQuiet() {
-      return isHidden() || !visible || isWatchingVideo()
-        || (!active && now() - lastHostInputAt >= 5000)
+      // Video playback can overlap with island input or pawn work. It cannot
+      // make visible gameplay a safe time for expensive profile processing.
+      return isHidden() || !visible || (!active && now() - lastHostInputAt >= 5000)
     }
   })
 }

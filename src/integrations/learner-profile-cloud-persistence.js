@@ -2398,7 +2398,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     let budgetDeferred = false
     publish('syncing')
     if (handoffEnabled) {
-      const head = await checkActiveHead({ activation: binding.activation, isCurrent: binding.isCurrent, preflight: true })
+      const head = await checkActiveHead({ activation: binding.activation, isCurrent: binding.isCurrent, preflight: true, force })
       if (handoffEnabled && getSyncOpportunity && !await responseOpportunity(binding, force)) {
         inFlight = false
         if (manualOpportunityBinding === binding) manualOpportunityBinding = null
@@ -3736,12 +3736,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   // Unlike resolve(), this read never opens, repairs or installs a profile.
   // Compare with live bookkeeping after the request: the save pump keeps running.
-  async function checkActiveHead({ activation, isCurrent, preflight = false } = {}) {
+  async function checkActiveHead({ activation, isCurrent, preflight = false, force = false } = {}) {
     const binding = activeBinding
     const current = () => binding && activeBinding === binding
       && binding.activation === activation && isCurrent?.() && binding.isCurrent()
     if (!current()) return { status: 'stale' }
     if (!isOnline()) return { status: 'waiting' }
+    if (handoffEnabled && getSyncOpportunity && !await responseOpportunity(binding, force)) return { status: 'stale' }
+    if (!current()) return { status: 'stale' }
     let response
     const cancellation = new AbortController()
     headRequests.add(cancellation)
@@ -3752,6 +3754,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       response = await (typeof request?.abortSignal === 'function' ? request.abortSignal(cancellation.signal) : request)
     } catch { return { status: current() ? 'waiting' : 'stale' } }
     finally { headRequests.delete(cancellation) }
+    if (!current()) return { status: 'stale' }
+    // Gameplay may have resumed while the head read was in flight. Even the
+    // outbox parse below can be large; wait before processing this response.
+    if (handoffEnabled && getSyncOpportunity && !await responseOpportunity(binding, force)) return { status: 'stale' }
     if (!current()) return { status: 'stale' }
     if (response?.error) {
       return { status: isTransientCloudStatus(response.status) ? 'waiting'
@@ -4348,8 +4354,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function flushSessionBoundary({ allowNewUpload = true } = {}) {
     // Even a terminal pagehide preserves the latest journal. It does not start
     // a new request when the lifecycle has already retired upload authority.
-    forceOpportunity = true
-    try { if (!drainDeferredSave()) return false } finally { forceOpportunity = false }
+    if (!drainDeferredSave()) return false
     const record = readSyncRecord()
     if (!handoffEnabled || !activeBinding?.isCurrent() || !record?.pending
       || record.pending.retryCount >= MAX_AUTOMATIC_RETRIES) return false
