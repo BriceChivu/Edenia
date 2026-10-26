@@ -110,16 +110,20 @@ node scripts/diagnostics/cloud-profile-save.mjs --videos=500 --records=true \
   --container=supabase_db_edenia-record-sync-v2 --docker-context=colima
 ```
 
-The fixture measured 543,836 envelope bytes versus 581 recurring batch bytes;
-warm database acceptance was 76.8 ms versus 6.3 ms. First record initialization
-cost 110.2 ms, a due recovery snapshot 118.8 ms, and a complete read 41.6 ms.
+Five paired trials measured 543,836 envelope bytes versus 581 recurring batch
+bytes; median warm database acceptance was 79.6 ms versus 6.5 ms. First record
+initialization cost 124.9 ms and a due recovery snapshot 119.6 ms. Cached full
+reads were unchanged (39.9/39.7 ms), while the first read with newer current
+records cost 151.5 ms to materialize its complete recovery snapshot.
 These are local function timings, not production/end-to-end latency. At five
 seconds, this models 12 typed commits per minute versus two full commits and
 approximately twice the database function time per minute, despite much smaller
 requests. Recovery snapshot frequency stays approximately two per minute. Typed
 commits require no separate head preflight; full delivery still uses its existing
 preflight. Detailed compatibility and verification are recorded in ADR 0002 and
-the #513 implementation report.
+the #513 implementation report. Its paired browser comparison measured actual
+local checkpoint acknowledgement at 89.0 ms versus 2.1 ms; returning opening
+ranges overlapped, so it does not establish a clear returning-load speedup.
 
 Profile acceptance keeps the existing canonical bytes, byte-length limit, SHA-256
 integrity, schema and study-fact checks. Recursive serialization handles scalar

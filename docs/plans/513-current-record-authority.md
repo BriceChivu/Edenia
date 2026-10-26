@@ -27,11 +27,11 @@ complete historical version. It would not satisfy the intended storage saving.
 ## One authority, with less frequent recovery snapshots
 
 Use the existing owner/profile/generation/revision head as the sole authority.
-Add one owner-scoped current-record table for the existing typed units: video
+One owner-scoped current-record table stores the existing typed units: video
 personal fields and metadata, Anki days, settings/channel membership, island and
 coupled progression/economy. Do not create another independently advancing head
-or an event ledger. Keep an explicit snapshot revision on the existing head so
-its recovery pointer can lag safely. Initialize current records from the valid
+or an event ledger. The immutable version referenced by the head records its
+snapshot revision, so that recovery pointer can lag safely. Initialize current records from the valid
 existing envelope atomically under the existing owner write lock.
 
 A typed commit must validate explicit supported operations, deletion intent,
@@ -77,10 +77,9 @@ version ID must always name immutable complete content.
 Retention and capacity reporting must include the current-record table and keep
 the current authority plus protected copies. Cleanup cannot discard accepted
 records because their latest ordinary recovery snapshot is older. Browser
-portable export uses the assembled envelope. Separately audit the account export:
-the present service export still includes `state_backups`, and does not yet
-include the current learner-profile head/version; do not assume that endpoint
-already supplies the latest portable profile.
+portable export uses the assembled envelope. The account server export also
+includes the latest current portable profile, alongside its existing account
+and backup fields.
 
 Old full-envelope writers must acquire the same lock, compare against the same
 current revision and replacement boundary, and update the same authority. If
@@ -103,7 +102,7 @@ infer duplicate XP or resource deltas from a missing receipt.
    cadence before changing the client transport. Cover revision 107/snapshot 100,
    owner isolation, invalid operations, exact retry/input mismatch, reset fences,
    protected-copy retention, latest read/export and old-client behavior.
-2. Deploy compatible server readers and writers with typed acceptance disabled.
+2. Deploy compatible server readers and writers with client record creation disabled.
    Keep the restricted tester admission. Existing full-envelope operations must
    remain readable and pending local edits must remain deliverable.
 3. Enable typed delivery only for the existing restricted internal-test route.
@@ -116,10 +115,10 @@ infer duplicate XP or resource deltas from a missing receipt.
    preparation, database work and total traffic justify it. Active visible game
    input or pawn work still has precedence over video playback and all automatic
    timers.
-5. To roll transport back, stop typed acceptance under the owner lock, materialize
-   every newer accepted current revision as a valid complete envelope, and return
-   to full-envelope delivery through the compatible server authority. Preserve
-   unsent candidates and existing receipts. Keep the upgraded Godot snapshot
+5. To roll transport back, disable new client record creation while keeping
+   immutable pending record requests deliverable. Full-envelope reads and writes
+   materialize newer accepted records under the same owner lock. Preserve
+   unsent candidates, upgraded local-overlay/pending-operation readers and existing receipts. Keep the upgraded Godot snapshot
    reader: rolling back transport cannot make an older game understand a newer
    durable island format. Do not drop the current-record table or revert to an
    older server resolver while any accepted update exists only there.
@@ -167,17 +166,35 @@ base. The 128 KiB overlay bound uses a complete durable fallback, without
 truncating progress. Necessary exceptional fallback work can still run during
 gameplay; ordinary checkpoint and cloud work follow the quiet gate.
 
-On the same 500-video server fixture, the existing rollback-only diagnostic
-(`--videos=500 --records=true`) measured 543,836 full-envelope bytes versus 581
-recurring batch bytes. Full acceptance was 76.8 ms and exact full retry 71.1 ms;
-record initialization was 110.2 ms once, warm acceptance 6.3 ms, exact record retry
-1.8 ms, a due recovery snapshot 118.8 ms, and complete read 41.6 ms. Two warm
-record accepts created no historical versions; a due snapshot created one.
+Five paired local trials on the same 500-video server fixture, using the existing
+rollback-only diagnostic (`--videos=500 --records=true`), measured 543,836
+full-envelope bytes versus 581 recurring batch bytes. Median full acceptance was
+79.6 ms and exact full retry 68.8 ms; record initialization was 124.9 ms once,
+warm acceptance 6.5 ms, exact record retry 1.9 ms, and a due recovery snapshot
+119.6 ms. Two warm record accepts created no historical versions; a due snapshot
+created one. The original resolver and the new already-materialized read were
+effectively unchanged at 39.9/39.7 ms. The first read while current records are
+newer than their snapshot took 151.5 ms because it assembles and materializes the
+complete recovery snapshot. All read variants returned the exact same profile.
 At five seconds this models 12 commit requests/minute versus two full commits,
 roughly 7 KB/minute versus 1.09 MB/minute of payload, and approximately twice the
-database function time per minute after periodic snapshots. Typed commits fold
+database function time per minute after periodic snapshots (304 ms versus 159 ms).
+Typed commits fold
 the head check into conditional acceptance; full delivery retains its preflight.
 These are local synthetic function measurements, not production latency claims.
+
+Five alternating browser trials compared pre-issue commit `f8926e1f` with client
+commit `a31beb0e`, using identical 500-video owned fixtures, Node 24.18.0 and
+Chromium 151. The game engine was disabled and every mocked owner RPC had the
+same 100 ms delay. Median first IndexedDB opening was 370.3 versus 325.1 ms;
+returning opening was 302.1 versus 294.4 ms, with overlapping ranges, so a clear
+returning-load improvement is not established. Actual warm player checkpoint
+acknowledgement, measured offline on both versions, was 89.0 versus 2.1 ms
+(ranges 62.5–103.4 versus 1.7–2.5 ms). IndexedDB value bytes fell from 498,616
+to 1,325, with one write in both cases and zero full-body writes on the new path.
+All ten measured profiles reopened with the expected resume/study facts and
+500 videos. Browser measurements exclude deferred cloud work, game loading and
+production network latency; they do not claim an end-to-end cloud speedup.
 
 The warm local 500-video fixture retained a 411,904-byte conservative UTF-16 body
 and wrote one 1,556-byte head for video/day/diagnostic units, with zero body writes;
