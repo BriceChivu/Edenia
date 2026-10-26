@@ -71,9 +71,10 @@ function fixture(count = 2) {
 // One conditional in-memory service models the existing owner lock, complete
 // reads and immutable receipts. It applies a batch to a copy before accepting it.
 function server(initial = fixture()) {
-  let revision = 1, generation = 1, envelope = prepare(initial)
+  let revision = 1, generation = 1, lastReplacementRevision = 0, envelope = prepare(initial)
   const calls = [], receipts = new Map(), conflicts = new Map()
-  const head = () => ({ user_id: OWNER, profile_id: PROFILE, generation, revision })
+  const head = () => ({ user_id: OWNER, profile_id: PROFILE, generation, revision,
+    last_replacement_revision: lastReplacementRevision })
   const digest = (name, parameters) => name === 'commit_my_learner_profile_records'
     ? recordRequestDigest({ ownerId: OWNER, operationId: parameters.p_operation_id,
       profileId: parameters.p_profile_id, generation: parameters.p_generation,
@@ -85,6 +86,7 @@ function server(initial = fixture()) {
     calls, receipts, head,
     profile: () => clone(envelope.profile),
     reset() { generation++; revision++; envelope = prepare(fixture()) },
+    replace(profile) { revision++; lastReplacementRevision = revision; envelope = prepare(profile) },
     async rpc(name, parameters = {}) {
       calls.push({ name, parameters: clone(parameters) })
       if (name === 'resolve_my_learner_profile') return { data: [{ status: 'profile_ready', created: false,
@@ -93,7 +95,8 @@ function server(initial = fixture()) {
       if (name === 'read_my_learner_profile_conflict') return { data: [conflicts.get(parameters.p_conflict_id)], error: null }
       if (['read_my_learner_profile_record_receipt', 'read_my_learner_profile_write_receipt'].includes(name)) {
         const receipt = receipts.get(parameters.p_operation_id)
-        return { data: [{ ...(receipt || {}), status: receipt ? 'already_accepted' : 'not_accepted', last_replacement_revision: 0 }], error: null }
+        return { data: [{ ...(receipt || {}), status: receipt ? 'already_accepted' : 'not_accepted',
+          last_replacement_revision: lastReplacementRevision }], error: null }
       }
       assert.ok(['commit_my_learner_profile_records', 'commit_my_learner_profile_handoff', 'commit_my_learner_profile'].includes(name), name)
       const requestDigest = digest(name, parameters)
@@ -143,6 +146,7 @@ function server(initial = fixture()) {
 
 async function device(service, { recordSyncEnabled = true, storage = memoryStorage(), local = null,
   rpc = (name, parameters) => service.rpc(name, parameters), quiet = () => true,
+  readHead = () => ({ data: service.head(), error: null }),
   interval = 0, recordInterval = 0, expectedStatus = 'activate' } = {}) {
   let time = 0, current = true, preparations = 0, headReads = 0
   const timers = new Map()
@@ -159,7 +163,7 @@ async function device(service, { recordSyncEnabled = true, storage = memoryStora
     importEnvelope: value => value.profile,
     getClient: () => ({ rpc, from(table) {
       assert.equal(table, 'learner_profile_heads')
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => { headReads++; return { data: service.head(), error: null } } }) }) }
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => { headReads++; return readHead() } }) }) }
     } }),
     getSyncOpportunity: quiet, isOnline: () => true, now: () => time,
     minimumWriteIntervalMs: interval, recordWriteIntervalMs: recordInterval,
@@ -264,6 +268,9 @@ test('lost accepted acknowledgement reopens through its typed receipt when the f
     if (name === 'commit_my_learner_profile_records' && lose) { lose = false; throw new TypeError('Response lost') }
     return response
   } })
+  phone.profile.activityLog = normalizePortableLearnerProfile({ ...fixture(), activityLog: [
+    { id: 'local-diagnostic', type: 'youtube-refresh', createdAt: at, detail: 'Phone diagnostic' }
+  ] }).activityLog
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
@@ -278,6 +285,10 @@ test('lost accepted acknowledgement reopens through its typed receipt when the f
   await until(() => resumed.state().pending === null, 'Matching receipt retires the typed candidate', resumed.inspect)
   assert.equal(resumed.state().acceptedRevision, 2)
   assert.equal(cloud.head().revision, 2)
+  assert.deepEqual(resumed.profile.activityLog, phone.profile.activityLog)
+  assert.deepEqual(cloud.profile().activityLog, [], 'Device history was never part of the typed request')
+  assert.equal(resumed.headReads(), 0, 'The immutable receipt already supplies the replacement fence')
+  assert.equal(resumed.state().pending, null, 'Local diagnostics do not create a full-envelope repair upload')
   assert.ok(cloud.calls.some(call => call.name === 'read_my_learner_profile_record_receipt'))
   const retries = commits(cloud).filter(call => call.parameters.p_operation_id === first.parameters.p_operation_id)
   for (const retry of retries) assert.deepEqual(retry, first)
@@ -287,6 +298,132 @@ test('lost accepted acknowledgement reopens through its typed receipt when the f
   await deliver(resumed, cloud, 3)
   assert.equal(commits(cloud).at(-1).name, 'commit_my_learner_profile_handoff', 'Flag-off creates only future full-envelope operations')
 })
+
+for (const recordSyncEnabled of [true, false]) {
+test(`a clean newer cloud install retains device diagnostics after typed delivery (flag ${recordSyncEnabled})`, async t => {
+  const cloud = server(), phone = await device(cloud)
+  phone.profile.activityLog = normalizePortableLearnerProfile({ ...fixture(), activityLog: [
+    { id: 'local-diagnostic', type: 'youtube-refresh', createdAt: at, detail: 'Phone diagnostic' }
+  ] }).activityLog
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await deliver(phone, cloud, 2)
+  phone.retire()
+  const computer = await device(cloud)
+  computer.profile.videos['video-1'].watchLater = true
+  computer.save({ videos: ['video-1'] })
+  await deliver(computer, cloud, 3)
+  computer.retire()
+  const reopened = await device(cloud, { recordSyncEnabled, storage: phone.storage,
+    local: { profile: phone.profile, revision: 2 } })
+  t.after(() => reopened.retire())
+  assert.deepEqual(reopened.profile.activityLog, phone.profile.activityLog)
+  assert.deepEqual(reopened.result.syncBaseProfile.activityLog, [], 'The retained base remains the real server profile')
+  assert.equal(reopened.profile.videos['video-0'].favorite, true)
+  assert.equal(reopened.profile.videos['video-1'].watchLater, true)
+  assert.equal(reopened.headReads(), 1, 'Only differing device history needs the narrow replacement metadata read')
+  assert.equal(reopened.state().pending, null)
+  assert.equal(reopened.result.backupRequired, false)
+  await reopened.advance(600_000)
+  assert.equal(commits(cloud).length, 2, 'Preserving device diagnostics never queues a delivery')
+  reopened.retire()
+  const returning = await device(cloud, { recordSyncEnabled, storage: reopened.storage,
+    local: { profile: reopened.profile, revision: 3 } })
+  t.after(() => returning.retire())
+  assert.deepEqual(returning.profile.activityLog, phone.profile.activityLog)
+  assert.equal(returning.headReads(), 0, 'An unchanged accepted revision needs no replacement metadata read')
+  assert.equal(returning.result.backupRequired, false, 'History alone is not an unqueued study edit')
+})
+}
+
+test('an interrupted accepted typed installation retains diagnostics without a recovery upload after flag-off', async t => {
+  const cloud = server(), phone = await device(cloud, { rpc: async (name, parameters) => {
+    const response = await cloud.rpc(name, parameters)
+    if (name === 'commit_my_learner_profile_records') throw new TypeError('Response lost')
+    return response
+  } })
+  phone.profile.activityLog = normalizePortableLearnerProfile({ ...fixture(), activityLog: [
+    { id: 'local-diagnostic', type: 'youtube-refresh', createdAt: at }
+  ] }).activityLog
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => cloud.head().revision === 2 && phone.state().pending?.retryCount === 1,
+    'The accepted typed candidate remains durable after its response is lost', phone.inspect)
+  phone.retire()
+  const installing = await device(cloud, { recordSyncEnabled: false, storage: phone.storage,
+    local: { profile: phone.profile, revision: 1 }, expectedStatus: null })
+  assert.equal(installing.result.status, 'activate')
+  assert.ok(installing.storage.getItem(`${KEY}_handoff_repair`), 'The cross-store installation journal precedes installation')
+  installing.retire()
+  // The repository installed the new profile, but the outbox commit callback
+  // did not run before the browser closed.
+  const reopened = await device(cloud, { recordSyncEnabled: false, storage: installing.storage,
+    local: { profile: installing.result.profile, revision: installing.result.revision } })
+  t.after(() => reopened.retire())
+  assert.deepEqual(reopened.profile.activityLog, phone.profile.activityLog)
+  assert.equal(reopened.state().acceptedRevision, 2)
+  assert.equal(reopened.state().pending, null)
+  assert.equal(reopened.storage.getItem(`${KEY}_handoff_repair`), null)
+  assert.equal(reopened.result.backupRequired, false)
+  await reopened.advance(600_000)
+  assert.equal(commits(cloud).length, 1)
+  assert.deepEqual(cloud.profile().activityLog, [])
+})
+
+for (const replacement of ['same-generation import', 'generation reset']) {
+test(`device diagnostics do not cross an intentional ${replacement}`, async t => {
+  const cloud = server(), phone = await device(cloud)
+  phone.profile.activityLog = normalizePortableLearnerProfile({ ...fixture(), activityLog: [
+    { id: 'local-diagnostic', type: 'youtube-refresh', createdAt: at }
+  ] }).activityLog
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await deliver(phone, cloud, 2)
+  phone.retire()
+  if (replacement === 'same-generation import') {
+    const imported = fixture()
+    imported.activityLog = normalizePortableLearnerProfile({ ...fixture(), activityLog: [
+      { id: 'imported-history', type: 'general', createdAt: later }
+    ] }).activityLog
+    cloud.replace(imported)
+  } else cloud.reset()
+  const reopened = await device(cloud, { recordSyncEnabled: false, storage: phone.storage,
+    local: { profile: phone.profile, revision: 2 } })
+  t.after(() => reopened.retire())
+  assert.deepEqual(reopened.profile.activityLog, cloud.profile().activityLog)
+  assert.equal(reopened.profile.activityLog.some(entry => entry.id === 'local-diagnostic'), false)
+  assert.equal(reopened.state().pending, null)
+  assert.equal(reopened.headReads(), replacement === 'same-generation import' ? 1 : 0)
+})
+}
+
+for (const race of ['newer head', 'new local edit']) {
+test(`diagnostic retention rejects an install overlapping a ${race}`, async t => {
+  const cloud = server(), phone = await device(cloud)
+  phone.profile.activityLog = normalizePortableLearnerProfile({ ...fixture(), activityLog: [
+    { id: 'local-diagnostic', type: 'youtube-refresh', createdAt: at }
+  ] }).activityLog
+  phone.retire()
+  const computer = await device(cloud)
+  computer.profile.videos['video-1'].favorite = true
+  computer.save({ videos: ['video-1'] })
+  await deliver(computer, cloud, 2)
+  computer.retire()
+  const reopened = await device(cloud, { storage: phone.storage,
+    local: { profile: phone.profile, revision: 1 }, expectedStatus: race === 'newer head' ? 'waiting-cloud' : 'recovering',
+    readHead: () => {
+      if (race === 'new local edit') phone.storage.setItem(`${KEY}_dirty`, JSON.stringify({
+        version: 1, ownerId: OWNER, profileId: PROFILE, generation: 1
+      }))
+      return { data: { ...cloud.head(), ...(race === 'newer head' ? { revision: 3 } : {}) }, error: null }
+    } })
+  t.after(() => reopened.retire())
+  assert.deepEqual(phone.profile.activityLog.map(entry => entry.id), ['local-diagnostic'])
+  assert.equal(commits(cloud).length, 1)
+  if (race === 'new local edit') assert.ok(phone.storage.getItem(`${KEY}_dirty`), 'The newer local edit remains durable')
+})
+}
 
 test('an uncertain unaccepted request retries identical typed bytes and ID after flag-off reload', async t => {
   const cloud = server(), attempts = []

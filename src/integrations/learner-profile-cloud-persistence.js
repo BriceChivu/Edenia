@@ -436,6 +436,42 @@ export function createLearnerProfileCloudPersistenceAdapter({
     catch { return null }
   }
 
+  async function retainRoutineDeviceActivity(profile, localProfile, identity, {
+    isCurrent, localRevision = localProfile?.revision, replacementRevision
+  } = {}) {
+    if (!handoffEnabled || localProfile?.status !== 'ready'
+      || localProfile.ownerId !== identity.ownerId || localProfile.profileId !== identity.profileId
+      || localProfile.generation !== identity.generation || !normalizePositiveInteger(localRevision)
+      || localRevision > identity.revision || !isRecord(profile)
+      || !Array.isArray(localProfile.profile?.activityLog)
+      || canonicalizeJson(profile.activityLog) === canonicalizeJson(localProfile.profile.activityLog)) return { profile }
+    if (localRevision < identity.revision
+      && (!Number.isSafeInteger(replacementRevision) || replacementRevision < 0)) {
+      const syncFence = readStoredSyncRecord().serialized
+      const dirtyFence = readDirtyRecord().serialized
+      let response
+      try {
+        response = await getClient().from('learner_profile_heads')
+          .select('user_id,profile_id,generation,revision,last_replacement_revision')
+          .eq('user_id', identity.ownerId).maybeSingle()
+      } catch { return waitForCloudHead() }
+      if (!isCurrent?.() || readStoredSyncRecord().serialized !== syncFence
+        || readDirtyRecord().serialized !== dirtyFence) return { status: 'recovering' }
+      if (response?.error) return isTransientCloudStatus(response.status) ? waitForCloudHead() : { status: 'recovering' }
+      const head = response?.data
+      if (head?.user_id !== identity.ownerId || head.profile_id !== identity.profileId
+        || head.generation !== identity.generation || head.revision !== identity.revision
+        || !Number.isSafeInteger(head.last_replacement_revision) || head.last_replacement_revision < 0
+        || head.last_replacement_revision > head.revision) return waitForCloudHead()
+      replacementRevision = head.last_replacement_revision
+    }
+    // Same-generation imports/restores and explicit choices remain replacement
+    // boundaries. Receipt replay already carries this evidence; a clean newer
+    // head needs the small metadata read only when its device history differs.
+    if (Number.isSafeInteger(replacementRevision) && replacementRevision > localRevision) return { profile }
+    return { profile: { ...profile, activityLog: JSON.parse(JSON.stringify(localProfile.profile.activityLog)) } }
+  }
+
   function matchesLocalIslandCheckpoint(localProfile, identity) {
     try {
       const checkpoint = JSON.parse(storage.getItem(localIslandCheckpointStorageKey))
@@ -3072,10 +3108,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
         if (!original) return false
       } else if (original) {
         const prepared = prepareEnvelope(localProfile.profile)
-        if (!restoreProfileBase(prepared.profile, repair.changes)) return false
+        const baseProfile = restoreProfileBase(prepared.profile, repair.changes)
+        if (!baseProfile) return false
         const next = createSyncRecord(repair.identity)
         if (stored.record.protectedConflictIds?.length) next.protectedConflictIds = [...stored.record.protectedConflictIds]
-        if (repair.changes.baseDigest !== repair.changes.targetDigest) next.pending = {
+        if (!portableProfilesHaveSameProgress(baseProfile, prepared.profile)) next.pending = {
           activationId: stored.record.pending.activationId, baseRevision: repair.identity.revision,
           changes: { ...repair.changes, baseRevision: repair.identity.revision },
           envelope: null, generation: repair.identity.generation, integrity: prepared.integrity,
@@ -3144,6 +3181,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
         if (!combined) return null
       }
     }
+    const activity = await retainRoutineDeviceActivity(combined, localProfile, cloudIdentity, {
+      isCurrent, localRevision: accepted ? pending.revision : record.acceptedRevision,
+      replacementRevision: receipt.last_replacement_revision
+    })
+    if (activity.status) return activity
+    combined = activity.profile
     let prepared
     let profile
     try {
@@ -3156,7 +3199,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const next = createSyncRecord(cloudIdentity)
     const repairOperationId = createOperationId()
     if (record.protectedConflictIds?.length) next.protectedConflictIds = [...record.protectedConflictIds]
-    if (portableProfileChangeDigest(prepared.profile) !== portableProfileChangeDigest(cloudEnvelope.profile)) {
+    if (!portableProfilesHaveSameProgress(prepared.profile, cloudEnvelope.profile)) {
       const changes = captureProfileChanges(cloudEnvelope.profile, prepared.profile)
       next.pending = {
         activationId: pending.activationId, baseRevision: cloudIdentity.revision,
@@ -3848,11 +3891,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
         // unqueued change to the current cloud head rather than an older copy.
         else if (localProfile.revision === revision) {
           profile = localProfile.profile
-          backupRequired = true
+          backupRequired = !handoffEnabled || !portableProfilesHaveSameProgress(
+            prepareEnvelope(localProfile.profile).profile, envelope.profile
+          )
         }
       } else {
         profile = retainLocalFeedCache(cloudProfile, localProfile.profile)
       }
+    }
+
+    if (!freshSignedInProfile && !recoveryFinalizationOperation) {
+      const activity = await retainRoutineDeviceActivity(profile, localProfile, cloudIdentity, { isCurrent })
+      if (activity.status) return activity
+      profile = activity.profile
     }
 
     const syncRepairs = [

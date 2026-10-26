@@ -1053,7 +1053,8 @@ test(`ambient sheep motion and refresh logs avoid a choice without a change jour
     return
   }
   assert.equal(result.status, 'activate')
-  assert.deepEqual(result.profile, cloudProfile)
+  assert.deepEqual(result.profile, replacementRevision > 0 ? cloudProfile
+    : { ...cloudProfile, activityLog: deviceProfile.activityLog })
   if (result.commitSyncRepair) assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
   else assert.equal(result.protectedConflicts.length, 1)
   assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending, null)
