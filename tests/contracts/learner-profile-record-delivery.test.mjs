@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { performance } from 'node:perf_hooks'
+import { setTimeout as waitForAsyncWork } from 'node:timers/promises'
 import { createLearnerProfileCloudPersistenceAdapter } from '../../src/integrations/learner-profile-cloud-persistence.js'
 import {
   finalizePortableLearnerProfileEnvelope,
@@ -20,13 +22,22 @@ const later = '2026-10-26T10:01:00.000Z'
 const clone = value => structuredClone(value)
 const prepare = profile => preparePortableLearnerProfileEnvelope(profile, { now: () => new Date(later) })
 const settle = () => new Promise(resolve => setImmediate(resolve))
-async function until(condition, label) {
-  for (let turn = 0; turn < 100; turn++) {
-    if (condition()) return
-    await settle()
+async function until(condition, label, diagnostics = () => undefined) {
+  // Upload cadence uses the fixture's fake clock. Real WebCrypto completion
+  // uses a worker, so event-loop turn counts cannot bound its completion time.
+  const timeoutMs = 5000
+  const deadline = performance.now() + timeoutMs
+  while (!condition()) {
+    const remaining = deadline - performance.now()
+    if (remaining <= 0) {
+      let details
+      try { details = JSON.stringify(diagnostics(), null, 2) } catch (error) { details = error.message }
+      assert.fail(`${label}: no completion within ${timeoutMs} ms${details ? `\n${details}` : ''}`)
+    }
+    await waitForAsyncWork(Math.min(5, remaining))
   }
-  assert.ok(condition(), label)
 }
+
 function deferred() {
   let resolve, reject
   const promise = new Promise((yes, no) => { resolve = yes; reject = no })
@@ -172,6 +183,19 @@ async function device(service, { recordSyncEnabled = true, storage = memoryStora
   return {
     adapter, storage, profile, activation, result, state,
     preparations: () => preparations, headReads: () => headReads,
+    inspect() {
+      const durable = state()
+      const operation = value => value ? {
+        operationId: value.operationId, transport: value.recordBatch ? 'records' : 'full',
+        baseRevision: value.baseRevision, revision: value.revision, finalized: Boolean(value.envelope),
+        retryCount: value.retryCount, nextRetryAt: value.nextRetryAt
+      } : null
+      return { status: adapter.getState().status, virtualTime: time,
+        acceptedRevision: durable?.acceptedRevision, pending: operation(durable?.pending), queued: operation(durable?.queued),
+        scheduledAt: [...timers.values()].map(timer => timer.at), preparations, headReads, cloudHead: service.head(),
+        recentRequests: service.calls.slice(-5).map(call => ({ name: call.name,
+          operationId: call.parameters.p_operation_id, baseRevision: call.parameters.p_base_revision })) }
+    },
     retire() { current = false; adapter.destroy() },
     async advance(milliseconds = 500) {
       time += milliseconds
@@ -190,7 +214,7 @@ const commits = service => service.calls.filter(call => call.name.startsWith('co
 
 async function deliver(device, service, revision) {
   await device.advance()
-  await until(() => service.head().revision === revision && device.state().acceptedRevision === revision, 'Delivery is durably acknowledged')
+  await until(() => service.head().revision === revision && device.state().acceptedRevision === revision, 'Delivery is durably acknowledged', device.inspect)
 }
 
 test('real portable serialization delivers one changed video without unchanged metadata or a full envelope', async t => {
@@ -228,7 +252,7 @@ test('visible active gameplay defers preparation and delivery even during video 
   assert.equal(phone.state().pending, null)
   opportunity.reportGame({ visible: true, active: false })
   await phone.advance()
-  await until(() => phone.state().acceptedRevision === 2, 'A quiet opportunity releases the deferred candidate')
+  await until(() => phone.state().acceptedRevision === 2, 'A quiet opportunity releases the deferred candidate', phone.inspect)
   assert.equal(commits(cloud)[0].name, 'commit_my_learner_profile_records')
 })
 
@@ -243,7 +267,7 @@ test('lost accepted acknowledgement reopens through its typed receipt when the f
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => cloud.head().revision === 2 && phone.state().pending?.retryCount === 1, 'Accepted response was lost')
+  await until(() => cloud.head().revision === 2 && phone.state().pending?.retryCount === 1, 'Accepted response was lost', phone.inspect)
   const immutable = clone(phone.state().pending)
   assert.ok(immutable.recordBatch)
   const first = commits(cloud)[0]
@@ -251,7 +275,7 @@ test('lost accepted acknowledgement reopens through its typed receipt when the f
   const resumed = await device(cloud, { recordSyncEnabled: false, storage: phone.storage,
     local: { profile: phone.profile, revision: 1 } })
   t.after(() => resumed.retire())
-  await until(() => resumed.state().pending === null, 'Matching receipt retires the typed candidate')
+  await until(() => resumed.state().pending === null, 'Matching receipt retires the typed candidate', resumed.inspect)
   assert.equal(resumed.state().acceptedRevision, 2)
   assert.equal(cloud.head().revision, 2)
   assert.ok(cloud.calls.some(call => call.name === 'read_my_learner_profile_record_receipt'))
@@ -276,7 +300,7 @@ test('an uncertain unaccepted request retries identical typed bytes and ID after
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => phone.state().pending?.retryCount === 1, 'Uncertain typed request is durably retained')
+  await until(() => phone.state().pending?.retryCount === 1, 'Uncertain typed request is durably retained', phone.inspect)
   const pending = clone(phone.state().pending)
   assert.equal(cloud.head().revision, 1)
   assert.equal(attempts.length, 1)
@@ -285,7 +309,7 @@ test('an uncertain unaccepted request retries identical typed bytes and ID after
     local: { profile: phone.profile, revision: 1 } })
   t.after(() => reopened.retire())
   reopened.adapter.retry()
-  await until(() => reopened.state().acceptedRevision === 2, 'Pending typed request survives transport rollback')
+  await until(() => reopened.state().acceptedRevision === 2, 'Pending typed request survives transport rollback', reopened.inspect)
   const [accepted] = commits(cloud)
   assert.equal(accepted.name, 'commit_my_learner_profile_records')
   assert.deepEqual(accepted, attempts[0])
@@ -303,14 +327,14 @@ test('an existing v1 full-envelope operation survives enabling record sync', asy
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => Boolean(phone.state().pending?.envelope), 'Legacy request is finalized before delivery')
+  await until(() => Boolean(phone.state().pending?.envelope), 'Legacy request is finalized before delivery', phone.inspect)
   const pending = clone(phone.state().pending)
   assert.equal(Object.hasOwn(pending, 'recordBatch'), false)
   phone.retire()
   const reopened = await device(cloud, { recordSyncEnabled: true, storage: phone.storage,
     local: { profile: phone.profile, revision: 1 } })
   t.after(() => reopened.retire())
-  await until(() => reopened.state().acceptedRevision === 2, 'Legacy bytes survive trial enablement')
+  await until(() => reopened.state().acceptedRevision === 2, 'Legacy bytes survive trial enablement', reopened.inspect)
   const accepted = commits(cloud).find(call => call.parameters.p_operation_id === pending.operationId)
   assert.equal(accepted.name, 'commit_my_learner_profile_handoff')
   assert.deepEqual(accepted.parameters.p_envelope, pending.envelope)
@@ -330,7 +354,7 @@ test('a newer queued edit survives the older typed acknowledgement', async t => 
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => held, 'First typed request accepted and awaiting its response')
+  await until(() => held, 'First typed request accepted and awaiting its response', phone.inspect)
   const first = commits(cloud)[0]
   quiet = false
   const before = phone.preparations()
@@ -347,7 +371,7 @@ test('a newer queued edit survives the older typed acknowledgement', async t => 
   assert.ok(phone.storage.getItem(`${KEY}_dirty`), 'The newer acknowledged local edit remains pending')
   quiet = true
   await phone.advance()
-  await until(() => phone.state().acceptedRevision === 3, 'Later edit follows the older acknowledgement')
+  await until(() => phone.state().acceptedRevision === 3, 'Later edit follows the older acknowledgement', phone.inspect)
   assert.equal(cloud.profile().videos['video-0'].favorite, true)
   assert.equal(cloud.profile().videos['video-1'].watchLater, true)
   const sent = commits(cloud)
@@ -378,7 +402,7 @@ test('separate device records combine through the existing protected handoff res
   computer.profile.videos['video-1'].watchLater = true
   computer.save({ videos: ['video-1'] })
   await computer.advance()
-  await until(() => computer.adapter.getState().status === 'head-changed', 'Stale device detects the current head')
+  await until(() => computer.adapter.getState().status === 'head-changed', 'Stale device detects the current head', computer.inspect)
   const result = await computer.adapter.resolve({ authentication: { userId: OWNER }, connectivity: { status: 'online' },
     localProfile: { status: 'ready', ownerId: OWNER, profileId: PROFILE, generation: 1, revision: 1, profile: computer.profile },
     purpose: 'resolve-signed-in-profile' })
@@ -389,7 +413,7 @@ test('separate device records combine through the existing protected handoff res
   Object.assign(computer.profile, clone(result.profile))
   computer.adapter.activate({ activation: computer.activation, baseProfile: result.syncBaseProfile,
     generation: result.generation, revision: result.revision, profile: computer.profile, isCurrent: () => true })
-  await until(() => cloud.head().revision === 3, 'Combined profile is accepted once')
+  await until(() => cloud.head().revision === 3, 'Combined profile is accepted once', computer.inspect)
   assert.equal(cloud.profile().videos['video-0'].favorite, true)
   assert.equal(cloud.profile().videos['video-1'].watchLater, true)
 })
@@ -403,7 +427,7 @@ test('simultaneous meaningful island edits retain both candidates for an explici
   computer.profile.tinySwordsIsland.resources.wood = 2
   computer.save({ island: true })
   await computer.advance()
-  await until(() => computer.adapter.getState().status === 'head-changed', 'Competing island stays pending')
+  await until(() => computer.adapter.getState().status === 'head-changed', 'Competing island stays pending', computer.inspect)
   const result = await computer.adapter.resolve({ authentication: { userId: OWNER }, connectivity: { status: 'online' },
     localProfile: { status: 'ready', ownerId: OWNER, profileId: PROFILE, generation: 1, revision: 1, profile: computer.profile },
     purpose: 'resolve-signed-in-profile' })
@@ -423,7 +447,7 @@ test('an intentional generation reset fences a pending typed island and protects
   cloud.reset()
   quiet = true
   await phone.advance()
-  await until(() => phone.adapter.getState().status === 'head-changed', 'Reset generation prevents the stale write')
+  await until(() => phone.adapter.getState().status === 'head-changed', 'Reset generation prevents the stale write', phone.inspect)
   const result = await phone.adapter.resolve({ authentication: { userId: OWNER }, connectivity: { status: 'online' },
     localProfile: { status: 'ready', ownerId: OWNER, profileId: PROFILE, generation: 1, revision: 1, profile: phone.profile },
     purpose: 'resolve-signed-in-profile' })
@@ -447,7 +471,7 @@ test('an accepted typed receipt with a different request digest cannot retire lo
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => phone.adapter.getState().status === 'not-backed-up', 'Mismatched acknowledgement is rejected')
+  await until(() => phone.adapter.getState().status === 'not-backed-up', 'Mismatched acknowledgement is rejected', phone.inspect)
   assert.equal(phone.state().acceptedRevision, 1)
   assert.equal(phone.state().pending.recordBatch.units[0].after.favorite, true)
   assert.equal(cloud.head().revision, 2)
@@ -460,7 +484,7 @@ test('a damaged batch cannot disagree with its full recovery candidate on reopen
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => Boolean(phone.state().pending?.envelope), 'Typed candidate is durable and finalized')
+  await until(() => Boolean(phone.state().pending?.envelope), 'Typed candidate is durable and finalized', phone.inspect)
   const broken = phone.state()
   broken.pending.recordBatch.units[0].after.favorite = false
   assert.equal(isProfileRecordBatch(broken.pending.recordBatch), true, 'Damage is a semantic mismatch, not an invalid JSON shape')
@@ -489,11 +513,11 @@ test('a missing typed RPC preserves the immutable operation instead of silently 
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => phone.adapter.getState().status === 'not-backed-up', 'Missing capability leaves a recoverable candidate')
+  await until(() => phone.adapter.getState().status === 'not-backed-up', 'Missing capability leaves a recoverable candidate', phone.inspect)
   const pending = clone(phone.state().pending)
   assert.ok(pending.recordBatch)
   phone.adapter.retry()
-  await until(() => attempted.length === 2, 'Explicit retry keeps the recorded transport')
+  await until(() => attempted.length === 2, 'Explicit retry keeps the recorded transport', phone.inspect)
   assert.deepEqual(attempted[0], attempted[1])
   assert.equal(phone.state().pending.operationId, pending.operationId)
   assert.equal(phone.state().acceptedRevision, 1)
@@ -531,7 +555,7 @@ test('a generic queued full candidate retains older edits when a later known rec
   phone.profile.videos['video-0'].favorite = true
   phone.save({ videos: ['video-0'] })
   await phone.advance()
-  await until(() => held, 'Typed request is accepted but its response remains in flight')
+  await until(() => held, 'Typed request is accepted but its response remains in flight', phone.inspect)
   phone.profile.videos['video-1'].favorite = true
   assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
   assert.equal(phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true, dirtyUnits: null }).status, 'queued')
@@ -540,7 +564,7 @@ test('a generic queued full candidate retains older edits when a later known rec
   phone.save({ videos: ['video-2'] })
   await phone.advance()
   hold.resolve()
-  await until(() => phone.state().acceptedRevision === 3, 'Both queued changes follow the original typed request')
+  await until(() => phone.state().acceptedRevision === 3, 'Both queued changes follow the original typed request', phone.inspect)
   assert.equal(commits(cloud).length, 2)
   assert.equal(commits(cloud)[1].name, 'commit_my_learner_profile_handoff')
   assert.equal(cloud.profile().videos['video-0'].favorite, true)
@@ -576,7 +600,7 @@ test('a newer queued edit during a generation-receipt lookup prevents stale prot
   cloud.reset()
   quiet = true
   await phone.advance()
-  await until(() => phone.adapter.getState().status === 'head-changed', 'Reset fences the pending island')
+  await until(() => phone.adapter.getState().status === 'head-changed', 'Reset fences the pending island', phone.inspect)
   inject = true
   const result = await phone.adapter.resolve({ authentication: { userId: OWNER }, connectivity: { status: 'online' },
     localProfile: { status: 'ready', ownerId: OWNER, profileId: PROFILE, generation: 1, revision: 1, profile: phone.profile },
@@ -606,7 +630,7 @@ test('a mismatched head-changed request digest cannot authorize full-candidate c
   computer.profile.tinySwordsIsland.resources.wood = 2
   computer.save({ island: true })
   await computer.advance()
-  await until(() => computer.adapter.getState().status === 'not-backed-up', 'A mismatched rejection cannot authorize response installation')
+  await until(() => computer.adapter.getState().status === 'not-backed-up', 'A mismatched rejection cannot authorize response installation', computer.inspect)
   assert.equal(computer.state().acceptedRevision, 1)
   assert.ok(computer.state().pending.recordBatch)
   const original = computer.state().pending.operationId
@@ -629,7 +653,7 @@ test('a reset protects a newer typed queue even when its predecessor used full-e
   assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
   assert.equal(phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
     dirtyUnits: null }).status, 'queued')
-  await until(() => Boolean(phone.state().pending?.envelope), 'Full predecessor is finalized and in flight')
+  await until(() => Boolean(phone.state().pending?.envelope), 'Full predecessor is finalized and in flight', phone.inspect)
   phone.profile.videos['video-1'].watchLater = true
   assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
   assert.equal(phone.adapter.save(phone.profile, { activation: phone.activation, isCurrent: () => true,
@@ -666,7 +690,7 @@ test('continuous dirty study records coalesce without restarting the five-second
   await phone.advance(999)
   assert.equal(cloud.head().revision, 2)
   await phone.advance(1)
-  await until(() => phone.state().acceptedRevision === 3, 'The original five-second clock sends the latest coalesced value')
+  await until(() => phone.state().acceptedRevision === 3, 'The original five-second clock sends the latest coalesced value', phone.inspect)
   assert.equal(cloud.profile().videos['video-0'].resumeAtSeconds, 99)
   assert.equal(commits(cloud).length, 2)
   assert.equal(commits(cloud)[1].name, 'commit_my_learner_profile_records')
@@ -683,7 +707,7 @@ test('unsupported full-envelope edits retain the slower thirty-second delivery i
   await phone.advance(29999)
   assert.equal(cloud.head().revision, 2)
   await phone.advance(1)
-  await until(() => phone.state().acceptedRevision === 3, 'Full delivery waits for its existing slower interval')
+  await until(() => phone.state().acceptedRevision === 3, 'Full delivery waits for its existing slower interval', phone.inspect)
   assert.equal(cloud.profile().config.weeklyGoalHours, 8)
   assert.deepEqual(commits(cloud).map(call => call.name), ['commit_my_learner_profile_handoff', 'commit_my_learner_profile_handoff'])
 })
