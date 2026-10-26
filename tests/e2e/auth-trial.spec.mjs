@@ -58,6 +58,7 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
   })).envelope
   let revision=1
   let generation=1
+  let lastReplacementRevision=0
   let authenticated=session()
   let reset=null
   let imported=null
@@ -88,7 +89,7 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
     if(path==='/auth/v1/logout'){await reply({status:204});return}
     if(path==='/auth/v1/token'){await reply({json:authenticated});return}
     if(path==='/auth/v1/user'){await reply({json:authenticated.user});return}
-    if(path==='/rest/v1/learner_profile_heads'){await reply({json:{user_id:authenticated.user.id,...identity()}});return}
+    if(path==='/rest/v1/learner_profile_heads'){await reply({json:{user_id:authenticated.user.id,...identity(),last_replacement_revision:lastReplacementRevision}});return}
     if(path==='/rest/v1/rpc/resolve_my_learner_profile'){await reply({json:[{status:'profile_ready',created:false,...identity(),envelope}]});return}
     if(path==='/rest/v1/rpc/open_my_learner_profile'){
       const args=route.request().postDataJSON()
@@ -109,16 +110,16 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
     if(path==='/rest/v1/rpc/start_over_my_learner_profile'){
       const args=route.request().postDataJSON()
       reset={envelope,generation,revision,status:'available'}
-      envelope=args.p_envelope;generation+=1;revision=1
+      envelope=args.p_envelope;generation+=1;revision=1;lastReplacementRevision=0
       await reply({json:[{status:'started_over',...identity(),reset_id:resetId,envelope,protected_until:protectedUntil}]});return
     }
     if(path==='/rest/v1/rpc/undo_my_learner_profile_start_over'){
-      envelope=reset.envelope;revision+=1;reset.status='undone'
+      envelope=reset.envelope;revision+=1;reset.status='undone';lastReplacementRevision=revision
       await reply({json:[{status:'undone',...identity(),reset_id:resetId,envelope}]});return
     }
     if(path==='/rest/v1/rpc/import_my_learner_profile'){
       const args=route.request().postDataJSON()
-      imported={args,previous:envelope};envelope=args.p_envelope;revision=args.p_base_revision+1
+      imported={args,previous:envelope};envelope=args.p_envelope;revision=args.p_base_revision+1;lastReplacementRevision=revision
       await reply({json:[{status:'replaced',...identity(),base_revision:args.p_base_revision,
         payload_sha256:envelope.integrity.payloadSha256,protected_until:protectedUntil}]});return
     }
@@ -128,7 +129,7 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
         operation_id:imported.args.p_operation_id,previous_envelope:imported.previous,protected_until:protectedUntil}]});return
     }
     if(path==='/rest/v1/rpc/rollback_my_learner_profile_import'){
-      envelope=imported.previous;revision=imported.args.p_base_revision+2
+      envelope=imported.previous;revision=imported.args.p_base_revision+2;lastReplacementRevision=revision
       await reply({json:[{status:'rolled_back',...identity(),base_revision:imported.args.p_base_revision}]});return
     }
     if(path==='/rest/v1/rpc/commit_my_learner_profile'||path==='/rest/v1/rpc/commit_my_learner_profile_handoff'){
@@ -142,13 +143,13 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
       receipts.set(args.p_operation_id,accepted)
       await reply({json:[accepted]});return
     }
-    if(path==='/rest/v1/rpc/read_my_learner_profile_write_receipt'){const receipt=receipts.get(route.request().postDataJSON().p_operation_id);await reply({json:[receipt?{...receipt,status:'already_accepted'}:{status:'not_accepted'}]});return}
+    if(path==='/rest/v1/rpc/read_my_learner_profile_write_receipt'){const receipt=receipts.get(route.request().postDataJSON().p_operation_id);await reply({json:[{...(receipt?{...receipt,status:'already_accepted'}:{status:'not_accepted'}),last_replacement_revision:lastReplacementRevision}]});return}
     await reply({json:[]})
   })
   return {commits,island,requests,
     head:()=>({envelope:structuredClone(envelope),generation,revision}),
     advanceRevision:()=>{revision+=1},
-    replaceIdentity:(userId,nextEnvelope)=>{authenticated=session(userId);envelope=nextEnvelope;revision=1;generation=1;return authenticated},
+    replaceIdentity:(userId,nextEnvelope)=>{authenticated=session(userId);envelope=nextEnvelope;revision=1;generation=1;lastReplacementRevision=0;return authenticated},
     protectedImport:()=>imported
   }
 }
