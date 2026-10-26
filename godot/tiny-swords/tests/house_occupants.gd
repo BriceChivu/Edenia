@@ -19,11 +19,11 @@ func run() -> void:
 			layout.cells[Vector2i(x, y)] = "meadow"
 	for kind in layout.KINDS:
 		layout.stock[kind] = 0
-	layout.stock.tree = 2
+	layout.stock.tree = 3
 	layout.stock.bridge = 1
 	layout.stock.sheep = 0
-	layout.stock.chicken = 0
-	layout.free_house_grass = layout.cells.size() - 27
+	layout.stock.chicken = 1
+	layout.free_house_grass = layout.cells.size() - 29
 	layout.house_bundle = 6
 	layout.resources.wood = 6
 	var site := Vector2i.ZERO
@@ -45,7 +45,7 @@ func run() -> void:
 	check(layout.house_displacements.size() == 2, "Both animals have running animation routes")
 	var copy = Layout.new()
 	check(copy.restore(layout.snapshot()), "Displaced occupants survive save/load")
-	check(copy.restore(before) and copy.sheep[0] == inside and copy.flora.has(Vector2i.ONE), "Undo restores occupants and cleared decoration")
+	check(copy.restore(before) and copy.sheep.size() == 1 and copy.chickens.size() == 1 and copy.flora.has(Vector2i.ONE), "Undo restores animal ownership and cleared decoration")
 	# An isolated piece of grass wholly covered by a new contact has no exit.
 	var trapped = Layout.new()
 	trapped.cells.clear()
@@ -60,7 +60,7 @@ func run() -> void:
 	check(trapped.sheep.is_empty() and trapped.chickens.is_empty(), "Trapped occupants leave the world")
 	check(trapped.stock.sheep == sheep_stock + 1 and trapped.stock.chicken == chicken_stock + 1, "Trapped animals return exactly one inventory item each")
 	# Verify the visible nodes run while durable saved positions remain outside.
-	var world = preload("res://previews/level_five.tscn").instantiate()
+	var world = load("res://previews/level_five.tscn").instantiate()
 	world.camera_save_enabled = false
 	root.add_child(world)
 	world.editing = false

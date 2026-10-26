@@ -143,7 +143,7 @@ func run() -> void:
 	var malformed: Dictionary = capped_house.duplicate(true)
 	malformed.house_free_tiles[0][2].append(malformed.house_free_tiles[0][2][0])
 	check(not capped_copy.restore(malformed) and capped_copy.snapshot() == capped_house, "Malformed ownership is rejected without changing the island")
-	var legacy: Dictionary = capped_house.duplicate(true)
+	var legacy: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(capped_copy)
 	legacy.version = 29
 	legacy.erase("house_free_tiles")
 	check(capped_copy.restore(legacy) and capped_copy.house_free_tiles.is_empty() and capped_copy.free_house_grass == free_before + 4, "Legacy untracked free grass is preserved without guessing ownership")

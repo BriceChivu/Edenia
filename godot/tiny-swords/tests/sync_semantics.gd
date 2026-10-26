@@ -20,6 +20,29 @@ func _init() -> void:
 	layout.stock.chicken -= 1
 	layout.resources.wood += 1
 	check(layout.snapshot().sync_semantics != current.sync_semantics, "Resource changes remain meaningful")
+	var owned := Layout.new()
+	for target in range(2, 9): owned.unlock(target)
+	owned.flora.clear()
+	owned.decorations.clear()
+	owned.sheep.assign([owned.safe_ground_point(Vector2i(1, 0), true)])
+	owned.stock.sheep -= 1
+	owned.sheep_chickens = {0: 20000}
+	owned.chicken_release_at = 100.0
+	owned.stock.chicken -= 2
+	var durable: Dictionary = owned.snapshot()
+	check(durable.version == 38 and not durable.has("chickens") and not durable.has("sheep"), "Durable snapshots contain ownership counts without cosmetic coordinates")
+	var restored := Layout.new()
+	check(restored.restore(durable) and restored.sheep.size() == 1 and restored.sheep_chickens == owned.sheep_chickens and restored.chicken_release_at == 100.0 and restored.chickens.is_empty(), "Count restoration preserves perched and carried birds without releasing or duplicating them")
+	check(restored.walkable_point(restored.sheep[0], true) and restored.terrain_feet_free(restored.sheep[0], true, preload("res://scripts/animal_contact.gd").SHEEP), "Godot derives a valid sheep contact from saved terrain")
+	var legacy: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(owned)
+	legacy.version = 37
+	check(restored.restore(legacy) and restored.sheep_chickens == owned.sheep_chickens and restored.sheep.size() == 1, "Old position-bearing snapshots retain all owned animals and passengers")
+	var roundtrip: Dictionary = restored.snapshot()
+	check(restored.restore(roundtrip) and restored.snapshot() == roundtrip, "New durable snapshots reload independently of cloud transport")
+	durable.sheep_count += 1
+	check(not Layout.new().restore(durable), "Counts cannot duplicate earned sheep")
+	durable.sheep_count = -1
+	check(not Layout.new().restore(durable), "Negative animal counts are rejected")
 	if failures.is_empty(): print("Tiny Swords sync semantics passed")
 	quit(0 if failures.is_empty() else 1)
 

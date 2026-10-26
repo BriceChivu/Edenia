@@ -11,11 +11,12 @@ const key = 'edenia_v1_auth_trial_v1'
 const origin = 'https://handoff-fixture.supabase.co'
 const deferred = () => { let resolve; const promise = new Promise(next => { resolve = next }); return { promise, resolve } }
 
-async function createCloud() {
+async function createCloud(island = null) {
   const state = structuredClone(fixture.resolution.envelope.profile)
   state.config.ankiEnabled = false
   state.onboarding.walkthroughCompleted = true
   state.onboarding.walkthroughCompletedAt = state.onboarding.setupCompletedAt
+  if (island) state.tinySwordsIsland = island
   state.videos = Object.fromEntries(['phone', 'computer'].map(id => [id, {
     id, title: `${id} lesson`, duration: 300, manuallyAdded: true, status: 'partial',
     resumeAtSeconds: 10, watchProgress: [], watchProgressTracked: true, favorite: false
@@ -87,7 +88,7 @@ async function createCloud() {
   }
 }
 
-async function createDevice(browser, cloud, device, browserName, baseURL) {
+async function createDevice(browser, cloud, device, browserName, baseURL, { realGame = false } = {}) {
   const context = await browser.newContext(device === 'phone'
     ? { ...devices[browserName === 'webkit' ? 'iPhone 13' : 'Pixel 7'] }
     : { viewport: { width: 1440, height: 900 }, timezoneId: 'Asia/Taipei' })
@@ -102,7 +103,7 @@ async function createDevice(browser, cloud, device, browserName, baseURL) {
   })
   await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript', body: `window.EDENIA_CONFIG=${JSON.stringify({
     authTrialEnabled: true, accountFeaturesRollout: 'off', learnerProfileLifecycleEnabled: false,
-    indexedDbProfileEnabled: true, indexedDbBackupsEnabled: false, tinySwordsEnabled: false,
+    indexedDbProfileEnabled: true, indexedDbBackupsEnabled: false, tinySwordsEnabled: realGame,
     googleSignInMode: 'off', supabaseUrl: origin, supabasePublishableKey: 'fixture-key', youtubeApiKey: ''
   })}` }))
   const head = cloud.head()
@@ -116,7 +117,7 @@ async function createDevice(browser, cloud, device, browserName, baseURL) {
     localStorage.setItem(key + '_learner_profile_sync_v1', JSON.stringify({ version: 1,
       ownerId: owner, profileId, generation: 1, acceptedRevision: head.revision, pending: null, queued: null }))
   }, { key, head, session: fixture.session, owner, profileId })
-  await page.clock.install({ time: new Date('2026-10-12T12:00:00.000Z') })
+  if (!realGame) await page.clock.install({ time: new Date('2026-10-12T12:00:00.000Z') })
   await page.goto(new URL('?internal_test=1', baseURL).href)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
@@ -334,6 +335,38 @@ test('active Tiny Swords batches durable study saves until gameplay stops', asyn
     await expect.poll(() => phone.page.evaluate(key => localStorage.getItem(key + '_learner_profile_sync_v1_dirty'), key)).toBe(null)
     expect(phone.errors).toEqual([])
   } finally { await phone.context.close() }
+})
+
+test('real Godot input defers study delivery and quiet time resumes the durable checkpoint', async ({ browser, browserName, baseURL }, testInfo) => {
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' || testInfo.project.name !== 'desktop-standard', 'Uses the integrated Godot build once')
+  test.setTimeout(120_000)
+  const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json', import.meta.url)))
+  const cloud = await createCloud(island)
+  const computer = await createDevice(browser, cloud, 'computer', browserName, baseURL, { realGame: true })
+  try {
+    await expect(computer.page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60_000 })
+    const game = computer.page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+    const canvas = game.locator('#canvas')
+    const box = await canvas.boundingBox()
+    await computer.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await computer.page.mouse.down()
+    await expect.poll(() => computer.page.evaluate(() => learnerProfileSyncOpportunity.isQuiet())).toBe(false)
+    const before = cloud.commits.length
+    expect(await computer.capture(42)).toBe(true)
+    const durable = await computer.page.evaluate(() => loadPersistedState({ persistCleanup: false }).videos.computer)
+    expect(durable.resumeAtSeconds).toBe(42)
+    cloud.advance(60_000)
+    await computer.page.waitForTimeout(5_500) // Actual held input and Godot frames; host-only paths use fake clocks above.
+    expect(cloud.commits).toHaveLength(before)
+    await computer.page.mouse.up()
+    await expect.poll(() => computer.page.evaluate(() => learnerProfileSyncOpportunity.isQuiet()), { timeout: 15_000 }).toBe(true)
+    await expect.poll(() => cloud.head().envelope.profile.videos.computer.resumeAtSeconds, { timeout: 15_000 }).toBe(42)
+    await expect(computer.page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    expect(computer.errors).toEqual([])
+  } finally {
+    await computer.page.mouse.up().catch(() => {})
+    await computer.context.close()
+  }
 })
 
 test('signed-in island checkpoints stay small during play and recover across an abrupt runtime stop and computer study', async ({ browser, browserName, baseURL }, testInfo) => {

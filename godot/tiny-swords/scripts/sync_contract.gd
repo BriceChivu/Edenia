@@ -1,7 +1,7 @@
 extends RefCounted
 # Godot owns this declaration; Edenia consumes the checked manifest as transport
 # metadata. A profile cannot expand it to hide meaningful game edits.
-const DECLARATION := {"version": 1, "ambient_arrays": ["chickens", "sheep"]}
+const DECLARATION := {"version": 2, "ambient_arrays": []}
 
 static func identity(snapshot: Dictionary) -> Dictionary:
 	var gameplay := snapshot.duplicate(true)

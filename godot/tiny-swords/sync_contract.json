@@ -1,7 +1,4 @@
 {
-	"ambient_arrays": [
-		"chickens",
-		"sheep"
-	],
-	"version": 1
+	"ambient_arrays": [],
+	"version": 2
 }

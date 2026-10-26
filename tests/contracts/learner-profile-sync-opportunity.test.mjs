@@ -10,7 +10,7 @@ test('game activity, recent camera input, visibility and actual playing video go
   opportunity.reportGame({ visible: true, active: true })
   assert.equal(opportunity.isQuiet(), false, 'Moving/working pawn is active even without mouse input')
   playing = true
-  assert.equal(opportunity.isQuiet(), true)
+  assert.equal(opportunity.isQuiet(), false, 'Playing video cannot override visible pawn work')
   playing = false
   assert.equal(opportunity.isQuiet(), false)
   opportunity.reportGame({ visible: false, active: true })
@@ -18,8 +18,9 @@ test('game activity, recent camera input, visibility and actual playing video go
   opportunity.reportGame({ visible: true, active: false })
   assert.equal(opportunity.isQuiet(), true)
   opportunity.reportHostInput()
+  playing = true
   time = 4999
-  assert.equal(opportunity.isQuiet(), false)
+  assert.equal(opportunity.isQuiet(), false, 'Playing video cannot override recent island input')
   time = 5000
   assert.equal(opportunity.isQuiet(), true)
   opportunity.reportGame({ visible: true, active: true })

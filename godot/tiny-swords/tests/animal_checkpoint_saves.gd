@@ -49,7 +49,7 @@ func run() -> void:
 		scene.checkpoint_causes.clear()
 		animal.advance(1.0, 100.0)
 		check(not animal.fleeing and animal.position == animal.destination, "Animal reaches saved resting point")
-		check(scene.checkpoint_causes == [true], "Finished animal movement is classified as an ambient checkpoint")
+		check(scene.checkpoint_causes.is_empty(), "Finished animal movement requests no persistence")
 		animal.position = origin
 		animal.destination = scene.layout.center(Vector2i.RIGHT)
 		animal.fleeing = true
@@ -58,7 +58,7 @@ func run() -> void:
 		scene.editing = true
 		scene.checkpoint_causes.clear()
 		animal.advance(0.01, 100.0)
-		check(scene.checkpoint_causes == [true], "Settling movement for editing remains an animal checkpoint")
+		check(scene.checkpoint_causes.is_empty(), "Settling movement for editing requests no persistence")
 		scene.editing = false
 		animal.queue_free()
 		await process_frame

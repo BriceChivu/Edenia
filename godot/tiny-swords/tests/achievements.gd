@@ -157,7 +157,7 @@ func run() -> void:
 	check(portal.absorb(game.pawn) and game.layout.achievements.has("black_hole"), "Pawn capture awards the black-hole achievement")
 	saved = JSON.parse_string(JSON.stringify(game.saved_snapshot()))
 	check(restored.restore(saved) and restored.achievements.get("black_hole", false), "Portal achievement persists with its durable occupants")
-	var legacy: Dictionary = saved.duplicate(true)
+	var legacy: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(game.layout)
 	legacy.version = 35
 	legacy.erase("achievements")
 	restored.achievements_enabled = true

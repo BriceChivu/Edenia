@@ -13,7 +13,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	seed(12345)
-	var scene = preload("res://previews/level_five.tscn").instantiate()
+	var scene = load("res://previews/level_five.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
@@ -53,7 +53,8 @@ func run() -> void:
 				check(not scene.layout.log_blocks_contact(direction, before, sheep.position), "Sheep never steps on log contact")
 			check(sheep.position.distance_to(target) < 0.001, "Sheep passes pile " + str(count))
 			var safe: Vector2 = sheep.tile_target(direction)
-			var saved: Dictionary = scene.layout.snapshot()
+			var saved: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(scene.layout)
+			saved.version = 37
 			saved.sheep = [[safe.x, safe.y]]
 			for stock_kind in saved.stock:
 				saved.stock[stock_kind] = 0

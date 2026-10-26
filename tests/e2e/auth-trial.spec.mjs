@@ -734,7 +734,7 @@ test('switching verified trial owners requires explicit replacement and remounts
 })
 
 
-test('signed-in animal checkpoints stay local and the next gameplay save uploads their whole island', async ({ page }, testInfo) => {
+test('signed-in durable islands avoid animal checkpoints and retain meaningful edits through upload and reload', async ({ page }, testInfo) => {
   test.skip(!desktopTrialProjects.has(testInfo.project.name))
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
   test.setTimeout(120000)
@@ -742,92 +742,50 @@ test('signed-in animal checkpoints stay local and the next gameplay save uploads
   const fixture = await owned(page, { indexedDb: true, engine: true })
   await page.goto('./?internal_test=1')
   await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
   const canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')
-  await page.evaluate(() => {
-    const frame = document.querySelector('.tiny-swords-frame')
-    frame.contentWindow.postMessage({ type: 'edenia-host-visibility',
-      session: frame.contentWindow.edeniaStudySession, visible: false }, location.origin)
-  })
-  await expect.poll(() => canvas.evaluate(() => window.edeniaHostVisible)).toBe(false)
-  await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
-  // The old fixture first migrates in Godot. A faster opening can expose the
-  // initial up-to-date status before that gameplay save is queued. Establish an
-  // acknowledged migration before isolating an ambient-only checkpoint.
+  // Complete the old fixture's Godot-owned migration before measuring idle work.
   await expect.poll(() => fixture.commits.length, { timeout: 40000 }).toBeGreaterThan(0)
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
-  const before = fixture.head()
-  const commitCount = fixture.commits.length
-  await retainFrame(page)
-  let releaseHead
-  const headBarrier = new Promise(resolve => { releaseHead = resolve })
-  let checks = 0
-  await page.route(origin + '/rest/v1/learner_profile_heads?**', async route => {
-    checks += 1
-    await headBarrier
-    const head = fixture.head()
-    await route.fulfill({ json: { user_id: owner, profile_id: profileId,
-      generation: head.generation, revision: head.revision } })
-  })
-  const openingCount = fixture.requests.filter(path => /\/(?:resolve|open)_my_learner_profile$/.test(path)).length
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-  await expect.poll(() => checks).toBe(1)
-  // A deferred local checkpoint can resume while the same head check is held.
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(/^(Checking progress|Syncing)…$/)
-  await expect(page.locator('#mainApp')).toBeVisible()
-  const moved = structuredClone(await page.evaluate(() => loadState().tinySwordsIsland))
-  // Use another already valid ground position; Godot still owns restore validity.
-  moved.chickens[0] = [544, 272]
-  await canvas.evaluate((_, layout) => window.edeniaQueueLayout(layout, true), moved)
   await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
-  expect(await canvas.evaluate(() => window.edeniaLastSavePersisted)).toBe(true)
-  expect(await page.evaluate(() => loadPersistedState({ persistCleanup: false }).tinySwordsIsland)).toEqual(moved)
+  const durable = await page.evaluate(() => loadPersistedState({ persistCleanup: false }).tinySwordsIsland)
+  expect(durable.version).toBe(38)
+  expect(durable).not.toHaveProperty('chickens')
+  expect(durable).not.toHaveProperty('sheep')
+  const saves = await canvas.evaluate(() => window.edeniaSaveId)
+  const commitCount = fixture.commits.length
+  // Native movement completion is tested deterministically in Godot. This brief
+  // real-game window checks that ambient play never reaches the browser outbox.
+  await page.waitForTimeout(6000)
+  expect(await canvas.evaluate(() => window.edeniaSaveId)).toBe(saves)
   expect(fixture.commits.length).toBe(commitCount)
-  expect(fixture.head().revision).toBe(before.revision)
-  const sync = await page.evaluate(key => JSON.parse(localStorage.getItem(key + '_learner_profile_sync_v1')), trial)
-  expect(sync.pending).toBeNull()
-  expect(sync.queued).toBeNull()
-  // The small checkpoint retains its before-image in IndexedDB without hashing
-  // the whole profile to create the legacy local-island checkpoint marker.
-  const checkpointBase = await page.evaluate(({ owner, profileId, before }) =>
-    primaryProfileRepository.readSyncBase({ ownerId: owner, profileId,
-      generation: before.generation, revision: before.revision }),
-  { owner, profileId, before })
-  expect(checkpointBase).not.toBeNull()
-  expect(checkpointBase.tinySwordsIsland).toEqual(before.envelope.profile.tinySwordsIsland)
-  releaseHead()
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
-  expect(await page.evaluate(() => document.querySelector('.tiny-swords-frame') === window.previousTrialFrame
-    && window.previousTrialFrame.contentWindow === window.previousTrialWindow)).toBe(true)
-  expect(fixture.requests.filter(path => /\/(?:resolve|open)_my_learner_profile$/.test(path)).length).toBe(openingCount)
-  await page.evaluate(() => learnerProfileLifecycleAuthority.refresh())
-  await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
-  expect(fixture.head().revision).toBe(before.revision)
-  expect(await canvas.evaluate(() => window.edeniaStudyLayout)).toEqual(moved)
+  expect(await page.evaluate(() => loadState().tinySwordsIsland)).toEqual(durable)
+
+  const changed = structuredClone(durable)
+  changed.resources.wood += 1
   await page.evaluate(() => {
     const frame = document.querySelector('.tiny-swords-frame')
     frame.contentWindow.postMessage({ type: 'edenia-host-visibility',
       session: frame.contentWindow.edeniaStudySession, visible: false }, location.origin)
   })
   await expect.poll(() => canvas.evaluate(() => window.edeniaHostVisible)).toBe(false)
-  await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
-  const latestMoved = await page.evaluate(() => loadState().tinySwordsIsland)
+  await canvas.evaluate((_, layout) => window.edeniaQueueLayout(layout), changed)
+  await expect.poll(() => fixture.commits.some(commit =>
+    commit.p_envelope.profile.tinySwordsIsland.resources.wood === changed.resources.wood), { timeout: 40000 }).toBe(true)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
+  expect(fixture.head().envelope.profile.tinySwordsIsland).toEqual(changed)
   const downloadPromise = page.waitForEvent('download')
   await page.evaluate(() => learnerProfileLifecycleAuthority.exportActiveProfile())
   const exported = JSON.parse(await readFile(await (await downloadPromise).path(), 'utf8'))
-  expect(exported.profile.tinySwordsIsland).toEqual(latestMoved)
-  Object.assign(moved, latestMoved)
-  moved.resources.wood += 1
-  await canvas.evaluate((_, layout) => window.edeniaQueueLayout(layout), moved)
-  await expect.poll(() => fixture.commits.some(commit =>
-    commit.p_envelope.profile.tinySwordsIsland.resources.wood === moved.resources.wood),{timeout:40000}).toBe(true)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
-  expect(fixture.head().envelope.profile.tinySwordsIsland).toEqual(moved)
+  expect(exported.profile.tinySwordsIsland).toEqual(changed)
   await page.reload()
   await readyGame(page)
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date',{timeout:40000})
-  expect(await page.evaluate(() => loadState().tinySwordsIsland.resources.wood)).toBe(moved.resources.wood)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
+  const restored = await page.evaluate(() => loadState().tinySwordsIsland)
+  expect(restored.resources.wood).toBe(changed.resources.wood)
+  expect(restored.chicken_count).toBe(changed.chicken_count)
+  expect(restored.sheep_count).toBe(changed.sheep_count)
+  expect(restored.stock).toEqual(changed.stock)
+  expect(restored.tiles).toEqual(changed.tiles)
   expect(await retainedBytes(page)).toEqual(retained)
 })
 
@@ -990,7 +948,7 @@ for (const indexedDb of [false, true]) {
     await readyGame(page)
     const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
     expect(new URL(game.url()).searchParams.get('internal_test')).toBe('1')
-    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(37)
+    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(38)
     const earned = await page.evaluate(() => loadState().tinySwordsIsland.achievements)
     expect(earned.cut_tree).toBe(true)
     expect(earned.build_house).toBeUndefined() // This fixture contains logs, not a completed house.

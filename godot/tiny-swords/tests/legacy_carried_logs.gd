@@ -7,7 +7,7 @@ func _initialize() -> void:
 	for level in range(2, 8): original.unlock(level)
 	original.resources.wood = 3
 	original.carried_wood = 3
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(original.snapshot()))
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(preload("res://tests/legacy_snapshot.gd").capture(original)))
 	saved.version = 24
 	saved.stock.chicken -= 1 # Version 24 predates the level-two chicken reward.
 	var restored = Layout.new()

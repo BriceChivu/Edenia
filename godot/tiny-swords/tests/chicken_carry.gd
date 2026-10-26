@@ -112,7 +112,7 @@ func run() -> void:
 	bad.chicken_release_at = -1
 	check(not Layout.new().restore(bad), "Reject invalid carried deadlines")
 	bad = scene.layout.snapshot()
-	bad.chickens.append([scene.pawn.position.x, scene.pawn.position.y])
+	bad.chicken_count += 1
 	check(not Layout.new().restore(bad), "Reject duplicating a carried chicken")
 	check(scene.pawn.sprite.sprite_frames.get_frame_count("chicken_idle") == 8, "Carry idle uses the supplied eight-frame sheet")
 	check(scene.pawn.sprite.sprite_frames.get_frame_count("chicken_run") == 12, "Carry run keeps original six-step stride")

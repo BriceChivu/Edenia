@@ -136,3 +136,17 @@ test('automatic Cloud adoption ignores only diagnostics and validated Godot ambi
     assert.equal(portableProfilesHaveSameProgress(base, changed), false)
   }
 })
+
+
+test('durable Godot v38 counts preserve gameplay identity without ambient arrays', () => {
+  const island = { version: 38, chicken_count: 1, sheep_count: 1,
+    sync_semantics: { version: 2, ambient_arrays: [], sha256: 'a'.repeat(64) }, resources: { wood: 1 } }
+  const profile = { tinySwordsIsland: island }
+  assert.equal(portableProfilesHaveSameProgress(profile, structuredClone(profile)), true)
+  const changed = structuredClone(profile)
+  changed.tinySwordsIsland.chicken_count += 1
+  assert.equal(portableProfilesHaveSameProgress(profile, changed), false)
+  changed.tinySwordsIsland.chicken_count -= 1
+  changed.tinySwordsIsland.resources.wood += 1
+  assert.equal(portableProfilesHaveSameProgress(profile, changed), false)
+})

@@ -125,9 +125,9 @@ func check_overlapping_chicken_undo() -> void:
 	game.layout.stock.chicken = 0
 	var saved: Dictionary = game.layout.snapshot()
 	var restored = game.Layout.new()
-	check(restored.restore(saved) and restored.chickens == game.layout.chickens, "Saved overlapping chickens restore without losing either animal")
+	check(restored.restore(saved) and restored.chickens.size() == game.layout.chickens.size(), "Saved overlapping chickens restore without losing either animal")
 	var forged: Dictionary = saved.duplicate(true)
-	forged.chickens.append([point.x, point.y])
+	forged.chicken_count += 1
 	check(not game.Layout.new().restore(forged), "Overlapping positions do not allow unearned chickens")
 	game.ui.buttons.ground.pressed.emit()
 	check(game.apply_edit(Vector2i(-1, 0)), "Ground edit with overlapping chickens succeeds")

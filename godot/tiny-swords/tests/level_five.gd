@@ -41,7 +41,7 @@ func run() -> void:
 	layout.carried_wood = 0
 	check(layout.edit(house_cell, "sheep", Layout.HOME) and layout.stock.sheep == 0, "Place one sheep")
 	check(not layout.edit(Vector2i(1, 0), "sheep", Layout.HOME), "Cannot duplicate sheep")
-	check(copy.restore(layout.snapshot()) and copy.sheep == layout.sheep, "Sheep persists")
+	check(copy.restore(layout.snapshot()) and copy.sheep.size() == layout.sheep.size(), "Sheep ownership persists")
 	check(layout.edit(house_cell, "remove", Layout.HOME) and layout.stock.sheep == 1, "Pickup returns sheep")
 	var water_house = Layout.new()
 	for target in [2, 3, 4, 5]:
@@ -68,7 +68,7 @@ func run() -> void:
 	layout.trees[Vector2i(2, 1)] = Vector2.ZERO
 	check(not layout.can_edit(house_cell, "house", Layout.HOME), "Tree on any footprint square prevents construction")
 	layout.trees.erase(Vector2i(2, 1))
-	var scene = preload("res://previews/level_five.tscn").instantiate()
+	var scene = load("res://previews/level_five.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
@@ -203,7 +203,8 @@ func run() -> void:
 	scene.layout.trees.clear()
 	check(scene.layout.restore(saved_layout), "Restore layout after limited escape check")
 	for ramp in scene.layout.stair_directions:
-		var ramp_save := saved_layout.duplicate(true)
+		var ramp_save := preload("res://tests/legacy_snapshot.gd").capture(scene.layout)
+		ramp_save.version = 37
 		var ramp_point: Vector2 = scene.layout.center(ramp)
 		ramp_save.sheep = [[ramp_point.x, ramp_point.y]]
 		check(copy.restore(ramp_save) and copy.sheep[0] == ramp_point, "Sheep resting on stairs survives reload")

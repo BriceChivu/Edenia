@@ -83,7 +83,7 @@ func run() -> void:
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(l.snapshot()))
 	var restored = Layout.new()
 	check(restored.restore(saved) and restored.house_colors == l.house_colors and restored.pawn_color == 4, "Colors survive JSON save/restore")
-	var legacy: Dictionary = saved.duplicate(true)
+	var legacy: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(l)
 	legacy.version = 32
 	legacy.erase("pawn_color")
 	legacy.erase("house_colors")
