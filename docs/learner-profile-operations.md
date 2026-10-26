@@ -68,6 +68,59 @@ candidates and receipts must remain intact. Changed-record authority, migration
 order and later transport rollback are specified in
 [the remaining #513 design](plans/513-current-record-authority.md).
 
+### Restricted changed-record delivery
+
+The subsequent #513 amendment adds `commit_my_learner_profile_records` and its
+exact receipt reader for the admitted authentication trial. Its current records
+and existing head advance atomically. The snapshot pointer may lag only while
+records are active; legacy reads and protected operations materialize current
+content, and full writers replace that same authority. Do not restore the old
+resolver or drop the records relation while it contains newer accepted state.
+Account server export includes the latest current portable profile.
+
+The client opt-in is `learnerProfileRecordSyncEnabled` (production environment:
+`EDENIA_LEARNER_PROFILE_RECORD_SYNC_ENABLED`). It is effective only on exact
+`internal_test=1` with enabled account features. Deploy the compatible migration
+before enabling it. Ordinary typed writes use five seconds; the database's
+`private.learner_profile_access_control.record_write_interval_ms` accepts 5,000 or
+30,000 for fallback. Legacy/full writes retain their 30-second server budget.
+Changing to the slower setting can defer a client request; it cannot lose it.
+
+Turn the client flag off for a transport rollback. Keep the upgraded client
+parser, local overlay reader, v38 game reader and compatible database functions:
+already-created typed requests replay with their original bytes and operation
+IDs, then future edits use full envelopes. Missing RPCs or uncertain responses
+retain the original operation; they do not silently create a second writer.
+Retain the newest 2,048 receipts and typed receipts from the last three hours.
+Receipt pruning runs on commits and leaves account-deletion cascades intact.
+
+Warm video/Anki local checkpoints write record overlays in the existing head,
+with their recovery base retained in that transaction. The 128 KiB overlay bound
+and storage failure use the existing complete durable fallback without truncating
+progress. Safe full saves compact overlays. Derived streak/history/analytics work
+waits for quiet gameplay. Full recovery-candidate preparation still runs at safe
+opportunities; this is intentionally reused rather than replaced by another
+outbox or patch system.
+
+Reproduce the local 500-video comparison with the existing rollback-only
+diagnostic, using an explicitly selected isolated database:
+
+```sh
+node scripts/diagnostics/cloud-profile-save.mjs --videos=500 --records=true \
+  --container=supabase_db_edenia-record-sync-v2 --docker-context=colima
+```
+
+The fixture measured 543,836 envelope bytes versus 581 recurring batch bytes;
+warm database acceptance was 76.8 ms versus 6.3 ms. First record initialization
+cost 110.2 ms, a due recovery snapshot 118.8 ms, and a complete read 41.6 ms.
+These are local function timings, not production/end-to-end latency. At five
+seconds, this models 12 typed commits per minute versus two full commits and
+approximately twice the database function time per minute, despite much smaller
+requests. Recovery snapshot frequency stays approximately two per minute. Typed
+commits require no separate head preflight; full delivery still uses its existing
+preflight. Detailed compatibility and verification are recorded in ADR 0002 and
+the #513 implementation report.
+
 Profile acceptance keeps the existing canonical bytes, byte-length limit, SHA-256
 integrity, schema and study-fact checks. Recursive serialization handles scalar
 values directly, and validation reuses one canonical profile traversal for both

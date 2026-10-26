@@ -35,6 +35,19 @@ export function deriveTinySwordsEnabled(locationLike, config) {
   return deriveTinySwordsExperience(locationLike, config?.tinySwordsPublicEnabled) && config?.tinySwordsEnabled === true
 }
 
+// This flag selects new delivery operations only. Durable operations retain
+// their recorded transport when the flag is turned off.
+export function deriveLearnerProfileRecordSyncEnabled(
+  runtimeEnvironment,
+  accountFeaturesEnabled,
+  config
+) {
+  return runtimeEnvironment?.isAuthTrial === true
+    && runtimeEnvironment?.isSandbox !== true
+    && accountFeaturesEnabled === true
+    && config?.learnerProfileRecordSyncEnabled === true
+}
+
 export function deriveLearnerProfileAccessVisualTest(locationLike) {
   const urlParams = new URLSearchParams(locationLike.search)
   const profileAccessTest = urlParams.getAll('profile_access_test')

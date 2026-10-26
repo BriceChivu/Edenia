@@ -11,7 +11,7 @@ const key = 'edenia_v1_auth_trial_v1'
 const origin = 'https://handoff-fixture.supabase.co'
 const deferred = () => { let resolve; const promise = new Promise(next => { resolve = next }); return { promise, resolve } }
 
-async function createCloud(island = null) {
+async function createCloud(island = null, videoCount = 0) {
   const state = structuredClone(fixture.resolution.envelope.profile)
   state.config.ankiEnabled = false
   state.onboarding.walkthroughCompleted = true
@@ -21,6 +21,10 @@ async function createCloud(island = null) {
     id, title: `${id} lesson`, duration: 300, manuallyAdded: true, status: 'partial',
     resumeAtSeconds: 10, watchProgress: [], watchProgressTracked: true, favorite: false
   }]))
+  for (let index = 0; index < videoCount; index++) state.videos[`retained-${index}`] = {
+    id: `retained-${index}`, title: 'Retained display metadata '.repeat(10), duration: 600,
+    favorite: true, watchProgressTracked: true, watchProgress: []
+  }
   let envelope = (await createPortableLearnerProfileEnvelope(state)).envelope
   let revision = 1
   let time = 0
@@ -57,28 +61,42 @@ async function createCloud(island = null) {
       if (path === '/rest/v1/rpc/read_my_latest_learner_profile_reset') return route.fulfill({ json: [{ status: 'none' }] })
       if (path.startsWith('/rest/v1/') && !path.includes('learner_profile')) return route.fulfill({ json: [] })
       const args = request.postDataJSON()
-      if (path === '/rest/v1/rpc/read_my_learner_profile_write_receipt') {
+      if (['/rest/v1/rpc/read_my_learner_profile_write_receipt', '/rest/v1/rpc/read_my_learner_profile_record_receipt'].includes(path)) {
         const receipt = receipts.get(args.p_operation_id)
         return route.fulfill({ json: [receipt ? { ...receipt, status: 'already_accepted' } : { status: 'not_accepted', last_replacement_revision: 0 }] })
       }
-      if (path === '/rest/v1/rpc/commit_my_learner_profile_handoff') {
+      if (['/rest/v1/rpc/commit_my_learner_profile_handoff', '/rest/v1/rpc/commit_my_learner_profile_records'].includes(path)) {
         commits.push({ device, args })
         if (device === 'phone' && controls.phoneSend) await controls.phoneSend.promise
         const receipt = receipts.get(args.p_operation_id)
         if (receipt) return route.fulfill({ json: [{ ...receipt, status: 'already_accepted' }] })
-        if (controls.allowStale && args.p_base_revision !== revision) return route.fulfill({ json: [{ status: 'head_changed', ...identity(), base_revision: args.p_base_revision }] })
+        const typed = Boolean(args.p_batch)
+        const requestDigest = () => sha256Base64UrlSync(canonicalizeJson({ baseRevision: args.p_base_revision,
+          ...(typed ? { batch: args.p_batch } : { envelope: args.p_envelope }),
+          generation: args.p_generation, operationId: args.p_operation_id, ownerId: owner, profileId }))
+        if ((controls.allowStale || typed) && args.p_base_revision !== revision) return route.fulfill({ json: [{ status: 'head_changed', ...identity(), base_revision: args.p_base_revision,
+          ...(typed ? { request_sha256: requestDigest() } : {}) }] })
         expect(args.p_base_revision, 'a stale full snapshot must never be sent during a sequential handoff').toBe(revision)
         const early = args.p_session_boundary === true && time - lastFlush >= 300_000
-        if (!early && time - lastWrite < 30_000) return route.fulfill({ json: [{ status: 'deferred', ...identity(),
-          base_revision: args.p_base_revision, retry_after_ms: 30_000 - (time - lastWrite) }] })
-        envelope = args.p_envelope
+        const interval = typed ? 5_000 : 30_000
+        if (!early && time - lastWrite < interval) return route.fulfill({ json: [{ status: 'deferred', ...identity(),
+          base_revision: args.p_base_revision, retry_after_ms: interval - (time - lastWrite) }] })
+        if (typed) {
+          const next = structuredClone(envelope.profile)
+          for (const unit of args.p_batch.units) {
+            const parent = unit.kind === 'video' ? next.videos : unit.kind === 'anki' ? next.anki : next
+            if (!unit.afterPresent) delete parent[unit.key]
+            else parent[unit.key] = unit.kind === 'video'
+              ? { ...parent[unit.key], ...unit.metadata, ...unit.after } : unit.after
+          }
+          envelope = (await createPortableLearnerProfileEnvelope(next, { now: () => new Date(args.p_batch.exportedAt) })).envelope
+        } else envelope = args.p_envelope
         revision++
         lastWrite = time
         if (early) lastFlush = time
         const accepted = { status: 'accepted', ...identity(), base_revision: args.p_base_revision,
           payload_sha256: envelope.integrity.payloadSha256,
-          request_sha256: sha256Base64UrlSync(canonicalizeJson({ baseRevision: args.p_base_revision,
-            envelope, generation: 1, operationId: args.p_operation_id, ownerId: owner, profileId })) }
+          request_sha256: requestDigest() }
         receipts.set(args.p_operation_id, accepted)
         if (device === 'phone' && controls.phoneAck) await controls.phoneAck.promise
         return route.fulfill({ json: [accepted] })
@@ -88,7 +106,7 @@ async function createCloud(island = null) {
   }
 }
 
-async function createDevice(browser, cloud, device, browserName, baseURL, { realGame = false } = {}) {
+async function createDevice(browser, cloud, device, browserName, baseURL, { realGame = false, recordSync = false } = {}) {
   const context = await browser.newContext(device === 'phone'
     ? { ...devices[browserName === 'webkit' ? 'iPhone 13' : 'Pixel 7'] }
     : { viewport: { width: 1440, height: 900 }, timezoneId: 'Asia/Taipei' })
@@ -101,11 +119,12 @@ async function createDevice(browser, cloud, device, browserName, baseURL, { real
     if (url.origin === origin) return cloud.route(route, device)
     throw new Error(`Unstubbed external handoff request: ${url.origin}${url.pathname}`)
   })
-  await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript', body: `window.EDENIA_CONFIG=${JSON.stringify({
+  const runtime = {
     authTrialEnabled: true, accountFeaturesRollout: 'off', learnerProfileLifecycleEnabled: false,
-    indexedDbProfileEnabled: true, indexedDbBackupsEnabled: false, tinySwordsEnabled: realGame,
+    indexedDbProfileEnabled: true, indexedDbBackupsEnabled: false, tinySwordsEnabled: realGame, learnerProfileRecordSyncEnabled: recordSync,
     googleSignInMode: 'off', supabaseUrl: origin, supabasePublishableKey: 'fixture-key', youtubeApiKey: ''
-  })}` }))
+  }
+  await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript', body: `window.EDENIA_CONFIG=${JSON.stringify(runtime)}` }))
   const head = cloud.head()
   await page.addInitScript(({ key, head, session, owner, profileId }) => {
     if (localStorage.getItem(key + '_plus_auth_v1')) return
@@ -121,7 +140,7 @@ async function createDevice(browser, cloud, device, browserName, baseURL, { real
   await page.goto(new URL('?internal_test=1', baseURL).href)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
-  return { context, page, errors,
+  return { context, page, errors, runtime,
     async capture(seconds, videoId = device) {
       return page.evaluate(({ device, seconds, videoId }) => {
         const state = loadState(), video = state.videos[videoId]
@@ -129,7 +148,8 @@ async function createDevice(browser, cloud, device, browserName, baseURL, { real
         video.watchProgressTracked = true
         video.resumeAtSeconds = seconds
         video.pausedAt = device === 'phone' ? '2026-10-12T12:01:00.000Z' : '2026-10-12T12:02:00.000Z'
-        return saveState(state)
+        return window.EDENIA_CONFIG.learnerProfileRecordSyncEnabled
+          ? saveRecordCheckpoint(state, { videos: [videoId] }, { syncAnalytics: false }) : saveState(state)
       }, { device, seconds, videoId })
     },
     async visibility(hidden) {
@@ -337,34 +357,88 @@ test('active Tiny Swords batches durable study saves until gameplay stops', asyn
   } finally { await phone.context.close() }
 })
 
-test('real Godot input defers study delivery and quiet time resumes the durable checkpoint', async ({ browser, browserName, baseURL }, testInfo) => {
+for (const recordSync of [false, true]) test(`real Godot input defers ${recordSync ? 'record' : 'full'} study delivery and quiet time resumes the durable checkpoint`, async ({ browser, browserName, baseURL }, testInfo) => {
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' || testInfo.project.name !== 'desktop-standard', 'Uses the integrated Godot build once')
   test.setTimeout(120_000)
   const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json', import.meta.url)))
-  const cloud = await createCloud(island)
-  const computer = await createDevice(browser, cloud, 'computer', browserName, baseURL, { realGame: true })
+  const cloud = await createCloud(island, 500)
+  const computer = await createDevice(browser, cloud, 'computer', browserName, baseURL, { realGame: true, recordSync })
+  let phone
   try {
     await expect(computer.page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60_000 })
     const game = computer.page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
     const canvas = game.locator('#canvas')
+    await expect.poll(() => cloud.head().envelope.profile.tinySwordsIsland.version, { timeout: 40_000 }).toBe(38)
+    await expect(computer.page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
     const box = await canvas.boundingBox()
     await computer.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     await computer.page.mouse.down()
     await expect.poll(() => computer.page.evaluate(() => learnerProfileSyncOpportunity.isQuiet())).toBe(false)
     const before = cloud.commits.length
+    await computer.page.evaluate(() => {
+      window.recordSyncFrameIntervals = []
+      window.recordSyncLongTasks = []
+      window.recordSyncLongTaskObserver = new PerformanceObserver(entries => {
+        window.recordSyncLongTasks.push(...entries.getEntries().map(entry => ({ start: entry.startTime, duration: entry.duration,
+          attribution: entry.attribution?.map(item => ({ type: item.containerType, src: item.containerSrc, name: item.name })) })))
+      })
+      window.recordSyncLongTaskObserver.observe({ type: 'longtask' })
+      let previous = performance.now()
+      const sample = now => {
+        window.recordSyncFrameIntervals?.push(now - previous)
+        previous = now
+        if (window.recordSyncFrameIntervals) requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
     expect(await computer.capture(42)).toBe(true)
     const durable = await computer.page.evaluate(() => loadPersistedState({ persistCleanup: false }).videos.computer)
     expect(durable.resumeAtSeconds).toBe(42)
     cloud.advance(60_000)
     await computer.page.waitForTimeout(5_500) // Actual held input and Godot frames; host-only paths use fake clocks above.
     expect(cloud.commits).toHaveLength(before)
+    const timing = await computer.page.evaluate(() => {
+      const values = window.recordSyncFrameIntervals
+      window.recordSyncFrameIntervals = null
+      window.recordSyncLongTaskObserver.disconnect()
+      return { frames: values.sort((a, b) => a - b), longTasks: window.recordSyncLongTasks }
+    })
+    const frames = timing.frames
     await computer.page.mouse.up()
     await expect.poll(() => computer.page.evaluate(() => learnerProfileSyncOpportunity.isQuiet()), { timeout: 15_000 }).toBe(true)
-    await expect.poll(() => cloud.head().envelope.profile.videos.computer.resumeAtSeconds, { timeout: 15_000 }).toBe(42)
+    await expect.poll(() => cloud.head().envelope.profile.videos.computer.resumeAtSeconds,
+      { timeout: recordSync ? 15_000 : 40_000 }).toBe(42)
     await expect(computer.page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+    const delivered = cloud.commits.slice(before)
+    const evidence = { transport: recordSync ? 'records' : 'envelope', retainedVideos: 502,
+      uploadBytes: delivered.map(commit => Buffer.byteLength(JSON.stringify(commit.args))),
+      frames: frames.length, medianFrameMs: frames[Math.floor(frames.length / 2)],
+      p95FrameMs: frames[Math.floor(frames.length * 0.95)], maxFrameMs: frames.at(-1), longTasks: timing.longTasks }
+    await testInfo.attach('gameplay-sync-comparison', { body: JSON.stringify(evidence, null, 2), contentType: 'application/json' })
+    if (recordSync) {
+      expect(delivered).toHaveLength(1)
+      expect(delivered[0].args).not.toHaveProperty('p_envelope')
+      expect(delivered[0].args.p_batch.units.map(unit => [unit.kind, unit.key])).toEqual([['video', 'computer']])
+      expect(delivered[0].args.p_batch.units[0]).not.toHaveProperty('metadata')
+      expect(evidence.uploadBytes[0]).toBeLessThan(3000)
+      cloud.advance(60_000)
+      phone = await createDevice(browser, cloud, 'phone', browserName, baseURL, { recordSync: true })
+      expect(await phone.capture(60)).toBe(true)
+      await phone.page.clock.runFor(1000)
+      await expect.poll(() => cloud.head().envelope.profile.videos.phone.resumeAtSeconds).toBe(60)
+      computer.runtime.learnerProfileRecordSyncEnabled = false
+      await computer.page.reload()
+      await expect(computer.page.locator('#mainApp')).toBeVisible()
+      await expect(computer.page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 15_000 })
+      expect(await computer.page.evaluate(() => ({ computer: loadState().videos.computer.resumeAtSeconds,
+        phone: loadState().videos.phone.resumeAtSeconds, islandVersion: loadState().tinySwordsIsland.version })))
+        .toEqual({ computer: 42, phone: 60, islandVersion: 38 })
+      expect(phone.errors).toEqual([])
+    }
     expect(computer.errors).toEqual([])
   } finally {
     await computer.page.mouse.up().catch(() => {})
+    await phone?.context.close()
     await computer.context.close()
   }
 })

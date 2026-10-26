@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   deriveLearnerProfileAccessVisualTest,
+  deriveLearnerProfileRecordSyncEnabled,
   deriveRuntimeEnvironment,
   deriveStudyGuidanceEnabled
 } from '../../src/core/runtime-environment.js'
@@ -316,4 +317,26 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
 test('auth trial runtime flag defaults off and accepts only a boolean', () => {
   for (const value of [undefined,false,'true',1]) assert.equal(getAuthTrialEnabled({EDENIA_CONFIG:{authTrialEnabled:value}}),false)
   assert.equal(getAuthTrialEnabled({EDENIA_CONFIG:{authTrialEnabled:true}}),true)
+})
+
+
+test('record delivery requires the restricted trial, active accounts and a strict opt-in', () => {
+  const trial = environment('https://www.edenia.study/?internal_test=1')
+  const config = { learnerProfileRecordSyncEnabled: true }
+  assert.equal(deriveLearnerProfileRecordSyncEnabled(trial, true, config), true)
+  for (const value of [undefined, null, false, 'true', 'false', 0, 1]) {
+    assert.equal(deriveLearnerProfileRecordSyncEnabled(trial, true, { learnerProfileRecordSyncEnabled: value }), false)
+    assert.equal(deriveLearnerProfileRecordSyncEnabled(trial, value, config), false)
+  }
+  for (const url of [
+    'https://www.edenia.study/',
+    'https://www.edenia.study/?internal_test=2',
+    'https://www.edenia.study/?internal_test=true',
+    'https://www.edenia.study/?internal_test=01',
+    'http://localhost:8001/?sandbox=1&internal_test=1'
+  ]) {
+    assert.equal(deriveLearnerProfileRecordSyncEnabled(environment(url), true, config), false, url)
+  }
+  assert.equal(deriveLearnerProfileRecordSyncEnabled(null, true, config), false)
+  assert.equal(deriveLearnerProfileRecordSyncEnabled(trial, true, undefined), false)
 })

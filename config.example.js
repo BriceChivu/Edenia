@@ -9,6 +9,8 @@ window.EDENIA_CONFIG = {
   // Fresh internal_test=1: pairs mandatory entry with profile lifecycle.
   // Backend tester-trial admission is separately required.
   authTrialEnabled: false,
+  // Select new record delivery only in the enabled restricted sign-in trial.
+  learnerProfileRecordSyncEnabled: false,
   accountlessProfileFinalCutoverAt: '',
   emergencyAccountlessRollbackEnabled: false,
   googleSignInMode: 'id_token',
