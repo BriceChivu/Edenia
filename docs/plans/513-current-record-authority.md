@@ -169,19 +169,24 @@ gameplay; ordinary checkpoint and cloud work follow the quiet gate.
 Five paired local trials on the same 500-video server fixture, using the existing
 rollback-only diagnostic (`--videos=500 --records=true`), measured 543,836
 full-envelope bytes versus 581 recurring batch bytes. Median full acceptance was
-79.6 ms and exact full retry 68.8 ms; record initialization was 124.9 ms once,
-warm acceptance 6.5 ms, exact record retry 1.9 ms, and a due recovery snapshot
-119.6 ms. Two warm record accepts created no historical versions; a due snapshot
+77.0 ms and exact full retry 71.5 ms; record initialization was 112.3 ms once,
+warm acceptance 5.5 ms, exact record retry 1.9 ms, and a due recovery snapshot
+40.1 ms. Two warm record accepts created no historical versions; a due snapshot
 created one. The original resolver and the new already-materialized read were
-effectively unchanged at 39.9/39.7 ms. The first read while current records are
-newer than their snapshot took 151.5 ms because it assembles and materializes the
+effectively unchanged at 39.8/39.4 ms. The first read while current records are
+newer than their snapshot took 76.4 ms because it assembles and materializes the
 complete recovery snapshot. All read variants returned the exact same profile.
 At five seconds this models 12 commit requests/minute versus two full commits,
-roughly 7 KB/minute versus 1.09 MB/minute of payload, and approximately twice the
-database function time per minute after periodic snapshots (304 ms versus 159 ms).
+roughly 7 KB/minute versus 1.09 MB/minute of payload, and an estimated
+136 ms versus 154 ms of database function time per minute after periodic snapshots.
 Typed commits fold
 the head check into conditional acceptance; full delivery retains its preflight.
 These are local synthetic function measurements, not production latency claims.
+The initial implementation redundantly serialized the full envelope while
+converging its byte length. Reusing one canonical payload traversal preserves
+the exact format and cuts the measured first materializing read from 151.5 to
+76.4 ms and a due snapshot from 119.6 to 40.1 ms. Exact envelope/digest/byte parity
+is covered by the SQL suite, including unusual island number and Unicode keys.
 
 Five alternating browser trials compared pre-issue commit `f8926e1f` with client
 commit `a31beb0e`, using identical 500-video owned fixtures, Node 24.18.0 and
