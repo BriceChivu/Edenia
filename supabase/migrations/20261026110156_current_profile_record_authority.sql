@@ -36,20 +36,21 @@ $$;
 
 create function private.make_current_profile_envelope(p_profile jsonb, p_exported_at text)
 returns jsonb language plpgsql stable security invoker set search_path = '' as $$
-declare result jsonb; payload jsonb; bytes integer := 0; measured integer;
+declare payload jsonb; canonical_payload text; profile_bytes integer;
 begin
   payload := pg_catalog.jsonb_build_object('schema','edenia-portable-learner-profile',
     'version',1,'exportedAt',p_exported_at,'profile',p_profile);
-  result := payload || pg_catalog.jsonb_build_object('integrity',pg_catalog.jsonb_build_object(
-    'algorithm','SHA-256','byteLength',0,'payloadSha256',pg_catalog.rtrim(pg_catalog.translate(pg_catalog.encode(
-      extensions.digest(pg_catalog.convert_to(private.canonical_jsonb_text(payload),'UTF8'),'sha256'),'base64'),'+/','-_'),'=')));
-  loop
-    measured := pg_catalog.octet_length(pg_catalog.convert_to(private.canonical_jsonb_text(result),'UTF8'));
-    exit when measured = bytes;
-    bytes := measured;
-    result := pg_catalog.jsonb_set(result,'{integrity,byteLength}',pg_catalog.to_jsonb(bytes));
-  end loop;
-  return result;
+  -- Hash the unchanged canonical payload once. Its difference from the same
+  -- payload with an empty profile gives the exact profile byte count without
+  -- serializing the complete envelope again during byteLength convergence.
+  canonical_payload:=private.canonical_jsonb_text(payload);
+  profile_bytes:=pg_catalog.octet_length(pg_catalog.convert_to(canonical_payload,'UTF8'))
+    -pg_catalog.octet_length(pg_catalog.convert_to(private.canonical_jsonb_text(
+      pg_catalog.jsonb_set(payload,'{profile}','{}'::jsonb)),'UTF8'))+2;
+  return payload || pg_catalog.jsonb_build_object('integrity',pg_catalog.jsonb_build_object(
+    'algorithm','SHA-256','byteLength',private.current_profile_envelope_bytes(profile_bytes,p_exported_at),
+    'payloadSha256',pg_catalog.rtrim(pg_catalog.translate(pg_catalog.encode(
+      extensions.digest(pg_catalog.convert_to(canonical_payload,'UTF8'),'sha256'),'base64'),'+/','-_'),'=')));
 end;
 $$;
 
@@ -222,9 +223,12 @@ declare owner_id uuid:=auth.uid(); gate private.learner_profile_access_control%r
   personal_keys text[]:=array['favorite','hiddenFromGrid','hiddenFromGridAt','manuallyAdded','pausedAt','removedFromFeedAt','resumeAtSeconds','status','watchLater','watchProgress','watchProgressTracked','watchedAt','watchedConfirmationUnlockedAt'];
 begin
   if owner_id is null then raise exception 'Authentication required' using errcode='42501'; end if;
+  if not private.learner_profile_trial_allows_owner() then
+    raise exception 'Learner profile tester access disabled' using errcode='42501';
+  end if;
   select g.* into strict gate from private.learner_profile_access_control g where g.singleton;
   if gate.rollout_state='off' or (gate.rollout_state='developer-canary' and gate.developer_user_id is distinct from owner_id)
-    or not private.learner_profile_trial_allows_owner() or private.learner_profile_account_is_locked(owner_id) then
+    or private.learner_profile_account_is_locked(owner_id) then
     raise exception 'Learner profile access disabled' using errcode='42501'; end if;
   perform 1 from auth.users u where u.id=owner_id and u.confirmed_at is not null and u.deleted_at is null
     and not coalesce(u.is_anonymous,false) for update;

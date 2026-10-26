@@ -22,6 +22,9 @@ $fn$;
 create function pg_temp.allow_record_write() returns void language sql volatile as $fn$
  update public.learner_profile_heads set updated_at=clock_timestamp()-interval '40 seconds' where user_id='51300000-0000-4000-8000-000000000001';
 $fn$;
+create temporary table record_envelope_parity as select '{"exportedAt":"2026-10-26T00:00:00.000Z","integrity":{"algorithm":"SHA-256","byteLength":1041,"payloadSha256":"iBkS6RVw5CKe5sdk8z-SpqxInuGCtvCIQzwsE5znFbI"},"profile":{"activityLog":[],"anki":{},"cityProgress":{"maxLevelIndex":0},"config":{"ankiEnabled":true,"channelShelfOrder":[],"channelVideoFormats":{},"channels":[],"includeShorts":true,"locale":"en","removedChannelIds":[],"removedDefaultChannelIds":[],"weeklyGoalHours":4},"learnerProfile":{"createdAt":null,"languages":["french"],"level":"beginner","selectedChannelCatalogIds":[],"updatedAt":null},"noAnkiFrequentUserPrompt":{"respondedAt":null,"response":null},"onboarding":{"introSeenAt":null,"levelUpGuidanceShownAt":null,"recommendationsAppliedAt":null,"setupCompleted":true,"setupCompletedAt":null,"walkthroughCompleted":true,"walkthroughCompletedAt":null},"tinySwordsIsland":{"coordinates":[1e-7,1.2e+21,1.2345678901234567],"labels":{"2":"b","11":"a","𐀀":"supplementary","":"private-use"},"version":38},"videos":{}},"schema":"edenia-portable-learner-profile","version":1}'::jsonb as expected;
+select is(private.make_current_profile_envelope(expected->'profile',expected->>'exportedAt'),expected,'materialized envelope exactly matches portable JavaScript bytes and integrity with opaque island numbers and UTF16 keys') from record_envelope_parity;
+select lives_ok($$select private.assert_learner_profile_envelope(private.make_current_profile_envelope(expected->'profile',expected->>'exportedAt')) from record_envelope_parity$$,'materialized parity envelope passes unchanged complete-profile validation');
 insert into record_requests values('first','51310000-0000-4000-8000-000000000001',1,'{"exportedAt":"2026-10-26T00:00:00.000Z","units":[{"after":{"favorite":true,"hiddenFromGrid":false,"hiddenFromGridAt":null,"manuallyAdded":false,"pausedAt":null,"removedFromFeedAt":null,"resumeAtSeconds":null,"status":"unwatched","watchLater":false,"watchProgress":[{"experienceSeconds":20,"id":"video:record-video:2026-10-26T00:00:00.000Z:30:1","seconds":30,"studyDay":"2026-10-26","watchedAt":"2026-10-26T00:00:00.000Z"}],"watchProgressTracked":true,"watchedAt":null,"watchedConfirmationUnlockedAt":null},"afterPresent":true,"key":"record-video","kind":"video","metadata":{"aspectRatio":null,"channelId":null,"channelImageUrl":"","channelTitle":"","duration":600,"id":"record-video","isShort":false,"publishedAt":null,"source":null,"thumbnail":"","title":"A retained lesson"}},{"after":{"created":0,"observedAt":"2026-10-26T00:00:00.000Z","reviewed":3},"afterPresent":true,"key":"2026-10-26","kind":"anki"}],"version":1}'::jsonb);
 select pg_temp.allow_record_write();
 set local role authenticated;
@@ -218,6 +221,28 @@ select ok((select r.protected_until>=r.restored_at+interval '30 days' from priva
  where r.user_id=(select user_id from record_scope) and r.source='current-records'),'existing recovery retention protects the displaced current candidate');
 select ok((select v.envelope?'currentRecordsRecovery' from private.learner_profile_recoveries r join public.learner_profile_versions v on v.id=r.displaced_version_id
  where r.user_id=(select user_id from record_scope) and r.source='current-records'),'corruption marker is outside the retained raw profile');
+-- Economy validation is internal to its complete unit. An invalid economy
+-- must still reject every coupled update; untouched valid receipts remain intact.
+insert into record_requests values('valid-economy','51310000-0000-4000-8000-000000000040',11,
+ '{"version":1,"exportedAt":"2026-10-26T00:00:00.000Z","units":[{"kind":"anki","key":"2026-10-26","afterPresent":true,"after":{"reviewed":4,"created":0,"observedAt":"2026-10-26T00:00:00.000Z"}},{"kind":"progression","key":"townEconomy","afterPresent":true,"after":{"version":1,"mode":"legacy","rewards":{"video:record-video:2026-10-26T00:00:00.000Z":{"baseline":0,"seconds":600}},"purchases":{"garden-flower-1":15}}}]}'::jsonb);
+select pg_temp.allow_record_write();
+set local role authenticated;
+select is(pg_temp.send_record('valid-economy'),'accepted','complete funded economy and study units commit together');
+reset role;
+insert into record_requests select 'invalid-economy','51310000-0000-4000-8000-000000000041',12,
+ jsonb_set(jsonb_set(batch,'{units,0,after,reviewed}','10'),'{units,1,after,rewards}','{}') from record_requests where name='valid-economy';
+select pg_temp.allow_record_write();
+set local role authenticated;
+select throws_ok($$select pg_temp.send_record('invalid-economy')$$,'22023','Learner profile economy is invalid','an unfunded economy cannot bypass validation in a coupled batch');
+reset role;
+select is((select private.assemble_current_profile(user_id)#>>'{anki,2026-10-26,reviewed}' from record_scope),'4','failed coupled economy update rolls back the otherwise valid study unit');
+insert into record_requests select 'untouched-economy','51310000-0000-4000-8000-000000000042',12,
+ jsonb_set(batch,'{units}',jsonb_build_array(jsonb_set(batch#>'{units,0}','{after,reviewed}','5'))) from record_requests where name='valid-economy';
+set local role authenticated;
+select is(pg_temp.send_record('untouched-economy'),'accepted','study-only update can retain the unchanged validated economy');
+reset role;
+select is((select private.assemble_current_profile(user_id)->'townEconomy' from record_scope),
+ (select batch#>'{units,1,after}' from record_requests where name='valid-economy'),'study-only update preserves the complete existing reward and purchase receipts');
 -- Receipt retention must not prevent privacy/account-deletion cascades.
 select lives_ok($$delete from auth.users where id='51300000-0000-4000-8000-000000000001'$$,'account deletion can cascade through recent typed receipts and records');
 select is((select count(*) from private.learner_profile_current_records where user_id='51300000-0000-4000-8000-000000000001'),0::bigint,'account deletion removes the current typed records');
