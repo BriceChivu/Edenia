@@ -11,7 +11,7 @@ func _initialize() -> void:
 	run.call_deferred()
 
 func run() -> void:
-	var scene = preload("res://previews/level_five.tscn").instantiate()
+	var scene = load("res://previews/level_five.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
@@ -64,7 +64,7 @@ func run() -> void:
 	scene.pawn.walk_to(scene.pawn.position)
 	scene.construction._process(0)
 	check(scene.pawn.hammering and scene.ground_height(scene.pawn.position) == scene.layout.height_at(site), "Hammering starts on the house floor")
-	var old_house: Dictionary = scene.layout.snapshot()
+	var old_house: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(scene.layout)
 	old_house.version = 29
 	old_house.erase("house_free_tiles")
 	for tile in old_house.tiles:
@@ -76,7 +76,7 @@ func run() -> void:
 	scene.construction.phase = scene.construction.Phase.READY
 	scene.construction.resume_build()
 	check(scene.pawn.hammering and scene.ground_height(scene.pawn.position) == scene.layout.height_at(site), "Legacy saved worker resumes on the house floor")
-	check(scene.layout.house_build.pawn_x == scene.pawn.position.x and scene.layout.house_build.pawn_y == scene.pawn.position.y, "Corrected worker position is retained in construction save")
+	check(not scene.layout.snapshot().house_build.has("pawn_x") and not scene.layout.snapshot().house_build.has("pawn_y"), "Corrected worker position remains transient")
 	scene.queue_free()
 	await process_frame
 	print("House worker floor checks: ", "PASS" if failures.is_empty() else "FAIL")

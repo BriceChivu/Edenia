@@ -10,7 +10,7 @@ func _initialize() -> void:
 	assert(layout.edit(cell, "chicken", Vector2i.ZERO))
 	assert(layout.stock.chicken == 0 and layout.chicken_at(cell) == 0)
 	var restored = Layout.new()
-	assert(restored.restore(layout.snapshot()) and restored.chickens == layout.chickens)
+	assert(restored.restore(layout.snapshot()) and restored.chickens.size() == layout.chickens.size())
 	var before := restored.snapshot()
 	var invalid := before.duplicate(true)
 	invalid.chickens = []
@@ -18,8 +18,8 @@ func _initialize() -> void:
 	invalid.house_build = {"started_at": -1}
 	assert(not restored.restore(invalid))
 	assert(restored.snapshot() == before, "Rejected construction must not mutate chickens or any live layout state")
-	assert(restored.edit(cell, "remove", Vector2i.ZERO) and restored.stock.chicken == 1)
-	var old := restored.snapshot()
+	assert(restored.edit(restored.cell_at(restored.chickens[0]), "remove", Vector2i(-10, -10)) and restored.stock.chicken == 1)
+	var old := preload("res://tests/legacy_snapshot.gd").capture(restored)
 	old.version = 19
 	old.erase("chickens")
 	old.stock.erase("chicken")
@@ -30,7 +30,7 @@ func _initialize() -> void:
 			assert(previous.unlock(next_level))
 		var expected := 2 if target >= 7 else 1
 		assert(previous.stock.chicken == expected, "Levels two and seven each grant one chicken")
-		var legacy := previous.snapshot()
+		var legacy := preload("res://tests/legacy_snapshot.gd").capture(previous)
 		legacy.version = 23
 		# Version 23 predates the level-two chicken and level-six tree rewards.
 		legacy.stock.chicken -= 1

@@ -241,7 +241,7 @@ test('public island keeps achievement tracking and its rollout disabled', async 
   const frame = page.frameLocator('.tiny-swords-frame')
   await expect(frame.locator('#canvas')).toBeVisible({ timeout: 60000 })
   await expect(frame.locator('#status')).toBeHidden({ timeout: 90000 })
-  await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(37)
+  await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(38)
   const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   expect(new URL(game.url()).searchParams.has('internal_test')).toBe(false)
   expect(await page.evaluate(() => loadState().tinySwordsIsland.achievements)).toEqual({})

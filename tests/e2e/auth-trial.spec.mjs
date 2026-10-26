@@ -990,7 +990,7 @@ for (const indexedDb of [false, true]) {
     await readyGame(page)
     const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
     expect(new URL(game.url()).searchParams.get('internal_test')).toBe('1')
-    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(37)
+    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(38)
     const earned = await page.evaluate(() => loadState().tinySwordsIsland.achievements)
     expect(earned.cut_tree).toBe(true)
     expect(earned.build_house).toBeUndefined() // This fixture contains logs, not a completed house.

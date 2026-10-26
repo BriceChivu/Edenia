@@ -28,6 +28,14 @@ below; use **F6** to test whichever named scene you opened.
 
 ## Persistent local preview
 
+Current save version **38** keeps animal counts, carried/perched relationships,
+and construction identity/time; wandering and worker coordinates stay in memory.
+Movement alone requests no local or cloud save. Loading derives valid animal and
+worker positions from saved terrain. Versions 1–37 remain readable; the historical
+position-saving notes below describe those older formats. Rollback must retain
+the v38 reader, including when reverting Edenia's delivery path. Focused checks:
+`res://tests/animal_checkpoint_saves.gd` and `res://tests/sync_semantics.gd`.
+
 Fresh islands show only ocean and clouds with a centered **Start** button using
 the level-up confirmation artwork. Start reveals the level-one terrain immediately;
 one second later the shared tree-cut dust animation reveals the pawn. Walking,

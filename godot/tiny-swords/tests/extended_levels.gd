@@ -22,9 +22,9 @@ func run() -> void:
 	check(layout.stock.tree == 4, "Level eight grants the fourth tree")
 	check(not layout.unlock(8) and layout.stock.sheep == 1, "Level-eight reward cannot repeat")
 	var restored = preload("res://scripts/terrain_layout.gd").new()
-	check(restored.restore(layout.snapshot()) and restored.sheep == layout.sheep and restored.stock.sheep == 1, "Two sheep persist across reload")
+	check(restored.restore(layout.snapshot()) and restored.sheep.size() == layout.sheep.size() and restored.stock.sheep == 1, "Two sheep persist across reload")
 	for version in [17, 24, 25, 27]:
-		var legacy := layout.snapshot()
+		var legacy := preload("res://tests/legacy_snapshot.gd").capture(layout)
 		legacy.version = version
 		legacy.stock.stairs -= 1
 		legacy.stock.tree -= 2
@@ -37,7 +37,7 @@ func run() -> void:
 		check(restored.restore(restored.snapshot()) and restored.stock.sheep + restored.sheep.size() == 2, "Sheep migration runs once")
 		check(restored.stock.tree == 4, "Legacy tree migrations run once")
 	for version in [28, 29, 30, 31]:
-		var legacy := layout.snapshot()
+		var legacy := preload("res://tests/legacy_snapshot.gd").capture(layout)
 		legacy.version = version
 		legacy.stock.stairs -= 1
 		legacy.stock.tree -= 1
@@ -53,7 +53,7 @@ func run() -> void:
 			check(current.edit(Vector2i(2, 1), "ground", Vector2i.ZERO), "Prepare existing staircase support")
 			check(current.edit(Vector2i(2, 0), "stairs", Vector2i.ZERO), "Place existing staircase before migration")
 		for version in [32, 33]:
-			var legacy := current.snapshot()
+			var legacy := preload("res://tests/legacy_snapshot.gd").capture(current)
 			legacy.version = version
 			if target >= 6:
 				legacy.stock.stairs -= 1

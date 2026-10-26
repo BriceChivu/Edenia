@@ -21,7 +21,7 @@ func run() -> void:
 	layout.decorations.clear()
 	var cell := Vector2i(1, 0)
 	check(layout.edit(cell, "chicken", Vector2i.ZERO), "Place chicken")
-	var saved: Dictionary = layout.snapshot()
+	var saved: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(layout)
 	for version in [20, 21]:
 		var legacy := saved.duplicate(true)
 		legacy.version = version
@@ -39,9 +39,10 @@ func run() -> void:
 			check(migrated.restore(current) and migrated.snapshot() == current, "Migrated position and rewards survive reload without duplication")
 	layout.chickens[0] += Vector2(3.25, -4.5)
 	var restored = Layout.new()
-	check(restored.restore(layout.snapshot()) and restored.chickens == layout.chickens, "Exact position persists")
-	check(restored.chicken_at(cell) == 0 and restored.edit(cell, "remove", Vector2i.ZERO), "Moving chicken remains pickable")
-	var invalid := layout.snapshot()
+	check(restored.restore(layout.snapshot()) and restored.chickens.size() == layout.chickens.size() and restored.walkable_point(restored.chickens[0], true), "Chicken respawns safely with ownership preserved")
+	check(restored.edit(restored.cell_at(restored.chickens[0]), "remove", Vector2i(-10, -10)), "Moving chicken remains pickable")
+	var invalid := preload("res://tests/legacy_snapshot.gd").capture(layout)
+	invalid.version = 37
 	invalid.chickens = [[INF, 0]]
 	check(not Layout.new().restore(invalid), "Reject non-finite saved position")
 	invalid.chickens = [[10000, 10000]]

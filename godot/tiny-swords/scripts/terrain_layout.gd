@@ -93,7 +93,7 @@ var tree_types: Dictionary = {}
 var tree_stumps: Dictionary = {} # Cell -> Unix regrowth deadline.
 var tree_cut_remaining: Dictionary = {} # Cell -> active cutting seconds left.
 var resources := {"wood": 0}
-var house_build: Dictionary = {} # Saved worker position and construction clock.
+var house_build: Dictionary = {} # Durable building identity and construction clock.
 var house_bundle := 0 # Six reserved logs drawn as one carried log.
 var house_bundle_source := Vector2i(999, 999)
 var carried_wood := 0
@@ -1191,7 +1191,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 37, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 38, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.achievements = achievements.duplicate()
 	saved.black_hole = black_hole.duplicate(true)
 	saved.pawn_color = pawn_color
@@ -1213,13 +1213,11 @@ func snapshot() -> Dictionary:
 	for index in sheep_chickens:
 		saved.sheep_chickens.append([index, sheep_chickens[index]])
 	saved.chicken_release_at = chicken_release_at
-	saved.chickens = []
-	for point in chickens:
-		saved.chickens.append([point.x, point.y])
-	saved.sheep = []
-	for point in sheep:
-		saved.sheep.append([point.x, point.y])
+	saved.chicken_count = chickens.size()
+	saved.sheep_count = sheep.size()
 	saved.house_build = house_build.duplicate(true)
+	saved.house_build.erase("pawn_x")
+	saved.house_build.erase("pawn_y")
 	saved.house_bundle = house_bundle
 	saved.house_bundle_source = [house_bundle_source.x, house_bundle_source.y] if house_bundle > 0 and house_bundle_source != Vector2i(999, 999) else []
 	saved.carried_wood = carried_wood
@@ -1237,14 +1235,13 @@ func snapshot() -> Dictionary:
 		saved.manual_ground_elevation = true
 	if not playground_grants.is_empty():
 		saved.playground_grants = playground_grants.duplicate()
-	# Godot owns gameplay meaning. Exact animal positions remain in the portable
-	# snapshot for restoration; ambient wandering is not a competing learner edit.
-	# Counts, inventory, terrain, structures and resources still affect identity.
+	# One durable representation for native saves and Edenia transport. Wandering
+	# remains in memory; animal ownership and passengers stay meaningful.
 	saved.sync_semantics = SYNC_CONTRACT.identity(saved)
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_achievements = data.get("achievements", {})
 	if not AchievementRules.valid(next_achievements):
@@ -1509,7 +1506,7 @@ func restore(data: Dictionary) -> bool:
 	var next_house_offsets := {}
 	var next_sheep: Array[Vector2] = []
 	if int(data.version) >= 18:
-		if not data.get("houses") is Array or not data.get("sheep") is Array:
+		if not data.get("houses") is Array or (int(data.version) < 38 and not data.get("sheep") is Array):
 			return false
 		for record in data.houses:
 			if not record is Array or record.size() != (5 if int(data.version) >= 23 else 3):
@@ -1559,7 +1556,7 @@ func restore(data: Dictionary) -> bool:
 				if not Geometry2D.intersect_polygons(patch, contacts.log_footprint(pile)).is_empty():
 					return false
 			next_houses[cell] = int(record[2])
-		for record in data.sheep:
+		for record in data.get("sheep", []) if int(data.version) < 38 else []:
 			if not record is Array or record.size() != 2:
 				return false
 			for value in record:
@@ -1581,6 +1578,14 @@ func restore(data: Dictionary) -> bool:
 				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
 					return false
 			next_sheep.append(point)
+		if int(data.version) >= 38:
+			var count = data.get("sheep_count")
+			if not valid_animal_count(count): return false
+			var ground = get_script().new()
+			for field in ["cells", "elevations", "trees", "tree_types", "log_piles", "houses", "house_offsets", "flora", "decorations", "stair_directions"]:
+				ground.set(field, {"cells": next_cells, "elevations": next_elevations, "trees": next_trees, "tree_types": next_tree_types, "log_piles": next_logs, "houses": next_houses, "house_offsets": next_house_offsets, "flora": next_flora, "decorations": next_decorations, "stair_directions": next_stairs}[field])
+			next_sheep = ground.respawn_animals(int(count), "sheep")
+			if next_sheep.size() != int(count): return false
 		var sheep_rewards := (1 if next_level >= 5 else 0) + (1 if int(data.version) >= 26 and next_level >= 8 else 0)
 		for reward_level in range(11, next_level + 1):
 			sheep_rewards += int(LEVEL_REWARDS[reward_level].get("sheep", 0))
@@ -1606,9 +1611,9 @@ func restore(data: Dictionary) -> bool:
 		next_sheep_chickens[index] = int(record[1])
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
-		if not data.get("chickens") is Array:
+		if int(data.version) < 38 and not data.get("chickens") is Array:
 			return false
-		for record in data.chickens:
+		for record in data.get("chickens", []) if int(data.version) < 38 else []:
 			if not record is Array or record.size() != 2:
 				return false
 			for value in record:
@@ -1638,6 +1643,14 @@ func restore(data: Dictionary) -> bool:
 				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
 					return false
 			next_chickens.append(point)
+	if int(data.version) >= 38:
+		var count = data.get("chicken_count")
+		if not valid_animal_count(count): return false
+		var ground = get_script().new()
+		for field in ["cells", "elevations", "trees", "tree_types", "log_piles", "houses", "house_offsets", "flora", "decorations", "stair_directions"]:
+			ground.set(field, {"cells": next_cells, "elevations": next_elevations, "trees": next_trees, "tree_types": next_tree_types, "log_piles": next_logs, "houses": next_houses, "house_offsets": next_house_offsets, "flora": next_flora, "decorations": next_decorations, "stair_directions": next_stairs}[field])
+		next_chickens = ground.respawn_animals(int(count), "chicken")
+		if next_chickens.size() != int(count): return false
 	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
 	for reward_level in range(11, next_level + 1):
 		chicken_rewards += int(LEVEL_REWARDS[reward_level].get("chicken", 0))
@@ -1686,9 +1699,10 @@ func restore(data: Dictionary) -> bool:
 	if not next_build is Dictionary:
 		return false
 	if not next_build.is_empty():
-		if next_build.keys().size() != 5:
+		var build_keys: Array = ["x", "y", "started_at"] if int(data.version) >= 38 else ["x", "y", "started_at", "pawn_x", "pawn_y"]
+		if next_build.keys().size() != build_keys.size():
 			return false
-		for key in ["x", "y", "started_at", "pawn_x", "pawn_y"]:
+		for key in build_keys:
 			var value = next_build.get(key)
 			if not (value is int or value is float) or not is_finite(float(value)):
 				return false
@@ -1724,6 +1738,8 @@ func restore(data: Dictionary) -> bool:
 	chicken_release_at = float(next_chicken_release)
 	playground_grants = next_grants
 	house_build = next_build.duplicate(true)
+	house_build.erase("pawn_x")
+	house_build.erase("pawn_y")
 	free_house_grass = int(bonus)
 	houses = next_houses
 	house_offsets = next_house_offsets
@@ -1771,6 +1787,35 @@ func restore(data: Dictionary) -> bool:
 	AchievementRules.backfill(self)
 	achievements_changed.emit()
 	return true
+
+static func valid_animal_count(value: Variant) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and value >= 0 and value <= 100006 and float(value) == floorf(float(value))
+
+func respawn_animals(count: int, kind: String) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	if count == 0: return result
+	var feet: Vector2 = preload("res://scripts/animal_contact.gd").SHEEP if kind == "sheep" else preload("res://scripts/animal_contact.gd").CHICKEN
+	var candidates: Array[Vector2] = []
+	for cell in cells:
+		var point := safe_ground_point(cell, true)
+		if not point.is_finite() or not terrain_feet_free(point, true, feet):
+			point = Vector2.INF
+			# Fine probes also find clear areas beside trees and foundations.
+			for y in range(4, SIZE, 4):
+				for x in range(8, SIZE - 7, 4):
+					var candidate: Vector2 = ORIGIN + Vector2(cell) * SIZE + Vector2(x, y)
+					if walkable_point(candidate, true) and terrain_feet_free(candidate, true, feet):
+						point = candidate
+						break
+				if point.is_finite(): break
+		if point.is_finite(): candidates.append(point)
+		if candidates.size() >= count: break
+	if candidates.is_empty(): return result
+	# As in older saves, several animals may share safe ground. Their ordinary
+	# AI separates them without spending or refunding any inventory.
+	for index in count:
+		result.append(candidates[index % candidates.size()])
+	return result
 
 func can_pick_log(cell: Vector2i) -> bool:
 	return carried_wood == 0 and int(log_piles.get(cell, 0)) > 0

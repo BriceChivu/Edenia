@@ -184,7 +184,7 @@ func run() -> void:
 	check(Layout.new().restore(game.saved_snapshot()), "Completed return retains a valid save")
 	portal.finish()
 	check(game.layout.black_hole.phase == "idle" and game.layout.black_hole.next_day > State.today(), "Event closes with a rare-event cooldown")
-	var old: Dictionary = meadow.snapshot()
+	var old: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(meadow)
 	old.version = 34
 	old.erase("black_hole")
 	check(Layout.new().restore(old), "Existing version-34 islands migrate without an event")

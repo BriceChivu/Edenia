@@ -130,6 +130,10 @@ func placement_plan(cell: Vector2i, placement_offset: Vector2 = Vector2.ZERO) ->
 	var planned = original.get_script().new()
 	if not planned.restore(original.snapshot()):
 		return {}
+	# Planning stays in the current visit; keep live cosmetic contacts rather
+	# than using the positions reconstructed for a durable reload.
+	planned.chickens = original.chickens.duplicate()
+	planned.sheep = original.sheep.duplicate()
 	if not planned.edit(cell, "house", original.cell_at(world.pawn.position), -1, Vector2.ZERO, NO_CELL, world.pawn.position, placement_offset):
 		return {}
 	planned.houses[cell] = 1
@@ -272,7 +276,7 @@ func _process(_delta: float) -> void:
 		world.animate_house_displacements()
 		phase = Phase.HAMMERING
 		build_started_at = Time.get_unix_time_from_system()
-		world.layout.house_build = {"x": target.x, "y": target.y, "started_at": build_started_at, "pawn_x": world.pawn.position.x, "pawn_y": world.pawn.position.y}
+		world.layout.house_build = {"x": target.x, "y": target.y, "started_at": build_started_at}
 		world.save_layout()
 		world.pawn.carrying_wood = false
 		world.pawn.hammering = true
@@ -336,15 +340,13 @@ func resume_build() -> void:
 		return
 	target = Vector2i(saved.x, saved.y)
 	build_started_at = saved.started_at
-	var point := Vector2(saved.pawn_x, saved.pawn_y)
-	if not on_house_floor(world.layout, target, point):
-		# Older saves may have selected reachable grass below the house's cliff.
-		var points := work_points(world.layout, target, world.layout.house_offsets.get(target, Vector2.ZERO))
-		if points.is_empty():
-			return
-		point = points[0]
-		saved.pawn_x = point.x
-		saved.pawn_y = point.y
+	# Worker coordinates are cosmetic. Derive a valid work point from the saved
+	# building and its floor after every load, including old-coordinate saves.
+	var points := work_points(world.layout, target, world.layout.house_offsets.get(target, Vector2.ZERO))
+	if points.is_empty(): return
+	var point: Vector2 = points[0]
+	saved.erase("pawn_x")
+	saved.erase("pawn_y")
 	world.pawn.position = point
 	world.pawn.walk_to(world.pawn.position)
 	world.pawn.hammering = true

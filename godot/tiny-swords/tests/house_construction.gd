@@ -7,7 +7,7 @@ func check(ok: bool, message: String) -> void:
 func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
-	var scene = preload("res://previews/level_five.tscn").instantiate()
+	var scene = load("res://previews/level_five.tscn").instantiate()
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
@@ -59,7 +59,7 @@ func run() -> void:
 	check(copy.restore(JSON.parse_string(JSON.stringify(scene.layout.snapshot()))) and not copy.house_build.is_empty(), "Active construction clock survives JSON reload")
 	check(copy.house_offsets.get(site) == Vector2.ZERO, "Reload preserves chosen house offset")
 	check(copy.edit(site, "house", Vector2i(-10, -10)) and copy.house_offsets[site] == Vector2.ZERO, "Rotation preserves free placement anchor")
-	var old_placement: Dictionary = scene.layout.snapshot()
+	var old_placement: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(scene.layout)
 	old_placement.version = 26
 	old_placement.houses[0][3] = 31
 	old_placement.houses[0][4] = 31
@@ -72,7 +72,7 @@ func run() -> void:
 	scene.construction.phase = scene.construction.Phase.READY
 	scene.pawn.hammering = false
 	scene.construction.resume_build()
-	check(scene.pawn.hammering and scene.pawn.position.is_equal_approx(Vector2(copy.house_build.pawn_x, copy.house_build.pawn_y)), "Reload resumes worker at saved construction position")
+	check(scene.pawn.hammering and scene.construction.on_house_floor(scene.layout, site, scene.pawn.position) and scene.layout.walkable_point(scene.pawn.position), "Reload derives a valid worker position on the building floor")
 	var house = scene.construction.house_sprite
 	check((house.position + house.offset - house.texture.get_size() / 2).is_equal_approx(preview.position), "Built house stays exactly at the free pointer preview")
 	var base: Vector2 = house.position + house.offset + Vector2(0, 82)

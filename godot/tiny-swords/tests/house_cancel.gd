@@ -45,6 +45,7 @@ func run() -> void:
 		elif scenario in ["reload", "legacy_reload"]:
 			var saved = JSON.parse_string(JSON.stringify(game.layout.snapshot()))
 			if scenario == "legacy_reload":
+				saved = preload("res://tests/legacy_snapshot.gd").capture(game.layout)
 				saved.version = 28
 				saved.erase("house_bundle_source")
 			check(game.restore_saved_layout(saved), "Carrying save restores")

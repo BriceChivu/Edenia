@@ -14,9 +14,12 @@ const equal = (a, b) => a === undefined || b === undefined ? a === b : canonical
 function semanticIsland(value) {
   const identity = value?.sync_semantics
   // Godot owns this identity and the rules for what constitutes gameplay.
-  if (identity?.version !== islandSyncContract.version || !/^[a-f0-9]{64}$/.test(identity.sha256)
+  // Previous Godot snapshots remain readable during transport rollback.
+  const declaration = identity?.version === 1
+    ? { version: 1, ambient_arrays: ['chickens', 'sheep'] } : islandSyncContract
+  if (identity?.version !== declaration.version || !/^[a-f0-9]{64}$/.test(identity.sha256)
     || !Array.isArray(identity.ambient_arrays)
-    || !equal(identity.ambient_arrays, islandSyncContract.ambient_arrays) || !identity.ambient_arrays.length
+    || !equal(identity.ambient_arrays, declaration.ambient_arrays)
     || identity.ambient_arrays.length > 8 || new Set(identity.ambient_arrays).size !== identity.ambient_arrays.length
     || identity.ambient_arrays.some(key => typeof key !== 'string' || BAD_KEYS.has(key) || key === 'sync_semantics' || !Array.isArray(value[key]))) return value
   const projected = { ...value }
