@@ -57,7 +57,7 @@ const withinBound = value => new TextEncoder().encode(JSON.stringify(value)).len
 // Store only before-values for changed domain fields, never another complete
 // profile. The target stays in the existing durable outbox. A damaged, oversized
 // or unsupported record falls back to the protected conflict protocol.
-export function captureProfileChanges(base, target) {
+export function captureProfileChanges(base, target, knownPaths = null) {
   try {
     if (!record(base) || !record(target)) return null
     const entries = []
@@ -65,7 +65,22 @@ export function captureProfileChanges(base, target) {
       if (!validPath(path)) throw new TypeError('Unsupported profile change')
       entries.push({ path, present: Object.hasOwn(parent, key), ...(Object.hasOwn(parent, key) ? { before: clone(parent[key]) } : {}) })
     }
-    for (const key of new Set([...Object.keys(base), ...Object.keys(target)])) {
+    if (knownPaths !== null) {
+      if (!Array.isArray(knownPaths) || knownPaths.length > 2048) return null
+      const visited = []
+      for (const path of knownPaths) {
+        if (!validPath(path)) return null
+        const keyPath = path.join('\u0000')
+        if (visited.some(previous => previous === keyPath || previous.startsWith(keyPath + '\u0000')
+          || keyPath.startsWith(previous + '\u0000'))) return null
+        visited.push(keyPath)
+        let before = base, after = target
+        for (const key of path.slice(0, -1)) { before = before?.[key]; after = after?.[key] }
+        if (!record(before) || !record(after)) return null
+        const key = path.at(-1)
+        if (!equal(before[key], after[key])) add(path, before, key)
+      }
+    } else for (const key of new Set([...Object.keys(base), ...Object.keys(target)])) {
       if (key === 'tinySwordsIsland' ? sameIsland(base[key], target[key]) : equal(base[key], target[key])) continue
       if (!ROOTS.has(key)) return null
       if (key === 'activityLog' && Array.isArray(base[key]) && Array.isArray(target[key])) {
@@ -237,6 +252,96 @@ function economy(base, local, cloud) {
   try { return validateTownEconomy({ version: base.version, mode: base.mode, rewards, purchases }) } catch { return CONFLICT }
 }
 
+const channelKey = value => typeof value === 'string' && value.length > 0 && !BAD_KEYS.has(value)
+function channelIds(value) {
+  if (value === undefined) return []
+  return Array.isArray(value) && value.every(channelKey) && new Set(value).size === value.length ? value : null
+}
+function channelMap(value) {
+  if (value === undefined) return {}
+  if (!Array.isArray(value) || value.some(channel => !record(channel) || !channelKey(channel.id))) return null
+  const entries = value.map(channel => [channel.id, channel])
+  return new Set(entries.map(([id]) => id)).size === entries.length ? Object.fromEntries(entries) : null
+}
+function channelMembership(base, local, cloud) {
+  const lists = [base, local, cloud].map(channelIds)
+  if (lists.some(value => value === null)) return CONFLICT
+  const [before, left, right] = lists.map(value => new Set(value))
+  return [...new Set(lists.flat())].filter(id => oneSided(before.has(id), left.has(id), right.has(id))).sort()
+}
+function channelOrder(base, local, cloud) {
+  const lists = [base, local, cloud].map(channelIds)
+  if (lists.some(value => value === null)) return CONFLICT
+  const present = channelMembership(...lists)
+  const indexes = lists.map(list => new Map(list.map((id, index) => [id, index])))
+  const relation = (index, a, b) => index.has(a) && index.has(b) ? index.get(a) < index.get(b) : undefined
+  // Removing an order entry cannot silently discard the other device's
+  // explicit movement of that same entry relative to retained baseline IDs.
+  for (const id of lists[0]) {
+    for (const [removed, edited] of [[indexes[1], indexes[2]], [indexes[2], indexes[1]]]) {
+      if (removed.has(id) || !edited.has(id)) continue
+      if (lists[0].some(other => present.includes(other) && edited.has(other)
+        && relation(indexes[0], id, other) !== relation(edited, id, other))) return CONFLICT
+    }
+  }
+  const edges = new Map(present.map(id => [id, new Set()]))
+  const degree = new Map(present.map(id => [id, 0]))
+  for (let first = 0; first < present.length; first++) {
+    for (let second = first + 1; second < present.length; second++) {
+      const a = present[first], b = present[second]
+      const [before, left, right] = indexes.map(index => relation(index, a, b))
+      // A missing newly added channel provides no ordering observation. Known
+      // baseline pairs use the same three-way intent rules as scalar fields.
+      const choice = left === undefined ? right : right === undefined ? left : oneSided(before, left, right)
+      if (choice === CONFLICT) return CONFLICT
+      if (choice === undefined) continue
+      const from = choice ? a : b, to = choice ? b : a
+      edges.get(from).add(to)
+      degree.set(to, degree.get(to) + 1)
+    }
+  }
+  const ready = present.filter(id => degree.get(id) === 0).sort(), result = []
+  while (ready.length) {
+    const id = ready.shift()
+    result.push(id)
+    for (const next of edges.get(id)) {
+      degree.set(next, degree.get(next) - 1)
+      if (degree.get(next) === 0) { ready.push(next); ready.sort() }
+    }
+  }
+  return result.length === present.length ? result : CONFLICT
+}
+function configuration(base, local, cloud) {
+  if (![base, local, cloud].every(record)) return oneSided(base, local, cloud)
+  const channels = [base, local, cloud].map(value => channelMap(value.channels))
+  if (channels.some(value => value === null)) return CONFLICT
+  for (const key of ['channelShelfOrder', 'removedChannelIds', 'removedDefaultChannelIds']) {
+    if ([base, local, cloud].some(value => channelIds(value[key]) === null)) return CONFLICT
+  }
+  const merged = mapChanges(base, local, cloud, (before, left, right, field) => {
+    const simple = oneSided(before, left, right)
+    if (simple !== CONFLICT) return simple
+    if (field === 'channels') {
+      const value = mapChanges(...channels, oneSided)
+      return value === CONFLICT ? CONFLICT : Object.values(value).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+    }
+    if (field === 'removedChannelIds' || field === 'removedDefaultChannelIds') return channelMembership(before, left, right)
+    if (field === 'channelShelfOrder') return channelOrder(before, left, right)
+    if (field === 'channelVideoFormats') return mapChanges(before || {}, left || {}, right || {}, oneSided)
+    return oneSided(before, left, right)
+  })
+  if (merged === CONFLICT) return CONFLICT
+  // An independent add and removal of an absent channel can otherwise produce
+  // both a tracked channel and a new tombstone. Preserve that ambiguous intent.
+  for (const channel of merged.channels || []) {
+    for (const field of ['removedChannelIds', 'removedDefaultChannelIds']) {
+      if (merged[field]?.includes(channel.id) && ![base, local, cloud].some(value =>
+        value.channels?.some(item => item.id === channel.id) && value[field]?.includes(channel.id))) return CONFLICT
+    }
+  }
+  return merged
+}
+
 export function combinePortableProfiles(base, local, cloud) {
   try {
     const merged = mapChanges(base, local, cloud, (before, a, b, key) => {
@@ -245,6 +350,7 @@ export function combinePortableProfiles(base, local, cloud) {
         if (sameIsland(before, b)) return clone(a)
         return CONFLICT
       }
+      if (key === 'config') return configuration(before, a, b)
       const simple = oneSided(before, a, b)
       if (simple !== CONFLICT) return simple
       if (!ROOTS.has(key)) return CONFLICT
@@ -253,7 +359,7 @@ export function combinePortableProfiles(base, local, cloud) {
       if (key === 'activityLog') return activities(before, a, b)
       if (key === 'cityProgress') return mapChanges(before, a, b, (value, left, right, field) => oneSided(value, left, right) !== CONFLICT ? oneSided(value, left, right) : field === 'maxLevelIndex' ? maximum(value, left, right) : CONFLICT)
       if (key === 'townEconomy') return economy(before, a, b)
-      if (['config', 'learnerProfile', 'onboarding'].includes(key)) return mapChanges(before, a, b, (value, left, right, field) => {
+      if (['learnerProfile', 'onboarding'].includes(key)) return mapChanges(before, a, b, (value, left, right, field) => {
         const simple = oneSided(value, left, right)
         if (simple !== CONFLICT) return simple
         if (key === 'learnerProfile' && field === 'updatedAt') return timestamp(left, right)

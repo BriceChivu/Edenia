@@ -150,3 +150,110 @@ test('durable Godot v38 counts preserve gameplay identity without ambient arrays
   changed.tinySwordsIsland.resources.wood += 1
   assert.equal(portableProfilesHaveSameProgress(profile, changed), false)
 })
+
+function channelProfile(ids = ['a', 'b']) {
+  return { config: { locale: 'en', channels: ids.map(id => ({ id, name: `Channel ${id}`, imageUrl: '', catalogId: null })),
+    channelShelfOrder: [...ids], channelVideoFormats: {}, removedChannelIds: [], removedDefaultChannelIds: [] },
+    videos: { lesson: { favorite: false } } }
+}
+function addChannel(profile, id, { prepend = false } = {}) {
+  profile.config.channels.push({ id, name: `Channel ${id}`, imageUrl: '', catalogId: null })
+  profile.config.channelShelfOrder = prepend ? [id, ...profile.config.channelShelfOrder] : [...profile.config.channelShelfOrder, id]
+  profile.config.removedChannelIds = profile.config.removedChannelIds.filter(value => value !== id)
+}
+function removeChannel(profile, id) {
+  profile.config.channels = profile.config.channels.filter(channel => channel.id !== id)
+  profile.config.removedChannelIds.push(id)
+}
+
+test('independent channel additions retain append/prepend intent without a whole-profile conflict', () => {
+  const base = channelProfile(), local = clone(base), cloud = clone(base)
+  addChannel(local, 'c')
+  addChannel(cloud, 'd', { prepend: true })
+  const result = combinePortableProfiles(base, local, cloud)
+  assert.deepEqual(result.config.channels.map(channel => channel.id), ['a', 'b', 'c', 'd'])
+  assert.deepEqual(result.config.channelShelfOrder, ['d', 'a', 'b', 'c'])
+  assert.deepEqual(combinePortableProfiles(base, cloud, local), result, 'Device arrival order does not select the shelf arrangement')
+  local.config.channelShelfOrder = ['c', 'a', 'b']
+  assert.deepEqual(combinePortableProfiles(base, local, cloud).config.channelShelfOrder, ['c', 'd', 'a', 'b'])
+})
+
+test('independent channel removals and removal tombstones combine without resurrection', () => {
+  const base = channelProfile(['a', 'b', 'c']), local = clone(base), cloud = clone(base)
+  removeChannel(local, 'a')
+  removeChannel(cloud, 'b')
+  local.config.removedDefaultChannelIds = ['a']
+  cloud.config.removedDefaultChannelIds = ['b']
+  const result = combinePortableProfiles(base, local, cloud)
+  assert.deepEqual(result.config.channels.map(channel => channel.id), ['c'])
+  assert.deepEqual(result.config.removedChannelIds, ['a', 'b'])
+  assert.deepEqual(result.config.removedDefaultChannelIds, ['a', 'b'])
+  const continued = clone(result), other = clone(result)
+  addChannel(continued, 'd')
+  addChannel(other, 'e', { prepend: true })
+  const merged = combinePortableProfiles(result, continued, other)
+  assert.deepEqual(merged.config.channels.map(channel => channel.id), ['c', 'd', 'e'])
+  assert.deepEqual(merged.config.removedChannelIds, ['a', 'b'])
+})
+
+test('channel removal versus editing that channel metadata remains a protected choice', () => {
+  const base = channelProfile(), local = clone(base), cloud = clone(base)
+  removeChannel(local, 'a')
+  cloud.config.channels[0].name = 'Edited channel name'
+  assert.equal(combinePortableProfiles(base, local, cloud), null)
+  assert.equal(combinePortableProfiles(base, cloud, local), null)
+})
+
+test('ordinary membership and separate study edits combine while duplicate channel IDs are rejected', () => {
+  const base = channelProfile(), local = clone(base), cloud = clone(base)
+  removeChannel(local, 'a')
+  cloud.videos.lesson.favorite = true
+  const result = combinePortableProfiles(base, local, cloud)
+  assert.equal(result.videos.lesson.favorite, true)
+  assert.deepEqual(result.config.channels.map(channel => channel.id), ['b'])
+  assert.deepEqual(result.config.removedChannelIds, ['a'])
+  local.config.channels.push(clone(local.config.channels[0]))
+  assert.equal(combinePortableProfiles(base, local, cloud), null)
+  assert.equal(combinePortableProfiles(local, local, local), null, 'Unchanged duplicate IDs cannot bypass validation')
+})
+
+test('conflicting shelf reorder constraints require a choice and independent moves remain compatible', () => {
+  const base = channelProfile(['a', 'b', 'c']), local = clone(base), cloud = clone(base)
+  local.config.channelShelfOrder = ['b', 'a', 'c']
+  cloud.config.channelShelfOrder = ['a', 'c', 'b']
+  assert.equal(combinePortableProfiles(base, local, cloud), null)
+  cloud.config.channelShelfOrder = ['a', 'b', 'c']
+  addChannel(cloud, 'd', { prepend: true })
+  assert.deepEqual(combinePortableProfiles(base, local, cloud).config.channelShelfOrder, ['d', 'b', 'a', 'c'])
+  const four = channelProfile(['a', 'b', 'c', 'd']), left = clone(four), right = clone(four)
+  left.config.channelShelfOrder = ['b', 'a', 'c', 'd']
+  right.config.channelShelfOrder = ['a', 'b', 'd', 'c']
+  assert.deepEqual(combinePortableProfiles(four, left, right).config.channelShelfOrder, ['b', 'a', 'd', 'c'])
+})
+
+test('per-channel format preferences combine distinct IDs and protect competing choices', () => {
+  const base = channelProfile(), local = clone(base), cloud = clone(base)
+  base.config.channelVideoFormats = { a: 'videos', b: 'videos' }
+  local.config.channelVideoFormats = { a: 'shorts', b: 'videos' }
+  cloud.config.channelVideoFormats = { a: 'videos', b: 'shorts' }
+  assert.deepEqual(combinePortableProfiles(base, local, cloud).config.channelVideoFormats, { a: 'shorts', b: 'shorts' })
+  delete base.config.channelVideoFormats.a
+  local.config.channelVideoFormats.a = 'videos'
+  cloud.config.channelVideoFormats.a = 'shorts'
+  assert.equal(combinePortableProfiles(base, local, cloud), null)
+})
+
+test('concurrent channel addition and explicit absent-channel removal do not infer away removal intent', () => {
+  const base = channelProfile(), local = clone(base), cloud = clone(base)
+  addChannel(local, 'new')
+  cloud.config.removedChannelIds.push('new')
+  assert.equal(combinePortableProfiles(base, local, cloud), null)
+  const restored = channelProfile()
+  restored.config.removedChannelIds = ['old']
+  const left = clone(restored), right = clone(restored)
+  addChannel(left, 'old')
+  addChannel(right, 'new')
+  const result = combinePortableProfiles(restored, left, right)
+  assert.deepEqual(result.config.channels.map(channel => channel.id), ['a', 'b', 'new', 'old'])
+  assert.deepEqual(result.config.removedChannelIds, [])
+})
