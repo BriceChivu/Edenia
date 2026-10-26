@@ -1224,9 +1224,6 @@ let learnerProfileOpeningCompletionToastPending = false
 let learnerProfileOpeningFocusHandoffPending = false
 const learnerProfileSyncOpportunity = createLearnerProfileSyncOpportunity({
   isHidden: () => document.hidden,
-  isWatchingVideo: () => {
-    try { return activeVideoShelfPlayer?.player?.getPlayerState?.() === 1 } catch { return false }
-  },
   now: () => Date.now()
 })
 window.addEventListener('edenia-tiny-swords-activity', event => learnerProfileSyncOpportunity.reportGame(event.detail))
@@ -3080,6 +3077,32 @@ function initBackgroundPhysics() {
   }
 }
 
+function scheduleOpeningMaintenance(openedState) {
+  const run = () => {
+    if (!applicationStarted) return
+    // Ownership and generation checks finish before display. Never let work
+    // queued for that activation save a subsequently installed profile.
+    if (learnerProfileLifecycleAuthority
+      && learnerProfileLifecycleAuthority.readActiveProfile() !== openedState) return
+    if (!learnerProfileSyncOpportunity.isQuiet()) {
+      window.setTimeout(run, 1000)
+      return
+    }
+    // Accountless actions load fresh snapshots. Recompute maintenance from the
+    // latest durable body rather than writing the snapshot captured at opening.
+    const state = learnerProfileLifecycleAuthority
+      ? openedState : loadState({ persistCleanup: false })
+    if (!state) return
+    reconcileTrackedChannelPolicyState(state, plusAccessPolicy)
+    syncStreak(state)
+    void saveState(state, { backup: false, syncAnalytics: false })
+    compactReplaceableSearchCache()
+  }
+  // A task after the first animation frame lets the verified profile paint
+  // before nonessential storage work begins.
+  window.requestAnimationFrame(() => window.setTimeout(run, 0))
+}
+
 async function startApplicationWithState(initialState, {
   accountAuthInitialized = false,
   deferStarterFeedUntilProfileActivation = false,
@@ -3120,9 +3143,9 @@ async function startApplicationWithState(initialState, {
   if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
   selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX, HISTORY_CHART_ENABLED)
   syncStreak(state)
-  if (!await saveState(state)) {
-    // Opening an existing durable profile must still work when maintenance
-    // writes fail. Render its saved snapshot, without the failed mutation.
+  // Entitlement transitions can remove tracked channels. A real membership
+  // change still needs its durable checkpoint before it becomes active UI.
+  if (initialChannelTransition.changed && !await saveState(state)) {
     state = loadState({ persistCleanup: false })
     if (!state) {
       applicationStarted = false
@@ -3139,6 +3162,7 @@ async function startApplicationWithState(initialState, {
     && !state?.onboarding?.setupCompleted
   if (!unfinishedOnboardingStartsImmediately) show('mainApp')
   renderAll(state)
+  scheduleOpeningMaintenance(state)
   try { window.edeniaHealth?.ready() } catch {}
   void initializeRequestedReminderDestination()
   loadDynamicChannelCatalogs()
@@ -18967,10 +18991,7 @@ bindUndoRedoActions(document, {
 })
 
 bindImageFallbackActions(document)
-async function initializeBrowserStorage() {
-  await profileRecoveryWorkspace.initialize()
-  // Retire only replaceable search metadata before opening a durable profile.
-  // This also gives the small opening markers room in the localStorage pool.
+function compactReplaceableSearchCache() {
   try {
     const raw = profileBrowserStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY)
     if (raw && raw.length * 2 > 64 * 1024) {
@@ -18978,6 +18999,10 @@ async function initializeBrowserStorage() {
       if (bounded !== raw) profileBrowserStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, bounded)
     }
   } catch {}
+}
+
+async function initializeBrowserStorage() {
+  await profileRecoveryWorkspace.initialize()
   if (profileRecoveryWorkspace.hasPending()) {
     profileRecoveryWorkspace.activate()
     resetRecoveryBackupStore()

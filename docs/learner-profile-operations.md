@@ -52,6 +52,22 @@ replacements, reload, failed transactions and competing-tab edits.
 
 ## Cloud-save validation performance
 
+The October 26 issue #513 slice removes cosmetic animal save requests and makes
+visible active gameplay block automatic cloud preparation/response processing,
+including simultaneous video playback. Opening maintenance waits until after
+display and a safe opportunity; recovery/backup initialization still precedes
+opening. Full-envelope requests, complete version creation and the 30-second
+server cadence remain in use. No database migration accompanies this slice.
+
+For rollback, keep the Godot reader for durable island version 38. It reads older
+coordinate-bearing saves and the new count-based format. Reverting to an older
+game rejects newer islands; the bridge retains the rejected input and blocks
+its replacement, but that is a recovery fence, not a usable rollback. Retain the
+upgraded reader when reverting delivery or scheduling changes. Pending local
+candidates and receipts must remain intact. Changed-record authority, migration
+order and later transport rollback are specified in
+[the remaining #513 design](plans/513-current-record-authority.md).
+
 Profile acceptance keeps the existing canonical bytes, byte-length limit, SHA-256
 integrity, schema and study-fact checks. Recursive serialization handles scalar
 values directly, and validation reuses one canonical profile traversal for both

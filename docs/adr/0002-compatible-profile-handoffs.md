@@ -13,3 +13,33 @@ Local island checkpoints commit a small IndexedDB head under the existing activa
 Study observations use explicit identity and monotonic rules: watch facts reconcile by observation time without resurrecting removed baseline facts, Anki observations take maxima, and compatible one-sided preferences retain both devices' intent. Dated resume positions remain paired with their playback timestamps; unknown or tied observations require a protected choice. Currency and purchase receipts stay coupled and validated. Godot declares ambient animal position arrays and the gameplay identity of each island snapshot; Edenia accepts only the checked Godot-owned transport manifest and still compares every other field. Animal-only differences do not enqueue another full-profile upload. Conflicting game edits remain whole-island choices.
 
 Imports, restores, Undo, explicit conflict choices and reset boundaries must not be inferred away by timestamp or pruned history. Two scalar values on each current head retain the session-flush allowance and latest replacement boundary. Existing old clients continue using their original commit API; the server budget described here applies to the new trial protocol. Adoption does not enable public mandatory accounts or change Free-tier retention.
+
+October 26 refinement (issue #513): visible active gameplay and recent island
+input take precedence over simultaneous video playback. Automatic head-response
+processing also waits if gameplay resumes during the read. A session-boundary
+event does not force deferred full-profile preparation while the island remains
+active; an actually hidden page remains a best-effort opportunity, and explicit
+Sync keeps its override. Durable local checkpoints and their recovery evidence
+remain available if the browser closes before delivery.
+
+Godot snapshot version 38 stores animal counts and carrying/riding relationships
+without wandering coordinates, and derives valid animal and construction-worker
+locations from terrain when loading. Wandering alone requests no save. Readers
+retain versions 1–37, including the previous checked ambient-motion declaration.
+Transport rollback must retain the upgraded game reader; an older reader rejects
+version 38 and the existing bridge restore gate prevents it from overwriting the
+retained island. This is one shared native/browser durable format, not a browser
+projection of gameplay state.
+
+Returning-profile display no longer waits for its maintenance save or search
+cache compaction. Those tasks wait until after first display and a safe gameplay
+opportunity, with current activation checks. Recovery-journal and backup-store
+initialization remain before opening because they may contain recovery evidence.
+Owner verification and activation policy are unchanged.
+
+This independent release retains full-envelope delivery, the 30-second cadence,
+complete historical versions and existing receipt/retention limits. Changed-record
+transport and five-second delivery remain open: changing the snapshot-backed
+authority affects opening, replacement and recovery together. The concrete next
+slice and compatibility boundaries are recorded in
+[the issue #513 authority design](../plans/513-current-record-authority.md).
