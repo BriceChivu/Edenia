@@ -1045,6 +1045,31 @@ export function createLearnerProfileLifecycleAuthority({
     return localPersistence.readIsland?.(activation) ?? localPersistence.read()?.profile ?? null
   }
 
+  function saveActiveRecords(profile, units, options = {}) {
+    const activation = getCurrentActivationFor(profile)
+    if (!activation) return false
+    if (!localPersistence.supportsRecordCheckpoints?.()) return null
+    const syncCloud = options.syncCloud !== false
+    const syncBase = cloudPersistence.getSaveBase?.(activation)
+    if (activation.ownerId && !syncBase) return null
+    if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
+    pendingLocalSaves += 1
+    const transaction = Promise.resolve(localPersistence.saveRecords(profile, units, activation, syncBase, options))
+      .then(saved => {
+        if (saved === null) return null
+        if (!saved || getCurrentActivationFor(profile) !== activation) return false
+        if (options.syncAnalytics !== false) analytics.profileSaved(profile, { activation })
+        if (syncCloud && activation.ownerId) cloudPersistence.saveDeferred?.({
+          activation, isCurrent: () => getCurrentActivationFor(profile) === activation,
+          readPersistedProfile: () => readPersistedProfileFor(profile, activation),
+          dirtyUnits: units
+        })
+        return true
+      }).finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(transaction) })
+    pendingLocalTransactions.add(transaction)
+    return transaction
+  }
+
   function saveActiveIsland(layout, expected) {
     const profile = activeProfile
     const activation = getCurrentActivationFor(profile)
@@ -1061,7 +1086,8 @@ export function createLearnerProfileLifecycleAuthority({
         if (!saved || getCurrentActivationFor(profile) !== activation) return false
         if (activation.ownerId) cloudPersistence.saveDeferred?.({
           activation, isCurrent: () => getCurrentActivationFor(profile) === activation,
-          readPersistedProfile: () => readPersistedProfileFor(profile, activation)
+          readPersistedProfile: () => readPersistedProfileFor(profile, activation),
+          dirtyUnits: { island: true }
         })
         return true
       }).finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(transaction) })
@@ -2115,6 +2141,7 @@ export function createLearnerProfileLifecycleAuthority({
     retryCloudBackup,
     restoreRecoveryCandidate,
     saveActiveProfile,
+    saveActiveRecords,
     start,
     startOverProfile,
     undoStartOver

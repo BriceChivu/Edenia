@@ -83,6 +83,7 @@ function createHarness({
   accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
   localSave = null,
+  localRecordsSave = null,
   markDirtyResult = null,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -129,6 +130,10 @@ function createHarness({
         }
       },
       cloudPersistence: {
+        ...(localRecordsSave ? {
+          getSaveBase: activation => ({ ownerId: activation.ownerId, profileId: activation.profileId, generation: activation.generation, revision: activation.revision }),
+          saveDeferred(context) { calls.push(['cloud-records-deferred', context]); return true }
+        } : {}),
         checkActiveHead(context) {
           calls.push(['cloud-check-head', context])
           return typeof cloudHeadCheck === 'function' ? cloudHeadCheck(context) : cloudHeadCheck
@@ -268,6 +273,13 @@ function createHarness({
         }
       },
       localPersistence: {
+        ...(localRecordsSave ? {
+          supportsRecordCheckpoints: () => true,
+          saveRecords(profile, units, fence, base, options) {
+            calls.push(['local-records-save', units, fence, base, options])
+            return localRecordsSave(profile, units, fence, base, options)
+          }
+        } : {}),
         attachAccountlessProfile(identity) {
           calls.push(['attach-accountless-profile', identity])
           if (currentLocal.status !== 'ready' || currentLocal.ownerId) {
@@ -4247,6 +4259,32 @@ test('signed-in island checkpoints honor analytics suppression without changing 
   harness.authentication.publish({ status: 'signed-out', userId: null })
   assert.equal(harness.authority.saveActiveProfile(profile, { syncAnalytics: false }), false)
 })
+
+for (const outcome of ['accepted', 'failed', 'retired']) {
+  test(`record checkpoints queue known units only after durable acknowledgement (${outcome})`, async () => {
+    const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+    const profile = { config: {}, videos: { lesson: { resumeAtSeconds: 1 } }, anki: {} }
+    const saving = deferred()
+    const h = createHarness({ authentication: { status: 'signed-in', userId: ownerId },
+      cloudResolution: { generation: 2, ownerId, profile, profileId: '223e4567-e89b-42d3-a456-426614174001', revision: 7, status: 'activate' },
+      local: { status: 'empty' }, markDirtyResult: true, localRecordsSave: () => saving.promise })
+    h.authority.start()
+    await new Promise(resolve => setImmediate(resolve))
+    const units = { videos: ['lesson'] }
+    profile.videos.lesson.resumeAtSeconds = 7
+    const pending = h.authority.saveActiveRecords(profile, units, { syncAnalytics: false })
+    assert.ok(h.calls.some(([name]) => name === 'cloud-mark-dirty'))
+    assert.equal(h.calls.some(([name]) => name === 'cloud-records-deferred'), false)
+    if (outcome === 'retired') h.authentication.publish({ status: 'signed-out', userId: null })
+    saving.resolve(outcome !== 'failed')
+    assert.equal(await pending, outcome === 'accepted')
+    const delivery = h.calls.filter(([name]) => name === 'cloud-records-deferred')
+    assert.equal(delivery.length, outcome === 'accepted' ? 1 : 0)
+    if (delivery.length) assert.deepEqual(delivery[0][1].dirtyUnits, units)
+    assert.equal(h.calls.some(([name]) => name === 'analytics-saved'), false)
+    assert.equal(h.calls.some(([name]) => name === 'local-save'), false)
+  })
+}
 
 
 test('local animal checkpoint remains guarded and the next study save sends its whole island', async () => {

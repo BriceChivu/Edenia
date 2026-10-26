@@ -530,6 +530,186 @@ async function repositoryFixture(page) {
   }, edgeDatabaseName)
 }
 
+test('record checkpoints keep the body immutable and recover exact dirty units and the pre-edit base', async ({ page }, testInfo) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    const identity = { ownerId: 'owner', profileId: 'profile', generation: 1, revision: 7 }
+    const original = { ...edgeState, cityProgress: { maxLevelIndex: 3 }, tinySwordsIsland: { resources: { wood: 1 } },
+      videos: Object.fromEntries(Array.from({ length: 500 }, (_, i) => [`v${i}`, { id: `v${i}`, resumeAtSeconds: 1, title: 'Metadata '.repeat(40) }])),
+      anki: { '2026-10-26': { reviewed: 1 } }, activityLog: [] }
+    localStorage.setItem('synthetic-profile', JSON.stringify(original))
+    let repository = await openEdgeRepository()
+    const edit = repository.snapshot()
+    edit.videos.v0.resumeAtSeconds = 5
+    if (!await repository.saveRecords(edit, { videos: ['v0'] }, { syncBase: identity })) throw new Error('Initial record checkpoint failed')
+    const body = JSON.stringify(original)
+    const parse = JSON.parse, stringify = JSON.stringify
+    const put = IDBObjectStore.prototype.put
+    const writes = []
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      if (this.name === 'profiles' && this.transaction.db.name === 'synthetic_profile_edge_cases') writes.push({ key: value.key, bytes: stringify(value).length * 2 })
+      return put.call(this, value, ...args)
+    }
+    JSON.parse = function (raw, ...args) {
+      if (raw === body) throw new Error('Warm checkpoint parsed complete immutable body')
+      return parse(raw, ...args)
+    }
+    JSON.stringify = function (value, ...args) {
+      if (value === edit) throw new Error('Warm checkpoint serialized complete active profile')
+      return stringify(value, ...args)
+    }
+    let warmSaved, warmMs
+    try {
+      edit.videos.v0.resumeAtSeconds = 9
+      edit.anki['2026-10-26'].reviewed = 7
+      const started = performance.now()
+      warmSaved = await repository.saveRecords(edit, { videos: ['v0'], anki: ['2026-10-26'] }, { syncBase: identity,
+        activityEntries: [{ id: 'observation', createdAt: '2026-10-26T10:00:00Z', title: 'Device observation' }] })
+      warmMs = performance.now() - started
+    } finally { JSON.parse = parse; JSON.stringify = stringify; IDBObjectStore.prototype.put = put }
+    repository.close()
+    repository = await openEdgeRepository()
+    const recovered = repository.snapshot()
+    const units = await repository.readDirtyUnits(identity)
+    const base = await repository.readSyncBase(identity)
+    await repository.saveIsland({ resources: { wood: 2 } }, JSON.stringify(original.tinySwordsIsland), { syncBase: identity })
+    const combined = repository.snapshot()
+    combined.config.theme = 'dark'
+    const compacted = await repository.save(combined, { syncBase: identity })
+    const retainedBase = await repository.readSyncBase(identity)
+    const fullFallback = await repository.readDirtyUnits(identity)
+    const saved = repository.snapshot()
+    repository.close()
+    return { warmSaved, warmMs, writes, immutableBodyBytes: body.length * 2, units, base, recovered: { video: recovered.videos.v0.resumeAtSeconds, reviews: recovered.anki['2026-10-26'].reviewed,
+      count: Object.keys(recovered.videos).length, log: recovered.activityLog[0].id }, compacted, retainedBase,
+      fullFallback, saved: { video: saved.videos.v0.resumeAtSeconds, wood: saved.tinySwordsIsland.resources.wood, theme: saved.config.theme }, original }
+  })
+  expect(result.warmSaved).toBe(true)
+  expect(result.writes.map(write => write.key)).toEqual(['active'])
+  await testInfo.attach('record-checkpoint-measurement', { contentType: 'application/json',
+    body: Buffer.from(JSON.stringify({ synthetic: true, retainedVideos: 500, immutableBodyBytes: result.immutableBodyBytes,
+      checkpointWrites: result.writes, checkpointMs: result.warmMs })) })
+  expect(result.units).toEqual({ videos: ['v0'], anki: ['2026-10-26'], island: false })
+  expect(result.recovered).toEqual({ video: 9, reviews: 7, count: 500, log: 'observation' })
+  expect(result.base).toEqual(result.original)
+  expect(result.retainedBase).toEqual(result.original)
+  expect(result.compacted).toBe(true)
+  expect(result.fullFallback).toBeNull()
+  expect(result.saved).toEqual({ video: 9, wood: 2, theme: 'dark' })
+})
+
+test('record checkpoints reject failed transactions, external revisions and retired ownership', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    const identity = { ownerId: 'owner', profileId: 'profile', generation: 1, revision: 7 }
+    localStorage.setItem('synthetic-profile', JSON.stringify({ ...edgeState, videos: { v: { id: 'v', resumeAtSeconds: 1 } } }))
+    const first = await openEdgeRepository()
+    const edit = first.snapshot()
+    edit.videos.v.resumeAtSeconds = 2
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      if (this.name === 'profiles' && value.key === 'active') throw new DOMException('Fixture quota', 'QuotaExceededError')
+      return put.call(this, value, ...args)
+    }
+    const failed = await first.saveRecords(edit, { videos: ['v'] }, { syncBase: identity })
+    IDBObjectStore.prototype.put = put
+    const afterFailure = first.snapshot().videos.v.resumeAtSeconds
+    const failedBase = await first.readSyncBase(identity)
+    let initialOwnership = true
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      const saved = put.call(this, value, ...args)
+      if (this.name === 'profiles' && value.key === 'active') initialOwnership = false
+      return saved
+    }
+    const firstRetired = await first.saveRecords(edit, { videos: ['v'] }, { syncBase: identity, canPersist: () => initialOwnership })
+    IDBObjectStore.prototype.put = put
+    const retained = await first.readSyncBase(identity)
+    const stale = first.snapshot()
+    const other = await openEdgeRepository()
+    const winner = other.snapshot()
+    winner.videos.v.resumeAtSeconds = 3
+    const won = await other.saveRecords(winner, { videos: ['v'] }, { syncBase: identity })
+    stale.videos.v.resumeAtSeconds = 4
+    const lost = await first.saveRecords(stale, { videos: ['v'] }, { syncBase: identity })
+    let current = true
+    const retired = first.snapshot()
+    retired.videos.v.resumeAtSeconds = 5
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      const saved = put.call(this, value, ...args)
+      if (this.name === 'profiles' && value.key === 'active') current = false
+      return saved
+    }
+    const ownershipLost = await first.saveRecords(retired, { videos: ['v'] }, { syncBase: identity, canPersist: () => current })
+    IDBObjectStore.prototype.put = put
+    first.close(); other.close()
+    const reopened = await openEdgeRepository()
+    const final = reopened.snapshot().videos.v.resumeAtSeconds
+    reopened.close()
+    return { failed, afterFailure, failedBase, firstRetired, retainedResume: retained?.videos.v.resumeAtSeconds, won, lost, ownershipLost, final }
+  })
+  expect(result).toEqual({ failed: false, afterFailure: 1, failedBase: null, firstRetired: false, retainedResume: 1, won: true, lost: false, ownershipLost: false, final: 3 })
+})
+
+test('a bounded record overlay falls back without dropping the earlier checkpoint or recovery base', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    const identity = { ownerId: 'owner', profileId: 'profile', generation: 1, revision: 7 }
+    const original = { ...edgeState, videos: { v: { id: 'v', resumeAtSeconds: 1 } } }
+    localStorage.setItem('synthetic-profile', JSON.stringify(original))
+    let repository = await openEdgeRepository()
+    const edit = repository.snapshot()
+    edit.videos.v.resumeAtSeconds = 2
+    const first = await repository.saveRecords(edit, { videos: ['v'] }, { syncBase: identity })
+    edit.videos.large = { id: 'large', title: 'x'.repeat(80_000) }
+    const bounded = await repository.saveRecords(edit, { videos: ['large'] }, { syncBase: identity })
+    const unchanged = repository.snapshot()
+    const fallback = await repository.save(edit, { syncBase: identity })
+    edit.videos.v.resumeAtSeconds = 3
+    const warmAfterCompaction = await repository.saveRecords(edit, { videos: ['v'] }, { syncBase: identity })
+    repository.close()
+    repository = await openEdgeRepository()
+    const recovered = repository.snapshot()
+    const base = await repository.readSyncBase(identity)
+    repository.close()
+    return { first, bounded, unchanged: { resume: unchanged.videos.v.resumeAtSeconds, large: Boolean(unchanged.videos.large) },
+      fallback, warmAfterCompaction, recovered: { resume: recovered.videos.v.resumeAtSeconds, length: recovered.videos.large.title.length }, base, original }
+  })
+  expect(result.first).toBe(true)
+  expect(result.bounded).toBeNull()
+  expect(result.unchanged).toEqual({ resume: 2, large: false })
+  expect(result.fallback).toBe(true)
+  expect(result.warmAfterCompaction).toBe(true)
+  expect(result.recovered).toEqual({ resume: 3, length: 80_000 })
+  expect(result.base).toEqual(result.original)
+})
+
+test('newer record edits survive an older full acknowledgement and independent record acknowledgements', async ({ page }) => {
+  await repositoryFixture(page)
+  const result = await page.evaluate(async () => {
+    const identity = { ownerId: 'owner', profileId: 'profile', generation: 1, revision: 7 }
+    localStorage.setItem('synthetic-profile', JSON.stringify({ ...edgeState,
+      videos: { v: { id: 'v', resumeAtSeconds: 1 } }, anki: { '2026-10-26': { reviewed: 1 } } }))
+    const repository = await openEdgeRepository()
+    const edit = repository.snapshot()
+    edit.config.theme = 'dark'
+    const full = repository.save(edit, { syncBase: identity })
+    edit.videos.v.resumeAtSeconds = 2
+    const earlierVideo = repository.saveRecords(edit, { videos: ['v'] }, { syncBase: identity })
+    edit.videos.v.resumeAtSeconds = 3
+    const laterVideo = repository.saveRecords(edit, { videos: ['v'] }, { syncBase: identity })
+    edit.anki['2026-10-26'].reviewed = 7
+    const day = repository.saveRecords(edit, { anki: ['2026-10-26'] }, { syncBase: identity })
+    const saved = await Promise.all([full, earlierVideo, laterVideo, day])
+    const live = { video: edit.videos.v.resumeAtSeconds, reviews: edit.anki['2026-10-26'].reviewed, theme: edit.config.theme }
+    const durable = repository.snapshot()
+    repository.close()
+    return { saved, live, durable: { video: durable.videos.v.resumeAtSeconds, reviews: durable.anki['2026-10-26'].reviewed, theme: durable.config.theme } }
+  })
+  expect(result.saved).toEqual([true, true, true, true])
+  expect(result.live).toEqual({ video: 3, reviews: 7, theme: 'dark' })
+  expect(result.durable).toEqual(result.live)
+})
+
 test('island checkpoints survive reload, merge with queued study saves and travel with profile replacement', async ({ page }) => {
   await repositoryFixture(page)
   const result = await page.evaluate(async () => {
