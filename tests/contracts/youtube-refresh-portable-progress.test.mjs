@@ -43,6 +43,7 @@ function createRefreshHarness(options = {}) {
   const renders = []
   const notices = []
   const context = vm.createContext({
+    waitForYoutubeRefreshOpportunity: async state => active && state === profile,
     IS_SANDBOX: false,
     learnerProfileLifecycleAuthority: options.signedIn ? {} : null,
     getPortableProfileSnapshot: state => JSON.stringify(preparePortableLearnerProfileEnvelope(state).profile),

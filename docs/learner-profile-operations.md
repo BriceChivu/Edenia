@@ -102,6 +102,13 @@ waits for quiet gameplay. Full recovery-candidate preparation still runs at safe
 opportunities; this is intentionally reused rather than replaced by another
 outbox or patch system.
 
+Automatic YouTube metadata/feed maintenance and derived city updates use the
+existing restricted-trial quiet policy too, including after transport rollback.
+They wait before full-profile preparation and recheck after provider responses,
+then apply results to the latest active profile. A retired activation cancels its
+results while the current profile retains automatic refresh. Explicitly requested
+feed refresh keeps its existing behavior. Public/accountless exposure is unchanged.
+
 Routine same-owner/profile/generation remote installation retains device-local
 diagnostic history after checking the replacement boundary. Explicit imports,
 restores and resets retain their replacement semantics. Diagnostic-only history

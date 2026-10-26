@@ -19,6 +19,8 @@ function harness({ signedIn = true, change = false, fail = false, retire = false
   const saves = []
   const before = snapshot(current)
   const context = vm.createContext({
+    IS_AUTH_TRIAL: false,
+    waitForYoutubeRefreshOpportunity: async () => active,
     IS_SANDBOX: false, STORAGE_KEY: 'test', youtubeMetadataBudget: null,
     document: { hidden: false }, showToast: () => () => {},
     learnerProfileLifecycleAuthority: signedIn ? {} : null,
@@ -54,7 +56,7 @@ test('signed-in cached metadata renewal persists freshness locally without cloud
   const h = harness()
   await h.run()
   assert.ok(h.saves.length > 0)
-  assert.ok(h.saves.every(save => save.options.cloud === false))
+  assert.ok(h.saves.every(save => save.options.syncCloud === false))
   assert.ok(h.saves.every(save => save.profile === h.before))
   assert.ok(Date.parse(h.current().videos.v.metadataFetchedAt) > Date.now() - 10000)
 })
@@ -62,13 +64,13 @@ test('signed-in unchanged metadata quota failure records local cooldown without 
   const h = harness({ fail: true })
   await h.run()
   assert.ok(h.saves.length > 0)
-  assert.ok(h.saves.every(save => save.options.cloud === false))
+  assert.ok(h.saves.every(save => save.options.syncCloud === false))
   assert.equal(snapshot(h.current()), h.before)
 })
 test('real recovered catalog changes remain eligible for cloud persistence and diagnostics', async () => {
   const h = harness({ change: true })
   await h.run()
-  assert.ok(h.saves.some(save => save.options.cloud !== false))
+  assert.ok(h.saves.some(save => save.options.syncCloud !== false))
   assert.equal(h.current().videos.v.title, 'New lesson')
   assert.equal(h.current().videos.v.resumeAtSeconds, 40)
   assert.equal(h.current().activityLog.at(-1).type, 'youtube-metadata')
@@ -78,7 +80,7 @@ test('unchanged metadata renewal preserves concurrent learner edits without clai
   await h.run()
   assert.equal(h.current().videos.v.favorite, false)
   assert.equal(h.current().activityLog.length, 0)
-  assert.ok(h.saves.every(save => save.options.cloud === false))
+  assert.ok(h.saves.every(save => save.options.syncCloud === false))
 })
 test('metadata completion after profile retirement cannot save', async () => {
   const h = harness({ retire: true })
@@ -89,12 +91,12 @@ test('accountless cached metadata retains its existing diagnostic behavior', asy
   const h = harness({ signedIn: false })
   await h.run()
   assert.equal(h.current().activityLog.at(-1).type, 'youtube-metadata')
-  assert.ok(h.saves.every(save => save.options.cloud !== false))
+  assert.ok(h.saves.every(save => save.options.syncCloud !== false))
 })
 
 test('failed portable normalization cannot suppress an otherwise durable save', async () => {
   const h = harness({ unavailableSnapshot: true })
   await h.run()
-  assert.ok(h.saves.every(save => save.options.cloud !== false))
+  assert.ok(h.saves.every(save => save.options.syncCloud !== false))
   assert.equal(h.current().activityLog.at(-1).type, 'youtube-metadata')
 })

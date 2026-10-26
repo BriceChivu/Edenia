@@ -48,16 +48,22 @@ export function expireYoutubeMetadata(state, now = Date.now(), includeUndated = 
 // Separate from playlist coverage. A manual-only library needs the same cache lifecycle.
 export async function refreshSavedYoutubeMetadata({
   state, fetchVideos, fetchChannels, isCurrent, readCurrent = () => state,
-  onChange = () => true, onOutcome = () => {}, priorityIds = [], now = Date.now()
+  onChange = () => true, onOutcome = () => {}, beforeApply = () => true, priorityIds = [], now = Date.now()
 }) {
-  const reload = () => {
+  const ready = async () => {
     if (!isCurrent()) return false
+    return await beforeApply() !== false && isCurrent()
+  }
+  const reload = async () => {
+    if (!await ready()) return false
     Object.assign(state, readCurrent())
     return true
   }
-  if (!reload()) return false
+  if (!await reload()) return false
   const changed = expireYoutubeMetadata(state, now)
-  if (changed && await onChange(state) === false) return false
+  if (changed) {
+    if (await onChange(state) === false || !await reload()) return false
+  }
   if (now - Date.parse(state.youtubeMetadataFailedAt) < 30 * 60_000) return changed
   const visible = new Set(priorityIds)
   const priority = video => visible.has(video.id) ? 0
@@ -80,10 +86,10 @@ export async function refreshSavedYoutubeMetadata({
   let phase = 'videos'
   try {
     for (let index = 0; index < stale.length; index += 50) {
-      if (!isCurrent()) return false
+      if (!await ready()) return false
       const batch = stale.slice(index, index + 50)
       const details = await fetchVideos(batch.map(video => video.id))
-      if (!reload()) return false
+      if (!await reload()) return false
       batch.forEach(candidate => {
         const video = state.videos?.[candidate.id]
         if (!video) return
@@ -98,10 +104,10 @@ export async function refreshSavedYoutubeMetadata({
     }
     phase = 'channels'
     for (let index = 0; index < staleChannels.length; index += 50) {
-      if (!isCurrent()) return false
+      if (!await ready()) return false
       const batch = staleChannels.slice(index, index + 50)
       await fetchChannels(batch)
-      if (!reload()) return false
+      if (!await reload()) return false
       batch.forEach(channel => {
         const tracked = state.config?.channels?.find(record => record.id === channel.id)
         if (tracked) Object.assign(tracked, {
@@ -115,9 +121,10 @@ export async function refreshSavedYoutubeMetadata({
       if (await onChange(state) === false) return false
       outcome.channels += batch.length
     }
+    if (!await reload()) return false
     state.youtubeMetadataFailedAt = null
   } catch (error) {
-    if (!reload()) return false
+    if (!await reload()) return false
     if (error?.kind === 'recovery-budget') {
       if (!outcome.videos && !outcome.channels) return changed
       outcome.status = 'partial'
