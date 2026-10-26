@@ -332,10 +332,11 @@ async function prepareConflictPage(page, {
     }
     if (pathname === '/rest/v1/learner_profile_heads') {
       headRequests.push(true)
-      await route.fulfill({json:{user_id:USER_ID,profile_id:PROFILE_ID,generation:4,revision:resolvedRevision}});return
+      await route.fulfill({json:{user_id:USER_ID,profile_id:PROFILE_ID,generation:4,revision:resolvedRevision,
+        last_replacement_revision:selectedSide?15:previousResolved?14:0}});return
     }
     if (pathname === '/rest/v1/rpc/read_my_learner_profile_write_receipt') {
-      await route.fulfill({json:[{status:'not_accepted',last_replacement_revision:0}]});return
+      await route.fulfill({json:[{status:'not_accepted',last_replacement_revision:selectedSide?15:previousResolved?14:0}]});return
     }
     if (pathname === '/rest/v1/rpc/read_my_latest_learner_profile_reset') {
       await route.fulfill({ json: [{ status: 'none' }], status: 200 })
@@ -821,6 +822,7 @@ test('trial comparison keeps saves untouched until confirmation and retains prot
   expect(conflictRequests.at(-1).bytes).toBeLessThan(1024)
   await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
   await page.locator('.backup-toggle').click()
+  await expect(page.locator('[data-profile-conflict-action="export-protected"]')).toBeVisible()
   const protectedDownload = page.waitForEvent('download')
   await page.locator('[data-profile-conflict-action="export-protected"]').click()
   const retainedDevice = await protectedDownload

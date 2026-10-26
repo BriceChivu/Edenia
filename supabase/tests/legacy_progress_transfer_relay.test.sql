@@ -1,17 +1,24 @@
+\set ON_ERROR_STOP on
+
+-- dblink workers must target this connection's isolated test database.
+do $connection_precondition$
+begin
+  if inet_server_addr() is null or inet_server_port() is null then
+    raise exception 'Use a TCP connection to the isolated test database; Unix sockets cannot identify a safe dblink target.';
+  end if;
+end
+$connection_precondition$;
+
 create extension if not exists dblink with schema extensions;
 
 -- Concurrent claims need a committed fixture visible to both worker sessions.
 do $setup$
 declare
-  test_connection text := case
-    when inet_server_addr() is null then
-      'host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres'
-    else pg_catalog.format(
-      'hostaddr=%s port=%s dbname=postgres user=postgres password=postgres',
-      inet_server_addr(),
-      inet_server_port()
-    )
-  end;
+  test_connection text := pg_catalog.format(
+    'hostaddr=%s port=%s dbname=postgres user=postgres password=postgres',
+    inet_server_addr(),
+    inet_server_port()
+  );
 begin
   perform extensions.dblink_connect('legacy_relay_setup', test_connection);
   perform extensions.dblink_exec(

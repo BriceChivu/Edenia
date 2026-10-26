@@ -60,6 +60,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_AUTH_TRIAL_ENABLED,
     'EDENIA_AUTH_TRIAL_ENABLED'
   ),
+  learnerProfileRecordSyncEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_LEARNER_PROFILE_RECORD_SYNC_ENABLED,
+    'EDENIA_LEARNER_PROFILE_RECORD_SYNC_ENABLED'
+  ),
   accountFeaturesRollout: parseRuntimeConfigRollout(
     process.env.EDENIA_ACCOUNT_FEATURES_ROLLOUT,
     'EDENIA_ACCOUNT_FEATURES_ROLLOUT'

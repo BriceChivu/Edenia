@@ -50,6 +50,7 @@ export function normalizeLocalRuntimeConfig(value) {
     tinySwordsEnabled: value?.tinySwordsEnabled === true,
     tinySwordsPublicEnabled: value?.tinySwordsPublicEnabled === true,
     authTrialEnabled: value?.authTrialEnabled === true,
+    learnerProfileRecordSyncEnabled: value?.learnerProfileRecordSyncEnabled === true,
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
     freePlusEnabled: value?.freePlusEnabled === true,
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,

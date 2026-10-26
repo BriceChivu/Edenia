@@ -78,6 +78,7 @@ import {
 } from './core/responsive-capabilities.js'
 import {
   deriveLearnerProfileAccessVisualTest,
+  deriveLearnerProfileRecordSyncEnabled,
   deriveRuntimeEnvironment,
   deriveStudyGuidanceEnabled,
   deriveTinySwordsEnabled
@@ -265,6 +266,7 @@ import {
   PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   preparePortableLearnerProfileEnvelope,
+  reconcilePortableAnkiDays,
   normalizePortableLearnerProfile,
   verifyPortableLearnerProfileEnvelope
 } from './state/portable-learner-profile.js'
@@ -1288,12 +1290,16 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     eventTarget: window,
     handoffEnabled: IS_AUTH_TRIAL,
     conditionalOpeningEnabled: IS_AUTH_TRIAL,
+    recordSyncEnabled: deriveLearnerProfileRecordSyncEnabled(
+      RUNTIME_ENVIRONMENT, ACCOUNT_FEATURES_ENABLED, window.EDENIA_CONFIG
+    ),
     finalizeEnvelope: prepared => finalizePortableLearnerProfileEnvelope(
       prepared,
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
     ),
     getClient: getSupabaseClient,
     readDeferredBase: IS_AUTH_TRIAL ? (identity, options) => getProfileRepository()?.readSyncBase?.(identity, options) : null,
+    readDeferredUnits: IS_AUTH_TRIAL ? identity => getProfileRepository()?.readDirtyUnits?.(identity) : null,
     getSyncOpportunity: IS_AUTH_TRIAL && window.EDENIA_CONFIG?.tinySwordsQuietSyncEnabled !== false
       ? learnerProfileSyncOpportunity.isQuiet : null,
     hasOnboardingProfileDraft: () => (
@@ -1441,6 +1447,61 @@ function saveState(state, options = {}) {
   } catch {
     return complete(false)
   }
+}
+
+function recordCheckpointsEnabled() {
+  return Boolean(learnerProfileLifecycleAuthority?.saveActiveRecords
+    && deriveLearnerProfileRecordSyncEnabled(RUNTIME_ENVIRONMENT, ACCOUNT_FEATURES_ENABLED, window.EDENIA_CONFIG))
+}
+
+async function saveRecordCheckpoint(state, units, options = {}) {
+  if (!recordCheckpointsEnabled()) return await saveState(state, options)
+  const startedAt = performance.now()
+  const syncAnalytics = options.syncAnalytics !== false
+  let saved = false
+  try { saved = await learnerProfileLifecycleAuthority.saveActiveRecords(state, units, { ...options, syncAnalytics: false }) } catch {}
+  // An unsupported repository, a bounded overlay, or a storage failure keeps
+  // the existing durable full save/recovery path. No edit is acknowledged early.
+  if (saved !== true) {
+    const fallback = await saveState(state, { ...options, syncAnalytics: false })
+    if (fallback && syncAnalytics) scheduleStudyDerivedRefresh(state, { syncAnalytics: true })
+    return fallback
+  }
+  persistedPortableProfileSnapshots.delete(state)
+  reportWindowHealth('save', 'success', { reason: 'none', duration: performance.now() - startedAt })
+  window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { records: true } }))
+  if (syncAnalytics) scheduleStudyDerivedRefresh(state, { syncAnalytics: true })
+  return true
+}
+
+let studyDerivedRefreshTimer = null
+let studyDerivedRefreshProfile = null
+let studyDerivedRefreshAnalytics = false
+function scheduleStudyDerivedRefresh(state, { syncAnalytics = false } = {}) {
+  if (studyDerivedRefreshProfile !== state) studyDerivedRefreshAnalytics = false
+  studyDerivedRefreshProfile = state
+  studyDerivedRefreshAnalytics ||= syncAnalytics
+  if (studyDerivedRefreshTimer !== null) return
+  const run = () => {
+    studyDerivedRefreshTimer = null
+    const latest = studyDerivedRefreshProfile
+    if (!latest || !isCurrentLearnerProfileOperation(latest)) return
+    if (!learnerProfileSyncOpportunity.isQuiet()) {
+      studyDerivedRefreshTimer = window.setTimeout(run, 500)
+      return
+    }
+    studyDerivedRefreshProfile = null
+    const syncAnalytics = studyDerivedRefreshAnalytics
+    studyDerivedRefreshAnalytics = false
+    // Streaks and charts are reconstructed from durable facts. Their global
+    // history scan is presentation work, never part of a small checkpoint.
+    syncStreak(latest)
+    renderHeader(latest)
+    renderAnalytics(getWeeklyStats(latest), latest)
+    void renderCity(getCurrentCityScore(latest), latest)
+    if (syncAnalytics) syncPersistedStateToAnalytics(latest)
+  }
+  studyDerivedRefreshTimer = window.setTimeout(run, 0)
 }
 
 function isCurrentLearnerProfileOperation(state) {
@@ -3093,9 +3154,10 @@ function scheduleOpeningMaintenance(openedState) {
     const state = learnerProfileLifecycleAuthority
       ? openedState : loadState({ persistCleanup: false })
     if (!state) return
-    reconcileTrackedChannelPolicyState(state, plusAccessPolicy)
+    const channelTransition = reconcileTrackedChannelPolicyState(state, plusAccessPolicy)
     syncStreak(state)
-    void saveState(state, { backup: false, syncAnalytics: false })
+    void saveState(state, { backup: false, syncAnalytics: false,
+      ...(recordCheckpointsEnabled() && !channelTransition.changed ? { syncCloud: false } : {}) })
     compactReplaceableSearchCache()
   }
   // A task after the first animation frame lets the verified profile paint
@@ -12265,9 +12327,23 @@ async function syncAnkiStatsToState(stats, { silent = false } = {}) {
 
   const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
   const previousDay = s.anki?.[ankiDateKey]
-  const backgroundSnapshot = silent && learnerProfileLifecycleAuthority && previousDay
+  // Resuming tracking also edits its baseline configuration; retain the full
+  // atomic save for that less frequent transition.
+  const records = recordCheckpointsEnabled() && !s.config?.ankiPendingResumeBaseline
+  const previousObservation = records && previousDay
+    ? JSON.stringify(reconcilePortableAnkiDays({ [ankiDateKey]: previousDay })) : null
+  const backgroundSnapshot = !records && silent && learnerProfileLifecycleAuthority && previousDay
     ? getPortableProfileSnapshot(s) : null
   applyAnkiStatsToState(s, stats)
+  if (records && silent && previousObservation !== null) {
+    const day = s.anki[ankiDateKey]
+    const observedAt = day.loggedAt
+    day.loggedAt = previousDay.observedAt || previousDay.loggedAt || null
+    if (JSON.stringify(reconcilePortableAnkiDays({ [ankiDateKey]: day })) === previousObservation) {
+      return await saveRecordCheckpoint(s, { anki: [ankiDateKey] }, { syncCloud: false, syncAnalytics: false })
+    }
+    day.loggedAt = observedAt
+  }
   if (backgroundSnapshot !== null) {
     const observedDay = s.anki[ankiDateKey]
     const observedAt = observedDay.loggedAt
@@ -12280,7 +12356,7 @@ async function syncAnkiStatsToState(stats, { silent = false } = {}) {
     observedDay.loggedAt = observedAt
   }
   const tracked = getTrackedAnkiCounts(s, ankiDateKey)
-  appendActivityLog(s, {
+  const activityEntry = appendActivityLog(s, {
     actor: 'auto',
     type: 'anki-refresh',
     status: 'success',
@@ -12304,8 +12380,15 @@ async function syncAnkiStatsToState(stats, { silent = false } = {}) {
     raw_cards_created_today: stats.newToday,
     due_card_count: stats.dueCards
   })
-  syncStreak(s)
-  if (!await saveState(s)) return false
+  if (!records) syncStreak(s)
+  const persisted = records
+    ? await saveRecordCheckpoint(s, { anki: [ankiDateKey] }, { activityEntries: activityEntry ? [activityEntry] : [], backup: false })
+    : await saveState(s)
+  if (!persisted) return false
+  if (records) {
+    scheduleStudyDerivedRefresh(s)
+    return true
+  }
   renderHeader(s)
   renderAnalytics(getWeeklyStats(s), s)
   const score = getCurrentCityScore(s)
@@ -16813,11 +16896,13 @@ async function syncActiveVideoShelfPlayer(options = {}) {
   video.resumeAtSeconds = normalized
   if (nextResume === previousResume && !progressChanged && !session.isRewatch) return true
   if (session.isRewatch || IS_AUTH_TRIAL) video.pausedAt = watchedAt
-  syncStreak(state)
-  if (!await saveState(state, {
+  const records = recordCheckpointsEnabled()
+  if (!records) syncStreak(state)
+  if (!await saveRecordCheckpoint(state, { videos: [session.videoId] }, {
     backup: false,
     syncAnalytics: shouldSyncAnalytics
   })) return false
+  if (records) scheduleStudyDerivedRefresh(state)
   session.lastPersistedAt = Date.now()
   session.lastPersistedSeconds = nextResume
   return true

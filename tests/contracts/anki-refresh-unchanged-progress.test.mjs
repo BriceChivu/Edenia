@@ -26,6 +26,7 @@ function harness({ signedIn = true, initialDay = true } = {}) {
   const saves = []
   const context = vm.createContext({
     learnerProfileLifecycleAuthority: signedIn ? {} : null,
+    recordCheckpointsEnabled: () => false,
     loadState: () => state,
     getPortableProfileSnapshot: value => JSON.stringify(preparePortableLearnerProfileEnvelope(value).profile),
     getAnkiDateKey: () => dateKey, getCurrentAnkiDateKey: () => dateKey,

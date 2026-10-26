@@ -8,6 +8,7 @@ import {
 } from '../domain/learner-profile-resolution.js'
 import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
 import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfileChangeDigest, portableProfilesHaveSameProgress } from '../domain/portable-profile-combination.js'
+import { createProfileRecordBatch, isProfileRecordBatch, recordRequestDigest, mergeDirtyUnits, dirtyUnitsFromBatch, recordBatchPaths } from '../domain/learner-profile-records.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
@@ -110,6 +111,29 @@ function isIntegrity(value) {
     && /^[A-Za-z0-9_-]{43}$/u.test(value.payloadSha256)
 }
 
+function recordBatchMatchesCandidate(batch, profile) {
+  if (!isProfileRecordBatch(batch) || !isRecord(profile)) return false
+  try {
+    return batch.units.every(unit => {
+      const parent = unit.kind === 'video' ? profile.videos : unit.kind === 'anki' ? profile.anki : profile
+      if (!isRecord(parent) || Object.hasOwn(parent, unit.key) !== unit.afterPresent) return false
+      if (!unit.afterPresent) return true
+      const value = parent[unit.key]
+      if (unit.kind !== 'video') return canonicalizeJson(value) === canonicalizeJson(unit.after)
+      if (!isRecord(value)) return false
+      const select = part => Object.fromEntries(Object.keys(part).map(key => [key, value[key]]))
+      return canonicalizeJson(select(unit.after)) === canonicalizeJson(unit.after)
+        && (!unit.metadata || canonicalizeJson(select(unit.metadata)) === canonicalizeJson(unit.metadata))
+    })
+  } catch { return false }
+}
+
+function minimalProfilePaths(paths) {
+  const ordered = [...paths].sort((left, right) => left.length - right.length)
+  return ordered.filter((path, index) => !ordered.slice(0, index).some(parent =>
+    parent.length <= path.length && parent.every((key, part) => path[part] === key)))
+}
+
 function isSyncOperation(value, identity) {
   if (
     !hasExactKeys(value, [
@@ -125,7 +149,7 @@ function isSyncOperation(value, identity) {
       'profileId',
       'retryCount',
       'revision'
-    ].concat(['changes', 'budgetRetryAt'].filter(key => Object.hasOwn(value || {}, key))))
+    ].concat(['changes', 'budgetRetryAt', 'recordBatch'].filter(key => Object.hasOwn(value || {}, key))))
     || typeof value.activationId !== 'string'
     || !value.activationId
     || !UUID_PATTERN.test(value.operationId)
@@ -139,6 +163,7 @@ function isSyncOperation(value, identity) {
     || !Number.isFinite(value.nextRetryAt)
     || value.nextRetryAt < 0
     || (Object.hasOwn(value, 'budgetRetryAt') && (!Number.isFinite(value.budgetRetryAt) || value.budgetRetryAt < 0))
+    || (Object.hasOwn(value, 'recordBatch') && !isProfileRecordBatch(value.recordBatch))
   ) return false
   const isPrepared = isPreparedEnvelope(value.prepared)
     && value.envelope === null
@@ -154,7 +179,8 @@ function isSyncOperation(value, identity) {
     && value.envelope.integrity?.byteLength === value.integrity.byteLength
     && value.envelope.integrity?.payloadSha256
       === value.integrity.payloadSha256
-  return isPrepared || isFinalized
+  return (isPrepared || isFinalized) && (!value.recordBatch
+    || recordBatchMatchesCandidate(value.recordBatch, (value.envelope || value.prepared)?.profile))
 }
 
 function isSyncRecord(value) {
@@ -208,7 +234,9 @@ function isAcceptedOperationReceipt(row, operation, envelope, statuses) {
     && normalizePositiveInteger(row.generation) === operation.generation
     && normalizePositiveInteger(row.base_revision) === operation.baseRevision
     && normalizePositiveInteger(row.revision) === operation.revision
-    && row.payload_sha256 === envelope?.integrity?.payloadSha256
+    && (operation.recordBatch
+      ? row.request_sha256 === recordRequestDigest(operation)
+      : row.payload_sha256 === envelope?.integrity?.payloadSha256)
 }
 
 function prepareLocalRecoveryCandidate(localProfile, ownerId, prepareEnvelope) {
@@ -314,15 +342,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
   eventTarget,
   handoffEnabled = false,
   conditionalOpeningEnabled = false,
+  recordSyncEnabled = false,
   finalizeEnvelope,
   getClient,
   getSyncOpportunity = null,
   readDeferredBase = null,
+  readDeferredUnits = null,
   hasOnboardingProfileDraft = () => false,
   importEnvelope,
   isOnline,
   now,
   minimumWriteIntervalMs = 30_000,
+  recordWriteIntervalMs = 5_000,
   prepareEnvelope,
   normalizeProfile = profile => prepareEnvelope(profile).profile,
   readOnboardingState,
@@ -385,6 +416,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return sha256Base64UrlSync(canonicalizeJson(normalizeProfile(profile)))
   }
 
+  function writeInterval(operation) {
+    return Math.max(0, operation?.recordBatch ? recordWriteIntervalMs : minimumWriteIntervalMs)
+  }
+
   function syncProfileDigest(profile) {
     return handoffEnabled
       ? portableProfileChangeDigest(normalizeProfile(profile))
@@ -399,6 +434,42 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function studyProfileDigest(profile) {
     try { return normalizedStudyDigest(normalizeProfile(profile)) }
     catch { return null }
+  }
+
+  async function retainRoutineDeviceActivity(profile, localProfile, identity, {
+    isCurrent, localRevision = localProfile?.revision, replacementRevision
+  } = {}) {
+    if (!handoffEnabled || localProfile?.status !== 'ready'
+      || localProfile.ownerId !== identity.ownerId || localProfile.profileId !== identity.profileId
+      || localProfile.generation !== identity.generation || !normalizePositiveInteger(localRevision)
+      || localRevision > identity.revision || !isRecord(profile)
+      || !Array.isArray(localProfile.profile?.activityLog)
+      || canonicalizeJson(profile.activityLog) === canonicalizeJson(localProfile.profile.activityLog)) return { profile }
+    if (localRevision < identity.revision
+      && (!Number.isSafeInteger(replacementRevision) || replacementRevision < 0)) {
+      const syncFence = readStoredSyncRecord().serialized
+      const dirtyFence = readDirtyRecord().serialized
+      let response
+      try {
+        response = await getClient().from('learner_profile_heads')
+          .select('user_id,profile_id,generation,revision,last_replacement_revision')
+          .eq('user_id', identity.ownerId).maybeSingle()
+      } catch { return waitForCloudHead() }
+      if (!isCurrent?.() || readStoredSyncRecord().serialized !== syncFence
+        || readDirtyRecord().serialized !== dirtyFence) return { status: 'recovering' }
+      if (response?.error) return isTransientCloudStatus(response.status) ? waitForCloudHead() : { status: 'recovering' }
+      const head = response?.data
+      if (head?.user_id !== identity.ownerId || head.profile_id !== identity.profileId
+        || head.generation !== identity.generation || head.revision !== identity.revision
+        || !Number.isSafeInteger(head.last_replacement_revision) || head.last_replacement_revision < 0
+        || head.last_replacement_revision > head.revision) return waitForCloudHead()
+      replacementRevision = head.last_replacement_revision
+    }
+    // Same-generation imports/restores and explicit choices remain replacement
+    // boundaries. Receipt replay already carries this evidence; a clean newer
+    // head needs the small metadata read only when its device history differs.
+    if (Number.isSafeInteger(replacementRevision) && replacementRevision > localRevision) return { profile }
+    return { profile: { ...profile, activityLog: JSON.parse(JSON.stringify(localProfile.profile.activityLog)) } }
   }
 
   function matchesLocalIslandCheckpoint(localProfile, identity) {
@@ -1304,10 +1375,40 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return receipt?.protectedReset || null
   }
 
-  function createOperation(profile, record, activationId, baseProfile = activeBinding?.baseProfile) {
+  function createOperation(profile, record, activationId, baseProfile = activeBinding?.baseProfile, dirtyUnits = activeBinding?.dirtyUnits) {
+    // Keep the complete recovery candidate in the existing durable outbox.
+    // Ordinary delivery below includes only the declared domain units.
     const prepared = prepareEnvelope(profile)
+    const latest = record.queued || record.pending
+    const latestProfile = (latest?.envelope || latest?.prepared)?.profile
+    if (recordSyncEnabled && ((latestProfile && canonicalizeJson(prepared.profile) === canonicalizeJson(latestProfile))
+      || (!latest && baseProfile && portableProfilesHaveSameProgress(prepared.profile, baseProfile)))) return null
+    const replacingPending = minimumWriteIntervalMs > 0 && record.pending && !inFlight
+      && record.pending.envelope === null && record.pending.retryCount === 0 && record.queued === null
+    const units = mergeDirtyUnits(dirtyUnits,
+      dirtyUnitsFromBatch(record.pending?.recordBatch), dirtyUnitsFromBatch(record.queued?.recordBatch))
+    const batchBase = replacingPending ? baseProfile
+      : (record.pending?.envelope || record.pending?.prepared)?.profile || baseProfile
+    // A legacy unsent candidate may include edits without typed hints. Keep
+    // that complete candidate when coalescing; selecting only the newest hint
+    // would silently leave its earlier records out of the replacement request.
+    const untypedUnsent = (replacingPending && !record.pending.recordBatch)
+      || (record.queued && !record.queued.recordBatch)
+    const batch = recordSyncEnabled && handoffEnabled && baseProfile && units !== null && !untypedUnsent
+      ? createProfileRecordBatch(prepared.profile, batchBase, units, prepared.exportedAt) : null
+    const recordBatch = batch?.units.length ? batch : null
+    let knownPaths = recordBatch && (!record.pending || record.pending.changes)
+      ? [...new Map([...recordBatchPaths(recordBatch), ...(record.pending?.changes?.entries || []).map(entry => entry.path)]
+          .map(path => [JSON.stringify(path), path])).values()] : null
+    if (knownPaths && canonicalizeJson(baseProfile.activityLog) !== canonicalizeJson(prepared.profile.activityLog)) {
+      for (let index = knownPaths.length - 1; index >= 0; index--) {
+        if (knownPaths[index][0] === 'activityLog') knownPaths.splice(index, 1)
+      }
+      knownPaths.push(['activityLog'])
+    }
+    if (knownPaths) knownPaths = minimalProfilePaths(knownPaths)
     const changes = handoffEnabled && baseProfile
-      ? captureProfileChanges(baseProfile, prepared.profile) : null
+      ? captureProfileChanges(baseProfile, prepared.profile, knownPaths) : null
     const baseRevision = record.pending
       ? record.pending.baseRevision + 1
       : record.acceptedRevision
@@ -1322,6 +1423,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       operationId: createOperationId(),
       ownerId: record.ownerId,
       prepared,
+      ...(recordBatch ? { recordBatch } : {}),
       profileId: record.profileId,
       retryCount: 0,
       revision: baseRevision + 1
@@ -1346,7 +1448,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
         if (!isCurrent()) return false
         if (baseProfile) baseProfile = normalizeProfile(baseProfile)
       }
-      return isCurrent() && queueProfile(profile, record, `dirty-recovery-${createOperationId()}`, baseProfile)
+      const units = recordSyncEnabled && typeof readDeferredUnits === 'function'
+        ? await readDeferredUnits(saveBaseIdentity(record)) : null
+      return isCurrent() && queueProfile(profile, record, `dirty-recovery-${createOperationId()}`, baseProfile, units)
     }
     // The latest complete candidate is already durable. Storing it twice can
     // exhaust origin quota before replaying a lost acknowledgment.
@@ -1370,7 +1474,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return clearDirtyRecord(record)
   }
 
-  function queueProfile(profile, record, activationId, baseProfile) {
+  function queueProfile(profile, record, activationId, baseProfile, dirtyUnits = activeBinding?.dirtyUnits) {
     const latest = record.queued || record.pending
     if (minimumWriteIntervalMs > 0 && latest
       && canonicalProfilesMatch(profile, latest.envelope || latest.prepared, prepareEnvelope)) {
@@ -1378,11 +1482,17 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     let operation
     try {
-      operation = createOperation(profile, record, activationId, baseProfile)
+      operation = createOperation(profile, record, activationId, baseProfile, dirtyUnits)
     } catch {
       return false
     }
-    operation.nextRetryAt = Math.max(0, nextAutomaticWriteAt)
+    if (operation === null) {
+      publish(record.pending ? 'waiting' : 'up-to-date')
+      if (activeBinding) activeBinding.dirtyUnits = mergeDirtyUnits()
+      return clearDirtyRecord(record)
+    }
+    operation.nextRetryAt = Math.max(0, operation.recordBatch ? 0 : nextAutomaticWriteAt,
+      activeBinding?.lastAcceptedAt === undefined ? 0 : activeBinding.lastAcceptedAt + writeInterval(operation))
     if (minimumWriteIntervalMs > 0 && record.pending && !inFlight
       && record.pending.envelope === null && record.pending.retryCount === 0
       && record.queued === null) {
@@ -1392,6 +1502,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     } else if (record.pending) record.queued = operation
     else record.pending = operation
     if (!writeSyncRecord(record)) return false
+    if (activeBinding) activeBinding.dirtyUnits = mergeDirtyUnits()
     return clearDirtyRecord(record)
   }
 
@@ -1441,11 +1552,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function operationParameters(operation, envelope) {
     return {
       p_base_revision: operation.baseRevision,
-      p_envelope: envelope,
+      ...(operation.recordBatch ? { p_batch: operation.recordBatch } : { p_envelope: envelope }),
       p_generation: operation.generation,
       p_operation_id: operation.operationId,
       p_profile_id: operation.profileId
     }
+  }
+
+  function operationRpc(operation, legacyName) {
+    return operation.recordBatch ? 'commit_my_learner_profile_records' : legacyName
   }
 
   async function finalizeDurableOperation(operation, binding, force = false) {
@@ -2039,7 +2154,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       let response
       try {
         response = await getClient().rpc(
-          'commit_my_learner_profile', operationParameters(fresh, candidate)
+          operationRpc(fresh, 'commit_my_learner_profile'), operationParameters(fresh, candidate)
         )
       } catch {
         return { status: 'waiting-cloud' }
@@ -2270,10 +2385,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       generation: binding.generation, revision: binding.revision }
   }
 
-  function saveDeferred({ activation, isCurrent, readPersistedProfile }) {
+  function saveDeferred({ activation, isCurrent, readPersistedProfile, dirtyUnits = null }) {
     const binding = activeBinding
     if (binding?.activation !== activation || !isCurrent() || !binding.isCurrent()) return false
-    deferredSave = { binding, isCurrent, readPersistedProfile }
+    binding.dirtyUnits = mergeDirtyUnits(binding.dirtyUnits, dirtyUnits)
+    deferredSave = { binding, isCurrent, readPersistedProfile, unitsLoaded: true }
     publish('waiting')
     scheduleOpportunity()
     return true
@@ -2310,6 +2426,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     if (deferred.blocked && !forceOpportunity) return false
     if (waitForOpportunity()) return false
+    if (recordSyncEnabled && !deferred.unitsLoaded && typeof readDeferredUnits === 'function') {
+      if (!baseLoading) {
+        baseLoading = true
+        const binding = deferred.binding
+        void Promise.resolve(readDeferredUnits(getSaveBase(binding.activation))).then(async units => {
+          if (!await responseOpportunity(binding)) return
+          if (activeBinding === binding && binding.isCurrent()) {
+            binding.dirtyUnits = mergeDirtyUnits(binding.dirtyUnits, units ?? null)
+            deferred.unitsLoaded = true
+          }
+        }).catch(() => {
+          if (activeBinding === binding && binding.isCurrent()) {
+            binding.dirtyUnits = null
+            deferred.unitsLoaded = true
+          }
+        }).finally(() => { baseLoading = false; scheduleOpportunity() })
+      }
+      return false
+    }
     if (!deferred.binding.baseProfile && typeof readDeferredBase === 'function') {
       if (!baseLoading) {
         baseLoading = true
@@ -2397,7 +2532,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
     let comparisonPending = false
     let budgetDeferred = false
     publish('syncing')
-    if (handoffEnabled) {
+    // The typed commit checks the same head under the owner's write lock and
+    // returns a request-bound rejection. A separate read adds no safety there.
+    if (handoffEnabled && !operation.recordBatch) {
       const head = await checkActiveHead({ activation: binding.activation, isCurrent: binding.isCurrent, preflight: true, force })
       if (handoffEnabled && getSyncOpportunity && !await responseOpportunity(binding, force)) {
         inFlight = false
@@ -2417,7 +2554,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         return
       }
     }
-    nextAutomaticWriteAt = now() + Math.max(0, minimumWriteIntervalMs)
+    nextAutomaticWriteAt = now() + writeInterval(operation)
     let envelope
     try {
       envelope = await finalizeDurableOperation(operation, binding, force)
@@ -2438,7 +2575,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     try {
       if (handoffEnabled && getSyncOpportunity && !await responseOpportunity(binding, force)) { inFlight = false; return }
       response = await getClient().rpc(
-        handoffEnabled ? 'commit_my_learner_profile_handoff' : 'commit_my_learner_profile',
+        operationRpc(operation, handoffEnabled ? 'commit_my_learner_profile_handoff' : 'commit_my_learner_profile'),
         { ...operationParameters(operation, envelope), ...(handoffEnabled ? { p_session_boundary: sessionBoundaryPending } : {}) }
       )
     } catch {
@@ -2465,7 +2602,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       const row = readSingleRpcRow(response?.data)
       if (handoffEnabled && !response?.error && row?.status === 'head_changed'
         && UUID_PATTERN.test(String(row.profile_id || '')) && normalizePositiveInteger(row.generation)
-        && normalizePositiveInteger(row.revision) && normalizePositiveInteger(row.base_revision) === operation.baseRevision) {
+        && normalizePositiveInteger(row.revision) && normalizePositiveInteger(row.base_revision) === operation.baseRevision
+        && (!operation.recordBatch || row.request_sha256 === recordRequestDigest(operation))) {
         comparisonPending = true
         cloudHeadKnown = false
         publish('head-changed', { activation: binding.activation })
@@ -2503,16 +2641,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
             binding.baseProfile = envelope.profile
             // Count the coalescing interval from acknowledgement so a slow
             // request cannot immediately send another large envelope.
-            nextAutomaticWriteAt = Math.max(nextAutomaticWriteAt, now() + Math.max(0, minimumWriteIntervalMs))
+            nextAutomaticWriteAt = Math.max(nextAutomaticWriteAt, now() + writeInterval(operation))
+            binding.lastAcceptedAt = now()
             const queuedCandidate = current.pending?.envelope || current.pending?.prepared
             if (queuedCandidate && syncProfileDigest(queuedCandidate.profile) === syncProfileDigest(envelope.profile)) {
               current.pending = null
             }
             sessionBoundaryPending = false
             if (current.pending) {
-              current.pending.nextRetryAt = Math.max(current.pending.nextRetryAt, nextAutomaticWriteAt)
+              current.pending.nextRetryAt = Math.max(current.pending.nextRetryAt, current.pending.recordBatch ? 0 : nextAutomaticWriteAt,
+                now() + writeInterval(current.pending))
               const candidate = current.pending.envelope || current.pending.prepared
-              const changes = captureProfileChanges(envelope.profile, candidate.profile)
+              const paths = current.pending.recordBatch ? recordBatchPaths(current.pending.recordBatch) : null
+              if (paths && canonicalizeJson(envelope.profile.activityLog) !== canonicalizeJson(candidate.profile.activityLog)) paths.push(['activityLog'])
+              const changes = captureProfileChanges(envelope.profile, candidate.profile, paths)
               if (changes) current.pending.changes = { ...changes, baseRevision: current.acceptedRevision }
               else delete current.pending.changes
             }
@@ -2698,7 +2840,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       let conflictResponse
       try {
         conflictResponse = await getClient().rpc(
-          'commit_my_learner_profile',
+          operationRpc(operation, 'commit_my_learner_profile'),
           operationParameters(operation, envelope)
         )
       } catch {
@@ -2794,7 +2936,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       let catchUpResponse
       try {
         catchUpResponse = await getClient().rpc(
-          'commit_my_learner_profile',
+          operationRpc(catchUpOperation, 'commit_my_learner_profile'),
           operationParameters(catchUpOperation, catchUpEnvelope)
         )
       } catch {
@@ -2966,10 +3108,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
         if (!original) return false
       } else if (original) {
         const prepared = prepareEnvelope(localProfile.profile)
-        if (!restoreProfileBase(prepared.profile, repair.changes)) return false
+        const baseProfile = restoreProfileBase(prepared.profile, repair.changes)
+        if (!baseProfile) return false
         const next = createSyncRecord(repair.identity)
         if (stored.record.protectedConflictIds?.length) next.protectedConflictIds = [...stored.record.protectedConflictIds]
-        if (repair.changes.baseDigest !== repair.changes.targetDigest) next.pending = {
+        if (!portableProfilesHaveSameProgress(baseProfile, prepared.profile)) next.pending = {
           activationId: stored.record.pending.activationId, baseRevision: repair.identity.revision,
           changes: { ...repair.changes, baseRevision: repair.identity.revision },
           envelope: null, generation: repair.identity.generation, integrity: prepared.integrity,
@@ -3003,15 +3146,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || (captured.record.queued || captured.record.pending)?.operationId !== latest.operationId
       || !canonicalProfilesMatch(localProfile.profile, latestEnvelope, prepareEnvelope)) return null
     let response
-    try { response = await getClient().rpc('read_my_learner_profile_write_receipt', { p_operation_id: pending.operationId }) }
+    try { response = await getClient().rpc(pending.recordBatch
+      ? 'read_my_learner_profile_record_receipt' : 'read_my_learner_profile_write_receipt', { p_operation_id: pending.operationId }) }
     catch { return waitForCloudHead() }
     if (response?.error) return isTransientCloudStatus(response.status) ? waitForCloudHead() : { status: 'recovering' }
     const receipt = readSingleRpcRow(response?.data)
     const accepted = isAcceptedOperationReceipt(receipt, pending, acceptedEnvelope, ['already_accepted'])
-      && receipt.request_sha256 === sha256Base64UrlSync(canonicalizeJson({
+      && receipt.request_sha256 === (pending.recordBatch ? recordRequestDigest(pending) : sha256Base64UrlSync(canonicalizeJson({
         baseRevision: pending.baseRevision, envelope: acceptedEnvelope, generation: pending.generation,
         operationId: pending.operationId, ownerId: pending.ownerId, profileId: pending.profileId
-      }))
+      })))
     if (!accepted && receipt?.status !== 'not_accepted') return { status: 'recovering' }
     if (!isCurrent() || readStoredSyncRecord().serialized !== captured.serialized || readDirtyRecord().present) return { status: 'recovering' }
     let combined
@@ -3037,6 +3181,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
         if (!combined) return null
       }
     }
+    const activity = await retainRoutineDeviceActivity(combined, localProfile, cloudIdentity, {
+      isCurrent, localRevision: accepted ? pending.revision : record.acceptedRevision,
+      replacementRevision: receipt.last_replacement_revision
+    })
+    if (activity.status) return activity
+    combined = activity.profile
     let prepared
     let profile
     try {
@@ -3049,7 +3199,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const next = createSyncRecord(cloudIdentity)
     const repairOperationId = createOperationId()
     if (record.protectedConflictIds?.length) next.protectedConflictIds = [...record.protectedConflictIds]
-    if (portableProfileChangeDigest(prepared.profile) !== portableProfileChangeDigest(cloudEnvelope.profile)) {
+    if (!portableProfilesHaveSameProgress(prepared.profile, cloudEnvelope.profile)) {
       const changes = captureProfileChanges(cloudEnvelope.profile, prepared.profile)
       next.pending = {
         activationId: pending.activationId, baseRevision: cloudIdentity.revision,
@@ -3431,6 +3581,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
           if (dirty.present && !queueProfile(
             localProfile.profile, currentRecord, `dirty-recovery-${createOperationId()}`
           )) return { status: 'recovering' }
+          let protectTypedCandidate = Boolean(currentRecord.queued?.recordBatch)
+          if (currentRecord.pending?.recordBatch) {
+            const receiptFence = readStoredSyncRecord().serialized
+            const dirtyFence = readDirtyRecord().serialized
+            let response
+            try { response = await getClient().rpc('read_my_learner_profile_record_receipt', {
+              p_operation_id: currentRecord.pending.operationId
+            }) } catch { return waitForCloudHead() }
+            if (!isCurrent() || readStoredSyncRecord().serialized !== receiptFence
+              || readDirtyRecord().serialized !== dirtyFence) return { status: 'recovering' }
+            if (response?.error) return isTransientCloudStatus(response.status) ? waitForCloudHead() : { status: 'recovering' }
+            const receipt = readSingleRpcRow(response?.data)
+            const accepted = isAcceptedOperationReceipt(receipt, currentRecord.pending, null, ['already_accepted'])
+            if (!accepted && receipt?.status !== 'not_accepted') return { status: 'recovering' }
+            // A reset has fenced this generation. An unaccepted batch cannot
+            // be applied there; preserve its complete candidate through the
+            // existing protected-choice API, under a new operation identity.
+            protectTypedCandidate ||= !accepted || Boolean(currentRecord.queued)
+          }
           if (currentRecord.queued) {
             // Only the latest complete local snapshot goes to cross-generation
             // choice. The older request cannot advance this newer cloud head.
@@ -3438,7 +3607,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
             currentRecord.pending.baseRevision = currentRecord.acceptedRevision
             currentRecord.pending.revision = currentRecord.acceptedRevision + 1
             currentRecord.queued = null
-            if (!writeSyncRecord(currentRecord)) return { status: 'recovering' }
+            if (!protectTypedCandidate && !writeSyncRecord(currentRecord)) return { status: 'recovering' }
+          }
+          if (protectTypedCandidate) {
+            const { recordBatch, ...protectedOperation } = currentRecord.pending
+            currentRecord.pending = { ...protectedOperation, operationId: createOperationId(), retryCount: 0, nextRetryAt: 0 }
+            if (!isCurrent() || !writeSyncRecord(currentRecord)) return { status: 'recovering' }
           }
           const operation = currentRecord.pending
           if (!operation) return { status: 'recovering' }
@@ -3452,7 +3626,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
               return { status: 'recovering' }
             }
             preserved = await getClient().rpc(
-              'commit_my_learner_profile', operationParameters(operation, candidate)
+              operationRpc(operation, 'commit_my_learner_profile'), operationParameters(operation, candidate)
             )
           } catch {
             return waitForCloudHead()
@@ -3536,7 +3710,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
               currentRecord.pending
             )
             receiptResponse = await getClient().rpc(
-              'commit_my_learner_profile',
+              operationRpc(currentRecord.pending, 'commit_my_learner_profile'),
               operationParameters(
                 currentRecord.pending,
                 pendingEnvelope
@@ -3544,6 +3718,44 @@ export function createLearnerProfileCloudPersistenceAdapter({
             )
           } catch {
             return waitForCloudHead()
+          }
+          const typedReply = readSingleRpcRow(receiptResponse?.data)
+          if (!receiptResponse?.error && typedReply?.status === 'head_changed'
+            && currentRecord.pending.recordBatch) {
+            // The exact typed retry is fenced by a newer head and cannot be
+            // applied. Compatible edits already tried the handoff combiner.
+            // Preserve incompatible progress using the existing complete,
+            // protected conflict candidate, rather than a bare error state.
+            const captured = readStoredSyncRecord()
+            const source = captured.record
+            if (!isCurrent() || source?.pending?.operationId !== currentRecord.pending.operationId
+              || source.ownerId !== authentication.userId || source.profileId !== profileId
+              || source.generation !== generation
+              || readDirtyRecord().present || typedReply.profile_id !== profileId
+              || normalizePositiveInteger(typedReply.generation) !== generation
+              || normalizePositiveInteger(typedReply.base_revision) !== currentRecord.pending.baseRevision
+              || normalizePositiveInteger(typedReply.revision) < revision
+              || typedReply.request_sha256 !== recordRequestDigest(currentRecord.pending)) return { status: 'recovering' }
+            const latest = source.queued || source.pending
+            let protectedEnvelope
+            try {
+              protectedEnvelope = latest.envelope ? await verifyEnvelope(latest.envelope)
+                : (await finalizeEnvelope(latest.prepared))?.envelope
+            } catch { return { status: 'recovering' } }
+            if (!protectedEnvelope || protectedEnvelope.integrity?.payloadSha256 !== latest.integrity.payloadSha256
+              || !isCurrent() || readStoredSyncRecord().serialized !== captured.serialized
+              || readDirtyRecord().present) return { status: 'recovering' }
+            const { recordBatch, ...full } = latest
+            source.pending = { ...full, operationId: createOperationId(),
+              baseRevision: source.acceptedRevision, revision: source.acceptedRevision + 1,
+              envelope: protectedEnvelope, prepared: null, nextRetryAt: 0, retryCount: 0 }
+            source.queued = null
+            if (!writeSyncRecord(source)) return { status: 'recovering' }
+            currentRecord = source
+            pendingEnvelope = protectedEnvelope
+            try { receiptResponse = await getClient().rpc('commit_my_learner_profile',
+              operationParameters(source.pending, protectedEnvelope)) }
+            catch { return waitForCloudHead() }
           }
           currentRecord = readSyncRecord()
           if (!currentRecord?.pending) return { status: 'recovering' }
@@ -3585,7 +3797,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
             try {
               replayEnvelope = await finalizeDurableOperation(replayOperation)
               replayResponse = await getClient().rpc(
-                'commit_my_learner_profile',
+                operationRpc(replayOperation, 'commit_my_learner_profile'),
                 operationParameters(replayOperation, replayEnvelope)
               )
             } catch {
@@ -3679,11 +3891,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
         // unqueued change to the current cloud head rather than an older copy.
         else if (localProfile.revision === revision) {
           profile = localProfile.profile
-          backupRequired = true
+          backupRequired = !handoffEnabled || !portableProfilesHaveSameProgress(
+            prepareEnvelope(localProfile.profile).profile, envelope.profile
+          )
         }
       } else {
         profile = retainLocalFeedCache(cloudProfile, localProfile.profile)
       }
+    }
+
+    if (!freshSignedInProfile && !recoveryFinalizationOperation) {
+      const activity = await retainRoutineDeviceActivity(profile, localProfile, cloudIdentity, { isCurrent })
+      if (activity.status) return activity
+      profile = activity.profile
     }
 
     const syncRepairs = [
@@ -3814,6 +4034,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       isCurrent,
       profile: isRecord(profile) ? profile : null,
       checkpointStudyDigest: isRecord(profile) ? studyProfileDigest(profile) : null,
+      dirtyUnits: mergeDirtyUnits(),
       revision
     }
     const record = readSyncRecord()
@@ -4262,7 +4483,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return true
   }
 
-  function save(profile, { activation, isCurrent, readPersistedProfile, deferPreparation = false, skipDeferral = false, skipPump = false } = {}) {
+  function save(profile, { activation, isCurrent, readPersistedProfile, deferPreparation = false, skipDeferral = false, skipPump = false, dirtyUnits = null } = {}) {
     if (
       !activeBinding
       || activeBinding.activation !== activation
@@ -4270,6 +4491,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || !isCurrent()
       || !activeBinding.isCurrent()
     ) return { status: 'fenced' }
+    if (!skipDeferral) activeBinding.dirtyUnits = mergeDirtyUnits(activeBinding.dirtyUnits, dirtyUnits)
     const record = readSyncRecord()
     if (
       !record
@@ -4322,7 +4544,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       publish('waiting')
       return false
     }
-    record.pending.nextRetryAt = restartBackoff || !handoffEnabled ? 0 : Math.max(record.pending.nextRetryAt, nextAutomaticWriteAt)
+    record.pending.nextRetryAt = restartBackoff || !handoffEnabled ? 0 : Math.max(record.pending.nextRetryAt,
+      record.pending.recordBatch ? (activeBinding?.lastAcceptedAt ?? 0) + writeInterval(record.pending) : nextAutomaticWriteAt)
     if (restartBackoff) {
       record.pending.retryCount = 0
       if (record.queued) record.queued.nextRetryAt = 0

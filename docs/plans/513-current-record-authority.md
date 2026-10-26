@@ -1,9 +1,11 @@
-# Remaining changed-record work for issue #513
+# Changed-record progress sync for issue #513
 
-This is the concrete next slice after the October 26 cosmetic-save, gameplay
-deferral and startup-maintenance changes. Those independent changes retain the
-existing full-envelope delivery and 30-second server cadence. Issue #513 remains
-open until changed-record delivery and the measured frequency work are complete.
+This records the chosen implementation following PR #514's cosmetic-save,
+gameplay-deferral and startup-maintenance release. The subsequent amendment adds
+the current-record authority, typed delivery, small local checkpoints and a
+measured five-second target for the existing restricted authentication trial.
+Full-envelope delivery remains the supported path for unsupported/low-frequency
+edits and recovery operations.
 
 ## Why the transport cannot change independently
 
@@ -25,11 +27,11 @@ complete historical version. It would not satisfy the intended storage saving.
 ## One authority, with less frequent recovery snapshots
 
 Use the existing owner/profile/generation/revision head as the sole authority.
-Add one owner-scoped current-record table for the existing typed units: video
+One owner-scoped current-record table stores the existing typed units: video
 personal fields and metadata, Anki days, settings/channel membership, island and
 coupled progression/economy. Do not create another independently advancing head
-or an event ledger. Keep an explicit snapshot revision on the existing head so
-its recovery pointer can lag safely. Initialize current records from the valid
+or an event ledger. The immutable version referenced by the head records its
+snapshot revision, so that recovery pointer can lag safely. Initialize current records from the valid
 existing envelope atomically under the existing owner write lock.
 
 A typed commit must validate explicit supported operations, deletion intent,
@@ -75,10 +77,9 @@ version ID must always name immutable complete content.
 Retention and capacity reporting must include the current-record table and keep
 the current authority plus protected copies. Cleanup cannot discard accepted
 records because their latest ordinary recovery snapshot is older. Browser
-portable export uses the assembled envelope. Separately audit the account export:
-the present service export still includes `state_backups`, and does not yet
-include the current learner-profile head/version; do not assume that endpoint
-already supplies the latest portable profile.
+portable export uses the assembled envelope. The account server export also
+includes the latest current portable profile, alongside its existing account
+and backup fields.
 
 Old full-envelope writers must acquire the same lock, compare against the same
 current revision and replacement boundary, and update the same authority. If
@@ -101,7 +102,7 @@ infer duplicate XP or resource deltas from a missing receipt.
    cadence before changing the client transport. Cover revision 107/snapshot 100,
    owner isolation, invalid operations, exact retry/input mismatch, reset fences,
    protected-copy retention, latest read/export and old-client behavior.
-2. Deploy compatible server readers and writers with typed acceptance disabled.
+2. Deploy compatible server readers and writers with client record creation disabled.
    Keep the restricted tester admission. Existing full-envelope operations must
    remain readable and pending local edits must remain deliverable.
 3. Enable typed delivery only for the existing restricted internal-test route.
@@ -114,10 +115,10 @@ infer duplicate XP or resource deltas from a missing receipt.
    preparation, database work and total traffic justify it. Active visible game
    input or pawn work still has precedence over video playback and all automatic
    timers.
-5. To roll transport back, stop typed acceptance under the owner lock, materialize
-   every newer accepted current revision as a valid complete envelope, and return
-   to full-envelope delivery through the compatible server authority. Preserve
-   unsent candidates and existing receipts. Keep the upgraded Godot snapshot
+5. To roll transport back, disable new client record creation while keeping
+   immutable pending record requests deliverable. Full-envelope reads and writes
+   materialize newer accepted records under the same owner lock. Preserve
+   unsent candidates, upgraded local-overlay/pending-operation readers and existing receipts. Keep the upgraded Godot snapshot
    reader: rolling back transport cannot make an older game understand a newer
    durable island format. Do not drop the current-record table or revert to an
    older server resolver while any accepted update exists only there.
@@ -140,20 +141,85 @@ to 896 bytes. Its two completed/settled movement checkpoints previously requeste
 two ambient saves and now request zero; meaningful edits still request saves.
 This measures the targeted persistence reduction, not an FPS improvement.
 
-The current SQL inserts one complete version for each accepted ordinary commit;
-its exact retry creates neither another revision nor another version. The local
-Docker daemon was unavailable, so server timing was not measured. Reuse the
-existing rollback-only diagnostic with `--videos=500` against an explicitly
-selected isolated local database when implementing this slice. Also measure the
-normal video's local checkpoint: current `saveState` canonicalizes portable
-content before saving and after acknowledgement, while `indexed-db-profile.save`
-serializes the complete profile and ordinarily writes its body plus head. Dirty
-cloud units alone do not remove that local work. Report actual remaining scans,
-local writes, request frequency and version creation alongside payload bytes.
+The original SQL inserted one complete version per accepted commit; its exact
+retry created neither another revision nor another version. The baseline app
+canonicalized portable content before saving and after acknowledgement, and
+ordinary IndexedDB saves serialized the complete body. Those costs remain on
+the generic fallback, while the new warm checkpoint bypasses them.
 
-The same fixture's app-level checkpoint work was also sampled in five runs:
+The baseline fixture's app-level checkpoint work was sampled in five runs:
 median portable normalization/canonicalization was 5.0 ms before the save and
 4.9 ms after acknowledgement; JSON serialization of the 322,655-byte browser
 body was 0.35 ms. The roughly 10.25 ms combined CPU excludes IndexedDB,
 lifecycle bookkeeping and network/server time. This release moves opening
-maintenance off the display path; it does not remove those normal video costs.
+maintenance off the display path; the subsequent record checkpoint removes those
+normal video scans and body writes.
+
+## Implementation and verification
+
+The current-record relation and snapshot/materialization boundaries are in
+`supabase/migrations/20261026110156_current_profile_record_authority.sql`.
+Changed units are selected by `src/domain/learner-profile-records.js`; the existing
+cloud adapter retains its durable full recovery candidate and immutable request
+identity. Local video/day overlays reuse the IndexedDB head/body and recovery
+base. The 128 KiB overlay bound uses a complete durable fallback, without
+truncating progress. Necessary exceptional fallback work can still run during
+gameplay; ordinary checkpoint and cloud work follow the quiet gate.
+
+Five paired local trials on the same 500-video server fixture, using the existing
+rollback-only diagnostic (`--videos=500 --records=true`), measured 543,836
+full-envelope bytes versus 581 recurring batch bytes. Median full acceptance was
+77.0 ms and exact full retry 71.5 ms; record initialization was 112.3 ms once,
+warm acceptance 5.5 ms, exact record retry 1.9 ms, and a due recovery snapshot
+40.1 ms. Two warm record accepts created no historical versions; a due snapshot
+created one. The original resolver and the new already-materialized read were
+effectively unchanged at 39.8/39.4 ms. The first read while current records are
+newer than their snapshot took 76.4 ms because it assembles and materializes the
+complete recovery snapshot. All read variants returned the exact same profile.
+At five seconds this models 12 commit requests/minute versus two full commits,
+roughly 7 KB/minute versus 1.09 MB/minute of payload, and an estimated
+136 ms versus 154 ms of database function time per minute after periodic snapshots.
+Typed commits fold
+the head check into conditional acceptance; full delivery retains its preflight.
+These are local synthetic function measurements, not production latency claims.
+The initial implementation redundantly serialized the full envelope while
+converging its byte length. Reusing one canonical payload traversal preserves
+the exact format and cuts the measured first materializing read from 151.5 to
+76.4 ms and a due snapshot from 119.6 to 40.1 ms. Exact envelope/digest/byte parity
+is covered by the SQL suite, including unusual island number and Unicode keys.
+
+Five alternating browser trials compared pre-issue commit `f8926e1f` with client
+commit `a31beb0e`, using identical 500-video owned fixtures, Node 24.18.0 and
+Chromium 151. The game engine was disabled and every mocked owner RPC had the
+same 100 ms delay. Median first IndexedDB opening was 370.3 versus 325.1 ms;
+returning opening was 302.1 versus 294.4 ms, with overlapping ranges, so a clear
+returning-load improvement is not established. Actual warm player checkpoint
+acknowledgement, measured offline on both versions, was 89.0 versus 2.1 ms
+(ranges 62.5–103.4 versus 1.7–2.5 ms). IndexedDB value bytes fell from 498,616
+to 1,325, with one write in both cases and zero full-body writes on the new path.
+All ten measured profiles reopened with the expected resume/study facts and
+500 videos. Browser measurements exclude deferred cloud work, game loading and
+production network latency; they do not claim an end-to-end cloud speedup.
+
+The warm local 500-video fixture retained a 411,904-byte conservative UTF-16 body
+and wrote one 1,556-byte head for video/day/diagnostic units, with zero body writes;
+commit plus readback was 1.1 ms in that run. The separate app CPU baseline above
+was roughly 10.25 ms and excluded database work; these are not paired end-to-end
+timings or a speedup ratio. The head also carries the island, so its size grows
+with a large island.
+
+A separate 502-video real-game browser comparison measured 379,182 request bytes
+for full delivery and 773 for one video record. Both deferred uploads during held
+Godot input, then delivered at quiet time. An isolated short trace showed 16.7 ms
+median frames in both paths, 17.5/17.4 ms p95, and no recorded main-thread long
+tasks. An earlier concurrent-browser run had an outlier; it was not reproduced
+in the isolated comparison. No FPS improvement is claimed. The record case also
+verified a second-device edit and a cold reload with transport disabled.
+
+Focused checks cover owner isolation, rejected/oversized batches, atomic coupled
+edits, exact retry/mismatch and receipt expiry, snapshot lag, current full exports,
+old writers, reset/import/recovery/protected retention, account deletion, dirty
+reopen, aborted local transactions, older acknowledgements, mixed transport,
+channel intent and restricted flag rollback. Required CI additionally runs the
+existing repository suites before release. Production rollout is server-first;
+the client flag remains restricted to exact `internal_test=1`.

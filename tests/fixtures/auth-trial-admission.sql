@@ -63,10 +63,18 @@ select proc.proname, format('select * from public.%I(%s)',proc.proname,
    when 'boolean' then 'true' else 'null' end, ',' order by ord)
    from unnest(proc.proargtypes) with ordinality a(arg,ord)),'')) as call
 from pg_proc proc join pg_namespace ns on ns.oid=proc.pronamespace
-where ns.nspname='learner_profile_rpc';
+where ns.nspname='learner_profile_rpc'
+ and has_function_privilege('authenticated',proc.oid,'execute');
 grant select on trial_calls to authenticated;
+select ok(not exists(
+ select 1 from pg_proc proc join pg_namespace ns on ns.oid=proc.pronamespace
+ where ns.nspname='learner_profile_rpc' and proc.proname like '%_before_records'
+ and (has_function_privilege('anon',proc.oid,'execute')
+   or has_function_privilege('authenticated',proc.oid,'execute')
+   or has_function_privilege('service_role',proc.oid,'execute'))
+),'retained implementation bodies cannot bypass the current owner API');
 set local role authenticated;
-select is((select count(*) from trial_calls),17::bigint,'every learner profile RPC participates');
+select is((select count(*) from trial_calls),19::bigint,'every callable learner profile RPC participates');
 select throws_ok(call,'42501','Learner profile tester access disabled',proname || ' rejects a non-admitted UUID') from trial_calls order by proname;
 select is((select count(*) from public.learner_profile_heads),0::bigint,'non-admitted owner cannot read even their existing head');
 select is((select count(*) from public.learner_profile_versions),0::bigint,'non-admitted owner cannot read existing versions');

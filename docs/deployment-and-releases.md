@@ -50,6 +50,29 @@ published commit and cache-busted runtime-config hash, records the required
 browser, provider, profile, database, and rollback evidence, and stops at an
 explicit product-owner approval request.
 
+## Restricted record-sync delivery
+
+`EDENIA_LEARNER_PROFILE_RECORD_SYNC_ENABLED` writes the strict boolean
+`learnerProfileRecordSyncEnabled` runtime option. It defaults to false in Pages,
+normal builds and the local example. Even when true, new record delivery is
+available only on the existing `internal_test=1` route with account features
+enabled. The existing server tester admission remains required.
+
+Deploy and verify the compatible current-record readers and commit RPCs before
+enabling this Pages variable. Keep it false while validating migrations and
+client/server integration locally; enable it for the restricted trial only after
+those checks pass. Public account rollout, Tiny Swords engine availability and
+the existing handoff/opportunity controls are separate settings.
+
+For delivery rollback, set the variable to false and deploy the current client.
+The switch stops creating new record operations. Keep upgraded durable-operation
+readers and routing, the v38 Godot reader, and compatible server RPCs: a pending
+record request must retry its original bytes and operation ID even with the
+switch off. Full-envelope writes and reads must use the same current authority
+so every acknowledged update remains available. Do not revert to an older client
+that cannot read the pending-operation format, delete its outbox, or roll back
+the database while acknowledged records still depend on it.
+
 ## Accountless custom-domain migration
 
 The canonical application target is `https://www.edenia.study/`. The legacy

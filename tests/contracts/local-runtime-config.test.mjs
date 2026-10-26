@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import {
+  normalizeLocalRuntimeConfig,
   readLocalRuntimeConfig,
   readLocalYoutubeApiKey,
   writeLocalRuntimeConfig
@@ -62,6 +63,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "tinySwordsEnabled": false,\n'
         + '  "tinySwordsPublicEnabled": false,\n'
         + '  "authTrialEnabled": false,\n'
+        + '  "learnerProfileRecordSyncEnabled": false,\n'
         + '  "youtubeApiKey": "fake-development-key",\n'
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
@@ -122,6 +124,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
       tinySwordsEnabled: false,
       tinySwordsPublicEnabled: false,
       authTrialEnabled: false,
+      learnerProfileRecordSyncEnabled: false,
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: true,
       plusCheckoutEnabled: true,
@@ -165,6 +168,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       tinySwordsEnabled: false,
       tinySwordsPublicEnabled: false,
       authTrialEnabled: false,
+      learnerProfileRecordSyncEnabled: false,
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
@@ -186,4 +190,12 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       supabasePublishableKey: ''
     })
   })
+})
+
+
+test('local record-delivery configuration preserves only an explicit boolean opt-in', () => {
+  for (const value of [undefined, null, false, 'true', 'false', 0, 1]) {
+    assert.equal(normalizeLocalRuntimeConfig({ learnerProfileRecordSyncEnabled: value }).learnerProfileRecordSyncEnabled, false)
+  }
+  assert.equal(normalizeLocalRuntimeConfig({ learnerProfileRecordSyncEnabled: true }).learnerProfileRecordSyncEnabled, true)
 })

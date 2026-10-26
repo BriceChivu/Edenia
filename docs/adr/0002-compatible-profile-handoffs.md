@@ -43,3 +43,56 @@ transport and five-second delivery remain open: changing the snapshot-backed
 authority affects opening, replacement and recovery together. The concrete next
 slice and compatibility boundaries are recorded in
 [the issue #513 authority design](../plans/513-current-record-authority.md).
+
+October 26 changed-record amendment, restricted to the same authentication trial:
+the existing head revision is the sole accepted-state authority. When
+`records_active` is true, its immutable snapshot pointer may lag that revision.
+One private current-record relation stores current sections, video records and
+Anki days. A typed commit checks the owner, generation and exact base revision
+under the existing owner lock, validates changed units and coupled sections,
+then atomically advances records, head and the immutable request receipt. Missing
+fields are unchanged; deletion is explicit. Ordinary video updates reuse cached
+display metadata. Island and related progression/economy changes share a batch.
+
+Complete reads/exports return every accepted update. Existing writer and
+protection boundaries materialize the exact current revision before operating;
+full-envelope writes replace records through the same head. Historical versions
+remain immutable, including conflict/reset/import copies. Normal typed delivery
+creates recovery snapshots approximately every 30 seconds, on the next accepted
+write, and on demand before reads/protection. Invalid bounded current content is
+retained before the existing same-generation predecessor fallback; transient
+materialization failures preserve the transaction for retry.
+
+The measured restricted target is five seconds for dirty typed study updates;
+unsupported/full-envelope edits retain the 30-second path. Typed commits include
+the conditional head check, avoiding a separate preflight read. Continuous dirty
+input coalesces without restarting its delivery clock, and active gameplay still
+defers preparation, delivery, receipt processing and installation indefinitely.
+The server cadence is independently tunable between five and 30 seconds.
+Keep the newest 2,048 receipts plus typed receipts within three hours, using
+write-path pruning that does not interfere with account deletion. An evicted
+receipt never authorizes reapplying a stale base revision.
+
+Mutation-time video/day hints enter the existing local checkpoint path. The
+IndexedDB head adds bounded raw record overlays while retaining its immutable
+body and exact pre-edit head/body reference in the same transaction. Warm
+checkpoints avoid whole-profile scans, normalization, body rewrites and derived
+history/analytics work. Full saves compact overlays after preserving the recovery
+base. A 128 KiB overlay bound or storage failure uses the existing full durable
+fallback, including during play when necessary to protect progress. The head
+still contains the durable island, so its write size is not just the video size.
+
+The outbox keeps its complete recovery candidate and bounded before-values;
+normal typed transport selects explicit dirty units instead of diffing the video
+library. Full recovery-envelope preparation/hashing remains at safe opportunities.
+Diagnostic activity stays local during typed delivery and activity-only edits
+do not wake cloud sync. Exports retain local history. Proven compatible channel
+membership, per-channel formats and shelf-order observations combine; ambiguous
+removal/edit intent and cyclic order choices retain protected comparison.
+
+`learnerProfileRecordSyncEnabled` controls creation only, requires exact
+`internal_test=1` and enabled account features, and defaults false. Disabling it
+retains the upgraded local/outbox readers and routes already-created typed
+requests by their durable format through acknowledgement. It does not discard a
+sent request or resubmit it under a new transport after an uncertain response.
+Rollback retains the compatible server authority and the v38 Godot reader.

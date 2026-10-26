@@ -3,6 +3,7 @@ import { annotateStorageFailure } from './profile-storage-recovery.js'
 import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
 import { mergeActivityLogAdditions } from './activity-log.js'
 import { isValidTimestamp } from '../core/date-keys.js'
+import { budgetRecentEntries } from './storage-budget.js'
 
 const STORE = 'profiles'
 const HEAD = 'active'
@@ -10,7 +11,9 @@ const RECOVERY = 'legacy-recovery'
 const BODY = 'active-body'
 const SYNC_BASE = 'deferred-sync-base'
 const SYNC_BASE_BODY = 'deferred-sync-base-body'
-const HEAD_SCHEMA = 'edenia-profile-head-v2'
+const HEAD_SCHEMA = 'edenia-profile-head-v3'
+const PREVIOUS_HEAD_SCHEMA = 'edenia-profile-head-v2'
+const RECORD_CHECKPOINT_MAX_BYTES = 128 * 1024
 const POINTER_SCHEMA = 'edenia-indexed-db-profile-v1'
 const CONFLICT = Symbol('conflicting profile changes')
 
@@ -106,7 +109,38 @@ function openProfileDatabase(indexedDb, name) {
   }).catch(error => { throw diagnostic.failure(error, 'database-open', 'database-error') })
 }
 
-function splitHead(value) { return value?.schema === HEAD_SCHEMA }
+function splitHead(value) { return [HEAD_SCHEMA, PREVIOUS_HEAD_SCHEMA].includes(value?.schema) }
+function safeRecordKey(key) { return typeof key === 'string' && key && !['__proto__', 'prototype', 'constructor'].includes(key) }
+function validateRecordCheckpoints(value) {
+  if (value === undefined) return
+  if (!record(value) || Object.keys(value).some(key => !['videos', 'anki', 'activity'].includes(key))
+    || JSON.stringify(value).length * 2 > RECORD_CHECKPOINT_MAX_BYTES) throw new Error('Invalid record checkpoints')
+  for (const [kind, entries] of Object.entries(value)) {
+    if (!record(entries)) throw new Error('Invalid record checkpoints')
+    for (const [key, raw] of Object.entries(entries)) {
+      if (!safeRecordKey(key) || !(raw === null || typeof raw === 'string')
+        || (raw !== null && !record(JSON.parse(raw)))
+        || (kind === 'anki' && !/^\d{4}-\d{2}-\d{2}$/.test(key))) throw new Error('Invalid record checkpoint')
+    }
+  }
+}
+function applyRecordCheckpoints(state, checkpoints = {}) {
+  for (const kind of ['videos', 'anki']) {
+    for (const [key, raw] of Object.entries(checkpoints[kind] || {})) {
+      if (raw === null) delete state[kind][key]
+      else Object.defineProperty(state[kind], key, { value: JSON.parse(raw), enumerable: true, writable: true, configurable: true })
+    }
+  }
+  if (Object.keys(checkpoints.activity || {}).length) {
+    const entries = new Map((state.activityLog || []).map(entry => [entry.id, entry]))
+    for (const [key, raw] of Object.entries(checkpoints.activity)) {
+      if (raw === null) entries.delete(key)
+      else entries.set(key, JSON.parse(raw))
+    }
+    state.activityLog = budgetRecentEntries([...entries.values()]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 500), { maxBytes: 128 * 1024 })
+  }
+}
 function checkpointFields(state) {
   return { islandRaw: JSON.stringify(state.tinySwordsIsland) ?? null, cityProgress: state.cityProgress ?? null }
 }
@@ -122,6 +156,8 @@ function hydrate(head, bodyRaw) {
     throw new Error('Invalid durable profile body')
   }
   if (head.islandRaw !== null) JSON.parse(head.islandRaw)
+  if (head.schema === PREVIOUS_HEAD_SCHEMA && head.recordCheckpoints !== undefined) throw new Error('Unsupported record checkpoints')
+  validateRecordCheckpoints(head.recordCheckpoints)
   let raw
   Object.defineProperties(head, {
     bodyRaw: { value: bodyRaw },
@@ -130,6 +166,7 @@ function hydrate(head, bodyRaw) {
         const state = JSON.parse(bodyRaw)
         if (head.islandRaw === null) delete state.tinySwordsIsland
         else state.tinySwordsIsland = JSON.parse(head.islandRaw)
+        applyRecordCheckpoints(state, head.recordCheckpoints)
         raw = JSON.stringify(state)
       }
       return raw
@@ -143,6 +180,7 @@ function durableHead(head) {
 function sameHead(left, right) {
   return left?.revision === right?.revision && (splitHead(right)
     ? splitHead(left) && left.bodyRevision === right.bodyRevision && left.islandRaw === right.islandRaw
+      && equal(left.recordCheckpoints, right.recordCheckpoints)
     : left?.raw === right?.raw)
 }
 // Cache the large, immutable body across island revisions. Warm checkpoints
@@ -267,6 +305,7 @@ export async function openIndexedDbProfile({
   const revisions = new WeakMap()
   const baselines = new WeakMap()
   const pendingByState = new WeakMap()
+  const pendingRecordsByState = new WeakMap()
   const saveFailures = new WeakMap()
   const islandSaveFailures = new WeakMap()
   const emptyIslandFailureKey = {}
@@ -304,6 +343,7 @@ export async function openIndexedDbProfile({
         if (equal(durableHead(next), durableHead(pendingHead))) return
       }
       const islandOnly = splitHead(next) && next.bodyRevision === current?.bodyRevision
+        && equal(next.recordCheckpoints, current?.recordCheckpoints)
       const replacement = (next?.replacementRevision || 0) !== (current?.replacementRevision || 0)
       if (!islandOnly) validate(next)
       current = next
@@ -396,6 +436,137 @@ export async function openIndexedDbProfile({
     return JSON.parse(base.head ? hydrate(base.head, bodyRaw).raw : bodyRaw)
   }
 
+  async function readDirtyUnits(identity) {
+    const transaction = profileTransaction(database, STORE, 'readonly')
+    const finished = complete(transaction)
+    const store = transaction.objectStore(STORE)
+    const baseRequest = store.get(SYNC_BASE)
+    const headRequest = store.get(HEAD)
+    await finished
+    const base = baseRequest.result
+    const head = headRequest.result
+    if (!equal(base?.identity, identity) || !splitHead(head) || !base.head
+      || head.bodyRevision !== base.bodyRevision || head.revision !== current?.revision) return null
+    validateRecordCheckpoints(head.recordCheckpoints)
+    const changed = kind => [...new Set([
+      ...Object.keys(base.head.recordCheckpoints?.[kind] || {}),
+      ...Object.keys(head.recordCheckpoints?.[kind] || {})
+    ])].filter(key => base.head.recordCheckpoints?.[kind]?.[key] !== head.recordCheckpoints?.[kind]?.[key])
+    return { videos: changed('videos'), anki: changed('anki'), island: head.islandRaw !== base.head.islandRaw }
+  }
+
+  // Warm study checkpoints serialize only explicitly changed records. The
+  // immutable body and its exact before-image use the island checkpoint seam.
+  function saveRecords(state, units, { canPersist = () => true, syncBase = null, activityEntries = [] } = {}) {
+    saveFailures.delete(state)
+    const changes = {}
+    try {
+      if (!record(units) || Object.keys(units).some(kind => !['videos', 'anki'].includes(kind))) return Promise.resolve(null)
+      for (const kind of ['videos', 'anki']) {
+        if (units[kind] === undefined) continue
+        if (!Array.isArray(units[kind]) || !units[kind].every(safeRecordKey)) return Promise.resolve(null)
+        changes[kind] = Object.fromEntries(units[kind].map(key => [key,
+          Object.hasOwn(state[kind], key) ? JSON.stringify(state[kind][key]) : null]))
+      }
+      if (activityEntries.length) changes.activity = Object.fromEntries(activityEntries.map(entry => [entry.id, JSON.stringify(entry)]))
+      validateRecordCheckpoints(changes)
+    } catch { return Promise.resolve(null) }
+    const expectedRevision = revisions.get(state)
+    const capturedAccess = storage.getItem(accessKey)
+    const token = { head: null }
+    const pendingUnits = pendingRecordsByState.get(state) || new Map()
+    pendingRecordsByState.set(state, pendingUnits)
+    for (const [kind, entries] of Object.entries(changes)) {
+      for (const key of Object.keys(entries)) pendingUnits.set(`${kind}:${key}`, token)
+    }
+    const operation = writeQueue.catch(() => {}).then(async () => {
+      if (expectedRevision === undefined || !canPersist()) return false
+      let previous, next
+      let overflow = false
+      const transaction = profileTransaction(database, STORE, 'readwrite', { durability: 'strict' })
+      const finished = complete(transaction)
+      const store = transaction.objectStore(STORE)
+      const request = store.get(HEAD)
+      request.onsuccess = () => {
+        try {
+          const latest = request.result
+          let owned = latest && latest.revision >= expectedRevision
+          for (let revision = expectedRevision + 1; owned && revision <= latest.revision; revision++) {
+            if (!localRevisions.has(revision)) owned = false
+          }
+          if (!owned || !canPersist() || storage.getItem(accessKey) !== capturedAccess) { transaction.abort(); return }
+          previous = splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest
+          const initializeBody = !splitHead(previous)
+          const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
+          // A legacy unsplit head needs one initial parse. Subsequent records
+          // share this body without reading, rewriting or parsing it again.
+          const fields = splitHead(previous) ? previous : checkpointFields(JSON.parse(bodyRaw))
+          const checkpoints = { ...(fields.recordCheckpoints || {}) }
+          for (const [kind, records] of Object.entries(changes)) checkpoints[kind] = { ...(checkpoints[kind] || {}), ...records }
+          if (JSON.stringify(checkpoints).length * 2 > RECORD_CHECKPOINT_MAX_BYTES) { overflow = true; return }
+          const baseline = splitHead(previous) ? previous : hydrate({ key: HEAD, schema: PREVIOUS_HEAD_SCHEMA,
+            revision: latest.revision, bodyRevision: latest.revision, ...fields, ...replacementFields(latest) }, bodyRaw)
+          retainSyncBase(store, baseline, syncBase, false, error => saveFailures.set(state, error))
+          next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latest.revision + 1,
+            bodyRevision: baseline.bodyRevision, islandRaw: fields.islandRaw, cityProgress: fields.cityProgress,
+            recordCheckpoints: checkpoints, ...replacementFields(latest) }, bodyRaw)
+          if (initializeBody) {
+            store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
+            // A committed conversion may still lose its ownership fence during
+            // readback. Its rollback must keep the body referenced by the
+            // durable before-image, rather than restoring an unsplit head and
+            // deleting that body's only copy.
+            previous = baseline
+          }
+          token.head = next
+          unacknowledgedHeads.add(next)
+          store.put(durableHead(next))
+        } catch (error) { saveFailures.set(state, error); transaction.abort() }
+      }
+      await finished
+      // The caller uses the existing full durable save when the bounded overlay
+      // is full. No checkpoint or pending delivery information was removed.
+      if (overflow) return null
+      let verified
+      try { verified = await read(database, HEAD, null, true) } catch (error) {
+        saveFailures.set(state, error)
+        await restoreUnacknowledgedHead(next, previous)
+        return false
+      }
+      if (!sameHead(verified, next)) { await refresh(); return false }
+      if (!canPersist() || storage.getItem(accessKey) !== capturedAccess) {
+        await restoreUnacknowledgedHead(next, previous)
+        return false
+      }
+      current = hydrate(verified, next.bodyRaw)
+      localRevisions.add(next.revision)
+      if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
+      // A preceding full save can restore its captured snapshot while this
+      // record is in flight. The latest record acknowledgement reinstalls its
+      // immutable units; an older acknowledgement never replaces a newer one.
+      const acknowledged = {}
+      for (const [kind, entries] of Object.entries(changes)) {
+        acknowledged[kind] = Object.fromEntries(Object.entries(entries).filter(([key]) => pendingUnits.get(`${kind}:${key}`) === token))
+      }
+      applyRecordCheckpoints(state, acknowledged)
+      revisions.set(state, current.revision)
+      baselines.set(state, current)
+      signal()
+      return true
+    }).catch(async error => {
+      if (error?.name !== 'AbortError' && error?.message !== 'Profile transaction aborted') saveFailures.set(state, error)
+      try { await refresh() } catch {}
+      return false
+    })
+    void operation.finally(() => {
+      unacknowledgedHeads.delete(token.head); token.head = null
+      for (const [key, pending] of pendingUnits) if (pending === token) pendingUnits.delete(key)
+      if (!pendingUnits.size) pendingRecordsByState.delete(state)
+    })
+    writeQueue = operation
+    return operation
+  }
+
   function save(state, { canPersist = () => true, replace = false, syncBase = null } = {}) {
     saveFailures.delete(state)
     const raw = JSON.stringify(state)
@@ -439,7 +610,7 @@ export async function openIndexedDbProfile({
             nextRaw = JSON.stringify(merged)
           }
           if (splitHead(previous)) {
-            next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latestRevision + 1,
+            next = hydrate({ key: HEAD, schema: PREVIOUS_HEAD_SCHEMA, revision: latestRevision + 1,
               bodyRevision: latestRevision + 1, ...checkpointFields(JSON.parse(nextRaw)),
               ...replacementFields(previous, latestRevision + 1, replace) }, nextRaw)
             store.put({ key: BODY, revision: next.bodyRevision, raw: nextRaw })
@@ -538,9 +709,10 @@ export async function openIndexedDbProfile({
           previous = splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest
           retainSyncBase(store, previous, syncBase, false, error => islandSaveFailures.set(failureKey, error))
           const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
-          next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latest.revision + 1,
+          next = hydrate({ key: HEAD, schema: fields.recordCheckpoints ? HEAD_SCHEMA : PREVIOUS_HEAD_SCHEMA, revision: latest.revision + 1,
             bodyRevision: splitHead(latest) ? latest.bodyRevision : latest.revision,
-            islandRaw, cityProgress: fields.cityProgress, ...replacementFields(latest) }, bodyRaw)
+            islandRaw, cityProgress: fields.cityProgress,
+            ...(fields.recordCheckpoints ? { recordCheckpoints: fields.recordCheckpoints } : {}), ...replacementFields(latest) }, bodyRaw)
           if (!splitHead(previous)) store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
           token.head = next
           unacknowledgedHeads.add(next)
@@ -580,6 +752,8 @@ export async function openIndexedDbProfile({
     snapshot,
     readIslandState,
     saveIsland,
+    saveRecords,
+    readDirtyUnits,
     readSyncBase,
     save,
     getSaveFailure: state => saveFailures.get(state) || null,

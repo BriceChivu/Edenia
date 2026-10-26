@@ -7,7 +7,7 @@ const at = '2026-10-11T13:30:00.000Z'
 // This diagnostic only executes in an explicitly selected local Docker database.
 // All fixture writes and optional baseline definitions roll back together.
 const options = Object.fromEntries(process.argv.slice(2).map(arg => {
-  assert.match(arg, /^--(?:container|docker-context|baseline-ref|videos|max-ms)=.+$/)
+  assert.match(arg, /^--(?:container|docker-context|baseline-ref|videos|max-ms|records)=.+$/)
   const separator = arg.indexOf('=')
   return [arg.slice(2, separator), arg.slice(separator + 1)]
 }))
@@ -17,6 +17,8 @@ const dockerContext = options['docker-context'] || 'default'
 assert.match(dockerContext, /^[a-zA-Z0-9_-]+$/)
 const videos = Number(options.videos || 1600)
 const maxMs = Number(options['max-ms'] || 500)
+const compareRecords = options.records === 'true'
+assert.ok(options.records === undefined || ['true','false'].includes(options.records))
 assert.ok(Number.isInteger(videos) && videos >= 1 && videos <= 1900)
 assert.ok(Number.isFinite(maxMs) && maxMs > 0)
 let baselineSql = ''
@@ -57,6 +59,66 @@ const literal = value => `'${canonicalizeJson(value).replaceAll("'", "''")}'::js
 const owner = '123e4567-e89b-42d3-a456-426614174000'
 const profileId = '223e4567-e89b-42d3-a456-426614174000'
 const operation = '323e4567-e89b-42d3-a456-426614174000'
+const metadataKeys = ['aspectRatio','channelId','channelImageUrl','channelTitle','duration','id','isShort','publishedAt','source','thumbnail','title']
+const videoKey = 'library-00000'
+const personal = Object.fromEntries(Object.entries(edit.profile.videos[videoKey]).filter(([key]) => !metadataKeys.includes(key)))
+const recordBatch = { version: 1, exportedAt: at, units: [{ kind: 'video', key: videoKey, afterPresent: true, after: { ...personal, watchLater: true } }] }
+const laterRecordBatch = structuredClone(recordBatch)
+laterRecordBatch.units[0].after.favorite = true
+const recordOperation = '423e4567-e89b-42d3-a456-426614174000'
+const laterRecordOperation = '523e4567-e89b-42d3-a456-426614174000'
+const snapshotRecordOperation = '623e4567-e89b-42d3-a456-426614174000'
+const snapshotRecordBatch = structuredClone(laterRecordBatch)
+snapshotRecordBatch.units[0].after.watchLater = false
+const recordComparisonSql = compareRecords ? `
+update private.learner_profile_access_control set record_write_interval_ms=5000 where singleton;
+update public.learner_profile_heads set updated_at=clock_timestamp()-interval '6 seconds' where user_id='${owner}';
+set local role authenticated;
+do $measure$ declare started timestamptz; outcome record; begin
+started:=clock_timestamp(); select * into outcome from public.commit_my_learner_profile_records('${recordOperation}','${profileId}',1,2,${literal(recordBatch)},false);
+if outcome.status<>'accepted' then raise exception 'Unexpected first records commit: %',outcome.status; end if;
+raise notice 'PERF %',jsonb_build_object('stage','records_first','ms',extract(epoch from clock_timestamp()-started)*1000);
+end $measure$;
+reset role;
+update public.learner_profile_heads set updated_at=clock_timestamp()-interval '6 seconds' where user_id='${owner}';
+set local role authenticated;
+do $measure$ declare started timestamptz; outcome record; begin
+started:=clock_timestamp(); select * into outcome from public.commit_my_learner_profile_records('${laterRecordOperation}','${profileId}',1,3,${literal(laterRecordBatch)},false);
+if outcome.status<>'accepted' then raise exception 'Unexpected warm records commit: %',outcome.status; end if;
+raise notice 'PERF %',jsonb_build_object('stage','records_warm','ms',extract(epoch from clock_timestamp()-started)*1000);
+started:=clock_timestamp(); select * into outcome from public.commit_my_learner_profile_records('${laterRecordOperation}','${profileId}',1,3,${literal(laterRecordBatch)},false);
+if outcome.status<>'already_accepted' then raise exception 'Unexpected records retry: %',outcome.status; end if;
+raise notice 'PERF %',jsonb_build_object('stage','records_retry','ms',extract(epoch from clock_timestamp()-started)*1000);
+end $measure$;
+reset role;
+do $verify$ begin
+if (select count(*) from public.learner_profile_versions where user_id='${owner}')<>2
+or (select count(*) from public.learner_profile_write_receipts where user_id='${owner}')<>3
+then raise exception 'Records commit multiplied historical versions or receipts'; end if;
+end $verify$;
+-- Fake only eligibility timestamps; no real-time idle wait or extra database.
+update public.learner_profile_versions set created_at=clock_timestamp()-interval '31 seconds'
+  where id=(select current_version_id from public.learner_profile_heads where user_id='${owner}');
+update public.learner_profile_heads set updated_at=clock_timestamp()-interval '6 seconds' where user_id='${owner}';
+set local role authenticated;
+do $measure$ declare started timestamptz; outcome record; begin
+started:=clock_timestamp(); select * into outcome from public.commit_my_learner_profile_records('${snapshotRecordOperation}','${profileId}',1,4,${literal(snapshotRecordBatch)},false);
+if outcome.status<>'accepted' then raise exception 'Unexpected periodic records snapshot: %',outcome.status; end if;
+raise notice 'PERF %',jsonb_build_object('stage','records_snapshot','ms',extract(epoch from clock_timestamp()-started)*1000);
+started:=clock_timestamp(); select * into outcome from public.resolve_my_learner_profile(null);
+if outcome.status<>'profile_ready' or outcome.revision<>5
+or outcome.envelope#>>'{profile,videos,${videoKey},watchLater}'<>'false'
+or outcome.envelope#>>'{profile,videos,${videoKey},favorite}'<>'true'
+or outcome.envelope#>>'{profile,anki,2026-10-11,reviewed}'<>'7'
+then raise exception 'Records full read lost accepted progress'; end if;
+raise notice 'PERF %',jsonb_build_object('stage','records_full_read','ms',extract(epoch from clock_timestamp()-started)*1000);
+end $measure$;
+reset role;
+do $verify$ begin
+if (select count(*) from public.learner_profile_versions where user_id='${owner}')<>3
+then raise exception 'Periodic snapshot must preserve one latest complete version'; end if;
+end $verify$;
+` : ''
 const sql = `
 begin;
 ${baselineSql}
@@ -98,11 +160,16 @@ or (select count(*) from public.learner_profile_versions where user_id='${owner}
 or (select count(*) from public.learner_profile_write_receipts where user_id='${owner}')<>1
 then raise exception 'Progress or retry preservation failed'; end if;
 end $verify$;
+${recordComparisonSql}
 rollback;
 `
 const run = spawnSync('docker', ['--context',dockerContext,'exec','-i',options.container,'psql','-U','postgres','-d','postgres','-X','-v','ON_ERROR_STOP=1','-At'], { input: sql, encoding:'utf8',maxBuffer: 4*1024*1024 })
 if (run.status !== 0) throw new Error(run.stderr.slice(-2500))
 const timings = [...run.stderr.matchAll(/PERF (\{[^\n]+\})/g)].map(match => JSON.parse(match[1]))
-assert.equal(timings.length,4)
-console.log(JSON.stringify({ synthetic:true, videos, bytes: edit.integrity.byteLength, timings, progressPreserved:true }))
+assert.equal(timings.length,compareRecords ? 9 : 4)
+console.log(JSON.stringify({ synthetic:true, videos, bytes: edit.integrity.byteLength,
+  ...(compareRecords ? { recordBatchBytes: Buffer.byteLength(canonicalizeJson(recordBatch)),
+    commitRequestsPerMinute: { envelope: 2, recordsTarget: 12 },
+    historicalVersionsForTwoRecordCommits: 0, periodicSnapshotVersions: 1 } : {}),
+  timings, progressPreserved:true }))
 assert.ok(timings.find(t=>t.stage==='commit').ms < maxMs, `Routine learner save exceeded the local ${maxMs} ms diagnostic budget`)
