@@ -170,6 +170,7 @@ for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acc
     const phone = await createDevice(browser, cloud, 'phone', browserName, baseURL)
     let computer
     let cdp
+    let acceptedOperation
     const headGate = deferred(), ackGate = deferred(), sendGate = deferred()
     try {
       if (stage === 'local-save') {
@@ -195,6 +196,9 @@ for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acc
         if (stage === 'after-head-check') await expect.poll(() => cloud.commits.length).toBe(1)
         if (['after-acceptance', 'local-save-after-acceptance'].includes(stage)) await expect.poll(() => cloud.head().envelope.profile.videos.phone.watchProgress[0]?.seconds).toBe(40)
         if (stage === 'local-save-after-acceptance') {
+          acceptedOperation = await phone.page.evaluate(() =>
+            JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1')).pending)
+          expect(acceptedOperation.envelope.profile.videos.phone.watchProgress[0].seconds).toBe(40)
           await phone.page.evaluate(() => {
             const original = primaryProfileRepository.save.bind(primaryProfileRepository)
             primaryProfileRepository.save = async (...args) => {
@@ -223,15 +227,25 @@ for (const stage of ['local-save', 'before-send', 'after-head-check', 'after-acc
       cloud.controls.phoneHead = null
       cloud.controls.phoneAck = null
       cloud.controls.phoneSend = null
+      const receipt = stage === 'local-save-after-acceptance'
+        ? phone.page.waitForResponse(response => response.url() === `${origin}/rest/v1/rpc/commit_my_learner_profile_handoff`)
+        : null
       headGate.resolve(); ackGate.resolve(); sendGate.resolve()
       if (cdp) await cdp.send('Page.setWebLifecycleState', { state: 'active' })
       await phone.visibility(false)
       if (stage === 'local-save-after-acceptance') {
-        await expect.poll(() => phone.page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'))?.pending)).toBeNull()
+        await (await receipt).finished()
+        // Receipt installation waits for the held local transaction. Preserve
+        // its immutable sent candidate until the newer study is durable.
+        expect(await phone.page.evaluate(() =>
+          JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1')).pending)).toEqual(acceptedOperation)
         expect(await phone.page.evaluate(() => localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1_dirty'))).not.toBeNull()
         await expect(phone.page.locator('#learnerProfileSyncStatus')).not.toHaveText('Up to date')
       }
-      if (['local-save', 'local-save-after-acceptance'].includes(stage)) await phone.page.evaluate(() => window.handoffReleaseLocalSave())
+      if (['local-save', 'local-save-after-acceptance'].includes(stage)) {
+        await phone.page.evaluate(() => window.handoffReleaseLocalSave())
+        expect(await phone.page.evaluate(() => window.handoffSave)).toBe(true)
+      }
       const expectedPhoneSeconds = stage === 'local-save-after-acceptance' ? 80 : 40
       await phone.page.clock.runFor(31_000)
       await expect(phone.page.locator('#mainApp')).toBeVisible()

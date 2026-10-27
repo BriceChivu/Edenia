@@ -2,9 +2,11 @@
 
 The approved implementation restores safe animal positions without restoring
 per-movement cloud work or making clean profile opening download a full profile.
-Baseline is `1121d0ac6bbfa4ed34093ecfdf9e770a6be779ac` (snapshot 38). That
-baseline intentionally did not persist wandering positions, so zero movement
-writes is a missing feature, not a like-for-like performance target.
+The final combined-release baseline is `e2d3cfec` (released snapshot 39 with
+tree-perched chickens); the implementation freeze is `34a24626` (snapshot 40).
+Earlier feature-isolation results against `1121d0ac` (snapshot 38) are retained
+below and explicitly labelled. Both baselines omitted wandering positions, so
+zero movement writes is a missing feature, not a like-for-like performance target.
 
 ## Implementation
 
@@ -29,7 +31,84 @@ An 8-pixel movement deadband suppressed only 1 of 61 observed candidates. It was
 omitted: cadence coalescing provides the useful reduction without rounding valid
 contacts or adding another comparison state.
 
-## Native comparison
+## Combined version-40 release comparison
+
+Master advanced during validation: PR #519 had independently released version 39
+for tree-perched chickens. The integration therefore writes version 40, reads
+count-only ground animals in versions 38–39, and retains tree ownership. An
+authentic released-writer fixture reproduced the migration failure before the
+fix. The corrected reader conserves ground animals, tree birds, sheep passengers
+and a carried bird; tree placement/retrieval remain immediate meaningful saves.
+
+Fresh frozen builds of `e2d3cfec` and `34a24626` reran the comparisons. Native
+measurements used Godot 4.7.2; storage/opening used Chromium 156 on the same Mac.
+Component cloud timing used Node 24.10.0 on both sides, rather than production's
+Node 24.18 build runtime. That component measures synthetic client work and
+cannot establish production-browser, network or database latency. Native clocks
+and all failed controls/outliers were retained.
+
+| Final comparison | Before median | After median |
+| --- | ---: | ---: |
+| Meaningful local island ACK, 500 / 2,500 videos | 0.20 / 0.20 ms | 0.30 / 0.30 ms |
+| New animal side-record ACK, 500 / 2,500 videos | No movement save | 0.40 / 0.50 ms |
+| Cold local repository open, 500 / 2,500 videos | 4.6 / 17.5 ms | 4.5 / 23.0 ms |
+| Whole-app returning opening, 500 videos | 693.6 ms | 680.6 ms |
+| Whole-app returning opening, 2,500 videos | 906.4 ms | 912.9 ms |
+| Ordinary cloud preparation, 500 / 2,500 videos | 108.66 / 421.50 ms | 116.41 / 419.24 ms |
+
+Storage repeated 840 acknowledged writes and forty cold reopens; all facts,
+before-images and exact canonical content passed. All 210 measured side writes
+used zero immutable-body reads/writes, with 2,667 encoded bytes per ACK across
+one head and one animal record. Meaningful round-median ranges were 0.20–0.20 →
+0.20–0.40 ms (500) and 0.20–0.30 → 0.20–3.00 ms (2,500). The latter's 3 ms
+round median and largest individual 224.3 ms ACK remain in the report; its cause
+is unproven. Side round medians ranged 0.40–0.50 / 0.40–1.20 ms.
+
+Cold local reads with positions cost +5.5 ms median at 2,500 videos, with
+overlapping ranges 15.9–28.9 → 15.7–28.1 ms; the 500 ranges were 3.9–4.6 →
+4.1–5.9 ms. The twenty whole-app openings used native version-39/40 fixtures and
+matched pre-split storage. All returned `profile_unchanged`, retained all facts
+and newer local contacts, and never painted the progress notice. Usable ranges
+were 680.2–747.0 → 671.0–750.4 ms (500) and 897.8–931.2 → 900.9–968.5 ms
+(2,500). These small, overlapping cohorts do not establish a speedup or zero cost.
+
+Forty cloud trials retained complete profiles and retired the correct outbox.
+Ordinary batches remain 581 bytes; study plus the v40 island is 1,581 bytes
+(1,767 RPC argument bytes), and explicit pose Sync is 1,063 bytes (1,249
+argument bytes). Roaming causes no automatic request. Paired preparation deltas
+were +3.64/−2.28 ms and paired ACK deltas +5.78/+2.70 ms with fixed 100 ms mock
+latency. Ranges overlap; no stable client speed change is established. All cloud
+transitive sources and all twenty-three storage sources match the preceding
+measured implementation; native format/fixture changes are separately pinned.
+
+Native five-pair medians below are microseconds per call, 1,000 calls per
+operation. Every generated snapshot and saved file restored, including the
+eight-animal tree-perch case.
+
+| Animals | Snapshot before → after | Parse/restore before → after | Bytes before → after |
+| --- | ---: | ---: | ---: |
+| 1 sheep + 1 ground chicken | 43.297 → 45.016 | 121.997 → 98.183 | 913 → 948 |
+| 4 sheep + 4 ground chickens | 43.363 → 50.062 | 148.428 → 167.071 | 914 → 1,033 |
+| 4 sheep + 3 ground chickens + 1 tree chicken | 46.108 → 50.992 | 170.907 → 176.497 | 938 → 1,043 |
+
+Ten final real-game windows (five alternating pairs, 2,500 videos) passed full
+admission and produced five changed-position writes/ACKs. During the active
+routine there were zero progress commits, immutable-body I/O, instrumented
+whole-profile methods, failed ACKs, metadata requests or real provider dispatches.
+Median parent throughput was 54.13 → 57.40 FPS and median p99 frame gap was
+64.76 → 39.15 ms; median paired deltas were only +1.13 FPS / −1.71 ms p99.
+All windows remain: worst parent gaps were 306.20 → 545.30 ms, with similar
+child gaps. The largest after gaps preceded its position submission. Neither
+causality, a frame-rate speedup nor absence of tail regression is established.
+
+Combined validation passed the full native build/export, 2,458 contracts,
+42 Chromium/WebKit IndexedDB cases and sixteen focused app cases (five intended
+project skips), including the live game through recovery/export/promotion. Final
+CI and release verification are recorded in the PR. Complete raw evidence lives
+in the external audit's `combined-release` and `active-game-frames/combined-release`
+directories; earlier evidence below remains a separate feature-isolation cohort.
+
+## Earlier native feature-isolation comparison
 
 Godot 4.7.2, same Mac, five alternating version pairs, 100 warmup calls and
 1,000 measured calls per operation per pair. Values below are medians of round
@@ -54,7 +133,7 @@ callbacks. The baseline issued zero movement saves; version 39 issued 21 and
 42 coalesced candidates, including one explicit final flush in the smaller case.
 Ordinary candidates stayed at least five seconds apart.
 
-## Browser storage comparison
+## Earlier browser storage feature-isolation comparison
 
 Chromium native IndexedDB, admitted synthetic 500/2,500-video profiles, five
 alternating rounds with 21 distinct acknowledged writes per round. The same
@@ -80,7 +159,7 @@ The complete run verified 840 write acknowledgements, 40 cold reopens, retained
 before-images and study facts. Opening samples are small and overlap; no
 whole-application loading speedup is inferred from these local-storage numbers.
 
-## Cloud client comparison
+## Earlier cloud client feature-isolation comparison
 
 The actual cloud adapter and portable serializer ran 40 trials with admitted
 500/2,500-video fixtures, five alternating ordinary-study pairs per size, plus
@@ -105,7 +184,7 @@ mock latency and client bookkeeping cannot establish production database or
 network latency. Earlier harness controls are retained separately, including a
 discarded full-profile mock-server implementation and intermediate source pins.
 
-## Whole-application opening comparison
+## Earlier whole-application opening feature-isolation comparison
 
 Frozen public/game-enabled builds of baseline `1121d0ac` and implementation
 `532807c0` ran five alternating pairs per cohort, in fresh Chromium contexts.
@@ -142,7 +221,7 @@ unmatched-layout samples and four pilot observations are retained separately.
 Cold-game results include download, engine startup and scene work; they must not
 be presented as repository-read latency.
 
-## Active-game comparison
+## Earlier active-game feature-isolation comparison
 
 The same frozen builds ran five alternating before/after pairs per profile size,
 with the real Godot game, native animation-frame clocks, a five-second warmup and
@@ -214,6 +293,10 @@ Detailed raw traces, source/artifact manifests, paired samples and logs are kept
 outside the worktree in the task's `animal-position-implementation-2026-10-27`
 audit directory. Browser phone projects are emulation; physical-device and real
 authenticated production writes are outside this synthetic validation.
+
+The nominal five-second checkpoint deadline is not a hard durability bound:
+browser suspension, storage delays and failed acknowledgements can extend the
+unacknowledged movement window. Closing capture remains best effort.
 
 Rollback must retain the v40 Godot reader and Edenia's checkpoint-head,
 animal-record and optional stamped-outbox readers. Reverting the complete old

@@ -131,9 +131,10 @@ Wandering alone never creates an automatic upload; ordinary cloud work piggyback
 the latest checkpoint and explicit Sync sends it even when study progress is
 otherwise clean. Explicit Sync/export request an acknowledged safe-contact capture.
 Hidden-page and page-close captures remain best effort because browsers can freeze
-the game before its message runs. Five-second local checkpointing bounds the
-ordinary loss window; exact last-frame positions are not promised. Count-only
-version-38 positions cannot be recovered retroactively. Rollback must retain the
+the game before its message runs. Local checkpointing uses a nominal five-second
+deadline; suspension, slow storage or failed acknowledgements can extend the
+unacknowledged movement window. Exact last-frame positions are not promised.
+Count-only version-38/39 positions cannot be recovered retroactively. Rollback must retain the
 version-40 Godot reader, Edenia's checkpoint-head/animal-record readers and the
 optional outbox `animalCheckpoint` reader. Reverting the complete pre-amendment
 client can ignore newer local positions or reject a stamped pending upload.

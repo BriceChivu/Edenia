@@ -510,7 +510,8 @@ const edgeDatabaseName = 'synthetic_profile_edge_cases'
 async function repositoryFixture(page) {
   const { outputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../../src/state/indexed-db-profile.js', import.meta.url))], bundle: true, format: 'esm', platform: 'browser', write: false })
   const source = outputFiles[0].text
-  const adapter = await readFile(new URL('../../src/state/tiny-swords-island.js', import.meta.url), 'utf8')
+  const { outputFiles: adapterOutputFiles } = await build({ entryPoints: [fileURLToPath(new URL('../../src/state/tiny-swords-island.js', import.meta.url))], bundle: true, format: 'esm', platform: 'browser', write: false })
+  const adapter = adapterOutputFiles[0].text
   await configure(page, false)
   await page.route('**/profile-repository-fixture.js', route => route.fulfill({
     body: source, contentType: 'application/javascript'

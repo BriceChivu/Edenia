@@ -313,6 +313,32 @@ test('real portable serialization delivers one changed video without unchanged m
   assert.equal(cloud.profile().videos['video-0'].resumeAtSeconds, 60)
 })
 
+for (const recordSyncEnabled of [true, false]) {
+test(`an unstamped study receipt retains its immutable operation until local installation (record flag ${recordSyncEnabled})`, async t => {
+  const cloud = server(), install = deferred()
+  let captured
+  const phone = await device(cloud, { recordSyncEnabled,
+    acknowledgeAnimalCheckpoint: async context => { captured = context; return install.promise }
+  })
+  t.after(() => phone.retire())
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => Boolean(captured), 'The unstamped receipt reaches local installation', phone.inspect)
+  const sent = clone(phone.state().pending)
+  assert.equal(cloud.head().revision, 2)
+  assert.equal(captured.stamp, null)
+  assert.equal(sent.animalCheckpoint, undefined)
+  assert.equal(phone.state().acceptedRevision, 1)
+  await phone.advance()
+  assert.deepEqual(phone.state().pending, sent, 'An accepted receipt cannot retire or rewrite the sent operation while installation is held')
+  install.resolve(true)
+  await until(() => phone.state().acceptedRevision === 2, 'Durable installation permits retirement', phone.inspect)
+  assert.equal(phone.state().pending, null)
+  assert.equal(commits(cloud).length, 1)
+})
+}
+
 test('a real video sync piggybacks the latest local animal checkpoint and waits for its durable receipt install', async t => {
   const cloud = server(animalFixture()), install = deferred()
   const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[3, 4]] })

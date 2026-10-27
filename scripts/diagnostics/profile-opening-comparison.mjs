@@ -23,6 +23,7 @@ const { values } = parseArgs({ options: {
   'before-site': { type: 'string' }, 'after-site': { type: 'string' },
   'before-ref': { type: 'string' }, 'after-ref': { type: 'string' },
   'before-label': { type: 'string' }, 'after-label': { type: 'string' },
+  'before-position-island': { type: 'string' },
   'output-dir': { type: 'string' }, pairs: { type: 'string', default: '5' },
   cohort: { type: 'string', multiple: true }, 'port-base': { type: 'string', default: '8231' },
   pilot: { type: 'boolean', default: false }, 'allow-before-game-save-failure': { type: 'boolean', default: false }, 'debug-eligibility': { type: 'boolean', default: false },
@@ -102,6 +103,12 @@ let browser
 const samples = []
 const profiles = new Map()
 const poseIsland = JSON.parse(await readFile(new URL('../../tests/fixtures/tiny-swords-animal-v40.json', import.meta.url)))
+// An older native writer can use a different format from the current writer.
+// Supply its real admitted snapshot rather than inventing a version conversion.
+const beforePoseIsland = values['before-position-island']
+  ? JSON.parse(await readFile(resolve(values['before-position-island']), 'utf8')) : poseIsland
+const positionFixtureHashes = Object.fromEntries(Object.entries({ before: beforePoseIsland, after: poseIsland })
+  .map(([variant, island]) => [variant, createHash('sha256').update(JSON.stringify(island)).digest('hex')]))
 for (const count of [500, 2500]) {
   const raw = structuredClone(fixture.resolution.envelope.profile)
   raw.config.ankiEnabled = false
@@ -118,13 +125,15 @@ for (const count of [500, 2500]) {
   const { envelope } = await createPortableLearnerProfileEnvelope(raw, { now: () => new Date('2026-10-27T00:00:00.000Z'), maxBytes: 2 * 1024 * 1024 })
   assert.ok(envelope && Buffer.byteLength(JSON.stringify(envelope)) <= 2 * 1024 * 1024, 'Fixture must pass actual cloud envelope admission')
   profiles.set(count, { envelope, digest: sha256Base64UrlSync(canonicalizeJson(envelope.profile)), bytes: Buffer.byteLength(JSON.stringify(envelope.profile)) })
-  const positioned = await createPortableLearnerProfileEnvelope({ ...raw, tinySwordsIsland: poseIsland }, {
-    now: () => new Date('2026-10-27T00:00:00.000Z'), maxBytes: 2 * 1024 * 1024
-  })
-  assert.ok(positioned.envelope, 'Position fixture must pass actual cloud admission')
-  profiles.set('pose-' + count, { envelope: positioned.envelope,
-    digest: sha256Base64UrlSync(canonicalizeJson(positioned.envelope.profile)),
-    bytes: Buffer.byteLength(JSON.stringify(positioned.envelope.profile)) })
+  for (const [variant, island] of Object.entries({ before: beforePoseIsland, after: poseIsland })) {
+    const positioned = await createPortableLearnerProfileEnvelope({ ...raw, tinySwordsIsland: island }, {
+      now: () => new Date('2026-10-27T00:00:00.000Z'), maxBytes: 2 * 1024 * 1024
+    })
+    assert.ok(positioned.envelope, 'Position fixture must pass actual cloud admission')
+    profiles.set('pose-' + variant + '-' + count, { envelope: positioned.envelope,
+      digest: sha256Base64UrlSync(canonicalizeJson(positioned.envelope.profile)),
+      bytes: Buffer.byteLength(JSON.stringify(positioned.envelope.profile)) })
+  }
 }
 const populatedIsland = JSON.parse(await readFile(new URL('../../tests/fixtures/tiny-swords-populated-island.json', import.meta.url)))
 const gameRaw = structuredClone(profiles.get(500).envelope.profile)
@@ -185,7 +194,7 @@ async function run(cohort, variant, trial) {
   const expiredSession = structuredClone(session)
   expiredSession.expires_at = Math.floor(Date.now() / 1000) - 60
   const seededSession = authMode.startsWith('expired') ? expiredSession : session
-  const { envelope, digest, bytes, studyDigest } = profiles.get(positions ? 'pose-' + count : engine ? 'game-500' : count)
+  const { envelope, digest, bytes, studyDigest } = profiles.get(positions ? 'pose-' + variant + '-' + count : engine ? 'game-500' : count)
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US', timezoneId: 'Asia/Taipei', serviceWorkers: 'block' })
   const page = await context.newPage()
   const errors = [], blocked = [], backend = []
@@ -534,7 +543,7 @@ async function run(cohort, variant, trial) {
     assert.equal(sample.integrity.sha256,engine?studyDigest:dirty?sample.checkpoint.sha256:digest,'All portable study/config facts retained exactly')
     if (positions) {
       sample.effectiveIsland = await page.evaluate(() => learnerProfileLifecycleAuthority.readActiveIsland().tinySwordsIsland)
-      assert.deepEqual(sample.effectiveIsland, variant === 'after' ? sample.animalCheckpoint.moved : poseIsland,
+      assert.deepEqual(sample.effectiveIsland, variant === 'after' ? sample.animalCheckpoint.moved : beforePoseIsland,
         'Clean opening retains the after-only local checkpoint without changing its exact canonical proof')
     }
     if(engine){
@@ -645,7 +654,7 @@ browser = await chromium.launch()
   for(const variant of variants)assert.deepEqual(await siteManifest(sitePaths[variant]),frozen[variant].artifacts,'Frozen '+variant+' site changed during the run')
   const artifactsReverifiedAt=new Date().toISOString()
   const output=outputPath(pilot?'fixture-pilot.json':'paired-opening.json')
-  await writeFile(output, JSON.stringify({ harnessSha256,frozen,cohorts,bankFixture:{count:5,bytes:Buffer.byteLength(JSON.stringify(bank))}, node: process.version, browser: browser.version(), engineByCohort:Object.fromEntries(chosen.map(cohort=>[cohort.id,Boolean(cohort.engine)])),
+  await writeFile(output, JSON.stringify({ harnessSha256,frozen,cohorts,positionFixtureHashes,bankFixture:{count:5,bytes:Buffer.byteLength(JSON.stringify(bank))}, node: process.version, browser: browser.version(), engineByCohort:Object.fromEntries(chosen.map(cohort=>[cohort.id,Boolean(cohort.engine)])),
     artifactsReverifiedAt, realBackendContacts: 0, fixtureMetadataRepetitions: { 500: 20, 2500: 5 }, fixtureHash: Object.fromEntries([...profiles].map(([count, v]) => [count, createHash('sha256').update(JSON.stringify(v.envelope.profile)).digest('hex')])),
     conditions: { fixture:'Returning profiles already saw level-up guidance and the island announcement. Their fixed synthetic timestamps prevent a valid delayed onboarding edit from changing the intended clean cohort.', debugEligibility:values['debug-eligibility'],allowHistoricalGameSaveFailure:values['allow-before-game-save-failure'], mockedBackendPerRequestDelayMs:[500,1000], clock:'Native browser performance.now; cohort CPU1x/4x emulation only, no fake timers' , auth:'Declared fresh/expired email/Google cohorts. Google syntheticHS256 uses pinned SDK getUser fallback; actual asymmetric/JWKS network path may differ.',
       notice: 'Synchronous tracked classList operations plus MutationObserver fallback and rAF opportunity; paint opportunity is not compositor proof',
