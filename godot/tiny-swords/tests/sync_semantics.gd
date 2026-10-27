@@ -30,7 +30,7 @@ func _init() -> void:
 	owned.chicken_release_at = 100.0
 	owned.stock.chicken -= 2
 	var durable: Dictionary = owned.snapshot()
-	check(durable.version == 38 and not durable.has("chickens") and not durable.has("sheep"), "Durable snapshots contain ownership counts without cosmetic coordinates")
+	check(durable.version == 39 and not durable.has("chickens") and not durable.has("sheep"), "Durable snapshots contain ownership counts without cosmetic coordinates")
 	var restored := Layout.new()
 	check(restored.restore(durable) and restored.sheep.size() == 1 and restored.sheep_chickens == owned.sheep_chickens and restored.chicken_release_at == 100.0 and restored.chickens.is_empty(), "Count restoration preserves perched and carried birds without releasing or duplicating them")
 	check(restored.walkable_point(restored.sheep[0], true) and restored.terrain_feet_free(restored.sheep[0], true, preload("res://scripts/animal_contact.gd").SHEEP), "Godot derives a valid sheep contact from saved terrain")

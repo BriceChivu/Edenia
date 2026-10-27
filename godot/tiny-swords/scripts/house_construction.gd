@@ -226,7 +226,7 @@ func build(cell: Vector2i, placement_offset: Vector2 = Vector2.INF) -> bool:
 
 func _process(_delta: float) -> void:
 	# Let an accepted sheep approach finish before resuming saved house work.
-	if world.pawn.portal_absorbed or world.pawn.carrying_chicken or (world.sheep_chicken != null and is_instance_valid(world.sheep_chicken.target)):
+	if world.pawn.portal_absorbed or world.pawn.carrying_chicken or (world.tree_chicken != null and world.tree_chicken.target != Vector2i(999, 999)) or (world.sheep_chicken != null and is_instance_valid(world.sheep_chicken.target)):
 		return
 	if phase == Phase.READY and not world.layout.house_build.is_empty():
 		resume_build()
