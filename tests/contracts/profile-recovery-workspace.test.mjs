@@ -51,7 +51,7 @@ test('a verified older cloud receipt durably acknowledges recovery without repla
 
 test('cold own-receipt reconciliation preserves recovery contacts while installing combined study facts', async () => {
   const f = fixture()
-  const initial = JSON.parse(readFileSync(new URL('../fixtures/tiny-swords-animal-v39.json', import.meta.url)))
+  const initial = JSON.parse(readFileSync(new URL('../fixtures/tiny-swords-animal-v40.json', import.meta.url)))
   const moved = structuredClone(initial)
   moved.sheep[0][0] += 16
   f.values.set('profile', JSON.stringify({ watch: 1, tinySwordsIsland: moved }))

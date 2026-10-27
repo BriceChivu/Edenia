@@ -33,7 +33,7 @@ static func wood_yield(_kind: String) -> int:
 	return 1
 
 func available(cell: Vector2i) -> bool:
-	return world.layout.level >= 4 and world.layout.trees.has(cell) and not world.layout.tree_stumps.has(cell)
+	return world.layout.level >= 4 and world.layout.trees.has(cell) and not world.layout.tree_stumps.has(cell) and not world.layout.tree_chickens.has(cell)
 
 func start(cell: Vector2i) -> bool:
 	if not available(cell) or world.water_phase != world.WaterPhase.READY:

@@ -57,6 +57,7 @@ var waypoints: Array[Vector2] = []
 var harvesting
 var chicken_carry
 var sheep_chicken
+var tree_chicken
 var portal_event
 var black_hole_enabled := true # Native previews; the host selects the hosted rollout.
 var construction
@@ -181,6 +182,8 @@ func _ready() -> void:
 	chicken_carry.world = self
 	sheep_chicken = preload("res://scripts/sheep_chicken.gd").new()
 	sheep_chicken.world = self
+	tree_chicken = preload("res://scripts/tree_chicken.gd").new()
+	tree_chicken.world = self
 	rebuild_decorations()
 	construction.resume_build()
 	refresh()
@@ -270,6 +273,7 @@ func toggle_editing() -> void:
 	log_pickup = Vector2i(999, 999)
 	log_delivery = Vector2i(999, 999)
 	sheep_chicken.cancel()
+	tree_chicken.cancel()
 	editing = not editing
 	harvesting.set_inventory_open(editing)
 	if not editing:
@@ -303,6 +307,7 @@ func _process(_delta: float) -> void:
 		return
 	chicken_carry.advance(Time.get_unix_time_from_system())
 	sheep_chicken.advance(Time.get_unix_time_from_system())
+	tree_chicken.advance(Time.get_unix_time_from_system())
 	if not navigation_pending and log_pickup != Vector2i(999, 999) and waypoints.is_empty() and pawn.position.distance_to(pawn.destination) < 0.2:
 		if not editing and water_phase == WaterPhase.READY and layout.can_pick_log(log_pickup) and pawn.position.distance_to(layout.center(log_pickup)) < 0.2 and begin_pawn_action() and layout.pick_log(log_pickup):
 			history.clear()
@@ -341,7 +346,7 @@ func update_inventory_layout_revision() -> void:
 	# alter the terrain rules. This inexpensive comparison replaces the full scan.
 	var inputs: Array = [layout, layout.level, layout.cells, layout.elevations,
 		layout.stair_directions, layout.manual_ground_elevation, layout.trees,
-		layout.tree_types, layout.tree_stumps.keys(), layout.tree_cut_remaining.keys(),
+		layout.tree_types, layout.tree_chickens.keys(), layout.tree_stumps.keys(), layout.tree_cut_remaining.keys(),
 		layout.houses, layout.house_colors, layout.house_offsets, layout.log_piles, layout.stock,
 		layout.resources.wood, layout.carried_wood, layout.house_bundle, layout.free_house_grass,
 		layout.playground_grants, layout.bridges_enabled, layout.bridges,
@@ -732,6 +737,8 @@ func update_cursor() -> void:
 		mode = "house"
 	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and sheep_chicken.hover_available(get_global_mouse_position()):
 		mode = "ui"
+	if not editing and not placing_house and water_phase == WaterPhase.READY and ui.celebration == null and tree_chicken.hover_available(tree_at(get_global_mouse_position())):
+		mode = "ui"
 	var hovered := get_viewport().gui_get_hovered_control()
 	if arrival != null and arrival.blocks_gameplay():
 		mode = "ui"
@@ -888,10 +895,17 @@ func handle_world_click(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		sheep_chicken.cancel()
+		tree_chicken.cancel()
 		var point: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
 		var change := inventory_change_at(point, inventory_changes()) if editing and selected != "remove" and layout.house_bundle == 0 else {}
 		var cell: Vector2i = change.cell if not change.is_empty() else clicked_cell(point)
 		if not editing:
+			var chicken_tree := tree_at(point)
+			if tree_chicken.eligible(chicken_tree):
+				log_pickup = Vector2i(999, 999)
+				log_delivery = Vector2i(999, 999)
+				tree_chicken.request(chicken_tree)
+				return
 			var sheep: Sprite2D = sheep_chicken.hit(point)
 			if sheep != null:
 				log_pickup = Vector2i(999, 999)
@@ -1297,8 +1311,9 @@ func rebuild_decorations(display_layout = null) -> void:
 		var tree := Sprite2D.new()
 		var kind: String = render_layout.tree_types.get(cell, "tree")
 		var stump: bool = render_layout.tree_stumps.has(cell)
-		tree.texture = TreeArt.texture_at(render_layout.tree_offset(cell), kind, stump, TreeArt.shadow_ground(render_layout, cell))
+		tree.texture = TreeArt.texture_at(render_layout.tree_offset(cell), kind, stump, TreeArt.shadow_ground(render_layout, cell), render_layout.tree_chickens.has(cell))
 		tree.set_meta("cell", cell)
+		tree.set_meta("chicken", render_layout.tree_chickens.has(cell))
 		tree.hframes = 1 if stump else 8
 		tree.scale = Vector2.ONE * TreeArt.SCALE
 		tree.z_index = int(render_layout.height_at(cell) / 64.0)

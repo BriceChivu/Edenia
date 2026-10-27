@@ -8,6 +8,7 @@ Mac uses the function keys for system controls):
 
 | Scene | Starts with |
 | --- | --- |
+| `previews/tree_chicken_sandbox.tscn` | Fresh carried-chicken fixture with flat Tree 1 and raised Tree 2 targets; click to place or retrieve. |
 | `previews/chicken_run_sandbox.tscn` | Two chickens, two sheep, houses, trees, rocks, bushes, and a raised terrace reached by two stairs; fresh on every run. |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Playground → Level +1** to run the real unlock, rewards and animated ribbon, then **Start building**. |
@@ -28,15 +29,17 @@ below; use **F6** to test whichever named scene you opened.
 
 ## Persistent local preview
 
-Current save version **39** restores authoritative safe animal contacts alongside
+Current save version **40** restores authoritative safe animal contacts alongside
 carried/perched relationships and construction identity/time. Settled wandering
 requests a local checkpoint at most once per five seconds; later movement does
 not restart that deadline. Gameplay edits save immediately. Worker coordinates
-remain transient. Versions 1–38 remain readable; version 38 derives initial animal
-contacts because that format retained only counts. Rollback must retain the v39
+remain transient. Versions 1–39 remain readable; versions 38–39 derive initial animal
+contacts because those formats retained only counts. Version 39 also retains
+tree-perched chickens. Rollback must retain the v40
 reader, including when reverting Edenia's delivery path. Focused checks:
 `res://tests/animal_checkpoint_saves.gd`, `res://tests/animal_checkpoint_scheduler.gd`,
-`res://tests/animal_position_roundtrip.gd` and `res://tests/sync_semantics.gd`.
+`res://tests/animal_position_roundtrip.gd`, `res://tests/animal_position_migrations.gd`
+and `res://tests/sync_semantics.gd`.
 
 Fresh islands show only ocean and clouds with a centered **Start** button using
 the level-up confirmation artwork. Start reveals the level-one terrain immediately;
@@ -1580,3 +1583,21 @@ same review document on disk through its loopback-only review endpoint.
 Focused checks: `res://tests/review_sandbox.gd` (fractional placement, two rocks on
 one tile, native collisions, receiving tree shadows, JSON restore, pause, undo,
 and, with a renderer, comment screenshot capture and scene restore).
+
+### Chicken in Tree 1 and Tree 2
+
+While carrying a chicken, hovering a reachable standing Tree 1 or Tree 2 uses `Cursor_01`
+(the cogwheel pointer). Clicking approaches the roots before placing the bird.
+The tree then uses its eight-frame `Tree1_with_chicken.png` or
+`Tree2_with_chicken.png` atlas at the existing
+10 fps. Clicking an occupied tree approaches and retrieves the chicken, restarting
+its normal carrying deadline. The chicken stays in the tree indefinitely until
+retrieved, across refreshes and calendar days. Retrieve it before chopping,
+collecting, or changing that tree. Other tree variants and stumps do not accept it.
+
+Save version 39 records tree-cell chicken ownership and includes perched birds in
+conservation checks; version 40 retains those birds alongside exact ground-animal
+positions. Earlier snapshots remain readable. Native and integrated
+previews share the Godot interaction. Focused check:
+`Godot --headless --path godot/tiny-swords --script res://tests/tree_chicken.gd`.
+Use `-- --capture` without `--headless` to write a rendered placement capture.

@@ -4,7 +4,7 @@ import { readRecoveryRecord } from '../support/profile-recovery-fixture.mjs'
 
 const key = 'edenia_v1_internal_test_2'
 const databaseName = `${key}_profiles_indexed_db_v1`
-const initial = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-animal-v39.json', import.meta.url), 'utf8'))
+const initial = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-animal-v40.json', import.meta.url), 'utf8'))
 
 async function openCheckpointProfile(page) {
   let enabled = false

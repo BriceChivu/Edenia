@@ -101,7 +101,7 @@ const servers = []
 let browser
 const samples = []
 const profiles = new Map()
-const poseIsland = JSON.parse(await readFile(new URL('../../tests/fixtures/tiny-swords-animal-v39.json', import.meta.url)))
+const poseIsland = JSON.parse(await readFile(new URL('../../tests/fixtures/tiny-swords-animal-v40.json', import.meta.url)))
 for (const count of [500, 2500]) {
   const raw = structuredClone(fixture.resolution.envelope.profile)
   raw.config.ankiEnabled = false

@@ -30,7 +30,7 @@ func _init() -> void:
 	owned.chicken_release_at = 100.0
 	owned.stock.chicken -= 2
 	var durable: Dictionary = owned.snapshot()
-	check(durable.version == 39 and durable.has("chickens") and durable.has("sheep") and not durable.has("chicken_count") and not durable.has("sheep_count"), "Durable snapshots use one position-bearing animal representation")
+	check(durable.version == 40 and durable.has("chickens") and durable.has("sheep") and not durable.has("chicken_count") and not durable.has("sheep_count"), "Durable snapshots use one position-bearing animal representation")
 	var restored := Layout.new()
 	check(restored.restore(durable) and restored.sheep == owned.sheep and restored.sheep_chickens == owned.sheep_chickens and restored.chicken_release_at == 100.0 and restored.chickens.is_empty(), "Exact positions preserve perched and carried birds without releasing or duplicating them")
 	var count_only: Dictionary = durable.duplicate(true)

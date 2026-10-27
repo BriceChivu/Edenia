@@ -40,7 +40,7 @@ test('animal positions survive a clean game reopen and study save without rewrit
     canonical: JSON.stringify(loadState().tinySwordsIsland),
     effective: window.edeniaTinySwordsPersistence.readIsland().tinySwordsIsland
   }))
-  expect(baseline.effective.version).toBe(39)
+  expect(baseline.effective.version).toBe(40)
   const moved = structuredClone(baseline.effective)
   moved.sheep[0] = [560, 208] // Validated by the native contact/restore tests.
   await game.evaluate(layout => window.edeniaQueueLayout(layout, true), moved)

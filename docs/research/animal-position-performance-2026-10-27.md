@@ -8,7 +8,7 @@ writes is a missing feature, not a like-for-like performance target.
 
 ## Implementation
 
-- Godot snapshot 39 stores authoritative safe contacts, retaining readers 1–38.
+- Godot snapshot 40 stores authoritative safe contacts, retaining readers 1–39.
   Settled movements coalesce for five seconds with a fixed deadline. Gameplay
   edits save immediately. Failed browser acknowledgements retry the latest world.
 - One bounded local island record and a small head reference keep positions
@@ -215,6 +215,6 @@ outside the worktree in the task's `animal-position-implementation-2026-10-27`
 audit directory. Browser phone projects are emulation; physical-device and real
 authenticated production writes are outside this synthetic validation.
 
-Rollback must retain the v39 Godot reader and Edenia's checkpoint-head,
+Rollback must retain the v40 Godot reader and Edenia's checkpoint-head,
 animal-record and optional stamped-outbox readers. Reverting the complete old
 client can ignore newer local positions or reject a stamped pending upload.
