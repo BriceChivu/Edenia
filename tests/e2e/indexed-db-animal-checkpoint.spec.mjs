@@ -99,15 +99,19 @@ test('receipt P retains newer Q, cross-tab refresh and crash-gap full install re
     const replay = await animalRepository.save(replacement, { replace: true,
       animalCheckpoint: { binding: animalBinding, nextBinding, acknowledgedStamp: p.stamp } })
     const afterReplay = animalRepository.readAnimalCheckpoint(nextBinding)
+    const replayBoundary = animalRepository.getReplacementRevision()
     const qAccepted = await animalRepository.acknowledgeAnimalCheckpoint({ stamp: q.stamp, layout: q.layout,
       binding: nextBinding, nextBinding: { ...nextBinding, revision: 9 } })
-    return { accepted, observed, beforeReplay, afterReplay, replay, qAccepted,
+    return { accepted, observed, beforeReplay, afterReplay, replayBoundary, replay, qAccepted,
       canonical: animalRepository.snapshot(), final: animalRepository.readAnimalCheckpoint({ ...nextBinding, revision: 9 }), q }
   })
   expect(result.accepted).toBe(true); expect(result.replay).toBe(true); expect(result.qAccepted).toBe(true)
   expect(result.observed.stamp.stamp).toBe(result.q.stamp.stamp)
   expect(result.observed.stamp.binding.revision).toBe(8)
-  expect(result.afterReplay).toEqual(result.beforeReplay)
+  expect(result.afterReplay.layout).toEqual(result.beforeReplay.layout)
+  expect(result.afterReplay.stamp.stamp).toBe(result.beforeReplay.stamp.stamp)
+  expect(result.afterReplay.stamp.binding).toEqual(result.beforeReplay.stamp.binding)
+  expect(result.afterReplay.stamp.replacementRevision).toBe(result.replayBoundary)
   expect(result.canonical.tinySwordsIsland.sheep[0][0]).toBe(576)
   expect(result.canonical.config.recoveredStudyFact).toBe('yes'); expect(result.final).toBeNull()
 })
@@ -266,4 +270,84 @@ test('canonical before-image excludes local poses and full-save rollback retains
   expect(result.beforeImage.videos.lesson).toBeUndefined()
   expect(result.state.videos.lesson.resume).toBe(40); expect(result.state.config.shouldNotCommit).toBeUndefined()
   expect(result.wrongOwner).toBeNull()
+})
+
+test('a stale explicit full-save preservation proof cannot discard an already rebound pose', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const nextBinding = { ...animalBinding, revision: 8 }
+    await animalRepository.acknowledgeAnimalCheckpoint({ stamp: null, layout: initialIsland, binding: animalBinding, nextBinding })
+    const prior = animalRepository.readAnimalCheckpoint(nextBinding)
+    const study = animalRepository.snapshot(); study.config.newStudyFact = true
+    const stale = await animalRepository.save(study, { animalCheckpoint: { binding: animalBinding } })
+    const after = animalRepository.readAnimalCheckpoint(nextBinding)
+    const retainedCandidate = study.config.newStudyFact
+    const fresh = await animalRepository.save(study, { animalCheckpoint: { binding: nextBinding } })
+    return { stale, prior, after, fresh, retainedCandidate, state: animalRepository.snapshot(), checkpoint: animalRepository.readAnimalCheckpoint(nextBinding) }
+  })
+  expect(result.stale).toBe(false); expect(result.after).toEqual(result.prior)
+  expect(result.retainedCandidate).toBe(true); expect(result.fresh).toBe(true); expect(result.state.config.newStudyFact).toBe(true)
+  expect(result.checkpoint.layout).toEqual(moved)
+})
+
+test('explicit same-body island replacement clears poses and fences old candidates', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const old = animalRepository.snapshot()
+    const reset = animalRepository.snapshot()
+    const replaced = await animalRepository.save(reset, { replaceIsland: true, animalCheckpoint: { binding: animalBinding } })
+    const cleared = animalRepository.readAnimalCheckpoint(animalBinding)
+    old.config.obsoleteCandidate = true
+    const stale = await animalRepository.save(old, { animalCheckpoint: { binding: animalBinding } })
+    const beforeSecondReset = animalRepository.snapshot()
+    const resetting = animalRepository.save(beforeSecondReset, { replaceIsland: true, animalCheckpoint: { binding: animalBinding } })
+    const oldPose = animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    return { replaced, cleared, stale, resetting: await resetting, oldPose: await oldPose,
+      marker: animalRepository.getReplacementRevision(), canonical: animalRepository.snapshot() }
+  })
+  expect(result.replaced).toBe(true); expect(result.cleared).toBeNull()
+  expect(result.stale).toBe(false); expect(result.resetting).toBe(true); expect(result.oldPose).toBe(false)
+  expect(result.marker).toBeGreaterThan(0); expect(result.canonical.config.obsoleteCandidate).toBeUndefined()
+  expect(result.canonical.tinySwordsIsland).toEqual(initial)
+})
+
+for (const withNewPose of [false, true]) test(`a late pose receipt cannot cross an exact island replacement (${withNewPose ? 'new Q' : 'no Q'})`, async ({ page }) => {
+  const result = await page.evaluate(async withNewPose => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const p = animalRepository.readAnimalCheckpoint(animalBinding)
+    await animalRepository.save(animalRepository.snapshot(), { replaceIsland: true, animalCheckpoint: { binding: animalBinding } })
+    const boundary = animalRepository.getReplacementRevision()
+    const q = structuredClone(initialIsland); q.sheep[0][0] += 32
+    if (withNewPose) await animalRepository.saveAnimalCheckpoint(q, JSON.stringify(initialIsland), { binding: animalBinding })
+    const nextBinding = { ...animalBinding, revision: 8 }
+    const accepted = await animalRepository.acknowledgeAnimalCheckpoint({ stamp: p.stamp, layout: p.layout, binding: animalBinding, nextBinding })
+    return { accepted, boundary, checkpoint: animalRepository.readAnimalCheckpoint(nextBinding), canonical: animalRepository.snapshot().tinySwordsIsland }
+  }, withNewPose)
+  expect(result.accepted).toBe(true); expect(result.canonical).toEqual(moved)
+  expect(result.checkpoint).not.toBeNull()
+  if (withNewPose) { expect(result.checkpoint.layout.sheep[0][0]).toBe(576); expect(result.checkpoint.stamp.replacementRevision).toBe(result.boundary) }
+  else { expect(result.checkpoint.layout).toEqual(initial); expect(result.checkpoint.stamp.replacementRevision).toBe(result.boundary) }
+})
+
+for (const withNewPose of [false, true]) test(`lost receipt full install retains the exact post-reset effective island (${withNewPose ? 'new Q' : 'reset A'})`, async ({ page }) => {
+  const result = await page.evaluate(async withNewPose => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const p = animalRepository.readAnimalCheckpoint(animalBinding)
+    await animalRepository.save(animalRepository.snapshot(), { replaceIsland: true, animalCheckpoint: { binding: animalBinding } })
+    const q = structuredClone(initialIsland); q.sheep[0][0] += 32
+    if (withNewPose) await animalRepository.saveAnimalCheckpoint(q, JSON.stringify(initialIsland), { binding: animalBinding })
+    const nextBinding = { ...animalBinding, revision: 8 }
+    const repaired = animalRepository.snapshot(); repaired.tinySwordsIsland = p.layout; repaired.config.repairStudyFact = true
+    const saved = await animalRepository.save(repaired, { replace: true,
+      animalCheckpoint: { binding: animalBinding, nextBinding, acknowledgedStamp: p.stamp } })
+    const marker = animalRepository.getReplacementRevision()
+    animalRepository.close(); animalRepository = await openAnimalRepository()
+    return { saved, marker, checkpoint: animalRepository.readAnimalCheckpoint(nextBinding),
+      canonical: animalRepository.snapshot(), effective: animalRepository.readIslandState({ binding: nextBinding }).tinySwordsIsland }
+  }, withNewPose)
+  expect(result.saved).toBe(true); expect(result.canonical.tinySwordsIsland).toEqual(moved)
+  expect(result.canonical.config.repairStudyFact).toBe(true)
+  expect(result.checkpoint).not.toBeNull()
+  expect(result.effective.sheep[0][0]).toBe(withNewPose ? 576 : 544)
+  expect(result.checkpoint.stamp.replacementRevision).toBe(result.marker)
 })

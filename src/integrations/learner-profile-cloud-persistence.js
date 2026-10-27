@@ -1405,7 +1405,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && portableProfilesHaveSameProgress(prepared.profile, latestProfile || baseProfile)) return null
     if (recordSyncEnabled && ((latestProfile && canonicalizeJson(prepared.profile) === canonicalizeJson(latestProfile))
       || (!latest && !animalCheckpoint && baseProfile && portableProfilesHaveSameProgress(prepared.profile, baseProfile)))) return null
-    const replacingPending = minimumWriteIntervalMs > 0 && record.pending && !inFlight
+    const replacingPending = (minimumWriteIntervalMs > 0 || forceAnimalCheckpoint) && record.pending && !inFlight
       && record.pending.envelope === null && record.pending.retryCount === 0 && record.queued === null
     const units = mergeDirtyUnits(dirtyUnits, animalCheckpoint ? { island: true } : undefined,
       dirtyUnitsFromBatch(record.pending?.recordBatch), dirtyUnitsFromBatch(record.queued?.recordBatch))
@@ -1516,11 +1516,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     operation.nextRetryAt = Math.max(0, operation.recordBatch ? 0 : nextAutomaticWriteAt,
       activeBinding?.lastAcceptedAt === undefined ? 0 : activeBinding.lastAcceptedAt + writeInterval(operation))
-    if (minimumWriteIntervalMs > 0 && record.pending && !inFlight
+    if ((minimumWriteIntervalMs > 0 || forceAnimalCheckpoint) && record.pending && !inFlight
       && record.pending.envelope === null && record.pending.retryCount === 0
       && record.queued === null) {
       operation.baseRevision = record.pending.baseRevision
       operation.revision = record.pending.revision
+      operation.nextRetryAt = Math.max(operation.nextRetryAt, record.pending.nextRetryAt)
       record.pending = operation
     } else if (record.pending) record.queued = operation
     else record.pending = operation
@@ -2520,8 +2521,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (!force && waitForOpportunity()) return
     if (!drainDeferredSave() || inFlight) return
     const binding = activeBinding
-    const record = readSyncRecord()
-    const operation = record?.pending
+    let record = readSyncRecord()
+    let operation = record?.pending
     if (
       !operation
       || !binding
@@ -2551,6 +2552,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     if (!force && waitForOpportunity()) return
+    if (binding.recheckAnimalCheckpoint && operation.envelope === null && operation.retryCount === 0) {
+      let latest
+      try { latest = binding.readPersistedProfile?.() } catch { publish('needs-attention'); return }
+      if (!latest) { scheduleOpportunity(); return }
+      binding.recheckAnimalCheckpoint = false
+      const checkpoint = getAnimalCheckpoint(latest)
+      // A receipt may atomically preserve an exact-reset pose after this
+      // legitimate study candidate was prepared. Replace only unsent work and
+      // only its cosmetic island; an accepted/sent request stays immutable.
+      if (checkpoint && binding.baseProfile
+        && !portableProfilesHaveSameProgress(operation.prepared.profile, binding.baseProfile)
+        && portableProfilesHaveSameProgress(latest, operation.prepared.profile)) {
+        if (!queueProfile(latest, record, binding.activation.id, binding.baseProfile,
+          mergeDirtyUnits(dirtyUnitsFromBatch(operation.recordBatch)), true)) { publish('not-backed-up'); return }
+        record = readSyncRecord()
+        operation = record?.pending
+        if (!operation || !binding.isCurrent()) return
+      }
+    }
     inFlight = true
     let comparisonPending = false
     let budgetDeferred = false
@@ -2698,6 +2718,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
             publish('needs-attention')
           } else {
             binding.revision = current.acceptedRevision
+            binding.recheckAnimalCheckpoint = needsAnimalCheckpointRecheck(binding, current)
             binding.checkpointStudyDigest = studyProfileDigest(envelope.profile)
             if (minimumWriteIntervalMs > 0) {
               binding.acceptedProfileDigest = syncProfileDigest(envelope.profile)
@@ -4098,7 +4119,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return { status: 'changed' }
   }
 
-  function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile, acknowledgeAnimalCheckpoint }) {
+  function needsAnimalCheckpointRecheck(binding, record) {
+    const operation = record?.pending
+    if (!operation || operation.envelope !== null || operation.retryCount !== 0
+      || typeof binding.readAnimalCheckpoint !== 'function') return false
+    try {
+      const stamp = binding.readAnimalCheckpoint(saveBaseIdentity(record))
+      return isAnimalCheckpointStamp(stamp)
+        && stamp.layoutSha256 !== animalIslandSha256(operation.prepared.profile.tinySwordsIsland)
+    } catch { return false }
+  }
+
+  function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile, readAnimalCheckpoint, acknowledgeAnimalCheckpoint }) {
     manualOpportunityBinding = null
     deferredSave = null
     if (
@@ -4120,6 +4152,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       isCurrent,
       profile: isRecord(profile) ? profile : null,
       readPersistedProfile,
+      readAnimalCheckpoint,
       acknowledgeAnimalCheckpoint,
       checkpointStudyDigest: isRecord(profile) ? studyProfileDigest(profile) : null,
       dirtyUnits: mergeDirtyUnits(),
@@ -4172,7 +4205,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
           ? isOnline() ? 'syncing' : 'waiting'
           : dirty.present ? 'needs-attention' : 'up-to-date'
     )
-    void pump()
+    activeBinding.recheckAnimalCheckpoint = needsAnimalCheckpointRecheck(activeBinding, record)
+    if (activeBinding.recheckAnimalCheckpoint) scheduleOpportunity()
+    else void pump()
     return true
   }
 

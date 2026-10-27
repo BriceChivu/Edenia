@@ -116,6 +116,14 @@ and rebinding any newer compatible local checkpoint before retiring the outbox.
 Lost acknowledgements use the same verified receipt proof during opening. A
 different terrain edit, owner or reset cannot inherit old positions.
 
+Local checkpoint stamps also carry the replacement boundary. If an older upload
+arrives after a reset that happens to produce identical gameplay fields, the
+verified accepted island remains canonical and the reset's desired contacts are
+retained as a fresh local checkpoint. New post-reset contacts take precedence.
+This keeps exact conditional-opening proof without resurrecting pre-reset
+positions. A legitimate unsent study candidate can be coalesced with that newly
+retained checkpoint before finalization; a sent request is never rewritten.
+
 Wandering alone never creates an automatic upload; ordinary cloud work piggybacks
 the latest checkpoint and explicit Sync sends it even when study progress is
 otherwise clean. Explicit Sync/export request an acknowledged safe-contact capture.

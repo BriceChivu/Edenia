@@ -840,6 +840,11 @@ export function createLearnerProfileLocalPersistenceAdapter({
     return checkpoint ? composeAnimalCheckpointProfile(profile, checkpoint) : profile
   }
 
+  function readAnimalCheckpoint(fence, binding) {
+    if (!isActivationCurrent(fence)) return null
+    return getCheckpointRepository()?.readAnimalCheckpoint?.(binding)?.stamp || null
+  }
+
   function readOpeningOutgoingProfile(localProfile, binding) {
     const captured = openingSnapshots.get(localProfile)
     if (!captured || localProfile?.status !== 'ready' || binding.ownerId !== localProfile.ownerId
@@ -956,6 +961,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     read,
     readIsland,
     readOutgoingProfile,
+    readAnimalCheckpoint,
     readOpeningOutgoingProfile,
     acknowledgeAnimalCheckpoint,
     saveAnimalCheckpoint,

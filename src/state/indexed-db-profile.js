@@ -39,25 +39,40 @@ function sameAnimalTransition(binding, nextBinding) {
   return sameAnimalOwner(binding, nextBinding)
     && (binding.ownerId === null || nextBinding.revision >= binding.revision)
 }
-function preserveAnimal(previous, islandRaw, proof) {
-  if (!isAnimalCheckpointBinding(proof?.binding) || !islandRaw) return null
+function preserveAnimal(previous, islandRaw, proof, replacementRevision = previous?.replacementRevision || 0) {
+  if (!proof) return null
+  if (!isAnimalCheckpointBinding(proof.binding)) throw new Error('Stale animal preservation binding')
   const nextBinding = proof.nextBinding || proof.binding
-  if (!isAnimalCheckpointBinding(nextBinding) || !sameAnimalTransition(proof.binding, nextBinding)) return null
+  if (!isAnimalCheckpointBinding(nextBinding) || !sameAnimalTransition(proof.binding, nextBinding)) throw new Error('Stale animal preservation transition')
   const existing = previous?.[ANIMAL_RECORD]
   const checkpoint = checkedAnimal(previous, existing, proof.binding)
     || (proof.nextBinding && checkedAnimal(previous, existing, nextBinding))
-  if (!checkpoint || !animalIslandsHaveSameProgress(JSON.parse(islandRaw), checkpoint.layout)) return null
-  if (proof.acknowledgedStamp) {
-    if (!isAnimalCheckpointStamp(proof.acknowledgedStamp)
-      || !sameAnimalOwner(proof.acknowledgedStamp.binding, proof.binding)) return null
-    if (proof.acknowledgedStamp.stamp === checkpoint.stamp.stamp) return null
+  if (previous?.animalCheckpointStamp && !checkpoint) throw new Error('Stale animal preservation checkpoint')
+  const acknowledged = proof.acknowledgedStamp
+  if (acknowledged && (!isAnimalCheckpointStamp(acknowledged)
+    || !sameAnimalOwner(acknowledged.binding, proof.binding))) throw new Error('Invalid animal preservation receipt')
+  if (!islandRaw) return null
+  const target = JSON.parse(islandRaw)
+  const crossedBoundary = acknowledged && animalBoundary(acknowledged) !== (previous?.replacementRevision || 0)
+  let layout = checkpoint?.layout
+  if (!layout && crossedBoundary) {
+    const priorRaw = canonicalIsland(previous)
+    if (priorRaw && animalIslandsHaveSameProgress(JSON.parse(priorRaw), target)) layout = JSON.parse(priorRaw)
   }
-  return { ...existing, stamp: { ...existing.stamp, binding: structuredClone(nextBinding) },
-    baseIslandSha256: animalIslandSha256(JSON.parse(islandRaw)) }
+  if (!layout || !animalIslandsHaveSameProgress(target, layout)) return null
+  const layoutSha256 = animalIslandSha256(layout)
+  if (acknowledged && ((!crossedBoundary && acknowledged.stamp === checkpoint?.stamp.stamp)
+    || (crossedBoundary && layoutSha256 === animalIslandSha256(target)))) return null
+  const stamp = checkpoint
+    ? { ...checkpoint.stamp, version: 2, binding: structuredClone(nextBinding), replacementRevision }
+    : createAnimalCheckpointStamp(layout, nextBinding, globalThis.crypto.randomUUID(), replacementRevision)
+  return { key: ANIMAL, stamp, baseIslandSha256: animalIslandSha256(target), layoutRaw: JSON.stringify(layout) }
 }
+function animalBoundary(stamp) { return stamp?.version === 2 ? stamp.replacementRevision : 0 }
 function checkedAnimal(head, value, binding) {
   if (!head?.animalCheckpointStamp || !value || !isAnimalCheckpointStamp(value.stamp)
-    || value.stamp.stamp !== head.animalCheckpointStamp || !equal(value.stamp.binding, binding)) return null
+    || value.stamp.stamp !== head.animalCheckpointStamp || !equal(value.stamp.binding, binding)
+    || animalBoundary(value.stamp) !== (head.replacementRevision || 0)) return null
   const layout = JSON.parse(value.layoutRaw)
   const base = canonicalIsland(head)
   if (!base || animalIslandSha256(JSON.parse(base)) !== value.baseIslandSha256
@@ -536,6 +551,7 @@ export async function openIndexedDbProfile({
       validateRecordCheckpoints(changes)
     } catch { return Promise.resolve(null) }
     const expectedRevision = revisions.get(state)
+    const expectedReplacement = baselines.get(state)?.replacementRevision || 0
     const capturedAccess = storage.getItem(accessKey)
     const token = { head: null }
     const pendingUnits = pendingRecordsByState.get(state) || new Map()
@@ -555,6 +571,7 @@ export async function openIndexedDbProfile({
         try {
           const latest = request.result
           let owned = latest && latest.revision >= expectedRevision
+            && (latest.replacementRevision || 0) === expectedReplacement
           for (let revision = expectedRevision + 1; owned && revision <= latest.revision; revision++) {
             if (!localRevisions.has(revision)) owned = false
           }
@@ -633,7 +650,7 @@ export async function openIndexedDbProfile({
     return operation
   }
 
-  function save(state, { canPersist = () => true, replace = false, syncBase = null, animalCheckpoint = null } = {}) {
+  function save(state, { canPersist = () => true, replace = false, replaceIsland = false, syncBase = null, animalCheckpoint = null } = {}) {
     saveFailures.delete(state)
     const raw = JSON.stringify(state)
     if (!isValidState(JSON.parse(raw))) return Promise.resolve(false)
@@ -642,7 +659,7 @@ export async function openIndexedDbProfile({
     const capturedAccess = storage.getItem(accessKey)
     const previousOperation = pendingByState.get(state)
     const predecessor = previousOperation?.pending ? previousOperation : null
-    const token = { pending: true, revision: null, raw, head: null }
+    const token = { pending: true, revision: null, replacementRevision: null, raw, head: null }
     pendingByState.set(state, token)
     const operation = writeQueue.catch(() => {}).then(async () => {
       let next
@@ -657,7 +674,9 @@ export async function openIndexedDbProfile({
         try {
           const latestRevision = latest?.revision || 0
           const baseline = predecessor ? predecessor.raw : expectedBaseline?.raw
+          const baselineReplacement = predecessor ? predecessor.replacementRevision : expectedBaseline?.replacementRevision || 0
           let ownInterveningWrites = baseRevision >= 1 && baseline !== undefined
+            && baselineReplacement === (latest?.replacementRevision || 0)
             && (!replace || (isAnimalCheckpointBinding(animalCheckpoint?.binding) && baseline === latest?.raw))
           for (let revision = baseRevision + 1; ownInterveningWrites && revision <= latestRevision; revision += 1) {
             if (!localRevisions.has(revision)) ownInterveningWrites = false
@@ -679,11 +698,11 @@ export async function openIndexedDbProfile({
           if (splitHead(previous)) {
             next = hydrate({ key: HEAD, schema: PREVIOUS_HEAD_SCHEMA, revision: latestRevision + 1,
               bodyRevision: latestRevision + 1, ...checkpointFields(JSON.parse(nextRaw)),
-              ...replacementFields(previous, latestRevision + 1, replace) }, nextRaw)
+              ...replacementFields(previous, latestRevision + 1, replace || replaceIsland) }, nextRaw)
             store.put({ key: BODY, revision: next.bodyRevision, raw: nextRaw })
           } else next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1,
-            ...replacementFields(previous, latestRevision + 1, replace) }
-          const animal = preserveAnimal(previous, canonicalIsland(next), animalCheckpoint)
+            ...replacementFields(previous, latestRevision + 1, replace || replaceIsland) }
+          const animal = preserveAnimal(previous, canonicalIsland(next), replaceIsland ? null : animalCheckpoint, next.replacementRevision || 0)
           if (animal) { next.animalCheckpointStamp = animal.stamp.stamp; cacheAnimal(next, animal); store.put(animal) }
           else store.delete(ANIMAL)
           token.head = next
@@ -732,6 +751,7 @@ export async function openIndexedDbProfile({
       revisions.set(state, current.revision)
       baselines.set(state, current)
       token.revision = current.revision
+      token.replacementRevision = current.replacementRevision || 0
       signal()
       return true
     }).catch(async error => {
@@ -751,6 +771,7 @@ export async function openIndexedDbProfile({
   // cloud before-image remain unchanged until a verified receipt absorbs it.
   function writeAnimalCheckpoint(change, { canPersist = () => true, failureKey = emptyIslandFailureKey } = {}) {
     const expectedRevision = current?.revision
+    const expectedReplacement = current?.replacementRevision || 0
     const capturedAccess = storage.getItem(accessKey)
     const token = { head: null }
     const operation = writeQueue.catch(() => {}).then(async () => {
@@ -764,6 +785,7 @@ export async function openIndexedDbProfile({
         try {
           const latest = request.result
           let owned = latest && latest.revision >= expectedRevision
+            && (latest.replacementRevision || 0) === expectedReplacement
           for (let revision = expectedRevision + 1; owned && revision <= latest.revision; revision++) {
             if (!localRevisions.has(revision)) owned = false
           }
@@ -830,7 +852,7 @@ export async function openIndexedDbProfile({
       if ((effectiveRaw ?? 'absent') !== expected) throw new Error('Stale animal checkpoint')
       if (!baseRaw || !animalIslandsHaveSameProgress(JSON.parse(baseRaw), captured)) return { outcome: null }
       if (JSON.stringify(captured) === effectiveRaw) return { outcome: true }
-      const stamp = createAnimalCheckpointStamp(captured, binding, globalThis.crypto.randomUUID())
+      const stamp = createAnimalCheckpointStamp(captured, binding, globalThis.crypto.randomUUID(), previous.replacementRevision || 0)
       return { outcome: true, write: true, animal: { key: ANIMAL, stamp,
         baseIslandSha256: animalIslandSha256(JSON.parse(baseRaw)), layoutRaw: JSON.stringify(captured) } }
     }, { canPersist, failureKey })
@@ -844,21 +866,15 @@ export async function openIndexedDbProfile({
     stamp = structuredClone(stamp); binding = structuredClone(binding); nextBinding = structuredClone(nextBinding)
     return writeAnimalCheckpoint(previous => {
       const baseRaw = canonicalIsland(previous)
-      // A newer meaningful edit remains authoritative locally. Its pending
-      // operation already retains this accepted cloud before-image.
-      const existing = previous[ANIMAL_RECORD]
-      const checkpoint = checkedAnimal(previous, existing, binding) || checkedAnimal(previous, existing, nextBinding)
-      if (!baseRaw || !captured || !animalIslandsHaveSameProgress(JSON.parse(baseRaw), captured)) {
-        if (existing && !checkpoint) throw new Error('Animal receipt binding became stale')
-        return checkpoint ? { outcome: true, write: true, animal: { ...existing,
-          stamp: { ...existing.stamp, binding: nextBinding } } } : { outcome: true }
-      }
-      if (existing && !checkpoint) throw new Error('Animal receipt binding became stale')
-      if (!existing && JSON.stringify(captured) === baseRaw) return { outcome: true }
-      let animal = null
-      if (checkpoint && checkpoint.stamp.stamp !== stamp?.stamp) animal = { ...existing,
-        stamp: { ...existing.stamp, binding: nextBinding }, baseIslandSha256: animalIslandSha256(captured) }
-      return { outcome: true, write: true, islandRaw: JSON.stringify(captured), animal }
+      // A newer meaningful edit stays canonical; only its local position record
+      // moves to the verified accepted binding. Ambient resets retain their
+      // effective positions beside the exact accepted canonical island.
+      const compatible = baseRaw && captured && animalIslandsHaveSameProgress(JSON.parse(baseRaw), captured)
+      const islandRaw = compatible ? JSON.stringify(captured) : baseRaw
+      const animal = preserveAnimal(previous, islandRaw, { binding, nextBinding,
+        ...(compatible && stamp ? { acknowledgedStamp: stamp } : {}) })
+      if (islandRaw === baseRaw && equal(animal || null, previous[ANIMAL_RECORD] || null)) return { outcome: true }
+      return { outcome: true, write: true, islandRaw, animal }
     }, { canPersist })
   }
   function saveIsland(layout, expected, { canPersist = () => true, syncBase = null, binding = null } = {}) {
@@ -866,6 +882,7 @@ export async function openIndexedDbProfile({
     islandSaveFailures.delete(failureKey)
     const islandRaw = JSON.stringify(layout)
     const expectedRevision = current?.revision
+    const expectedReplacement = current?.replacementRevision || 0
     const capturedAccess = storage.getItem(accessKey)
     const token = { head: null }
     const operation = writeQueue.catch(() => {}).then(async () => {
@@ -880,6 +897,7 @@ export async function openIndexedDbProfile({
         try {
           const latest = request.result
           let owned = latest && latest.revision >= expectedRevision
+            && (latest.replacementRevision || 0) === expectedReplacement
           for (let revision = expectedRevision + 1; owned && revision <= latest.revision; revision += 1) {
             if (!localRevisions.has(revision)) owned = false
           }

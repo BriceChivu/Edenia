@@ -30,7 +30,7 @@ const { values } = parseArgs({ options: {
 } })
 if (values.help) {
   console.log('Usage: node scripts/diagnostics/profile-opening-comparison.mjs --before-site <frozen site> --after-site <frozen site> --output-dir <audit folder> [--pairs 5] [--cohort <name>] [--pilot]')
-  console.log('Cohorts: fresh-google-500, expired-google-2500, clean-email-500, dirty-email-500, combined-bank-cpu1, combined-bank-cpu4; opt-in hash-email-2500-cpu1, hash-email-2500-cpu4, game-email-500')
+  console.log('Cohorts: fresh-google-500, expired-google-2500, clean-email-500, dirty-email-500, combined-bank-cpu1, combined-bank-cpu4; opt-in hash-email-2500-cpu1, hash-email-2500-cpu4, game-email-500, pose-email-500, pose-email-2500')
   process.exit(0)
 }
 assert.ok(values['before-site'] && values['output-dir'], '--before-site and --output-dir are required')
@@ -101,6 +101,7 @@ const servers = []
 let browser
 const samples = []
 const profiles = new Map()
+const poseIsland = JSON.parse(await readFile(new URL('../../tests/fixtures/tiny-swords-animal-v39.json', import.meta.url)))
 for (const count of [500, 2500]) {
   const raw = structuredClone(fixture.resolution.envelope.profile)
   raw.config.ankiEnabled = false
@@ -117,6 +118,13 @@ for (const count of [500, 2500]) {
   const { envelope } = await createPortableLearnerProfileEnvelope(raw, { now: () => new Date('2026-10-27T00:00:00.000Z'), maxBytes: 2 * 1024 * 1024 })
   assert.ok(envelope && Buffer.byteLength(JSON.stringify(envelope)) <= 2 * 1024 * 1024, 'Fixture must pass actual cloud envelope admission')
   profiles.set(count, { envelope, digest: sha256Base64UrlSync(canonicalizeJson(envelope.profile)), bytes: Buffer.byteLength(JSON.stringify(envelope.profile)) })
+  const positioned = await createPortableLearnerProfileEnvelope({ ...raw, tinySwordsIsland: poseIsland }, {
+    now: () => new Date('2026-10-27T00:00:00.000Z'), maxBytes: 2 * 1024 * 1024
+  })
+  assert.ok(positioned.envelope, 'Position fixture must pass actual cloud admission')
+  profiles.set('pose-' + count, { envelope: positioned.envelope,
+    digest: sha256Base64UrlSync(canonicalizeJson(positioned.envelope.profile)),
+    bytes: Buffer.byteLength(JSON.stringify(positioned.envelope.profile)) })
 }
 const populatedIsland = JSON.parse(await readFile(new URL('../../tests/fixtures/tiny-swords-populated-island.json', import.meta.url)))
 const gameRaw = structuredClone(profiles.get(500).envelope.profile)
@@ -155,10 +163,12 @@ const cohorts = [
   { id: 'combined-bank-cpu4', count: 2500, delay: 1000, authMode: 'expired-google', backupCount: 5, cpuRate: 4 },
   { id: 'hash-email-2500-cpu1', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, optInOnly: true },
   { id: 'hash-email-2500-cpu4', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 4, optInOnly: true },
-  { id: 'game-email-500', count: 500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, engine: true, optInOnly: true }
+  { id: 'game-email-500', count: 500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, engine: true, optInOnly: true },
+  { id: 'pose-email-500', count: 500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, optInOnly: true },
+  { id: 'pose-email-2500', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, optInOnly: true }
 ]
 async function run(cohort, variant, trial) {
-  const { count, delay, authMode, backupCount, cpuRate, dirty = false, engine = false } = cohort
+  const { count, delay, authMode, backupCount, cpuRate, dirty = false, engine = false, positions = false } = cohort
   const scenario = engine ? 'cold-game' : 'returning'
   const local = 'http://localhost:' + ports[variant]
   const session = structuredClone(fixture.session)
@@ -173,7 +183,7 @@ async function run(cohort, variant, trial) {
   const expiredSession = structuredClone(session)
   expiredSession.expires_at = Math.floor(Date.now() / 1000) - 60
   const seededSession = authMode.startsWith('expired') ? expiredSession : session
-  const { envelope, digest, bytes, studyDigest } = profiles.get(engine ? 'game-500' : count)
+  const { envelope, digest, bytes, studyDigest } = profiles.get(positions ? 'pose-' + count : engine ? 'game-500' : count)
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US', timezoneId: 'Asia/Taipei', serviceWorkers: 'block' })
   const page = await context.newPage()
   const errors = [], blocked = [], backend = []
@@ -383,7 +393,7 @@ async function run(cohort, variant, trial) {
       }
     }, 1)
   }, { scenario, envelope, key, session: seededSession, ownerId, profileId, debug:values['debug-eligibility'], engine })
-  const sample = { cohort: cohort.id, variant, count, delayMs: delay, scenario, trial, authMode, backupCount, cpuRate, dirty, engine, fixtureBytes: bytes, appSha256: frozen[variant].appSha256 }
+  const sample = { cohort: cohort.id, variant, count, delayMs: delay, scenario, trial, authMode, backupCount, cpuRate, dirty, engine, positions, fixtureBytes: bytes, appSha256: frozen[variant].appSha256 }
   try {
     phase = scenario === 'returning' ? 'warmup' : 'measured'
     await page.goto(local + '/?internal_test=1', { waitUntil: 'domcontentloaded' })
@@ -408,6 +418,20 @@ async function run(cohort, variant, trial) {
       assert.equal(sample.warmup.sha256, digest, 'Settled portable content must match accepted cloud fixture')
       assert.deepEqual(sample.warmup.sync, { acceptedRevision:1,pending:false,queued:false })
       assert.equal(sample.warmup.dirty, false)
+      if (positions && variant === 'after') {
+        sample.animalCheckpoint = await page.evaluate(async key => {
+          const before = getProfileRepository().readRaw()
+          const current = learnerProfileLifecycleAuthority.readActiveIsland().tinySwordsIsland
+          const moved = structuredClone(current)
+          moved.sheep[0][0] += 16
+          const saved = await learnerProfileLifecycleAuthority.saveActiveIsland(moved, JSON.stringify(current), { syncCloud: false })
+          return { saved, moved, canonicalUnchanged: before === getProfileRepository().readRaw(),
+            dirty: localStorage.getItem(key + '_learner_profile_sync_v1_dirty') !== null }
+        }, key)
+        assert.equal(sample.animalCheckpoint.saved, true)
+        assert.equal(sample.animalCheckpoint.canonicalUnchanged, true)
+        assert.equal(sample.animalCheckpoint.dirty, false)
+      }
       if (dirty) {
         phase='dirty-checkpoint'
         sample.checkpoint=await page.evaluate(async({key,ownerId,profileId})=>{
@@ -488,6 +512,11 @@ async function run(cohort, variant, trial) {
       return{sha256:btoa(String.fromCharCode(...new Uint8Array(hash))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
     },engine)
     assert.equal(sample.integrity.sha256,engine?studyDigest:dirty?sample.checkpoint.sha256:digest,'All portable study/config facts retained exactly')
+    if (positions) {
+      sample.effectiveIsland = await page.evaluate(() => learnerProfileLifecycleAuthority.readActiveIsland().tinySwordsIsland)
+      assert.deepEqual(sample.effectiveIsland, variant === 'after' ? sample.animalCheckpoint.moved : poseIsland,
+        'Clean opening retains the after-only local checkpoint without changing its exact canonical proof')
+    }
     if(engine){
       assert.equal(sample.trace.gameAppliedLevel,populatedIsland.level)
       const layout=sample.trace.gameLayoutOutput

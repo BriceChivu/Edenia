@@ -54,14 +54,16 @@ export function animalIslandsHaveSameProgress(before, after) {
 }
 
 export function isAnimalCheckpointStamp(value) {
-  return exactKeys(value, ['version', 'stamp', 'binding', 'layoutSha256'])
-    && value.version === 1 && uuid(value.stamp)
+  return exactKeys(value, ['version', 'stamp', 'binding', 'layoutSha256',
+      ...(value?.version === 2 ? ['replacementRevision'] : [])])
+    && (value.version === 1 || (value.version === 2 && Number.isSafeInteger(value.replacementRevision) && value.replacementRevision >= 0))
+    && uuid(value.stamp)
     && isAnimalCheckpointBinding(value.binding) && digest(value.layoutSha256)
 }
 
-export function createAnimalCheckpointStamp(layout, binding, stamp) {
-  if (!isAnimalCheckpointBinding(binding) || !uuid(stamp)) throw new TypeError('Invalid animal checkpoint identity')
-  return { version: 1, stamp, binding: { ...binding }, layoutSha256: animalIslandSha256(layout) }
+export function createAnimalCheckpointStamp(layout, binding, stamp, replacementRevision = 0) {
+  if (!isAnimalCheckpointBinding(binding) || !uuid(stamp) || !Number.isSafeInteger(replacementRevision) || replacementRevision < 0) throw new TypeError('Invalid animal checkpoint identity')
+  return { version: 2, stamp, binding: { ...binding }, layoutSha256: animalIslandSha256(layout), replacementRevision }
 }
 
 // Trusted metadata belongs to this exact outgoing object, never its serialized

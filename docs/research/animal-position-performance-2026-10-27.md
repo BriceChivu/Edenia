@@ -54,6 +54,51 @@ callbacks. The baseline issued zero movement saves; version 39 issued 21 and
 42 coalesced candidates, including one explicit final flush in the smaller case.
 Ordinary candidates stayed at least five seconds apart.
 
+## Browser storage comparison
+
+Chromium native IndexedDB, admitted synthetic 500/2,500-video profiles, five
+alternating rounds with 21 distinct acknowledged writes per round. The same
+meaningful island payload is used on both repository implementations, isolating
+the storage-path cost from snapshot-format differences measured above.
+
+| Browser operation | Videos | Before median ms | After median ms |
+| --- | ---: | ---: | ---: |
+| Meaningful island save acknowledgement | 500 | 0.20 | 0.20 |
+| Meaningful island save acknowledgement | 2,500 | 0.20 | 0.20 |
+| Cold local repository opening, after with local positions | 500 | 4.1 | 4.2 |
+| Cold local repository opening, after with local positions | 2,500 | 15.4 | 16.3 |
+
+A new animal checkpoint costs 0.40 ms median (round medians 0.40–0.50 ms), writing
+one small head and one complete island record: 2,625 encoded bytes in this fixture.
+All 210 side-checkpoint acknowledgements were real writes, with zero immutable
+body reads or writes. A forced canonical-position control costs 0.20 ms but would
+change the accepted profile bytes and interfere with conditional opening. It
+does not represent natural v38 behavior, which issued no roaming saves.
+
+The complete run verified 840 write acknowledgements, 40 cold reopens, retained
+before-images and study facts. Opening samples are small and overlap; no
+whole-application loading speedup is inferred from these local-storage numbers.
+
+## Cloud client comparison
+
+The actual cloud adapter and portable serializer ran 40 trials with admitted
+500/2,500-video fixtures, five alternating ordinary-study pairs per size, plus
+study-with-positions and explicit-position-Sync trials. RPCs were intercepted with
+a fixed 100 ms roundtrip and incremental batch application; no provider or
+database was contacted. The complete resulting profile and accepted outbox
+retirement were checked after every trial.
+
+Ordinary typed study batches remain 581 bytes on both versions. Adding the
+complete two-animal island makes the same request 1,562 bytes, an extra 981 bytes.
+Explicit position-only Sync sends 1,044 bytes. Merely retaining a local checkpoint
+produces no automatic request. RPC argument sizes, including identity/digests,
+are 767, 1,748 and 1,230 bytes respectively.
+
+Preparation and acknowledgement still process the full recovery candidate at a
+safe opportunity; the movement-only storage path avoids that work. No ordinary
+sync speedup is claimed: large-library CPU samples are noisy. Fixed mock latency
+and client bookkeeping cannot establish production database or network latency.
+
 ## Correctness and release evidence
 
 Tests cover real native movement/restore, carried and perched animals, safe house

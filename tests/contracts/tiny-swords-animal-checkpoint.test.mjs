@@ -64,3 +64,14 @@ test('checkpoint payload and binding validation are bounded and exact', async ()
   assert.equal(isAnimalCheckpointStamp({ ...stamp, extra: true }), false)
   assert.equal(isAnimalCheckpointStamp({ ...stamp, layoutSha256: 'wrong' }), false)
 })
+
+test('new stamps bind replacement boundaries while legacy v1 remains explicitly recognizable', async () => {
+  const { isAnimalCheckpointStamp } = await import('../../src/state/tiny-swords-animal-checkpoint.js')
+  const stamp = createAnimalCheckpointStamp(moved, binding, uuid, 9)
+  assert.equal(stamp.version, 2); assert.equal(stamp.replacementRevision, 9)
+  const { replacementRevision, ...withoutBoundary } = stamp
+  assert.equal(isAnimalCheckpointStamp(withoutBoundary), false)
+  assert.equal(isAnimalCheckpointStamp({ ...stamp, replacementRevision: -1 }), false)
+  assert.equal(isAnimalCheckpointStamp({ ...withoutBoundary, version: 1 }), true)
+  assert.throws(() => createAnimalCheckpointStamp(moved, binding, uuid, -1), TypeError)
+})
