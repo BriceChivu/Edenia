@@ -1,6 +1,7 @@
 import { canonicalizeJson } from './state/portable-state.js'
 import { createLearnerProfileSyncOpportunity } from './state/learner-profile-sync-opportunity.js'
 import { reportWindowHealth } from './integrations/health-monitor.js'
+import { createProfileOpeningDiagnostics } from './integrations/profile-opening-diagnostics.js'
 import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
 import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
 import { createStorageRecoveryReporter } from './integrations/storage-recovery-reporting.js'
@@ -633,6 +634,11 @@ let learnerProfileAccessVisualTestActive =
   LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE !== null
 const LEARNER_PROFILE_ACCESS_BUSY_PRESENTATION_DELAY_MS = 250
 const LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS = 2_000
+const profileOpeningDiagnostics = createProfileOpeningDiagnostics({ enabled: IS_AUTH_TRIAL })
+profileOpeningDiagnostics.markStartup('script-ready')
+if (IS_AUTH_TRIAL) window.edeniaProfileOpeningDiagnostics = Object.freeze({
+  read: profileOpeningDiagnostics.read
+})
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -1290,6 +1296,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     eventTarget: window,
     handoffEnabled: IS_AUTH_TRIAL,
     conditionalOpeningEnabled: IS_AUTH_TRIAL,
+    beginOpeningTrace: profileOpeningDiagnostics.capture,
     recordSyncEnabled: deriveLearnerProfileRecordSyncEnabled(
       RUNTIME_ENVIRONMENT, ACCOUNT_FEATURES_ENABLED, window.EDENIA_CONFIG
     ),
@@ -1719,6 +1726,13 @@ let accountAuthViewState = Object.freeze({
 function applyAccountAuthenticationState(state, {
   observeLearnerProfile = true
 } = {}) {
+  if (state.userId !== accountAuthViewState.userId) {
+    learnerProfileAccessView.hideOpeningNotice()
+    profileOpeningDiagnostics.finish('account-change')
+    learnerProfileOpeningStartedAt = null
+    learnerProfileOpeningCompletionToastPending = false
+    learnerProfileOpeningFocusHandoffPending = false
+  }
   accountAuthViewState = state
   accountlessProfileMigrationController?.observeAuthentication(state)
   if (observeLearnerProfile) {
@@ -3393,10 +3407,12 @@ function restoreLearnerProfileDom(
 
 function trackLearnerProfileOpening(accessState) {
   const status = accessState?.status
-  if (
+  if (accessState.retryable !== true && (
     status === LEARNER_PROFILE_ACCESS_STATES.RESOLVING
+    || status === LEARNER_PROFILE_ACCESS_STATES.MIGRATING
     || status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
-  ) {
+  )) {
+    profileOpeningDiagnostics.begin()
     if (
       document.getElementById('learnerProfileAccessGate')
         ?.contains(document.activeElement)
@@ -3405,6 +3421,7 @@ function trackLearnerProfileOpening(accessState) {
     return
   }
   if (status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    profileOpeningDiagnostics.capture().mark('activation')
     const startedAt = learnerProfileOpeningStartedAt
     learnerProfileOpeningStartedAt = null
     learnerProfileOpeningCompletionToastPending = (
@@ -3417,6 +3434,7 @@ function trackLearnerProfileOpening(accessState) {
   learnerProfileOpeningStartedAt = null
   learnerProfileOpeningCompletionToastPending = false
   learnerProfileOpeningFocusHandoffPending = false
+  profileOpeningDiagnostics.finish(status)
 }
 
 async function handleLearnerProfileAccessStateChange(accessState) {
@@ -3455,7 +3473,9 @@ async function handleLearnerProfileAccessStateChange(accessState) {
   if (closesProfileAccessAuthentication) {
     closeLearnerProfileAccessSignIn({ returnFocus: false })
   }
-  learnerProfileAccessView.render(accessState)
+  learnerProfileAccessView.render(accessState, {
+    applicationReady: accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  })
   if (
     accessState.status === LEARNER_PROFILE_ACCESS_STATES.LOCKED
     && accountlessProfileMigrationController?.isEntryRequired?.() === true
@@ -3533,6 +3553,21 @@ async function handleLearnerProfileAccessStateChange(accessState) {
         maybeStartOnboarding(state, { startImmediately: true })
       }
     }
+    if (renderEpoch !== learnerProfileAccessRenderEpoch) return
+    const openingTrace = profileOpeningDiagnostics.capture()
+    window.requestAnimationFrame(() => {
+      if (renderEpoch !== learnerProfileAccessRenderEpoch) return
+      const visible = id => {
+        const element = document.getElementById(id)
+        return element && !element.hidden && !element.classList.contains('hidden')
+      }
+      if ((!visible('mainApp') || mainApp?.hasAttribute('inert'))
+        && !visible('settingsPanel')
+        && !visible('introTrailer') && !visible('onboardingPanel')) return
+      learnerProfileAccessView.hideOpeningNotice()
+      openingTrace.mark('usable-frame')
+      profileOpeningDiagnostics.finish(onboardingRecoveryState.active ? 'recovering' : 'active')
+    })
     if (
       learnerProfileOpeningCompletionToastPending
       && learnerProfileSyncViewState?.status === 'up-to-date'
@@ -6841,6 +6876,46 @@ function startLearnerProfileReverification() {
   learnerProfileReverificationController.start()
 }
 
+function handleAccountAuthenticationStateChange(state) {
+  if (state.sessionState !== ACCOUNT_SESSION_STATES.LOADING) {
+    profileOpeningDiagnostics.markStartup('auth-ready')
+  }
+  const labelOnly = state.authMethod !== accountAuthViewState.authMethod
+    && ['sessionState', 'userId', 'email', 'busyAction', 'error', 'notice']
+      .every(key => state[key] === accountAuthViewState[key])
+  if (labelOnly) {
+    accountAuthViewState = state
+    renderAccountSettings(state)
+    if (personalizedOnboardingState.step === 'account') {
+      renderPersonalizedOnboarding()
+    }
+    return
+  }
+  applyAccountAuthenticationState(state)
+  accountAnalyticsIdentity.synchronize(state)
+  accountExportController.synchronizeAccount(state)
+  void reminderPreferencesController.synchronizeAccount(
+    state,
+    getReminderPreferenceDefaults()
+  )
+  const accessState = learnerProfileLifecycleAuthority?.getState()
+  synchronizeAccountStudySnapshotForProfile(
+    accessState,
+    accessState?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+      ? learnerProfileLifecycleAuthority.readActiveProfile()
+      : learnerProfileLifecycleAuthority ? null : loadState()
+  )
+  renderAccountSettings(state)
+  if (state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED && !accountLogoutFailureNotified) {
+    showToast(t('settings.account.feedback.signOutError'), 'error')
+  }
+  accountLogoutFailureNotified = state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED
+  if (personalizedOnboardingState.step === 'account') {
+    renderPersonalizedOnboarding()
+  }
+  synchronizeGoogleIdentityServices()
+}
+
 function initializeAccountAuth() {
   if (!ACCOUNT_FEATURES_ENABLED) return
   renderAccountSettings()
@@ -6891,31 +6966,7 @@ function initializeAccountAuth() {
       prepareLocalSignOut: () => prepareLocalAuthSessionRetirement({
         storage: window.localStorage, storageKey: ACCOUNT_AUTH_STORAGE_KEY
       }),
-      onStateChange(state) {
-        applyAccountAuthenticationState(state)
-        accountAnalyticsIdentity.synchronize(state)
-        accountExportController.synchronizeAccount(state)
-        void reminderPreferencesController.synchronizeAccount(
-          state,
-          getReminderPreferenceDefaults()
-        )
-        const accessState = learnerProfileLifecycleAuthority?.getState()
-        synchronizeAccountStudySnapshotForProfile(
-          accessState,
-          accessState?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
-            ? learnerProfileLifecycleAuthority.readActiveProfile()
-            : learnerProfileLifecycleAuthority ? null : loadState()
-        )
-        renderAccountSettings(state)
-        if (state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED && !accountLogoutFailureNotified) {
-          showToast(t('settings.account.feedback.signOutError'), 'error')
-        }
-        accountLogoutFailureNotified = state.error === ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED
-        if (personalizedOnboardingState.step === 'account') {
-          renderPersonalizedOnboarding()
-        }
-        synchronizeGoogleIdentityServices()
-      }
+      onStateChange: handleAccountAuthenticationStateChange
     })
     if (GOOGLE_IDENTITY_SERVICES_READY) {
       googleIdentityServicesController =
@@ -6976,6 +7027,24 @@ function initializeAccountAuth() {
     if (personalizedOnboardingState.step === 'account') {
       renderPersonalizedOnboarding()
     }
+  }
+}
+
+let accountSessionPrewarmed = false
+function prewarmAccountSession() {
+  if (!IS_AUTH_TRIAL || !ACCOUNT_FEATURES_ENABLED || accountSessionPrewarmed
+    || !hasSupabaseRuntimeConfig()) return
+  accountSessionPrewarmed = true
+  profileOpeningDiagnostics.markStartup('session-preparation-start')
+  // This only overlaps SDK I/O. Its result is discarded; the ordinary Auth
+  // controller reads the then-current session after all local safety barriers.
+  try {
+    void Promise.resolve(getSupabaseClient().auth.getSession()).then(
+      () => profileOpeningDiagnostics.markStartup('session-preparation-end'),
+      () => profileOpeningDiagnostics.markStartup('session-preparation-end')
+    )
+  } catch {
+    profileOpeningDiagnostics.markStartup('session-preparation-end')
   }
 }
 
@@ -7229,7 +7298,6 @@ function openSettings() {
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
   renderChannelList(s.config.channels)
-  renderBackupList()
   mobileActivityLogVisibleCount = 20
   renderActivityLog(s)
   setSettingsHowToOpen(false)
@@ -7238,10 +7306,11 @@ function openSettings() {
   )
   setSettingsActivityLogOpen(false)
   setSettingsBackupsOpen(false)
-  recentBackupsView.collapse()
+  recentBackupsView.clear()
   closeLocaleMenu()
   renderPlusAccountSettings()
   openSettingsShell({ focusId: 'settingsCloseBtn' })
+  renderBackupList()
 }
 
 function openProtectedProfileVersionsSettings() {
@@ -7255,7 +7324,7 @@ function openProtectedProfileVersionsSettings() {
 }
 
 function closeSettings() {
-  recentBackupsView.cancelRestore({ returnFocus: false })
+  recentBackupsView.clear()
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
   panel.classList.remove('account-only')
@@ -7347,7 +7416,8 @@ function closeLearnerProfileAccessSignIn({ returnFocus = true } = {}) {
     'learnerProfileAccessBody'
   )
   learnerProfileAccessView.render(
-    learnerProfileLifecycleAuthority?.getState()
+    learnerProfileLifecycleAuthority?.getState(),
+    { applicationReady: false }
   )
   if (returnFocus) {
     window.setTimeout(() => {
@@ -7929,6 +7999,13 @@ function formatBackupReason(reason) {
 }
 
 function renderBackupList() {
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')
+    || (learnerProfileLifecycleAuthority
+      && learnerProfileLifecycleAuthority.getState().status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE)) {
+    recentBackupsView.clear()
+    return
+  }
   recentBackupsView.render({
     local: LOCAL_BACKUPS_ENABLED ? getStateBackupEntries() : [],
     conflicts: learnerProfileProtectedConflicts,
@@ -12743,11 +12820,18 @@ function renderHistoryWatchedCell(row) {
   `
 }
 
+let historyPointNumberLocale = null
+let historyPointNumberFormatter = null
 function formatHistoryPointNumber(points) {
   const value = Number(points || 0)
-  return new Intl.NumberFormat(getCurrentLocale(), {
-    maximumFractionDigits: 0
-  }).format(value)
+  const locale = getCurrentLocale()
+  if (!historyPointNumberFormatter || historyPointNumberLocale !== locale) {
+    historyPointNumberFormatter = new Intl.NumberFormat(locale, {
+      maximumFractionDigits: 0
+    })
+    historyPointNumberLocale = locale
+  }
+  return historyPointNumberFormatter.format(value)
 }
 
 function formatHistoryPointLabel(points) {
@@ -19139,12 +19223,15 @@ function compactReplaceableSearchCache() {
 
 async function initializeBrowserStorage() {
   await profileRecoveryWorkspace.initialize()
+  profileOpeningDiagnostics.markStartup('journal-ready')
   if (profileRecoveryWorkspace.hasPending()) {
     profileRecoveryWorkspace.activate()
     resetRecoveryBackupStore()
     return
   }
+  prewarmAccountSession()
   await initializeStateBackupStorage()
+  profileOpeningDiagnostics.markStartup('backup-ready')
   if (primaryProfileRepository) return
   let migrated = false
   try { migrated = ['1', 'empty'].includes(profileBrowserStorage.getItem(`${STORAGE_KEY}_indexed_db_v1`))
@@ -19409,7 +19496,10 @@ window.setTimeout(() => {
 }, 1_000)
 
 stateBackupStorageInitialization = initializeBrowserStorage()
-  .finally(() => { stateBackupStorageReady = true })
+  .finally(() => {
+    profileOpeningDiagnostics.markStartup('local-storage-ready')
+    stateBackupStorageReady = true
+  })
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init)
 } else {

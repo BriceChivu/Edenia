@@ -42,6 +42,19 @@ export function createRecentBackupsView({
   let expanded = false
   let pending = null
   let expiryTimer = null
+  let renderGeneration = 0
+
+  function clear() {
+    renderGeneration += 1
+    if (expiryTimer !== null) clearTimer(expiryTimer)
+    expiryTimer = null
+    cancelRestore({ returnFocus: false })
+    source = {}
+    entries = []
+    expanded = false
+    list.replaceChildren()
+    more.hidden = true
+  }
 
   function title(entry) {
     if (entry.kind === 'reset') return t('backups.beforeStartOver')
@@ -82,7 +95,8 @@ export function createRecentBackupsView({
 
   function requestRestore(entry) {
     const context = getContext()
-    if (!isContextCurrent(context)) return unavailable()
+    if (!entries.some(current => current.key === entry.key)
+      || !isContextCurrent(context)) return unavailable()
     pending = { entry, context, busy: false }
     confirm.disabled = false
     cancel.disabled = false
@@ -92,11 +106,14 @@ export function createRecentBackupsView({
   }
 
   function render(nextSource = source) {
+    const generation = ++renderGeneration
     source = nextSource
     entries = getRecentBackupEntries(source, now())
     if (expiryTimer !== null) clearTimer(expiryTimer)
     const deadlines = entries.map(entry => entry.protectedUntil).filter(Boolean)
-    expiryTimer = deadlines.length ? setTimer(() => render(), Math.min(
+    expiryTimer = deadlines.length ? setTimer(() => {
+      if (generation === renderGeneration) render()
+    }, Math.min(
       Math.max(0, Math.min(...deadlines) - now()), 2_147_000_000
     )) : null
     const focusedKey = root.activeElement?.dataset?.backupKey
@@ -195,7 +212,7 @@ export function createRecentBackupsView({
     }
   })
   return {
-    render, cancelRestore,
+    render, cancelRestore, clear,
     collapse() { expanded = false; render() }
   }
 }

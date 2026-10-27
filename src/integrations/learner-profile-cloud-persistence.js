@@ -6,7 +6,7 @@ import {
   LEARNER_PROFILE_RECOVERY_SOURCES,
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../domain/learner-profile-resolution.js'
-import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
+import { canonicalizeJson, sha256Base64Url, sha256Base64UrlSync } from '../state/portable-state.js'
 import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfileChangeDigest, portableProfilesHaveSameProgress } from '../domain/portable-profile-combination.js'
 import { createProfileRecordBatch, isProfileRecordBatch, recordRequestDigest, mergeDirtyUnits, dirtyUnitsFromBatch, recordBatchPaths } from '../domain/learner-profile-records.js'
 
@@ -342,6 +342,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
   eventTarget,
   handoffEnabled = false,
   conditionalOpeningEnabled = false,
+  cryptoLike = globalThis.crypto,
+  beginOpeningTrace = null,
   recordSyncEnabled = false,
   finalizeEnvelope,
   getClient,
@@ -3253,18 +3255,30 @@ export function createLearnerProfileCloudPersistenceAdapter({
       // cannot prove that a local copy is complete or free of unqueued edits.
       const profile = normalizeProfile(localProfile.profile)
       const canonical = canonicalizeJson(profile)
-      return { profile, canonical, digest: sha256Base64UrlSync(canonical), serialized: storedSync.serialized }
+      return { profile, canonical, serialized: storedSync.serialized,
+        ownerId: authentication.userId, profileId: localProfile.profileId,
+        generation: localProfile.generation, revision: localProfile.revision }
     } catch { return null }
   }
 
-  function openingCandidateIsCurrent(candidate, localProfile, isCurrent) {
+  function openingCandidateBoundaryIsCurrent(candidate, authentication, localProfile, isCurrent) {
     try {
-      return isCurrent() && readStoredSyncRecord().serialized === candidate.serialized
+      return isCurrent() && authentication.userId === candidate.ownerId
+        && localProfile.status === 'ready' && !localProfile.onboardingFinalizationPending
+        && localProfile.ownerId === candidate.ownerId && localProfile.profileId === candidate.profileId
+        && localProfile.generation === candidate.generation && localProfile.revision === candidate.revision
+        && readStoredSyncRecord().serialized === candidate.serialized
         && !readDirtyRecord().present
         && storage.getItem(recoveryStorageKey) === null
         && storage.getItem(importStorageKey) === null
         && storage.getItem(handoffRepairStorageKey) === null
         && !hasExplicitOnboardingProfileDraft()
+    } catch { return false }
+  }
+
+  function openingCandidateIsCurrent(candidate, authentication, localProfile, isCurrent) {
+    try {
+      return openingCandidateBoundaryIsCurrent(candidate, authentication, localProfile, isCurrent)
         && canonicalizeJson(normalizeProfile(localProfile.profile)) === candidate.canonical
     } catch { return false }
   }
@@ -3305,6 +3319,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'migrating' }
     }
 
+    let openingTrace = null
+    try { if (typeof beginOpeningTrace === 'function') openingTrace = beginOpeningTrace() } catch {}
+    const markOpening = phase => { try { openingTrace?.mark?.(phase) } catch {} }
+    const openingRpc = async (name, params) => {
+      markOpening('opening-rpc-start')
+      try { return await getClient().rpc(name, params) }
+      finally { markOpening('opening-rpc-end') }
+    }
+
     const localWasEmptyBeforeRequest = localProfile?.status === 'empty'
     const storedSyncBeforeRequest = readStoredSyncRecord()
     const dirtyBeforeRequest = readDirtyRecord()
@@ -3321,12 +3344,24 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
     }
 
+    if (!isCurrent()) return { status: 'recovering' }
     let candidate = !malformedImportRepair
       ? openingCandidate(authentication, localProfile, purpose, storedSyncBeforeRequest) : null
+    if (candidate) {
+      // Preparation above captured the current content synchronously. Native
+      // hashing yields; no stale body, owner or outbox may cross that boundary.
+      if (!openingCandidateBoundaryIsCurrent(candidate, authentication, localProfile, isCurrent)) return { status: 'recovering' }
+      try { candidate.digest = await sha256Base64Url(candidate.canonical, cryptoLike) }
+      catch {
+        if (!openingCandidateBoundaryIsCurrent(candidate, authentication, localProfile, isCurrent)) return { status: 'recovering' }
+        candidate.digest = sha256Base64UrlSync(candidate.canonical)
+      }
+      if (!openingCandidateIsCurrent(candidate, authentication, localProfile, isCurrent)) return { status: 'recovering' }
+    }
     let response
     let combinedOpening = conditionalOpeningEnabled
     try {
-      response = await getClient().rpc(
+      response = await openingRpc(
         combinedOpening ? 'open_my_learner_profile' : 'resolve_my_learner_profile',
         { p_onboarding_profile: onboardingEnvelope, ...(combinedOpening ? {
           p_cached_profile_id: candidate ? localProfile.profileId : null,
@@ -3340,7 +3375,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       if (combinedOpening && ['PGRST202', '42883'].includes(response?.error?.code)) {
         combinedOpening = false
         candidate = null
-        response = await getClient().rpc('resolve_my_learner_profile', { p_onboarding_profile: onboardingEnvelope })
+        response = await openingRpc('resolve_my_learner_profile', { p_onboarding_profile: onboardingEnvelope })
       }
     } catch {
       return waitForCloudHead()
@@ -3365,7 +3400,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       const resetState = await verifyResetState(row.reset_state, {
         ownerId: authentication.userId, profileId: row.profile_id, generation: row.generation
       })
-      if (!openingCandidateIsCurrent(candidate, localProfile, isCurrent)) return { status: 'recovering' }
+      if (!openingCandidateIsCurrent(candidate, authentication, localProfile, isCurrent)) return { status: 'recovering' }
       cloudHeadKnown = true
       return {
         status: 'activate', ownerId: authentication.userId, profileId: row.profile_id,
@@ -3373,7 +3408,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         profileUnchanged: true, syncBaseProfile: candidate.profile, resetState,
         backupRequired: false, protectedConflicts: [], protectedReset: resetState.protectedReset || null,
         commitSyncRepair({ isCurrent: current } = {}) {
-          return typeof current === 'function' && openingCandidateIsCurrent(candidate, localProfile, current)
+          return typeof current === 'function' && openingCandidateIsCurrent(candidate, authentication, localProfile, current)
         }
       }
     }

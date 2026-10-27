@@ -149,7 +149,7 @@ function createHarness({ delayedVerification = false, delayedImport = false } = 
     renderStartOverUndo() {},
     learnerProfileProtectedConflicts: [],
     renderBackupList() {},
-    recentBackupsView: { cancelRestore() {} },
+    recentBackupsView: { cancelRestore() {}, clear() {} },
     hasPersistedLearnerProfile: () => true,
     introTrailerState: { active: false },
     personalizedOnboardingState: { active: false },
