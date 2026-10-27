@@ -20,6 +20,8 @@ func run() -> void:
 func run_tree(kind: String) -> void:
 	root.size = Vector2i(1152, 648)
 	var scene = load("res://previews/level_five.tscn").instantiate()
+	scene.set_script(load("res://tests/animal_checkpoint_world.gd"))
+	scene.starting_level = 5
 	scene.camera_save_enabled = false
 	root.add_child(scene)
 	await process_frame
@@ -57,8 +59,11 @@ func run_tree(kind: String) -> void:
 	check(interaction.target == interaction.NO_TREE and scene.layout.tree_chickens.is_empty(), "New movement cancels placement without losing chicken")
 	check(interaction.request(cell), "Placement can be requested again after cancellation")
 	scene.pawn.position = scene.waypoints.back() if not scene.waypoints.is_empty() else scene.pawn.destination
+	scene.checkpoint_causes.clear()
+	scene.queue_animal_checkpoint()
 	interaction.advance(100.0)
 	check(scene.layout.tree_chickens.has(cell) and not scene.pawn.carrying_chicken and scene.layout.chicken_release_at == 0, "Arrival places exactly one bird in tree")
+	check(scene.checkpoint_causes == [false] and not scene.animal_checkpoint_pending, "Tree placement saves meaningful ownership immediately and absorbs pending roaming")
 	await process_frame
 	for tree in scene.tree_nodes:
 		if tree.get_meta("cell") == cell:
@@ -75,7 +80,7 @@ func run_tree(kind: String) -> void:
 	check(not scene.harvesting.available(cell), "Occupied tree cannot be chopped")
 	check(scene.layout.tree_swap_plan(cell).is_empty(), "Occupied tree cannot change to incompatible artwork")
 	var saved: Dictionary = scene.layout.snapshot()
-	check(saved.version == 39, "Perched ownership uses new save version")
+	check(saved.version == 40, "Position-bearing save version retains perched ownership")
 	var restored = Layout.new()
 	check(restored.restore(saved) and restored.tree_chickens.has(cell), "Reload conserves tree chicken")
 	var bad: Dictionary = saved.duplicate(true)
@@ -87,7 +92,10 @@ func run_tree(kind: String) -> void:
 	bad = saved.duplicate(true)
 	bad.chicken_release_at = 100
 	check(not Layout.new().restore(bad), "Reject bird duplicated in pawn carry")
+	scene.checkpoint_causes.clear()
+	scene.queue_animal_checkpoint()
 	check(interaction.transfer(cell, 200.0), "Chicken can be retrieved from tree")
+	check(scene.checkpoint_causes == [false] and not scene.animal_checkpoint_pending, "Tree retrieval remains an immediate meaningful save")
 	check(scene.pawn.carrying_chicken and scene.layout.tree_chickens.is_empty() and scene.layout.chicken_release_at == 260.0, "Retrieval restores normal carrying deadline")
 	check(interaction.transfer(cell, 201.0), "Retrieved chicken can be placed again")
 	check(not restored.edit(cell, "remove", Vector2i(999, 999)), "Retrieve chicken before collecting its tree")
@@ -98,6 +106,10 @@ func run_tree(kind: String) -> void:
 	scene.layout.stock.chicken += 1
 	var legacy: Dictionary = scene.layout.snapshot()
 	legacy.version = 38
+	legacy.chicken_count = legacy.chickens.size()
+	legacy.sheep_count = legacy.sheep.size()
+	legacy.erase("chickens")
+	legacy.erase("sheep")
 	legacy.erase("tree_chickens")
 	check(Layout.new().restore(legacy), "Previous save version remains readable")
 	scene.queue_free()

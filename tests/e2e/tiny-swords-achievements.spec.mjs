@@ -31,7 +31,7 @@ async function openIsland(page, query, key, indexedDb = false) {
   const frame = page.frameLocator('.tiny-swords-frame')
   await expect(frame.locator('#canvas')).toBeVisible({ timeout: 60000 })
   await expect(frame.locator('#status')).toBeHidden({ timeout: 90000 })
-  await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version), { timeout: 30000 }).toBe(39)
+  await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version), { timeout: 30000 }).toBe(40)
   return frame
 }
 

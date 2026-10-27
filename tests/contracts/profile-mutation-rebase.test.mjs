@@ -115,3 +115,31 @@ test('independently recorded insights retain both entries while a concurrent del
   assert.deepEqual(merged?.config.studyInsights.history.map(item => item.key), ['evening', 'morning', 'weekly'])
   assert.equal(rebaseProfileChanges(profile([entry]), profile([]), profile([{ ...entry, reviewedCards: 9 }])), null)
 })
+
+test('a retained position candidate cannot merge into another tab’s changed terrain', () => {
+  const base = { videos: { lesson: { resumeAtSeconds: 10 } }, anki: {},
+    tinySwordsIsland: { tiles: [[0, 0, 'meadow'], [1, 0, 'meadow']], sheep: [[0, 0]], resources: { wood: 0 } } }
+  const desired = structuredClone(base)
+  desired.videos.lesson.resumeAtSeconds = 40
+  desired.tinySwordsIsland.sheep = [[1, 0]]
+  const current = structuredClone(base)
+  current.tinySwordsIsland.tiles = [[0, 0, 'meadow']]
+  // Generic nested rebasing would combine the new pose with removed ground.
+  assert.equal(rebaseProfileChanges(base, desired, current), null)
+  assert.equal(rebaseProfileChanges(base, current, desired), null)
+})
+
+test('one-sided island changes still combine with unrelated study facts', () => {
+  const base = { videos: { lesson: { resumeAtSeconds: 10 } }, anki: {},
+    tinySwordsIsland: { tiles: [[0, 0, 'meadow']], sheep: [[0, 0]], resources: { wood: 0 } } }
+  const islandEdit = structuredClone(base)
+  islandEdit.tinySwordsIsland.resources.wood = 3
+  const studyEdit = structuredClone(base)
+  studyEdit.videos.lesson.resumeAtSeconds = 40
+  const expected = { ...studyEdit, tinySwordsIsland: islandEdit.tinySwordsIsland }
+  assert.deepEqual(rebaseProfileChanges(base, islandEdit, studyEdit), expected)
+  assert.deepEqual(rebaseProfileChanges(base, studyEdit, islandEdit), expected)
+  // Repeating an identical whole-island result is still idempotent.
+  studyEdit.tinySwordsIsland = structuredClone(islandEdit.tinySwordsIsland)
+  assert.deepEqual(rebaseProfileChanges(base, islandEdit, studyEdit), expected)
+})

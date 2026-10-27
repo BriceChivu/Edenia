@@ -95,6 +95,9 @@ var playground_ready := true
 var playground
 var pending_unlock_level := 0
 var saved_playground_checkpoint: Dictionary = {}
+const ANIMAL_CHECKPOINT_INTERVAL_MSEC := 5000
+var animal_checkpoint_pending := false
+var animal_checkpoint_due_msec := 0
 @export var island_start_enabled := false
 var island_started := false
 var arrival
@@ -289,6 +292,8 @@ func begin_pawn_action(excluded_cells: Array = []) -> bool:
 	return not pawn.portal_absorbed and (chicken_carry == null or chicken_carry.put_down(excluded_cells))
 
 func _process(_delta: float) -> void:
+	if animal_checkpoint_pending:
+		advance_animal_checkpoint()
 	if holds != null:
 		holds.advance(_delta)
 	if terrain == null:
@@ -1716,7 +1721,34 @@ func saved_snapshot() -> Dictionary:
 		data["playground_checkpoint"] = saved
 	return data
 
+func queue_animal_checkpoint(now_msec: int = Time.get_ticks_msec()) -> void:
+	# Fixed from the first settled move, so continuously roaming animals cannot
+	# postpone durability by continually restarting a debounce timer.
+	if animal_checkpoint_pending:
+		return
+	animal_checkpoint_pending = true
+	animal_checkpoint_due_msec = now_msec + ANIMAL_CHECKPOINT_INTERVAL_MSEC
+
+func advance_animal_checkpoint(now_msec: int = Time.get_ticks_msec()) -> void:
+	if animal_checkpoint_pending and now_msec >= animal_checkpoint_due_msec:
+		flush_animal_checkpoint()
+
+func clear_animal_checkpoint() -> void:
+	animal_checkpoint_pending = false
+	animal_checkpoint_due_msec = 0
+
+func flush_animal_checkpoint() -> bool:
+	if not animal_checkpoint_pending:
+		return false
+	clear_animal_checkpoint()
+	# A request is not a persistence acknowledgement. The Edenia bridge retains
+	# its existing acknowledgement/failure protocol for this queued snapshot.
+	save_layout(true)
+	return true
+
 func save_layout(_animal_checkpoint: bool = false) -> void:
+	if not _animal_checkpoint:
+		clear_animal_checkpoint()
 	if not preview_save_enabled:
 		return
 	var json := JSON.stringify(saved_snapshot())
@@ -1743,6 +1775,7 @@ func restore_saved_layout(data: Dictionary, restore_checkpoint: bool = true) -> 
 		return false
 	if not layout.restore(data):
 		return false
+	clear_animal_checkpoint()
 	island_started = data.get("island_started", true)
 	playground_manual_progression = playground_enabled and data.get("playground_manual_progression", false) == true
 	if restore_checkpoint:

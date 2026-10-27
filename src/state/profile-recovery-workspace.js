@@ -2,6 +2,8 @@ import { createProfileRecoveryJournal } from './profile-recovery-journal.js'
 import { sanitizeStorageDiagnosticId } from './profile-storage-recovery.js'
 import { rebaseProfileChanges } from './indexed-db-profile.js'
 import { isStorageQuotaError } from './store.js'
+import { animalIslandsHaveSameProgress, isAnimalCheckpointBinding,
+  isAnimalCheckpointStamp } from './tiny-swords-animal-checkpoint.js'
 
 const MAX_PROTECTED_WORKSPACES = 4
 
@@ -21,6 +23,7 @@ export function createProfileRecoveryWorkspace({
   let epoch = 0
   let persistedRaw = null
   let journalRaw = null
+  let journalObservation = 0
   let journalActive = false
   let journalPending = Promise.resolve(false)
   let journalFailure = null
@@ -426,6 +429,9 @@ export function createProfileRecoveryWorkspace({
           if (record && snapshot) { protectWorkspace(snapshot); persist() }
           return false
         }
+        // A verified write can consume candidates even when the head bytes
+        // stay identical. Advance the observation fence for those writes too.
+        journalObservation++
         journalRaw = result.raw
         journalFailure = null
         if (result.saved) {
@@ -492,11 +498,20 @@ export function createProfileRecoveryWorkspace({
     }
     epoch++
   }
-  async function refreshJournal() {
-    if (!journal) return
+  async function refreshJournal(attempt = 0) {
+    if (!journal) return true
     const fallbacks = captureWebStorageCopies()
+    const observation = journalObservation
     const { raw, candidates } = await journal.read()
+    if (observation !== journalObservation) {
+      // Native read completion can arrive after a newer write acknowledgement.
+      // Reread both head and candidates instead of restoring its stale CAS base.
+      // Sustained concurrent work cancels this refresh without blaming storage;
+      // the untouched evidence remains available to the next refresh attempt.
+      return attempt < 3 ? refreshJournal(attempt + 1) : false
+    }
     const saved = parseRecord(raw)
+    if (journalRaw !== raw) journalObservation++
     journalRaw = raw
     if (raw !== null && !saved) throw new SyntaxError('Invalid recovery archive')
     if (saved) {
@@ -526,6 +541,7 @@ export function createProfileRecoveryWorkspace({
       consumedCandidates.add(candidate.id)
       if (active) persist()
     }
+    return true
   }
   async function flush() {
     if (!journalActive && tier !== 'memory' && !(journal && tier === 'session')) return true
@@ -657,6 +673,7 @@ export function createProfileRecoveryWorkspace({
     }
   }
   const baselines = new WeakMap()
+  const replacementScopes = new WeakMap()
   async function readSyncBase(identity, { beforeRead = () => true } = {}) {
     const base = record?.syncBase
     if (!active || !base || JSON.stringify(base.identity) !== JSON.stringify(identity)) return null
@@ -666,21 +683,60 @@ export function createProfileRecoveryWorkspace({
   const repository = {
     readSyncBase,
     readRaw: () => storage.getItem(storageKey),
+    readIslandState() {
+      const raw = storage.getItem(storageKey)
+      if (!active || !raw) return null
+      const profile = JSON.parse(raw)
+      return { cityProgress: profile.cityProgress, tinySwordsIsland: profile.tinySwordsIsland }
+    },
+    async acknowledgeAnimalCheckpoint({ canPersist = () => true } = {}) {
+      // Recovery already retains the complete latest island in its durable
+      // body. A verified older receipt may retire only after that body is safe;
+      // installing its old island here would overwrite newer local contacts.
+      if (!active || !canPersist()) return false
+      const current = repository.snapshot()
+      return current ? await repository.save(current, { canPersist }) === true : false
+    },
     snapshot() {
       const raw = storage.getItem(storageKey)
       if (!raw) return null
       const profile = JSON.parse(raw)
       baselines.set(profile, raw)
+      replacementScopes.set(profile, record?.replacementId ?? null)
       return profile
     },
-    save(profile, { canPersist = () => true, replace = false } = {}, attempt = 0) {
+    save(profile, { canPersist = () => true, replace = false, replaceIsland = false, animalCheckpoint } = {}, attempt = 0) {
       const currentRaw = storage.getItem(storageKey)
       if (!active) return false
+      if (replacementScopes.has(profile) && replacementScopes.get(profile) !== (record?.replacementId ?? null)) return false
       const started = { ...record, values: { ...record.values } }
       if (!canPersist()) return false
       const desiredRaw = JSON.stringify(profile)
       const base = baselines.get(profile)
       let desired = JSON.parse(desiredRaw)
+      if (animalCheckpoint && (Object.hasOwn(animalCheckpoint, 'nextBinding')
+        || Object.hasOwn(animalCheckpoint, 'acknowledgedStamp'))) {
+        const { binding, nextBinding, acknowledgedStamp } = animalCheckpoint
+        let access
+        try { access = JSON.parse(record.values[accessKey]) } catch { return false }
+        if (!replace || replaceIsland || !isAnimalCheckpointBinding(binding)
+          || !isAnimalCheckpointBinding(nextBinding) || binding.ownerId === null
+          || binding.ownerId !== nextBinding.ownerId || binding.profileId !== nextBinding.profileId
+          || binding.generation !== nextBinding.generation || nextBinding.revision < binding.revision
+          || access?.ownerId !== nextBinding.ownerId || access?.profileId !== nextBinding.profileId
+          || access?.generation !== nextBinding.generation
+          || (acknowledgedStamp && (!isAnimalCheckpointStamp(acknowledgedStamp)
+            || acknowledgedStamp.binding.ownerId !== binding.ownerId
+            || acknowledgedStamp.binding.profileId !== binding.profileId
+            || acknowledgedStamp.binding.generation !== binding.generation))) return false
+        const retained = currentRaw && JSON.parse(currentRaw).tinySwordsIsland
+        // Verified receipt replay may replace canonical P while recovery holds
+        // newer Q or a reset's A in its complete durable body. Preserve contacts
+        // only when every Godot gameplay field still agrees with the target.
+        if (animalIslandsHaveSameProgress(retained, desired.tinySwordsIsland)) {
+          desired.tinySwordsIsland = retained
+        }
+      }
       if (!replace && currentRaw && base !== currentRaw) {
         const merged = base ? rebaseProfileChanges(JSON.parse(base), desired, JSON.parse(currentRaw)) : null
         if (!merged) {
@@ -701,7 +757,7 @@ export function createProfileRecoveryWorkspace({
         return false
       }
       if (record.values[storageKey] !== currentRaw) {
-        if (attempt === 0) return repository.save(profile, { canPersist, replace }, 1)
+        if (attempt === 0) return repository.save(profile, { canPersist, replace, replaceIsland, animalCheckpoint }, 1)
         rememberConflict(record.values[storageKey], desiredRaw)
         return false
       }
@@ -710,15 +766,16 @@ export function createProfileRecoveryWorkspace({
       // No refreshing storage facade between the final scope fence and this
       // mutation: refreshing there could adopt a different owner and then put
       // the old edit into that owner's profile.
-      if (replace && currentRaw !== JSON.stringify(desired)) protectWorkspace(started)
+      if ((replace || replaceIsland) && currentRaw !== JSON.stringify(desired)) protectWorkspace(started)
       record.values[storageKey] = JSON.stringify(desired)
       record.status = 'active'
-      if (replace) { record.replacement = true; record.replacementId = globalThis.crypto.randomUUID() }
+      if (replace || replaceIsland) { record.replacement = true; record.replacementId = globalThis.crypto.randomUUID() }
       epoch++
       const persisted = persist()
       for (const key of Object.keys(profile)) delete profile[key]
       Object.defineProperties(profile, Object.getOwnPropertyDescriptors(desired))
       baselines.set(profile, JSON.stringify(desired))
+      replacementScopes.set(profile, record.replacementId ?? null)
       const savedScope = { access: record.values[accessKey] ?? null,
         originalAccess: record.originalAccess, revision: record.originalReplacementRevision,
         replacementId: record.replacementId }
@@ -736,17 +793,28 @@ export function createProfileRecoveryWorkspace({
           for (const key of Object.keys(profile)) delete profile[key]
           Object.defineProperties(profile, Object.getOwnPropertyDescriptors(accepted))
           baselines.set(profile, raw)
+          replacementScopes.set(profile, record.replacementId ?? null)
           return true
         }) : persisted
     },
-    inheritRevision(profile, source) { baselines.set(profile, baselines.get(source)) },
-    adoptSnapshot(profile) { baselines.set(profile, storage.getItem(storageKey)) }
+    inheritRevision(profile, source) {
+      baselines.set(profile, baselines.get(source))
+      replacementScopes.set(profile, replacementScopes.get(source) ?? null)
+    },
+    adoptSnapshot(profile) {
+      baselines.set(profile, storage.getItem(storageKey))
+      replacementScopes.set(profile, record?.replacementId ?? null)
+    }
   }
   return {
     repository, storage, activate, flush,
-    async initialize() { try { await refreshJournal() } catch (error) { onStorageFailure(error, 'open', 'recovery-journal') } },
+    async initialize() { try { return await refreshJournal() } catch (error) { onStorageFailure(error, 'open', 'recovery-journal') } },
     whenSettled,
-    async refresh() { await refreshJournal(); refreshFromDisk() },
+    async refresh() {
+      if (await refreshJournal() === false) return false
+      refreshFromDisk()
+      return true
+    },
     hasPending: () => Boolean(record),
     isActive: () => active, getTier: () => tier,
     getDiagnosticState(incidentId) {
@@ -763,6 +831,7 @@ export function createProfileRecoveryWorkspace({
     getDiagnosticContext: () => record ? { incidentId: sanitizeStorageDiagnosticId(record.incidentId),
       testRunId: sanitizeStorageDiagnosticId(record.testRunId) } : null,
     getOriginalAccess: () => record?.originalAccess ?? null,
+    hasReplacement: () => record?.replacement === true,
     async retainSyncBase(identity, profile) {
       if (!active || !identity || !profile) return false
       const captured = record

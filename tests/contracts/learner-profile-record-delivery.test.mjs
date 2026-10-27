@@ -13,6 +13,7 @@ import { canonicalizeJson, sha256Base64UrlSync } from '../../src/state/portable-
 import { createProfileRecordBatch, isProfileRecordBatch, recordRequestDigest } from '../../src/domain/learner-profile-records.js'
 import { captureProfileChanges } from '../../src/domain/portable-profile-combination.js'
 import { createLearnerProfileSyncOpportunity } from '../../src/state/learner-profile-sync-opportunity.js'
+import { composeAnimalCheckpointProfile, createAnimalCheckpointStamp } from '../../src/state/tiny-swords-animal-checkpoint.js'
 
 const OWNER = '123e4567-e89b-42d3-a456-426614174000'
 const PROFILE = '223e4567-e89b-42d3-a456-426614174001'
@@ -147,7 +148,9 @@ function server(initial = fixture()) {
 async function device(service, { recordSyncEnabled = true, storage = memoryStorage(), local = null,
   rpc = (name, parameters) => service.rpc(name, parameters), quiet = () => true,
   readHead = () => ({ data: service.head(), error: null }),
-  interval = 0, recordInterval = 0, expectedStatus = 'activate' } = {}) {
+  interval = 0, recordInterval = 0, expectedStatus = 'activate',
+  composeProfile = profile => profile, acknowledgeAnimalCheckpoint = async () => true,
+  readLocalAnimalProfile, installResult, readAnimalCheckpointStamp } = {}) {
   let time = 0, current = true, preparations = 0, headReads = 0
   const timers = new Map()
   let timerId = 0
@@ -174,15 +177,18 @@ async function device(service, { recordSyncEnabled = true, storage = memoryStora
   })
   const result = await adapter.resolve({ authentication: { userId: OWNER }, connectivity: { status: 'online' },
     localProfile: local ? { status: 'ready', ownerId: OWNER, profileId: PROFILE, generation: local.generation || 1,
-      revision: local.revision, profile: local.profile } : { status: 'empty' }, purpose: 'resolve-signed-in-profile' })
+      revision: local.revision, profile: local.profile } : { status: 'empty' },
+    readLocalAnimalProfile, purpose: 'resolve-signed-in-profile' })
   if (expectedStatus !== null) assert.equal(result.status, expectedStatus, `Profile opens: ${result.status}`)
   if (expectedStatus !== 'activate') return { adapter, result, storage, retire() { current = false; adapter.destroy() } }
   const profile = clone(result.profile)
+  installResult?.(result, profile)
   if (result.commitSyncRepair) assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
   const activation = { id: crypto.randomUUID(), ownerId: OWNER, profileId: PROFILE }
   adapter.start()
   assert.equal(adapter.activate({ activation, baseProfile: result.syncBaseProfile, generation: result.generation,
-    revision: result.revision, profile, isCurrent: () => current, readPersistedProfile: () => profile }), true)
+    revision: result.revision, profile, isCurrent: () => current,
+    acknowledgeAnimalCheckpoint, readAnimalCheckpointStamp, readPersistedProfile: () => composeProfile(profile) }), true)
   const state = () => JSON.parse(storage.getItem(KEY))
   return {
     adapter, storage, profile, activation, result, state,
@@ -210,11 +216,78 @@ async function device(service, { recordSyncEnabled = true, storage = memoryStora
     save(dirtyUnits) {
       assert.equal(adapter.markDirty({ activation, isCurrent: () => current }), true)
       assert.equal(adapter.saveDeferred({ activation, isCurrent: () => current, dirtyUnits,
-        readPersistedProfile: () => profile }), true)
+        readPersistedProfile: () => composeProfile(profile) }), true)
     }
   }
 }
 const commits = service => service.calls.filter(call => call.name.startsWith('commit_'))
+
+function animalFixture() {
+  const profile = fixture()
+  profile.tinySwordsIsland = { version: 37, chickens: [[1, 2]], sheep: [], resources: { wood: 0 },
+    sync_semantics: { version: 1, ambient_arrays: ['chickens', 'sheep'], sha256: 'a'.repeat(64) } }
+  return profile
+}
+
+function animalCheckpoint(layout, revision = 1, replacementRevision = 0) {
+  return { layout, stamp: createAnimalCheckpointStamp(layout,
+    { ownerId: OWNER, profileId: PROFILE, generation: 1, revision }, crypto.randomUUID(), replacementRevision) }
+}
+
+test('an unchanged routine save cannot turn local roaming into a pose-only automatic upload', async t => {
+  const cloud = server(animalFixture())
+  const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[5, 6]] })
+  const phone = await device(cloud, { composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint) })
+  t.after(() => phone.retire())
+  phone.save({ videos: ['video-0'] })
+  await phone.advance(); await settle(); await phone.advance()
+  assert.equal(commits(cloud).length, 0)
+  assert.equal(phone.state().pending, null)
+})
+
+test('a later study sync includes animal poses recovered into the canonical local profile without a side stamp', async t => {
+  const cloud = server(animalFixture()), phone = await device(cloud)
+  t.after(() => phone.retire())
+  // A full-storage recovery body contains the latest durable coordinates, but
+  // JSON persistence cannot carry the private side-checkpoint WeakMap stamp.
+  phone.profile.tinySwordsIsland.chickens = [[5, 6]]
+  phone.save({ videos: ['video-0'] })
+  await phone.advance(); await settle(); await phone.advance()
+  assert.equal(commits(cloud).length, 0, 'Recovered poses alone cannot wake automatic sync')
+  assert.equal(phone.state().pending, null)
+
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await deliver(phone, cloud, 2)
+  assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['video', 'island'])
+  assert.deepEqual(cloud.profile(), normalizePortableLearnerProfile(phone.profile))
+  assert.equal(phone.state().pending, null)
+  assert.equal(commits(cloud).length, 1)
+})
+
+test('recovered poses cannot queue a pose-only automatic follow-up behind an in-flight study sync', async t => {
+  const cloud = server(animalFixture()), held = deferred()
+  const phone = await device(cloud, { rpc: async (name, parameters) => {
+    const response = await cloud.rpc(name, parameters)
+    if (name === 'commit_my_learner_profile_records') await held.promise
+    return response
+  } })
+  t.after(() => { held.resolve(); phone.retire() })
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => cloud.head().revision === 2, 'The study request is awaiting its acknowledgement', phone.inspect)
+  phone.profile.tinySwordsIsland.chickens = [[5, 6]]
+  phone.save({ videos: ['video-0'] })
+  await phone.advance(); await settle()
+  assert.equal(phone.state().queued, null, 'A routine save of only changed poses cannot add another operation')
+  held.resolve()
+  await until(() => phone.state().acceptedRevision === 2, 'The original study operation retires', phone.inspect)
+  await phone.advance(); await settle()
+  assert.equal(commits(cloud).length, 1)
+  assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[1, 2]])
+  assert.deepEqual(phone.profile.tinySwordsIsland.chickens, [[5, 6]], 'Local recovered poses remain available for a later real edit')
+})
 
 async function deliver(device, service, revision) {
   await device.advance()
@@ -238,6 +311,259 @@ test('real portable serialization delivers one changed video without unchanged m
   assert.ok(JSON.stringify(parameters.p_batch).length < 1024)
   assert.equal(Object.keys(cloud.profile().videos).length, 500)
   assert.equal(cloud.profile().videos['video-0'].resumeAtSeconds, 60)
+})
+
+for (const recordSyncEnabled of [true, false]) {
+test(`an unstamped study receipt retains its immutable operation until local installation (record flag ${recordSyncEnabled})`, async t => {
+  const cloud = server(), install = deferred()
+  let captured
+  const phone = await device(cloud, { recordSyncEnabled,
+    acknowledgeAnimalCheckpoint: async context => { captured = context; return install.promise }
+  })
+  t.after(() => phone.retire())
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => Boolean(captured), 'The unstamped receipt reaches local installation', phone.inspect)
+  const sent = clone(phone.state().pending)
+  assert.equal(cloud.head().revision, 2)
+  assert.equal(captured.stamp, null)
+  assert.equal(sent.animalCheckpoint, undefined)
+  assert.equal(phone.state().acceptedRevision, 1)
+  await phone.advance()
+  assert.deepEqual(phone.state().pending, sent, 'An accepted receipt cannot retire or rewrite the sent operation while installation is held')
+  install.resolve(true)
+  await until(() => phone.state().acceptedRevision === 2, 'Durable installation permits retirement', phone.inspect)
+  assert.equal(phone.state().pending, null)
+  assert.equal(commits(cloud).length, 1)
+})
+}
+
+test('a real video sync piggybacks the latest local animal checkpoint and waits for its durable receipt install', async t => {
+  const cloud = server(animalFixture()), install = deferred()
+  const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[3, 4]] })
+  let captured
+  const phone = await device(cloud, {
+    composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    acknowledgeAnimalCheckpoint: async context => { captured = context; return install.promise }
+  })
+  t.after(() => phone.retire())
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => Boolean(captured), 'The accepted receipt reaches the local transaction', phone.inspect)
+  assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['video', 'island'])
+  assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[3, 4]])
+  assert.equal(phone.state().acceptedRevision, 1, 'A server receipt cannot retire the durable operation before local installation')
+  assert.equal(phone.state().pending.animalCheckpoint.stamp, checkpoint.stamp.stamp)
+  assert.equal(captured.stamp.stamp, checkpoint.stamp.stamp)
+  install.resolve(true)
+  await until(() => phone.state().acceptedRevision === 2, 'The exact installed candidate is retired', phone.inspect)
+  assert.equal(phone.state().pending, null)
+})
+
+for (const recordSyncEnabled of [true, false]) {
+test(`roaming stays local and explicit Sync sends a clean animal checkpoint (record flag ${recordSyncEnabled})`, async t => {
+  const cloud = server(animalFixture())
+  const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[5, 6]] })
+  const phone = await device(cloud, { recordSyncEnabled, composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint) })
+  t.after(() => phone.retire())
+  await phone.advance(120_000)
+  assert.equal(commits(cloud).length, 0)
+  assert.equal(phone.state().pending, null)
+  assert.equal(phone.adapter.retry(), true)
+  await until(() => phone.state().acceptedRevision === 2, 'Explicit Sync saves the durable pose', phone.inspect)
+  if (recordSyncEnabled) assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['island'])
+  else assert.equal(commits(cloud)[0].name, 'commit_my_learner_profile_handoff')
+  assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[5, 6]])
+})
+}
+
+for (const recordSyncEnabled of [true, false]) for (const interval of [0, 30_000]) {
+test(`explicit Sync sends checked poses from a full-storage recovery body without private metadata (record flag ${recordSyncEnabled}, interval ${interval})`, async t => {
+  const cloud = server(animalFixture()), phone = await device(cloud, { recordSyncEnabled, interval, recordInterval: 5000 })
+  t.after(() => phone.retire())
+  phone.profile.tinySwordsIsland.chickens = [[5, 6]]
+  await phone.advance(120_000)
+  assert.equal(commits(cloud).length, 0)
+  assert.equal(phone.state().pending, null)
+  assert.equal(phone.adapter.retry(), true)
+  await until(() => phone.state().acceptedRevision === 2, 'Explicit Sync accepts the full-body recovery pose', phone.inspect)
+  if (recordSyncEnabled) assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['island'])
+  else assert.equal(commits(cloud)[0].name, 'commit_my_learner_profile_handoff')
+  assert.deepEqual(cloud.profile(), normalizePortableLearnerProfile(phone.profile))
+  assert.equal(commits(cloud).length, 1)
+})
+}
+
+for (const stampVersion of [1, 2]) {
+test(`a lost animal receipt reopens canonical local content without a conflict (stamp v${stampVersion})`, async t => {
+  const cloud = server(animalFixture())
+  const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[7, 8]] })
+  let lose = true
+  const phone = await device(cloud, {
+    composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    rpc: async (name, parameters) => {
+      const response = await cloud.rpc(name, parameters)
+      if (name === 'commit_my_learner_profile_records' && lose) { lose = false; throw new TypeError('Lost acknowledgement') }
+      return response
+    }
+  })
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => cloud.head().revision === 2 && phone.state().pending?.retryCount === 1, 'The immutable pose candidate was accepted but its response lost', phone.inspect)
+  assert.deepEqual(phone.profile.tinySwordsIsland.chickens, [[1, 2]], 'Canonical local content was never changed by roaming')
+  if (stampVersion === 1) {
+    const record = phone.state()
+    const { replacementRevision, ...stamp } = record.pending.animalCheckpoint
+    record.pending.animalCheckpoint = { ...stamp, version: 1 }
+    phone.storage.setItem(KEY, JSON.stringify(record))
+  }
+  phone.retire()
+  const resumed = await device(cloud, { storage: phone.storage, local: { profile: phone.profile, revision: 1 } })
+  t.after(() => resumed.retire())
+  assert.equal(resumed.state().pending, null)
+  assert.deepEqual(resumed.profile.tinySwordsIsland.chickens, [[7, 8]])
+  assert.equal(resumed.result.animalCheckpoint.acknowledgedStamp.stamp, checkpoint.stamp.stamp)
+  assert.equal(resumed.result.animalCheckpoint.acknowledgedStamp.version, stampVersion)
+  assert.equal(commits(cloud).length, 1, 'Receipt recovery does not create a replacement cloud operation')
+})
+}
+
+test('dirty recovery after lost receipt P includes newer local pose Q with study R', async t => {
+  const cloud = server(animalFixture())
+  let checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[3, 4]] })
+  let lose = true
+  const phone = await device(cloud, { composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    rpc: async (name, parameters) => {
+      const response = await cloud.rpc(name, parameters)
+      if (name === 'commit_my_learner_profile_records' && lose) { lose = false; throw new TypeError('Lost acknowledgement') }
+      return response
+    } })
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => phone.state().pending?.retryCount === 1, 'P was accepted without its acknowledgement', phone.inspect)
+  const acceptedStamp = phone.state().pending.animalCheckpoint.stamp
+  checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[9, 10]] })
+  phone.profile.videos['video-1'].favorite = true
+  assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
+  phone.retire()
+  const resumed = await device(cloud, { storage: phone.storage, local: { profile: phone.profile, revision: 1 },
+    readLocalAnimalProfile: () => composeAnimalCheckpointProfile(phone.profile, checkpoint) })
+  t.after(() => resumed.retire())
+  assert.equal(resumed.result.animalCheckpoint.acknowledgedStamp.stamp, acceptedStamp)
+  assert.equal(resumed.state().pending.animalCheckpoint.stamp, checkpoint.stamp.stamp)
+  assert.deepEqual(resumed.profile.tinySwordsIsland.chickens, [[9, 10]])
+  await resumed.advance(2000)
+  await until(() => resumed.state().acceptedRevision === 3, 'R respects the retained retry clock and is accepted', resumed.inspect)
+  assert.equal(cloud.profile().videos['video-0'].favorite, true)
+  assert.equal(cloud.profile().videos['video-1'].favorite, true)
+  assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[9, 10]])
+  assert.equal(commits(cloud).length, 2, 'Only P and the real study R are delivered')
+})
+
+test('failed local animal receipt installation retries the same immutable cloud request', async t => {
+  const cloud = server(animalFixture())
+  const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[11, 12]] })
+  let install = false, attempted = 0
+  const phone = await device(cloud, { composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    acknowledgeAnimalCheckpoint: async () => { attempted++; return install } })
+  t.after(() => phone.retire())
+  phone.profile.videos['video-0'].favorite = true; phone.save({ videos: ['video-0'] })
+  await phone.advance(); await until(() => attempted === 1, 'The local receipt transaction fails', phone.inspect)
+  const original = clone(commits(cloud)[0]), pending = clone(phone.state().pending)
+  assert.equal(phone.state().acceptedRevision, 1)
+  install = true
+  assert.equal(phone.adapter.retry(), true)
+  await until(() => phone.state().acceptedRevision === 2, 'Exact receipt retry completes the local installation', phone.inspect)
+  assert.equal(phone.state().pending, null)
+  assert.equal(cloud.head().revision, 2)
+  assert.equal(commits(cloud).length, 2)
+  assert.deepEqual(commits(cloud)[1], original)
+  assert.equal(original.parameters.p_operation_id, pending.operationId)
+})
+
+test('owner retirement during a held animal receipt cannot advance local sync authority', async () => {
+  const cloud = server(animalFixture()), held = deferred()
+  const checkpoint = animalCheckpoint({ ...cloud.profile().tinySwordsIsland, chickens: [[13, 14]] })
+  let installing = false
+  const phone = await device(cloud, { composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    acknowledgeAnimalCheckpoint: async () => { installing = true; return held.promise } })
+  phone.profile.videos['video-0'].favorite = true; phone.save({ videos: ['video-0'] })
+  await phone.advance(); await until(() => installing, 'The verified receipt is waiting for local storage', phone.inspect)
+  phone.retire(); held.resolve(true); await settle(); await settle()
+  assert.equal(phone.state().acceptedRevision, 1)
+  assert.ok(phone.state().pending.animalCheckpoint)
+})
+
+test('a video receipt captured before roaming still rebinds the later local animal checkpoint', async t => {
+  const cloud = server(animalFixture()), held = deferred()
+  let checkpoint = null, rebinding
+  const phone = await device(cloud, {
+    composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    rpc: async (name, parameters) => {
+      const response = await cloud.rpc(name, parameters)
+      if (name === 'commit_my_learner_profile_records') await held.promise
+      return response
+    },
+    acknowledgeAnimalCheckpoint: async context => {
+      rebinding = context
+      checkpoint.stamp.binding = context.nextBinding
+      return true
+    }
+  })
+  t.after(() => phone.retire())
+  phone.profile.videos['video-0'].favorite = true; phone.save({ videos: ['video-0'] })
+  await phone.advance(); await until(() => cloud.head().revision === 2, 'The immutable video request is accepted', phone.inspect)
+  assert.equal(phone.state().pending.animalCheckpoint, undefined)
+  checkpoint = animalCheckpoint({ ...phone.profile.tinySwordsIsland, chickens: [[15, 16]] })
+  held.resolve()
+  await until(() => phone.state().acceptedRevision === 2, 'The later local pose can follow the accepted head', phone.inspect)
+  assert.equal(rebinding.stamp, null)
+  assert.equal(checkpoint.stamp.binding.revision, 2)
+  assert.deepEqual(composeAnimalCheckpointProfile(phone.profile, checkpoint).tinySwordsIsland.chickens, [[15, 16]])
+  await phone.advance(120_000); await settle()
+  assert.equal(commits(cloud).length, 1, 'The receipt cannot schedule a pose-only follow-up request')
+})
+
+test('cold recovery coalesces an unsent study candidate with the exact reset pose preserved by its older receipt', async t => {
+  const initial = animalFixture(), cloud = server(initial)
+  let checkpoint = animalCheckpoint({ ...initial.tinySwordsIsland, chickens: [[3, 4]] }), lose = true
+  const phone = await device(cloud, { composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    rpc: async (name, parameters) => {
+      const response = await cloud.rpc(name, parameters)
+      if (name === 'commit_my_learner_profile_records' && lose) { lose = false; throw new TypeError('Lost acknowledgement') }
+      return response
+    } })
+  phone.profile.videos['video-0'].favorite = true; phone.save({ videos: ['video-0'] })
+  await phone.advance(); await until(() => phone.state().pending?.retryCount === 1, 'P is accepted without a response', phone.inspect)
+  const immutableP = clone(commits(cloud)[0])
+  checkpoint = null // Explicit reset returns to exact canonical A and retires its old side checkpoint.
+  phone.profile.videos['video-1'].favorite = true
+  assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
+  phone.retire()
+  const resumed = await device(cloud, { storage: phone.storage, local: { profile: phone.profile, revision: 1 },
+    readAnimalCheckpointStamp: () => checkpoint?.stamp || null,
+    readLocalAnimalProfile: () => phone.profile,
+    composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
+    installResult: result => {
+      assert.ok(result.animalCheckpoint.acknowledgedStamp)
+      // The native repository's independently tested atomic reset fence keeps
+      // accepted P canonical and creates a fresh A side record at the new head.
+      checkpoint = animalCheckpoint(structuredClone(initial.tinySwordsIsland), 2, 7)
+    } })
+  t.after(() => resumed.retire())
+  await resumed.advance(2000)
+  await until(() => resumed.state().acceptedRevision === 3, 'Only the legitimate unsent R is delivered', resumed.inspect)
+  assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[1, 2]])
+  assert.equal(cloud.profile().videos['video-0'].favorite, true)
+  assert.equal(cloud.profile().videos['video-1'].favorite, true)
+  assert.deepEqual(commits(cloud)[0], immutableP, 'An accepted request is immutable across reset recovery')
+  assert.equal(commits(cloud).length, 2)
+  await resumed.advance(120_000); await settle()
+  assert.equal(commits(cloud).length, 2, 'Reset preservation cannot create a pose-only automatic follow-up')
 })
 
 test('visible active gameplay defers preparation and delivery even during video playback', async t => {

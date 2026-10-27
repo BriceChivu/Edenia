@@ -269,6 +269,8 @@ export function createLearnerProfileLifecycleAuthority({
         isCurrent: () => getCurrentActivationFor(activatedProfile) === activation,
         profile: activeProfile,
         readPersistedProfile: () => readPersistedProfileFor(activatedProfile, activation),
+        readAnimalCheckpointStamp: binding => localPersistence.readAnimalCheckpointStamp?.(activation, binding) || null,
+        acknowledgeAnimalCheckpoint: context => acknowledgeAnimalCheckpointFor(activatedProfile, activation, context),
         revision: activation.revision
       })
     }
@@ -335,8 +337,28 @@ export function createLearnerProfileLifecycleAuthority({
     const local = localPersistence.read()
     if (local?.status === 'ready' && local.ownerId === activation.ownerId
       && local.profileId === activation.profileId && local.generation === activation.generation
-    ) return local.profile
+    ) return localPersistence.readOutgoingProfile?.(local.profile, activation, animalCheckpointBinding(activation)) ?? local.profile
     throw new Error('Durable profile identity changed before cloud preparation')
+  }
+
+  function animalCheckpointBinding(activation) {
+    return cloudPersistence.getSaveBase?.(activation) || {
+      ownerId: activation.ownerId, profileId: activation.profileId,
+      generation: activation.generation ?? null, revision: activation.revision ?? null
+    }
+  }
+
+  async function acknowledgeAnimalCheckpointFor(profile, activation, { stamp, layout, nextBinding }) {
+    for (;;) {
+      if (getCurrentActivationFor(profile) !== activation) return false
+      const pending = [...pendingLocalTransactions]
+      if (!pending.length) break
+      await Promise.allSettled(pending)
+    }
+    if (getCurrentActivationFor(profile) !== activation) return false
+    return await localPersistence.acknowledgeAnimalCheckpoint?.(profile, {
+      stamp, layout, binding: animalCheckpointBinding(activation), nextBinding
+    }, activation) === true && getCurrentActivationFor(profile) === activation
   }
 
   function markCloudSaveRequired(profile, activation) {
@@ -377,6 +399,9 @@ export function createLearnerProfileLifecycleAuthority({
         && authentication.getObservation()?.userId === auth.userId,
       ...(accountlessAttachment ? { accountlessAttachment } : {}),
       localProfile,
+      ...(typeof localPersistence.readOpeningOutgoingProfile === 'function' ? {
+        readLocalAnimalProfile: binding => localPersistence.readOpeningOutgoingProfile(localProfile, binding)
+      } : {}),
       purpose
     })).then(async result => {
       if (requestId !== resolutionId) return
@@ -547,7 +572,7 @@ export function createLearnerProfileLifecycleAuthority({
               })
             : localPersistence.reconcileSignedInProfile(
                 result.profile,
-                identity
+                { ...identity, ...(result.animalCheckpoint ? { animalCheckpoint: result.animalCheckpoint } : {}) }
               )
           if (reconciled?.then) reconciled = await reconciled
           if (!reconciled) {
@@ -1013,6 +1038,9 @@ export function createLearnerProfileLifecycleAuthority({
     const activation = getCurrentActivationFor(profile)
     if (!activation) return false
     const { syncCloud = true, localIslandCheckpoint = false, ...persistenceOptions } = options
+    if (typeof localPersistence.readOutgoingProfile === 'function') {
+      persistenceOptions.animalCheckpoint = { binding: animalCheckpointBinding(activation) }
+    }
     if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
     if (syncCloud && localPersistence.supportsIslandCheckpoints?.()) {
       persistenceOptions.syncBase = cloudPersistence.getSaveBase?.(activation)
@@ -1048,7 +1076,13 @@ export function createLearnerProfileLifecycleAuthority({
   function readActiveIsland() {
     const activation = getCurrentActivationFor(activeProfile)
     if (!activation) return null
-    return localPersistence.readIsland?.(activation) ?? localPersistence.read()?.profile ?? null
+    return localPersistence.readIsland?.(activation, animalCheckpointBinding(activation)) ?? localPersistence.read()?.profile ?? null
+  }
+
+  function readExportProfile() {
+    const profile = readActiveProfile()
+    const activation = getCurrentActivationFor(profile)
+    return activation ? readPersistedProfileFor(profile, activation) : null
   }
 
   function saveActiveRecords(profile, units, options = {}) {
@@ -1060,7 +1094,9 @@ export function createLearnerProfileLifecycleAuthority({
     if (activation.ownerId && !syncBase) return null
     if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
     pendingLocalSaves += 1
-    const transaction = Promise.resolve(localPersistence.saveRecords(profile, units, activation, syncBase, options))
+    const transaction = Promise.resolve(localPersistence.saveRecords(profile, units, activation, syncBase,
+      typeof localPersistence.readOutgoingProfile === 'function'
+        ? { ...options, animalCheckpoint: { binding: animalCheckpointBinding(activation) } } : options))
       .then(saved => {
         if (saved === null) return null
         if (!saved || getCurrentActivationFor(profile) !== activation) return false
@@ -1077,7 +1113,7 @@ export function createLearnerProfileLifecycleAuthority({
     return transaction
   }
 
-  function saveActiveIsland(layout, expected) {
+  function saveActiveIsland(layout, expected, { syncCloud = true } = {}) {
     const profile = activeProfile
     const activation = getCurrentActivationFor(profile)
     if (!activation || !localPersistence.supportsIslandCheckpoints?.()) return null
@@ -1111,6 +1147,15 @@ export function createLearnerProfileLifecycleAuthority({
         if (pendingLocalSaves !== pendingIslandTransactions.size) return false
         const syncBase = cloudPersistence.getSaveBase?.(activation)
         if (activation.ownerId && !syncBase) return null
+        if (!syncCloud) {
+          if (typeof localPersistence.saveAnimalCheckpoint !== 'function') return null
+          const binding = syncBase || { ownerId: null, profileId: activation.profileId, generation: null, revision: null }
+          const checkpoint = await localPersistence.saveAnimalCheckpoint(profile, capturedLayout, expected, activation, binding)
+          // A checked meaningful difference promotes the complete island to the
+          // ordinary durable path; a storage/CAS failure must not do so.
+          if (checkpoint !== null && checkpoint !== undefined) return checkpoint === true
+          if (getCurrentActivationFor(profile) !== activation) return false
+        }
         if (!markCloudSaveRequired(profile, activation)) return false
         const saved = await localPersistence.saveIsland(profile, capturedLayout, expected, activation, syncBase)
         if (!saved || getCurrentActivationFor(profile) !== activation) return false
@@ -1351,7 +1396,9 @@ export function createLearnerProfileLifecycleAuthority({
     const profile = readActiveProfile()
     if (!profile) return false
     const activation = currentState.activation
-    return await exportDownload.download(profile, {
+    const outgoing = readExportProfile()
+    if (!outgoing) return false
+    return await exportDownload.download(outgoing, {
       activation,
       exportedAt: clock.now(),
       isCurrent: () => getCurrentActivationFor(profile) === activation
@@ -2169,6 +2216,7 @@ export function createLearnerProfileLifecycleAuthority({
     exportRecoveryCandidate,
     flushSessionBoundary,
     readActiveIsland,
+    readExportProfile,
     saveActiveIsland,
     getState: () => currentState,
     importActiveProfile,
