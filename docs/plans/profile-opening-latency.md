@@ -231,6 +231,35 @@ No database migration or new activation policy is needed for the first changes.
   not only the notice. Roll out through the current trial and retain a simple
   client rollback; owner/generation/content fences stay enabled.
 
+## Implementation outcome
+
+The implementation defers optional Auth classification, deduplicates label-only
+and identical session observations, overlaps session preparation with independent
+storage work after journal readiness, and constructs backup lists when Settings
+opens. It caches the locale-specific number formatter and keeps one notice
+deadline through opening and verified application preparation. Local trial
+diagnostics record bounded phase timings without profile contents or identity.
+
+The native opening-hash prototype was evaluated and removed. Twenty paired
+whole-opening samples showed only a noisy 1–2% difference after accounting for
+the additional exact-content check required by its new asynchronous boundary.
+The synchronous proof and postresponse/activation integrity checks are retained.
+
+The game comparison exposed an existing rejected-checkpoint race: an entitlement
+refresh's full-profile write could still await acknowledgement when Godot sent
+its first migrated island snapshot. Island checkpoints now wait for pending
+profile writes and earlier island I/O under their captured activation. Failed
+current writes stop dependent checkpoints; retired failures cannot poison a new
+owner or reset generation. The repository's exact expected-island and revision
+checks remain the final write guard. A real Godot/IndexedDB browser regression
+proves the old failure and the corrected durable snapshot, study facts,
+before-image and reload behavior.
+
+The [implementation comparison report](../research/profile-opening-performance-2026-10-27.md)
+records the final source identities, all paired results, rejected optimization,
+validation and reproduction commands. Its primary metric is usable progress;
+notice-visible duration and first game draw are reported separately.
+
 ## Evidence
 
 The local evidence bundle is
