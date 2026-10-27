@@ -38,6 +38,8 @@ test('retryable cloud outcomes end the attempt and explicit retries start a fres
   context.trackLearnerProfileOpening({ status: 'active' })
   assert.equal(context.learnerProfileOpeningCompletionToastPending, false)
   assert.deepEqual(calls, ['begin', 'waiting-cloud', 'begin'])
+  context.trackLearnerProfileOpening(null)
+  assert.equal(context.learnerProfileOpeningStartedAt, null)
 })
 
 test('owner retirement resets the presentation deadline before observing the next identity', () => {

@@ -3407,7 +3407,7 @@ function restoreLearnerProfileDom(
 
 function trackLearnerProfileOpening(accessState) {
   const status = accessState?.status
-  if (accessState.retryable !== true && (
+  if (accessState?.retryable !== true && (
     status === LEARNER_PROFILE_ACCESS_STATES.RESOLVING
     || status === LEARNER_PROFILE_ACCESS_STATES.MIGRATING
     || status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
