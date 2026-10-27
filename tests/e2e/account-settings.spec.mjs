@@ -370,8 +370,14 @@ for (const dashboard of ['ordinary', 'main']) test(`default-on email choices nee
     expect(calls.at(-1)).toMatchObject({ name: 'enroll_my_reminder_choices', args: { p_streak: true, p_discovery: true, p_expected_owner: AUTHENTICATED_USER_ID } })
     expect(stored.streak_enrollment_version).toBe('edenia-email-enrollment-v3')
     expect(stored.discovery_enrollment_version).toBe('edenia-email-enrollment-v3')
+    const failedSaveStart = calls.length
     failNextSave = true
-    await page.locator('#discoveryEmailsEnabled').uncheck()
+    // The failed save can restore the checked state before the click finishes.
+    await page.locator('#discoveryEmailsEnabled').click()
+    await expect.poll(() => calls.slice(failedSaveStart)).toMatchObject([{
+      name: 'save_my_reminder_choice',
+      args: { p_choice: 'discovery', p_enabled: false, p_expected_owner: AUTHENTICATED_USER_ID }
+    }])
     await expect(page.locator('#reminderFeedback')).toHaveAttribute('role', 'alert')
     await expect(page.locator('#discoveryEmailsEnabled')).toBeChecked()
     expect(stored.discovery_emails_enabled).toBe(true)
