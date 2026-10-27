@@ -66,6 +66,16 @@ for example, 30 shared sends plus 30 unobserved reservations exhausts the produc
 headroom. The cap is a ceiling, not promised throughput. Do not erase uncertainty
 or infer receipt inclusion just to fill the allowance.
 
+Provider monthly usage may reset on the account's billing date rather than the
+first UTC date of a calendar month. Monthly provider headroom therefore also
+subtracts every unreleased, unobserved reservation from the last 31 days,
+including the previous calendar month. Reservations exactly 31 days old expire
+from this uncertainty horizon; exact provider-observed reservations are not
+subtracted from shared usage a second time. This can conservatively retain
+uncertainty from an earlier provider billing period and stop optional mail early.
+Do not infer that period's start from the next reset timestamp. The product caps
+remain 60 reservations per UTC day and 1,800 in a rolling 31 days.
+
 ### Read-only activation preflight and configuration changes
 
 Before enabling delivery, invoke `dispatch-study-reminders` with the existing
