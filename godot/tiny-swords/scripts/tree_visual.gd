@@ -25,7 +25,7 @@ func _ready() -> void:
 	reaction.set_shader_parameter("frame_size", size)
 	reaction.set_shader_parameter("root_pixel", size / 2.0 - TreeArt.art_offset(kind))
 	material = reaction
-	source_image = TreeArt.sources[kind]
+	source_image = TreeArt.sources[kind + "_chicken" if get_meta("chicken", false) else kind]
 	world.pawn.sprite.frame_changed.connect(update_pose)
 	update_pose()
 

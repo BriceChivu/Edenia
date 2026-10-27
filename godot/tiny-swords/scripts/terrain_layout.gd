@@ -72,6 +72,7 @@ const LEVEL_REWARDS := {
 	20: {"meadow": 3, "tree": 1},
 }
 const TREE_VARIANTS := ["tree", "tree2", "tree3", "tree4"]
+const CHICKEN_TREE_VARIANTS := ["tree", "tree3"] # Authored Tree1 and Tree2 atlases.
 const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 const NAV_STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN, Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]
 var cells: Dictionary = {}
@@ -90,6 +91,7 @@ var sheep_chickens: Dictionary = {} # Sheep index -> local calendar day of perch
 var sheep: Array[Vector2] = [] # Ground-plane positions; rewards at levels five and eight.
 var trees: Dictionary = {}
 var tree_types: Dictionary = {}
+var tree_chickens: Dictionary = {} # Tree cell -> perched chicken.
 var tree_stumps: Dictionary = {} # Cell -> Unix regrowth deadline.
 var tree_cut_remaining: Dictionary = {} # Cell -> active cutting seconds left.
 var resources := {"wood": 0}
@@ -188,6 +190,7 @@ static func _tree_swap_shifts() -> Array[Vector2]:
 	return shifts
 
 func tree_swap_plan(cell: Vector2i) -> Dictionary:
+	if tree_chickens.has(cell): return {}
 	var current := TREE_VARIANTS.find(tree_types.get(cell, "tree"))
 	var original := tree_offset(cell)
 	for step in range(1, TREE_VARIANTS.size()):
@@ -197,6 +200,11 @@ func tree_swap_plan(cell: Vector2i) -> Dictionary:
 			if valid_tree_offset(offset) and tree_house_space_free(center(cell) + offset, kind):
 				return {"kind": kind, "offset": offset}
 	return {}
+
+func refund_tree_chicken(cell: Vector2i) -> void:
+	if tree_chickens.has(cell):
+		tree_chickens.erase(cell)
+		stock.chicken += 1
 
 func tree_swap_variant(cell: Vector2i) -> String:
 	return tree_swap_plan(cell).get("kind", "")
@@ -436,6 +444,8 @@ func can_edit_rules(cell: Vector2i, tool: String, occupied: Vector2i, ground_hei
 		return true
 	if BridgeRules.touches(self, cell):
 		return false
+	if tool in ["remove", "tree"] and tree_chickens.has(cell):
+		return false
 	if (tool in ["remove", "tree"] and tree_stumps.has(cell)) or (tool == "tree" and tree_cut_remaining.has(cell)):
 		return false
 	if tool == "remove":
@@ -573,7 +583,7 @@ func normalize_ground_continuations() -> void:
 		for index in sheep.size():
 			if cell_at(sheep[index]) == flat:
 				sheep[index] += Vector2(0, SIZE)
-		for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, house_colors, house_offsets, flora, decorations]:
+		for records in [trees, tree_types, tree_chickens, tree_stumps, tree_cut_remaining, log_piles, houses, house_colors, house_offsets, flora, decorations]:
 			if records.has(flat):
 				records[base] = records[flat]
 				records.erase(flat)
@@ -862,6 +872,7 @@ func settle_terrain_contacts() -> void:
 		if best.is_finite():
 			trees[cell] = best
 		else:
+			refund_tree_chicken(cell)
 			trees.erase(cell)
 			tree_types.erase(cell)
 			tree_stumps.erase(cell)
@@ -969,7 +980,7 @@ func can_cross(from: Vector2i, to: Vector2i) -> bool:
 func terrain_edit_preview(cell: Vector2i, tool: String, ground_height: float = -1):
 	var proposed = get_script().new()
 	proposed.skip_terrain_contact_validation = true
-	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_colors", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build", "achievements"]:
+	for field in ["cells", "elevations", "stair_directions", "flora", "decorations", "trees", "tree_types", "tree_chickens", "tree_stumps", "tree_cut_remaining", "log_piles", "houses", "house_colors", "house_offsets", "house_free_tiles", "bridges", "stock", "resources", "house_build", "achievements"]:
 		proposed.set(field, get(field).duplicate(true))
 	proposed.chickens = chickens.duplicate()
 	proposed.sheep = sheep.duplicate()
@@ -1051,6 +1062,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 		return true
 	if tool == "remove":
 		if trees.has(cell):
+			refund_tree_chicken(cell)
 			stock.tree += 1
 			tree_types.erase(cell)
 			tree_cut_remaining.erase(cell)
@@ -1099,7 +1111,7 @@ func edit(cell: Vector2i, tool: String, occupied: Vector2i, ground_height: float
 				# shifting their owner would leave a diagonal saved reference.
 				if decorations.has(cell) and decorations[cell].kind in DecorationRules.WATER_KINDS:
 					decorations.erase(cell)
-				for records in [trees, tree_types, tree_stumps, tree_cut_remaining, log_piles, houses, house_colors, house_offsets, flora, decorations]:
+				for records in [trees, tree_types, tree_chickens, tree_stumps, tree_cut_remaining, log_piles, houses, house_colors, house_offsets, flora, decorations]:
 					if records.has(cell):
 						records[target] = records[cell]
 						records.erase(cell)
@@ -1191,7 +1203,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 38, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 39, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.achievements = achievements.duplicate()
 	saved.black_hole = black_hole.duplicate(true)
 	saved.pawn_color = pawn_color
@@ -1212,6 +1224,9 @@ func snapshot() -> Dictionary:
 	saved.sheep_chickens = []
 	for index in sheep_chickens:
 		saved.sheep_chickens.append([index, sheep_chickens[index]])
+	saved.tree_chickens = []
+	for cell in tree_chickens:
+		saved.tree_chickens.append([cell.x, cell.y])
 	saved.chicken_release_at = chicken_release_at
 	saved.chicken_count = chickens.size()
 	saved.sheep_count = sheep.size()
@@ -1241,7 +1256,7 @@ func snapshot() -> Dictionary:
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_achievements = data.get("achievements", {})
 	if not AchievementRules.valid(next_achievements):
@@ -1609,6 +1624,16 @@ func restore(data: Dictionary) -> bool:
 		var index := int(record[0])
 		if index < 0 or index >= next_sheep.size() or next_sheep_chickens.has(index) or record[1] < 0 or record[1] > 10000000: return false
 		next_sheep_chickens[index] = int(record[1])
+	var next_tree_chickens := {}
+	var tree_birds = data.get("tree_chickens", []) if int(data.version) >= 39 else []
+	if not tree_birds is Array: return false
+	for record in tree_birds:
+		if not record is Array or record.size() != 2: return false
+		for value in record:
+			if not (value is int or value is float) or not is_finite(float(value)) or float(value) != floorf(float(value)): return false
+		var owner := Vector2i(int(record[0]), int(record[1]))
+		if not next_trees.has(owner) or next_tree_types.get(owner, "tree") not in CHICKEN_TREE_VARIANTS or next_stumps.has(owner) or next_tree_chickens.has(owner): return false
+		next_tree_chickens[owner] = true
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
 		if int(data.version) < 38 and not data.get("chickens") is Array:
@@ -1654,7 +1679,7 @@ func restore(data: Dictionary) -> bool:
 	var chicken_rewards := (1 if next_level >= 7 else 0) + (1 if int(data.version) >= 25 and next_level >= 2 else 0)
 	for reward_level in range(11, next_level + 1):
 		chicken_rewards += int(LEVEL_REWARDS[reward_level].get("chicken", 0))
-	if next_chickens.size() + next_sheep_chickens.size() + next_stock.chicken + BlackHoleState.count(next_portal, "chicken") + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
+	if next_chickens.size() + next_sheep_chickens.size() + next_tree_chickens.size() + next_stock.chicken + BlackHoleState.count(next_portal, "chicken") + (1 if next_chicken_release > 0 else 0) != chicken_rewards + int(next_grants.get("chicken", 0)):
 		return false
 	# Older islands have not received the new level-two reward.
 	if int(data.version) < 25 and next_level >= 2:
@@ -1745,6 +1770,7 @@ func restore(data: Dictionary) -> bool:
 	house_offsets = next_house_offsets
 	house_free_tiles = next_house_free_tiles
 	sheep_chickens = next_sheep_chickens
+	tree_chickens = next_tree_chickens
 	sheep = next_sheep
 	house_bundle = int(next_bundle)
 	house_bundle_source = next_bundle_source

@@ -857,7 +857,7 @@ test('signed-in durable islands avoid animal checkpoints and retain meaningful e
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
   await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
   const durable = await page.evaluate(() => loadPersistedState({ persistCleanup: false }).tinySwordsIsland)
-  expect(durable.version).toBe(38)
+  expect(durable.version).toBe(39)
   expect(durable).not.toHaveProperty('chickens')
   expect(durable).not.toHaveProperty('sheep')
   const saves = await canvas.evaluate(() => window.edeniaSaveId)
@@ -1057,7 +1057,7 @@ for (const indexedDb of [false, true]) {
     await readyGame(page)
     const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
     expect(new URL(game.url()).searchParams.get('internal_test')).toBe('1')
-    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(38)
+    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(39)
     const earned = await page.evaluate(() => loadState().tinySwordsIsland.achievements)
     expect(earned.cut_tree).toBe(true)
     expect(earned.build_house).toBeUndefined() // This fixture contains logs, not a completed house.
@@ -1161,7 +1161,7 @@ test('first Godot migration waits for a native profile acknowledgement and retai
       durable: JSON.parse(getProfileRepository().readRaw()),
       before: await getProfileRepository().readSyncBase(window.migrationBeforeImageIdentity)
     }))
-    expect(after.durable.tinySwordsIsland.version).toBe(38)
+    expect(after.durable.tinySwordsIsland.version).toBe(39)
     expect(after.durable.tinySwordsIsland).not.toHaveProperty('chickens')
     expect(after.durable.tinySwordsIsland).not.toHaveProperty('sheep')
     expect(after.durable.tinySwordsIsland.resources).toEqual(fixture.island.resources)
@@ -1169,12 +1169,12 @@ test('first Godot migration waits for a native profile acknowledgement and retai
     expect(after.before).toEqual(base.before)
     releaseCloud()
     await page.evaluate(() => learnerProfileLifecycleAuthority.retryCloudBackup())
-    await expect.poll(() => fixture.head().envelope.profile.tinySwordsIsland.version, { timeout: 70000 }).toBe(38)
+    await expect.poll(() => fixture.head().envelope.profile.tinySwordsIsland.version, { timeout: 70000 }).toBe(39)
     await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 70000 })
     await page.reload({ waitUntil: 'domcontentloaded' })
     await readyGame(page)
     expect(await page.evaluate(() => ({ version: loadPersistedState({ persistCleanup: false }).tinySwordsIsland.version,
-      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 38, resume: 41 })
+      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 39, resume: 41 })
     expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(() => window.edeniaLastSavePersisted)).not.toBe(false)
   } finally {
     releaseEngine()

@@ -70,6 +70,7 @@ export async function buildTinySwords(outputDir, { validate = true } = {}) {
     ['--script', 'res://tests/sync_activity.gd'],
     ['--script', 'res://tests/chicken_following.gd'],
     ['--script', 'res://tests/sheep_chicken.gd'],
+    ['--script', 'res://tests/tree_chicken.gd'],
     ['--script', 'res://tests/chicken_spacing.gd'],
     ['--script', 'res://tests/animal_checkpoint_saves.gd'],
     ['--script', 'res://tests/sync_semantics.gd'],
