@@ -18,6 +18,9 @@ const PREVIOUS_HEAD_SCHEMA = 'edenia-profile-head-v2'
 const RECORD_CHECKPOINT_MAX_BYTES = 128 * 1024
 const POINTER_SCHEMA = 'edenia-indexed-db-profile-v1'
 const CONFLICT = Symbol('conflicting profile changes')
+// A failed compare/identity proof is cancellation, not a broken storage device.
+// Recovery must never replace newer durable positions after this rejection.
+class AnimalCheckpointRejection extends Error {}
 const ANIMAL = 'animal-checkpoint'
 const ANIMAL_RECORD = Symbol('animal checkpoint record')
 
@@ -41,16 +44,16 @@ function sameAnimalTransition(binding, nextBinding) {
 }
 function preserveAnimal(previous, islandRaw, proof, replacementRevision = previous?.replacementRevision || 0) {
   if (!proof) return null
-  if (!isAnimalCheckpointBinding(proof.binding)) throw new Error('Stale animal preservation binding')
+  if (!isAnimalCheckpointBinding(proof.binding)) throw new AnimalCheckpointRejection('Stale animal preservation binding')
   const nextBinding = proof.nextBinding || proof.binding
-  if (!isAnimalCheckpointBinding(nextBinding) || !sameAnimalTransition(proof.binding, nextBinding)) throw new Error('Stale animal preservation transition')
+  if (!isAnimalCheckpointBinding(nextBinding) || !sameAnimalTransition(proof.binding, nextBinding)) throw new AnimalCheckpointRejection('Stale animal preservation transition')
   const existing = previous?.[ANIMAL_RECORD]
   const checkpoint = checkedAnimal(previous, existing, proof.binding)
     || (proof.nextBinding && checkedAnimal(previous, existing, nextBinding))
-  if (previous?.animalCheckpointStamp && !checkpoint) throw new Error('Stale animal preservation checkpoint')
+  if (previous?.animalCheckpointStamp && !checkpoint) throw new AnimalCheckpointRejection('Stale animal preservation checkpoint')
   const acknowledged = proof.acknowledgedStamp
   if (acknowledged && (!isAnimalCheckpointStamp(acknowledged)
-    || !sameAnimalOwner(acknowledged.binding, proof.binding))) throw new Error('Invalid animal preservation receipt')
+    || !sameAnimalOwner(acknowledged.binding, proof.binding))) throw new AnimalCheckpointRejection('Invalid animal preservation receipt')
   if (!islandRaw) return null
   const target = JSON.parse(islandRaw)
   const crossedBoundary = acknowledged && animalBoundary(acknowledged) !== (previous?.replacementRevision || 0)
@@ -90,6 +93,9 @@ function record(value) {
 function mergeChanges(base, desired, current, path = []) {
   if (equal(base, desired)) return current
   if (equal(base, current) || equal(desired, current)) return desired
+  // Island placement, carried resources and animal contacts form one value.
+  // Combining independently changed fields could place a pose on removed land.
+  if (path.length === 1 && path[0] === 'tinySwordsIsland') return CONFLICT
   // Loading a disabled Anki profile initializes this missing timestamp. Two
   // observations of the same unset value are compatible; later edits are not.
   if (path.length === 2 && path[0] === 'config' && path[1] === 'ankiDisabledAt'
@@ -397,6 +403,23 @@ export async function openIndexedDbProfile({
   function readAnimalCheckpoint(binding) {
     try { return checkedAnimal(current, current?.[ANIMAL_RECORD], binding) } catch { return null }
   }
+  // Exceptional fallback preparation shares the transaction's island policy.
+  // Returned copies may include local poses; canonical snapshots remain exact.
+  function readRecoverySnapshot(state, { animalCheckpoint = null, replaceIsland = false } = {}) {
+    if (state === undefined) {
+      const recovered = snapshot()
+      if (!recovered) return null
+      const checkpoint = readAnimalCheckpoint(current?.[ANIMAL_RECORD]?.stamp?.binding)
+      if (checkpoint) recovered.tinySwordsIsland = checkpoint.layout
+      return recovered
+    }
+    const recovered = JSON.parse(JSON.stringify(state))
+    if (!isValidState(recovered)) throw new TypeError('Invalid recovery learner profile')
+    const checkpoint = preserveAnimal(current, checkpointFields(recovered).islandRaw,
+      replaceIsland ? null : animalCheckpoint)
+    if (checkpoint) recovered.tinySwordsIsland = JSON.parse(checkpoint.layoutRaw)
+    return recovered
+  }
   function readIslandState({ binding } = {}) {
     if (!current) return null
     let fields = islandStates.get(current)
@@ -604,7 +627,10 @@ export async function openIndexedDbProfile({
           token.head = next
           unacknowledgedHeads.add(next)
           store.put(durableHead(next))
-        } catch (error) { saveFailures.set(state, error); transaction.abort() }
+        } catch (error) {
+          if (!(error instanceof AnimalCheckpointRejection)) saveFailures.set(state, error)
+          transaction.abort()
+        }
       }
       await finished
       // The caller uses the existing full durable save when the bounded overlay
@@ -708,7 +734,10 @@ export async function openIndexedDbProfile({
           token.head = next
           unacknowledgedHeads.add(next)
           store.put(durableHead(next))
-        } catch (error) { saveFailures.set(state, error); transaction.abort() }
+        } catch (error) {
+          if (!(error instanceof AnimalCheckpointRejection)) saveFailures.set(state, error)
+          transaction.abort()
+        }
       }
       request.onsuccess = () => {
         const latest = request.result
@@ -812,7 +841,7 @@ export async function openIndexedDbProfile({
         } catch (error) { failure = error; transaction.abort() }
       }
       try { await finished } catch (error) {
-        if (failure && !failure.message.startsWith('Stale animal') && !failure.message.startsWith('Animal receipt binding')) islandSaveFailures.set(failureKey, failure)
+        if (failure && !(failure instanceof AnimalCheckpointRejection)) islandSaveFailures.set(failureKey, failure)
         else if (!failure && error?.name !== 'AbortError' && error?.message !== 'Profile transaction aborted') islandSaveFailures.set(failureKey, error)
         throw error
       }
@@ -847,9 +876,9 @@ export async function openIndexedDbProfile({
     return writeAnimalCheckpoint(previous => {
       const baseRaw = canonicalIsland(previous)
       const checkpoint = checkedAnimal(previous, previous[ANIMAL_RECORD], binding)
-      if (previous.animalCheckpointStamp && !checkpoint) throw new Error('Stale animal binding')
+      if (previous.animalCheckpointStamp && !checkpoint) throw new AnimalCheckpointRejection('Stale animal binding')
       const effectiveRaw = checkpoint ? JSON.stringify(checkpoint.layout) : baseRaw
-      if ((effectiveRaw ?? 'absent') !== expected) throw new Error('Stale animal checkpoint')
+      if ((effectiveRaw ?? 'absent') !== expected) throw new AnimalCheckpointRejection('Stale animal checkpoint')
       if (!baseRaw || !animalIslandsHaveSameProgress(JSON.parse(baseRaw), captured)) return { outcome: null }
       if (JSON.stringify(captured) === effectiveRaw) return { outcome: true }
       const stamp = createAnimalCheckpointStamp(captured, binding, globalThis.crypto.randomUUID(), previous.replacementRevision || 0)
@@ -956,6 +985,7 @@ export async function openIndexedDbProfile({
     snapshot,
     readIslandState,
     readAnimalCheckpoint,
+    readRecoverySnapshot,
     saveAnimalCheckpoint,
     acknowledgeAnimalCheckpoint,
     saveIsland,

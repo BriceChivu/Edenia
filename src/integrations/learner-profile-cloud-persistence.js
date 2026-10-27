@@ -63,6 +63,13 @@ function canonicalProfilesMatch(localProfile, cloudEnvelope, prepareEnvelope) {
   }
 }
 
+function animalPositionsDiffer(before, after) {
+  try {
+    return Boolean(before && after && canonicalizeJson(before) !== canonicalizeJson(after)
+      && animalIslandsHaveSameProgress(before, after))
+  } catch { return false }
+}
+
 function matchesAnimalOperation(localProfile, envelope, operation, prepareEnvelope) {
   if (canonicalProfilesMatch(localProfile, envelope, prepareEnvelope)) return true
   if (!operation?.animalCheckpoint || !isAnimalCheckpointStamp(operation.animalCheckpoint)) return false
@@ -1404,13 +1411,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (animalCheckpoint && !forceAnimalCheckpoint && (latestProfile || baseProfile)
       && portableProfilesHaveSameProgress(prepared.profile, latestProfile || baseProfile)) return null
     if (recordSyncEnabled && ((latestProfile && canonicalizeJson(prepared.profile) === canonicalizeJson(latestProfile))
-      || (!latest && !animalCheckpoint && baseProfile && portableProfilesHaveSameProgress(prepared.profile, baseProfile)))) return null
+      || (!latest && !animalCheckpoint && !forceAnimalCheckpoint && baseProfile && portableProfilesHaveSameProgress(prepared.profile, baseProfile)))) return null
     const replacingPending = (minimumWriteIntervalMs > 0 || forceAnimalCheckpoint) && record.pending && !inFlight
       && record.pending.envelope === null && record.pending.retryCount === 0 && record.queued === null
-    const units = mergeDirtyUnits(dirtyUnits, animalCheckpoint ? { island: true } : undefined,
-      dirtyUnitsFromBatch(record.pending?.recordBatch), dirtyUnitsFromBatch(record.queued?.recordBatch))
     const batchBase = replacingPending ? baseProfile
       : (record.pending?.envelope || record.pending?.prepared)?.profile || baseProfile
+    // Exceptional full-storage recovery can already contain local poses without
+    // private side-checkpoint metadata. Include those poses with a real edit;
+    // the semantic no-op guards above still keep pose-only saves cloud silent.
+    const recoveredAnimalPositions = !animalCheckpoint
+      && animalPositionsDiffer(batchBase?.tinySwordsIsland, prepared.profile.tinySwordsIsland)
+    const units = mergeDirtyUnits(dirtyUnits, animalCheckpoint || recoveredAnimalPositions ? { island: true } : undefined,
+      dirtyUnitsFromBatch(record.pending?.recordBatch), dirtyUnitsFromBatch(record.queued?.recordBatch))
     // A legacy unsent candidate may include edits without typed hints. Keep
     // that complete candidate when coalescing; selecting only the newest hint
     // would silently leave its earlier records out of the replacement request.
@@ -4637,7 +4649,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'queued' }
     }
 
-    if (minimumWriteIntervalMs > 0 && !record.pending && !record.queued
+    if (!forceAnimalCheckpoint && minimumWriteIntervalMs > 0 && !record.pending && !record.queued
       && activeBinding.acceptedProfileDigest && !getAnimalCheckpoint(profile)) {
       try {
         if (syncProfileDigest(profile) === activeBinding.acceptedProfileDigest
@@ -4687,7 +4699,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     try {
       if (activeBinding?.isCurrent() && typeof activeBinding.readPersistedProfile === 'function') {
         const profile = activeBinding.readPersistedProfile()
-        if (profile && getAnimalCheckpoint(profile)) {
+        if (profile && (getAnimalCheckpoint(profile)
+          || animalPositionsDiffer(activeBinding.baseProfile?.tinySwordsIsland, profile.tinySwordsIsland))) {
           const saved = save(profile, { activation: activeBinding.activation,
             isCurrent: activeBinding.isCurrent, skipDeferral: true, skipPump: true, forceAnimalCheckpoint: true })
           if (saved.status !== 'queued') return false

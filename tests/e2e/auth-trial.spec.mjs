@@ -874,6 +874,51 @@ test('clean signed-in reopening retains local animal positions and the exact con
   expect(fixture.commits.length).toBe(commits)
 })
 
+test('a stale animal preservation proof cannot enter application recovery or acknowledge a study save', async ({ page }, testInfo) => {
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
+  test.setTimeout(60000)
+  const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-animal-v39.json', 'utf8'))
+  const fixture = await owned(page, { indexedDb: true, engine: false, island })
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.evaluate(() => learnerProfileLifecycleAuthority.retryCloudBackup())
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const commits = fixture.commits.length
+  const result = await page.evaluate(async () => {
+    const repository = getProfileRepository()
+    const sync = JSON.parse(localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1'))
+    const binding = { ownerId: sync.ownerId, profileId: sync.profileId,
+      generation: sync.generation, revision: sync.acceptedRevision }
+    const nextBinding = { ...binding, revision: binding.revision + 1 }
+    const canonical = repository.readRaw()
+    const current = learnerProfileLifecycleAuthority.readActiveIsland().tinySwordsIsland
+    const moved = structuredClone(current)
+    moved.sheep[0][0] += 16
+    const checkpointSaved = await learnerProfileLifecycleAuthority.saveActiveIsland(moved, JSON.stringify(current), { syncCloud: false })
+    // Model the durable half of an accepted receipt before access/cloud metadata
+    // advances: the following study save still carries the previous binding.
+    const rebound = await repository.acknowledgeAnimalCheckpoint({ stamp: null,
+      layout: current, binding, nextBinding })
+    const state = loadState()
+    state.config.staleAnimalStudyCandidate = true
+    const saved = await saveState(state, { backup: false, syncAnalytics: false })
+    return { checkpointSaved, rebound, saved, moved, canonical,
+      recovery: profileRecoveryWorkspace.isActive(), primary: primaryProfileRepository !== null,
+      activeRaw: getProfileRepository().readRaw(),
+      durableCheckpoint: repository.readAnimalCheckpoint(nextBinding)?.layout,
+      persistedStudyCandidate: loadPersistedState({ persistCleanup: false }).config.staleAnimalStudyCandidate }
+  })
+  expect(result.checkpointSaved).toBe(true)
+  expect(result.rebound).toBe(true)
+  expect(result.saved).toBe(false)
+  expect(result.recovery).toBe(false)
+  expect(result.primary).toBe(true)
+  expect(result.activeRaw).toBe(result.canonical)
+  expect(result.durableCheckpoint).toEqual(result.moved)
+  expect(result.persistedStudyCandidate).toBeUndefined()
+  expect(fixture.commits.length).toBe(commits)
+})
+
 test('explicit Sync stops when the live island checkpoint cannot be acknowledged', async ({ page }, testInfo) => {
   test.skip(!desktopTrialProjects.has(testInfo.project.name))
   await owned(page, { indexedDb: true, engine: false })

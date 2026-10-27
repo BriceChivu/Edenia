@@ -217,10 +217,11 @@ test('quota failure aborts the side record and head together without acknowledgi
     const newer = structuredClone(movedIsland); newer.sheep[0][0] += 8
     const saved = await animalRepository.saveAnimalCheckpoint(newer, JSON.stringify(movedIsland), { binding: animalBinding })
     IDBObjectStore.prototype.put = put
+    const failure = animalRepository.getIslandSaveFailure(newer)
     animalRepository.close(); animalRepository = await openAnimalRepository()
-    return { saved, before, after: animalRepository.readAnimalCheckpoint(animalBinding) }
+    return { saved, failure: failure && { name: failure.name }, before, after: animalRepository.readAnimalCheckpoint(animalBinding) }
   })
-  expect(result.saved).toBe(false); expect(result.after).toEqual(result.before)
+  expect(result.saved).toBe(false); expect(result.failure?.name).toBe('QuotaExceededError'); expect(result.after).toEqual(result.before)
 })
 
 test('a failed durable blob readback rolls back both the new pointer and its side record', async ({ page }) => {
@@ -281,11 +282,12 @@ test('a stale explicit full-save preservation proof cannot discard an already re
     const study = animalRepository.snapshot(); study.config.newStudyFact = true
     const stale = await animalRepository.save(study, { animalCheckpoint: { binding: animalBinding } })
     const after = animalRepository.readAnimalCheckpoint(nextBinding)
+    const failure = animalRepository.getSaveFailure(study)
     const retainedCandidate = study.config.newStudyFact
     const fresh = await animalRepository.save(study, { animalCheckpoint: { binding: nextBinding } })
-    return { stale, prior, after, fresh, retainedCandidate, state: animalRepository.snapshot(), checkpoint: animalRepository.readAnimalCheckpoint(nextBinding) }
+    return { stale, prior, after, fresh, failure: failure && { name: failure.name, message: failure.message }, retainedCandidate, state: animalRepository.snapshot(), checkpoint: animalRepository.readAnimalCheckpoint(nextBinding) }
   })
-  expect(result.stale).toBe(false); expect(result.after).toEqual(result.prior)
+  expect(result.stale).toBe(false); expect(result.failure).toBeNull(); expect(result.after).toEqual(result.prior)
   expect(result.retainedCandidate).toBe(true); expect(result.fresh).toBe(true); expect(result.state.config.newStudyFact).toBe(true)
   expect(result.checkpoint.layout).toEqual(moved)
 })
@@ -350,4 +352,72 @@ for (const withNewPose of [false, true]) test(`lost receipt full install retains
   expect(result.checkpoint).not.toBeNull()
   expect(result.effective.sheep[0][0]).toBe(withNewPose ? 576 : 544)
   expect(result.checkpoint.stamp.replacementRevision).toBe(result.marker)
+})
+
+test('recovery snapshots retain acknowledged positions without changing canonical or candidate state', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const before = animalRepository.readRaw()
+    const seed = animalRepository.readRecoverySnapshot()
+    const candidate = animalRepository.snapshot(); candidate.config.recoveryStudyFact = true
+    const candidateRaw = JSON.stringify(candidate)
+    const preserved = animalRepository.readRecoverySnapshot(candidate, { animalCheckpoint: { binding: animalBinding } })
+    const meaningful = structuredClone(candidate); meaningful.tinySwordsIsland.resources.wood += 5
+    const promoted = animalRepository.readRecoverySnapshot(meaningful, { animalCheckpoint: { binding: animalBinding } })
+    const reset = animalRepository.readRecoverySnapshot(candidate, { replaceIsland: true, animalCheckpoint: { binding: animalBinding } })
+    return { before, after: animalRepository.readRaw(), seed, preserved, promoted, reset,
+      candidateUnchanged: candidateRaw === JSON.stringify(candidate) }
+  })
+  expect(result.after).toBe(result.before); expect(result.candidateUnchanged).toBe(true)
+  expect(result.seed.tinySwordsIsland).toEqual(moved)
+  expect(result.preserved.tinySwordsIsland).toEqual(moved); expect(result.preserved.config.recoveryStudyFact).toBe(true)
+  expect(result.promoted.tinySwordsIsland.resources.wood).toBe(initial.resources.wood + 5)
+  expect(result.promoted.tinySwordsIsland.sheep[0][0]).toBe(544)
+  expect(result.reset.tinySwordsIsland).toEqual(initial)
+})
+
+test('recovery snapshot preparation shares lost-receipt reset and stale-proof rules', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const p = animalRepository.readAnimalCheckpoint(animalBinding)
+    await animalRepository.save(animalRepository.snapshot(), { replaceIsland: true, animalCheckpoint: { binding: animalBinding } })
+    const target = animalRepository.snapshot(); target.tinySwordsIsland = p.layout
+    const nextBinding = { ...animalBinding, revision: 8 }
+    const recovered = animalRepository.readRecoverySnapshot(target, { animalCheckpoint: {
+      binding: animalBinding, nextBinding, acknowledgedStamp: p.stamp } })
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    await animalRepository.acknowledgeAnimalCheckpoint({ stamp: null, layout: initialIsland, binding: animalBinding, nextBinding })
+    let stale = false
+    const candidate = animalRepository.snapshot(); const raw = JSON.stringify(candidate)
+    try { animalRepository.readRecoverySnapshot(candidate, { animalCheckpoint: { binding: animalBinding } }) }
+    catch { stale = true }
+    return { recovered, target, stale, candidateUnchanged: raw === JSON.stringify(candidate),
+      checkpoint: animalRepository.readAnimalCheckpoint(nextBinding) }
+  })
+  expect(result.target.tinySwordsIsland).toEqual(moved); expect(result.recovered.tinySwordsIsland).toEqual(initial)
+  expect(result.stale).toBe(true); expect(result.candidateUnchanged).toBe(true)
+  expect(result.checkpoint.layout).toEqual(moved)
+})
+
+test('a recovery seed excludes a side record with invalid canonical binding', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    await animalRepository.saveAnimalCheckpoint(movedIsland, JSON.stringify(initialIsland), { binding: animalBinding })
+    const canonical = animalRepository.readRaw()
+    animalRepository.close()
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('animal-fixture_profiles_indexed_db_v1')
+      request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error)
+    })
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction('profiles', 'readwrite')
+      const store = transaction.objectStore('profiles'); const request = store.get('animal-checkpoint')
+      request.onsuccess = () => store.put({ ...request.result, baseIslandSha256: 'invalid-durable-side-record' })
+      transaction.oncomplete = resolve; transaction.onabort = () => reject(transaction.error)
+    })
+    database.close(); animalRepository = await openAnimalRepository()
+    return { canonical, after: animalRepository.readRaw(), checkpoint: animalRepository.readAnimalCheckpoint(animalBinding),
+      seed: animalRepository.readRecoverySnapshot() }
+  })
+  expect(result.after).toBe(result.canonical); expect(result.checkpoint).toBeNull()
+  expect(result.seed.tinySwordsIsland).toEqual(initial)
 })

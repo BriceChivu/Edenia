@@ -67,6 +67,59 @@ test('animal positions survive a clean game reopen and study save without rewrit
   const exported = JSON.parse(await readFile(await (await download).path(), 'utf8'))
   expect(exported.profile.tinySwordsIsland).toEqual(await page.evaluate(() =>
     window.edeniaTinySwordsPersistence.readIsland().tinySwordsIsland))
+
+  // Keep this same live engine through exceptional full-profile recovery. Its
+  // acknowledged safe contacts must remain available when the primary database
+  // is retired and the bridge falls back to the complete recovery profile.
+  const recovery = await page.evaluate(async () => {
+    const put = IDBObjectStore.prototype.put
+    window.restoreLiveAnimalProfileWrites = () => { IDBObjectStore.prototype.put = put }
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      if (this.name === 'profiles' && value.key === 'active-body') {
+        throw new DOMException('Synthetic live animal recovery quota', 'QuotaExceededError')
+      }
+      return put.call(this, value, ...args)
+    }
+    const island = window.edeniaTinySwordsPersistence.readIsland().tinySwordsIsland
+    const state = loadState()
+    state.config.weeklyGoalHours = 5
+    const saved = await saveState(state, { backup: false, syncAnalytics: false })
+    return { saved, island, active: profileRecoveryWorkspace.isActive(),
+      primary: primaryProfileRepository !== null,
+      effective: window.edeniaTinySwordsPersistence.readIsland().tinySwordsIsland }
+  })
+  expect(recovery.saved).toBe(true)
+  expect(recovery.active).toBe(true)
+  expect(recovery.primary).toBe(false)
+  expect(recovery.effective).toEqual(recovery.island)
+  expect(page.frames().includes(game)).toBe(true)
+  const beforeRecoveryCapture = await game.evaluate(() => window.edeniaSaveId)
+  expect(await page.evaluate(() => window.edeniaFlushTinySwordsCheckpoint())).toBe(true)
+  await expect.poll(() => game.evaluate(() => window.edeniaSaveId)).toBeGreaterThan(beforeRecoveryCapture)
+  await expect.poll(() => game.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
+  expect(await game.evaluate(() => window.edeniaLastSavePersisted)).toBe(true)
+  expect(await page.evaluate(() => profileRecoveryWorkspace.isActive() && primaryProfileRepository === null)).toBe(true)
+  const recoveryDownload = page.waitForEvent('download')
+  await page.evaluate(() => exportSyncFile())
+  const recoveryExport = JSON.parse(await readFile(await (await recoveryDownload).path(), 'utf8'))
+  expect(recoveryExport.profile.config.weeklyGoalHours).toBe(5)
+  expect(recoveryExport.profile.tinySwordsIsland).toEqual(await page.evaluate(() =>
+    window.edeniaTinySwordsPersistence.readIsland().tinySwordsIsland))
+  await page.evaluate(() => {
+    window.restoreLiveAnimalProfileWrites()
+    window.dispatchEvent(new Event('focus'))
+  })
+  await expect.poll(() => page.evaluate(() => !profileRecoveryWorkspace.isActive() && primaryProfileRepository !== null)).toBe(true)
+  expect(await page.evaluate(() => loadState().config.weeklyGoalHours)).toBe(5)
+  expect(await page.evaluate(() => window.edeniaFlushTinySwordsCheckpoint())).toBe(true)
+  const afterPromotion = await page.evaluate(() => window.edeniaTinySwordsPersistence.readIsland().tinySwordsIsland)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
+  game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
+  await expect.poll(() => game.evaluate(() => window.edeniaLastSavePersisted)).toBe(true)
+  expect(await game.evaluate(() => window.edeniaStudyLayout)).toEqual(afterPromotion)
+  expect(await page.evaluate(() => loadState().config.weeklyGoalHours)).toBe(5)
+
   const unexpectedDownloads = []
   page.on('download', download => unexpectedDownloads.push(download.suggestedFilename()))
   await page.evaluate(async () => {

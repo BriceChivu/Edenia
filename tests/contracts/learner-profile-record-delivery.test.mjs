@@ -245,6 +245,50 @@ test('an unchanged routine save cannot turn local roaming into a pose-only autom
   assert.equal(phone.state().pending, null)
 })
 
+test('a later study sync includes animal poses recovered into the canonical local profile without a side stamp', async t => {
+  const cloud = server(animalFixture()), phone = await device(cloud)
+  t.after(() => phone.retire())
+  // A full-storage recovery body contains the latest durable coordinates, but
+  // JSON persistence cannot carry the private side-checkpoint WeakMap stamp.
+  phone.profile.tinySwordsIsland.chickens = [[5, 6]]
+  phone.save({ videos: ['video-0'] })
+  await phone.advance(); await settle(); await phone.advance()
+  assert.equal(commits(cloud).length, 0, 'Recovered poses alone cannot wake automatic sync')
+  assert.equal(phone.state().pending, null)
+
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await deliver(phone, cloud, 2)
+  assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['video', 'island'])
+  assert.deepEqual(cloud.profile(), normalizePortableLearnerProfile(phone.profile))
+  assert.equal(phone.state().pending, null)
+  assert.equal(commits(cloud).length, 1)
+})
+
+test('recovered poses cannot queue a pose-only automatic follow-up behind an in-flight study sync', async t => {
+  const cloud = server(animalFixture()), held = deferred()
+  const phone = await device(cloud, { rpc: async (name, parameters) => {
+    const response = await cloud.rpc(name, parameters)
+    if (name === 'commit_my_learner_profile_records') await held.promise
+    return response
+  } })
+  t.after(() => { held.resolve(); phone.retire() })
+  phone.profile.videos['video-0'].favorite = true
+  phone.save({ videos: ['video-0'] })
+  await phone.advance()
+  await until(() => cloud.head().revision === 2, 'The study request is awaiting its acknowledgement', phone.inspect)
+  phone.profile.tinySwordsIsland.chickens = [[5, 6]]
+  phone.save({ videos: ['video-0'] })
+  await phone.advance(); await settle()
+  assert.equal(phone.state().queued, null, 'A routine save of only changed poses cannot add another operation')
+  held.resolve()
+  await until(() => phone.state().acceptedRevision === 2, 'The original study operation retires', phone.inspect)
+  await phone.advance(); await settle()
+  assert.equal(commits(cloud).length, 1)
+  assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[1, 2]])
+  assert.deepEqual(phone.profile.tinySwordsIsland.chickens, [[5, 6]], 'Local recovered poses remain available for a later real edit')
+})
+
 async function deliver(device, service, revision) {
   await device.advance()
   await until(() => service.head().revision === revision && device.state().acceptedRevision === revision, 'Delivery is durably acknowledged', device.inspect)
@@ -306,6 +350,23 @@ test(`roaming stays local and explicit Sync sends a clean animal checkpoint (rec
   if (recordSyncEnabled) assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['island'])
   else assert.equal(commits(cloud)[0].name, 'commit_my_learner_profile_handoff')
   assert.deepEqual(cloud.profile().tinySwordsIsland.chickens, [[5, 6]])
+})
+}
+
+for (const recordSyncEnabled of [true, false]) for (const interval of [0, 30_000]) {
+test(`explicit Sync sends checked poses from a full-storage recovery body without private metadata (record flag ${recordSyncEnabled}, interval ${interval})`, async t => {
+  const cloud = server(animalFixture()), phone = await device(cloud, { recordSyncEnabled, interval, recordInterval: 5000 })
+  t.after(() => phone.retire())
+  phone.profile.tinySwordsIsland.chickens = [[5, 6]]
+  await phone.advance(120_000)
+  assert.equal(commits(cloud).length, 0)
+  assert.equal(phone.state().pending, null)
+  assert.equal(phone.adapter.retry(), true)
+  await until(() => phone.state().acceptedRevision === 2, 'Explicit Sync accepts the full-body recovery pose', phone.inspect)
+  if (recordSyncEnabled) assert.deepEqual(commits(cloud)[0].parameters.p_batch.units.map(unit => unit.kind), ['island'])
+  else assert.equal(commits(cloud)[0].name, 'commit_my_learner_profile_handoff')
+  assert.deepEqual(cloud.profile(), normalizePortableLearnerProfile(phone.profile))
+  assert.equal(commits(cloud).length, 1)
 })
 }
 

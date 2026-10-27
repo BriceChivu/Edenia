@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createProfileRecoveryWorkspace } from '../../src/state/profile-recovery-workspace.js'
 import { createStateStore } from '../../src/state/store.js'
 function fixture({ denied = false } = {}) {
@@ -10,6 +11,69 @@ function fixture({ denied = false } = {}) {
   const options = { storageKey: 'profile', accessKey: 'access', keys: ['access','sync'], getPrimary: () => primary, getSecondary: () => secondary, capture: () => ({ profile: primary.getItem('profile') }) }
   return { values, sessionValues, options, workspace: createProfileRecoveryWorkspace(options) }
 }
+
+test('an exact island replacement retains its boundary through recovery and rejects pre-reset objects', async () => {
+  const f = fixture()
+  f.workspace.activate()
+  const stale = f.workspace.repository.snapshot()
+  const reset = f.workspace.repository.snapshot()
+  assert.equal(await f.workspace.repository.save(reset, { replaceIsland: true }), true)
+  assert.equal(f.workspace.hasReplacement(), true)
+  stale.watch = 9
+  assert.equal(await f.workspace.repository.save(stale), false)
+  assert.equal(f.workspace.repository.snapshot().watch, 1)
+  const resumed = createProfileRecoveryWorkspace(f.options)
+  resumed.activate()
+  assert.equal(resumed.hasReplacement(), true)
+  const next = resumed.repository.snapshot()
+  next.watch = 2
+  assert.equal(await resumed.repository.save(next), true)
+  assert.equal(resumed.repository.snapshot().watch, 2)
+})
+
+test('a verified older cloud receipt durably acknowledges recovery without replacing newer study or animal positions', async () => {
+  const f = fixture()
+  f.values.set('profile', JSON.stringify({ watch: 1, tinySwordsIsland: { sheep: [[544, 208]] } }))
+  f.workspace.activate()
+  const latest = f.workspace.repository.snapshot()
+  latest.watch = 2
+  latest.tinySwordsIsland.sheep = [[560, 208]]
+  assert.equal(await f.workspace.repository.save(latest), true)
+  assert.equal(await f.workspace.repository.acknowledgeAnimalCheckpoint({ layout: { sheep: [[544, 208]] }, canPersist: () => true }), true)
+  assert.equal(f.workspace.repository.snapshot().watch, 2)
+  assert.deepEqual(f.workspace.repository.readIslandState().tinySwordsIsland.sheep, [[560, 208]])
+  assert.equal(await f.workspace.repository.acknowledgeAnimalCheckpoint({ canPersist: () => false }), false)
+  const resumed = createProfileRecoveryWorkspace(f.options)
+  resumed.activate()
+  assert.equal(resumed.repository.snapshot().watch, 2)
+  assert.deepEqual(resumed.repository.readIslandState().tinySwordsIsland.sheep, [[560, 208]])
+})
+
+test('cold own-receipt reconciliation preserves recovery contacts while installing combined study facts', async () => {
+  const f = fixture()
+  const initial = JSON.parse(readFileSync(new URL('../fixtures/tiny-swords-animal-v39.json', import.meta.url)))
+  const moved = structuredClone(initial)
+  moved.sheep[0][0] += 16
+  f.values.set('profile', JSON.stringify({ watch: 1, tinySwordsIsland: moved }))
+  f.values.set('access', JSON.stringify({ ownerId: 'owner', profileId: 'profile', generation: 1, revision: 8 }))
+  f.workspace.activate()
+  const target = { watch: 2, tinySwordsIsland: initial }
+  const proof = { binding: { ownerId:'owner',profileId:'profile',generation:1,revision:7 },
+    nextBinding: { ownerId:'owner',profileId:'profile',generation:1,revision:8 } }
+  assert.equal(await f.workspace.repository.save(target, { replace:true,animalCheckpoint:proof }), true)
+  assert.equal(f.workspace.repository.snapshot().watch, 2)
+  assert.deepEqual(f.workspace.repository.readIslandState().tinySwordsIsland, moved)
+  const wrong = { watch: 3, tinySwordsIsland: initial }
+  assert.equal(await f.workspace.repository.save(wrong, { replace:true,animalCheckpoint:{...proof,
+    nextBinding:{...proof.nextBinding,generation:2}} }), false)
+  assert.equal(f.workspace.repository.snapshot().watch, 2)
+  const reset = { watch: 0, tinySwordsIsland: initial }
+  assert.equal(await f.workspace.repository.save(reset, { replaceIsland:true }), false,
+    'An unadopted stale object cannot bypass the existing recovery baseline')
+  f.workspace.repository.adoptSnapshot(reset)
+  assert.equal(await f.workspace.repository.save(reset, { replaceIsland:true }), true)
+  assert.deepEqual(f.workspace.repository.readIslandState().tinySwordsIsland, initial)
+})
 test('a native quota retry discards replaceable search metadata before activating recovery', () => {
   const f = fixture()
   f.values.set('search', 'replaceable search metadata')

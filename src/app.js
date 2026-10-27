@@ -847,7 +847,9 @@ function getProfileRepository() {
         || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
         || repository.getReplacementRevision() !== replacement
         || repository.readRaw() !== acknowledged) return false
-      profileRecoveryWorkspace.activate({ profile: acknowledged, replacementRevision: replacement }, failure, 'save')
+      let recoverySeed = acknowledged
+      try { recoverySeed = JSON.stringify(repository.readRecoverySnapshot?.() || JSON.parse(acknowledged)) } catch { return false }
+      profileRecoveryWorkspace.activate({ profile: recoverySeed, baseline: acknowledged, replacementRevision: replacement }, failure, 'save')
       resetRecoveryBackupStore()
       if (syncBase && !await profileRecoveryWorkspace.retainSyncBase(options.syncBase, syncBase)) return false
       const state = profileRecoveryWorkspace.repository.snapshot()
@@ -862,6 +864,8 @@ function getProfileRepository() {
       if (!learnerProfileLifecycleAuthority && !options?.replace && !options?.replaceIsland) {
         options = { ...options, animalCheckpoint: { binding: accountlessAnimalBinding() } }
       }
+      const access = profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
+      const replacement = repository.getReplacementRevision()
       let saved = false
       let failure = null
       try { saved = await repository.save(state, options) } catch (error) { failure = error }
@@ -870,24 +874,41 @@ function getProfileRepository() {
       if (!failure) return false
       // Preserve the last acknowledged baseline and the exact current fences.
       // A cancelled activation must never be converted into a new save.
-      if (primaryProfileRepository !== repository) return false
+      if (primaryProfileRepository !== repository
+        || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
+        || repository.getReplacementRevision() !== replacement) return false
       const acknowledged = repository.readRaw()
       const syncBase = options?.syncBase
         ? await repository.readSyncBase(options.syncBase) ?? (acknowledged ? JSON.parse(acknowledged) : null) : null
       if (options?.canPersist?.() === false || primaryProfileRepository !== repository
-        || repository.readRaw() !== acknowledged) return false
+        || repository.readRaw() !== acknowledged
+        || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
+        || repository.getReplacementRevision() !== replacement) return false
+      let recoverySeed = acknowledged
+      let candidate = state
+      try {
+        if (repository.readRecoverySnapshot) {
+          candidate = repository.readRecoverySnapshot(state, options)
+          if (acknowledged) recoverySeed = JSON.stringify(repository.readRecoverySnapshot())
+        }
+      } catch { return false }
       // A first verified cloud install has no old body, but its candidate and
       // ownership fence are already known. Keep that exact candidate and fence.
       profileRecoveryWorkspace.activate({
-        profile: acknowledged || (options?.replace ? JSON.stringify(state) : null),
-        baseline: acknowledged, replacementRevision: repository.getReplacementRevision()
+        profile: recoverySeed || (options?.replace ? JSON.stringify(candidate) : null),
+        baseline: acknowledged, replacementRevision: replacement
       }, failure, 'save')
+      if (candidate !== state) {
+        for (const key of Object.keys(state)) delete state[key]
+        Object.defineProperties(state, Object.getOwnPropertyDescriptors(candidate))
+      }
       profileRecoveryWorkspace.repository.adoptSnapshot(state)
       resetRecoveryBackupStore()
       if (syncBase && !await profileRecoveryWorkspace.retainSyncBase(options.syncBase, syncBase)) return false
       const result = options?.replace
         ? saveImportedPersistedState(state, { syncAnalytics: false }, options.canPersist)
-        : savePersistedState(state, { backup: false, syncAnalytics: false }, options.canPersist)
+        : savePersistedState(state, { backup: false, syncAnalytics: false,
+          ...(options?.replaceIsland ? { replaceIsland: true } : {}) }, options.canPersist)
       const persisted = await result
       return options?.replace ? persisted?.persisted === true : persisted === true
     }
@@ -19367,7 +19388,8 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
     }
     if (!await profileRecoveryWorkspace.archive(original) || !current()) return
     originalRepository.inheritRevision(merged, original)
-    if (!await originalRepository.save(merged, { canPersist: current }) || !profileRecoveryWorkspace.matches(epoch)) return
+    if (!await originalRepository.save(merged, { canPersist: current,
+      replaceIsland: profileRecoveryWorkspace.hasReplacement() }) || !profileRecoveryWorkspace.matches(epoch)) return
     // Record the acknowledged head before copying metadata. If the tab closes
     // halfway through promotion, the next opening can safely finish it.
     promotionStarted = true

@@ -65,10 +65,11 @@ the storage-path cost from snapshot-format differences measured above.
 | --- | ---: | ---: | ---: |
 | Meaningful island save acknowledgement | 500 | 0.20 | 0.20 |
 | Meaningful island save acknowledgement | 2,500 | 0.20 | 0.20 |
-| Cold local repository opening, after with local positions | 500 | 4.1 | 4.2 |
-| Cold local repository opening, after with local positions | 2,500 | 15.4 | 16.3 |
+| Cold local repository opening, after with local positions | 500 | 4.0 | 4.3 |
+| Cold local repository opening, after with local positions | 2,500 | 15.9 | 16.4 |
 
-A new animal checkpoint costs 0.40 ms median (round medians 0.40–0.50 ms), writing
+A new animal checkpoint costs 0.40/0.50 ms median at 500/2,500 videos (round
+medians 0.40–0.50 ms), writing
 one small head and one complete island record: 2,625 encoded bytes in this fixture.
 All 210 side-checkpoint acknowledgements were real writes, with zero immutable
 body reads or writes. A forced canonical-position control costs 0.20 ms but would
@@ -96,10 +97,10 @@ are 767, 1,748 and 1,230 bytes respectively.
 
 Preparation and acknowledgement still process the full recovery candidate at a
 safe opportunity; the movement-only storage path avoids that work. Ordinary
-preparation medians were 100.39 → 106.61 ms (500 videos) and 397.45 → 407.57 ms
-(2,500). Median paired preparation differences were +3.08/+11.29 ms; paired
-acknowledgement differences were +5.81/+16.54 ms. Five-trial ranges overlap, so
-these show small measured overhead with noise, not a speedup or zero cost. Fixed
+preparation medians were 103.02 → 104.53 ms (500 videos) and 404.46 → 397.83 ms
+(2,500). Median paired preparation differences were +0.32/−2.84 ms; paired
+acknowledgement differences were +3.06/−5.34 ms. Five-trial ranges overlap, so
+these do not establish a speedup, regression or zero cost. Fixed
 mock latency and client bookkeeping cannot establish production database or
 network latency. Earlier harness controls are retained separately, including a
 discarded full-profile mock-server implementation and intermediate source pins.
@@ -119,6 +120,16 @@ unstamped older receipts losing newer positions. Two optional native test
 failures also reproduced on the baseline: an unsupported shoreline fixture
 expected no safe settling, and an old cutting fixture contradicted the documented
 Terrain-menu pause. Corrected fixtures pass on both versions; gameplay was unchanged.
+
+The independent Standards review found no documented-standard breach; its minor
+stamp-reader naming finding was clarified. The Spec review found one recovery
+blocker with two paths: semantic rejections could activate recovery, and genuine
+storage failures could omit separately saved positions. Typed rejection handling
+and a shared checked recovery-snapshot policy fixed both. Full-application tests
+failed on the earlier build and pass in Chromium/WebKit after the fix, including
+live Godot capture/export while the primary database is retired. Recovery
+receipts, cold replay, explicit Sync and promotion retain the complete latest
+island, while concurrent terrain/pose rebases require the whole-island resolver.
 
 Detailed raw traces, source/artifact manifests, paired samples and logs are kept
 outside the worktree in the task's `animal-position-implementation-2026-10-27`
