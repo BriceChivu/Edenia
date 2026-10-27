@@ -1174,7 +1174,7 @@ test('first Godot migration waits for a native profile acknowledgement and retai
     await page.reload({ waitUntil: 'domcontentloaded' })
     await readyGame(page)
     expect(await page.evaluate(() => ({ version: loadPersistedState({ persistCleanup: false }).tinySwordsIsland.version,
-      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 38, resume: 41 })
+      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 39, resume: 41 })
     expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(() => window.edeniaLastSavePersisted)).not.toBe(false)
   } finally {
     releaseEngine()
