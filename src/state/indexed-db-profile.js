@@ -4,6 +4,8 @@ import { mergeStudyInsightHistoryChanges } from './study-insights-state.js'
 import { mergeActivityLogAdditions } from './activity-log.js'
 import { isValidTimestamp } from '../core/date-keys.js'
 import { budgetRecentEntries } from './storage-budget.js'
+import { animalIslandsHaveSameProgress, animalIslandSha256, copyAnimalCheckpointLayout,
+  createAnimalCheckpointStamp, isAnimalCheckpointBinding, isAnimalCheckpointStamp } from './tiny-swords-animal-checkpoint.js'
 
 const STORE = 'profiles'
 const HEAD = 'active'
@@ -16,6 +18,53 @@ const PREVIOUS_HEAD_SCHEMA = 'edenia-profile-head-v2'
 const RECORD_CHECKPOINT_MAX_BYTES = 128 * 1024
 const POINTER_SCHEMA = 'edenia-indexed-db-profile-v1'
 const CONFLICT = Symbol('conflicting profile changes')
+const ANIMAL = 'animal-checkpoint'
+const ANIMAL_RECORD = Symbol('animal checkpoint record')
+
+function cacheAnimal(head, value) {
+  if (head) Object.defineProperty(head, ANIMAL_RECORD, { value, configurable: true })
+  return head
+}
+function carryAnimal(head, previous) {
+  return cacheAnimal(head, head?.animalCheckpointStamp && head.animalCheckpointStamp === previous?.animalCheckpointStamp
+    ? previous[ANIMAL_RECORD] : null)
+}
+function canonicalIsland(head) {
+  return splitHead(head) ? head.islandRaw : head ? checkpointFields(JSON.parse(head.raw)).islandRaw : null
+}
+function sameAnimalOwner(left, right) {
+  return left?.ownerId === right?.ownerId && left?.profileId === right?.profileId && left?.generation === right?.generation
+}
+function sameAnimalTransition(binding, nextBinding) {
+  return sameAnimalOwner(binding, nextBinding)
+    && (binding.ownerId === null || nextBinding.revision >= binding.revision)
+}
+function preserveAnimal(previous, islandRaw, proof) {
+  if (!isAnimalCheckpointBinding(proof?.binding) || !islandRaw) return null
+  const nextBinding = proof.nextBinding || proof.binding
+  if (!isAnimalCheckpointBinding(nextBinding) || !sameAnimalTransition(proof.binding, nextBinding)) return null
+  const existing = previous?.[ANIMAL_RECORD]
+  const checkpoint = checkedAnimal(previous, existing, proof.binding)
+    || (proof.nextBinding && checkedAnimal(previous, existing, nextBinding))
+  if (!checkpoint || !animalIslandsHaveSameProgress(JSON.parse(islandRaw), checkpoint.layout)) return null
+  if (proof.acknowledgedStamp) {
+    if (!isAnimalCheckpointStamp(proof.acknowledgedStamp)
+      || !sameAnimalOwner(proof.acknowledgedStamp.binding, proof.binding)) return null
+    if (proof.acknowledgedStamp.stamp === checkpoint.stamp.stamp) return null
+  }
+  return { ...existing, stamp: { ...existing.stamp, binding: structuredClone(nextBinding) },
+    baseIslandSha256: animalIslandSha256(JSON.parse(islandRaw)) }
+}
+function checkedAnimal(head, value, binding) {
+  if (!head?.animalCheckpointStamp || !value || !isAnimalCheckpointStamp(value.stamp)
+    || value.stamp.stamp !== head.animalCheckpointStamp || !equal(value.stamp.binding, binding)) return null
+  const layout = JSON.parse(value.layoutRaw)
+  const base = canonicalIsland(head)
+  if (!base || animalIslandSha256(JSON.parse(base)) !== value.baseIslandSha256
+    || animalIslandSha256(layout) !== value.stamp.layoutSha256
+    || !animalIslandsHaveSameProgress(JSON.parse(base), layout)) return null
+  return { stamp: structuredClone(value.stamp), layout, baseIslandSha256: value.baseIslandSha256 }
+}
 
 function equal(left, right) {
   return JSON.stringify(left) === JSON.stringify(right)
@@ -178,14 +227,14 @@ function durableHead(head) {
   return splitHead(head) ? { ...head } : head
 }
 function sameHead(left, right) {
-  return left?.revision === right?.revision && (splitHead(right)
+  return left?.revision === right?.revision && left?.animalCheckpointStamp === right?.animalCheckpointStamp && (splitHead(right)
     ? splitHead(left) && left.bodyRevision === right.bodyRevision && left.islandRaw === right.islandRaw
       && equal(left.recordCheckpoints, right.recordCheckpoints)
     : left?.raw === right?.raw)
 }
 // Cache the large, immutable body across island revisions. Warm checkpoints
 // neither fetch nor serialize it; complete profile reads compose it lazily.
-async function read(database, key = HEAD, cached = null, headOnly = false) {
+async function read(database, key = HEAD, cached = null, headOnly = false, forceAnimal = false) {
   const transaction = profileTransaction(database, STORE, 'readonly')
   const finished = complete(transaction)
   const store = transaction.objectStore(STORE)
@@ -194,6 +243,14 @@ async function read(database, key = HEAD, cached = null, headOnly = false) {
   request.onsuccess = () => {
     try {
       result = request.result || null
+      if (!headOnly && result?.animalCheckpointStamp) {
+        if (!forceAnimal && cached?.revision === result.revision && cached?.animalCheckpointStamp === result.animalCheckpointStamp && cached[ANIMAL_RECORD]) carryAnimal(result, cached)
+        else {
+          const animal = store.get(ANIMAL)
+          const captured = result
+          animal.onsuccess = () => { cacheAnimal(captured, animal.result || null) }
+        }
+      }
       if (headOnly || !splitHead(result)) return
       if (cached?.bodyRevision === result.bodyRevision && typeof cached.bodyRaw === 'string') {
         result = hydrate(result, cached.bodyRaw)
@@ -322,7 +379,10 @@ export async function openIndexedDbProfile({
     baselines.set(state, current)
     return state
   }
-  function readIslandState() {
+  function readAnimalCheckpoint(binding) {
+    try { return checkedAnimal(current, current?.[ANIMAL_RECORD], binding) } catch { return null }
+  }
+  function readIslandState({ binding } = {}) {
     if (!current) return null
     let fields = islandStates.get(current)
     if (!fields) {
@@ -330,7 +390,7 @@ export async function openIndexedDbProfile({
       islandStates.set(current, fields)
     }
     const state = { cityProgress: structuredClone(fields.cityProgress) }
-    if (fields.islandRaw !== null) state.tinySwordsIsland = JSON.parse(fields.islandRaw)
+    if (fields.islandRaw !== null) state.tinySwordsIsland = readAnimalCheckpoint(binding)?.layout || JSON.parse(fields.islandRaw)
     return state
   }
   async function refresh() {
@@ -346,9 +406,11 @@ export async function openIndexedDbProfile({
         && equal(next.recordCheckpoints, current?.recordCheckpoints)
       const replacement = (next?.replacementRevision || 0) !== (current?.replacementRevision || 0)
       if (!islandOnly) validate(next)
+      const animalCheckpoint = islandOnly && canonicalIsland(next) === canonicalIsland(current)
+        && !equal(next?.[ANIMAL_RECORD], current?.[ANIMAL_RECORD])
       current = next
       for (const listener of listeners) listener()
-      onChange({ islandOnly, replacement })
+      onChange({ islandOnly, replacement, ...(animalCheckpoint ? { animalCheckpoint: true } : {}) })
     })
     return refreshQueue
   }
@@ -379,8 +441,10 @@ export async function openIndexedDbProfile({
             store.put({ key: BODY, revision: previous.bodyRevision, raw: previous.bodyRaw })
           }
           else if (!splitHead(previous)) store.delete(BODY)
+          if (previous[ANIMAL_RECORD]) store.put(previous[ANIMAL_RECORD])
+          else if (next?.animalCheckpointStamp) store.delete(ANIMAL)
         }
-        else store.delete(HEAD)
+        else { store.delete(HEAD); store.delete(ANIMAL) }
       } catch { rollback.abort() }
     }
     await rolledBack
@@ -495,7 +559,7 @@ export async function openIndexedDbProfile({
             if (!localRevisions.has(revision)) owned = false
           }
           if (!owned || !canPersist() || storage.getItem(accessKey) !== capturedAccess) { transaction.abort(); return }
-          previous = splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest
+          previous = carryAnimal(splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest, current)
           const initializeBody = !splitHead(previous)
           const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
           // A legacy unsplit head needs one initial parse. Subsequent records
@@ -509,7 +573,9 @@ export async function openIndexedDbProfile({
           retainSyncBase(store, baseline, syncBase, false, error => saveFailures.set(state, error))
           next = hydrate({ key: HEAD, schema: HEAD_SCHEMA, revision: latest.revision + 1,
             bodyRevision: baseline.bodyRevision, islandRaw: fields.islandRaw, cityProgress: fields.cityProgress,
-            recordCheckpoints: checkpoints, ...replacementFields(latest) }, bodyRaw)
+            recordCheckpoints: checkpoints, ...replacementFields(latest),
+            ...(latest.animalCheckpointStamp ? { animalCheckpointStamp: latest.animalCheckpointStamp } : {}) }, bodyRaw)
+          carryAnimal(next, previous)
           if (initializeBody) {
             store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
             // A committed conversion may still lose its ownership fence during
@@ -538,7 +604,7 @@ export async function openIndexedDbProfile({
         await restoreUnacknowledgedHead(next, previous)
         return false
       }
-      current = hydrate(verified, next.bodyRaw)
+      current = carryAnimal(hydrate(verified, next.bodyRaw), next)
       localRevisions.add(next.revision)
       if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
       // A preceding full save can restore its captured snapshot while this
@@ -567,7 +633,7 @@ export async function openIndexedDbProfile({
     return operation
   }
 
-  function save(state, { canPersist = () => true, replace = false, syncBase = null } = {}) {
+  function save(state, { canPersist = () => true, replace = false, syncBase = null, animalCheckpoint = null } = {}) {
     saveFailures.delete(state)
     const raw = JSON.stringify(state)
     if (!isValidState(JSON.parse(raw))) return Promise.resolve(false)
@@ -591,7 +657,8 @@ export async function openIndexedDbProfile({
         try {
           const latestRevision = latest?.revision || 0
           const baseline = predecessor ? predecessor.raw : expectedBaseline?.raw
-          let ownInterveningWrites = baseRevision >= 1 && baseline !== undefined && !replace
+          let ownInterveningWrites = baseRevision >= 1 && baseline !== undefined
+            && (!replace || (isAnimalCheckpointBinding(animalCheckpoint?.binding) && baseline === latest?.raw))
           for (let revision = baseRevision + 1; ownInterveningWrites && revision <= latestRevision; revision += 1) {
             if (!localRevisions.has(revision)) ownInterveningWrites = false
           }
@@ -600,7 +667,7 @@ export async function openIndexedDbProfile({
             transaction.abort()
             return
           }
-          previous = latest || null
+          previous = carryAnimal(latest || null, current)
           if (!replace) retainSyncBase(store, previous, syncBase, true, error => saveFailures.set(state, error))
           let nextRaw = raw
           if (baseline !== undefined && previous?.raw !== baseline) {
@@ -616,6 +683,9 @@ export async function openIndexedDbProfile({
             store.put({ key: BODY, revision: next.bodyRevision, raw: nextRaw })
           } else next = { key: HEAD, raw: nextRaw, revision: latestRevision + 1,
             ...replacementFields(previous, latestRevision + 1, replace) }
+          const animal = preserveAnimal(previous, canonicalIsland(next), animalCheckpoint)
+          if (animal) { next.animalCheckpointStamp = animal.stamp.stamp; cacheAnimal(next, animal); store.put(animal) }
+          else store.delete(ANIMAL)
           token.head = next
           unacknowledgedHeads.add(next)
           store.put(durableHead(next))
@@ -677,7 +747,121 @@ export async function openIndexedDbProfile({
     writeQueue = operation
     return operation
   }
-  function saveIsland(layout, expected, { canPersist = () => true, syncBase = null } = {}) {
+  // Animal motion has its own bounded record. Canonical bytes and the retained
+  // cloud before-image remain unchanged until a verified receipt absorbs it.
+  function writeAnimalCheckpoint(change, { canPersist = () => true, failureKey = emptyIslandFailureKey } = {}) {
+    const expectedRevision = current?.revision
+    const capturedAccess = storage.getItem(accessKey)
+    const token = { head: null }
+    const operation = writeQueue.catch(() => {}).then(async () => {
+      if (expectedRevision === undefined || !canPersist()) return false
+      let previous, next, outcome = false, failure = null
+      const transaction = profileTransaction(database, STORE, 'readwrite', { durability: 'strict' })
+      const finished = complete(transaction)
+      const store = transaction.objectStore(STORE)
+      const request = store.get(HEAD)
+      request.onsuccess = () => {
+        try {
+          const latest = request.result
+          let owned = latest && latest.revision >= expectedRevision
+          for (let revision = expectedRevision + 1; owned && revision <= latest.revision; revision++) {
+            if (!localRevisions.has(revision)) owned = false
+          }
+          if (!owned || !canPersist() || storage.getItem(accessKey) !== capturedAccess) { transaction.abort(); return }
+          previous = carryAnimal(splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest, current)
+          const result = change(previous)
+          outcome = result.outcome
+          if (!result.write) return
+          const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
+          const fields = splitHead(previous) ? previous : checkpointFields(JSON.parse(bodyRaw))
+          next = hydrate({ key: HEAD, schema: fields.recordCheckpoints ? HEAD_SCHEMA : PREVIOUS_HEAD_SCHEMA,
+            revision: latest.revision + 1, bodyRevision: splitHead(latest) ? latest.bodyRevision : latest.revision,
+            islandRaw: result.islandRaw ?? fields.islandRaw, cityProgress: fields.cityProgress,
+            ...(fields.recordCheckpoints ? { recordCheckpoints: fields.recordCheckpoints } : {}),
+            ...replacementFields(latest),
+            ...(result.animal ? { animalCheckpointStamp: result.animal.stamp.stamp } : {}) }, bodyRaw)
+          cacheAnimal(next, result.animal || null)
+          if (!splitHead(previous)) store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
+          if (result.animal) store.put(result.animal)
+          else store.delete(ANIMAL)
+          token.head = next
+          unacknowledgedHeads.add(next)
+          store.put(durableHead(next))
+        } catch (error) { failure = error; transaction.abort() }
+      }
+      try { await finished } catch (error) {
+        if (failure && !failure.message.startsWith('Stale animal') && !failure.message.startsWith('Animal receipt binding')) islandSaveFailures.set(failureKey, failure)
+        else if (!failure && error?.name !== 'AbortError' && error?.message !== 'Profile transaction aborted') islandSaveFailures.set(failureKey, error)
+        throw error
+      }
+      if (!next) return canPersist() && storage.getItem(accessKey) === capturedAccess ? outcome : false
+      let verified
+      try { verified = await read(database, HEAD, previous, false, true) } catch (error) {
+        islandSaveFailures.set(failureKey, error)
+        await restoreUnacknowledgedHead(next, previous); return false
+      }
+      if (!sameHead(verified, next)) { await refresh(); return false }
+      if (!equal(verified?.[ANIMAL_RECORD] || null, next[ANIMAL_RECORD] || null)) { await restoreUnacknowledgedHead(next, previous); return false }
+      if (!canPersist() || storage.getItem(accessKey) !== capturedAccess) {
+        await restoreUnacknowledgedHead(next, previous); return false
+      }
+      current = verified
+      localRevisions.add(next.revision)
+      if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
+      signal()
+      return outcome
+    }).catch(async () => { try { await refresh() } catch {}; return false })
+    void operation.finally(() => { unacknowledgedHeads.delete(token.head); token.head = null })
+    writeQueue = operation
+    return operation
+  }
+  function saveAnimalCheckpoint(layout, expected, { binding, canPersist = () => true } = {}) {
+    const failureKey = layout && typeof layout === 'object' ? layout : emptyIslandFailureKey
+    islandSaveFailures.delete(failureKey)
+    let captured
+    try { captured = copyAnimalCheckpointLayout(layout) } catch { return Promise.resolve(false) }
+    if (!isAnimalCheckpointBinding(binding)) return Promise.resolve(false)
+    binding = structuredClone(binding)
+    return writeAnimalCheckpoint(previous => {
+      const baseRaw = canonicalIsland(previous)
+      const checkpoint = checkedAnimal(previous, previous[ANIMAL_RECORD], binding)
+      if (previous.animalCheckpointStamp && !checkpoint) throw new Error('Stale animal binding')
+      const effectiveRaw = checkpoint ? JSON.stringify(checkpoint.layout) : baseRaw
+      if ((effectiveRaw ?? 'absent') !== expected) throw new Error('Stale animal checkpoint')
+      if (!baseRaw || !animalIslandsHaveSameProgress(JSON.parse(baseRaw), captured)) return { outcome: null }
+      if (JSON.stringify(captured) === effectiveRaw) return { outcome: true }
+      const stamp = createAnimalCheckpointStamp(captured, binding, globalThis.crypto.randomUUID())
+      return { outcome: true, write: true, animal: { key: ANIMAL, stamp,
+        baseIslandSha256: animalIslandSha256(JSON.parse(baseRaw)), layoutRaw: JSON.stringify(captured) } }
+    }, { canPersist, failureKey })
+  }
+  function acknowledgeAnimalCheckpoint({ stamp, layout, binding, nextBinding, canPersist = () => true } = {}) {
+    let captured
+    try { captured = layout === undefined || layout === null ? null : copyAnimalCheckpointLayout(layout) } catch { return Promise.resolve(false) }
+    if (!(stamp === null || stamp === undefined || isAnimalCheckpointStamp(stamp)) || !isAnimalCheckpointBinding(binding)
+      || !isAnimalCheckpointBinding(nextBinding) || (stamp && !sameAnimalOwner(stamp.binding, binding))
+      || !sameAnimalTransition(binding, nextBinding) || (stamp && (!captured || animalIslandSha256(captured) !== stamp.layoutSha256))) return Promise.resolve(false)
+    stamp = structuredClone(stamp); binding = structuredClone(binding); nextBinding = structuredClone(nextBinding)
+    return writeAnimalCheckpoint(previous => {
+      const baseRaw = canonicalIsland(previous)
+      // A newer meaningful edit remains authoritative locally. Its pending
+      // operation already retains this accepted cloud before-image.
+      const existing = previous[ANIMAL_RECORD]
+      const checkpoint = checkedAnimal(previous, existing, binding) || checkedAnimal(previous, existing, nextBinding)
+      if (!baseRaw || !captured || !animalIslandsHaveSameProgress(JSON.parse(baseRaw), captured)) {
+        if (existing && !checkpoint) throw new Error('Animal receipt binding became stale')
+        return checkpoint ? { outcome: true, write: true, animal: { ...existing,
+          stamp: { ...existing.stamp, binding: nextBinding } } } : { outcome: true }
+      }
+      if (existing && !checkpoint) throw new Error('Animal receipt binding became stale')
+      if (!existing && JSON.stringify(captured) === baseRaw) return { outcome: true }
+      let animal = null
+      if (checkpoint && checkpoint.stamp.stamp !== stamp?.stamp) animal = { ...existing,
+        stamp: { ...existing.stamp, binding: nextBinding }, baseIslandSha256: animalIslandSha256(captured) }
+      return { outcome: true, write: true, islandRaw: JSON.stringify(captured), animal }
+    }, { canPersist })
+  }
+  function saveIsland(layout, expected, { canPersist = () => true, syncBase = null, binding = null } = {}) {
     const failureKey = layout && typeof layout === 'object' ? layout : emptyIslandFailureKey
     islandSaveFailures.delete(failureKey)
     const islandRaw = JSON.stringify(layout)
@@ -700,13 +884,14 @@ export async function openIndexedDbProfile({
             if (!localRevisions.has(revision)) owned = false
           }
           const fields = splitHead(latest) ? latest : latest && checkpointFields(JSON.parse(latest.raw))
-          if (!owned || (fields.islandRaw ?? 'absent') !== expected
+          const effective = checkedAnimal(carryAnimal(latest, current), current?.[ANIMAL_RECORD], binding)
+          if (!owned || (effective ? JSON.stringify(effective.layout) : fields.islandRaw ?? 'absent') !== expected
             || !canPersist() || storage.getItem(accessKey) !== capturedAccess) {
             transaction.abort(); return
           }
           // The queue owns local writes. An external body change cannot pass
           // the revision fence, so the cached body is safe to reuse here.
-          previous = splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest
+          previous = carryAnimal(splitHead(latest) ? hydrate(latest, current.bodyRaw) : latest, current)
           retainSyncBase(store, previous, syncBase, false, error => islandSaveFailures.set(failureKey, error))
           const bodyRaw = splitHead(previous) ? previous.bodyRaw : previous.raw
           next = hydrate({ key: HEAD, schema: fields.recordCheckpoints ? HEAD_SCHEMA : PREVIOUS_HEAD_SCHEMA, revision: latest.revision + 1,
@@ -714,6 +899,7 @@ export async function openIndexedDbProfile({
             islandRaw, cityProgress: fields.cityProgress,
             ...(fields.recordCheckpoints ? { recordCheckpoints: fields.recordCheckpoints } : {}), ...replacementFields(latest) }, bodyRaw)
           if (!splitHead(previous)) store.put({ key: BODY, revision: next.bodyRevision, raw: bodyRaw })
+          store.delete(ANIMAL)
           token.head = next
           unacknowledgedHeads.add(next)
           store.put(durableHead(next))
@@ -731,7 +917,7 @@ export async function openIndexedDbProfile({
         await restoreUnacknowledgedHead(next, previous)
         return false
       }
-      current = hydrate(verified, next.bodyRaw)
+      current = carryAnimal(hydrate(verified, next.bodyRaw), next)
       localRevisions.add(next.revision)
       if (localRevisions.size > 2048) localRevisions.delete(localRevisions.values().next().value)
       signal()
@@ -751,6 +937,9 @@ export async function openIndexedDbProfile({
   return {
     snapshot,
     readIslandState,
+    readAnimalCheckpoint,
+    saveAnimalCheckpoint,
+    acknowledgeAnimalCheckpoint,
     saveIsland,
     saveRecords,
     readDirtyUnits,

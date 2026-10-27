@@ -102,7 +102,7 @@ export default defineConfig({
     },
     {
       name: 'webkit-storage',
-      testMatch: /(indexed-db-transaction-timeout|indexed-db-backups|indexed-db-profile|legacy-migration-helper|legacy-origin-storage|legacy-progress-migration)\.spec\.mjs/,
+      testMatch: /(indexed-db-transaction-timeout|indexed-db-backups|indexed-db-profile|indexed-db-animal-checkpoint|legacy-migration-helper|legacy-origin-storage|legacy-progress-migration)\.spec\.mjs/,
       use: {
         browserName: 'webkit',
         deviceScaleFactor: 1,

@@ -11,6 +11,7 @@ import { createPortableLearnerProfileConflictArchive } from './state/portable-le
 import { createIslandAnnouncement } from './features/onboarding/island-announcement.js'
 import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
+import { composeAnimalCheckpointProfile } from './state/tiny-swords-animal-checkpoint.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
 import { mapPersistenceResult } from './state/persistence-result.js'
@@ -839,7 +840,7 @@ function getProfileRepository() {
         || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
         || repository.getReplacementRevision() !== replacement) return false
       const acknowledged = repository.readRaw()
-      if (!acknowledged || (JSON.stringify(JSON.parse(acknowledged).tinySwordsIsland) ?? 'absent') !== expected) return false
+      if (!acknowledged || (JSON.stringify(repository.readIslandState({ binding: options.binding })?.tinySwordsIsland) ?? 'absent') !== expected) return false
       const syncBase = options.syncBase
         ? await repository.readSyncBase(options.syncBase) ?? JSON.parse(acknowledged) : null
       if (options.canPersist?.() === false || primaryProfileRepository !== repository
@@ -856,6 +857,11 @@ function getProfileRepository() {
       ))
     },
     async save(state, options) {
+      // Ordinary public study saves preserve a checked local pose. Imports and
+      // reset/replacement intentionally start a new island lifetime.
+      if (!learnerProfileLifecycleAuthority && !options?.replace && !options?.replaceIsland) {
+        options = { ...options, animalCheckpoint: { binding: accountlessAnimalBinding() } }
+      }
       let saved = false
       let failure = null
       try { saved = await repository.save(state, options) } catch (error) { failure = error }
@@ -7654,7 +7660,14 @@ async function downloadLearnerProfileConflictArchive(profiles, {
   }
 }
 
+async function captureTinySwordsCheckpoint() {
+  if (await window.edeniaFlushTinySwordsCheckpoint?.() !== false) return true
+  showToast(t('toast.progressSaveFailed'), 'error')
+  return false
+}
+
 async function exportSyncFile() {
+  if (!await captureTinySwordsCheckpoint()) return
   if (learnerProfileLifecycleAuthority) {
     if (!await learnerProfileLifecycleAuthority.exportActiveProfile()) {
       showToast(t('toast.nothingToSync'), 'warn')
@@ -7666,7 +7679,8 @@ async function exportSyncFile() {
     showToast(t('toast.nothingToSync'), 'warn')
     return
   }
-  downloadLearnerProfileSyncFile(state)
+  downloadLearnerProfileSyncFile(composeAnimalCheckpointProfile(state,
+    getProfileRepository()?.readAnimalCheckpoint?.(accountlessAnimalBinding())))
 }
 
 function beginSettingsSyncImportInteraction(input) {
@@ -17254,7 +17268,7 @@ function closeVideoShelfPlayer() {
 function handleVideoShelfPlayerVisibilityChange() {
   if (document.hidden) {
     const capture = syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })
-    Promise.resolve(capture).then(() => {
+    Promise.all([capture, window.edeniaFlushTinySwordsCheckpoint?.()]).then(() => {
       if (!learnerProfilePageLeaving) return learnerProfileLifecycleAuthority?.flushSessionBoundary()
     }).catch(() => {})
     return
@@ -19092,8 +19106,14 @@ bindLearnerProfileAccessActions(document, {
   }
 })
 bindLearnerProfileSyncActions(document, {
-  retry: () => learnerProfileLifecycleAuthority?.retryCloudBackup(),
-  exportRecovery: () => learnerProfileLifecycleAuthority?.exportActiveProfile()
+  retry: async () => {
+    if (!await captureTinySwordsCheckpoint()) return false
+    return learnerProfileLifecycleAuthority?.retryCloudBackup()
+  },
+  exportRecovery: async () => {
+    if (!await captureTinySwordsCheckpoint()) return false
+    return learnerProfileLifecycleAuthority?.exportActiveProfile()
+  }
 })
 bindLearnerProfileConflictActions(document, {
   cancelChoice: () => learnerProfileConflictView.cancelChoice(),
@@ -19243,7 +19263,13 @@ async function initializeBrowserStorage() {
       storage: window.localStorage, storageKey: STORAGE_KEY,
       accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window,
-      onChange({ islandOnly, replacement } = {}) {
+      onChange({ islandOnly, replacement, animalCheckpoint } = {}) {
+        if (animalCheckpoint && !replacement) {
+          if (applicationStarted) window.dispatchEvent(new CustomEvent('edenia-profile-persisted', {
+            detail: { islandOnly: true, animalCheckpoint: true }
+          }))
+          return
+        }
         if (islandOnly && !learnerProfileLifecycleAuthority) {
           if (!applicationStarted) return
           window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { islandOnly: true, replacement } }))
@@ -19569,7 +19595,8 @@ window.addEventListener('pagehide', event => {
   const capture = syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })
   // Retain the activation until the final local transaction has committed. A
   // terminated page needs no live cleanup; reopening already retires its fence.
-  Promise.resolve(capture).then(() => learnerProfileLifecycleAuthority?.flushSessionBoundary({ allowNewUpload: false }))
+  Promise.all([capture, window.edeniaFlushTinySwordsCheckpoint?.()])
+    .then(() => learnerProfileLifecycleAuthority?.flushSessionBoundary({ allowNewUpload: false }))
     .catch(() => {}).finally(() => { if (!event.persisted) learnerProfileLifecycleAuthority?.destroy() })
   if (!event.persisted) learnerProfileReverificationController?.destroy()
   if (!event.persisted) accountAuthController?.destroy()
@@ -19586,13 +19613,17 @@ if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsO
 window.edeniaTranslate = t
 
 // The release control only gates game mounting; study and island data stay intact.
+function accountlessAnimalBinding() {
+  return { ownerId: null, profileId: `accountless:${STORAGE_KEY}`, generation: null, revision: null }
+}
 if (window.edeniaTinySwordsEnabled === true) {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
     readCheckpoint: learnerProfileLifecycleAuthority
       ? () => learnerProfileLifecycleAuthority.readActiveIsland() : null,
     saveCheckpoint: learnerProfileLifecycleAuthority
-      ? (layout, expected) => learnerProfileLifecycleAuthority.saveActiveIsland(layout, expected) : null,
+      ? (layout, expected, options) => learnerProfileLifecycleAuthority.saveActiveIsland(layout, expected, options) : null,
+    readAnimalBinding: () => learnerProfileLifecycleAuthority ? null : accountlessAnimalBinding(),
     readAccessIdentity: () => {
       const activation = learnerProfileLifecycleAuthority?.getState()?.activation
       return activation ? JSON.stringify([activation.ownerId, activation.profileId,

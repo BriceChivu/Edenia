@@ -42,19 +42,27 @@ window.edeniaSaveId = 0
 window.edeniaSaveInFlight = null
 window.edeniaPendingLayout = null
 window.edeniaPendingCheckpoint = null
-window.edeniaQueueLayout = (layout, checkpoint = false) => {
+window.edeniaPendingCheckpointRequests = []
+window.edeniaCheckpointUnavailable = requestId => parent.postMessage({
+  type: 'edenia-checkpoint-flushed', session: window.edeniaStudySession, requestId, persisted: false
+}, location.origin)
+window.edeniaQueueLayout = (layout, checkpoint = false, requestId = null) => {
   if (window.edeniaConflictPreviewMode) return
   // The newest snapshot includes earlier queued edits. Ambient movement must
   // not downgrade a learner edit that still needs its cloud save.
   window.edeniaPendingCheckpoint = checkpoint === true && window.edeniaPendingCheckpoint !== false
   window.edeniaPendingLayout = layout
+  if (Number.isSafeInteger(requestId) && requestId > 0
+    && !window.edeniaPendingCheckpointRequests.includes(requestId)) window.edeniaPendingCheckpointRequests.push(requestId)
   if (window.edeniaSaveInFlight !== null) return
   const next = window.edeniaPendingLayout
   const nextCheckpoint = window.edeniaPendingCheckpoint
+  const requests = window.edeniaPendingCheckpointRequests
   window.edeniaPendingLayout = null
   window.edeniaPendingCheckpoint = null
+  window.edeniaPendingCheckpointRequests = []
   const id = ++window.edeniaSaveId
-  window.edeniaSaveInFlight = { id, level: next.level }
+  window.edeniaSaveInFlight = { id, level: next.level, checkpoint: nextCheckpoint, requests }
   parent.postMessage({ type: 'edenia-tiny-layout', session: window.edeniaStudySession, id, layout: next, checkpoint: nextCheckpoint }, location.origin)
 }
 window.addEventListener('message', event => {
@@ -71,12 +79,19 @@ window.addEventListener('message', event => {
     window.edeniaStudyLayout = data.layout
     window.edeniaStudyReady = true
   }
+  if (data?.type === 'edenia-checkpoint-request' && data.session === window.edeniaStudySession
+    && Number.isSafeInteger(data.requestId) && data.requestId > 0) {
+    if (window.edeniaReceiveCheckpointRequest) window.edeniaReceiveCheckpointRequest(data.requestId)
+    else window.edeniaCheckpointUnavailable(data.requestId)
+  }
   if (data?.type !== 'edenia-tiny-saved' || data.session !== window.edeniaStudySession
     || data.id !== window.edeniaSaveInFlight?.id) return
-  const level = window.edeniaSaveInFlight.level
+  const { level, checkpoint, requests } = window.edeniaSaveInFlight
   window.edeniaLastSavePersisted = data.persisted === true
   window.edeniaSaveInFlight = null
-  window.edeniaReceiveLayoutSaved?.(level, window.edeniaLastSavePersisted)
+  window.edeniaReceiveLayoutSaved?.(level, window.edeniaLastSavePersisted, checkpoint)
+  for (const requestId of requests) parent.postMessage({ type: 'edenia-checkpoint-flushed',
+    session: window.edeniaStudySession, requestId, persisted: window.edeniaLastSavePersisted }, location.origin)
   if (window.edeniaPendingLayout !== null) window.edeniaQueueLayout(window.edeniaPendingLayout, window.edeniaPendingCheckpoint)
 })
 parent.postMessage({ type: 'edenia-tiny-ready' }, location.origin)

@@ -52,6 +52,40 @@ func run() -> void:
  game.ui.celebration = null
  game.receive_reduced_motion([false])
  check(game.get_script().resource_path == "res://scripts/xp_bridge.gd", "Integrated export must run the XP bridge")
+ var startup = load(ProjectSettings.get_setting("application/run/main_scene")).instantiate()
+ startup.set_script(load(get_script().resource_path.get_base_dir().path_join("tiny-swords-checkpoint-world.gd")))
+ root.add_child(startup)
+ startup.checkpoint_causes.clear()
+ startup.queue_animal_checkpoint()
+ startup.save_study_startup()
+ check(startup.checkpoint_causes == [true], "Startup captures current positions as ambient; persistence decides whether migration is meaningful")
+ check(not startup.animal_checkpoint_pending, "Startup capture absorbs already pending animal movement")
+ startup.free()
+ game.study_layout_restored = true
+ game.study_presentation_ready = true
+ game.receive_layout_saved([game.layout.level, false, true])
+ check(game.animal_checkpoint_pending, "A failed ambient acknowledgement retries current positions through the coalescer")
+ game.clear_animal_checkpoint()
+ game.receive_layout_saved([game.layout.level, true, true])
+ check(not game.animal_checkpoint_pending, "An accepted ambient acknowledgement does not enqueue another save")
+ game.receive_layout_saved([game.layout.level, false, false])
+ check(not game.animal_checkpoint_pending, "A failed ordinary acknowledgement does not become an animal retry")
+ game.study_layout_restored = false
+ game.receive_layout_saved([game.layout.level, false, true])
+ check(not game.animal_checkpoint_pending, "An unaccepted restore cannot retry animal persistence")
+ game.receive_checkpoint_request([1])
+ check(not game.animal_checkpoint_pending and game.study_checkpoint_request_id == null, "An unready explicit checkpoint does not create a save or retain its request")
+ game.study_layout_restored = true
+ for invalid_id in [0, -1, 1.25, NAN, INF, "1"]:
+  game.receive_checkpoint_request([invalid_id])
+  check(not game.animal_checkpoint_pending and game.study_checkpoint_request_id == null, "Malformed explicit checkpoint identifiers have no persistence effect")
+ game.receive_checkpoint_request([2])
+ check(not game.animal_checkpoint_pending and game.study_checkpoint_request_id == null, "A ready explicit checkpoint flushes immediately and clears its temporary correlation")
+ game.queue_animal_checkpoint()
+ game.save_layout()
+ check(not game.animal_checkpoint_pending, "An ordinary integrated save absorbs pending animal movement")
+ game.study_layout_restored = false
+ game.study_presentation_ready = false
  var before = game.layout.snapshot()
  check(not game.restore_study_layout({"version": 999}), "Bridge must reject unsupported snapshots")
  check(game.layout.snapshot() == before, "Rejected bridge restore preserves live island")

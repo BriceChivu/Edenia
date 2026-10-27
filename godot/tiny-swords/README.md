@@ -28,13 +28,15 @@ below; use **F6** to test whichever named scene you opened.
 
 ## Persistent local preview
 
-Current save version **38** keeps animal counts, carried/perched relationships,
-and construction identity/time; wandering and worker coordinates stay in memory.
-Movement alone requests no local or cloud save. Loading derives valid animal and
-worker positions from saved terrain. Versions 1–37 remain readable; the historical
-position-saving notes below describe those older formats. Rollback must retain
-the v38 reader, including when reverting Edenia's delivery path. Focused checks:
-`res://tests/animal_checkpoint_saves.gd` and `res://tests/sync_semantics.gd`.
+Current save version **39** restores authoritative safe animal contacts alongside
+carried/perched relationships and construction identity/time. Settled wandering
+requests a local checkpoint at most once per five seconds; later movement does
+not restart that deadline. Gameplay edits save immediately. Worker coordinates
+remain transient. Versions 1–38 remain readable; version 38 derives initial animal
+contacts because that format retained only counts. Rollback must retain the v39
+reader, including when reverting Edenia's delivery path. Focused checks:
+`res://tests/animal_checkpoint_saves.gd`, `res://tests/animal_checkpoint_scheduler.gd`,
+`res://tests/animal_position_roundtrip.gd` and `res://tests/sync_semantics.gd`.
 
 Fresh islands show only ocean and clouds with a centered **Start** button using
 the level-up confirmation artwork. Start reveals the level-one terrain immediately;
@@ -550,20 +552,23 @@ Edenia is the only durable writer for this integration. Godot acknowledges resto
 acceptance; Edenia acknowledges each save only after profile persistence succeeds.
 A rejected restore blocks island saves and retains the original input. Edenia bounds
 transport to 512 KiB and leaves gameplay validation and save migrations to Godot.
-Animal checkpoints skip whole-profile backups and analytics. Godot marks these
-ambient movement saves so the signed-in host stores them locally without advancing
-the cloud revision. The next study or gameplay save includes the latest complete
-island, and portable exports include the locally saved animal positions. Queued
-gameplay edits remain eligible for cloud saving when animal checkpoints coalesce.
-A bounded local marker binds an exact checkpoint to its accepted cloud revision,
-so focus refresh and reopening do not turn unchanged animal movement into an
-upload. The marker cannot suppress changed study facts, pending work or a newer
-cloud head. Edenia treats the island as an opaque snapshot throughout.
+Animal checkpoints skip whole-profile backups, analytics and cloud scheduling.
+The IndexedDB repository keeps one bounded complete island separately from the
+canonical profile, with a small head reference. Its owner/profile/generation/head
+binding and checked gameplay identity prevent stale contacts crossing a reset or
+terrain edit. Canonical profile bytes stay exact for conditional profile opening.
+The next normal cloud candidate and portable export compose the checkpoint only
+at their delivery/export boundary. Explicit Sync captures current safe contacts;
+wandering alone never schedules an upload. Acknowledging an older sent checkpoint
+preserves newer local contacts. Queued gameplay edits remain cloud eligible.
+Edenia checks Godot's ambient declaration and every other island field, while
+Godot owns contact validity, migrations and the opaque snapshot format.
 Explicit island differences still require the existing protected conflict choice.
 The restricted authentication trial defers automatic cloud work while Godot
 reports input or pawn work, or the host has recent island input. Godot reports
 activity; Edenia owns scheduling. Work resumes after five idle seconds, when
-the island leaves view, during video playback, or while the page is hidden.
+the island leaves view or while the page is hidden. Visible active gameplay
+takes precedence over simultaneous video playback.
 Ambient animals and cloud animation do not keep the user active. Preparation,
 delivery and response processing have no forced-play deadline; server writes
 retain their existing 30-second cadence. The small durable island head and its
@@ -576,16 +581,17 @@ trial scheduling for comparison or rollback; it does not change game FPS.
 Camera settings remain
 local to the device; selection, action queues and game undo history are transient.
 
-Accountless profiles already using Edenia's opt-in IndexedDB repository write
-island checkpoints through a small versioned profile head. The first checkpoint
-splits the stored profile into that head and an immutable body; subsequent island
-writes and cross-tab island refreshes touch only the head. Ordinary profile saves
-update both atomically. Full reads, portable exports and recovery backups compose
-the latest island into the profile. Checkpoints share the profile revision queue,
-durable readback and access fences; failed acknowledgments restore only their exact
-head and retain newer writers. Signed-in trial checkpoints use that head through
-the active-profile fence and retain a durable pre-edit base. Legacy localStorage
-and recovery fallback retain full-profile writes; storage rollout flags are unchanged.
+Accountless profiles using Edenia's IndexedDB repository share the same bounded
+checkpoint record and profile queue. Meaningful island checkpoints update the
+canonical island head; wandering updates its separate local record. Ordinary
+study saves preserve a compatible local checkpoint atomically. Canonical full
+reads and historical backups retain the accepted island; game reads and explicit
+portable exports compose the local checkpoint. Durable readback and access fences
+apply to both. Failed acknowledgements restore only their own exact head and
+retain newer writers. Signed-in checkpoints also require the active-profile
+fence. Legacy localStorage and recovery fallback retain full-profile writes;
+storage rollout flags are unchanged. A browser can prevent a final close-time
+capture, so the last few seconds of wandering can remain unsaved.
 
 Import, backup restore and reset replace the iframe, clearing transient actions.
 Study-history Undo can lower current XP, but never revokes an already claimed

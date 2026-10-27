@@ -1,5 +1,6 @@
 import { mapPersistenceResult } from './persistence-result.js'
 import { createPendingStarterFeed } from './onboarding-state.js'
+import { composeAnimalCheckpointProfile } from './tiny-swords-animal-checkpoint.js'
 
 const PROFILE_ACCESS_RECORD_VERSION = 1
 
@@ -629,7 +630,8 @@ export function createLearnerProfileLocalPersistenceAdapter({
     ownerId,
     previousProfileId = null,
     profileId,
-    revision
+    revision,
+    animalCheckpoint
   }) {
     if (
       !isRecord(profile)
@@ -674,7 +676,8 @@ export function createLearnerProfileLocalPersistenceAdapter({
       storage.setItem(accessStorageKey, JSON.stringify(reconciled))
       if (!isReconcileCurrent()) return false
       const result = replaceProfile(profile, {
-        syncAnalytics: false
+        syncAnalytics: false,
+        ...(animalCheckpoint ? { animalCheckpoint } : {})
       }, isReconcileCurrent)
       return mapPersistenceResult(result, result => {
         if (result?.persisted && isReconcileCurrent()) return true
@@ -826,9 +829,61 @@ export function createLearnerProfileLocalPersistenceAdapter({
     return mapPersistenceResult(persisted, saved => saved === true && isActivationCurrent(fence))
   }
 
-  function readIsland(fence) {
+  function readIsland(fence, binding) {
     if (!isActivationCurrent(fence)) return null
-    return getCheckpointRepository()?.readIslandState?.() ?? null
+    return getCheckpointRepository()?.readIslandState?.({ binding }) ?? null
+  }
+
+  function readOutgoingProfile(profile, fence, binding) {
+    if (!isActivationCurrent(fence)) return null
+    const checkpoint = getCheckpointRepository()?.readAnimalCheckpoint?.(binding)
+    return checkpoint ? composeAnimalCheckpointProfile(profile, checkpoint) : profile
+  }
+
+  function readOpeningOutgoingProfile(localProfile, binding) {
+    const captured = openingSnapshots.get(localProfile)
+    if (!captured || localProfile?.status !== 'ready' || binding.ownerId !== localProfile.ownerId
+      || binding.profileId !== localProfile.profileId || binding.generation !== localProfile.generation) return null
+    try {
+      const current = () => storage.getItem(accessStorageKey) === captured.access
+        && (typeof readProfileRaw === 'function' ? readProfileRaw() : JSON.stringify(loadProfile())) === captured.profile
+      if (!current()) return null
+      const checkpoint = getCheckpointRepository()?.readAnimalCheckpoint?.(binding)
+      const outgoing = checkpoint ? composeAnimalCheckpointProfile(localProfile.profile, checkpoint) : localProfile.profile
+      return current() ? outgoing : null
+    } catch { return null }
+  }
+
+  async function saveAnimalCheckpoint(_profile, layout, expected, fence, binding) {
+    const repository = getCheckpointRepository()
+    if (typeof repository?.saveAnimalCheckpoint !== 'function') return null
+    const canPersist = () => isActivationCurrent(fence) && getCheckpointRepository() === repository
+    if (!canPersist()) return false
+    try {
+      const saved = await repository.saveAnimalCheckpoint(layout, expected, { binding, canPersist })
+      if (!canPersist()) return false
+      return saved === null ? null : saved === true
+    } catch { return false }
+  }
+
+  async function acknowledgeAnimalCheckpoint(profile, { stamp, layout, binding, nextBinding }, fence) {
+    const repository = getCheckpointRepository()
+    const canPersist = () => isActivationCurrent(fence) && getCheckpointRepository() === repository
+    if (!canPersist()) return false
+    try {
+      if (!stamp && !repository?.readAnimalCheckpoint?.(binding)
+        && !repository?.readAnimalCheckpoint?.(nextBinding)) return true
+      if (typeof repository?.acknowledgeAnimalCheckpoint !== 'function') return false
+      if (!await repository.acknowledgeAnimalCheckpoint({ stamp, layout, binding, nextBinding, canPersist }) || !canPersist()) return false
+      const canonical = repository.readIslandState()
+      if (canonical?.tinySwordsIsland === undefined) delete profile.tinySwordsIsland
+      else profile.tinySwordsIsland = canonical.tinySwordsIsland
+      const current = readAccessRecord(storage, accessStorageKey).record
+      if (current?.generation === nextBinding.generation && current.revision <= nextBinding.revision) {
+        storage.setItem(accessStorageKey, JSON.stringify({ ...current, revision: nextBinding.revision }))
+      }
+      return canPersist()
+    } catch { return false }
   }
 
   async function saveIsland(profile, layout, expected, fence, syncBase) {
@@ -836,7 +891,9 @@ export function createLearnerProfileLocalPersistenceAdapter({
     if (!repository?.readSyncBase || !repository.saveIsland) return null
     const canPersist = () => isActivationCurrent(fence) && getCheckpointRepository() === repository
     if (!canPersist()) return false
-    const saved = await repository.saveIsland(layout, expected, { canPersist, syncBase })
+    const binding = syncBase || (fence.ownerId === null
+      ? { ownerId: null, profileId: fence.profileId, generation: null, revision: null } : null)
+    const saved = await repository.saveIsland(layout, expected, { canPersist, syncBase, binding })
     if (!saved || !isActivationCurrent(fence)) return false
     profile.tinySwordsIsland = layout
     // The repository wrapper may have durably recovered a quota failure into
@@ -898,6 +955,10 @@ export function createLearnerProfileLocalPersistenceAdapter({
     isActivationCurrent,
     read,
     readIsland,
+    readOutgoingProfile,
+    readOpeningOutgoingProfile,
+    acknowledgeAnimalCheckpoint,
+    saveAnimalCheckpoint,
     saveIsland,
     saveRecords,
     supportsRecordCheckpoints: () => Boolean(getCheckpointRepository()?.readSyncBase && getCheckpointRepository()?.saveRecords),

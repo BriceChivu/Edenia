@@ -9,6 +9,7 @@ import {
 import { canonicalizeJson, sha256Base64UrlSync } from '../state/portable-state.js'
 import { captureProfileChanges, restoreProfileBase, combinePortableProfiles, portableProfileChangeDigest, portableProfilesHaveSameProgress } from '../domain/portable-profile-combination.js'
 import { createProfileRecordBatch, isProfileRecordBatch, recordRequestDigest, mergeDirtyUnits, dirtyUnitsFromBatch, recordBatchPaths } from '../domain/learner-profile-records.js'
+import { getAnimalCheckpoint, isAnimalCheckpointStamp, animalIslandSha256, animalIslandsHaveSameProgress } from '../state/tiny-swords-animal-checkpoint.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
@@ -60,6 +61,17 @@ function canonicalProfilesMatch(localProfile, cloudEnvelope, prepareEnvelope) {
   } catch {
     return false
   }
+}
+
+function matchesAnimalOperation(localProfile, envelope, operation, prepareEnvelope) {
+  if (canonicalProfilesMatch(localProfile, envelope, prepareEnvelope)) return true
+  if (!operation?.animalCheckpoint || !isAnimalCheckpointStamp(operation.animalCheckpoint)) return false
+  try {
+    const local = prepareEnvelope(localProfile).profile
+    return operation.animalCheckpoint.layoutSha256 === animalIslandSha256(envelope?.profile?.tinySwordsIsland)
+      && animalIslandsHaveSameProgress(local.tinySwordsIsland, envelope.profile.tinySwordsIsland)
+      && canonicalizeJson({ ...local, tinySwordsIsland: envelope.profile.tinySwordsIsland }) === canonicalizeJson(envelope.profile)
+  } catch { return false }
 }
 
 function isVerifiedCurrentLocalCopy(
@@ -149,7 +161,7 @@ function isSyncOperation(value, identity) {
       'profileId',
       'retryCount',
       'revision'
-    ].concat(['changes', 'budgetRetryAt', 'recordBatch'].filter(key => Object.hasOwn(value || {}, key))))
+    ].concat(['changes', 'budgetRetryAt', 'recordBatch', 'animalCheckpoint'].filter(key => Object.hasOwn(value || {}, key))))
     || typeof value.activationId !== 'string'
     || !value.activationId
     || !UUID_PATTERN.test(value.operationId)
@@ -164,6 +176,12 @@ function isSyncOperation(value, identity) {
     || value.nextRetryAt < 0
     || (Object.hasOwn(value, 'budgetRetryAt') && (!Number.isFinite(value.budgetRetryAt) || value.budgetRetryAt < 0))
     || (Object.hasOwn(value, 'recordBatch') && !isProfileRecordBatch(value.recordBatch))
+    || (Object.hasOwn(value, 'animalCheckpoint') && (!isAnimalCheckpointStamp(value.animalCheckpoint)
+      || value.animalCheckpoint.binding.ownerId !== identity.ownerId
+      || value.animalCheckpoint.binding.profileId !== identity.profileId
+      || value.animalCheckpoint.binding.generation !== identity.generation
+      || value.animalCheckpoint.binding.revision > value.baseRevision
+      || value.animalCheckpoint.layoutSha256 !== animalIslandSha256((value.envelope || value.prepared)?.profile?.tinySwordsIsland)))
   ) return false
   const isPrepared = isPreparedEnvelope(value.prepared)
     && value.envelope === null
@@ -1376,17 +1394,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return receipt?.protectedReset || null
   }
 
-  function createOperation(profile, record, activationId, baseProfile = activeBinding?.baseProfile, dirtyUnits = activeBinding?.dirtyUnits) {
+  function createOperation(profile, record, activationId, baseProfile = activeBinding?.baseProfile, dirtyUnits = activeBinding?.dirtyUnits, forceAnimalCheckpoint = false) {
     // Keep the complete recovery candidate in the existing durable outbox.
     // Ordinary delivery below includes only the declared domain units.
+    const animalCheckpoint = getAnimalCheckpoint(profile)
     const prepared = prepareEnvelope(profile)
     const latest = record.queued || record.pending
     const latestProfile = (latest?.envelope || latest?.prepared)?.profile
+    if (animalCheckpoint && !forceAnimalCheckpoint && (latestProfile || baseProfile)
+      && portableProfilesHaveSameProgress(prepared.profile, latestProfile || baseProfile)) return null
     if (recordSyncEnabled && ((latestProfile && canonicalizeJson(prepared.profile) === canonicalizeJson(latestProfile))
-      || (!latest && baseProfile && portableProfilesHaveSameProgress(prepared.profile, baseProfile)))) return null
+      || (!latest && !animalCheckpoint && baseProfile && portableProfilesHaveSameProgress(prepared.profile, baseProfile)))) return null
     const replacingPending = minimumWriteIntervalMs > 0 && record.pending && !inFlight
       && record.pending.envelope === null && record.pending.retryCount === 0 && record.queued === null
-    const units = mergeDirtyUnits(dirtyUnits,
+    const units = mergeDirtyUnits(dirtyUnits, animalCheckpoint ? { island: true } : undefined,
       dirtyUnitsFromBatch(record.pending?.recordBatch), dirtyUnitsFromBatch(record.queued?.recordBatch))
     const batchBase = replacingPending ? baseProfile
       : (record.pending?.envelope || record.pending?.prepared)?.profile || baseProfile
@@ -1415,6 +1436,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       : record.acceptedRevision
     return {
       activationId,
+      ...(animalCheckpoint ? { animalCheckpoint } : {}),
       ...(changes ? { changes: { ...changes, baseRevision: record.acceptedRevision } } : {}),
       baseRevision,
       envelope: null,
@@ -1475,7 +1497,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return clearDirtyRecord(record)
   }
 
-  function queueProfile(profile, record, activationId, baseProfile, dirtyUnits = activeBinding?.dirtyUnits) {
+  function queueProfile(profile, record, activationId, baseProfile, dirtyUnits = activeBinding?.dirtyUnits, forceAnimalCheckpoint = false) {
     const latest = record.queued || record.pending
     if (minimumWriteIntervalMs > 0 && latest
       && canonicalProfilesMatch(profile, latest.envelope || latest.prepared, prepareEnvelope)) {
@@ -1483,7 +1505,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     let operation
     try {
-      operation = createOperation(profile, record, activationId, baseProfile, dirtyUnits)
+      operation = createOperation(profile, record, activationId, baseProfile, dirtyUnits, forceAnimalCheckpoint)
     } catch {
       return false
     }
@@ -2633,8 +2655,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
           ['accepted', 'already_accepted']
         )
       ) {
-        const current = readSyncRecord()
+        let current = readSyncRecord()
         if (current?.pending?.operationId === operation.operationId) {
+          if (operation.animalCheckpoint || typeof binding.acknowledgeAnimalCheckpoint === 'function') {
+            const acknowledged = await binding.acknowledgeAnimalCheckpoint?.({
+              stamp: operation.animalCheckpoint || null, layout: envelope.profile.tinySwordsIsland,
+              nextBinding: { ownerId: operation.ownerId, profileId: operation.profileId,
+                generation: operation.generation, revision: normalizePositiveInteger(row.revision) }
+            })
+            if (activeBinding !== binding || !binding.isCurrent()) return
+            if (acknowledged !== true) { scheduleTransientRetry(operation); return }
+            current = readSyncRecord()
+            if (current?.pending?.operationId !== operation.operationId) return
+          }
           current.acceptedRevision = normalizePositiveInteger(row.revision)
           current.pending = current.queued
           current.queued = null
@@ -2645,7 +2678,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
             nextAutomaticWriteAt = Math.max(nextAutomaticWriteAt, now() + writeInterval(operation))
             binding.lastAcceptedAt = now()
             const queuedCandidate = current.pending?.envelope || current.pending?.prepared
-            if (queuedCandidate && syncProfileDigest(queuedCandidate.profile) === syncProfileDigest(envelope.profile)) {
+            if (queuedCandidate && !current.pending.animalCheckpoint
+              && syncProfileDigest(queuedCandidate.profile) === syncProfileDigest(envelope.profile)) {
               current.pending = null
             }
             sessionBoundaryPending = false
@@ -3120,6 +3154,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
           nextRetryAt: 0, operationId: repair.operationId, ownerId, prepared,
           profileId: repair.identity.profileId, retryCount: 0, revision: repair.identity.revision + 1
         }
+        const animal = (stored.record.queued || stored.record.pending)?.animalCheckpoint
+        if (next.pending && animal && animal.layoutSha256 === animalIslandSha256(prepared.profile.tinySwordsIsland)) {
+          next.pending.animalCheckpoint = animal
+        }
         if (!isCurrent() || !writeSyncRecord(next)) return false
       } else if (stored.record.ownerId !== ownerId || stored.record.profileId !== repair.identity.profileId
         || stored.record.generation !== repair.identity.generation || stored.record.acceptedRevision !== repair.identity.revision
@@ -3145,7 +3183,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const captured = readStoredSyncRecord()
     if (!isCurrent() || captured.record?.pending?.operationId !== pending.operationId
       || (captured.record.queued || captured.record.pending)?.operationId !== latest.operationId
-      || !canonicalProfilesMatch(localProfile.profile, latestEnvelope, prepareEnvelope)) return null
+      || !matchesAnimalOperation(localProfile.profile, latestEnvelope, latest, prepareEnvelope)) return null
     let response
     try { response = await getClient().rpc(pending.recordBatch
       ? 'read_my_learner_profile_record_receipt' : 'read_my_learner_profile_write_receipt', { p_operation_id: pending.operationId }) }
@@ -3159,6 +3197,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       })))
     if (!accepted && receipt?.status !== 'not_accepted') return { status: 'recovering' }
     if (!isCurrent() || readStoredSyncRecord().serialized !== captured.serialized || readDirtyRecord().present) return { status: 'recovering' }
+    const ownAcceptedHead = accepted && cloudIdentity.revision === pending.revision
     let combined
     if (accepted && latest === pending) {
       // The whole local candidate is already in the verified lineage. There is
@@ -3182,6 +3221,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
         if (!combined) return null
       }
     }
+    const latestAnimal = ownAcceptedHead && latest.animalCheckpoint
+      && animalIslandsHaveSameProgress(combined.tinySwordsIsland, latestEnvelope.profile.tinySwordsIsland)
+      ? latest.animalCheckpoint : null
+    if (latestAnimal) combined = { ...combined, tinySwordsIsland: latestEnvelope.profile.tinySwordsIsland }
     const activity = await retainRoutineDeviceActivity(combined, localProfile, cloudIdentity, {
       isCurrent, localRevision: accepted ? pending.revision : record.acceptedRevision,
       replacementRevision: receipt.last_replacement_revision
@@ -3210,6 +3253,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         ownerId: cloudIdentity.ownerId, prepared, profileId: cloudIdentity.profileId,
         retryCount: 0, revision: cloudIdentity.revision + 1
       }
+      if (latestAnimal) next.pending.animalCheckpoint = latestAnimal
     }
     const protectedResult = await readStoredProtectedConflicts(record, new Map(), { deferPruning: true })
     if (!protectedResult || !isCurrent() || readStoredSyncRecord().serialized !== captured.serialized) return { status: 'recovering' }
@@ -3222,6 +3266,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     cloudHeadKnown = true
     return {
       status: 'activate', backupRequired: false, created: false, ...cloudIdentity, profile,
+      ...(ownAcceptedHead ? {
+          animalCheckpoint: { binding: saveBaseIdentity(record), nextBinding: { ...cloudIdentity },
+            ...(pending.animalCheckpoint ? { acknowledgedStamp: pending.animalCheckpoint } : {}) }
+        } : {}),
       syncBaseProfile: cloudEnvelope.profile, protectedConflicts: protectedResult.conflicts,
       commitSyncRepair({ isCurrent: current } = {}) {
         if (!current?.() || readStoredSyncRecord().serialized !== captured.serialized || readDirtyRecord().present) return false
@@ -3287,6 +3335,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     connectivity,
     accountlessAttachment,
     localProfile,
+    readLocalAnimalProfile,
     purpose,
     isCurrent = () => true
   }) {
@@ -3458,6 +3507,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
     let envelope = await verifyEnvelope(row.envelope)
     let cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
+    // Only a verified server response can authorize composing a retained local
+    // pose for an unsent/protected candidate. Clean conditional opening above
+    // continues proving and activating the exact canonical local body.
+    const readDirtyLocalProfile = record => {
+      const profile = typeof readLocalAnimalProfile === 'function'
+        ? readLocalAnimalProfile(saveBaseIdentity(record)) : localProfile?.profile
+      if (!profile || !isCurrent()) throw new Error('Local checkpoint changed before recovery preparation')
+      return profile
+    }
     const openingResetState = combinedOpening ? await verifyResetState(row.reset_state, {
       ownerId: authentication.userId, profileId, generation
     }) : null
@@ -3601,9 +3659,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
           if (!localIsStale || !dirtyRecordMatches(currentRecord, dirty)) {
             return { status: 'recovering' }
           }
-          if (dirty.present && !queueProfile(
-            localProfile.profile, currentRecord, `dirty-recovery-${createOperationId()}`
-          )) return { status: 'recovering' }
+          if (dirty.present) {
+            let dirtyProfile
+            try { dirtyProfile = readDirtyLocalProfile(currentRecord) } catch { return { status: 'recovering' } }
+            if (!queueProfile(dirtyProfile, currentRecord, `dirty-recovery-${createOperationId()}`)) return { status: 'recovering' }
+          }
           let protectTypedCandidate = Boolean(currentRecord.queued?.recordBatch)
           if (currentRecord.pending?.recordBatch) {
             const receiptFence = readStoredSyncRecord().serialized
@@ -3667,7 +3727,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           if (
             preserved?.error
             || !isAcceptedOperationReceipt(receipt, operation, candidate, ['already_accepted'])
-            || !canonicalProfilesMatch(localProfile.profile, candidate, prepareEnvelope)
+            || !matchesAnimalOperation(localProfile.profile, candidate, operation, prepareEnvelope)
             || readStoredSyncRecord().serialized !== candidateSync.serialized
           ) return { status: 'recovering' }
           storedSync.serialized = candidateSync.serialized
@@ -3698,13 +3758,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
       const dirty = readDirtyRecord()
       if (dirty.present && !dirtyRecordRepair) {
+        let dirtyProfile
+        try { dirtyProfile = readDirtyLocalProfile(currentRecord) } catch { return { status: 'recovering' } }
         if (
           !dirtyRecordMatches(currentRecord, dirty)
           || localProfile?.status !== 'ready'
           || localProfile.ownerId !== authentication.userId
           || localProfile.profileId !== profileId
           || !await queueDirtyProfile(
-            localProfile.profile, currentRecord, dirty, isCurrent
+            dirtyProfile, currentRecord, dirty, isCurrent
           )
         ) return { status: 'recovering' }
         currentRecord = readSyncRecord()
@@ -3716,6 +3778,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         const handoff = await prepareHandoffResolution({ authentication, localProfile, cloudIdentity,
           cloudEnvelope: envelope, record: currentRecord, isCurrent })
         if (handoff) return handoff
+        if (currentRecord.pending.animalCheckpoint) return { status: 'recovering' }
         currentRecord = readSyncRecord()
         if (!currentRecord?.pending) return { status: 'recovering' }
       }
@@ -4035,7 +4098,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return { status: 'changed' }
   }
 
-  function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile }) {
+  function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile, acknowledgeAnimalCheckpoint }) {
     manualOpportunityBinding = null
     deferredSave = null
     if (
@@ -4056,6 +4119,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       generation,
       isCurrent,
       profile: isRecord(profile) ? profile : null,
+      readPersistedProfile,
+      acknowledgeAnimalCheckpoint,
       checkpointStudyDigest: isRecord(profile) ? studyProfileDigest(profile) : null,
       dirtyUnits: mergeDirtyUnits(),
       revision
@@ -4506,7 +4571,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return true
   }
 
-  function save(profile, { activation, isCurrent, readPersistedProfile, deferPreparation = false, skipDeferral = false, skipPump = false, dirtyUnits = null } = {}) {
+  function save(profile, { activation, isCurrent, readPersistedProfile, deferPreparation = false, skipDeferral = false, skipPump = false, dirtyUnits = null, forceAnimalCheckpoint = false } = {}) {
     if (
       !activeBinding
       || activeBinding.activation !== activation
@@ -4538,7 +4603,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
 
     if (minimumWriteIntervalMs > 0 && !record.pending && !record.queued
-      && activeBinding.acceptedProfileDigest) {
+      && activeBinding.acceptedProfileDigest && !getAnimalCheckpoint(profile)) {
       try {
         if (syncProfileDigest(profile) === activeBinding.acceptedProfileDigest
           // An ambient-only checkpoint still belongs to this accepted head.
@@ -4551,7 +4616,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         }
       } catch { /* Preparation errors use the normal durable-save failure path. */ }
     }
-    if (!queueProfile(profile, record, activation.id)) {
+    if (!queueProfile(profile, record, activation.id, undefined, undefined, forceAnimalCheckpoint)) {
       publish('not-backed-up')
       return { status: 'not-backed-up' }
     }
@@ -4585,6 +4650,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     manualOpportunityBinding = activeBinding
     forceOpportunity = true
     try {
+      if (activeBinding?.isCurrent() && typeof activeBinding.readPersistedProfile === 'function') {
+        const profile = activeBinding.readPersistedProfile()
+        if (profile && getAnimalCheckpoint(profile)) {
+          const saved = save(profile, { activation: activeBinding.activation,
+            isCurrent: activeBinding.isCurrent, skipDeferral: true, skipPump: true, forceAnimalCheckpoint: true })
+          if (saved.status !== 'queued') return false
+        }
+      }
       if (!drainDeferredSave()) {
         if (deferredSave && !deferredSave.blocked) { scheduleOpportunity(); return true }
         manualOpportunityBinding = null

@@ -9,6 +9,8 @@ var study_size_callback: JavaScriptObject
 var study_canvas_width := 1152.0
 var study_camera_callback: JavaScriptObject
 var study_save_callback: JavaScriptObject
+var study_checkpoint_callback: JavaScriptObject
+var study_checkpoint_request_id: Variant = null
 var study_unlock_retry_elapsed := 0.0
 var study_requires_save_acknowledgment := OS.has_feature("web")
 var study_presented := true
@@ -61,6 +63,8 @@ func _ready() -> void:
 		JavaScriptBridge.get_interface("window").edeniaReceiveCameraCommand = study_camera_callback
 		study_save_callback = JavaScriptBridge.create_callback(receive_layout_saved)
 		JavaScriptBridge.get_interface("window").edeniaReceiveLayoutSaved = study_save_callback
+		study_checkpoint_callback = JavaScriptBridge.create_callback(receive_checkpoint_request)
+		JavaScriptBridge.get_interface("window").edeniaReceiveCheckpointRequest = study_checkpoint_callback
 		JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-game-progression',thresholds:%s},location.origin)" % JSON.stringify(Layout.XP_THRESHOLDS))
 
 func receive_reduced_motion(arguments: Array) -> void:
@@ -92,9 +96,28 @@ func update_drag_threshold() -> void:
 	world_drag_threshold = 6.0 * get_viewport().get_visible_rect().size.x / study_canvas_width
 
 func receive_layout_saved(arguments: Array) -> void:
-	if arguments.size() == 2 and (arguments[0] is float or arguments[0] is int) and arguments[1] is bool:
+	if arguments.size() in [2, 3] and (arguments[0] is float or arguments[0] is int) and arguments[1] is bool and (arguments.size() == 2 or arguments[2] is bool):
 		complete_level_unlock(int(arguments[0]), arguments[1])
 		study_unlock_retry_elapsed = 0.0
+		if arguments.size() == 3 and arguments[2] and not arguments[1] and study_bridge_ready and study_layout_restored and study_presentation_ready:
+			# Retry current positions after the bounded coalescing interval; the
+			# rejected serialized snapshot may already predate newer gameplay.
+			queue_animal_checkpoint()
+
+func receive_checkpoint_request(arguments: Array) -> void:
+	if arguments.size() != 1 or not (arguments[0] is float or arguments[0] is int):
+		return
+	var request_id := float(arguments[0])
+	if not is_finite(request_id) or request_id != floorf(request_id) or request_id < 1 or request_id > 9007199254740991:
+		return
+	if not study_bridge_ready or not study_layout_restored or not study_presentation_ready:
+		if OS.has_feature("web"):
+			JavaScriptBridge.eval("window.edeniaCheckpointUnavailable(%s)" % JSON.stringify(request_id))
+		return
+	study_checkpoint_request_id = int(request_id)
+	queue_animal_checkpoint()
+	flush_animal_checkpoint()
+	study_checkpoint_request_id = null
 
 func save_unlocked_level() -> void:
 	# The host's durable acknowledgment opens the Godot celebration.
@@ -163,7 +186,13 @@ func finish_study_startup() -> void:
 	await RenderingServer.frame_post_draw
 	study_presentation_ready = true
 	JavaScriptBridge.eval("window.parent.postMessage({type:'edenia-tiny-restored',session:window.edeniaStudySession,accepted:true},location.origin)")
-	save_layout()
+	save_study_startup()
+
+func save_study_startup() -> void:
+	clear_animal_checkpoint()
+	# A restored pose is ambient. Edenia's checked comparison still promotes
+	# migrations, new islands and changed gameplay to meaningful persistence.
+	save_layout(true)
 
 func restore_study_layout(data: Variant) -> bool:
 	if data == null:
@@ -171,5 +200,7 @@ func restore_study_layout(data: Variant) -> bool:
 	return data is Dictionary and restore_saved_layout(data)
 
 func save_layout(animal_checkpoint: bool = false) -> void:
+	if not animal_checkpoint:
+		clear_animal_checkpoint()
 	if study_bridge_ready and study_layout_restored and study_presentation_ready and OS.has_feature("web"):
-		JavaScriptBridge.eval("window.edeniaQueueLayout(%s, %s)" % [JSON.stringify(saved_snapshot()), JSON.stringify(animal_checkpoint)])
+		JavaScriptBridge.eval("window.edeniaQueueLayout(%s, %s, %s)" % [JSON.stringify(saved_snapshot()), JSON.stringify(animal_checkpoint), JSON.stringify(study_checkpoint_request_id)])

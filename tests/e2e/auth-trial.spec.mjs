@@ -46,9 +46,9 @@ function session(userId = owner) {
     refresh_token:'trial-refresh',expires_at:1893456000,expires_in:31536000,token_type:'bearer',
     user:{id:userId,email:'trial@example.test',aud:'authenticated',role:'authenticated',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[]}}
 }
-async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},youtubeApiKey='',activationId=null}) {
+async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},youtubeApiKey='',activationId=null,island: suppliedIsland=null}) {
   await configure(page,{indexedDb,engine,youtubeApiKey})
-  const island = JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json',import.meta.url)))
+  const island = suppliedIsland || JSON.parse(await readFile(new URL('../fixtures/tiny-swords-populated-island.json',import.meta.url)))
   const at='2026-10-08T00:00:00.000Z'
   let envelope=(await createPortableLearnerProfileEnvelope({
     config:{locale:'en',ankiEnabled,channels:[],weeklyGoalHours:4},anki,videos,
@@ -843,7 +843,53 @@ test('switching verified trial owners requires explicit replacement and remounts
 })
 
 
-test('signed-in durable islands avoid animal checkpoints and retain meaningful edits through upload and reload', async ({ page }, testInfo) => {
+test('clean signed-in reopening retains local animal positions and the exact conditional opening proof', async ({ page }, testInfo) => {
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
+  test.setTimeout(60000)
+  const island=JSON.parse(await readFile('tests/fixtures/tiny-swords-animal-v39.json','utf8'))
+  const fixture=await owned(page,{indexedDb:true,engine:false,island})
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.evaluate(() => learnerProfileLifecycleAuthority.retryCloudBackup())
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const before=await page.evaluate(async()=>{
+    const canonical=getProfileRepository().readRaw()
+    const layout=learnerProfileLifecycleAuthority.readActiveIsland().tinySwordsIsland
+    const moved=structuredClone(layout)
+    moved.sheep[0][0]+=1
+    const saved=await learnerProfileLifecycleAuthority.saveActiveIsland(moved,JSON.stringify(layout),{syncCloud:false})
+    return{canonical,saved,moved,after:getProfileRepository().readRaw(),
+      dirty:localStorage.getItem('edenia_v1_auth_trial_v1_learner_profile_sync_v1_dirty')}
+  })
+  expect(before.saved).toBe(true)
+  expect(before.after).toBe(before.canonical)
+  expect(before.dirty).toBeNull()
+  const commits=fixture.commits.length
+  const opening=page.waitForResponse(response=>response.url().endsWith('/rpc/open_my_learner_profile'))
+  await page.reload({waitUntil:'domcontentloaded'})
+  expect((await (await opening).json())[0].status).toBe('profile_unchanged')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  expect(await page.evaluate(()=>learnerProfileLifecycleAuthority.readActiveIsland().tinySwordsIsland)).toEqual(before.moved)
+  expect(await page.evaluate(()=>getProfileRepository().readRaw())).toBe(before.canonical)
+  expect(fixture.commits.length).toBe(commits)
+})
+
+test('explicit Sync stops when the live island checkpoint cannot be acknowledged', async ({ page }, testInfo) => {
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
+  await owned(page, { indexedDb: true, engine: false })
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.evaluate(() => {
+    window.failedCaptureCloudCalls = 0
+    window.edeniaFlushTinySwordsCheckpoint = async () => false
+    learnerProfileLifecycleAuthority.retryCloudBackup = () => { window.failedCaptureCloudCalls += 1 }
+    document.querySelector('[data-profile-sync-action="retry"]').click()
+  })
+  await expect(page.locator('#toast')).toContainText(/save/i)
+  expect(await page.evaluate(() => window.failedCaptureCloudCalls)).toBe(0)
+})
+
+test('signed-in animal checkpoints remain local and meaningful edits survive upload and reload', async ({ page }, testInfo) => {
   test.skip(!desktopTrialProjects.has(testInfo.project.name))
   test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
   test.setTimeout(120000)
@@ -857,15 +903,15 @@ test('signed-in durable islands avoid animal checkpoints and retain meaningful e
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
   await expect.poll(() => canvas.evaluate(() => window.edeniaSaveInFlight)).toBeNull()
   const durable = await page.evaluate(() => loadPersistedState({ persistCleanup: false }).tinySwordsIsland)
-  expect(durable.version).toBe(38)
-  expect(durable).not.toHaveProperty('chickens')
-  expect(durable).not.toHaveProperty('sheep')
+  expect(durable.version).toBe(39)
+  expect(Array.isArray(durable.chickens)).toBe(true)
+  expect(Array.isArray(durable.sheep)).toBe(true)
   const saves = await canvas.evaluate(() => window.edeniaSaveId)
   const commitCount = fixture.commits.length
   // Native movement completion is tested deterministically in Godot. This brief
   // real-game window checks that ambient play never reaches the browser outbox.
   await page.waitForTimeout(6000)
-  expect(await canvas.evaluate(() => window.edeniaSaveId)).toBe(saves)
+  expect(await canvas.evaluate(() => window.edeniaSaveId)).toBeLessThanOrEqual(saves + 2)
   expect(fixture.commits.length).toBe(commitCount)
   expect(await page.evaluate(() => loadState().tinySwordsIsland)).toEqual(durable)
 
@@ -891,8 +937,8 @@ test('signed-in durable islands avoid animal checkpoints and retain meaningful e
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 40000 })
   const restored = await page.evaluate(() => loadState().tinySwordsIsland)
   expect(restored.resources.wood).toBe(changed.resources.wood)
-  expect(restored.chicken_count).toBe(changed.chicken_count)
-  expect(restored.sheep_count).toBe(changed.sheep_count)
+  expect(restored.chickens.length).toBe(changed.chickens.length)
+  expect(restored.sheep.length).toBe(changed.sheep.length)
   expect(restored.stock).toEqual(changed.stock)
   expect(restored.tiles).toEqual(changed.tiles)
   expect(await retainedBytes(page)).toEqual(retained)
@@ -1057,7 +1103,7 @@ for (const indexedDb of [false, true]) {
     await readyGame(page)
     const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
     expect(new URL(game.url()).searchParams.get('internal_test')).toBe('1')
-    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(38)
+    await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.version)).toBe(39)
     const earned = await page.evaluate(() => loadState().tinySwordsIsland.achievements)
     expect(earned.cut_tree).toBe(true)
     expect(earned.build_house).toBeUndefined() // This fixture contains logs, not a completed house.
@@ -1161,20 +1207,20 @@ test('first Godot migration waits for a native profile acknowledgement and retai
       durable: JSON.parse(getProfileRepository().readRaw()),
       before: await getProfileRepository().readSyncBase(window.migrationBeforeImageIdentity)
     }))
-    expect(after.durable.tinySwordsIsland.version).toBe(38)
-    expect(after.durable.tinySwordsIsland).not.toHaveProperty('chickens')
-    expect(after.durable.tinySwordsIsland).not.toHaveProperty('sheep')
+    expect(after.durable.tinySwordsIsland.version).toBe(39)
+    expect(Array.isArray(after.durable.tinySwordsIsland.chickens)).toBe(true)
+    expect(Array.isArray(after.durable.tinySwordsIsland.sheep)).toBe(true)
     expect(after.durable.tinySwordsIsland.resources).toEqual(fixture.island.resources)
     expect(after.durable.videos.lesson.resumeAtSeconds).toBe(41)
     expect(after.before).toEqual(base.before)
     releaseCloud()
     await page.evaluate(() => learnerProfileLifecycleAuthority.retryCloudBackup())
-    await expect.poll(() => fixture.head().envelope.profile.tinySwordsIsland.version, { timeout: 70000 }).toBe(38)
+    await expect.poll(() => fixture.head().envelope.profile.tinySwordsIsland.version, { timeout: 70000 }).toBe(39)
     await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 70000 })
     await page.reload({ waitUntil: 'domcontentloaded' })
     await readyGame(page)
     expect(await page.evaluate(() => ({ version: loadPersistedState({ persistCleanup: false }).tinySwordsIsland.version,
-      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 38, resume: 41 })
+      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 39, resume: 41 })
     expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(() => window.edeniaLastSavePersisted)).not.toBe(false)
   } finally {
     releaseEngine()

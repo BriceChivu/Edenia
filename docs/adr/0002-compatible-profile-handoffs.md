@@ -96,3 +96,32 @@ retains the upgraded local/outbox readers and routes already-created typed
 requests by their durable format through acknowledgement. It does not discard a
 sent request or resubmit it under a new transport after an uncertain response.
 Rollback retains the compatible server authority and the v38 Godot reader.
+
+October 27 animal-position amendment, superseding the version-38 removal of
+wandering positions above: version 39 retains authoritative safe animal contacts.
+Settled movement coalesces into a local save after five seconds, without moving
+the deadline or scheduling cloud work. Meaningful island edits save immediately.
+The repository keeps the complete bounded island in a separate record and only
+its reference in the small profile head, so video checkpoints do not repeatedly
+copy a large island. The canonical profile remains byte-exact for conditional
+profile opening; game restore reads the checked local checkpoint, while outgoing
+cloud candidates and portable exports compose it at their existing boundary.
+
+The checkpoint is bound to owner, profile lineage, generation, accepted revision,
+replacement boundary and checked Godot gameplay identity. A stale boolean or
+fingerprint alone cannot hide changed resources, terrain or unknown fields. An
+immutable outgoing operation carries its compact checkpoint stamp. Only its
+verified receipt installs that exact island in the canonical profile, preserving
+and rebinding any newer compatible local checkpoint before retiring the outbox.
+Lost acknowledgements use the same verified receipt proof during opening. A
+different terrain edit, owner or reset cannot inherit old positions.
+
+Wandering alone never creates an automatic upload; ordinary cloud work piggybacks
+the latest checkpoint and explicit Sync sends it even when study progress is
+otherwise clean. Explicit Sync/export request an acknowledged safe-contact capture.
+Hidden-page and page-close captures remain best effort because browsers can freeze
+the game before its message runs. Five-second local checkpointing bounds the
+ordinary loss window; exact last-frame positions are not promised. Count-only
+version-38 positions cannot be recovered retroactively. Retain the version-39
+reader on rollback. No cloud schema, cadence, retention or account rollout changes
+accompany this amendment.

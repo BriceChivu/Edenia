@@ -49,7 +49,9 @@ func run() -> void:
 		scene.checkpoint_causes.clear()
 		animal.advance(1.0, 100.0)
 		check(not animal.fleeing and animal.position == animal.destination, "Animal reaches saved resting point")
-		check(scene.checkpoint_causes.is_empty(), "Finished animal movement requests no persistence")
+		check(scene.checkpoint_causes.is_empty(), "Finished animal movement waits for the coalescer")
+		check(scene.flush_animal_checkpoint(), "Finished animal movement leaves a flushable checkpoint")
+		check(scene.checkpoint_causes == [true], "Flushing finished movement keeps the ambient cause")
 		animal.position = origin
 		animal.destination = scene.layout.center(Vector2i.RIGHT)
 		animal.fleeing = true
@@ -58,8 +60,21 @@ func run() -> void:
 		scene.editing = true
 		scene.checkpoint_causes.clear()
 		animal.advance(0.01, 100.0)
-		check(scene.checkpoint_causes.is_empty(), "Settling movement for editing requests no persistence")
+		check(scene.checkpoint_causes.is_empty(), "Settling movement for editing waits for the coalescer")
+		check(scene.flush_animal_checkpoint(), "Editing settles leave a flushable checkpoint")
+		check(scene.checkpoint_causes == [true], "Flushing an editing settle keeps the ambient cause")
 		scene.editing = false
+		animal.animal_positions()[0] = origin
+		animal.position = origin
+		animal.destination = origin + Vector2(16, 0)
+		animal.fleeing = true
+		animal.house_fleeing = true
+		animal.escape_route.assign([animal.destination])
+		animal.tile_destinations.assign([animal.destination])
+		scene.checkpoint_causes.clear()
+		animal.advance(1.0, 100.0)
+		check(animal.animal_positions()[0] == origin, "House displacement animation retains the authoritative safe contact")
+		check(not scene.flush_animal_checkpoint() and scene.checkpoint_causes.is_empty(), "House animation alone does not checkpoint an unchanged safe contact")
 		animal.queue_free()
 		await process_frame
 	scene.checkpoint_causes.clear()

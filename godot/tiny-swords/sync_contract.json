@@ -1,4 +1,4 @@
 {
-	"ambient_arrays": [],
-	"version": 2
+	"ambient_arrays": ["chickens", "sheep"],
+	"version": 3
 }
