@@ -1,83 +1,148 @@
-# Internal account and reminder operations
+# Account email operations
 
-This runbook covers Edenia's current internal-only account and reminder system.
-It is deliberately written for the system that exists now.
+Issue [#521](https://github.com/BriceChivu/Edenia/issues/521) implements optional
+streak and discovery emails on the existing free infrastructure. Implementation
+and deployment do not authorize sending. The new migrations force delivery off
+and create no reminder Cron job. No account rollout or learner records are changed.
 
-## Internal experiment paused
+## Implemented policy
 
-As of 2026-09-27, authentication testing and reminder canary delivery are
-paused. Browser account rollout and profile lifecycle are off. The delivery
-switch remains false, there are no active delivery leases or reminder Cron
-jobs, and unsubscribe/provider-webhook services remain available. The sections
-below describe the retained system for an explicitly authorized future resume;
-they do not authorize re-enabling it. See the
-[Auth pause record](auth-operations.md#internal-experiment-pause-2026-09-27).
+Both Settings choices default on. Saved off choices survive reads and upgrades.
+A checked choice is a saved preference; **Enable emails** is the disclosed owner
+action that enrolls the displayed choices. Reads never enroll anyone. Disabling
+a type removes its enrollment. Enabling a previously unenrolled type requires
+Enable emails again. Default/migration consent from older versions does not qualify.
 
-## Current safety state
+Preferences use independent choice versions and an enrollment epoch. Conflicting
+same-choice saves refresh Settings; stale saves and stale enable actions cannot
+reverse unsubscribe. Ordinary unsubscribe stops both choices and both enrollments.
+A verified owner may deliberately enroll again. Hard bounce, complaint, manual
+and provider suppression remain effective. Settings reports paused delivery,
+pending saves, failures, saved preferences and enrollment separately.
 
-- The account interface is available only when
-  `EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal` and the visitor uses
-  `/?internal_test=1`.
-- The internal account source uses Google Identity Services ID-token exchange,
-  Turnstile-protected same-device email codes, dedicated custom SMTP, and a
-  branded six-digit-code template. The ordinary public route remains
-  accountless. Google, CAPTCHA, and the complete account surface retain
-  independent rollback controls.
-- There is no One Tap, automatic account selection, custom Google button,
-  magic-link confirmation, or standalone `/auth/confirm/` route.
-- After an authentication callback, the controller confirms the shared client
-  session before it publishes signed-in state to protected-data consumers. The
-  production acceptance test must not use **Try loading again** to make the
-  first reminder-preference read succeed.
-- An authenticated user can save only their own `reminder_preferences` row.
-- The server has a read-only account-export API, but Settings deliberately does
-  not offer an account-data download control.
-- Account exports allow five requests per ten-minute fixed window. The server
-  hashes the verified UUID before using the service-only rate-limit bucket; the
-  browser cannot choose the scope, owner, window, or limit.
-- The export explicitly marks current-device progress as excluded. Starting a
-  download never reads, uploads, replaces, or binds progress from the browser.
-- The private tester allowlist stores Supabase user UUIDs, never email
-  addresses.
-- `reminder_delivery_enabled` is an independent server-side switch and must
-  remain `false`.
-- `dispatch-study-reminders` is manual and authenticated by the dedicated
-  `reminder_dispatcher` secret key. With the server switch off it remains
-  bounded to 25 dry-run claims, logs intended occurrences, and contacts no
-  email provider.
-- The private delivery ledger can represent a provider attempt, API acceptance,
-  a bounded permanent failure, or an ambiguous outcome. The live worker is
-  compiled into the dispatcher but cannot claim live work while the database
-  switch is off.
-- Unsubscribe-token binding requires the current claim token and rechecks the
-  tester allowlist, saved schedule and consent, suppression state, and lease.
-  A narrow no-send RPC can end a current claim as `recipient_unavailable`
-  without falsely recording a provider attempt.
-- `/unsubscribe/` is a static, analytics-free confirmation page on Edenia's
-  GitHub Pages origin. It removes the capability from the address bar before
-  the user can act and never reads local study state.
-- `unsubscribe-study-reminders` is a JSON-only mutation API. A valid opaque
-  capability submitted by `POST` can perform only the service-owned
-  unsubscribe operation; `GET` returns `405` without checking the capability.
-- There is no Cron schedule. Resend is configured with a send-only key scoped
-  to the verified `mail.edenia.study` domain, an Edenia From address, an exact
-  single-recipient server allowlist, and an independent unsubscribe secret.
-  The worker rechecks the database switch before claiming and again through the
-  provider-begin RPC immediately before network I/O. With the switch off, no
-  worker generates or stores unsubscribe capabilities.
-- A private provider-event ledger can deduplicate bounded event metadata and
-  atomically apply bounce, complaint, or provider suppression.
-- `resend-reminder-webhook` verifies Resend's raw-body Svix signature before it
-  interprets or persists an event. Resend is configured to send only the seven
-  supported email events to that exact endpoint. A production transport test
-  received successful signed `email.sent` and `email.delivered` callbacks; the
-  handler intentionally ignored them because the transport test had no Edenia
-  reminder tags.
+Streak eligibility requires yesterday to have at least **10 Study XP** and today
+to have less than 10. It uses accepted cloud Study facts, preserving the Study day
+assigned to each fact. Browser-only totals are not authority. The projection names
+the current accepted owner/profile/generation/revision; missing, stale or invalid
+provenance skips delivery. Unchanged relevant inputs carry forward through cosmetic
+record revisions. Relevant changes/reset/restore invalidate the projection for
+bounded recomputation away from gameplay. Email wording remains conditional because
+offline or unsynced progress is invisible to the server.
 
-The `internal_test=1` query parameter is a public rollout selector. It is not
-an authorization or security boundary. Supabase Auth, row-level security,
-server-only RPC grants, the UUID allowlist, and the independent delivery switch
-are the security boundaries.
+The saved IANA timezone determines 19:00 and a one-hour send window. There is no
+next-day catch-up. Across both types, an owner gets at most one email per local
+date and per rolling 24 hours; streak takes priority. Discovery is at most once
+per seven local dates, in the primary selected learning language, from the
+reviewed catalog, excluding followed channels and channels potentially sent in
+the last 90 days. No peer activity is needed. Sparse languages can receive one
+recommendation then none for 90 days. A channel-only link goes to an exact
+validated YouTube channel URL and never changes a profile or follows a channel.
+
+## Free capacity and dispatch
+
+The only provider send endpoint is the retained Resend `/emails` adapter.
+There is no paid fallback, provisioning, upgrade, subscription or billing API.
+Product caps are 60 reservations per UTC day and 1,800 in a rolling 31 days,
+across both email types; shared provider usage can stop sending sooner. These
+caps leave headroom but cannot guarantee capacity for Auth or other senders.
+
+Before sending, the operator must independently verify the actual Free account,
+no paid overage/upgrade, and verified sender domain. Record that evidence through
+the service-only `record_reminder_free_capacity` RPC, bound to SHA-256 digests of
+the exact API key and From address. Never place the key itself in SQL, logs or
+this runbook. The attestation expires after 24 hours; provider usage expires after
+10 minutes. The dispatcher refreshes account-wide sent **and received** usage
+through the bounded read-only [Resend usage API](https://resend.com/docs/api-reference/usage/retrieve-usage).
+Usage limits alone do not establish plan or billing settings. Unknown/stale
+capacity, exhausted quota, readback errors and provider quota errors stop optional
+mail and retain an operator reason. Exact provider-observed delivery IDs can
+reconcile reservations without subtracting an aggregate estimate. Uncertain
+attempts stay charged; an expired lease does not release capacity. Provider
+aggregate counters do not prove that a particular receipt is included. Until
+exact observed IDs are reconciled, the conservative path can count a potentially
+sent email in both shared usage and outstanding reservations and stop below 60;
+for example, 30 shared sends plus 30 unobserved reservations exhausts the product
+headroom. The cap is a ceiling, not promised throughput. Do not erase uncertainty
+or infer receipt inclusion just to fill the allowance.
+
+The live worker materializes its own occurrences; shadow evaluation is read-only
+and consumes no real occurrence identity, enrollment, cooldown, history or quota.
+Daily admission ranks all known timezone windows before due selection and rotates
+by least recent admission/send, with stable owner-hash ties. Each tick claims at
+most ten occurrences and has a bounded deadline. Repeated/overlapping ticks use
+leases and the same delivery UUID. The final provider-begin fence rechecks current
+accepted progress, enrollment, choices, recipient, suppression, switch and quota.
+An unsubscribe after that fence can race with network I/O; an accepted email
+cannot be recalled.
+
+Retries retain the exact payload, normalized verified recipient digest, sender,
+locale/template version and unsubscribe-key version under the original delivery
+UUID. A changed recipient or payload stops that occurrence. Retry only before
+both the one-hour occurrence cutoff and the conservative 23-hour provider retry
+boundary. Afterward use signed callbacks or read-only receipt reconciliation;
+never invent a fresh ID to force a late send. API accepted, delivered, bounced,
+suppressed and ambiguous remain distinct outcomes. See [Resend idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys).
+
+## Separate future activation
+
+Do not run these steps merely because this branch is deployed. Obtain explicit
+send authorization and an exact canary recipient first, then verify the deployed
+source/migrations, actual Free account/domain/billing settings, shared usage,
+enrollment, and signed webhook/unsubscribe behavior. Initial canary mode requires
+both the server UUID allowlist and exact normalized recipient allowlist. Public
+mode is an explicit database admission mode plus server environment choice;
+`internal_test` is never permission to send.
+
+Server configuration includes the dedicated `reminder_dispatcher` capability,
+`RESEND_API_KEY`, `REMINDER_FROM_ADDRESS`, `REMINDER_UNSUBSCRIBE_SECRET`,
+`REMINDER_UNSUBSCRIBE_KEY_VERSION`, exact allowed app/unsubscribe URLs, and
+`REMINDER_ADMISSION_MODE` (canary by default). Canary also requires
+`REMINDER_LIVE_RECIPIENT_EMAIL`. Store secrets only in the existing secret stores.
+
+Scheduler plumbing is inert: `private.invoke_reminder_dispatcher()` reads
+`reminder_dispatcher_url` and `reminder_dispatcher_api_key` from Vault. Only the
+database operator may call `configure_reminder_dispatch_schedule(boolean)`.
+When explicitly activated it installs a five-minute Cron command containing only
+the private function call; the secret is never embedded in `cron.job`. Its
+migration never invokes the activation function. The dispatcher capability
+cannot install its own schedule. See [Supabase Cron](https://supabase.com/docs/guides/cron).
+
+Rollback: disable delivery first, unschedule through the operator function,
+expire/fence outstanding claims, retain unsubscribe/webhook services and ledgers,
+and verify no further provider requests. Retain quota reservations and ambiguous
+outcomes. A browser flag must never enable delivery implicitly.
+
+## Local validation
+
+Run the Node contracts/backend suite and frozen Deno checks. Run all reminder
+pgTAP files listed in CI against an isolated database, including accepted-head,
+free quota/fairness and inert scheduler tests. Generate shared threshold cases
+with `node scripts/generate-reminder-policy-fixtures.mjs` and execute
+`.cache/reminder-policy-fixtures.test.sql`. Browser acceptance covers both main
+and retained production Settings, desktop/phone, all five locales, destination
+handling and analytics-free unsubscribe. Fake providers and offline rendered
+previews prove application behavior; they do not prove inbox delivery or actual
+account billing settings. Keep real canary evidence separate.
+
+Three disposable-database diagnostic scripts exercise the complete dispatcher with
+an injected fake provider and two actual concurrent PostgreSQL workers:
+`scripts/diagnostics/test-reminder-e2e.mjs`,
+`scripts/diagnostics/test-reminder-quota-concurrency.mjs`, and
+`scripts/diagnostics/test-reminder-unsubscribe-concurrency.mjs`. They require an empty
+local `supabase_db_...` container named by `REMINDER_TEST_DATABASE_CONTAINER`;
+the real provider is never invoked. CI runs all three after the pgTAP suites.
+
+The active signed-in authentication-trial route uses the shared 10-Study-XP
+policy. The retained accountless production experience keeps its historical raw
+points timeline; legacy accepted heads without credited Study facts qualify for
+no streak email. Do not convert old raw activity into retroactive XP. Discovery
+can still use accepted settings. Both browser source routes retain the same
+preference/enrollment controls and preserve already credited facts.
+
+
+The remaining sections retain historical account canary procedures and receipts.
+Their dated rollout/paused-state statements are historical evidence; consult the
+actual runtime and server controls before any separately authorized activation.
 
 ## Authentication canary preflight and activation
 

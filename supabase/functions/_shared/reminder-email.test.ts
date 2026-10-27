@@ -219,7 +219,7 @@ test('builds exact typed Edenia destinations without accepting arbitrary URLs', 
       appUrl: APP_URL,
       emailType: 'discovery' as const,
       videoId: null,
-      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelId: null,
     },
     {
       appUrl: APP_URL,
@@ -321,5 +321,46 @@ test('allows a streak without a video and rejects partial or multiline payloads'
       unsubscribePageUrl,
       ...invalid,
     }))
+  }
+})
+
+
+test('channel-only discovery is useful without a video and cannot inject a destination', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  for (const locale of LOCALES) {
+    const content = renderTypedReminderEmail({
+      locale,
+      appUrl: APP_URL,
+      unsubscribePageUrl: createReminderUnsubscribePageUrl(PAGE, token, locale),
+      emailType: 'discovery',
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelName: 'Grace & Friends',
+      channelSummary: 'Practical Mandarin <lessons>.',
+    })
+    assert.equal(content.destinationUrl, 'https://www.youtube.com/channel/UCC_fdR7zZ_5SU--xuOrEdKw')
+    assert.match(content.text, /Grace & Friends/)
+    assert.match(content.html, /Grace &amp; Friends/)
+    assert.match(content.html, /&lt;lessons&gt;/)
+    assert.doesNotMatch(content.text, /null|undefined|Latest video|Another learner/)
+    assert.match(content.text, new RegExp(token))
+  }
+  for (const channelId of ['UCshort', 'UC' + 'a'.repeat(23), 'https://evil.test/', 'UC' + 'a'.repeat(21) + '\n']) {
+    assert.throws(() => createTypedReminderDestinationUrl({
+      appUrl: APP_URL, emailType: 'discovery', videoId: null, channelId,
+    }))
+  }
+})
+
+test('all localized streaks describe the 10 XP condition without claiming unsynced work is absent', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  for (const locale of LOCALES) {
+    const content = renderTypedReminderEmail({
+      locale, appUrl: APP_URL,
+      unsubscribePageUrl: createReminderUnsubscribePageUrl(PAGE, token, locale),
+      emailType: 'streak',
+    })
+    assert.match(content.text, /10 XP/)
+    assert.match(content.html, /10 XP/)
+    assert.doesNotMatch(content.text, /You still need|haven.t studied|5 XP/)
   }
 })

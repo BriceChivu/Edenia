@@ -221,9 +221,8 @@ export function parseTypedReminderDryRunClaim(
     && channelId !== null
     && channelName !== null
     && channelSummary !== null
-    && videoId !== null
-    && videoTitle !== null
-    && videoPublishedAt !== null
+    && ((videoId === null && videoTitle === null && videoPublishedAt === null)
+      || (videoId !== null && videoTitle !== null && videoPublishedAt !== null))
 
   if (
     !validLanguage

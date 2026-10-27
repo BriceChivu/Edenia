@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { ReminderDispatchError } from './reminder-delivery-claim.ts'
-import { runReminderDispatcher } from './reminder-dispatcher.ts'
+import { runReminderDispatcher as dispatch } from './reminder-dispatcher.ts'
+import type { ReminderLiveDependencies, ReminderLiveClient } from './reminder-live.ts'
 
 const ENVIRONMENT = Object.freeze({
   RESEND_API_KEY: 're_test_key_1234567890',
@@ -13,7 +14,15 @@ const ENVIRONMENT = Object.freeze({
     'https://www.edenia.study/unsubscribe/',
   SUPABASE_URL: 'https://example-project.supabase.co',
   REMINDER_LIVE_RECIPIENT_EMAIL: 'learner@example.com',
+  REMINDER_UNSUBSCRIBE_KEY_VERSION: 'test-key-v1',
 })
+
+function runReminderDispatcher(client: ReminderLiveClient, environment: (name: string) => string | undefined,
+ log: (entry: Record<string, string | number | boolean>) => void, deps: ReminderLiveDependencies = {}) {
+ return dispatch(client, environment, log, { readCapacity: async () => ({ dailyUsed: 0, monthlyUsed: 0,
+ dailyResetsAt: '2026-08-13T00:00:00Z', monthlyResetsAt: '2026-09-01T00:00:00Z',
+ observedAt: '2026-08-12T11:00:00Z' }), ...deps })
+}
 
 function createHarness(switchValues: boolean[]) {
   const rpcCalls: string[] = []
@@ -34,11 +43,13 @@ function createHarness(switchValues: boolean[]) {
           return Promise.resolve({ data: value, error: null })
         }
         if (
-          name === 'claim_due_typed_reminder_dry_runs'
+          name === 'evaluate_reminder_shadow'
           || name === 'claim_due_typed_reminder_live'
         ) {
           return Promise.resolve({ data: [], error: null })
         }
+        if (['reminder_provider_attestation_is_current', 'refresh_reminder_provider_usage',
+          'refresh_reminder_eligibility_snapshots'].includes(name)) return Promise.resolve({ data: true, error: null })
         return Promise.resolve({
           data: null,
           error: { message: 'unexpected RPC' },
@@ -81,7 +92,7 @@ test('switch-off dispatch stays dry-run and never reads live settings', async ()
   assert.deepEqual(harness.rpcCalls, [
     'reminder_delivery_is_enabled',
     'reminder_delivery_is_enabled',
-    'claim_due_typed_reminder_dry_runs',
+    'evaluate_reminder_shadow',
   ])
 })
 
@@ -120,6 +131,9 @@ test('switch-on dispatch validates config then enters the bounded live path', as
   assert.deepEqual(harness.rpcCalls, [
     'reminder_delivery_is_enabled',
     'reminder_delivery_is_enabled',
+    'reminder_provider_attestation_is_current',
+    'refresh_reminder_provider_usage',
+    'refresh_reminder_eligibility_snapshots',
     'claim_due_typed_reminder_live',
   ])
 })

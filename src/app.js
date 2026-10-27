@@ -12,6 +12,7 @@ import { createIslandAnnouncement } from './features/onboarding/island-announcem
 import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
+import { MIN_DAILY_STREAK_XP } from './domain/study-policy.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
 import { mapPersistenceResult } from './state/persistence-result.js'
 import { budgetObjectCache } from './state/storage-budget.js'
@@ -204,6 +205,7 @@ import {
 import {
   createDefaultReminderPreference,
   createReminderPreferencesController,
+  REMINDER_CONSENT_VERSION,
   REMINDER_PREFERENCE_FEEDBACK,
   REMINDER_PREFERENCE_STATES
 } from './integrations/reminder-preferences-controller.js'
@@ -213,9 +215,6 @@ import {
 import {
   createAccountStudySnapshotController
 } from './integrations/account-study-snapshot-controller.js'
-import {
-  createReminderEligibilitySnapshot
-} from './domain/reminder-eligibility-snapshot.js'
 import {
   getEdeniaSessionReplayUrl,
   getPersistedAnalyticsUserId,
@@ -1672,7 +1671,6 @@ const BACKGROUND_PHYSICS_RADIUS = 130
 const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
-const MIN_DAILY_STREAK_XP = 10
 const HEATMAP_STREAK_RUN_MIN_DAYS = 5
 const VIDEO_HOUR_POINTS = 30
 const SHORT_VIDEO_DETECTION_VERSION = 1
@@ -2505,27 +2503,17 @@ function syncPersistedStateToAnalytics(state) {
 }
 
 function getAccountStudySnapshot(state) {
-  const studyDate = getCurrentAppDateKey(state)
-  const dayStart = dateKeyToLocalDate(studyDate)
-  const dayEnd = new Date(dayStart)
-  dayEnd.setHours(23, 59, 59, 999)
-  const today = getStudyHistoryBetween(state, dayStart, dayEnd).rows
-    .find(row => row.dateKey === studyDate)
   let timezone = 'UTC'
   try {
     timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   } catch {}
 
-  return createReminderEligibilitySnapshot({
-    state,
+  // Browser totals can be newer or older than the accepted cloud head. Only
+  // display context travels here; the server derives every eligibility fact.
+  return {
     timezone,
-    locale: normalizeLocale(state?.config?.locale),
-    studyDate,
-    pointsToday: today ? getHistoryDayPoints(today) : 0,
-    lastQualifiedStudyDate: state?.streak?.lastActivityDate || null,
-    currentStreakDays: state?.streak?.current || 0,
-    includeShorts: getEffectiveIncludeShorts(state)
-  })
+    locale: normalizeLocale(state?.config?.locale)
+  }
 }
 
 function prepareStateForBackup(state) {
@@ -6536,6 +6524,15 @@ const REMINDER_PREFERENCE_FEEDBACK_VIEWS = Object.freeze({
   [REMINDER_PREFERENCE_FEEDBACK.SAVE_ERROR]: {
     key: 'settings.account.remindersFeedback.saveError', tone: 'error'
   },
+  [REMINDER_PREFERENCE_FEEDBACK.STALE]: {
+    key: 'settings.account.remindersFeedback.stale', tone: 'error'
+  },
+  [REMINDER_PREFERENCE_FEEDBACK.ENROLLED]: {
+    key: 'settings.account.remindersFeedback.enrolled', tone: 'success'
+  },
+  [REMINDER_PREFERENCE_FEEDBACK.ENROLLMENT_BLOCKED]: {
+    key: 'settings.account.remindersFeedback.enrollmentBlocked', tone: 'error'
+  },
   [REMINDER_PREFERENCE_FEEDBACK.SIGN_IN_REQUIRED]: {
     key: 'settings.account.remindersFeedback.signInRequired', tone: 'error'
   }
@@ -6571,6 +6568,25 @@ function renderReminderPreferences(state = reminderPreferenceViewState) {
   const discoveryEmails = document.getElementById('discoveryEmailsEnabled')
   if (discoveryEmails) {
     discoveryEmails.checked = preference.discoveryEmailsEnabled
+  }
+
+  const enrollmentVersion = REMINDER_CONSENT_VERSION
+  const selected = preference.streakRemindersEnabled || preference.discoveryEmailsEnabled
+  const enrolled = selected && !preference.consentRevokedAt && !preference.enrollmentBlocked
+    && (!preference.streakRemindersEnabled || preference.streakEnrollmentVersion === enrollmentVersion)
+    && (!preference.discoveryEmailsEnabled || preference.discoveryEnrollmentVersion === enrollmentVersion)
+  const enrollButton = document.getElementById('reminderEnrollBtn')
+  if (enrollButton) {
+    enrollButton.classList.toggle('hidden', !signedIn || !ready || enrolled)
+    enrollButton.disabled = busy || !selected || preference.enrollmentBlocked
+  }
+  document.getElementById('reminderDeliveryPaused')?.classList.toggle('hidden', !signedIn || !ready || !preference.deliveryPaused)
+  const enrollmentStatus = document.getElementById('reminderEnrollmentStatus')
+  if (enrollmentStatus) {
+    enrollmentStatus.textContent = signedIn && ready ? t(busy
+      ? 'settings.account.remindersSaving'
+      : preference.enrollmentBlocked ? 'settings.account.remindersFeedback.enrollmentBlocked'
+      : enrolled ? 'settings.account.emailEnrollmentActive' : 'settings.account.emailEnrollmentPending') : ''
   }
 
   document.getElementById('reminderRetryBtn')?.classList.toggle(
@@ -7130,6 +7146,10 @@ function saveReminderPreference(input) {
   return reminderPreferencesController?.save(input)
 }
 
+function enrollReminderChoices() {
+  return reminderPreferencesController?.enroll()
+}
+
 function retryReminderPreferenceLoad() {
   return reminderPreferencesController?.retry()
 }
@@ -7198,8 +7218,12 @@ async function initializeRequestedReminderDestination() {
     history: window.history
   })
   if (!request?.videoId || !request.channelId) return
+  const originatingState = loadState()
+  if (!originatingState) return
+  const stillCurrent = () => isCurrentLearnerProfileOperation(originatingState)
 
   const openRequestedVideo = async existing => {
+    if (!stillCurrent()) return
     const opened = await openVideoPlayer(request.videoId)
     trackEdeniaEvent('reminder_video_destination_opened', {
       email_type: request.emailType,
@@ -7227,6 +7251,7 @@ async function initializeRequestedReminderDestination() {
       || metadata.channelId !== request.channelId
     ) throw new Error(t('toast.videoNotFound'))
 
+    if (!stillCurrent()) return
     const state = loadState()
     if (state.videos[request.videoId]) {
       openRequestedVideo(true)
@@ -7276,7 +7301,8 @@ async function initializeRequestedReminderDestination() {
     renderAll(state)
     openRequestedVideo(false)
   } catch (error) {
-    console.warn('Could not open the requested reminder video:', error)
+    if (!stillCurrent()) return
+    console.warn('Could not open the requested reminder video')
     if (!await recordYoutubeQuotaError(error)) showToast(error?.message || t('toast.addVideoFailed'), 'error')
   }
 }
@@ -9080,14 +9106,14 @@ function addVideoWatchProgress(video, seconds, watchedAt = new Date().toISOStrin
     : normalizedSeconds
 
   if (!secondsToAdd) return false
-  entries.push({ watchedAt, seconds: secondsToAdd })
+  entries.push({ watchedAt, studyDay: toDateKey(new Date(watchedAt)), seconds: secondsToAdd })
   video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
   return true
 }
 
 function getVideoWatchActivityDateKeys(video) {
   return getVideoWatchProgressEntries(video)
-    .map(entry => toDateKey(new Date(entry.watchedAt)))
+    .map(entry => entry.studyDay || toDateKey(new Date(entry.watchedAt)))
 }
 
 function getRefreshCandidateDetails(s, videos) {
@@ -12728,9 +12754,10 @@ function getStudyHistoryBetween(s, start, end) {
 
   for (const video of Object.values(s.videos || {})) {
     getVideoWatchProgressEntries(video).forEach(entry => {
-      const date = new Date(entry.watchedAt)
+      const studyDay = entry.studyDay || toDateKey(new Date(entry.watchedAt))
+      const date = dateKeyToLocalDate(studyDay)
       if (date < start || date > end) return
-      const bucket = ensureBucket(toDateKey(date))
+      const bucket = ensureBucket(studyDay)
       if (!bucket.watchedVideoMap) bucket.watchedVideoMap = new Map()
       const videoId = video.id || ''
       let watchedVideo = bucket.watchedVideoMap.get(videoId)
@@ -16917,8 +16944,10 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
   const secondsToAdd = normalizedSeconds
   if (!secondsToAdd) return false
 
+  const studyDay = toDateKey(new Date(watchedAt))
   let sessionEntry = session.progressEntryAt
-    ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
+    ? entries.find(entry => entry.watchedAt === session.progressEntryAt
+      && (entry.studyDay || toDateKey(new Date(entry.watchedAt))) === studyDay)
     : null
   if (!sessionEntry) {
     let entryAt = watchedAt
@@ -16926,7 +16955,7 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
       entryAt = new Date(new Date(entryAt).getTime() + 1).toISOString()
     }
     session.progressEntryAt = entryAt
-    sessionEntry = { watchedAt: entryAt, seconds: 0 }
+    sessionEntry = { watchedAt: entryAt, studyDay, seconds: 0 }
     entries.push(sessionEntry)
   }
   sessionEntry.experienceSeconds = (sessionEntry.experienceSeconds || 0) + secondsToAdd
@@ -19128,7 +19157,8 @@ bindLearnerProfileConflictActions(document, {
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,
-  retry: retryReminderPreferenceLoad
+  retry: retryReminderPreferenceLoad,
+  enroll: enrollReminderChoices
 })
 bindPlusUpgradeActions(document.getElementById('plusUpgradeModal'), {
   close: closePlusUpgradeModal,

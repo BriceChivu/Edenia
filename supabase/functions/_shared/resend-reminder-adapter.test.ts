@@ -194,16 +194,14 @@ test('fails closed on provider rejections and idempotency conflicts', async () =
     [403, { name: 'invalid_api_key' }, 'authentication_or_domain'],
     [404, { name: 'not_found' }, 'configuration'],
     [409, { name: 'invalid_idempotent_request' }, 'idempotency_conflict'],
-    [409, { name: 'unknown_conflict' }, 'provider_rejected'],
     [451, { name: 'security_error' }, 'security_rejection'],
-    [418, { name: 'unexpected' }, 'provider_rejected'],
   ] as const
 
   for (const [status, body, reason] of cases) {
     const result = await sendReminderWithResend(INPUT, {
       fetcher: async () => jsonResponse(status, body),
     })
-    assert.deepEqual(result, { status: 'blocked', reason })
+    assert.deepEqual(result, { status: 'blocked', reason, definitiveNoSend: reason !== 'idempotency_conflict' })
   }
 })
 
@@ -247,4 +245,21 @@ test('bounds network failures and timeouts without returning thrown details', as
     status: 'deferred',
     reason: 'request_timeout',
   })
+})
+
+
+test('unknown idempotency conflicts remain ambiguous and never report confirmed no-send', async () => {
+ const result = await sendReminderWithResend(INPUT, { fetcher: async () => jsonResponse(409, { name: 'unknown_conflict' }) })
+ assert.deepEqual(result, { status: 'deferred', reason: 'invalid_provider_response' })
+})
+
+
+test('an expired absolute deadline and unknown HTTP408 never create a late or definite result', async () => {
+ let fetches = 0
+ const expired = await sendReminderWithResend(INPUT, { deadlineMs: 1000, now: () => 1000,
+  fetcher: async () => { fetches += 1; return jsonResponse(200, { id: 'never' }) } })
+ assert.equal(fetches, 0)
+ assert.deepEqual(expired, { status: 'deferred', reason: 'request_timeout' })
+ const ambiguous = await sendReminderWithResend(INPUT, { fetcher: async () => jsonResponse(408, { name: 'unknown_timeout' }) })
+ assert.deepEqual(ambiguous, { status: 'deferred', reason: 'invalid_provider_response' })
 })

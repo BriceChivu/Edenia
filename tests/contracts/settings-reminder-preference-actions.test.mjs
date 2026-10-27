@@ -26,15 +26,17 @@ function createHarness() {
     }
   })
   const retry = control()
+  const enroll = control()
   const root = {
     querySelector(selector) {
       return new Map([
         ['[data-reminder-action="form"]', form],
-        ['[data-reminder-action="retry"]', retry]
+        ['[data-reminder-action="retry"]', retry],
+        ['[data-reminder-action="enroll"]', enroll]
       ]).get(selector) || null
     }
   }
-  return { form, retry, root }
+  return { form, retry, enroll, root }
 }
 
 test('email preference form returns only the two email choices', () => {
@@ -46,19 +48,23 @@ test('email preference form returns only the two email choices', () => {
 })
 
 test('email choices save on change and retry binding is idempotent', () => {
-  const { form, retry, root } = createHarness()
+  const { form, retry, enroll, root } = createHarness()
   const calls = []
   const actions = {
     save: input => calls.push(['save', input]),
-    retry: () => calls.push(['retry'])
+    retry: () => calls.push(['retry']),
+    enroll: () => calls.push(['enroll'])
   }
-  assert.equal(bindReminderPreferenceActions(root, actions), 2)
+  assert.equal(bindReminderPreferenceActions(root, actions), 3)
   assert.equal(bindReminderPreferenceActions(root, actions), 0)
 
-  form.dispatch('change')
+  form.dispatch('change', { target: { id: 'streakRemindersEnabled', checked: false } })
+  form.dispatch('change', { target: { id: 'unrelated', checked: false } })
+  enroll.dispatch('click')
   retry.dispatch('click')
 
-  assert.deepEqual(calls.map(call => call[0]), ['save', 'retry'])
+  assert.deepEqual(calls.map(call => call[0]), ['save', 'enroll', 'retry'])
+  assert.deepEqual(calls[0][1], { streakRemindersEnabled: false })
   assert.throws(
     () => bindReminderPreferenceActions(null, actions),
     /queryable root/

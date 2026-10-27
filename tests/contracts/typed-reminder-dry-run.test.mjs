@@ -1,73 +1,41 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+const read = path => readFile(new URL(`../../${path}`, import.meta.url), 'utf8')
+const [migration, databaseTest, workflow, launchMigration, catalog] = await Promise.all([
+  read('supabase/migrations/20261027085359_free_reminder_dispatch.sql'),
+  read('supabase/tests/typed_reminder_dry_run.test.sql'),
+  read('.github/workflows/ci.yml'),
+  read('supabase/migrations/20260812163511_add_typed_reminder_dry_run.sql'),
+  read('data/reminder-discovery-channels.json').then(JSON.parse),
+])
 
-const projectRoot = new URL('../../', import.meta.url)
-const migration = await readFile(
-  new URL(
-    'supabase/migrations/20260812163511_add_typed_reminder_dry_run.sql',
-    projectRoot
-  ),
-  'utf8'
-)
-const databaseTest = await readFile(
-  new URL('supabase/tests/typed_reminder_dry_run.test.sql', projectRoot),
-  'utf8'
-)
-const workflow = await readFile(
-  new URL('.github/workflows/ci.yml', projectRoot),
-  'utf8'
-)
-const discoveryCatalog = JSON.parse(await readFile(
-  new URL('data/reminder-discovery-channels.json', projectRoot),
-  'utf8'
-))
-
-test('typed reminder claims are structurally dry-run only', () => {
-  assert.match(migration, /create function public\.claim_due_typed_reminder_dry_runs/)
-  assert.match(migration, /typed_reminder_dry_run_delivery_enabled/)
-  assert.match(migration, /where control\.singleton and control\.delivery_enabled/)
-  assert.match(migration, /grant execute on function public\.claim_due_typed_reminder_dry_runs[\s\S]*?to service_role/)
-  assert.doesNotMatch(
-    migration,
-    /create (?:or replace )?function public\.claim_due_reminder_deliveries/
-  )
-  assert.doesNotMatch(
-    migration,
-    /\bemail\s+(?:text|varchar|character varying)\b|api\.resend|fetch\s*\(|net\.http|cron\.schedule/i
-  )
+test('current shadow evaluation retires mutating preview and uses a read-only aggregate', () => {
+  const evaluator = migration.slice(migration.indexOf('create function public.evaluate_reminder_shadow'), migration.indexOf('create function public.plan_typed_reminders'))
+  assert.match(evaluator, /language sql stable security definer/)
+  assert.match(evaluator, /count\(\*\)/)
+  assert.doesNotMatch(evaluator, /insert into|update .*set|delete from|net\.http|cron\.schedule/i)
+  assert.match(migration, /revoke execute on function public\.claim_due_typed_reminder_dry_runs[\s\S]*?from public,anon,authenticated,service_role/)
+  assert.match(migration, /revoke execute on function public\.complete_typed_reminder_dry_run[\s\S]*?from public,anon,authenticated,service_role/)
 })
 
-test('typed eligibility keeps each product rule explicit and fail closed', () => {
-  assert.match(migration, /'streak'::text as email_type/)
-  assert.match(migration, /'discovery'::text as email_type/)
-  assert.match(migration, /recipient\.last_qualified_study_date = recipient\.local_date - 1/)
-  assert.match(migration, /recipient\.points_today < 5/)
-  assert.match(migration, /previous\.scheduled_local_date > recipient\.local_date - 3/)
-  assert.match(migration, /recipient\.scheduled_for - interval '24 hours'/)
-  assert.match(migration, /snapshot\.updated_at >= p_now - interval '30 days'/)
-  assert.match(migration, /order by candidate\.user_id, candidate\.priority/)
-  assert.match(migration, /private\.typed_reminder_delivery_is_current/)
+test('current eligibility uses accepted facts and the 10 XP/seven-day/90-day policy', () => {
+  assert.match(migration, /reminder_projection_matches_head/)
+  assert.match(migration, /reminder_study_points\(o\.user_id,o\.local_date-1\)>=private\.reminder_study_threshold\(\)/)
+  assert.match(migration, /reminder_study_points\(o\.user_id,o\.local_date\),0\)<private\.reminder_study_threshold\(\)/)
+  assert.match(migration, /scheduled_local_date>o\.local_date-7/)
+  assert.match(migration, /interval '90 days'/)
+  assert.match(migration, /interval '24 hours'/)
+  assert.match(migration, /public\.reminder_type_enrolled/)
 })
 
-test('database copy contains every reviewed discovery channel and no extras', () => {
-  const migrationIds = new Set(
-    [...migration.matchAll(/\(\n\s*'(UC[A-Za-z0-9_-]{20,})',\n\s*'[a-z0-9-]+',/g)]
-      .map(match => match[1])
-  )
-  const sourceIds = new Set(discoveryCatalog.channels.map(channel => channel.channelId))
-  assert.deepEqual(migrationIds, sourceIds)
+test('database launch catalog contains every reviewed channel and no extras', () => {
+  const ids = new Set([...launchMigration.matchAll(/\(\n\s*'(UC[A-Za-z0-9_-]{20,})',\n\s*'[a-z0-9-]+',/g)].map(match => match[1]))
+  assert.deepEqual(ids, new Set(catalog.channels.map(channel => channel.channelId)))
 })
 
-test('CI runs the behavioral database boundary suite', () => {
-  assert.match(databaseTest, /select plan\(40\)/)
-  assert.match(databaseTest, /streak has priority when both email types qualify/)
-  assert.match(databaseTest, /rolling 24-hour guard blocks a second local date/)
-  assert.match(databaseTest, /two full intervening days/)
-  assert.match(databaseTest, /autosaved preference changes are rechecked/)
-  assert.match(databaseTest, /typed dry runs never create provider state/)
-  assert.match(
-    workflow,
-    /supabase test db supabase\/tests\/typed_reminder_dry_run\.test\.sql --local/
-  )
+test('CI runs behavioral no-side-effect and eligibility proofs', () => {
+  for (const proof of ['preview materializes no real occurrence', 'preview consumes no daily admission token', 'preview consumes no quota', 'checked preferences alone never enroll', 'zero peers']) assert.ok(databaseTest.includes(proof), proof)
+  assert.match(workflow, /supabase test db supabase\/tests\/typed_reminder_dry_run\.test\.sql --local/)
+  assert.match(workflow, /supabase test db supabase\/tests\/accepted_reminder_eligibility\.test\.sql --local/)
 })

@@ -1,466 +1,54 @@
 begin;
-
 create extension if not exists pgtap with schema extensions;
-set local search_path = extensions, public, auth, pg_catalog;
-
-select plan(42);
-
-select has_table(
-  'public',
-  'reminder_eligibility_snapshots',
-  'the derived reminder eligibility snapshot exists'
-);
-select has_table(
-  'public',
-  'reminder_channel_follows',
-  'the normalized reminder channel follows exist'
-);
-select is(
-  (select relrowsecurity from pg_catalog.pg_class where oid = 'public.reminder_eligibility_snapshots'::regclass),
-  true,
-  'reminder eligibility snapshots have RLS enabled'
-);
-select is(
-  (select relrowsecurity from pg_catalog.pg_class where oid = 'public.reminder_channel_follows'::regclass),
-  true,
-  'reminder channel follows have RLS enabled'
-);
-select policies_are(
-  'public',
-  'reminder_eligibility_snapshots',
-  array['Users can view their own reminder eligibility snapshot'],
-  'snapshot reads have exactly one owner policy'
-);
-select policies_are(
-  'public',
-  'reminder_channel_follows',
-  array['Users can view their own reminder channel follows'],
-  'channel reads have exactly one owner policy'
-);
-select hasnt_column(
-  'public', 'reminder_eligibility_snapshots', 'email',
-  'the eligibility snapshot does not store email'
-);
-select hasnt_column(
-  'public', 'reminder_channel_follows', 'email',
-  'the channel snapshot does not store email'
-);
-select has_function(
-  'public',
-  'sync_my_reminder_eligibility_snapshot',
-  array['jsonb'],
-  'the authenticated atomic snapshot RPC exists'
-);
-select ok(
-  has_function_privilege(
-    'authenticated',
-    'public.sync_my_reminder_eligibility_snapshot(jsonb)',
-    'execute'
-  ),
-  'authenticated users can execute the owner-derived RPC'
-);
-select ok(
-  not has_function_privilege(
-    'anon',
-    'public.sync_my_reminder_eligibility_snapshot(jsonb)',
-    'execute'
-  ),
-  'anonymous users cannot execute the snapshot RPC'
-);
-select ok(
-  has_table_privilege('service_role', 'public.reminder_eligibility_snapshots', 'insert'),
-  'the trusted server can populate snapshot rows'
-);
-select ok(
-  has_table_privilege('service_role', 'public.reminder_channel_follows', 'insert'),
-  'the trusted server can populate channel rows'
-);
-
-insert into auth.users (id, email)
-values
-  ('11111111-1111-4111-8111-111111111111', 'snapshot-a@example.test'),
-  ('22222222-2222-4222-8222-222222222222', 'snapshot-b@example.test'),
-  ('99999999-9999-4999-8999-999999999999', 'snapshot-unrelated@example.test');
-
-insert into public.reminder_eligibility_snapshots (
-  user_id,
-  timezone,
-  locale,
-  learning_language,
-  study_date,
-  points_today,
-  last_qualified_study_date,
-  current_streak_days
-) values (
-  '99999999-9999-4999-8999-999999999999',
-  'UTC',
-  'en',
-  'other',
-  current_date,
-  0,
-  null,
-  0
-);
-
-insert into public.reminder_channel_follows (
-  user_id,
-  channel_id,
-  channel_name
-) values (
-  '99999999-9999-4999-8999-999999999999',
-  'UCzzzzzzzzzzzzzzzzzzzzzz',
-  'Unrelated channel'
-);
-
+set local search_path=extensions,public,auth,pg_catalog;
+select no_plan();
+select has_table('public','reminder_eligibility_snapshots','accepted reminder eligibility table exists');
+select has_table('public','reminder_channel_follows','accepted followed channels table exists');
+select ok((select relrowsecurity from pg_catalog.pg_class where oid='public.reminder_eligibility_snapshots'::regclass),'eligibility snapshots have RLS');
+select ok((select relrowsecurity from pg_catalog.pg_class where oid='public.reminder_channel_follows'::regclass),'followed channels have RLS');
+select policies_are('public','reminder_eligibility_snapshots',array['Users can view their own reminder eligibility snapshot'],'snapshot has exactly one owner read policy');
+select policies_are('public','reminder_channel_follows',array['Users can view their own reminder channel follows'],'follows have exactly one owner read policy');
+select hasnt_column('public','reminder_eligibility_snapshots','email','snapshot contains no recipient address');
+select hasnt_column('public','reminder_channel_follows','email','followed channels contain no recipient address');
+select has_function('public','sync_my_reminder_eligibility_snapshot',array['jsonb'],'old-client compatibility RPC remains available');
+select ok(has_function_privilege('authenticated','public.sync_my_reminder_eligibility_snapshot(jsonb)','execute'),'verified clients may request accepted projection recomputation');
+select ok(not has_function_privilege('anon','public.sync_my_reminder_eligibility_snapshot(jsonb)','execute'),'unauthenticated client cannot execute the snapshot RPC');
+select ok(has_table_privilege('service_role','public.reminder_eligibility_snapshots','insert'),'trusted server may populate accepted snapshots');
+select ok(has_table_privilege('service_role','public.reminder_channel_follows','insert'),'trusted server may populate followed channels');
+insert into auth.users(id,email,email_confirmed_at) values
+ ('11111111-1111-4111-8111-111111111111','snapshot-a@example.test',now()),
+ ('22222222-2222-4222-8222-222222222222','snapshot-b@example.test',now());
+-- Retained old rows deliberately lack accepted-head provenance. A migration
+-- does not infer new authority or consent from an old client projection.
+insert into public.reminder_eligibility_snapshots(user_id,timezone,locale,learning_language,study_date,points_today,last_qualified_study_date,current_streak_days)
+ values('11111111-1111-4111-8111-111111111111','UTC','en','mandarin',current_date,4,current_date-1,1),
+ ('22222222-2222-4222-8222-222222222222','UTC','fr','french',current_date,0,null,0);
+insert into public.reminder_channel_follows(user_id,channel_id,channel_name)
+ values('11111111-1111-4111-8111-111111111111','UCaaaaaaaaaaaaaaaaaaaaaa','Owner A'),
+ ('22222222-2222-4222-8222-222222222222','UCbbbbbbbbbbbbbbbbbbbbbb','Owner B');
+select ok(not private.reminder_projection_matches_head('11111111-1111-4111-8111-111111111111'),'old rows are not promoted to accepted authority');
 set local role authenticated;
-set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
-set local request.jwt.claim.role = 'authenticated';
-
-select lives_ok(
-  format(
-    $query$
-      select public.sync_my_reminder_eligibility_snapshot(
-        jsonb_build_object(
-          'timezone', 'UTC',
-          'locale', 'en',
-          'learningLanguage', 'mandarin',
-          'studyDate', %L,
-          'pointsToday', 4,
-          'lastQualifiedStudyDate', %L,
-          'currentStreakDays', 6,
-          'channels', jsonb_build_array(
-            jsonb_build_object(
-              'channelId', 'UCaaaaaaaaaaaaaaaaaaaaaa',
-              'channelName', 'Channel A',
-              'latestVideoId', 'aaaaaaaaaaa',
-              'latestVideoTitle', 'New lesson',
-              'latestVideoPublishedAt', statement_timestamp()::text,
-              'streakVideoId', 'bbbbbbbbbbb',
-              'streakVideoTitle', 'Unwatched lesson',
-              'streakVideoPublishedAt', (statement_timestamp() - interval '1 hour')::text
-            ),
-            jsonb_build_object(
-              'channelId', 'UCbbbbbbbbbbbbbbbbbbbbbb',
-              'channelName', 'Channel B',
-              'latestVideoId', null,
-              'latestVideoTitle', null,
-              'latestVideoPublishedAt', null
-            )
-          )
-        )
-      )
-    $query$,
-    current_date::text,
-    (current_date - 1)::text
-  ),
-  'user A can atomically sync their own derived snapshot'
-);
-reset role;
-create temporary table reminder_tuple_before as
-select 'snapshot'::text as kind, ctid::text as tuple_id from public.reminder_eligibility_snapshots
-where user_id = '11111111-1111-4111-8111-111111111111'
-union all
-select channel_id, ctid::text from public.reminder_channel_follows
-where user_id = '11111111-1111-4111-8111-111111111111';
-grant select on reminder_tuple_before to authenticated;
-set local role authenticated;
-select public.sync_my_reminder_eligibility_snapshot(jsonb_build_object(
-  'timezone', 'UTC', 'locale', 'en', 'learningLanguage', 'mandarin',
-  'studyDate', current_date::text, 'pointsToday', 4,
-  'lastQualifiedStudyDate', (current_date - 1)::text, 'currentStreakDays', 6,
-  'channels', jsonb_build_array(
-    jsonb_build_object('channelId', 'UCaaaaaaaaaaaaaaaaaaaaaa', 'channelName', 'Channel A',
-      'latestVideoId', 'aaaaaaaaaaa', 'latestVideoTitle', 'New lesson',
-      'latestVideoPublishedAt', (select latest_video_published_at::text from public.reminder_channel_follows where channel_id = 'UCaaaaaaaaaaaaaaaaaaaaaa'),
-      'streakVideoId', 'bbbbbbbbbbb', 'streakVideoTitle', 'Unwatched lesson',
-      'streakVideoPublishedAt', (select streak_video_published_at::text from public.reminder_channel_follows where channel_id = 'UCaaaaaaaaaaaaaaaaaaaaaa')),
-    jsonb_build_object('channelId', 'UCbbbbbbbbbbbbbbbbbbbbbb', 'channelName', 'Channel B',
-      'latestVideoId', null, 'latestVideoTitle', null, 'latestVideoPublishedAt', null))));
-select results_eq(
-  $$select ctid::text from public.reminder_eligibility_snapshots$$,
-  $$select tuple_id from reminder_tuple_before where kind = 'snapshot'$$,
-  'identical eligibility facts do not rewrite the snapshot tuple');
-select results_eq(
-  $$select channel_id, ctid::text from public.reminder_channel_follows order by channel_id$$,
-  $$select kind, tuple_id from reminder_tuple_before where kind <> 'snapshot' order by kind$$,
-  'identical channel facts do not delete or rewrite channel tuples');
-reset role;
-update public.reminder_eligibility_snapshots set updated_at = now() - interval '2 days'
-where user_id = '11111111-1111-4111-8111-111111111111';
-set local role authenticated;
--- A fresh identical call still updates a stale owner's eligibility timestamp.
-select public.sync_my_reminder_eligibility_snapshot(jsonb_build_object(
-  'timezone', 'UTC', 'locale', 'en', 'learningLanguage', 'mandarin',
-  'studyDate', current_date::text, 'pointsToday', 4,
-  'lastQualifiedStudyDate', (current_date - 1)::text, 'currentStreakDays', 6,
-  'channels', (select jsonb_agg(jsonb_build_object(
-    'channelId', channel_id, 'channelName', channel_name,
-    'latestVideoId', latest_video_id, 'latestVideoTitle', latest_video_title,
-    'latestVideoPublishedAt', latest_video_published_at,
-    'streakVideoId', streak_video_id, 'streakVideoTitle', streak_video_title,
-    'streakVideoPublishedAt', streak_video_published_at)) from public.reminder_channel_follows)));
-select ok((select updated_at > now() - interval '1 day' from public.reminder_eligibility_snapshots),
-  'unchanged eligibility receives a bounded daily freshness refresh');
-select results_eq(
-  $$select count(*) from public.reminder_eligibility_snapshots$$,
-  array[1::bigint],
-  'user A sees exactly one snapshot row'
-);
-select results_eq(
-  $$
-    select timezone, locale, learning_language, points_today, current_streak_days
-    from public.reminder_eligibility_snapshots
-  $$,
-  $$values ('UTC'::text, 'en'::text, 'mandarin'::text, 4, 6)$$,
-  'the RPC stores only the submitted eligibility facts'
-);
-select results_eq(
-  $$select count(*) from public.reminder_channel_follows$$,
-  array[2::bigint],
-  'user A sees their two followed channels'
-);
-select results_eq(
-  $$
-    select latest_video_id, latest_video_title, streak_video_id, streak_video_title
-    from public.reminder_channel_follows
-    where channel_id = 'UCaaaaaaaaaaaaaaaaaaaaaa'
-  $$,
-  $$values ('aaaaaaaaaaa'::text, 'New lesson'::text, 'bbbbbbbbbbb'::text, 'Unwatched lesson'::text)$$,
-  'the bounded latest and unwatched candidates are stored with their channel'
-);
-select throws_ok(
-  $$
-    insert into public.reminder_eligibility_snapshots (
-      user_id, timezone, locale, study_date, points_today, current_streak_days
-    ) values (
-      '11111111-1111-4111-8111-111111111111',
-      'UTC', 'en', current_date, 0, 0
-    )
-  $$,
-  '42501',
-  'permission denied for table reminder_eligibility_snapshots',
-  'authenticated clients cannot bypass the validating RPC with insert'
-);
-select throws_ok(
-  $$update public.reminder_eligibility_snapshots set points_today = 99$$,
-  '42501',
-  'permission denied for table reminder_eligibility_snapshots',
-  'authenticated clients cannot directly update eligibility'
-);
-select throws_ok(
-  $$delete from public.reminder_eligibility_snapshots$$,
-  '42501',
-  'permission denied for table reminder_eligibility_snapshots',
-  'authenticated clients cannot directly delete eligibility'
-);
-select throws_ok(
-  format(
-    $query$
-      select public.sync_my_reminder_eligibility_snapshot(
-        jsonb_build_object(
-          'userId', '22222222-2222-4222-8222-222222222222',
-          'timezone', 'UTC', 'locale', 'en', 'learningLanguage', 'mandarin',
-          'studyDate', %L, 'pointsToday', 0,
-          'lastQualifiedStudyDate', null, 'currentStreakDays', 0,
-          'channels', '[]'::jsonb
-        )
-      )
-    $query$,
-    current_date::text
-  ),
-  '22023',
-  'Snapshot payload contains an unsupported field',
-  'the client cannot submit or reassign an owner UUID'
-);
-
-set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-
-select lives_ok(
-  format(
-    $query$
-      select public.sync_my_reminder_eligibility_snapshot(
-        jsonb_build_object(
-          'timezone', 'Europe/Paris',
-          'locale', 'fr',
-          'learningLanguage', 'french',
-          'studyDate', %L,
-          'pointsToday', 2,
-          'lastQualifiedStudyDate', null,
-          'currentStreakDays', 0,
-          'channels', jsonb_build_array(
-            jsonb_build_object(
-              'channelId', 'UCcccccccccccccccccccccc',
-              'channelName', 'Channel C',
-              'latestVideoId', null,
-              'latestVideoTitle', null,
-              'latestVideoPublishedAt', null
-            )
-          )
-        )
-      )
-    $query$,
-    (statement_timestamp() at time zone 'Europe/Paris')::date::text
-  ),
-  'user B can sync a separately owned snapshot'
-);
-select results_eq(
-  $$select count(*) from public.reminder_eligibility_snapshots$$,
-  array[1::bigint],
-  'user B sees only one snapshot'
-);
-select results_eq(
-  $$select learning_language from public.reminder_eligibility_snapshots$$,
-  $$values ('french'::text)$$,
-  'user B sees only their language'
-);
-select results_eq(
-  $$select count(*) from public.reminder_channel_follows$$,
-  array[1::bigint],
-  'user B sees only their followed channel'
-);
-
-set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
-
-select results_eq(
-  $$select count(*) from public.reminder_eligibility_snapshots$$,
-  array[1::bigint],
-  'user A still sees exactly one snapshot after user B syncs'
-);
-select results_eq(
-  $$select user_id from public.reminder_eligibility_snapshots$$,
-  $$values ('11111111-1111-4111-8111-111111111111'::uuid)$$,
-  'user A cannot select user B snapshot data'
-);
-select results_eq(
-  $$select count(*) from public.reminder_channel_follows$$,
-  array[2::bigint],
-  'user A cannot select user B channel data'
-);
-select throws_ok(
-  format(
-    $query$
-      select public.sync_my_reminder_eligibility_snapshot(
-        jsonb_build_object(
-          'timezone', 'UTC', 'locale', 'en', 'learningLanguage', 'mandarin',
-          'studyDate', %L, 'pointsToday', 4,
-          'lastQualifiedStudyDate', %L, 'currentStreakDays', 6,
-          'channels', jsonb_build_array(
-            jsonb_build_object(
-              'channelId', 'UCaaaaaaaaaaaaaaaaaaaaaa', 'channelName', 'One',
-              'latestVideoId', null, 'latestVideoTitle', null, 'latestVideoPublishedAt', null
-            ),
-            jsonb_build_object(
-              'channelId', 'UCaaaaaaaaaaaaaaaaaaaaaa', 'channelName', 'Duplicate',
-              'latestVideoId', null, 'latestVideoTitle', null, 'latestVideoPublishedAt', null
-            )
-          )
-        )
-      )
-    $query$,
-    current_date::text,
-    (current_date - 1)::text
-  ),
-  '22023',
-  'Snapshot contains duplicate channels',
-  'duplicate channel snapshots are rejected atomically'
-);
-select results_eq(
-  $$select count(*) from public.reminder_channel_follows$$,
-  array[2::bigint],
-  'a rejected replacement preserves the previous channel set'
-);
-select throws_ok(
-  format(
-    $query$
-      select public.sync_my_reminder_eligibility_snapshot(
-        jsonb_build_object(
-          'timezone', 'Not/A_Real_Zone', 'locale', 'en',
-          'learningLanguage', 'mandarin', 'studyDate', %L,
-          'pointsToday', 0, 'lastQualifiedStudyDate', null,
-          'currentStreakDays', 0, 'channels', '[]'::jsonb
-        )
-      )
-    $query$,
-    current_date::text
-  ),
-  '22023',
-  'Snapshot timezone is invalid',
-  'invalid IANA timezones are rejected'
-);
-select throws_ok(
-  $$
-    update public.reminder_eligibility_snapshots
-    set user_id = '22222222-2222-4222-8222-222222222222'
-  $$,
-  '42501',
-  'permission denied for table reminder_eligibility_snapshots',
-  'authenticated clients cannot reassign a stored owner UUID'
-);
-
+set local request.jwt.claim.role='authenticated';
+set local request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+select is((select count(*) from public.reminder_eligibility_snapshots),1::bigint,'owner reads only own eligibility snapshot');
+select is((select count(*) from public.reminder_eligibility_snapshots where user_id='22222222-2222-4222-8222-222222222222'),0::bigint,'user A cannot select user B snapshot data');
+select is((select count(*) from public.reminder_channel_follows),1::bigint,'owner reads only own followed channels');
+select lives_ok($$select public.sync_my_reminder_eligibility_snapshot('{"timezone":"UTC","locale":"en","studyDate":"2026-10-27","pointsToday":9999,"lastQualifiedStudyDate":"2026-10-27","currentStreakDays":999,"channels":[]}'::jsonb)$$,'user A may request recomputation without uploading study authority');
+select is((select points_today from public.reminder_eligibility_snapshots),4,'unbound client totals cannot replace retained snapshot');
+select is((select count(*) from public.reminder_channel_follows),1::bigint,'client replacement cannot erase server followed channels');
+select throws_ok($$select public.sync_my_reminder_eligibility_snapshot('{"userId":"22222222-2222-4222-8222-222222222222"}'::jsonb)$$,'22023','Snapshot payload is invalid','client cannot submit or reassign an owner UUID');
+select throws_ok($$update public.reminder_eligibility_snapshots set user_id='22222222-2222-4222-8222-222222222222'$$,'42501',null,'clients cannot reassign a stored owner UUID');
+select throws_ok($$insert into public.reminder_channel_follows(user_id,channel_id,channel_name) values('11111111-1111-4111-8111-111111111111','UCcccccccccccccccccccccc','Forged')$$,'42501',null,'client cannot forge server followed channels');
+select throws_ok($$select public.sync_my_reminder_eligibility_snapshot('[]'::jsonb)$$,'22023','Snapshot payload is invalid','nonobject snapshot request is rejected');
+set local request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
+select lives_ok($$select public.sync_my_reminder_eligibility_snapshot('{"timezone":"UTC","locale":"fr"}'::jsonb)$$,'user B may independently request accepted projection recomputation');
+select is((select points_today from public.reminder_eligibility_snapshots),0,'user B retains separately owned snapshot');
 reset role;
 set local role anon;
-set local request.jwt.claim.sub = '';
-set local request.jwt.claim.role = 'anon';
-
-select throws_ok(
-  $$select * from public.reminder_eligibility_snapshots$$,
-  '42501',
-  'permission denied for table reminder_eligibility_snapshots',
-  'an unauthenticated client cannot select eligibility snapshots'
-);
-select throws_ok(
-  $$select * from public.reminder_channel_follows$$,
-  '42501',
-  'permission denied for table reminder_channel_follows',
-  'an unauthenticated client cannot select followed channels'
-);
-select throws_ok(
-  $$select public.sync_my_reminder_eligibility_snapshot('{}'::jsonb)$$,
-  '42501',
-  'permission denied for function sync_my_reminder_eligibility_snapshot',
-  'an unauthenticated client cannot execute the snapshot RPC'
-);
-select throws_ok(
-  $$
-    insert into public.reminder_channel_follows (user_id, channel_id, channel_name)
-    values (
-      '11111111-1111-4111-8111-111111111111',
-      'UCdddddddddddddddddddddd',
-      'Blocked'
-    )
-  $$,
-  '42501',
-  'permission denied for table reminder_channel_follows',
-  'an unauthenticated client cannot insert followed channels'
-);
-
+select throws_ok($$select * from public.reminder_eligibility_snapshots$$,'42501',null,'unauthenticated client cannot select eligibility snapshots');
+select throws_ok($$select * from public.reminder_channel_follows$$,'42501',null,'unauthenticated client cannot select followed channels');
+select throws_ok($$insert into public.reminder_channel_follows(user_id,channel_id,channel_name) values('11111111-1111-4111-8111-111111111111','UCcccccccccccccccccccccc','Forged')$$,'42501',null,'unauthenticated client cannot insert followed channels');
 reset role;
-set local role service_role;
-
-select results_eq(
-  $$
-    select count(*)
-    from public.reminder_eligibility_snapshots
-    where user_id in (
-      '11111111-1111-4111-8111-111111111111',
-      '22222222-2222-4222-8222-222222222222'
-    )
-  $$,
-  array[2::bigint],
-  'the trusted server sees both isolated snapshot rows'
-);
-select results_eq(
-  $$
-    select count(*)
-    from public.reminder_channel_follows
-    where user_id in (
-      '11111111-1111-4111-8111-111111111111',
-      '22222222-2222-4222-8222-222222222222'
-    )
-  $$,
-  array[3::bigint],
-  'the trusted server sees all three isolated channel rows'
-);
-
+select is((select count(*) from public.reminder_channel_follows),2::bigint,'rejected replacement preserves the previous channel set');
 select * from finish();
 rollback;

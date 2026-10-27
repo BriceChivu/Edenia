@@ -1,0 +1,11 @@
+[
+  {"name":"zero", "videoSeconds":0, "ankiReviews":0, "qualifies":false},
+  {"name":"four", "videoSeconds":240, "ankiReviews":0, "qualifies":false},
+  {"name":"obsolete five", "videoSeconds":0, "ankiReviews":5, "qualifies":false},
+  {"name":"nine", "videoSeconds":540, "ankiReviews":0, "qualifies":false},
+  {"name":"fraction below ten", "videoSeconds":599, "ankiReviews":0, "qualifies":false},
+  {"name":"ten video", "videoSeconds":600, "ankiReviews":0, "qualifies":true},
+  {"name":"ten Anki", "videoSeconds":0, "ankiReviews":10, "qualifies":true},
+  {"name":"combined ten", "videoSeconds":300, "ankiReviews":5, "qualifies":true},
+  {"name":"eleven", "videoSeconds":360, "ankiReviews":5, "qualifies":true}
+]

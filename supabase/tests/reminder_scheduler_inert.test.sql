@@ -1,0 +1,16 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path=extensions,public,pg_catalog;
+select no_plan();
+select ok(not public.reminder_delivery_is_enabled(),'new delivery migration starts disabled');
+select is((select count(*) from cron.job where jobname='edenia-study-reminder-dispatch'),0::bigint,'upgrade has no reminder schedule');
+select is(private.invoke_reminder_dispatcher(),null::bigint,'disabled scheduler never reads credentials or queues HTTP');
+select throws_ok($$select public.configure_reminder_dispatch_schedule(true)$$,'55000','reminder_delivery_disabled','schedule activation requires separate delivery activation');
+select is(public.configure_reminder_dispatch_schedule(false),false,'rollback unschedule is idempotent');
+select ok(not has_function_privilege('anon','public.configure_reminder_dispatch_schedule(boolean)','execute'),'anonymous cannot schedule');
+select ok(not has_function_privilege('authenticated','public.configure_reminder_dispatch_schedule(boolean)','execute'),'browser cannot schedule');
+select ok(not has_function_privilege('service_role','public.configure_reminder_dispatch_schedule(boolean)','execute'),'dispatcher cannot schedule itself');
+select ok(not has_function_privilege('service_role','private.invoke_reminder_dispatcher()','execute'),'worker cannot extract Vault capability');
+select is((select count(*) from net.http_request_queue),0::bigint,'inert preparation makes no HTTP requests');
+select * from finish();
+rollback;

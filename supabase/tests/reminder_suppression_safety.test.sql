@@ -223,14 +223,18 @@ create temporary table suppression_claims (
 ) on commit drop;
 grant select, insert on table suppression_claims to service_role;
 
-set local role service_role;
-set local request.jwt.claim.role = 'service_role';
+-- The generic schedule engine is retired for service_role. Construct its
+-- historical fixture as postgres to keep unsubscribe/suppression regression coverage.
+reset role;
 
 insert into suppression_claims (delivery_id, claim_token, user_id)
 select delivery_id, claim_token, user_id
 from public.claim_due_reminder_deliveries(
   timestamptz '2026-08-10 10:15:00+00', 10, 900, 120
 );
+
+set local role service_role;
+set local request.jwt.claim.role = 'service_role';
 
 select is(
   (select count(*) from suppression_claims),
@@ -415,8 +419,8 @@ set enabled = true,
     updated_at = timestamptz '2026-08-11 00:00:00+00'
 where user_id = '51111111-1111-4111-8111-111111111111';
 
-set local role service_role;
-set local request.jwt.claim.role = 'service_role';
+-- Dormant generic planner is callable only by the database owner.
+reset role;
 
 select is(
   (
@@ -545,8 +549,8 @@ select results_eq(
   'the first sticky suppression is not rewritten by a replay'
 );
 
-set local role service_role;
-set local request.jwt.claim.role = 'service_role';
+-- Dormant generic planner is callable only by the database owner.
+reset role;
 
 select is(
   (

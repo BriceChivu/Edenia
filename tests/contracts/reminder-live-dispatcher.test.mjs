@@ -27,20 +27,20 @@ test('live configuration is checked before the live runner can claim work', () =
 })
 
 test('the live worker is bounded and fences immediately before provider I/O', () => {
-  assert.match(live, /const CLAIM_BATCH_SIZE = 5/)
+  assert.match(live, /const CLAIM_BATCH_SIZE = 10/)
   assert.match(live, /const LEASE_SECONDS = 5 \* 60/)
   assert.match(live, /claim_due_typed_reminder_live/)
   const allowlistIndex = live.indexOf('recipient !== config.allowedRecipientEmail')
   const tokenIndex = live.search(/client\.rpc\([\s\n]*'store_typed_reminder_unsubscribe_token'/)
   const beginIndex = live.search(/client\.rpc\([\s\n]*'begin_typed_reminder_provider_attempt'/)
-  const sendIndex = live.indexOf('providerResult = await send({')
+  const sendIndex = live.indexOf('providerResult = await send(sendInput)')
   assert.ok(allowlistIndex >= 0)
   assert.ok(tokenIndex > allowlistIndex)
   assert.ok(beginIndex > tokenIndex)
   assert.ok(sendIndex > beginIndex)
   assert.match(live, /complete_typed_reminder_without_send/)
   assert.match(live, /complete_reminder_provider_acceptance/)
-  assert.match(live, /complete_reminder_provider_failure/)
+  assert.match(live, /complete_typed_reminder_rejection/)
 })
 
 test('the deployment adds neither a schedule nor a credential value', () => {

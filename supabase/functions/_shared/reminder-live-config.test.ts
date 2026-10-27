@@ -16,6 +16,7 @@ const VALUES = Object.freeze({
     'https://www.edenia.study/unsubscribe/',
   SUPABASE_URL: 'https://example-project.supabase.co',
   REMINDER_LIVE_RECIPIENT_EMAIL: 'Learner@Example.COM',
+  REMINDER_UNSUBSCRIBE_KEY_VERSION: 'test-key-v1',
 })
 
 function createEnvironment(
@@ -43,6 +44,8 @@ test('validates and freezes every live-delivery setting before use', () => {
       'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
     unsubscribePageUrl: VALUES.REMINDER_UNSUBSCRIBE_PAGE_URL,
     allowedRecipientEmail: 'learner@example.com',
+    admissionMode: 'canary',
+    unsubscribeKeyVersion: 'test-key-v1',
   })
   assert.ok(Object.isFrozen(config))
   assert.deepEqual(environment.reads, [
@@ -52,6 +55,8 @@ test('validates and freezes every live-delivery setting before use', () => {
     'REMINDER_APP_URL',
     'REMINDER_UNSUBSCRIBE_PAGE_URL',
     'SUPABASE_URL',
+    'REMINDER_ADMISSION_MODE',
+    'REMINDER_UNSUBSCRIBE_KEY_VERSION',
     'REMINDER_LIVE_RECIPIENT_EMAIL',
   ])
 })
@@ -77,5 +82,16 @@ test('collapses absent and invalid settings into one privacy-safe error', () => 
         && error.code === 'live_configuration_unavailable'
         && !JSON.stringify(error).includes('re_test_key'),
     )
+  }
+})
+
+test('public admission and key rotation versions are explicit configuration', () => {
+  const environment = createEnvironment()
+  const config = readReminderLiveConfig(name => name === 'REMINDER_ADMISSION_MODE' ? 'public'
+    : name === 'REMINDER_LIVE_RECIPIENT_EMAIL' ? undefined : environment.read(name))
+  assert.equal(config.admissionMode, 'public')
+  assert.equal(config.allowedRecipientEmail, null)
+  for (const invalid of ['', 'public ', 'internal_test=1']) {
+    assert.throws(() => readReminderLiveConfig(name => name === 'REMINDER_ADMISSION_MODE' ? invalid : environment.read(name)))
   }
 })

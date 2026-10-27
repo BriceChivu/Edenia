@@ -38,7 +38,7 @@ async function seedReadyState(page) {
 test('a discovery link opens its frozen video without following the channel', async ({
   page
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await seedReadyState(page)
 
   await page.goto(
@@ -82,7 +82,7 @@ test('a discovery link opens its frozen video without following the channel', as
 test('rollout off and malformed reminders do not load video metadata', async ({
   page
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let youtubeApiCalls = 0
   page.on('request', request => {
     if (request.url().includes('googleapis.com/youtube/v3/')) {
