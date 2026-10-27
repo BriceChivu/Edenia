@@ -265,9 +265,42 @@ jobs:
         with:
           name: ci-site-normal
           path: _site
+      - name: Install Playwright system dependencies
+        timeout-minutes: 10
+        run: |
+          # Keep the runner's mirrors and metadata; prefer its official fallback.
+          sudo python3 - <<'PY'
+          from pathlib import Path
+
+          mirrors = Path('/etc/apt/apt-mirrors.txt')
+          if mirrors.is_file():
+              lines = mirrors.read_text().splitlines()
+              def host(line):
+                  return line.split('\t', 1)[0].rstrip('/')
+              archives = {'http://archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu'}
+              azure = {'http://azure.archive.ubuntu.com/ubuntu', 'https://azure.archive.ubuntu.com/ubuntu'}
+              if any(host(line) in archives for line in lines) and any(host(line) in azure for line in lines):
+                  preferred = []
+                  for line in lines:
+                      uri, separator, metadata = line.partition('\t')
+                      priority = 1 if host(line) in archives else 2 if host(line) in azure else None
+                      if priority is not None:
+                          tags = [tag for tag in metadata.split() if not tag.startswith('priority:')]
+                          line = uri + '\t' + ' '.join([f'priority:{priority}', *tags])
+                      preferred.append(line)
+                  mirrors.write_text('\n'.join(preferred) + '\n')
+                  print('Preferred the existing official Ubuntu archive ahead of the Azure mirror.')
+              else:
+                  print('Runner mirror pair absent; preserving its existing APT configuration.')
+              print(mirrors.read_text())
+          else:
+              print('Runner mirror list absent; preserving its existing APT configuration.')
+          PY
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          npx playwright install-deps chromium webkit firefox
       - name: Install Playwright browsers
         # Legacy import acceptance serves this helper from the second origin.
-        run: npx playwright install --with-deps chromium webkit firefox
+        run: npx playwright install chromium webkit firefox
       - uses: actions/download-artifact@v4
         with:
           name: ci-migration-helper
