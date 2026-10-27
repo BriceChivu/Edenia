@@ -840,7 +840,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     return checkpoint ? composeAnimalCheckpointProfile(profile, checkpoint) : profile
   }
 
-  function readAnimalCheckpoint(fence, binding) {
+  function readAnimalCheckpointStamp(fence, binding) {
     if (!isActivationCurrent(fence)) return null
     return getCheckpointRepository()?.readAnimalCheckpoint?.(binding)?.stamp || null
   }
@@ -961,7 +961,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     read,
     readIsland,
     readOutgoingProfile,
-    readAnimalCheckpoint,
+    readAnimalCheckpointStamp,
     readOpeningOutgoingProfile,
     acknowledgeAnimalCheckpoint,
     saveAnimalCheckpoint,

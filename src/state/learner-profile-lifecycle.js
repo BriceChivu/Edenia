@@ -269,7 +269,7 @@ export function createLearnerProfileLifecycleAuthority({
         isCurrent: () => getCurrentActivationFor(activatedProfile) === activation,
         profile: activeProfile,
         readPersistedProfile: () => readPersistedProfileFor(activatedProfile, activation),
-        readAnimalCheckpoint: binding => localPersistence.readAnimalCheckpoint?.(activation, binding) || null,
+        readAnimalCheckpointStamp: binding => localPersistence.readAnimalCheckpointStamp?.(activation, binding) || null,
         acknowledgeAnimalCheckpoint: context => acknowledgeAnimalCheckpointFor(activatedProfile, activation, context),
         revision: activation.revision
       })

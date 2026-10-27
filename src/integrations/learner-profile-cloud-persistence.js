@@ -4122,15 +4122,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function needsAnimalCheckpointRecheck(binding, record) {
     const operation = record?.pending
     if (!operation || operation.envelope !== null || operation.retryCount !== 0
-      || typeof binding.readAnimalCheckpoint !== 'function') return false
+      || typeof binding.readAnimalCheckpointStamp !== 'function') return false
     try {
-      const stamp = binding.readAnimalCheckpoint(saveBaseIdentity(record))
+      const stamp = binding.readAnimalCheckpointStamp(saveBaseIdentity(record))
       return isAnimalCheckpointStamp(stamp)
         && stamp.layoutSha256 !== animalIslandSha256(operation.prepared.profile.tinySwordsIsland)
     } catch { return false }
   }
 
-  function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile, readAnimalCheckpoint, acknowledgeAnimalCheckpoint }) {
+  function activate({ activation, baseProfile, generation, isCurrent, profile, revision, readPersistedProfile, readAnimalCheckpointStamp, acknowledgeAnimalCheckpoint }) {
     manualOpportunityBinding = null
     deferredSave = null
     if (
@@ -4152,7 +4152,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       isCurrent,
       profile: isRecord(profile) ? profile : null,
       readPersistedProfile,
-      readAnimalCheckpoint,
+      readAnimalCheckpointStamp,
       acknowledgeAnimalCheckpoint,
       checkpointStudyDigest: isRecord(profile) ? studyProfileDigest(profile) : null,
       dirtyUnits: mergeDirtyUnits(),

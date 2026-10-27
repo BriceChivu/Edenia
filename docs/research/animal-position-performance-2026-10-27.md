@@ -95,9 +95,14 @@ produces no automatic request. RPC argument sizes, including identity/digests,
 are 767, 1,748 and 1,230 bytes respectively.
 
 Preparation and acknowledgement still process the full recovery candidate at a
-safe opportunity; the movement-only storage path avoids that work. No ordinary
-sync speedup is claimed: large-library CPU samples are noisy. Fixed mock latency
-and client bookkeeping cannot establish production database or network latency.
+safe opportunity; the movement-only storage path avoids that work. Ordinary
+preparation medians were 100.39 → 106.61 ms (500 videos) and 397.45 → 407.57 ms
+(2,500). Median paired preparation differences were +3.08/+11.29 ms; paired
+acknowledgement differences were +5.81/+16.54 ms. Five-trial ranges overlap, so
+these show small measured overhead with noise, not a speedup or zero cost. Fixed
+mock latency and client bookkeeping cannot establish production database or
+network latency. Earlier harness controls are retained separately, including a
+discarded full-profile mock-server implementation and intermediate source pins.
 
 ## Correctness and release evidence
 

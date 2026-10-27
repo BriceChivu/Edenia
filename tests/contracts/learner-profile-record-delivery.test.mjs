@@ -150,7 +150,7 @@ async function device(service, { recordSyncEnabled = true, storage = memoryStora
   readHead = () => ({ data: service.head(), error: null }),
   interval = 0, recordInterval = 0, expectedStatus = 'activate',
   composeProfile = profile => profile, acknowledgeAnimalCheckpoint = async () => true,
-  readLocalAnimalProfile, installResult, readAnimalCheckpoint } = {}) {
+  readLocalAnimalProfile, installResult, readAnimalCheckpointStamp } = {}) {
   let time = 0, current = true, preparations = 0, headReads = 0
   const timers = new Map()
   let timerId = 0
@@ -188,7 +188,7 @@ async function device(service, { recordSyncEnabled = true, storage = memoryStora
   adapter.start()
   assert.equal(adapter.activate({ activation, baseProfile: result.syncBaseProfile, generation: result.generation,
     revision: result.revision, profile, isCurrent: () => current,
-    acknowledgeAnimalCheckpoint, readAnimalCheckpoint, readPersistedProfile: () => composeProfile(profile) }), true)
+    acknowledgeAnimalCheckpoint, readAnimalCheckpointStamp, readPersistedProfile: () => composeProfile(profile) }), true)
   const state = () => JSON.parse(storage.getItem(KEY))
   return {
     adapter, storage, profile, activation, result, state,
@@ -458,7 +458,7 @@ test('cold recovery coalesces an unsent study candidate with the exact reset pos
   assert.equal(phone.adapter.markDirty({ activation: phone.activation, isCurrent: () => true }), true)
   phone.retire()
   const resumed = await device(cloud, { storage: phone.storage, local: { profile: phone.profile, revision: 1 },
-    readAnimalCheckpoint: () => checkpoint?.stamp || null,
+    readAnimalCheckpointStamp: () => checkpoint?.stamp || null,
     readLocalAnimalProfile: () => phone.profile,
     composeProfile: profile => composeAnimalCheckpointProfile(profile, checkpoint),
     installResult: result => {
