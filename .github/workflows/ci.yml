@@ -213,6 +213,7 @@ jobs:
           supabase test db supabase/tests/accepted_reminder_eligibility.test.sql --local
           supabase test db supabase/tests/reminder_scheduler_inert.test.sql --local
           supabase test db supabase/tests/free_reminder_dispatch.test.sql --local
+          supabase test db supabase/tests/reminder_provider_month_capacity.test.sql --local
           supabase test db supabase/tests/reminder_capacity_fairness.test.sql --local
           supabase test db supabase/tests/reminder_final_fences.test.sql --local
           supabase test db supabase/tests/reminder_time_windows.test.sql --local
