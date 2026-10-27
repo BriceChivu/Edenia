@@ -65,3 +65,13 @@ test('leaves ordinary URLs untouched and preserves unrelated parameters', () => 
     '/?source=email#study'
   )
 })
+
+test('consuming a trial email destination preserves the admitted profile route and its feature gate', () => {
+  const search = '?internal_test=1&reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw'
+  const enabled = consume(search)
+  assert.equal(enabled.result.emailType, 'discovery')
+  assert.equal(enabled.replacements[0].url, '/?internal_test=1')
+  const disabled = consume(search, false)
+  assert.equal(disabled.result, null)
+  assert.equal(disabled.replacements[0].url, '/?internal_test=1')
+})

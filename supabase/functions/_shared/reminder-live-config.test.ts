@@ -67,7 +67,7 @@ test('collapses absent and invalid settings into one privacy-safe error', () => 
     { RESEND_API_KEY: 'not-a-key' },
     { REMINDER_FROM_ADDRESS: 'invalid' },
     { REMINDER_UNSUBSCRIBE_SECRET: 'too-short' },
-    { REMINDER_APP_URL: 'https://www.edenia.study/?internal_test=1' },
+    { REMINDER_APP_URL: 'https://www.edenia.study/?internal_test=2' },
     { REMINDER_UNSUBSCRIBE_PAGE_URL: 'https://example.test/unsubscribe/' },
     { SUPABASE_URL: 'https://example.test' },
     { REMINDER_LIVE_RECIPIENT_EMAIL: 'not-an-email' },
@@ -83,6 +83,14 @@ test('collapses absent and invalid settings into one privacy-safe error', () => 
         && !JSON.stringify(error).includes('re_test_key'),
     )
   }
+})
+
+test('the exact authentication-trial base URL is allowed without changing delivery admission', () => {
+  const environment = createEnvironment({ REMINDER_APP_URL: 'https://www.edenia.study/?internal_test=1' })
+  const config = readReminderLiveConfig(environment.read)
+  assert.equal(config.appUrl, 'https://www.edenia.study/?internal_test=1')
+  assert.equal(config.admissionMode, 'canary')
+  assert.equal(config.allowedRecipientEmail, 'learner@example.com')
 })
 
 test('public admission and key rotation versions are explicit configuration', () => {

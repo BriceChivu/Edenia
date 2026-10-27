@@ -7,6 +7,9 @@ const UNSUBSCRIBE_API_PATH = '/functions/v1/unsubscribe-study-reminders'
 
 const ALLOWED_APP_URLS = new Set([
   'https://www.edenia.study/',
+  // The admitted authentication trial has its own profile-opening boundary.
+  // This selects that route; it grants no account or delivery authority.
+  'https://www.edenia.study/?internal_test=1',
   'http://localhost:8000/',
 ])
 const ALLOWED_UNSUBSCRIBE_PAGE_URLS = new Set([

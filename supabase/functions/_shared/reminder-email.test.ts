@@ -128,9 +128,13 @@ test('constructs only exact Edenia unsubscribe page destinations', async () => {
 
 test('validates live URL configuration before any claim exists', () => {
   assert.equal(validateReminderAppUrl(APP_URL), APP_URL)
+  assert.equal(
+    validateReminderAppUrl(`${APP_URL}?internal_test=1`),
+    `${APP_URL}?internal_test=1`,
+  )
   assert.equal(validateReminderUnsubscribePageBaseUrl(PAGE), PAGE)
   assert.throws(
-    () => validateReminderAppUrl('https://www.edenia.study/?internal_test=1'),
+    () => validateReminderAppUrl('https://www.edenia.study/?internal_test=2'),
     /not allowlisted/i,
   )
   assert.throws(
@@ -173,7 +177,7 @@ test('rejects unapproved app links and tampered unsubscribe links', async () => 
   assert.throws(
     () => renderReminderEmail({
       locale: 'en',
-      appUrl: 'https://www.edenia.study/?internal_test=1',
+      appUrl: 'https://www.edenia.study/?internal_test=2',
       unsubscribePageUrl,
     }),
     /app URL is not allowlisted/i,
@@ -186,6 +190,29 @@ test('rejects unapproved app links and tampered unsubscribe links', async () => 
     }),
     /invalid parameters/i,
   )
+})
+
+test('trial email destinations retain exact mode one without accepting broader query state', async () => {
+  const trialUrl = `${APP_URL}?internal_test=1`
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  const unsubscribePageUrl = createReminderUnsubscribePageUrl(PAGE, token, 'en')
+  const streak = renderTypedReminderEmail({
+    locale: 'en', appUrl: trialUrl, unsubscribePageUrl, emailType: 'streak',
+  })
+  assert.equal(streak.destinationUrl, `${trialUrl}&reminder=streak`)
+  assert.match(streak.html, /\?internal_test=1&amp;reminder=streak/)
+  assert.equal(createTypedReminderDestinationUrl({
+    appUrl: trialUrl, emailType: 'discovery', videoId: 'abcdefghijk',
+    channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+  }), `${trialUrl}&reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw`)
+
+  for (const suffix of [
+    '?internal_test=2', '?internal_test=1&internal_test=1',
+    '?internal_test=1&account=1', '?internal_test=1&reminder=streak',
+    '?internal_test=1#study', '?internal_test=%31',
+  ]) {
+    assert.throws(() => validateReminderAppUrl(`${APP_URL}${suffix}`), /not allowlisted/i)
+  }
 })
 
 test('builds exact typed Edenia destinations without accepting arbitrary URLs', () => {
