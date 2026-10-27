@@ -45,7 +45,7 @@ test('Resend adapter locks the provider and deduplication contract', () => {
   assert.match(adapter, /edenia-study-reminder-v1\/\$\{deliveryId\.toLowerCase\(\)\}/)
   assert.match(adapter, /'Idempotency-Key': idempotencyKey/)
   assert.match(adapter, /'User-Agent': 'Edenia-reminders\/1\.0'/)
-  assert.match(adapter, /'List-Unsubscribe': `<\$\{unsubscribeApiUrl\}>`/)
+  assert.match(adapter, /'List-Unsubscribe': `<\$\{input\.unsubscribeApiUrl\}>`/)
   assert.match(adapter, /'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'/)
   assert.match(providerContract, /RESEND_REMINDER_SOURCE_TAG = 'edenia-study-reminder'/)
   assert.match(adapter, /from '\.\/reminder-provider-contract\.ts'/)

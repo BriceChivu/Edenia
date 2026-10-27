@@ -133,8 +133,10 @@ test('CI installs every browser used by the storage migration suite', async () =
   assert.match(playwrightConfig, /name: 'webkit-storage'/)
   assert.match(
     workflow,
-    /npx playwright install --with-deps chromium webkit/
+    /name: Install Playwright system dependencies\s+timeout-minutes: 10/
   )
+  assert.match(workflow, /npx playwright install-deps chromium webkit firefox/)
+  assert.match(workflow, /npx playwright install chromium webkit firefox/)
 })
 
 test('legacy parsing distinguishes absence from malformed or duplicate data', () => {

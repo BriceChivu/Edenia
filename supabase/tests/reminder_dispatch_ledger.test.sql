@@ -104,7 +104,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, private, auth, pg_catalog;
 
-select plan(64);
+select plan(65);
 
 select has_schema('private', 'the private server schema exists');
 select has_table(
@@ -249,12 +249,12 @@ select ok(
   'only the server role can read the live-delivery switch through the API'
 );
 select ok(
-  has_function_privilege(
+  not has_function_privilege(
     'service_role',
     'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer,text)',
     'EXECUTE'
   ),
-  'the server role can claim reminder work'
+  'the retired generic claim cannot bypass typed enrollment and free quotas'
 );
 select ok(
   has_function_privilege(
@@ -635,6 +635,14 @@ select results_eq(
   $$values (false)$$,
   'the server role observes that live delivery remains disabled'
 );
+select throws_ok(
+  $$select * from public.claim_due_reminder_deliveries()$$,
+  '42501','permission denied for function claim_due_reminder_deliveries',
+  'the worker cannot invoke the retired generic schedule API'
+);
+-- Retain bounds coverage for the dormant engine as the database owner only.
+reset role;
+
 select throws_ok(
   $$
     select *

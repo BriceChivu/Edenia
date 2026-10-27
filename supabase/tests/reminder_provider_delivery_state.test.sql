@@ -144,12 +144,12 @@ select ok(
   'the permanent-failure fencing function exists'
 );
 select ok(
-  has_function_privilege(
+  not has_function_privilege(
     'service_role',
     'public.begin_reminder_provider_attempt(uuid,text,timestamp with time zone)',
     'EXECUTE'
   ),
-  'the server role can begin a provider attempt through the narrow RPC'
+  'the worker cannot bypass typed quota fencing through the retired generic RPC'
 );
 select ok(
   not has_function_privilege(

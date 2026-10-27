@@ -1,426 +1,80 @@
 begin;
-
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
-
-select plan(35);
-
-select has_table(
-  'public',
-  'reminder_preferences',
-  'reminder_preferences exists in the exposed schema'
-);
-select is(
-  (
-    select relrowsecurity
-    from pg_catalog.pg_class
-    where oid = 'public.reminder_preferences'::regclass
-  ),
-  true,
-  'reminder_preferences has RLS enabled'
-);
-select policies_are(
-  'public',
-  'reminder_preferences',
-  array[
-    'Users can view their own reminder preferences',
-    'Users can create their own reminder preferences',
-    'Users can update their own reminder preferences',
-    'Users can delete their own reminder preferences'
-  ],
-  'reminder_preferences has exactly four ownership policies'
-);
-select hasnt_column(
-  'public',
-  'reminder_preferences',
-  'email',
-  'reminder_preferences never stores an email address'
-);
-select has_column(
-  'public',
-  'reminder_preferences',
-  'streak_reminders_enabled',
-  'the streak email choice is stored independently'
-);
-select has_column(
-  'public',
-  'reminder_preferences',
-  'discovery_emails_enabled',
-  'the discovery email choice is stored independently'
-);
-select col_default_is(
-  'public',
-  'reminder_preferences',
-  'streak_reminders_enabled',
-  'true',
-  'new streak email choices default on'
-);
-select col_default_is(
-  'public',
-  'reminder_preferences',
-  'discovery_emails_enabled',
-  'true',
-  'new discovery email choices default on'
-);
-
-insert into auth.users (id, email)
-values
-  ('11111111-1111-4111-8111-111111111111', 'reminder-user-a@example.test'),
-  ('22222222-2222-4222-8222-222222222222', 'reminder-user-b@example.test'),
-  ('99999999-9999-4999-8999-999999999999', 'reminder-unrelated@example.test');
-
-insert into public.reminder_preferences (
-  user_id,
-  streak_reminders_enabled,
-  discovery_emails_enabled,
-  timezone,
-  locale,
-  consent_version,
-  consent_source
-) values (
-  '99999999-9999-4999-8999-999999999999',
-  false,
-  false,
-  'UTC',
-  'en',
-  'reminder-email-v1',
-  'settings'
-);
-
+select no_plan();
+select has_table('public','reminder_preferences','reminder_preferences exists');
+select is((select relrowsecurity from pg_class where oid = 'public.reminder_preferences'::regclass),true,'reminder_preferences has RLS enabled');
+select hasnt_column('public','reminder_preferences','email','recipient email is never stored in preferences');
+select col_default_is('public','reminder_preferences','streak_reminders_enabled','true','new streak email choices default on');
+select col_default_is('public','reminder_preferences','discovery_emails_enabled','true','new discovery email choices default on');
+select ok(not has_table_privilege('authenticated','public.reminder_preferences','INSERT'),'browser cannot insert consent directly');
+select ok(not has_table_privilege('authenticated','public.reminder_preferences','UPDATE'),'browser cannot forge enrollment or timestamps');
+select ok(not has_table_privilege('authenticated','public.reminder_preferences','DELETE'),'browser cannot reset unsubscribe by deleting preferences');
+select ok(not has_function_privilege('anon','public.get_my_reminder_preferences(text,text,uuid)','EXECUTE'),'anonymous client cannot read/create preferences via RPC');
+select ok(not has_function_privilege('authenticated','public.reminder_type_enrolled(uuid,text)','EXECUTE'),'browser cannot inspect another owner enrollment');
+insert into auth.users(id,email,email_confirmed_at) values
+ ('11111111-1111-4111-8111-111111111111','reminder-user-a@example.test',now()),
+ ('22222222-2222-4222-8222-222222222222','reminder-user-b@example.test',now()),
+ ('33333333-3333-4333-8333-333333333333','reminder-unverified@example.test',null);
+insert into auth.users(id,email,email_confirmed_at,is_anonymous) values ('44444444-4444-4444-8444-444444444444','reminder-anonymous@example.test',now(),true);
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
-set local request.jwt.claim.role = 'authenticated';
-
-select lives_ok(
-  $$
-    insert into public.reminder_preferences (
-      user_id,
-      enabled,
-      days,
-      local_time,
-      timezone,
-      locale,
-      consent_granted_at,
-      consent_version,
-      consent_source
-    ) values (
-      '11111111-1111-4111-8111-111111111111',
-      false,
-      array[1, 3, 5]::smallint[],
-      time '19:00',
-      'Asia/Taipei',
-      'en',
-      timestamptz '2026-08-11 12:00:00+00',
-      'reminder-email-v1',
-      'settings'
-    )
-  $$,
-  'user A can insert their own preference'
-);
-select throws_ok(
-  $$
-    update public.reminder_preferences
-    set enabled = true
-    where user_id = '11111111-1111-4111-8111-111111111111'
-  $$,
-  '23514',
-  'Legacy reminder scheduling is disabled',
-  'the obsolete schedule path cannot be re-enabled'
-);
-select results_eq(
-  $$select count(*) from public.reminder_preferences$$,
-  array[1::bigint],
-  'user A can select exactly their own preference'
-);
-select results_eq(
-  $$
-    update public.reminder_preferences
-    set local_time = time '20:00'
-    where user_id = '11111111-1111-4111-8111-111111111111'
-    returning local_time::text
-  $$,
-  $$values ('20:00:00'::text)$$,
-  'user A can update their own preference'
-);
-select throws_ok(
-  $$
-    update public.reminder_preferences
-    set user_id = '22222222-2222-4222-8222-222222222222'
-    where user_id = '11111111-1111-4111-8111-111111111111'
-  $$,
-  '42501',
-  'new row violates row-level security policy for table "reminder_preferences"',
-  'user A cannot reassign their preference to user B'
-);
-select throws_ok(
-  $$
-    insert into public.reminder_preferences (
-      user_id, enabled, streak_reminders_enabled, discovery_emails_enabled,
-      days, local_time, timezone, locale,
-      consent_version, consent_source
-    ) values (
-      '22222222-2222-4222-8222-222222222222',
-      false,
-      false,
-      false,
-      array[2, 4]::smallint[],
-      time '08:00',
-      'Europe/Paris',
-      'fr',
-      'reminder-email-v1',
-      'settings'
-    )
-  $$,
-  '42501',
-  'new row violates row-level security policy for table "reminder_preferences"',
-  'user A cannot insert a preference owned by user B'
-);
-
-set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-
-select lives_ok(
-  $$
-    insert into public.reminder_preferences (
-      user_id, enabled, streak_reminders_enabled, discovery_emails_enabled,
-      days, local_time, timezone, locale,
-      consent_version, consent_source
-    ) values (
-      '22222222-2222-4222-8222-222222222222',
-      false,
-      false,
-      false,
-      array[2, 4]::smallint[],
-      time '08:00',
-      'Europe/Paris',
-      'fr',
-      'reminder-email-v1',
-      'settings'
-    )
-  $$,
-  'user B can insert their own preference'
-);
-
-set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
-
-select results_eq(
-  $$select count(*) from public.reminder_preferences$$,
-  array[1::bigint],
-  'user A still sees only one row after user B inserts'
-);
-select results_eq(
-  $$select user_id from public.reminder_preferences$$,
-  $$values ('11111111-1111-4111-8111-111111111111'::uuid)$$,
-  'user A cannot select user B preference data'
-);
-select results_eq(
-  $$
-    update public.reminder_preferences
-    set local_time = time '23:59'
-    where user_id = '22222222-2222-4222-8222-222222222222'
-    returning 1
-  $$,
-  $$select 1 where false$$,
-  'user A cannot update user B preference'
-);
-select results_eq(
-  $$
-    delete from public.reminder_preferences
-    where user_id = '22222222-2222-4222-8222-222222222222'
-    returning 1
-  $$,
-  $$select 1 where false$$,
-  'user A cannot delete user B preference'
-);
-
-set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-
-select results_eq(
-  $$select count(*) from public.reminder_preferences$$,
-  array[1::bigint],
-  'user B sees only one row'
-);
-select results_eq(
-  $$select user_id from public.reminder_preferences$$,
-  $$values ('22222222-2222-4222-8222-222222222222'::uuid)$$,
-  'user B cannot select user A preference data'
-);
-select results_eq(
-  $$
-    update public.reminder_preferences
-    set local_time = time '00:01'
-    where user_id = '11111111-1111-4111-8111-111111111111'
-    returning 1
-  $$,
-  $$select 1 where false$$,
-  'user B cannot update user A preference'
-);
-select results_eq(
-  $$
-    delete from public.reminder_preferences
-    where user_id = '11111111-1111-4111-8111-111111111111'
-    returning 1
-  $$,
-  $$select 1 where false$$,
-  'user B cannot delete user A preference'
-);
-select results_eq(
-  $$
-    update public.reminder_preferences
-    set local_time = time '09:30'
-    where user_id = '22222222-2222-4222-8222-222222222222'
-    returning local_time::text
-  $$,
-  $$values ('09:30:00'::text)$$,
-  'user B can update their own preference'
-);
-select throws_ok(
-  $$
-    update public.reminder_preferences
-    set user_id = '11111111-1111-4111-8111-111111111111'
-    where user_id = '22222222-2222-4222-8222-222222222222'
-  $$,
-  '42501',
-  'new row violates row-level security policy for table "reminder_preferences"',
-  'user B cannot reassign their preference to user A'
-);
-
-set local role anon;
-reset request.jwt.claim.sub;
-set local request.jwt.claim.role = 'anon';
-
-select throws_ok(
-  $$select * from public.reminder_preferences$$,
-  '42501',
-  'permission denied for table reminder_preferences',
-  'an unauthenticated client cannot select reminder preferences'
-);
-select throws_ok(
-  $$
-    insert into public.reminder_preferences (
-      user_id, enabled, streak_reminders_enabled, discovery_emails_enabled,
-      days, local_time, timezone, locale,
-      consent_version, consent_source
-    ) values (
-      '11111111-1111-4111-8111-111111111111',
-      false,
-      false,
-      false,
-      array[1]::smallint[],
-      time '10:00',
-      'UTC',
-      'en',
-      'reminder-email-v1',
-      'settings'
-    )
-  $$,
-  '42501',
-  'permission denied for table reminder_preferences',
-  'an unauthenticated client cannot insert reminder preferences'
-);
-select throws_ok(
-  $$update public.reminder_preferences set enabled = false$$,
-  '42501',
-  'permission denied for table reminder_preferences',
-  'an unauthenticated client cannot update reminder preferences'
-);
-select throws_ok(
-  $$delete from public.reminder_preferences$$,
-  '42501',
-  'permission denied for table reminder_preferences',
-  'an unauthenticated client cannot delete reminder preferences'
-);
-
-set local role authenticated;
-set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
-set local request.jwt.claim.role = 'authenticated';
-
-select results_eq(
-  $$
-    delete from public.reminder_preferences
-    where user_id = '11111111-1111-4111-8111-111111111111'
-    returning 1
-  $$,
-  $$values (1)$$,
-  'user A can delete their own preference'
-);
-select throws_ok(
-  $$
-    insert into public.reminder_preferences (
-      user_id, enabled, streak_reminders_enabled, discovery_emails_enabled,
-      days, local_time, timezone, locale,
-      consent_version, consent_source
-    ) values (
-      '11111111-1111-4111-8111-111111111111',
-      false,
-      false,
-      false,
-      array[1, 1]::smallint[],
-      time '10:00',
-      'UTC',
-      'en',
-      'reminder-email-v1',
-      'settings'
-    )
-  $$,
-  '23514',
-  'new row for relation "reminder_preferences" violates check constraint "reminder_preferences_days_check"',
-  'duplicate reminder days are rejected'
-);
-select throws_ok(
-  $$
-    insert into public.reminder_preferences (
-      user_id, enabled, streak_reminders_enabled, discovery_emails_enabled,
-      days, local_time, timezone, locale,
-      consent_version, consent_source
-    ) values (
-      '11111111-1111-4111-8111-111111111111',
-      false,
-      false,
-      false,
-      array[1]::smallint[],
-      time '10:00',
-      'Not/ARealTimezone',
-      'en',
-      'reminder-email-v1',
-      'settings'
-    )
-  $$,
-  '22023',
-  'time zone "Not/ARealTimezone" not recognized',
-  'unknown IANA timezones are rejected'
-);
-
-set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-
-select results_eq(
-  $$select count(*) from public.reminder_preferences$$,
-  array[1::bigint],
-  'user B preference remains after every user A and anonymous attack'
-);
-select results_eq(
-  $$
-    delete from public.reminder_preferences
-    where user_id = '22222222-2222-4222-8222-222222222222'
-    returning 1
-  $$,
-  $$values (1)$$,
-  'user B can delete their own preference'
-);
-
+select is(public.get_my_reminder_preferences('Asia/Taipei','en','11111111-1111-4111-8111-111111111111')->>'streak_reminders_enabled','true','owner A first read keeps streak on');
+select is(public.get_my_reminder_preferences('Asia/Taipei','en','11111111-1111-4111-8111-111111111111')->>'discovery_emails_enabled','true','concurrent/repeated first read keeps discovery on');
+select is(public.get_my_reminder_preferences('UTC','fr','11111111-1111-4111-8111-111111111111')->>'consent_granted_at',null,'read does not grant consent');
+select is(public.get_my_reminder_preferences('UTC','fr','11111111-1111-4111-8111-111111111111')->>'streak_enrollment_version',null,'read does not enroll streak');
+select is(public.get_my_reminder_preferences('UTC','fr','11111111-1111-4111-8111-111111111111')->>'timezone','Asia/Taipei','later first-read collision does not replace saved timezone');
+select throws_ok($$update public.reminder_preferences set enabled = true$$,'42501','permission denied for table reminder_preferences','the obsolete schedule path cannot be re-enabled by browser');
+select is(public.save_my_reminder_choice('streak',false,0,0,'Asia/Taipei','en','11111111-1111-4111-8111-111111111111')->>'streak_reminders_enabled','false','owner can disable one choice');
+select is(public.save_my_reminder_choice('discovery',false,0,0,'Asia/Taipei','en','11111111-1111-4111-8111-111111111111')->>'streak_reminders_enabled','false','different stale tab choice preserves earlier change');
+select throws_ok($$select public.save_my_reminder_choice('streak',true,0,0,'UTC','en','11111111-1111-4111-8111-111111111111')$$,'40001','reminder_choice_stale','same-choice stale save rejected');
+select is(public.get_my_reminder_preferences('UTC','en','11111111-1111-4111-8111-111111111111')->>'discovery_emails_enabled','false','saved off survives reload');
+select is(public.save_my_reminder_choice('streak',true,1,0,'Asia/Taipei','en','11111111-1111-4111-8111-111111111111')->>'streak_enrollment_version',null,'turning on a choice still does not enroll');
+select is(public.enroll_my_reminder_choices(true,false,2,1,0,'11111111-1111-4111-8111-111111111111')->>'streak_enrollment_version','edenia-email-enrollment-v3','disclosed action enrolls selected type');
+select is(public.get_my_reminder_preferences('UTC','en','11111111-1111-4111-8111-111111111111')->>'discovery_enrollment_version',null,'unselected type stays unenrolled');
 reset role;
+select ok(public.reminder_type_enrolled('11111111-1111-4111-8111-111111111111','streak'),'verified enrolled owner is eligible');
+select ok(not public.reminder_type_enrolled('11111111-1111-4111-8111-111111111111','discovery'),'off choice never eligible');
+select ok(private.apply_reminder_suppression('11111111-1111-4111-8111-111111111111','unsubscribed','unsubscribe_token',now()),'unsubscribe succeeds');
+select ok(not public.reminder_type_enrolled('11111111-1111-4111-8111-111111111111','streak'),'unsubscribe revokes all enrollment');
+set local role authenticated;
+select throws_ok($$select public.save_my_reminder_choice('discovery',true,1,1,'UTC','en','11111111-1111-4111-8111-111111111111')$$,'40001','reminder_choice_stale','stale save after unsubscribe cannot restore choice');
+select throws_ok($$select public.enroll_my_reminder_choices(true,false,2,1,1,'11111111-1111-4111-8111-111111111111')$$,'40001','reminder_choice_stale','stale enable action after unsubscribe cannot enroll');
+select is(public.get_my_reminder_preferences('UTC','en','11111111-1111-4111-8111-111111111111')->>'enrollment_epoch','2','unsubscribe advances enrollment epoch');
+select is(public.save_my_reminder_choice('streak',true,3,2,'UTC','en','11111111-1111-4111-8111-111111111111')->>'streak_enrollment_version',null,'fresh owner toggle after unsubscribe is preference only');
+select is(public.enroll_my_reminder_choices(true,false,4,2,2,'11111111-1111-4111-8111-111111111111')->>'enrollment_epoch','3','deliberate verified-owner action reverses ordinary unsubscribe');
+reset role;
+select ok(public.reminder_type_enrolled('11111111-1111-4111-8111-111111111111','streak'),'ordinary re-enrollment restores eligibility');
+select ok(private.apply_reminder_suppression('11111111-1111-4111-8111-111111111111','unsubscribed','unsubscribe_token',now()),'second unsubscribe succeeds');
+select ok(private.apply_reminder_suppression('11111111-1111-4111-8111-111111111111','hard_bounce','provider_webhook',now()),'hard suppression upgrades an existing unsubscribe');
+select is((select reason from private.reminder_suppressions where user_id = '11111111-1111-4111-8111-111111111111'),'hard_bounce','hard suppression is never lost to earlier unsubscribe');
+set local role authenticated;
+select is(public.get_my_reminder_preferences('UTC','en','11111111-1111-4111-8111-111111111111')->>'enrollment_blocked','true','owner sees persistent suppression truthfully');
+select public.save_my_reminder_choice('streak',true,6,5,'UTC','en','11111111-1111-4111-8111-111111111111');
+select throws_ok($$select public.enroll_my_reminder_choices(true,false,7,4,5,'11111111-1111-4111-8111-111111111111')$$,'42501','reminder_enrollment_suppressed','hard suppression cannot be reversed by owner enrollment');
+set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 
-select results_eq(
-  $$
-    select count(*)
-    from public.reminder_preferences
-    where user_id in (
-      '11111111-1111-4111-8111-111111111111',
-      '22222222-2222-4222-8222-222222222222'
-    )
-  $$,
-  array[0::bigint],
-  'only owner-authorized deletes removed the fixture rows'
-);
-
+select throws_ok($$select public.get_my_reminder_preferences('UTC','en','11111111-1111-4111-8111-111111111111')$$,'42501','reminder_owner_changed','delayed owner A read cannot initialize owner B preferences');
+select throws_ok($$select public.save_my_reminder_choice('streak',false,0,0,'UTC','en','11111111-1111-4111-8111-111111111111')$$,'42501','reminder_owner_changed','delayed owner A save cannot change owner B even with matching versions');
+select throws_ok($$select public.enroll_my_reminder_choices(true,true,0,0,0,'11111111-1111-4111-8111-111111111111')$$,'42501','reminder_owner_changed','delayed owner A enable cannot enroll owner B even with matching versions');
+select is(public.get_my_reminder_preferences('UTC','en','22222222-2222-4222-8222-222222222222')->>'streak_choice_version','0','token switch causes no owner B preference write');
+select is(public.get_my_reminder_preferences('UTC','en','22222222-2222-4222-8222-222222222222')->>'streak_enrollment_version',null,'token switch causes no owner B enrollment');
+select public.get_my_reminder_preferences('Europe/Paris','fr','22222222-2222-4222-8222-222222222222');
+select is((select count(*) from public.reminder_preferences),1::bigint,'user B selects only own preferences');
+select is(public.get_my_reminder_preferences('UTC','en','22222222-2222-4222-8222-222222222222')->>'user_id','22222222-2222-4222-8222-222222222222','RPC ownership follows verified JWT owner');
+select is(public.get_my_reminder_preferences('UTC','en','22222222-2222-4222-8222-222222222222')->>'consent_granted_at',null,'second owner defaults do not inherit first owner consent');
+set local request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
+select public.get_my_reminder_preferences('UTC','en','33333333-3333-4333-8333-333333333333');
+select throws_ok($$select public.enroll_my_reminder_choices(true,true,0,0,0,'33333333-3333-4333-8333-333333333333')$$,'42501','reminder_verified_owner_required','unverified email cannot enroll');
+set local request.jwt.claim.sub = '44444444-4444-4444-8444-444444444444';
+select public.get_my_reminder_preferences('UTC','en','44444444-4444-4444-8444-444444444444');
+select throws_ok($$select public.enroll_my_reminder_choices(true,true,0,0,0,'44444444-4444-4444-8444-444444444444')$$,'42501','reminder_verified_owner_required','anonymous identity cannot enroll even with a confirmed email field');
+reset role;
+select ok(not public.reminder_type_enrolled('33333333-3333-4333-8333-333333333333','streak'),'unverified default-on owner never eligible');
+set local role anon;
+select throws_ok($$select * from public.reminder_preferences$$,'42501','permission denied for table reminder_preferences','an unauthenticated client cannot select preferences');
+select throws_ok($$insert into public.reminder_preferences(user_id) values(gen_random_uuid())$$,'42501','permission denied for table reminder_preferences','an unauthenticated client cannot insert preferences');
+select throws_ok($$update public.reminder_preferences set enabled = true$$,'42501','permission denied for table reminder_preferences','an unauthenticated client cannot update preferences');
+select throws_ok($$delete from public.reminder_preferences$$,'42501','permission denied for table reminder_preferences','an unauthenticated client cannot delete preferences');
 select * from finish();
 rollback;

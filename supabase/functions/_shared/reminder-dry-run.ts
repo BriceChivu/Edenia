@@ -1,14 +1,9 @@
 import {
-  parseTypedReminderDryRunClaim,
   readReminderDeliveryEnabled,
   readReminderRpc,
   ReminderDispatchError,
 } from './reminder-delivery-claim.ts'
 import type { ReminderDeliveryClient } from './reminder-delivery-claim.ts'
-
-const CLAIM_BATCH_SIZE = 25
-const DUE_WINDOW_SECONDS = 15 * 60
-const LEASE_SECONDS = 2 * 60
 
 export { ReminderDispatchError as ReminderDryRunError }
 export type ReminderDryRunClient = ReminderDeliveryClient
@@ -27,6 +22,8 @@ export type ReminderDryRunResult = {
   completionFailed: number
 }
 
+export type ReminderDispatchAction = 'dispatch' | 'capacity-check'
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -34,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function readReminderDispatchRequest(
   request: Request,
   maximumBytes = 64,
-) {
+): Promise<ReminderDispatchAction> {
   if (request.method !== 'POST') {
     throw new ReminderDispatchError(
       'Method not allowed',
@@ -81,13 +78,15 @@ export async function readReminderDispatchRequest(
     )
   }
 
-  if (!isRecord(body) || Object.keys(body).length !== 0) {
-    throw new ReminderDispatchError(
-      'JSON body must be an empty object',
-      400,
-      'invalid_request',
-    )
-  }
+  if (isRecord(body) && Object.keys(body).length === 0) return 'dispatch'
+  if (isRecord(body) && Object.keys(body).length === 1
+    && body.action === 'capacity-check') return 'capacity-check'
+
+  throw new ReminderDispatchError(
+    'JSON body must be empty or request the capacity-check action',
+    400,
+    'invalid_request',
+  )
 }
 
 export const readReminderDryRunRequest = readReminderDispatchRequest
@@ -113,83 +112,21 @@ export async function runReminderDryRun(
     }
   }
 
-  const rawClaims = await readReminderRpc(
-    client,
-    'claim_due_typed_reminder_dry_runs',
-    {
-      p_batch_size: CLAIM_BATCH_SIZE,
-      p_due_window_seconds: DUE_WINDOW_SECONDS,
-      p_lease_seconds: LEASE_SECONDS,
-    },
-  )
-  if (!Array.isArray(rawClaims)) {
-    throw new ReminderDispatchError(
-      'Reminder claims returned an invalid result',
-      503,
-      'database_unavailable',
-    )
+  const evaluation = await readReminderRpc(client, 'evaluate_reminder_shadow')
+  if (!Array.isArray(evaluation)) {
+    throw new ReminderDispatchError('Reminder preview returned an invalid result', 503, 'database_unavailable')
   }
-  const claims = rawClaims.map(parseTypedReminderDryRunClaim)
-
   let observed = 0
-  let completionFailed = 0
-  for (const claim of claims) {
-    const completion = await client.rpc('complete_typed_reminder_dry_run', {
-      p_claim_token: claim.claimToken,
-    })
-    if (completion.error || completion.data !== true) {
-      completionFailed += 1
-      log({
-        event: 'reminder_dry_run_completion_failed',
-        delivery_id: claim.deliveryId,
-        attempt_count: claim.attemptCount,
-        reason: completion.error ? 'database_error' : 'lease_not_completed',
-      })
-      continue
+  for (const row of evaluation) {
+    if (!isRecord(row) || !['streak', 'discovery'].includes(String(row.email_type))
+      || !Number.isSafeInteger(Number(row.candidate_count)) || Number(row.candidate_count) < 0) {
+      throw new ReminderDispatchError('Reminder preview returned an invalid count', 503, 'database_unavailable')
     }
-    observed += 1
-
-    const intendedLog: ReminderDryRunLog = {
-      event: 'reminder_dry_run_intended',
-      delivery_id: claim.deliveryId,
-      user_id: claim.userId,
-      scheduled_local_date: claim.scheduledLocalDate,
-      scheduled_for: claim.scheduledFor,
-      timezone: claim.timezone,
-      locale: claim.locale,
-      consent_version: claim.consentVersion,
-      attempt_count: claim.attemptCount,
-      email_type: claim.emailType,
-    }
-    if (claim.learningLanguage !== null) {
-      intendedLog.learning_language = claim.learningLanguage
-    }
-    if (claim.channelId !== null) intendedLog.channel_id = claim.channelId
-    if (claim.channelName !== null) intendedLog.channel_name = claim.channelName
-    if (claim.channelSummary !== null) {
-      intendedLog.channel_summary = claim.channelSummary
-    }
-    if (claim.videoId !== null) intendedLog.video_id = claim.videoId
-    if (claim.videoTitle !== null) intendedLog.video_title = claim.videoTitle
-    if (claim.videoPublishedAt !== null) {
-      intendedLog.video_published_at = claim.videoPublishedAt
-    }
-    log(intendedLog)
+    observed += Number(row.candidate_count)
+    log({ event: 'reminder_shadow_candidates', email_type: String(row.email_type), count: Number(row.candidate_count) })
   }
-
-  log({
-    event: 'reminder_dry_run_summary',
-    claimed: claims.length,
-    observed,
-    completion_failed: completionFailed,
-    live_delivery_enabled: false,
-  })
-  return {
-    mode: 'dry_run',
-    status: 'completed',
-    liveDeliveryEnabled: false,
-    claimed: claims.length,
-    observed,
-    completionFailed,
-  }
+  log({ event: 'reminder_dry_run_summary', claimed: 0, observed,
+    completion_failed: 0, live_delivery_enabled: false })
+  return { mode: 'dry_run', status: 'completed', liveDeliveryEnabled: false,
+    claimed: 0, observed, completionFailed: 0 }
 }

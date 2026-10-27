@@ -12,6 +12,21 @@ const PHASES = new Set(['activation', 'reload', 'injected-failure', 'retry'])
 // These application reads do not choose, restore, or commit learner state.
 const READS = new Set(['read_my_latest_learner_profile_reset'])
 
+function isOwnerPreferenceInitialization(body) {
+  if (typeof body !== 'string' || body.length > 256) return false
+  let payload
+  try { payload = JSON.parse(body) } catch { return false }
+  return payload && !Array.isArray(payload)
+    && Object.keys(payload).length === 3
+    && ['p_timezone', 'p_locale', 'p_expected_owner'].every(key => Object.hasOwn(payload, key))
+    && typeof payload.p_timezone === 'string'
+    && /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+.-]+)+)$/u.test(payload.p_timezone)
+    && ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'].includes(payload.p_locale)
+    && typeof payload.p_expected_owner === 'string'
+    && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/iu.test(payload.p_expected_owner)
+    && body.replace(/\s/gu, '') === JSON.stringify(payload)
+}
+
 export function createOpeningPolicy({ providerOrigin, now = Date.now, conditionalOpening = false }) {
   const provider = new URL(providerOrigin)
   const resolverPath = '/rest/v1/rpc/' + (conditionalOpening ? 'open_my_learner_profile' : 'resolve_my_learner_profile')
@@ -40,6 +55,11 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now, conditiona
       if (target.origin !== providerOrigin || target.hash || target.username || target.password) return deny()
       const ancillary = (method === 'POST' && !target.search
         && target.pathname === '/rest/v1/rpc/sync_my_reminder_eligibility_snapshot')
+        // This RPC can initialize choices. It receives the same bounded local
+        // denial as the table reads; it never gains provider dispatch authority.
+        || (method === 'POST' && !target.search
+          && target.pathname === '/rest/v1/rpc/get_my_reminder_preferences'
+          && isOwnerPreferenceInitialization(body))
         || (method === 'GET' && ['/rest/v1/reminder_preferences', '/rest/v1/subscriptions'].includes(target.pathname)
           && [...target.searchParams.keys()].every(key => ['select', 'user_id'].includes(key)))
       if (ancillary) {

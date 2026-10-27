@@ -47,11 +47,13 @@ export type ResendReminderSendResult =
       | 'network_error'
       | 'provider_unavailable'
       | 'rate_limited'
+      | 'quota_exhausted'
       | 'request_timeout'
     retryAfterSeconds?: number
   }>
   | Readonly<{
     status: 'blocked'
+    definitiveNoSend?: boolean
     reason:
       | 'authentication_or_domain'
       | 'configuration'
@@ -64,6 +66,8 @@ export type ResendReminderSendResult =
 type ResendReminderSendOptions = Readonly<{
   fetcher?: ResendFetch
   timeoutMs?: number
+  deadlineMs?: number
+  now?: () => number
 }>
 
 function requireApiKey(value: unknown) {
@@ -143,14 +147,24 @@ async function readBoundedJson(response: Response) {
   }
 
   let body: string
+  const reader = response.body?.getReader()
+  if (!reader) return null
+  const chunks: Uint8Array[] = []
+  let length = 0
   try {
-    body = await response.text()
-  } catch {
-    return null
-  }
-  if (new TextEncoder().encode(body).byteLength > MAX_PROVIDER_BODY_BYTES) {
-    return null
-  }
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      length += value.byteLength
+      if (length > MAX_PROVIDER_BODY_BYTES) { await reader.cancel(); return null }
+      chunks.push(value)
+    }
+    const bytes = new Uint8Array(length)
+    let offset = 0
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
+    body = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch { return null } finally { reader.releaseLock() }
+
   try {
     const parsed: unknown = JSON.parse(body)
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
@@ -180,7 +194,8 @@ function deferred(
 function blocked(
   reason: Extract<ResendReminderSendResult, { status: 'blocked' }>['reason'],
 ): ResendReminderSendResult {
-  return Object.freeze({ status: 'blocked' as const, reason })
+  return Object.freeze({ status: 'blocked' as const, reason,
+    definitiveNoSend: reason !== 'idempotency_conflict' && reason !== 'provider_rejected' })
 }
 
 export function createResendReminderIdempotencyKey(deliveryId: string) {
@@ -223,29 +238,20 @@ export async function sendReminderWithResend(
     throw new TypeError('Resend fetch dependency is invalid')
   }
 
-  const payload = JSON.stringify({
-    from,
-    to: [to],
-    subject,
-    text,
-    html,
-    headers: {
-      'List-Unsubscribe': `<${unsubscribeApiUrl}>`,
-      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-    },
-    tags: [
-      { name: 'source', value: RESEND_REMINDER_SOURCE_TAG },
-      { name: 'delivery_id', value: input.deliveryId.toLowerCase() },
-    ],
-  })
+  const payload = createResendReminderPayload({ ...input, from, to, subject, text, html, unsubscribeApiUrl })
+  const now = options.now ?? Date.now
+  if (options.deadlineMs !== undefined && (!Number.isFinite(options.deadlineMs) || now() >= options.deadlineMs)) {
+    return deferred('request_timeout')
+  }
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  const timeout = setTimeout(() => controller.abort(), Math.min(timeoutMs, options.deadlineMs === undefined ? timeoutMs : Math.max(1, options.deadlineMs - now())))
 
   let response: Response
   let body: Record<string, unknown> | null
   try {
     response = await fetcher(RESEND_SEND_URL, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -286,9 +292,12 @@ export async function sendReminderWithResend(
     if (errorName === 'invalid_idempotent_request') {
       return blocked('idempotency_conflict')
     }
-    return blocked('provider_rejected')
+    return deferred('invalid_provider_response')
   }
   if (response.status === 429) {
+    if (errorName === 'daily_quota_exceeded' || errorName === 'monthly_quota_exceeded') {
+      return deferred('quota_exhausted', readRetryAfterSeconds(response))
+    }
     return deferred('rate_limited', readRetryAfterSeconds(response))
   }
   if (response.status >= 500) return deferred('provider_unavailable')
@@ -302,5 +311,24 @@ export async function sendReminderWithResend(
     return blocked('configuration')
   }
   if (response.status === 451) return blocked('security_rejection')
-  return blocked('provider_rejected')
+  return deferred('invalid_provider_response')
+}
+
+// One serialization owns both the binding digest and the network body.
+export function createResendReminderPayload(input: ResendReminderSendInput) {
+  return JSON.stringify({
+    from: input.from,
+    to: [normalizeCheckoutEmail(input.to)],
+    subject: input.subject,
+    text: input.text,
+    html: input.html,
+    headers: {
+      'List-Unsubscribe': `<${input.unsubscribeApiUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+    tags: [
+      { name: 'source', value: RESEND_REMINDER_SOURCE_TAG },
+      { name: 'delivery_id', value: input.deliveryId.toLowerCase() },
+    ],
+  })
 }

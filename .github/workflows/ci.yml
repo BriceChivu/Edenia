@@ -191,6 +191,7 @@ jobs:
         if: needs.scope.outputs.supabase_db == 'true'
         run: |
           node scripts/generate-owned-profile-contract-fixtures.mjs
+          node scripts/generate-reminder-policy-fixtures.mjs
           supabase test db .cache/current-experience-owned-profile.test.sql --local
           supabase test db .cache/stale-generation-island-conflict.test.sql --local
           supabase test db .cache/auth-trial-admission.test.sql --local
@@ -208,6 +209,14 @@ jobs:
           supabase test db supabase/tests/learner_profile_retention.test.sql --local
           supabase test db supabase/tests/auth_operations.test.sql --local
           supabase test db supabase/tests/auth_monitoring_freshness.test.sql --local
+          supabase test db .cache/reminder-policy-fixtures.test.sql --local
+          supabase test db supabase/tests/accepted_reminder_eligibility.test.sql --local
+          supabase test db supabase/tests/reminder_scheduler_inert.test.sql --local
+          supabase test db supabase/tests/free_reminder_dispatch.test.sql --local
+          supabase test db supabase/tests/reminder_capacity_fairness.test.sql --local
+          supabase test db supabase/tests/reminder_final_fences.test.sql --local
+          supabase test db supabase/tests/reminder_time_windows.test.sql --local
+          supabase test db supabase/tests/reminder_discovery_edges.test.sql --local
           supabase test db supabase/tests/reminder_preferences_rls.test.sql --local
           supabase test db supabase/tests/reminder_eligibility_snapshots.test.sql --local
           supabase test db supabase/tests/reminder_dispatch_ledger.test.sql --local
@@ -225,6 +234,9 @@ jobs:
           supabase test db supabase/tests/legacy_progress_transfer_relay.test.sql --local
           supabase test db supabase/tests/canary_deployed_schema.test.sql --local
           node scripts/test-learner-profile-concurrency.mjs
+          REMINDER_TEST_DATABASE_CONTAINER=$(docker ps --filter name=supabase_db_ --format '{{.Names}}') node scripts/diagnostics/test-reminder-e2e.mjs
+          REMINDER_TEST_DATABASE_CONTAINER=$(docker ps --filter name=supabase_db_ --format '{{.Names}}') node scripts/diagnostics/test-reminder-quota-concurrency.mjs
+          REMINDER_TEST_DATABASE_CONTAINER=$(docker ps --filter name=supabase_db_ --format '{{.Names}}') node scripts/diagnostics/test-reminder-unsubscribe-concurrency.mjs
 
       - name: Stop isolated Supabase database
         if: always() && needs.scope.outputs.supabase_db == 'true'
@@ -253,9 +265,15 @@ jobs:
         with:
           name: ci-site-normal
           path: _site
+      - name: Install Playwright system dependencies
+        timeout-minutes: 10
+        run: |
+          sudo python3 scripts/ci/prefer-ubuntu-archive.py
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          npx playwright install-deps chromium webkit firefox
       - name: Install Playwright browsers
         # Legacy import acceptance serves this helper from the second origin.
-        run: npx playwright install --with-deps chromium webkit firefox
+        run: npx playwright install chromium webkit firefox
       - uses: actions/download-artifact@v4
         with:
           name: ci-migration-helper
@@ -305,7 +323,14 @@ jobs:
         with:
           name: ci-site-${{ matrix.site }}
           path: _site
-      - run: npx playwright install --with-deps ${{ matrix.browsers }}
+      - name: Install Playwright system dependencies
+        timeout-minutes: 10
+        run: |
+          sudo python3 scripts/ci/prefer-ubuntu-archive.py
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          npx playwright install-deps ${{ matrix.browsers }}
+      - name: Install Playwright browsers
+        run: npx playwright install ${{ matrix.browsers }}
       - uses: actions/download-artifact@v4
         with:
           name: ci-migration-helper

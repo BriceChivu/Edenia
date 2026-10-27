@@ -23,7 +23,7 @@ async function routeRuntimeConfig(page) {
 test('localized confirmation redacts its capability and submits without app state', async ({
   page,
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   const requests = []
   await routeRuntimeConfig(page)
   await page.route(
@@ -87,7 +87,7 @@ test('localized confirmation redacts its capability and submits without app stat
 })
 
 test('invalid links fail closed without calling the mutation API', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let apiCalls = 0
   await routeRuntimeConfig(page)
   await page.route('https://unsubscribe-page-test.supabase.co/**', route => {
@@ -106,7 +106,7 @@ test('invalid links fail closed without calling the mutation API', async ({ page
 })
 
 test('temporary API failures keep a bounded retry path', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let apiCalls = 0
   await routeRuntimeConfig(page)
   await page.route(

@@ -58,7 +58,7 @@ test('reminder claims use short leases, fencing tokens, and nonblocking locks', 
 })
 
 test('reminder scheduler tests exercise DST, concurrency, retry, and client denial', () => {
-  assert.match(databaseTest, /select plan\(64\)/)
+  assert.match(databaseTest, /select plan\(65\)/)
   assert.match(databaseTest, /America\/New_York/)
   assert.match(databaseTest, /nonexistent spring-forward wall time/)
   assert.match(databaseTest, /ambiguous fall-back wall time/)

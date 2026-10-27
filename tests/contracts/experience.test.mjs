@@ -5,6 +5,7 @@ import { initializeExperience, observeAnkiExperience, historyExperience } from '
 import { normalizeVideoWatchProgress } from '../../src/domain/video-watch-progress.js'
 import { getCityLevelIndex } from '../../src/features/city/model.js'
 import { preparePortableLearnerProfileEnvelope, reconcilePortableAnkiDays } from '../../src/state/portable-learner-profile.js'
+import { toDateKey, dateKeyToLocalDate } from '../../src/core/date-keys.js'
 
 const source = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
 function appFunction(name, next, dependencies) {
@@ -12,14 +13,32 @@ function appFunction(name, next, dependencies) {
   return new Function(...Object.keys(dependencies), `${text}; return ${name}`)(...Object.values(dependencies))
 }
 const liveWatch = appFunction('addVideoShelfSessionProgress', 'trackVideoShelfWatchCoverage', {
-  normalizeVideoWatchProgress, isValidTimestamp: value => Number.isFinite(Date.parse(value))
+  normalizeVideoWatchProgress, toDateKey, isValidTimestamp: value => Number.isFinite(Date.parse(value))
 })
 const historyBucket = appFunction('createHistoryBucket', 'getStudyHistory', {})
 const dateKey = date => date.toISOString().slice(0, 10)
 const history = appFunction('getStudyHistoryBetween', 'renderHistoryWatchedCell', {
   createHistoryBucket: historyBucket, getVideoWatchProgressEntries: video => normalizeVideoWatchProgress(video.watchProgress, video.duration),
-  toDateKey: dateKey, normalizeAnkiCount: value => Math.max(0, Number(value) || 0),
+  toDateKey: dateKey, dateKeyToLocalDate, normalizeAnkiCount: value => Math.max(0, Number(value) || 0),
   getHistoryDayPoints: historyExperience, t: value => value
+})
+
+test('historical XP retains its assigned Study day after travel, and midnight splits a live session', () => {
+  const retained = { videos: { v: { id: 'v', duration: 1800, watchProgress: [
+    { watchedAt: '2026-10-27T01:00:00.000Z', studyDay: '2026-10-26', seconds: 600, experienceSeconds: 600 }
+  ] } }, anki: {} }
+  const rows = history(retained, dateKeyToLocalDate('2026-10-26'), dateKeyToLocalDate('2026-10-27')).rows
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].dateKey, '2026-10-26')
+  assert.equal(historyExperience(rows[0]), 10)
+  const video = { duration: 1800, watchProgress: [] }
+  const session = {}
+  const before = new Date(2026, 9, 26, 23, 59, 50).toISOString()
+  const after = new Date(2026, 9, 27, 0, 0, 10).toISOString()
+  liveWatch(video, 60, session, before)
+  liveWatch(video, 60, session, after)
+  assert.deepEqual(video.watchProgress.map(entry => entry.studyDay), ['2026-10-26', '2026-10-27'])
+  assert.deepEqual(video.watchProgress.map(entry => entry.experienceSeconds), [60, 60])
 })
 
 test('XP initialization retains town claims and study facts while starting island levels once', () => {

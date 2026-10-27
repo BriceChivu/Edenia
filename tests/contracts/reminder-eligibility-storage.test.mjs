@@ -36,8 +36,8 @@ test('reminder eligibility storage is bounded, owner-derived, and atomic', async
 test('database verification covers two users, anonymous access, and reassignment', async () => {
   const source = await readFile(databaseTestUrl, 'utf8')
 
-  assert.match(source, /user A can atomically sync their own derived snapshot/)
-  assert.match(source, /user B can sync a separately owned snapshot/)
+  assert.match(source, /user A may request recomputation without uploading study authority/)
+  assert.match(source, /user B may independently request accepted projection recomputation/)
   assert.match(source, /user A cannot select user B snapshot data/)
   assert.match(source, /client cannot submit or reassign an owner UUID/)
   assert.match(source, /clients cannot reassign a stored owner UUID/)

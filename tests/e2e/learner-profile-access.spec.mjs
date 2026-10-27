@@ -106,6 +106,30 @@ function runtimeConfig({
   })}`
 }
 
+function fulfillReminderPreferenceInitialization(route, expectedOwner, requests) {
+  const target = new URL(route.request().url())
+  if (target.pathname !== '/rest/v1/rpc/get_my_reminder_preferences') return null
+  expect(target.search).toBe('')
+  expect(route.request().method()).toBe('POST')
+  const payload = route.request().postDataJSON()
+  expect(payload).toEqual({
+    p_timezone: 'Asia/Taipei', p_locale: 'en', p_expected_owner: expectedOwner
+  })
+  requests.push(payload)
+  return route.fulfill({ status: 200, json: {
+    user_id: expectedOwner,
+    streak_reminders_enabled: true,
+    discovery_emails_enabled: true,
+    timezone: payload.p_timezone,
+    locale: payload.p_locale,
+    consent_granted_at: null,
+    consent_revoked_at: null,
+    streak_enrollment_version: null,
+    discovery_enrollment_version: null,
+    delivery_paused: true
+  } })
+}
+
 async function installGoogleIdentityMock(page) {
   await page.addInitScript(() => {
     window.google = {
@@ -246,12 +270,15 @@ test('authenticated gate-off account can sign out from the locked authentication
   let lifecycleEnabled = false
   let logoutCount = 0
   const profileWrites = []
+  const preferenceInitializations = []
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({ accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off', lifecycle: lifecycleEnabled }),
     contentType: 'text/javascript', status: 200
   }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
     const pathname = new URL(route.request().url()).pathname
+    const preferenceInitialization = fulfillReminderPreferenceInitialization(route, OWNER_ID, preferenceInitializations)
+    if (preferenceInitialization) return preferenceInitialization
     if (pathname.endsWith('/logout')) logoutCount += 1
     if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
       return route.fulfill({ json: [{ status: 'access_disabled' }], status: 200 })
@@ -277,6 +304,7 @@ test('authenticated gate-off account can sign out from the locked authentication
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTH_STORAGE_KEY)).toBeNull()
   expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY)).toBe(storedState)
   await expect(page.locator('#mainApp')).toBeHidden()
+  expect(preferenceInitializations).toHaveLength(1)
   expect(profileWrites).toEqual([])
 })
 
@@ -285,6 +313,7 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
   await useAccountReturnOrigin(page)
   let logoutCount = 0
   const profileWrites = []
+  const preferenceInitializations = []
   await page.addInitScript(() => {
     let configuration
     window.google = { accounts: { id: {
@@ -307,6 +336,8 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
   }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
     const pathname = new URL(route.request().url()).pathname
+    const preferenceInitialization = fulfillReminderPreferenceInitialization(route, OWNER_ID, preferenceInitializations)
+    if (preferenceInitialization) return preferenceInitialization
     if (pathname.endsWith('/token')) {
       return route.fulfill({ json: restoredSession(OWNER_ID), status: 200 })
     }
@@ -336,6 +367,7 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
   expect(await page.evaluate(key => localStorage.getItem(key), ONBOARDING_DRAFT_STORAGE_KEY)).toBe(draft)
   expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY)).toBeNull()
   await expect(page.locator('#mainApp')).toBeHidden()
+  expect(preferenceInitializations).toHaveLength(1)
   expect(profileWrites).toEqual([])
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(onboarding.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
@@ -2160,6 +2192,7 @@ test('an unverified owner replacement stays blocked and local sign-out changes n
   let lifecycleEnabled = false
   let resolutionCount = 0
   const signOutScopes = []
+  const preferenceInitializations = []
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
       accountFeaturesRollout: lifecycleEnabled ? 'public' : 'off',
@@ -2170,6 +2203,8 @@ test('an unverified owner replacement stays blocked and local sign-out changes n
   }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
     const url = new URL(route.request().url())
+    const preferenceInitialization = fulfillReminderPreferenceInitialization(route, OTHER_OWNER_ID, preferenceInitializations)
+    if (preferenceInitialization) return preferenceInitialization
     if (url.pathname.includes('/rpc/')) {
       resolutionCount += 1
     }
@@ -2222,6 +2257,7 @@ test('an unverified owner replacement stays blocked and local sign-out changes n
     name: 'Discard progress and continue'
   })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  expect(preferenceInitializations).toHaveLength(1)
   expect(resolutionCount).toBe(0)
 
   await page.getByRole('button', { name: 'Sign out' }).click()
@@ -2254,6 +2290,7 @@ test('a synchronized browser copy is replaced only after the learner continues',
   let lifecycleEnabled = false
   let resolutionCount = 0
   const studySnapshots = []
+  const preferenceInitializations = []
   const nextOwnerEnvelope = await createNextOwnerEnvelope()
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
@@ -2265,6 +2302,8 @@ test('a synchronized browser copy is replaced only after the learner continues',
   }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
     const pathname = new URL(route.request().url()).pathname
+    const preferenceInitialization = fulfillReminderPreferenceInitialization(route, OTHER_OWNER_ID, preferenceInitializations)
+    if (preferenceInitialization) return preferenceInitialization
     if (pathname.endsWith('/rpc/sync_my_reminder_eligibility_snapshot')) {
       studySnapshots.push(route.request().postDataJSON().payload)
       return route.fulfill({ json: '2026-08-22T00:00:00.000Z', status: 200 })
@@ -2300,6 +2339,7 @@ test('a synchronized browser copy is replaced only after the learner continues',
   })).toBeVisible()
   expect(resolutionCount).toBe(0)
   expect(studySnapshots).toHaveLength(0)
+  expect(preferenceInitializations).toHaveLength(1)
 
   await page.getByRole('button', {
     name: 'Continue with this account'
@@ -2308,6 +2348,10 @@ test('a synchronized browser copy is replaced only after the learner continues',
   await expect(page.getByText(SECRET_CHANNEL_NAME)).toHaveCount(0)
   await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
   await expect.poll(() => resolutionCount).toBeGreaterThanOrEqual(2)
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'active')
+  // The owner binding happens when the replacement becomes active. A resolver
+  // request can be observed before that activation finishes after the reload.
+  await expect.poll(() => studySnapshots.length).toBeGreaterThan(0)
 
   const replacement = await page.evaluate(({
     accessKey,
@@ -2354,11 +2398,11 @@ test('a synchronized browser copy is replaced only after the learner continues',
   expect(replacement.cache).toBeNull()
   expect(replacement.configCookie || '').not.toContain(SECRET_CHANNEL_NAME)
   expect(replacement.accountStudyOwner).toBe(OTHER_OWNER_ID)
-  await expect.poll(() => studySnapshots.length).toBeGreaterThan(0)
-  expect(studySnapshots.every(snapshot => (
-    snapshot.currentStreakDays !== 99
-  ))).toBe(true)
-  expect(studySnapshots.at(-1).learningLanguage).toBe('mandarin')
+  // Eligibility and language come from the accepted server profile. The browser
+  // sends only display context, with none of the previous owner's study facts.
+  for (const snapshot of studySnapshots) {
+    expect(snapshot).toEqual({ timezone: 'Asia/Taipei', locale: 'en' })
+  }
 })
 
 test('a different new account starts onboarding without exposing or replacing the synchronized browser copy', async ({

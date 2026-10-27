@@ -423,6 +423,10 @@
                     <span data-i18n="settings.account.discoveryEmails">Discover new channels</span>
                   </label>
                 </fieldset>
+                <p class="settings-account-description" id="reminderEnrollmentDisclosure" data-i18n="settings.account.emailEnrollmentDisclosure">Enable emails to request the selected free emails: a streak reminder around 19:00 in your saved timezone if yesterday qualified and today is below 10 XP, or channel discovery at most weekly. Maximum one email per day and 24 hours. You can unsubscribe at any time.</p>
+                <p class="settings-account-description" id="reminderEnrollmentStatus" role="status"></p>
+                <p class="settings-account-description hidden" id="reminderDeliveryPaused" data-i18n="settings.account.emailDeliveryPaused">Email delivery is currently paused.</p>
+                <button class="btn-secondary hidden" id="reminderEnrollBtn" type="button" data-reminder-action="enroll" aria-describedby="reminderEnrollmentDisclosure" data-i18n="settings.account.enableEmails">Enable emails</button>
                 <p class="settings-reminder-feedback hidden" id="reminderFeedback" role="status" aria-live="polite"></p>
                 <button class="btn-secondary hidden" id="reminderRetryBtn" type="button" data-reminder-action="retry" data-i18n="settings.account.remindersRetry">Try loading again</button>
               </div>

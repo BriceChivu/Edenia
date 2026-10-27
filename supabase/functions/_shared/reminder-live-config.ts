@@ -18,7 +18,9 @@ export type ReminderLiveConfig = Readonly<{
   appUrl: string
   unsubscribeEndpointUrl: string
   unsubscribePageUrl: string
-  allowedRecipientEmail: string
+  allowedRecipientEmail: string | null
+  admissionMode: 'canary' | 'public'
+  unsubscribeKeyVersion: string
 }>
 
 export type ReminderEnvironmentReader = (name: string) => string | undefined
@@ -68,13 +70,15 @@ export function readReminderLiveConfig(
     const unsubscribeEndpointUrl = validateReminderUnsubscribeEndpointUrl(
       new URL(UNSUBSCRIBE_API_PATH, supabaseUrl).href,
     )
-    const allowedRecipientEmail = normalizeCheckoutEmail(
-      requireEnvironmentValue(
-        readEnvironment,
-        'REMINDER_LIVE_RECIPIENT_EMAIL',
-      ),
-    )
-    if (!allowedRecipientEmail) {
+    const rawMode = readEnvironment('REMINDER_ADMISSION_MODE') ?? 'canary'
+    if (rawMode !== 'canary' && rawMode !== 'public') throw new TypeError('Reminder admission mode is invalid')
+    const admissionMode = rawMode
+    const unsubscribeKeyVersion = requireEnvironmentValue(readEnvironment, 'REMINDER_UNSUBSCRIBE_KEY_VERSION')
+    if (!/^[a-zA-Z0-9._-]{1,80}$/u.test(unsubscribeKeyVersion)) throw new TypeError('Reminder key version is invalid')
+    const allowedRecipientEmail = admissionMode === 'canary' ? normalizeCheckoutEmail(
+      requireEnvironmentValue(readEnvironment, 'REMINDER_LIVE_RECIPIENT_EMAIL'),
+    ) : null
+    if (admissionMode === 'canary' && !allowedRecipientEmail) {
       throw new TypeError('Reminder live recipient is invalid')
     }
 
@@ -86,6 +90,8 @@ export function readReminderLiveConfig(
       unsubscribeEndpointUrl,
       unsubscribePageUrl,
       allowedRecipientEmail,
+      admissionMode,
+      unsubscribeKeyVersion,
     })
   } catch {
     throw new ReminderDispatchError(

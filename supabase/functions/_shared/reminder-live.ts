@@ -1,4 +1,5 @@
 import { normalizeCheckoutEmail } from './checkout-identity.ts'
+import { readResendReminderCapacity } from './resend-reminder-capacity.ts'
 import {
   parseTypedReminderDryRunClaim as parseTypedReminderClaim,
   readReminderDeliveryEnabled,
@@ -20,14 +21,17 @@ import {
 import type { ReminderLiveConfig } from './reminder-live-config.ts'
 import {
   sendReminderWithResend,
+  createResendReminderPayload,
 } from './resend-reminder-adapter.ts'
 import type {
   ResendReminderSendInput,
   ResendReminderSendResult,
 } from './resend-reminder-adapter.ts'
 
-const CLAIM_BATCH_SIZE = 5
-const DUE_WINDOW_SECONDS = 15 * 60
+const CLAIM_BATCH_SIZE = 10
+const DUE_WINDOW_SECONDS = 60 * 60
+const WORKER_BUDGET_MS = 25_000
+const TEMPLATE_VERSION = 'edenia-reminder-v3'
 const LEASE_SECONDS = 5 * 60
 const PROVIDER_NAME = 'resend'
 
@@ -70,6 +74,8 @@ export type ReminderSender = (
 
 export type ReminderLiveDependencies = Readonly<{
   send?: ReminderSender
+  readCapacity?: typeof readResendReminderCapacity
+  now?: () => number
 }>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -233,6 +239,41 @@ export async function runReminderLive(
     return createResult('blocked', 0, createCounts())
   }
 
+  const now = dependencies.now ?? Date.now
+  const workerDeadline = now() + WORKER_BUDGET_MS
+  const digest = async (value: string) => encodeReminderDigestForPostgres(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))),
+  )
+  const apiKeyDigest = await digest(config.resendApiKey)
+  const senderDigest = await digest(config.fromAddress)
+  const attested = await readReminderRpc(client, 'reminder_provider_attestation_is_current', {
+    p_api_key_digest: apiKeyDigest, p_sender_digest: senderDigest, p_admission_mode: config.admissionMode,
+  })
+  if (attested !== true) {
+    log({
+      event: 'reminder_live_blocked', reason: 'free_account_attestation_unavailable'
+    })
+    return createResult('blocked', 0, createCounts())
+  }
+  const capacity = await (dependencies.readCapacity ?? readResendReminderCapacity)(config.resendApiKey)
+  if (!capacity || now() >= workerDeadline) {
+    log({
+      event: 'reminder_live_blocked', reason: 'provider_capacity_unknown'
+    })
+    return createResult('blocked', 0, createCounts())
+  }
+  const refreshed = await readReminderRpc(client, 'refresh_reminder_provider_usage', {
+    p_api_key_digest: apiKeyDigest, p_sender_digest: senderDigest,
+    p_daily_used: capacity.dailyUsed, p_monthly_used: capacity.monthlyUsed,
+    p_observed_at: capacity.observedAt,
+  })
+  if (refreshed !== true) {
+    log({
+      event: 'reminder_live_blocked', reason: 'provider_capacity_fenced'
+    })
+    return createResult('blocked', 0, createCounts())
+  }
+  await readReminderRpc(client, 'refresh_reminder_eligibility_snapshots', { p_limit: 10 })
   const rawClaims = await readReminderRpc(
     client,
     'claim_due_typed_reminder_live',
@@ -251,9 +292,19 @@ export async function runReminderLive(
   }
   const claims = rawClaims.map(parseTypedReminderClaim)
   const counts = createCounts()
-  const send = dependencies.send ?? sendReminderWithResend
+  let sendDeadline = workerDeadline
+  const send: ReminderSender = dependencies.send ?? (input => sendReminderWithResend(input, {
+    timeoutMs: Math.max(100, Math.min(10_000, sendDeadline - now())),
+    deadlineMs: sendDeadline, now,
+  }))
 
   for (const claim of claims) {
+    if (now() >= workerDeadline - 1000) {
+      log({
+      event: 'reminder_live_blocked', reason: 'worker_deadline'
+    })
+      return logSummary(log, 'deferred', claims.length, counts)
+    }
     const recipient = await readConfirmedRecipient(client, claim.userId)
     if (!recipient) {
       if (!await completeWithoutSend(
@@ -267,7 +318,7 @@ export async function runReminderLive(
       }
       continue
     }
-    if (recipient !== config.allowedRecipientEmail) {
+    if (config.admissionMode !== 'public' && recipient !== config.allowedRecipientEmail) {
       if (!await completeWithoutSend(
         client,
         claim,
@@ -339,6 +390,28 @@ export async function runReminderLive(
       return logSummary(log, 'blocked', claims.length, counts)
     }
 
+    const sendInput: ResendReminderSendInput = {
+      apiKey: config.resendApiKey, from: config.fromAddress, to: recipient,
+      deliveryId: claim.deliveryId, subject: content.subject,
+      text: content.text, html: content.html, unsubscribeApiUrl,
+    }
+    const bound = await client.rpc('bind_reminder_payload', {
+      p_claim_token: claim.claimToken,
+      p_recipient_digest: await digest(recipient), p_sender_digest: senderDigest,
+      p_payload_digest: await digest(createResendReminderPayload(sendInput)),
+      p_template_version: TEMPLATE_VERSION,
+      p_unsubscribe_key_version: config.unsubscribeKeyVersion,
+      p_api_key_digest: apiKeyDigest, p_admission_mode: config.admissionMode,
+    })
+    if (bound.error || bound.data !== true) {
+      counts.fenced += 1
+      log({
+      event: 'reminder_live_fenced', stage: 'payload_binding', reason: 'payload_changed'
+    })
+      return logSummary(log, 'blocked', claims.length, counts)
+    }
+    if (now() >= workerDeadline - 1000) return logSummary(log, 'deferred', claims.length, counts)
+
     const attempt = await client.rpc('begin_typed_reminder_provider_attempt', {
       p_claim_token: claim.claimToken,
       p_provider_name: PROVIDER_NAME,
@@ -355,19 +428,23 @@ export async function runReminderLive(
       return logSummary(log, 'blocked', claims.length, counts)
     }
 
+    // The database authorizes begin inside its transaction. Its response can
+    // arrive after the occurrence cutoff; check again at the network boundary.
+    sendDeadline = Math.min(workerDeadline, Date.parse(claim.scheduledFor) + DUE_WINDOW_SECONDS * 1000)
+    if (now() >= sendDeadline - 100) {
+      counts.providerDeferred += 1
+      log({
+        event: 'reminder_live_provider_deferred', reason: 'send_cutoff'
+      })
+      return logSummary(log, 'deferred', claims.length, counts)
+    }
+
     let providerResult: ResendReminderSendResult
     try {
-      providerResult = await send({
-        apiKey: config.resendApiKey,
-        from: config.fromAddress,
-        to: recipient,
-        deliveryId: claim.deliveryId,
-        subject: content.subject,
-        text: content.text,
-        html: content.html,
-        unsubscribeApiUrl,
-      })
+      providerResult = await send(sendInput)
     } catch {
+      await client.rpc('defer_typed_reminder', { p_claim_token: claim.claimToken,
+        p_retry_after_seconds: 300, p_definitive_no_send: false, p_stop_capacity: false })
       counts.providerDeferred += 1
       log({
         event: 'reminder_live_provider_deferred',
@@ -379,6 +456,14 @@ export async function runReminderLive(
     }
 
     if (providerResult.status === 'deferred') {
+      const noSend = providerResult.reason === 'rate_limited' || providerResult.reason === 'quota_exhausted'
+      const deferred = await client.rpc('defer_typed_reminder', {
+        p_claim_token: claim.claimToken,
+        p_retry_after_seconds: providerResult.retryAfterSeconds ?? 300,
+        p_definitive_no_send: noSend,
+        p_stop_capacity: providerResult.reason === 'quota_exhausted',
+      })
+      if (deferred.error || deferred.data !== true) counts.completionFailed += 1
       counts.providerDeferred += 1
       log({
         event: 'reminder_live_provider_deferred',
@@ -400,11 +485,11 @@ export async function runReminderLive(
         reason: providerResult.reason,
       })
       const failure = await client.rpc(
-        'complete_reminder_provider_failure',
+        'complete_typed_reminder_rejection',
         {
           p_claim_token: claim.claimToken,
-          p_provider_name: PROVIDER_NAME,
           p_failure_code: classifyProviderFailure(providerResult.reason),
+          p_definitive_no_send: providerResult.definitiveNoSend === true,
         },
       )
       if (failure.error || failure.data !== true) {

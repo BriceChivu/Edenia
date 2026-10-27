@@ -2,11 +2,14 @@ const REMINDER_LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
 const REMINDER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
-const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,}$/
+const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/
 const UNSUBSCRIBE_API_PATH = '/functions/v1/unsubscribe-study-reminders'
 
 const ALLOWED_APP_URLS = new Set([
   'https://www.edenia.study/',
+  // The admitted authentication trial has its own profile-opening boundary.
+  // This selects that route; it grants no account or delivery authority.
+  'https://www.edenia.study/?internal_test=1',
   'http://localhost:8000/',
 ])
 const ALLOWED_UNSUBSCRIBE_PAGE_URLS = new Set([
@@ -98,81 +101,81 @@ const COPY: Readonly<Record<ReminderLocale, ReminderCopy>> = Object.freeze({
 const TYPED_COPY: Readonly<Record<ReminderLocale, TypedReminderCopy>> = Object.freeze({
   en: defineTypedReminderCopy({
     streakSubject: 'Keep your Edenia streak alive',
-    streakPreheader: 'You still need a few points for today’s streak.',
+    streakPreheader: 'If you haven\'t reached 10 XP today, there is still time to study.',
     streakHeading: 'Your streak is waiting',
-    streakBody: 'You still need a few points to keep today’s streak alive.',
+    streakBody: 'If you haven\'t reached 10 XP today, a little study can keep your streak going. Offline or unsynced progress may not appear yet.',
     streakVideo: (channel, video) => `Try this new video from ${channel}: ${video}`,
     streakCta: 'Study with Edenia',
     discoverySubject: channel => `Discover ${channel} on Edenia`,
     discoveryPreheader: channel => `A channel you might enjoy: ${channel}.`,
     discoveryHeading: 'A channel you might enjoy',
-    discoveryBody: (channel, summary) => `Another learner of your language follows ${channel}. ${summary}`,
+    discoveryBody: (channel, summary) => `A reviewed channel for your selected learning language: ${channel}. ${summary}`,
     discoveryVideo: video => `Latest video: ${video}`,
-    discoveryCta: 'Watch in Edenia',
+    discoveryCta: 'Explore this channel',
     consent: 'You can change these email choices in your Edenia Account settings.',
     unsubscribe: 'Turn off Edenia emails',
   }),
   'zh-Hant': defineTypedReminderCopy({
     streakSubject: '繼續保持你的 Edenia 連續學習紀錄',
-    streakPreheader: '你今天還差一些點數就能延續連續學習紀錄。',
+    streakPreheader: '如果你今天尚未達到 10 XP，還有時間學習。',
     streakHeading: '你的連續學習紀錄等著你',
-    streakBody: '你今天還需要一些點數，才能延續連續學習紀錄。',
+    streakBody: '如果你今天尚未達到 10 XP，再學習一下就能延續紀錄。離線或尚未同步的進度可能還沒顯示。',
     streakVideo: (channel, video) => `試試 ${channel} 的新影片：${video}`,
     streakCta: '前往 Edenia 學習',
     discoverySubject: channel => `在 Edenia 探索 ${channel}`,
     discoveryPreheader: channel => `你可能會喜歡這個頻道：${channel}。`,
     discoveryHeading: '你可能會喜歡的頻道',
-    discoveryBody: (channel, summary) => `另一位學習相同語言的使用者正在追蹤 ${channel}。${summary}`,
+    discoveryBody: (channel, summary) => `為你所選學習語言審核的頻道：${channel}。${summary}`,
     discoveryVideo: video => `最新影片：${video}`,
-    discoveryCta: '在 Edenia 觀看',
+    discoveryCta: '探索這個頻道',
     consent: '你可以在 Edenia 的「帳號」設定中更改電子郵件選項。',
     unsubscribe: '關閉 Edenia 電子郵件',
   }),
   'zh-Hans': defineTypedReminderCopy({
     streakSubject: '继续保持你的 Edenia 连续学习记录',
-    streakPreheader: '你今天还差一些点数就能延续连续学习记录。',
+    streakPreheader: '如果你今天尚未达到 10 XP，还有时间学习。',
     streakHeading: '你的连续学习记录等着你',
-    streakBody: '你今天还需要一些点数，才能延续连续学习记录。',
+    streakBody: '如果你今天尚未达到 10 XP，再学习一下就能延续记录。离线或尚未同步的进度可能还没显示。',
     streakVideo: (channel, video) => `试试 ${channel} 的新视频：${video}`,
     streakCta: '前往 Edenia 学习',
     discoverySubject: channel => `在 Edenia 探索 ${channel}`,
     discoveryPreheader: channel => `你可能会喜欢这个频道：${channel}。`,
     discoveryHeading: '你可能会喜欢的频道',
-    discoveryBody: (channel, summary) => `另一位学习相同语言的用户正在关注 ${channel}。${summary}`,
+    discoveryBody: (channel, summary) => `为你所选学习语言审核的频道：${channel}。${summary}`,
     discoveryVideo: video => `最新视频：${video}`,
-    discoveryCta: '在 Edenia 观看',
+    discoveryCta: '探索这个频道',
     consent: '你可以在 Edenia 的“账号”设置中更改电子邮件选项。',
     unsubscribe: '关闭 Edenia 电子邮件',
   }),
   es: defineTypedReminderCopy({
     streakSubject: 'Mantén viva tu racha de Edenia',
-    streakPreheader: 'Aún necesitas algunos puntos para la racha de hoy.',
+    streakPreheader: 'Si aún no has llegado a 10 XP hoy, todavía puedes estudiar.',
     streakHeading: 'Tu racha te espera',
-    streakBody: 'Aún necesitas algunos puntos para mantener viva la racha de hoy.',
+    streakBody: 'Si aún no has llegado a 10 XP hoy, estudiar un poco puede mantener tu racha. El progreso sin conexión o sin sincronizar puede no aparecer todavía.',
     streakVideo: (channel, video) => `Prueba este vídeo nuevo de ${channel}: ${video}`,
     streakCta: 'Estudiar con Edenia',
     discoverySubject: channel => `Descubre ${channel} en Edenia`,
     discoveryPreheader: channel => `Un canal que podría gustarte: ${channel}.`,
     discoveryHeading: 'Un canal que podría gustarte',
-    discoveryBody: (channel, summary) => `Otra persona que aprende tu idioma sigue a ${channel}. ${summary}`,
+    discoveryBody: (channel, summary) => `Un canal revisado para el idioma que has seleccionado: ${channel}. ${summary}`,
     discoveryVideo: video => `Último vídeo: ${video}`,
-    discoveryCta: 'Ver en Edenia',
+    discoveryCta: 'Explorar este canal',
     consent: 'Puedes cambiar estas opciones de correo en los ajustes de tu cuenta de Edenia.',
     unsubscribe: 'Desactivar los correos de Edenia',
   }),
   fr: defineTypedReminderCopy({
     streakSubject: 'Gardez votre série Edenia en vie',
-    streakPreheader: 'Il vous manque encore quelques points pour la série du jour.',
+    streakPreheader: 'Si vous n’avez pas atteint 10 XP aujourd’hui, il reste du temps pour étudier.',
     streakHeading: 'Votre série vous attend',
-    streakBody: 'Il vous manque encore quelques points pour maintenir votre série aujourd’hui.',
+    streakBody: 'Si vous n’avez pas atteint 10 XP aujourd’hui, étudier un peu peut prolonger votre série. Les progrès hors ligne ou non synchronisés peuvent ne pas encore apparaître.',
     streakVideo: (channel, video) => `Essayez cette nouvelle vidéo de ${channel} : ${video}`,
     streakCta: 'Étudier avec Edenia',
     discoverySubject: channel => `Découvrez ${channel} sur Edenia`,
     discoveryPreheader: channel => `Une chaîne qui pourrait vous plaire : ${channel}.`,
     discoveryHeading: 'Une chaîne qui pourrait vous plaire',
-    discoveryBody: (channel, summary) => `Une autre personne qui apprend votre langue suit ${channel}. ${summary}`,
+    discoveryBody: (channel, summary) => `Une chaîne vérifiée pour la langue que vous avez sélectionnée : ${channel}. ${summary}`,
     discoveryVideo: video => `Dernière vidéo : ${video}`,
-    discoveryCta: 'Regarder sur Edenia',
+    discoveryCta: 'Explorer cette chaîne',
     consent: 'Vous pouvez modifier ces choix dans les réglages de votre compte Edenia.',
     unsubscribe: 'Désactiver les e-mails Edenia',
   }),
@@ -505,12 +508,18 @@ export function createTypedReminderDestinationUrl({
   }
   if (
     emailType === 'discovery'
-    && (videoId === null || channelId === null)
+    && channelId === null
   ) {
     throw new TypeError('Discovery reminder destination is incomplete')
   }
   if (emailType === 'streak' && channelId !== null && videoId === null) {
     throw new TypeError('Streak reminder destination is incomplete')
+  }
+
+  // A reviewed channel without a current video needs no profile mutation.
+  // Construct the only external destination from its validated immutable ID.
+  if (emailType === 'discovery' && videoId === null) {
+    return `https://www.youtube.com/channel/${channelId}`
   }
 
   const url = new URL(appUrl)
@@ -556,7 +565,8 @@ export function renderTypedReminderEmail({
     (emailType === 'streak' && hasVideo && !completeVideo)
     || (
       emailType === 'discovery'
-      && (!completeVideo || channelSummary === null)
+      && (channelId === null || channelName === null || channelSummary === null
+        || ((videoId !== null || videoTitle !== null) && !completeVideo))
     )
     || (emailType !== 'streak' && emailType !== 'discovery')
   ) {
@@ -596,7 +606,7 @@ export function renderTypedReminderEmail({
     : copy.discoveryBody(safeChannelName!, safeChannelSummary!)
   const videoLine = emailType === 'streak' && completeVideo
     ? copy.streakVideo(safeChannelName!, safeVideoTitle!)
-    : emailType === 'discovery'
+    : emailType === 'discovery' && completeVideo
       ? copy.discoveryVideo(safeVideoTitle!)
       : null
   const cta = emailType === 'streak'

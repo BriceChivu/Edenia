@@ -128,9 +128,13 @@ test('constructs only exact Edenia unsubscribe page destinations', async () => {
 
 test('validates live URL configuration before any claim exists', () => {
   assert.equal(validateReminderAppUrl(APP_URL), APP_URL)
+  assert.equal(
+    validateReminderAppUrl(`${APP_URL}?internal_test=1`),
+    `${APP_URL}?internal_test=1`,
+  )
   assert.equal(validateReminderUnsubscribePageBaseUrl(PAGE), PAGE)
   assert.throws(
-    () => validateReminderAppUrl('https://www.edenia.study/?internal_test=1'),
+    () => validateReminderAppUrl('https://www.edenia.study/?internal_test=2'),
     /not allowlisted/i,
   )
   assert.throws(
@@ -173,7 +177,7 @@ test('rejects unapproved app links and tampered unsubscribe links', async () => 
   assert.throws(
     () => renderReminderEmail({
       locale: 'en',
-      appUrl: 'https://www.edenia.study/?internal_test=1',
+      appUrl: 'https://www.edenia.study/?internal_test=2',
       unsubscribePageUrl,
     }),
     /app URL is not allowlisted/i,
@@ -186,6 +190,29 @@ test('rejects unapproved app links and tampered unsubscribe links', async () => 
     }),
     /invalid parameters/i,
   )
+})
+
+test('trial email destinations retain exact mode one without accepting broader query state', async () => {
+  const trialUrl = `${APP_URL}?internal_test=1`
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  const unsubscribePageUrl = createReminderUnsubscribePageUrl(PAGE, token, 'en')
+  const streak = renderTypedReminderEmail({
+    locale: 'en', appUrl: trialUrl, unsubscribePageUrl, emailType: 'streak',
+  })
+  assert.equal(streak.destinationUrl, `${trialUrl}&reminder=streak`)
+  assert.match(streak.html, /\?internal_test=1&amp;reminder=streak/)
+  assert.equal(createTypedReminderDestinationUrl({
+    appUrl: trialUrl, emailType: 'discovery', videoId: 'abcdefghijk',
+    channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+  }), `${trialUrl}&reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw`)
+
+  for (const suffix of [
+    '?internal_test=2', '?internal_test=1&internal_test=1',
+    '?internal_test=1&account=1', '?internal_test=1&reminder=streak',
+    '?internal_test=1#study', '?internal_test=%31',
+  ]) {
+    assert.throws(() => validateReminderAppUrl(`${APP_URL}${suffix}`), /not allowlisted/i)
+  }
 })
 
 test('builds exact typed Edenia destinations without accepting arbitrary URLs', () => {
@@ -219,7 +246,7 @@ test('builds exact typed Edenia destinations without accepting arbitrary URLs', 
       appUrl: APP_URL,
       emailType: 'discovery' as const,
       videoId: null,
-      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelId: null,
     },
     {
       appUrl: APP_URL,
@@ -321,5 +348,46 @@ test('allows a streak without a video and rejects partial or multiline payloads'
       unsubscribePageUrl,
       ...invalid,
     }))
+  }
+})
+
+
+test('channel-only discovery is useful without a video and cannot inject a destination', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  for (const locale of LOCALES) {
+    const content = renderTypedReminderEmail({
+      locale,
+      appUrl: APP_URL,
+      unsubscribePageUrl: createReminderUnsubscribePageUrl(PAGE, token, locale),
+      emailType: 'discovery',
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelName: 'Grace & Friends',
+      channelSummary: 'Practical Mandarin <lessons>.',
+    })
+    assert.equal(content.destinationUrl, 'https://www.youtube.com/channel/UCC_fdR7zZ_5SU--xuOrEdKw')
+    assert.match(content.text, /Grace & Friends/)
+    assert.match(content.html, /Grace &amp; Friends/)
+    assert.match(content.html, /&lt;lessons&gt;/)
+    assert.doesNotMatch(content.text, /null|undefined|Latest video|Another learner/)
+    assert.match(content.text, new RegExp(token))
+  }
+  for (const channelId of ['UCshort', 'UC' + 'a'.repeat(23), 'https://evil.test/', 'UC' + 'a'.repeat(21) + '\n']) {
+    assert.throws(() => createTypedReminderDestinationUrl({
+      appUrl: APP_URL, emailType: 'discovery', videoId: null, channelId,
+    }))
+  }
+})
+
+test('all localized streaks describe the 10 XP condition without claiming unsynced work is absent', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  for (const locale of LOCALES) {
+    const content = renderTypedReminderEmail({
+      locale, appUrl: APP_URL,
+      unsubscribePageUrl: createReminderUnsubscribePageUrl(PAGE, token, locale),
+      emailType: 'streak',
+    })
+    assert.match(content.text, /10 XP/)
+    assert.match(content.html, /10 XP/)
+    assert.doesNotMatch(content.text, /You still need|haven.t studied|5 XP/)
   }
 })
