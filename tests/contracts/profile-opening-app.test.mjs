@@ -87,6 +87,9 @@ test('late auth labels update presentation without observing identity or scannin
   context.handleAccountAuthenticationStateChange({ ...signedIn, authMethod: 'google' })
   assert.deepEqual(calls, ['render', 'onboarding'])
   assert.equal(context.accountAuthViewState.authMethod, 'google')
+  calls.length = 0
+  context.handleAccountAuthenticationStateChange({ ...signedIn, authMethod: 'google' })
+  assert.deepEqual(calls, ['render', 'onboarding'], 'SDK recovery repeats no identity or derived work')
   for (const changed of [{ userId: 'other' }, { error: 'session-error' },
     { sessionState: 'signed-out' }, { email: 'changed@example.com' }, { busyAction: 'sign-out' }]) {
     calls.length = 0

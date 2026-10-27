@@ -6880,10 +6880,11 @@ function handleAccountAuthenticationStateChange(state) {
   if (state.sessionState !== ACCOUNT_SESSION_STATES.LOADING) {
     profileOpeningDiagnostics.markStartup('auth-ready')
   }
-  const labelOnly = state.authMethod !== accountAuthViewState.authMethod
-    && ['sessionState', 'userId', 'email', 'busyAction', 'error', 'notice']
-      .every(key => state[key] === accountAuthViewState[key])
-  if (labelOnly) {
+  // SDK recovery can publish the same observation twice, as well as enrich
+  // its method label later. Neither is a new identity or derived-data trigger.
+  const presentationOnly = ['sessionState', 'userId', 'email', 'busyAction', 'error', 'notice']
+    .every(key => state[key] === accountAuthViewState[key])
+  if (presentationOnly) {
     accountAuthViewState = state
     renderAccountSettings(state)
     if (personalizedOnboardingState.step === 'account') {
