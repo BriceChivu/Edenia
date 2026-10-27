@@ -84,7 +84,7 @@ func check_real_cutting() -> void:
 	root.add_child(game)
 	await process_frame
 	var tree := Vector2i(0, 1)
-	game.layout.trees[tree] = true
+	game.layout.trees[tree] = Vector2.ZERO
 	game.layout.tree_types[tree] = "tree"
 	game.layout.stock.tree -= 1
 	game.rebuild_decorations()
@@ -101,9 +101,17 @@ func check_real_cutting() -> void:
 	game.undo()
 	check(game.pawn.chopping, "Unrelated undo preserves cutting")
 	check(game.apply_edit(Vector2i(-1, 0)) and not game.ui.undo_button.disabled, "Edit during cutting enables undo")
+	var remaining: float = game.layout.tree_cut_remaining[tree]
 	game.harvesting.advance(11, Time.get_unix_time_from_system() + 11)
 	game.harvesting._on_axe_swing_finished()
-	check(game.layout.tree_stumps.has(tree) and game.layout.carried_wood == 1, "Cutting finishes with inventory open")
+	check(game.layout.tree_cut_remaining.get(tree) == remaining and not game.layout.tree_stumps.has(tree) and game.layout.carried_wood == 0, "Inventory pauses cutting without consuming its progress or awarding wood")
+	game.ui.done_button.pressed.emit()
+	check(not game.editing and not game.harvesting.inventory_paused, "Closing inventory resumes the same cutting assignment")
+	game.harvesting.advance(remaining + 1, Time.get_unix_time_from_system() + remaining + 1)
+	game.harvesting._on_axe_swing_finished()
+	check(game.layout.tree_stumps.has(tree) and game.layout.carried_wood == 1, "Resumed cutting finishes and awards wood once")
+	game.toggle_editing()
+	game.ui.buttons.ground.pressed.emit()
 	check(game.editing and game.history.is_empty() and game.ui.undo_button.disabled, "Cutting clears undo and disables its button in the open inventory")
 	check(game.apply_edit(Vector2i(-2, 0)) and not game.ui.undo_button.disabled, "A new edit after cutting enables undo again")
 	game.harvesting.advance(0, game.layout.tree_stumps[tree] + 1)
@@ -127,7 +135,7 @@ func check_overlapping_chicken_undo() -> void:
 	var restored = game.Layout.new()
 	check(restored.restore(saved) and restored.chickens.size() == game.layout.chickens.size(), "Saved overlapping chickens restore without losing either animal")
 	var forged: Dictionary = saved.duplicate(true)
-	forged.chicken_count += 1
+	forged.chickens.append([point.x, point.y])
 	check(not game.Layout.new().restore(forged), "Overlapping positions do not allow unearned chickens")
 	game.ui.buttons.ground.pressed.emit()
 	check(game.apply_edit(Vector2i(-1, 0)), "Ground edit with overlapping chickens succeeds")

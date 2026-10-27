@@ -9,6 +9,15 @@ const ownerId = fixture.session.user.id
 const profileId = '223e4567-e89b-42d3-a456-426614174001'
 const origin = 'https://derived-progress-fixture.supabase.co'
 
+async function pauseClockAtCurrentTime(page) {
+  const time = await page.evaluate(() => Date.now())
+  // Keep the pause target fixed across protocol round trips, then restore
+  // advancing Date semantics while timers remain paused for fastForward.
+  await page.clock.setFixedTime(time)
+  await page.clock.pauseAt(time)
+  await page.clock.setSystemTime(time)
+}
+
 async function openProfile(page, { recordSyncEnabled = true, quietSyncEnabled = true, activeAtStart = false, response = 'failure' } = {}) {
   await page.clock.install({ time: new Date('2026-10-08T12:00:00.000Z') })
   const state = structuredClone(fixture.resolution.envelope.profile)
@@ -116,7 +125,7 @@ test('metadata completion defers derived city writes during play and fences stal
   expect(pageDiagnostics.every(message => message === 'console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)')).toBe(true)
   pageDiagnostics.length = 0
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } })))
-  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 20))
+  await pauseClockAtCurrentTime(page)
   const active = await page.evaluate(async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
     window.dispatchEvent(new Event('offline'))
@@ -166,7 +175,7 @@ test('metadata completion defers derived city writes during play and fences stal
   await expect.poll(() => page.evaluate(() => maybeRefreshFeed._running !== true)).toBe(true)
   await page.evaluate(() => learnerProfileLifecycleAuthority.flushSessionBoundary({ allowNewUpload: false }))
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', { detail: { visible: true, active: true } })))
-  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 20))
+  await pauseClockAtCurrentTime(page)
   const replacement = await page.evaluate(async () => {
     const old = loadState()
     const next = structuredClone(old)
@@ -231,7 +240,7 @@ for (const options of [
   await expect.poll(h.requests).toBe(1)
   // The provider is already in flight. Start gameplay before its response.
   await activity(page, true)
-  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 20))
+  await pauseClockAtCurrentTime(page)
   await observeActiveWork(page)
   h.releaseMetadata()
   await page.clock.fastForward(600)
@@ -296,7 +305,7 @@ test('retired held metadata is canceled and the replacement profile resumes auto
   const h = await openProfile(page, { response: 'success' })
   await expect.poll(h.requests).toBe(1)
   await activity(page, true)
-  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 20))
+  await pauseClockAtCurrentTime(page)
   await page.evaluate(async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
     const next = structuredClone(loadState())
@@ -428,7 +437,7 @@ test('automatic channel refresh holds private provider results until quiet and k
   })
   await expect.poll(() => page.evaluate(() => typeof window.releaseChannelProvider)).toBe('function')
   await activity(page, true)
-  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 20))
+  await pauseClockAtCurrentTime(page)
   await observeActiveWork(page)
   await page.evaluate(() => window.releaseChannelProvider())
   await page.clock.fastForward(600)

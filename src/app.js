@@ -11,6 +11,7 @@ import { createPortableLearnerProfileConflictArchive } from './state/portable-le
 import { createIslandAnnouncement } from './features/onboarding/island-announcement.js'
 import { bindIntroIslandMediaChanges } from './features/onboarding/intro-island-media.js'
 import { createTinySwordsPersistence } from './state/tiny-swords-island.js'
+import { composeAnimalCheckpointProfile } from './state/tiny-swords-animal-checkpoint.js'
 import { initializeExperience, observeAnkiExperience, historyExperience } from './domain/experience.js'
 import { isIndexedDbProfilePointer, openIndexedDbProfile } from './state/indexed-db-profile.js'
 import { mapPersistenceResult } from './state/persistence-result.js'
@@ -839,14 +840,16 @@ function getProfileRepository() {
         || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
         || repository.getReplacementRevision() !== replacement) return false
       const acknowledged = repository.readRaw()
-      if (!acknowledged || (JSON.stringify(JSON.parse(acknowledged).tinySwordsIsland) ?? 'absent') !== expected) return false
+      if (!acknowledged || (JSON.stringify(repository.readIslandState({ binding: options.binding })?.tinySwordsIsland) ?? 'absent') !== expected) return false
       const syncBase = options.syncBase
         ? await repository.readSyncBase(options.syncBase) ?? JSON.parse(acknowledged) : null
       if (options.canPersist?.() === false || primaryProfileRepository !== repository
         || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
         || repository.getReplacementRevision() !== replacement
         || repository.readRaw() !== acknowledged) return false
-      profileRecoveryWorkspace.activate({ profile: acknowledged, replacementRevision: replacement }, failure, 'save')
+      let recoverySeed = acknowledged
+      try { recoverySeed = JSON.stringify(repository.readRecoverySnapshot?.() || JSON.parse(acknowledged)) } catch { return false }
+      profileRecoveryWorkspace.activate({ profile: recoverySeed, baseline: acknowledged, replacementRevision: replacement }, failure, 'save')
       resetRecoveryBackupStore()
       if (syncBase && !await profileRecoveryWorkspace.retainSyncBase(options.syncBase, syncBase)) return false
       const state = profileRecoveryWorkspace.repository.snapshot()
@@ -856,6 +859,13 @@ function getProfileRepository() {
       ))
     },
     async save(state, options) {
+      // Ordinary public study saves preserve a checked local pose. Imports and
+      // reset/replacement intentionally start a new island lifetime.
+      if (!learnerProfileLifecycleAuthority && !options?.replace && !options?.replaceIsland) {
+        options = { ...options, animalCheckpoint: { binding: accountlessAnimalBinding() } }
+      }
+      const access = profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
+      const replacement = repository.getReplacementRevision()
       let saved = false
       let failure = null
       try { saved = await repository.save(state, options) } catch (error) { failure = error }
@@ -864,24 +874,41 @@ function getProfileRepository() {
       if (!failure) return false
       // Preserve the last acknowledged baseline and the exact current fences.
       // A cancelled activation must never be converted into a new save.
-      if (primaryProfileRepository !== repository) return false
+      if (primaryProfileRepository !== repository
+        || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
+        || repository.getReplacementRevision() !== replacement) return false
       const acknowledged = repository.readRaw()
       const syncBase = options?.syncBase
         ? await repository.readSyncBase(options.syncBase) ?? (acknowledged ? JSON.parse(acknowledged) : null) : null
       if (options?.canPersist?.() === false || primaryProfileRepository !== repository
-        || repository.readRaw() !== acknowledged) return false
+        || repository.readRaw() !== acknowledged
+        || profileBrowserStorage.getItem(LEARNER_PROFILE_ACCESS_KEY) !== access
+        || repository.getReplacementRevision() !== replacement) return false
+      let recoverySeed = acknowledged
+      let candidate = state
+      try {
+        if (repository.readRecoverySnapshot) {
+          candidate = repository.readRecoverySnapshot(state, options)
+          if (acknowledged) recoverySeed = JSON.stringify(repository.readRecoverySnapshot())
+        }
+      } catch { return false }
       // A first verified cloud install has no old body, but its candidate and
       // ownership fence are already known. Keep that exact candidate and fence.
       profileRecoveryWorkspace.activate({
-        profile: acknowledged || (options?.replace ? JSON.stringify(state) : null),
-        baseline: acknowledged, replacementRevision: repository.getReplacementRevision()
+        profile: recoverySeed || (options?.replace ? JSON.stringify(candidate) : null),
+        baseline: acknowledged, replacementRevision: replacement
       }, failure, 'save')
+      if (candidate !== state) {
+        for (const key of Object.keys(state)) delete state[key]
+        Object.defineProperties(state, Object.getOwnPropertyDescriptors(candidate))
+      }
       profileRecoveryWorkspace.repository.adoptSnapshot(state)
       resetRecoveryBackupStore()
       if (syncBase && !await profileRecoveryWorkspace.retainSyncBase(options.syncBase, syncBase)) return false
       const result = options?.replace
         ? saveImportedPersistedState(state, { syncAnalytics: false }, options.canPersist)
-        : savePersistedState(state, { backup: false, syncAnalytics: false }, options.canPersist)
+        : savePersistedState(state, { backup: false, syncAnalytics: false,
+          ...(options?.replaceIsland ? { replaceIsland: true } : {}) }, options.canPersist)
       const persisted = await result
       return options?.replace ? persisted?.persisted === true : persisted === true
     }
@@ -7654,7 +7681,14 @@ async function downloadLearnerProfileConflictArchive(profiles, {
   }
 }
 
+async function captureTinySwordsCheckpoint() {
+  if (await window.edeniaFlushTinySwordsCheckpoint?.() !== false) return true
+  showToast(t('toast.progressSaveFailed'), 'error')
+  return false
+}
+
 async function exportSyncFile() {
+  if (!await captureTinySwordsCheckpoint()) return
   if (learnerProfileLifecycleAuthority) {
     if (!await learnerProfileLifecycleAuthority.exportActiveProfile()) {
       showToast(t('toast.nothingToSync'), 'warn')
@@ -7666,7 +7700,8 @@ async function exportSyncFile() {
     showToast(t('toast.nothingToSync'), 'warn')
     return
   }
-  downloadLearnerProfileSyncFile(state)
+  downloadLearnerProfileSyncFile(composeAnimalCheckpointProfile(state,
+    getProfileRepository()?.readAnimalCheckpoint?.(accountlessAnimalBinding())))
 }
 
 function beginSettingsSyncImportInteraction(input) {
@@ -17254,7 +17289,7 @@ function closeVideoShelfPlayer() {
 function handleVideoShelfPlayerVisibilityChange() {
   if (document.hidden) {
     const capture = syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })
-    Promise.resolve(capture).then(() => {
+    Promise.all([capture, window.edeniaFlushTinySwordsCheckpoint?.()]).then(() => {
       if (!learnerProfilePageLeaving) return learnerProfileLifecycleAuthority?.flushSessionBoundary()
     }).catch(() => {})
     return
@@ -19092,8 +19127,14 @@ bindLearnerProfileAccessActions(document, {
   }
 })
 bindLearnerProfileSyncActions(document, {
-  retry: () => learnerProfileLifecycleAuthority?.retryCloudBackup(),
-  exportRecovery: () => learnerProfileLifecycleAuthority?.exportActiveProfile()
+  retry: async () => {
+    if (!await captureTinySwordsCheckpoint()) return false
+    return learnerProfileLifecycleAuthority?.retryCloudBackup()
+  },
+  exportRecovery: async () => {
+    if (!await captureTinySwordsCheckpoint()) return false
+    return learnerProfileLifecycleAuthority?.exportActiveProfile()
+  }
 })
 bindLearnerProfileConflictActions(document, {
   cancelChoice: () => learnerProfileConflictView.cancelChoice(),
@@ -19223,7 +19264,11 @@ function compactReplaceableSearchCache() {
 }
 
 async function initializeBrowserStorage() {
-  await profileRecoveryWorkspace.initialize()
+  // A superseded read leaves peer evidence untouched. Yield before retrying;
+  // only a completed observation may unlock primary opening or promotion.
+  while (await profileRecoveryWorkspace.initialize() === false) {
+    await new Promise(resolve => window.setTimeout(resolve, 0))
+  }
   profileOpeningDiagnostics.markStartup('journal-ready')
   if (profileRecoveryWorkspace.hasPending()) {
     profileRecoveryWorkspace.activate()
@@ -19243,7 +19288,13 @@ async function initializeBrowserStorage() {
       storage: window.localStorage, storageKey: STORAGE_KEY,
       accessKey: LEARNER_PROFILE_ACCESS_KEY,
       isValidState: isValidStateShape, eventTarget: window,
-      onChange({ islandOnly, replacement } = {}) {
+      onChange({ islandOnly, replacement, animalCheckpoint } = {}) {
+        if (animalCheckpoint && !replacement) {
+          if (applicationStarted) window.dispatchEvent(new CustomEvent('edenia-profile-persisted', {
+            detail: { islandOnly: true, animalCheckpoint: true }
+          }))
+          return
+        }
         if (islandOnly && !learnerProfileLifecycleAuthority) {
           if (!applicationStarted) return
           window.dispatchEvent(new CustomEvent('edenia-profile-persisted', { detail: { islandOnly: true, replacement } }))
@@ -19283,7 +19334,7 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
   let comparedRecoveryEpoch = null
   let promotionStarted = false
   try {
-    await profileRecoveryWorkspace.refresh()
+    if (await profileRecoveryWorkspace.refresh() === false) return
     if (!profileRecoveryWorkspace.isActive()) return
     const originalAccess = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
     const protectedKeys = [LEARNER_PROFILE_ACCESS_KEY, LEARNER_PROFILE_SYNC_KEY,
@@ -19341,7 +19392,8 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
     }
     if (!await profileRecoveryWorkspace.archive(original) || !current()) return
     originalRepository.inheritRevision(merged, original)
-    if (!await originalRepository.save(merged, { canPersist: current }) || !profileRecoveryWorkspace.matches(epoch)) return
+    if (!await originalRepository.save(merged, { canPersist: current,
+      replaceIsland: profileRecoveryWorkspace.hasReplacement() }) || !profileRecoveryWorkspace.matches(epoch)) return
     // Record the acknowledged head before copying metadata. If the tab closes
     // halfway through promotion, the next opening can safely finish it.
     promotionStarted = true
@@ -19569,7 +19621,8 @@ window.addEventListener('pagehide', event => {
   const capture = syncActiveVideoShelfPlayer({ persist: true, captureStoppedPlayback: true })
   // Retain the activation until the final local transaction has committed. A
   // terminated page needs no live cleanup; reopening already retires its fence.
-  Promise.resolve(capture).then(() => learnerProfileLifecycleAuthority?.flushSessionBoundary({ allowNewUpload: false }))
+  Promise.all([capture, window.edeniaFlushTinySwordsCheckpoint?.()])
+    .then(() => learnerProfileLifecycleAuthority?.flushSessionBoundary({ allowNewUpload: false }))
     .catch(() => {}).finally(() => { if (!event.persisted) learnerProfileLifecycleAuthority?.destroy() })
   if (!event.persisted) learnerProfileReverificationController?.destroy()
   if (!event.persisted) accountAuthController?.destroy()
@@ -19586,13 +19639,17 @@ if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsO
 window.edeniaTranslate = t
 
 // The release control only gates game mounting; study and island data stay intact.
+function accountlessAnimalBinding() {
+  return { ownerId: null, profileId: `accountless:${STORAGE_KEY}`, generation: null, revision: null }
+}
 if (window.edeniaTinySwordsEnabled === true) {
   window.edeniaTinySwordsPersistence = createTinySwordsPersistence({
     read: loadState,
     readCheckpoint: learnerProfileLifecycleAuthority
       ? () => learnerProfileLifecycleAuthority.readActiveIsland() : null,
     saveCheckpoint: learnerProfileLifecycleAuthority
-      ? (layout, expected) => learnerProfileLifecycleAuthority.saveActiveIsland(layout, expected) : null,
+      ? (layout, expected, options) => learnerProfileLifecycleAuthority.saveActiveIsland(layout, expected, options) : null,
+    readAnimalBinding: () => learnerProfileLifecycleAuthority ? null : accountlessAnimalBinding(),
     readAccessIdentity: () => {
       const activation = learnerProfileLifecycleAuthority?.getState()?.activation
       return activation ? JSON.stringify([activation.ownerId, activation.profileId,

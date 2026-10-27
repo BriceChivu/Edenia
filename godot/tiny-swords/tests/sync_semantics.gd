@@ -30,19 +30,33 @@ func _init() -> void:
 	owned.chicken_release_at = 100.0
 	owned.stock.chicken -= 2
 	var durable: Dictionary = owned.snapshot()
-	check(durable.version == 39 and not durable.has("chickens") and not durable.has("sheep"), "Durable snapshots contain ownership counts without cosmetic coordinates")
+	check(durable.version == 40 and durable.has("chickens") and durable.has("sheep") and not durable.has("chicken_count") and not durable.has("sheep_count"), "Durable snapshots use one position-bearing animal representation")
 	var restored := Layout.new()
-	check(restored.restore(durable) and restored.sheep.size() == 1 and restored.sheep_chickens == owned.sheep_chickens and restored.chicken_release_at == 100.0 and restored.chickens.is_empty(), "Count restoration preserves perched and carried birds without releasing or duplicating them")
-	check(restored.walkable_point(restored.sheep[0], true) and restored.terrain_feet_free(restored.sheep[0], true, preload("res://scripts/animal_contact.gd").SHEEP), "Godot derives a valid sheep contact from saved terrain")
+	check(restored.restore(durable) and restored.sheep == owned.sheep and restored.sheep_chickens == owned.sheep_chickens and restored.chicken_release_at == 100.0 and restored.chickens.is_empty(), "Exact positions preserve perched and carried birds without releasing or duplicating them")
+	var count_only: Dictionary = durable.duplicate(true)
+	count_only.version = 38
+	count_only.sheep_count = count_only.sheep.size()
+	count_only.chicken_count = count_only.chickens.size()
+	count_only.erase("sheep")
+	count_only.erase("chickens")
+	check(restored.restore(count_only) and restored.sheep.size() == 1 and restored.sheep_chickens == owned.sheep_chickens and restored.chicken_release_at == 100.0, "Version38 count-only saves retain passengers and carried birds")
+	check(restored.walkable_point(restored.sheep[0], true) and restored.terrain_feet_free(restored.sheep[0], true, preload("res://scripts/animal_contact.gd").SHEEP), "Version38 restoration still derives a valid animal contact")
 	var legacy: Dictionary = preload("res://tests/legacy_snapshot.gd").capture(owned)
 	legacy.version = 37
 	check(restored.restore(legacy) and restored.sheep_chickens == owned.sheep_chickens and restored.sheep.size() == 1, "Old position-bearing snapshots retain all owned animals and passengers")
 	var roundtrip: Dictionary = restored.snapshot()
 	check(restored.restore(roundtrip) and restored.snapshot() == roundtrip, "New durable snapshots reload independently of cloud transport")
-	durable.sheep_count += 1
-	check(not Layout.new().restore(durable), "Counts cannot duplicate earned sheep")
-	durable.sheep_count = -1
-	check(not Layout.new().restore(durable), "Negative animal counts are rejected")
+	count_only.sheep_count += 1
+	check(not Layout.new().restore(count_only), "Legacy counts cannot duplicate earned sheep")
+	count_only.sheep_count = -1
+	check(not Layout.new().restore(count_only), "Negative legacy animal counts are rejected")
+	durable.sheep.append(durable.sheep[0].duplicate())
+	check(not Layout.new().restore(durable), "Position arrays cannot duplicate earned sheep")
+	durable.sheep.pop_back()
+	durable.sheep[0][0] = NAN
+	check(not Layout.new().restore(durable), "Nonfinite animal positions are rejected")
+	durable.sheep[0] = [999999, 999999]
+	check(not Layout.new().restore(durable), "Positions outside saved terrain are rejected")
 	if failures.is_empty(): print("Tiny Swords sync semantics passed")
 	quit(0 if failures.is_empty() else 1)
 

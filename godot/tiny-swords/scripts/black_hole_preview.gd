@@ -87,6 +87,8 @@ func load_layout() -> void:
 	island_started = true
 
 func save_layout(_animal_checkpoint: bool = false) -> void:
+	if not _animal_checkpoint:
+		clear_animal_checkpoint()
 	var json := JSON.stringify(saved_snapshot())
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("localStorage.setItem('%s', %s)" % [PREVIEW_KEY, JSON.stringify(json)])

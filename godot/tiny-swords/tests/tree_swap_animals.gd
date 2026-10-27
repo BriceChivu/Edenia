@@ -32,7 +32,10 @@ func run() -> void:
 			l.sheep.clear()
 			l.chickens.clear()
 			var animals: Array[Vector2] = l.sheep if animal == "sheep" else l.chickens
-			animals.append(l.center(cell) + Vector2(20, 0))
+			var position: Vector2 = l.center(cell) + Vector2(8, 0)
+			var feet: Vector2 = preload("res://scripts/animal_contact.gd").SHEEP if animal == "sheep" else preload("res://scripts/animal_contact.gd").CHICKEN
+			check(l.terrain_feet_free(position, true, feet), "Fixture animal has full shore support before the tree swap")
+			animals.append(position)
 			l.trees[cell] = Vector2.ZERO
 			l.tree_types[cell] = "tree2"
 			level.selected = selected
@@ -57,7 +60,8 @@ func run() -> void:
 			level.handle_world_click(click)
 			check(l.tree_types[cell] == "tree3", "%s allows clicking the next tree type" % animal)
 			check(l.stock == before.stock and l.trees[cell] == Vector2.ZERO, "Swap preserves stock and planted anchor")
-			check(l.sheep.size() + l.chickens.size() == 1 and animals[0] == l.center(cell) + Vector2(20, 0), "Swap preserves the animal")
+			var current_animals: Array[Vector2] = l.sheep if animal == "sheep" else l.chickens
+			check(l.sheep.size() + l.chickens.size() == 1 and current_animals[0] == position, "Swap preserves the valid animal contact")
 			check(not level.history.is_empty() and level.history.back() == before, "Swap records undo")
 			l.tree_cut_remaining[cell] = 5.0
 			check(not l.can_edit(cell, "tree", l.HOME), "Animal does not bypass partly cut tree protection")

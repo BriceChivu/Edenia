@@ -1203,7 +1203,7 @@ func snapshot() -> Dictionary:
 	var saved_bridges: Array = []
 	for start in bridges:
 		saved_bridges.append([start.x, start.y, bridges[start]])
-	var saved := {"version": 39, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
+	var saved := {"version": 40, "free_house_grass": free_house_grass, "next_tree_variant": next_tree_variant, "bridges": saved_bridges, "tree_offsets": saved_trees, "tiles": tiles, "stock": stock.duplicate(), "level": level, "decorations": saved_decorations}
 	saved.achievements = achievements.duplicate()
 	saved.black_hole = black_hole.duplicate(true)
 	saved.pawn_color = pawn_color
@@ -1228,8 +1228,12 @@ func snapshot() -> Dictionary:
 	for cell in tree_chickens:
 		saved.tree_chickens.append([cell.x, cell.y])
 	saved.chicken_release_at = chicken_release_at
-	saved.chicken_count = chickens.size()
-	saved.sheep_count = sheep.size()
+	saved.chickens = []
+	for point in chickens:
+		saved.chickens.append([point.x, point.y])
+	saved.sheep = []
+	for point in sheep:
+		saved.sheep.append([point.x, point.y])
 	saved.house_build = house_build.duplicate(true)
 	saved.house_build.erase("pawn_x")
 	saved.house_build.erase("pawn_y")
@@ -1250,13 +1254,13 @@ func snapshot() -> Dictionary:
 		saved.manual_ground_elevation = true
 	if not playground_grants.is_empty():
 		saved.playground_grants = playground_grants.duplicate()
-	# One durable representation for native saves and Edenia transport. Wandering
-	# remains in memory; animal ownership and passengers stay meaningful.
+	# Native saves and Edenia transport share exact safe ground-plane positions.
+	# The checked sync contract keeps motion separate from animal ownership.
 	saved.sync_semantics = SYNC_CONTRACT.identity(saved)
 	return saved
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
 		return false
 	var next_achievements = data.get("achievements", {})
 	if not AchievementRules.valid(next_achievements):
@@ -1521,7 +1525,7 @@ func restore(data: Dictionary) -> bool:
 	var next_house_offsets := {}
 	var next_sheep: Array[Vector2] = []
 	if int(data.version) >= 18:
-		if not data.get("houses") is Array or (int(data.version) < 38 and not data.get("sheep") is Array):
+		if not data.get("houses") is Array or (int(data.version) not in [38, 39] and not data.get("sheep") is Array):
 			return false
 		for record in data.houses:
 			if not record is Array or record.size() != (5 if int(data.version) >= 23 else 3):
@@ -1571,7 +1575,7 @@ func restore(data: Dictionary) -> bool:
 				if not Geometry2D.intersect_polygons(patch, contacts.log_footprint(pile)).is_empty():
 					return false
 			next_houses[cell] = int(record[2])
-		for record in data.get("sheep", []) if int(data.version) < 38 else []:
+		for record in data.get("sheep", []) if int(data.version) not in [38, 39] else []:
 			if not record is Array or record.size() != 2:
 				return false
 			for value in record:
@@ -1593,7 +1597,7 @@ func restore(data: Dictionary) -> bool:
 				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
 					return false
 			next_sheep.append(point)
-		if int(data.version) >= 38:
+		if int(data.version) in [38, 39]:
 			var count = data.get("sheep_count")
 			if not valid_animal_count(count): return false
 			var ground = get_script().new()
@@ -1636,9 +1640,9 @@ func restore(data: Dictionary) -> bool:
 		next_tree_chickens[owner] = true
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
-		if int(data.version) < 38 and not data.get("chickens") is Array:
+		if int(data.version) not in [38, 39] and not data.get("chickens") is Array:
 			return false
-		for record in data.get("chickens", []) if int(data.version) < 38 else []:
+		for record in data.get("chickens", []) if int(data.version) not in [38, 39] else []:
 			if not record is Array or record.size() != 2:
 				return false
 			for value in record:
@@ -1668,7 +1672,7 @@ func restore(data: Dictionary) -> bool:
 				if tree_blocks_point(center(tree_cell) + next_trees[tree_cell], point, next_tree_types.get(tree_cell, "tree")):
 					return false
 			next_chickens.append(point)
-	if int(data.version) >= 38:
+	if int(data.version) in [38, 39]:
 		var count = data.get("chicken_count")
 		if not valid_animal_count(count): return false
 		var ground = get_script().new()

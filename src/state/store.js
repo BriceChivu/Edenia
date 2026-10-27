@@ -55,12 +55,14 @@ export function createStateStore({
 
   function saveImportedState(state, {
     preserveBackupId = null,
-    syncAnalytics = true
+    syncAnalytics = true,
+    animalCheckpoint
   } = {}, canPersist = () => true) {
     normalizeStateBeforeSave(state)
     const repository = getRepository()
     if (repository) {
-      return mapPersistenceResult(repository.save(state, { canPersist, replace: true }), persisted => {
+      return mapPersistenceResult(repository.save(state, { canPersist, replace: true,
+        ...(animalCheckpoint ? { animalCheckpoint } : {}) }), persisted => {
         return mapPersistenceResult(persisted && acknowledge(state, canPersist, { replacement: true, syncAnalytics }), saved =>
           ({ persisted: saved, error: saved ? null : new Error('Durable profile save failed') }))
       })
@@ -109,7 +111,9 @@ export function createStateStore({
       // A backup write can activate recovery before the profile write starts.
       // Carry this in-flight edit onto the captured acknowledged baseline.
       if (repository !== repositoryBeforeBackup) repository.adoptSnapshot?.(state)
-      return mapPersistenceResult(repository.save(state, { canPersist, syncBase: options.syncBase }), persisted => {
+      return mapPersistenceResult(repository.save(state, { canPersist, syncBase: options.syncBase,
+        ...(options.animalCheckpoint ? { animalCheckpoint: options.animalCheckpoint } : {}),
+        ...(options.replaceIsland ? { replaceIsland: true } : {}) }), persisted => {
         return persisted && acknowledge(state, canPersist, { replacement: options.replaceIsland === true, syncAnalytics })
       })
     }

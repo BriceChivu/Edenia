@@ -95,4 +95,56 @@ removal/edit intent and cyclic order choices retain protected comparison.
 retains the upgraded local/outbox readers and routes already-created typed
 requests by their durable format through acknowledgement. It does not discard a
 sent request or resubmit it under a new transport after an uncertain response.
-Rollback retains the compatible server authority and the v38 Godot reader.
+Rollback retains the compatible server authority and the current Godot reader
+(version 40 after the animal-position amendment below).
+
+October 27 animal-position amendment, superseding the version-38 removal of
+wandering positions above: version 40 retains authoritative safe animal contacts.
+Version 39, released separately for tree-perched chickens, remains a count-only
+ground-animal format. Its tree ownership survives migration to version 40.
+Settled movement coalesces into a local save after five seconds, without moving
+the deadline or scheduling cloud work. Meaningful island edits save immediately.
+The repository keeps the complete bounded island in a separate record and only
+its reference in the small profile head, so video checkpoints do not repeatedly
+copy a large island. The canonical profile remains byte-exact for conditional
+profile opening; game restore reads the checked local checkpoint, while outgoing
+cloud candidates and portable exports compose it at their existing boundary.
+
+The checkpoint is bound to owner, profile lineage, generation, accepted revision,
+replacement boundary and checked Godot gameplay identity. A stale boolean or
+fingerprint alone cannot hide changed resources, terrain or unknown fields. An
+immutable outgoing operation carries its compact checkpoint stamp. Only its
+verified receipt installs that exact island in the canonical profile, preserving
+and rebinding any newer compatible local checkpoint before retiring the outbox.
+Lost acknowledgements use the same verified receipt proof during opening. A
+different terrain edit, owner or reset cannot inherit old positions.
+
+Local checkpoint stamps also carry the replacement boundary. If an older upload
+arrives after a reset that happens to produce identical gameplay fields, the
+verified accepted island remains canonical and the reset's desired contacts are
+retained as a fresh local checkpoint. New post-reset contacts take precedence.
+This keeps exact conditional-opening proof without resurrecting pre-reset
+positions. A legitimate unsent study candidate can be coalesced with that newly
+retained checkpoint before finalization; a sent request is never rewritten.
+
+Wandering alone never creates an automatic upload; ordinary cloud work piggybacks
+the latest checkpoint and explicit Sync sends it even when study progress is
+otherwise clean. Explicit Sync/export request an acknowledged safe-contact capture.
+Hidden-page and page-close captures remain best effort because browsers can freeze
+the game before its message runs. Local checkpointing uses a nominal five-second
+deadline; suspension, slow storage or failed acknowledgements can extend the
+unacknowledged movement window. Exact last-frame positions are not promised.
+Count-only version-38/39 positions cannot be recovered retroactively. Rollback must retain the
+version-40 Godot reader, Edenia's checkpoint-head/animal-record readers and the
+optional outbox `animalCheckpoint` reader. Reverting the complete pre-amendment
+client can ignore newer local positions or reject a stamped pending upload.
+No cloud schema, cadence, retention or account rollout changes
+accompany this amendment.
+
+Recovery reads carry an observation fence across their asynchronous journal
+read. A newer verified write, including a same-head receipt that consumes
+candidates, invalidates an older observation. Refresh rereads the complete head
+and candidates before applying either. Equal reads do not invalidate one another.
+Bounded concurrent-read cancellation preserves all evidence, keeps startup pending
+with a task yield before retry, and stops promotion until a completed refresh.
+Cancellation does not waive owner/replacement fences or report a storage failure.

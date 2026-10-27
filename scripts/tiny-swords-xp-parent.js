@@ -138,6 +138,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       renderProgress()
     }
     function failStartup(key = 'island.failed') {
+      finishCheckpointRequest(false)
       failed = true
       restored = false
       clearTimeout(startupTimer)
@@ -185,6 +186,28 @@ if (window.edeniaTinySwordsEnabled === true) {
     let intersects = true
     let reportedVisibility = null
     let activeInteraction = true
+    let checkpointRequest = null
+    let checkpointRequestId = 0
+    function finishCheckpointRequest(persisted) {
+      if (!checkpointRequest) return
+      const request = checkpointRequest
+      checkpointRequest = null
+      clearTimeout(request.timer)
+      request.resolve(persisted)
+    }
+    // Explicit Sync/export capture the current safe Godot contacts. The ticket
+    // follows that snapshot through coalescing; an unrelated older ACK cannot
+    // finish this request. Closing a page remains best effort in the browser.
+    window.edeniaFlushTinySwordsCheckpoint = () => {
+      if (checkpointRequest) return checkpointRequest.promise
+      if (!frame || !restored || failed) return Promise.resolve(true)
+      const request = { id: ++checkpointRequestId, session, resolve: null, timer: null }
+      request.promise = new Promise(resolve => { request.resolve = resolve })
+      checkpointRequest = request
+      request.timer = setTimeout(() => { reportFailure('island.saveFailed'); finishCheckpointRequest(false) }, 10000)
+      frame.contentWindow?.postMessage({ type: 'edenia-checkpoint-request', session, requestId: request.id }, location.origin)
+      return request.promise
+    }
     function reportSyncActivity() {
       window.dispatchEvent(new CustomEvent('edenia-tiny-swords-activity', {
         detail: { visible: reportedVisibility === true, active: activeInteraction }
@@ -226,6 +249,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       }) : null
     document.addEventListener?.('visibilitychange', sendVisibility)
     function mountFrame() {
+      finishCheckpointRequest(false)
       healthStartedAt = performance.now()
       healthBackgrounded = document.hidden
       reportHealth('started')
@@ -315,6 +339,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       sendVisibility()
     }
     function disposeFrame() {
+      finishCheckpointRequest(false)
       clearTimeout(startupTimer)
       clearInterval(progressTimer)
       if (frame) {
@@ -339,7 +364,17 @@ if (window.edeniaTinySwordsEnabled === true) {
       if (!frame || force || identity(readIsland()) !== expected) mountFrame()
       else sendStudyLevel()
     }
-    window.addEventListener('edenia-profile-persisted', event => checkReplacement(event.detail?.replacement))
+    window.addEventListener('edenia-profile-persisted', event => {
+      // Another tab's checked pose does not replace a live world. Accept its
+      // durable CAS baseline for the next local capture; gameplay replacements
+      // and saves already in flight retain the ordinary retirement checks.
+      if (event.detail?.animalCheckpoint === true && !event.detail?.replacement
+        && frame && restored && !saving && accessIdentity() === expectedAccess && readIsland()) {
+        expected = identity(readIsland())
+        return
+      }
+      checkReplacement(event.detail?.replacement)
+    })
     window.addEventListener('edenia-profile-access', () => checkReplacement())
     window.addEventListener('storage', () => checkReplacement())
     window.addEventListener('message', async event => {
@@ -379,6 +414,11 @@ if (window.edeniaTinySwordsEnabled === true) {
       }
       if (data?.type === 'edenia-tiny-ready') { prepareIsland(); sendStudyLevel() }
       if (data?.session !== session) return
+      if (data.type === 'edenia-checkpoint-flushed' && checkpointRequest
+        && checkpointRequest.session === session && data.requestId === checkpointRequest.id) {
+        finishCheckpointRequest(data.persisted === true)
+        return
+      }
       if (data.type === 'edenia-game-focus-exit' && !blocked && restored && !failed) {
         (touchDevice ? document.querySelector('.gear-btn[data-settings-shell-action="open"]') : controls.querySelector('[data-city-zoom-action="reset"]'))?.focus()
       }

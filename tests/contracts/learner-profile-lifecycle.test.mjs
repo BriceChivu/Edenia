@@ -85,6 +85,7 @@ function createHarness({
   localSave = null,
   localRecordsSave = null,
   localIslandSave = null,
+  localAnimalSave = null,
   markDirtyResult = null,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -275,6 +276,12 @@ function createHarness({
         }
       },
       localPersistence: {
+        ...(localAnimalSave ? {
+          saveAnimalCheckpoint(profile, layout, expected, fence, binding) {
+            calls.push(['local-animal-save', layout, expected, fence, binding])
+            return localAnimalSave(profile, layout, expected, fence, binding)
+          }
+        } : {}),
         ...(localIslandSave ? {
           supportsIslandCheckpoints: () => true,
           saveIsland(profile, layout, expected, fence, base) {
@@ -4470,6 +4477,49 @@ test('island reservations bound retained layouts and release capacity after ackn
   assert.deepEqual(await Promise.all(queued), Array(8).fill(true))
   assert.equal(await h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland)), true)
 })
+
+test('animal-only checkpoint acknowledgement leaves canonical progress and cloud work unchanged', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { tinySwordsIsland: { version: 39, chickens: [[1, 2]], sheep: [] } }
+  const original = structuredClone(profile)
+  let checkpoint
+  const h = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile },
+    cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 7, profile },
+    localIslandSave: async () => assert.fail('Animal-only writes must not replace canonical progress'),
+    localAnimalSave: async (_profile, layout) => { checkpoint = structuredClone(layout); return true },
+    markDirtyResult: true
+  })
+  h.authority.start()
+  await Promise.resolve(); await Promise.resolve()
+  const before = h.calls.length
+  const moved = { ...profile.tinySwordsIsland, chickens: [[3, 4]] }
+  assert.equal(await h.authority.saveActiveIsland(moved, JSON.stringify(profile.tinySwordsIsland), { syncCloud: false }), true)
+  assert.deepEqual(checkpoint, moved)
+  assert.deepEqual(profile, original)
+  assert.equal(h.calls.slice(before).some(([name]) => ['cloud-mark-dirty', 'cloud-records-deferred', 'cloud-save'].includes(name)), false)
+})
+
+for (const classification of [null, false]) {
+  test(`an ambient request ${classification === null ? 'promotes checked meaningful edits' : 'does not promote a failed transaction'}`, async () => {
+    const ownerId = '123e4567-e89b-42d3-a456-426614174000', profileId = '223e4567-e89b-42d3-a456-426614174001'
+    const profile = { tinySwordsIsland: { version: 39, chickens: [[1, 2]], sheep: [], resources: { wood: 0 } } }
+    const h = createHarness({ authentication: { status: 'signed-in', userId: ownerId },
+      local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile },
+      cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 7, profile },
+      localAnimalSave: async () => classification,
+      localIslandSave: async (candidate, layout) => { candidate.tinySwordsIsland = layout; return true },
+      markDirtyResult: true })
+    h.authority.start(); await Promise.resolve(); await Promise.resolve()
+    const before = h.calls.length
+    const layout = { ...profile.tinySwordsIsland, resources: { wood: 1 } }
+    assert.equal(await h.authority.saveActiveIsland(layout, JSON.stringify(profile.tinySwordsIsland), { syncCloud: false }), classification === null)
+    assert.equal(h.calls.slice(before).filter(([name]) => name === 'cloud-mark-dirty').length, classification === null ? 1 : 0)
+    assert.equal(h.calls.slice(before).filter(([name]) => name === 'local-island-save').length, classification === null ? 1 : 0)
+  })
+}
 
 test('signed-in island checkpoints honor analytics suppression without changing profile guards', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
