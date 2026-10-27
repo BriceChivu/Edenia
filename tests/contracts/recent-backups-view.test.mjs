@@ -133,6 +133,26 @@ test('stale ownership cannot authorize a pending restore', async () => {
   assert.equal(h.unavailable(), 1)
 })
 
+test('hidden or retired Settings clears metadata, confirmations and expired callbacks', async () => {
+  const h = harness()
+  h.view.render({ local: [local('one')], reset })
+  const oldControl = h.control()
+  await oldControl.fire('click')
+  h.view.clear()
+  assert.equal(h.elements.get('backupRestoreDialog').open, false)
+  assert.equal(h.elements.get('backupList').children.length, 0)
+  assert.equal(h.elements.get('backupShowOlder').hidden, true)
+  h.setTime(4_000)
+  assert.equal(h.elements.get('backupList').children.length, 0, 'retired timer does not render')
+  await oldControl.fire('click')
+  assert.equal(h.elements.get('backupRestoreDialog').open, false)
+  assert.equal(h.unavailable(), 1)
+  h.view.render({ local: [local('new-owner')] })
+  await h.control().fire('click')
+  await h.elements.get('backupRestoreConfirm').fire('click')
+  assert.deepEqual(h.restored.map(entry => entry.id), ['new-owner'])
+})
+
 test('expiry removes recovery entries and cancels an open reset confirmation', async () => {
   const h = harness()
   h.view.render({ local: [local('kept')], conflicts: [conflict('one', 2_000)], reset })

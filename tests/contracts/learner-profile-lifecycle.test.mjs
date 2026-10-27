@@ -84,6 +84,7 @@ function createHarness({
   reconcileSignedInProfileResult = true,
   localSave = null,
   localRecordsSave = null,
+  localIslandSave = null,
   markDirtyResult = null,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -130,8 +131,9 @@ function createHarness({
         }
       },
       cloudPersistence: {
-        ...(localRecordsSave ? {
+        ...(localRecordsSave || localIslandSave ? {
           getSaveBase: activation => ({ ownerId: activation.ownerId, profileId: activation.profileId, generation: activation.generation, revision: activation.revision }),
+          flushSessionBoundary(options) { calls.push(['cloud-flush', options]); return true },
           saveDeferred(context) { calls.push(['cloud-records-deferred', context]); return true }
         } : {}),
         checkActiveHead(context) {
@@ -273,6 +275,13 @@ function createHarness({
         }
       },
       localPersistence: {
+        ...(localIslandSave ? {
+          supportsIslandCheckpoints: () => true,
+          saveIsland(profile, layout, expected, fence, base) {
+            calls.push(['local-island-save', layout, expected, fence, base])
+            return localIslandSave(profile, layout, expected, fence, base)
+          }
+        } : {}),
         ...(localRecordsSave ? {
           supportsRecordCheckpoints: () => true,
           saveRecords(profile, units, fence, base, options) {
@@ -4236,6 +4245,231 @@ for (const completionOrder of [[0, 1], [1, 0]]) {
   }
 }
 
+
+test('initial island migration waits for the captured full-profile save and retains its study facts', async () => {
+  const predecessor = deferred()
+  const profile = { videos: { lesson: { resumeAtSeconds: 10 } }, tinySwordsIsland: { version: 23, sheep: 2 } }
+  let durable = structuredClone(profile)
+  const h = createHarness({
+    local: { status: 'ready', ownerId: null, profileId: 'accountless:browser', profile },
+    localSave: async (candidate, _options, canPersist) => {
+      const captured = structuredClone(candidate)
+      await predecessor.promise
+      if (!canPersist()) return false
+      durable = captured
+      return true
+    },
+    localIslandSave: async (candidate, layout, expected) => {
+      if (JSON.stringify(durable.tinySwordsIsland) !== expected) return false
+      durable.tinySwordsIsland = structuredClone(layout)
+      candidate.tinySwordsIsland = structuredClone(layout)
+      return true
+    }
+  })
+  h.authority.start()
+  profile.videos.lesson.resumeAtSeconds = 40
+  const fullSave = h.authority.saveActiveProfile(profile)
+  const layout = { version: 38, sheep_count: 2 }
+  const islandSave = h.authority.saveActiveIsland(layout, JSON.stringify(durable.tinySwordsIsland))
+  assert.notEqual(islandSave, false, 'A valid initial migration must wait instead of reporting an unsaved island')
+  assert.equal(h.calls.filter(([name]) => name === 'local-island-save').length, 0)
+  predecessor.resolve()
+  assert.equal(await fullSave, true)
+  assert.equal(await islandSave, true)
+  assert.deepEqual(durable, { videos: { lesson: { resumeAtSeconds: 40 } }, tinySwordsIsland: layout })
+})
+
+test('island waiters drain a later full write, keep immutable ordered layouts, and hold session flush', async () => {
+  const first = deferred(), second = deferred()
+  const profile = { videos: { lesson: { resumeAtSeconds: 10 } }, tinySwordsIsland: { version: 23, sheep: 2 } }
+  let durable = structuredClone(profile), saves = 0
+  const h = createHarness({
+    local: { status: 'ready', ownerId: null, profileId: 'accountless:browser', profile },
+    localSave: async (candidate, _options, canPersist) => {
+      const snapshot = structuredClone(candidate), wait = ++saves === 1 ? first : second
+      await wait.promise
+      if (!canPersist()) return false
+      durable = snapshot
+      return true
+    },
+    localIslandSave: async (candidate, layout, expected) => {
+      if (JSON.stringify(durable.tinySwordsIsland) !== expected) return false
+      durable.tinySwordsIsland = structuredClone(layout)
+      candidate.tinySwordsIsland = structuredClone(layout)
+      return true
+    }
+  })
+  h.authority.start()
+  profile.videos.lesson.resumeAtSeconds = 40
+  const saving = h.authority.saveActiveProfile(profile)
+  let later
+  saving.then(() => {
+    profile.videos.lesson.resumeAtSeconds = 45
+    later = h.authority.saveActiveProfile(profile)
+  })
+  const layout = { version: 38, sheep_count: 2 }, newest = { version: 38, sheep_count: 3 }
+  const migrating = h.authority.saveActiveIsland(layout, JSON.stringify(durable.tinySwordsIsland))
+  const editing = h.authority.saveActiveIsland(newest, JSON.stringify(layout))
+  layout.sheep_count = 99
+  const flushing = h.authority.flushSessionBoundary({ allowNewUpload: false })
+  first.resolve()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(saves, 2)
+  assert.equal(h.calls.filter(([name]) => name === 'local-island-save').length, 0, 'A later full write is another barrier')
+  assert.equal(h.calls.filter(([name]) => name === 'cloud-flush').length, 0)
+  second.resolve()
+  assert.equal(await later, true)
+  assert.equal(await migrating, true)
+  assert.equal(await editing, true)
+  assert.equal(await flushing, true)
+  assert.deepEqual(h.calls.filter(([name]) => name === 'local-island-save').map(call => call[1].sheep_count), [2, 3])
+  assert.deepEqual(durable, { videos: { lesson: { resumeAtSeconds: 45 } }, tinySwordsIsland: newest })
+  assert.equal(h.calls.filter(([name]) => name === 'cloud-flush').length, 1)
+})
+
+for (const outcome of ['false', 'rejected']) {
+  test(`a ${outcome} full-save predecessor cannot authorize an island, but a later retry is not poisoned`, async () => {
+    const predecessor = deferred()
+    const profile = { tinySwordsIsland: { version: 23 } }
+    let fail = true
+    const h = createHarness({ local: { status: 'ready', ownerId: null, profileId: 'accountless:browser', profile },
+      localSave: async () => { await predecessor.promise; if (outcome === 'rejected' && fail) throw new Error('Rejected predecessor'); return !fail },
+      localIslandSave: async () => true })
+    h.authority.start()
+    const fullSave = h.authority.saveActiveProfile(profile)
+    const failedFullSave = outcome === 'rejected' ? assert.rejects(fullSave, /Rejected predecessor/) : fullSave
+    const queued = h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland))
+    const dependent = h.authority.saveActiveIsland({ version: 38, sheep_count: 1 }, JSON.stringify({ version: 38 }))
+    predecessor.resolve()
+    await failedFullSave
+    assert.equal(await queued, false)
+    assert.equal(await dependent, false)
+    assert.equal(h.calls.filter(([name]) => name === 'local-island-save').length, 0)
+    fail = false
+    assert.equal(await h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland)), true)
+  })
+}
+
+for (const interruption of ['sign-out', 'owner-change', 'reset', 'close', 'cross-tab']) {
+  test(`an island waiting for a full save cannot cross ${interruption}`, async () => {
+    const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+    const profileId = '223e4567-e89b-42d3-a456-426614174001'
+    const profile = { tinySwordsIsland: { version: 23 }, videos: { lesson: { resumeAtSeconds: 40 } } }
+    const blank = { videos: {} }, saving = deferred()
+    const h = createHarness({ authentication: { status: 'signed-in', userId: ownerId },
+      local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile },
+      cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 7, profile },
+      cloudStartOver: { status: 'started-over', ownerId, profileId, generation: 2, revision: 1, profile: blank,
+        protectedReset: { status: 'available', id: 'reset' } },
+      markDirtyResult: true, localSave: async (_profile, _options, canPersist) => { await saving.promise; return canPersist() },
+      localIslandSave: async () => true })
+    h.authority.start()
+    await new Promise(resolve => setImmediate(resolve))
+    const fullSave = h.authority.saveActiveProfile(profile)
+    const queued = h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland))
+    const dirtyCalls = h.calls.filter(([name]) => name === 'cloud-mark-dirty').length
+    if (interruption === 'sign-out') h.authentication.publish({ status: 'signed-out', userId: null })
+    if (interruption === 'owner-change') h.authentication.publish({ status: 'signed-in', userId: 'other-owner' })
+    if (interruption === 'reset') assert.equal(await h.authority.startOverProfile(blank, { confirmed: true }), true)
+    if (interruption === 'close') h.authority.destroy()
+    if (interruption === 'cross-tab') h.setCurrentFence(null)
+    saving.resolve()
+    assert.equal(await fullSave, false)
+    assert.equal(await queued, false)
+    assert.equal(h.calls.filter(([name]) => name === 'local-island-save').length, 0)
+    assert.equal(h.calls.filter(([name]) => name === 'cloud-records-deferred').length, 0)
+    assert.equal(h.calls.filter(([name]) => name === 'cloud-mark-dirty').length, dirtyCalls)
+    if (interruption === 'reset') assert.deepEqual(h.authority.readActiveProfile(), blank)
+  })
+}
+
+test('a changed island expectation fails rather than overwriting a newer checkpoint', async () => {
+  const predecessor = deferred(), profile = { tinySwordsIsland: { version: 23 } }
+  let durable = structuredClone(profile)
+  const h = createHarness({ local: { status: 'ready', ownerId: null, profileId: 'accountless:browser', profile },
+    localSave: async () => { await predecessor.promise; durable.tinySwordsIsland = { version: 38, sheep_count: 7 }; return true },
+    localIslandSave: async (_profile, _layout, expected) => JSON.stringify(durable.tinySwordsIsland) === expected })
+  h.authority.start()
+  const fullSave = h.authority.saveActiveProfile(profile)
+  const queued = h.authority.saveActiveIsland({ version: 38, sheep_count: 2 }, JSON.stringify(profile.tinySwordsIsland))
+  predecessor.resolve()
+  assert.equal(await fullSave, true)
+  assert.equal(await queued, false)
+  assert.equal(durable.tinySwordsIsland.sheep_count, 7)
+})
+
+test('a retired island waiter cannot poison the new reset activation first checkpoint', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { tinySwordsIsland: { version: 23 } }, blank = { videos: {} }, saving = deferred()
+  const h = createHarness({ authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile },
+    cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 7, profile },
+    cloudStartOver: { status: 'started-over', ownerId, profileId, generation: 2, revision: 1, profile: blank,
+      protectedReset: { status: 'available', id: 'reset' } }, markDirtyResult: true,
+    localSave: async (_profile, _options, canPersist) => { await saving.promise; return canPersist() },
+    localIslandSave: async (candidate, layout) => { candidate.tinySwordsIsland = layout; return true } })
+  h.authority.start()
+  await new Promise(resolve => setImmediate(resolve))
+  const fullSave = h.authority.saveActiveProfile(profile)
+  const retired = h.authority.saveActiveIsland({ version: 38, sheep_count: 2 }, JSON.stringify(profile.tinySwordsIsland))
+  assert.equal(await h.authority.startOverProfile(blank, { confirmed: true }), true)
+  const current = h.authority.saveActiveIsland({ version: 38, sheep_count: 0 }, 'absent')
+  saving.resolve()
+  assert.equal(await fullSave, false)
+  assert.equal(await retired, false)
+  assert.equal(await current, true, 'Cancelled predecessor belongs to the retired activation')
+  assert.equal(blank.tinySwordsIsland.sheep_count, 0)
+  assert.equal(h.calls.filter(([name]) => name === 'local-island-save').length, 1)
+})
+
+test('a new reset activation checkpoint waits for retired island I/O to settle', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { tinySwordsIsland: { version: 23 } }, blank = { videos: {} }
+  const entered = deferred(), saving = deferred(), order = []
+  const h = createHarness({ authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile },
+    cloudResolution: { status: 'activate', ownerId, profileId, generation: 1, revision: 7, profile },
+    cloudStartOver: { status: 'started-over', ownerId, profileId, generation: 2, revision: 1, profile: blank,
+      protectedReset: { status: 'available', id: 'reset' } }, markDirtyResult: true,
+    localIslandSave: async (_candidate, layout, _expected, fence) => {
+      if (layout.sheep_count === 2) {
+        order.push('old-start')
+        entered.resolve()
+        await saving.promise
+        order.push('old-settled')
+        return h.getCurrentFence() === fence
+      }
+      order.push('new-start')
+      return true
+    } })
+  h.authority.start()
+  await new Promise(resolve => setImmediate(resolve))
+  const retired = h.authority.saveActiveIsland({ version: 38, sheep_count: 2 }, JSON.stringify(profile.tinySwordsIsland))
+  await entered.promise
+  assert.equal(await h.authority.startOverProfile(blank, { confirmed: true }), true)
+  const current = h.authority.saveActiveIsland({ version: 38, sheep_count: 0 }, 'absent')
+  await new Promise(resolve => setImmediate(resolve))
+  saving.resolve()
+  assert.equal(await retired, false)
+  assert.equal(await current, true)
+  assert.deepEqual(order, ['old-start', 'old-settled', 'new-start'], 'A retired write still owns its storage turn until it settles')
+})
+
+test('island reservations bound retained layouts and release capacity after acknowledgement', async () => {
+  const predecessor = deferred(), profile = { tinySwordsIsland: { version: 23 } }
+  const h = createHarness({ local: { status: 'ready', ownerId: null, profileId: 'accountless:browser', profile },
+    localSave: () => predecessor.promise, localIslandSave: async () => true })
+  h.authority.start()
+  const fullSave = h.authority.saveActiveProfile(profile)
+  const queued = Array.from({ length: 8 }, () => h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland)))
+  assert.equal(h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland)), false)
+  predecessor.resolve(true)
+  assert.equal(await fullSave, true)
+  assert.deepEqual(await Promise.all(queued), Array(8).fill(true))
+  assert.equal(await h.authority.saveActiveIsland({ version: 38 }, JSON.stringify(profile.tinySwordsIsland)), true)
+})
 
 test('signed-in island checkpoints honor analytics suppression without changing profile guards', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'

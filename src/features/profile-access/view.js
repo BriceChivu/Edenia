@@ -121,6 +121,9 @@ export function createLearnerProfileAccessView({
   function showOpeningNotice() {
     if (!openingNotice || !openingStatus) return
     openingStatus.textContent = translate('profileAccess.opening.status')
+    // Locale and lifecycle renders share the attempt's original deadline,
+    // including after the timer has fired and its handle has been cleared.
+    if (!openingNotice.classList.contains('hidden')) return
     openingNotice.classList.remove('hidden')
     openingNotice.classList.add('sr-only')
     if (
@@ -256,10 +259,10 @@ export function createLearnerProfileAccessView({
     discardReplacement.hidden = false
   }
 
-  function render(accessState) {
+  function render(accessState, { applicationReady = true } = {}) {
     if (accessState?.status === 'active') {
       cancelBusyReveal()
-      hideOpeningNotice()
+      if (applicationReady) hideOpeningNotice()
       root.documentElement.dataset.learnerProfileAccessState = 'active'
       gate.classList.add('hidden')
       gate.setAttribute('aria-busy', 'false')

@@ -132,6 +132,49 @@ test('a slow profile opening reveals its compact status after the quiet delay', 
   assert.equal(notice.classList.contains('sr-only'), false)
 })
 
+test('one opening deadline survives repeated states, locale renders and application preparation', () => {
+  const timers = []
+  const { elements, view } = createHarness({
+    openingStatusPresentationDelayMs: 250,
+    clearTimer() {},
+    setTimer(callback) { timers.push(callback); return timers.length }
+  })
+  const notice = elements.get('learnerProfileOpeningNotice')
+  view.render({ status: 'resolving' })
+  view.render({ status: 'migrating' })
+  assert.equal(timers.length, 1)
+  timers[0]()
+  view.render({ status: 'waiting-cloud' })
+  assert.equal(notice.classList.contains('sr-only'), false)
+  assert.equal(timers.length, 1)
+  view.render({ status: 'active' }, { applicationReady: false })
+  assert.equal(notice.classList.contains('hidden'), false)
+  view.render({ status: 'active' })
+  assert.equal(notice.classList.contains('hidden'), true)
+  view.render({ status: 'resolving' })
+  assert.equal(timers.length, 2)
+  assert.equal(notice.classList.contains('sr-only'), true)
+  timers[0]()
+  assert.equal(notice.classList.contains('sr-only'), true, 'retired timer cannot reveal another attempt')
+})
+
+test('a terminal retry or authentication surface ends the opening deadline', () => {
+  for (const terminal of [{ status: 'waiting-cloud', retryable: true },
+    { status: 'locked' }, { status: 'conflicting' }, { status: 'onboarding-required' }]) {
+    const timers = []
+    const { elements, view } = createHarness({
+      openingStatusPresentationDelayMs: 250,
+      setTimer(callback) { timers.push(callback); return timers.length }, clearTimer() {}
+    })
+    view.render({ status: 'resolving' })
+    view.render(terminal)
+    timers[0]()
+    assert.equal(elements.get('learnerProfileOpeningNotice').classList.contains('hidden'), true)
+    view.render({ status: 'resolving' })
+    assert.equal(timers.length, 2)
+  }
+})
+
 test('opening progress stays automatic while genuine recovery keeps an escape', () => {
   const { elements, root, view } = createHarness()
   const openSignIn = elements.get('learnerProfileAccessOpenSignIn')

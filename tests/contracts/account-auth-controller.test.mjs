@@ -210,6 +210,7 @@ test('verified authentication claims report the current linked sign-in method', 
   })
   const googleController = createHarness(googleHarness)
   await googleController.controller.initialize()
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(googleController.controller.getState().authMethod, 'google')
   assert.deepEqual(googleHarness.calls.at(-1), [
     'getClaims',
@@ -236,6 +237,7 @@ test('verified authentication claims report the current linked sign-in method', 
   })
   const emailController = createHarness(emailHarness)
   await emailController.controller.initialize()
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(emailController.controller.getState().authMethod, 'email')
 })
 
@@ -262,6 +264,7 @@ test('verified claims distinguish an email OTP on a Google-owned user', async ()
   const googleOwnedEmailController = createHarness(googleOwnedEmailHarness)
 
   await googleOwnedEmailController.controller.initialize()
+  await new Promise(resolve => setImmediate(resolve))
 
   assert.equal(
     googleOwnedEmailController.controller.getState().authMethod,

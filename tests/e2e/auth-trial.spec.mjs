@@ -154,6 +154,114 @@ async function owned(page,{indexedDb,engine,ankiEnabled=false,anki={},videos={},
   }
 }
 
+test('optional Google claims cannot block verified profile opening or cause another resolution', async ({ page }) => {
+  const mock = await owned(page, { indexedDb: true, engine: false })
+  await page.addInitScript(trial => {
+    const key = trial + '_plus_auth_v1'
+    const current = JSON.parse(localStorage.getItem(key))
+    current.user.app_metadata = { provider: 'google', providers: ['google'] }
+    current.user.identities = [{ provider: 'google' }]
+    localStorage.setItem(key, JSON.stringify(current))
+  }, trial)
+  let release
+  let claims = 0
+  const held = new Promise(resolve => { release = resolve })
+  await page.route(origin + '/auth/v1/user', async route => {
+    claims += 1
+    await held
+    await route.fallback()
+  })
+  try {
+    await page.goto('./?internal_test=1')
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'active')
+    await expect.poll(() => claims).toBeGreaterThan(0)
+    expect(mock.requests.filter(path => path.endsWith('/open_my_learner_profile'))).toHaveLength(1)
+    expect(await page.evaluate(() => learnerProfileLifecycleAuthority.getState().ownerId)).toBe(owner)
+    release()
+    await expect.poll(() => mock.requests.filter(path => path === '/auth/v1/user').length).toBeGreaterThan(0)
+    expect(mock.requests.filter(path => path.endsWith('/open_my_learner_profile'))).toHaveLength(1)
+    expect(await page.evaluate(() => loadState().onboarding.setupCompleted)).toBe(true)
+  } finally { release() }
+})
+
+test('opening notice stays revealed through application preparation and ends at usable display', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-08T12:00:00.000Z') })
+  await owned(page, { indexedDb: true, engine: false })
+  let releaseRpc
+  let rpcStarted = false
+  const held = new Promise(resolve => { releaseRpc = resolve })
+  await page.route(origin + '/rest/v1/rpc/open_my_learner_profile', async route => {
+    rpcStarted = true
+    await held
+    await route.fallback()
+  })
+  try {
+    await page.goto('./?internal_test=1')
+    await expect.poll(() => rpcStarted).toBe(true)
+    await page.clock.runFor(2_100)
+    const notice = page.locator('#learnerProfileOpeningNotice')
+    await expect(notice).toBeVisible()
+    await expect(notice).not.toHaveClass(/sr-only/)
+    await page.evaluate(() => {
+      const start = startApplicationWithState
+      startApplicationWithState = async (...args) => {
+        window.openingPreparationHeld = true
+        await new Promise(resolve => { window.releaseOpeningPreparation = resolve })
+        return start(...args)
+      }
+      learnerProfileAccessView.render(learnerProfileLifecycleAuthority.getState())
+    })
+    await expect(notice).not.toHaveClass(/sr-only/)
+    releaseRpc()
+    await expect.poll(() => page.evaluate(() => window.openingPreparationHeld)).toBe(true)
+    await expect(page.locator('#mainApp')).toBeHidden()
+    await expect(notice).toBeVisible()
+    await page.evaluate(() => window.releaseOpeningPreparation())
+    await page.clock.runFor(50)
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(notice).toBeHidden()
+    const timings = await page.evaluate(() => window.edeniaProfileOpeningDiagnostics.read())
+    expect(timings.attempts.at(-1).outcome).toBe('active')
+    expect(timings.attempts.at(-1).phases.map(mark => mark.phase)).toEqual(
+      expect.arrayContaining(['opening-rpc-start', 'opening-rpc-end', 'activation', 'usable-frame'])
+    )
+    expect(JSON.stringify(timings)).not.toContain(owner)
+  } finally {
+    releaseRpc()
+    await page.evaluate(() => window.releaseOpeningPreparation?.()).catch(() => {})
+  }
+})
+
+test('deferred backup list shows the current archive on first Settings opening after reload', async ({ page }) => {
+  await owned(page, { indexedDb: true, engine: false })
+  await page.goto('./?internal_test=1')
+  await expect(page.locator('#mainApp')).toBeVisible()
+  const persisted = await page.evaluate(async () => {
+    const state = loadState({ persistCleanup: false })
+    stateBackupStore.writeStateBackupEntries(Array.from({ length: 5 }, (_, index) => ({
+      id: 'opening-backup-' + index, createdAt: `2026-10-${String(10 + index).padStart(2, '0')}T12:00:00.000Z`,
+      reason: 'automatic backup', sandbox: false, state: structuredClone(state)
+    })))
+    return (await flushStateBackupWrites()).persisted
+  })
+  expect(persisted).toBe(true)
+  await page.reload()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#backupList .backup-item')).toHaveCount(0)
+  await page.evaluate(() => openSettings())
+  await page.locator('.backup-toggle').click()
+  await expect(page.locator('#backupList .backup-item')).toHaveCount(4)
+  await page.locator('#backupShowOlder').click()
+  await expect(page.locator('#backupList .backup-item')).toHaveCount(5)
+  expect(await page.locator('#backupList [data-backup-id]').evaluateAll(controls =>
+    controls.map(control => control.dataset.backupId))).toEqual(
+    [4, 3, 2, 1, 0].map(index => 'opening-backup-' + index)
+  )
+  await page.evaluate(() => closeSettings())
+  await expect(page.locator('#backupList .backup-item')).toHaveCount(0)
+})
+
 test('automatic Anki refresh preserves unchanged progress and syncs supported new reviews', async ({page}) => {
   await seedRetained(page)
   await page.clock.install({ time: new Date('2026-10-08T12:00:00.000Z') })
@@ -967,3 +1075,110 @@ for (const indexedDb of [false, true]) {
     await expect.poll(() => page.evaluate(() => loadState()?.tinySwordsIsland?.achievements)).toEqual(earned)
   })
 }
+
+test('first Godot migration waits for a native profile acknowledgement and retains its IndexedDB before-image', async ({ page }, testInfo) => {
+  test.skip(!desktopTrialProjects.has(testInfo.project.name))
+  test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true')
+  test.setTimeout(150000)
+  const fixture = await owned(page, { indexedDb: true, engine: true, videos: {
+    lesson: { id: 'lesson', title: 'Retained study fact', duration: 300, manuallyAdded: true,
+      status: 'partial', resumeAtSeconds: 10, watchProgressTracked: true,
+      watchProgress: [{ seconds: 10, experienceSeconds: 10, watchedAt: '2026-10-08T00:00:00.000Z', studyDay: '2026-10-08' }] }
+  } })
+  let releaseEngine, releaseCloud
+  const engine = new Promise(resolve => { releaseEngine = resolve })
+  const cloud = new Promise(resolve => { releaseCloud = resolve })
+  await page.route('**/tiny-swords-game/**/index.js*', async route => { await engine; await route.continue() })
+  await page.route(origin + '/rest/v1/rpc/commit_my_learner_profile{,_handoff}', async route => { await cloud; await route.fallback() })
+  await page.addInitScript(() => {
+    if (window.migrationAckObserverInstalled) return
+    window.migrationAckObserverInstalled = true
+    window.migrationSaveAcks = []
+    window.addEventListener('message', event => {
+      if (event.origin === location.origin && event.source === parent && event.data?.type === 'edenia-tiny-saved') {
+        window.migrationSaveAcks.push({ id: event.data.id, persisted: event.data.persisted })
+      }
+    })
+  })
+  try {
+    await page.goto('./?internal_test=1', { waitUntil: 'domcontentloaded' })
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await page.evaluate(() => {
+      const repository = getProfileRepository()
+      const save = repository.save.bind(repository)
+      let release
+      const held = new Promise(resolve => { release = resolve })
+      window.releaseMigrationProfileAck = release
+      repository.save = async (...args) => {
+        const persisted = await save(...args)
+        // Hold the repository result after its real native transaction/readback.
+        // The lifecycle must still count this profile write until this returns.
+        repository.save = save
+        window.migrationNativeAck = persisted
+        await held
+        return persisted
+      }
+      const persistence = window.edeniaTinySwordsPersistence
+      const saveIsland = persistence.save.bind(persistence)
+      persistence.save = (...args) => {
+        window.migrationCheckpointEntered = true
+        const result = saveIsland(...args)
+        Promise.resolve(result).then(persisted => { window.migrationCheckpointResult = persisted })
+        return result
+      }
+      const state = loadState()
+      state.videos.lesson.resumeAtSeconds = 41
+      state.videos.lesson.pausedAt = '2026-10-27T00:00:00.000Z'
+      window.migrationStudySave = saveState(state, { backup: false, syncAnalytics: false })
+    })
+    await expect.poll(() => page.evaluate(() => window.migrationNativeAck)).toBe(true)
+    const base = await page.evaluate(async trial => {
+      const sync = JSON.parse(localStorage.getItem(trial + '_learner_profile_sync_v1'))
+      const identity = { ownerId: sync.ownerId, profileId: sync.profileId, generation: sync.generation, revision: sync.acceptedRevision }
+      const before = await getProfileRepository().readSyncBase(identity)
+      window.migrationBeforeImageIdentity = identity
+      return { before, durable: JSON.parse(getProfileRepository().readRaw()) }
+    }, trial)
+    expect(base.before.tinySwordsIsland.version).toBe(23)
+    expect(base.durable.tinySwordsIsland.version).toBe(23)
+    expect(base.durable.videos.lesson.resumeAtSeconds).toBe(41)
+    releaseEngine()
+    await readyGame(page)
+    await expect.poll(() => page.evaluate(() => window.migrationCheckpointEntered)).toBe(true)
+    // One event-loop turn drains the old immediate-false promise chain without
+    // imposing a machine-dependent timing requirement on the native writer.
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)))
+    expect(await page.evaluate(() => window.migrationCheckpointResult)).toBeUndefined()
+    const canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')
+    expect(await canvas.evaluate(() => window.migrationSaveAcks)).toEqual([])
+    expect(await page.evaluate(() => JSON.parse(getProfileRepository().readRaw()).tinySwordsIsland.version)).toBe(23)
+    expect(await page.evaluate(async () => {
+      window.releaseMigrationProfileAck()
+      return window.migrationStudySave
+    })).toBe(true)
+    await expect.poll(() => canvas.evaluate(() => window.migrationSaveAcks)).toEqual([{ id: 1, persisted: true }])
+    const after = await page.evaluate(async () => ({
+      durable: JSON.parse(getProfileRepository().readRaw()),
+      before: await getProfileRepository().readSyncBase(window.migrationBeforeImageIdentity)
+    }))
+    expect(after.durable.tinySwordsIsland.version).toBe(38)
+    expect(after.durable.tinySwordsIsland).not.toHaveProperty('chickens')
+    expect(after.durable.tinySwordsIsland).not.toHaveProperty('sheep')
+    expect(after.durable.tinySwordsIsland.resources).toEqual(fixture.island.resources)
+    expect(after.durable.videos.lesson.resumeAtSeconds).toBe(41)
+    expect(after.before).toEqual(base.before)
+    releaseCloud()
+    await page.evaluate(() => learnerProfileLifecycleAuthority.retryCloudBackup())
+    await expect.poll(() => fixture.head().envelope.profile.tinySwordsIsland.version, { timeout: 70000 }).toBe(38)
+    await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 70000 })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await readyGame(page)
+    expect(await page.evaluate(() => ({ version: loadPersistedState({ persistCleanup: false }).tinySwordsIsland.version,
+      resume: loadPersistedState({ persistCleanup: false }).videos.lesson.resumeAtSeconds }))).toEqual({ version: 38, resume: 41 })
+    expect(await page.frameLocator('.tiny-swords-frame').locator('#canvas').evaluate(() => window.edeniaLastSavePersisted)).not.toBe(false)
+  } finally {
+    releaseEngine()
+    releaseCloud()
+    await page.evaluate(() => window.releaseMigrationProfileAck?.()).catch(() => {})
+  }
+})

@@ -1,4 +1,5 @@
 import { mapPersistenceResult } from './persistence-result.js'
+import { copyTinySwordsIsland } from './tiny-swords-island.js'
 import {
   ACCOUNTLESS_PROFILE_MIGRATION_STATES
 } from '../domain/accountless-profile-migration.js'
@@ -31,6 +32,7 @@ const EMPTY_ACCESS_STATE = Object.freeze({
 const OWNER_VERIFICATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const OFFLINE_EXPIRY_TIMER_MAX_DELAY_MS = 24 * 60 * 60 * 1000
 const PROFILE_OPENING_RECOVERY_ATTEMPT_LIMIT = 3
+const PENDING_ISLAND_SAVE_LIMIT = 8
 
 function isAccountlessProfile(localProfile) {
   return localProfile?.status === 'ready' && !localProfile.ownerId
@@ -68,6 +70,9 @@ export function createLearnerProfileLifecycleAuthority({
   let started = false
   let pendingLocalSaves = 0
   const pendingLocalTransactions = new Set()
+  const pendingTransactionActivations = new WeakMap()
+  const pendingIslandTransactions = new Set()
+  let islandSaveTail = null
   let backgroundVerification = null
   let backgroundBoundaryTimer = null
   let resolutionId = 0
@@ -1028,6 +1033,7 @@ export function createLearnerProfileLifecycleAuthority({
       })
       if (completed && typeof completed.then === 'function') {
         const tracked = completed.finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(tracked) })
+        pendingTransactionActivations.set(tracked, activation)
         pendingLocalTransactions.add(tracked)
         return tracked
       }
@@ -1067,6 +1073,7 @@ export function createLearnerProfileLifecycleAuthority({
         return true
       }).finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(transaction) })
     pendingLocalTransactions.add(transaction)
+    pendingTransactionActivations.set(transaction, activation)
     return transaction
   }
 
@@ -1074,15 +1081,38 @@ export function createLearnerProfileLifecycleAuthority({
     const profile = activeProfile
     const activation = getCurrentActivationFor(profile)
     if (!activation || !localPersistence.supportsIslandCheckpoints?.()) return null
-    // A whole-profile write already captured its candidate. Let the game retry
-    // rather than rebasing a checkpoint over an unacknowledged study edit.
-    if (pendingLocalSaves) return false
-    const syncBase = cloudPersistence.getSaveBase?.(activation)
-    if (activation.ownerId && !syncBase) return null
-    if (!markCloudSaveRequired(profile, activation)) return false
+    if (typeof expected !== 'string' || pendingIslandTransactions.size >= PENDING_ISLAND_SAVE_LIMIT) return false
+    let capturedLayout
+    try { capturedLayout = copyTinySwordsIsland(layout) } catch { return false }
+    const predecessor = islandSaveTail
     pendingLocalSaves += 1
-    const transaction = Promise.resolve(localPersistence.saveIsland(profile, layout, expected, activation, syncBase))
-      .then(saved => {
+    const transaction = Promise.resolve().then(async () => {
+      if (predecessor) {
+        let saved = false
+        try { saved = await predecessor === true } catch {}
+        if (!saved && pendingTransactionActivations.get(predecessor) === activation) return false
+      }
+      for (;;) {
+        if (getCurrentActivationFor(profile) !== activation) return false
+        // Island waiters reserve the activation and session flush, but cannot
+        // wait on one another here. Their explicit tail preserves call order.
+        const blockers = [...pendingLocalTransactions].filter(pending => !pendingIslandTransactions.has(pending))
+        if (blockers.length) {
+          const completed = await Promise.allSettled(blockers)
+          // Retired writes must settle, but their cancellation cannot veto a
+          // checkpoint belonging to a later owner/reset activation.
+          if (completed.some((result, index) => pendingTransactionActivations.get(blockers[index]) === activation
+            && (result.status !== 'fulfilled' || result.value !== true))) return false
+          continue
+        }
+        // Do not enqueue a checkpoint over an unacknowledged full/record write.
+        // Recheck and enqueue in this turn; the repository still compares the
+        // exact expected island, revision and activation inside its transaction.
+        if (pendingLocalSaves !== pendingIslandTransactions.size) return false
+        const syncBase = cloudPersistence.getSaveBase?.(activation)
+        if (activation.ownerId && !syncBase) return null
+        if (!markCloudSaveRequired(profile, activation)) return false
+        const saved = await localPersistence.saveIsland(profile, capturedLayout, expected, activation, syncBase)
         if (!saved || getCurrentActivationFor(profile) !== activation) return false
         if (activation.ownerId) cloudPersistence.saveDeferred?.({
           activation, isCurrent: () => getCurrentActivationFor(profile) === activation,
@@ -1090,8 +1120,17 @@ export function createLearnerProfileLifecycleAuthority({
           dirtyUnits: { island: true }
         })
         return true
-      }).finally(() => { pendingLocalSaves -= 1; pendingLocalTransactions.delete(transaction) })
+      }
+    }).finally(() => {
+      pendingLocalSaves -= 1
+      pendingLocalTransactions.delete(transaction)
+      pendingIslandTransactions.delete(transaction)
+      if (islandSaveTail === transaction) islandSaveTail = null
+    })
+    islandSaveTail = transaction
+    pendingIslandTransactions.add(transaction)
     pendingLocalTransactions.add(transaction)
+    pendingTransactionActivations.set(transaction, activation)
     return transaction
   }
 

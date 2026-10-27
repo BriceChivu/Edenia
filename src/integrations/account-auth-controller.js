@@ -258,6 +258,8 @@ export function createAccountAuthController({
   let initializedPromise = null
   let authSubscription = null
   let sessionRequestId = 0
+  let authMethodSessionToken = null
+  let authMethodClassification = null
   let destroyed = false
   let signingOutRequestId = null
   let emailCodeAvailableAt = 0
@@ -270,9 +272,18 @@ export function createAccountAuthController({
     return currentState
   }
 
-  function synchronizeSession(session, { claims = null, error = null } = {}) {
-    sessionRequestId += 1
-    const user = getSessionUser(session, claims)
+  function synchronizeSession(session, { error = null, classifyAuthMethod = false } = {}) {
+    const requestId = ++sessionRequestId
+    const cachedClaims = authMethodClassification
+      && authMethodClassification.token === session?.access_token
+      && authMethodClassification.ownerId === session?.user?.id
+      ? authMethodClassification.claims : null
+    const user = getSessionUser(session, cachedClaims)
+    authMethodSessionToken = user ? session?.access_token ?? null : null
+    if (!user || authMethodClassification?.token !== authMethodSessionToken
+      || authMethodClassification?.ownerId !== user.userId) {
+      authMethodClassification = null
+    }
     emailVerificationAddress = ''
     if (!user) {
       return publish({
@@ -285,13 +296,60 @@ export function createAccountAuthController({
         notice: null
       })
     }
-    return publish({
+    const state = publish({
       sessionState: ACCOUNT_SESSION_STATES.SIGNED_IN,
       ...user,
       busyAction: null,
       error,
       notice: null
     })
+    if (classifyAuthMethod) enrichAuthMethod(session, requestId)
+    return state
+  }
+
+  function enrichAuthMethod(session, requestId) {
+    const token = session?.access_token
+    const user = session?.user
+    const ownerId = user?.id
+    const current = () => !destroyed && requestId === sessionRequestId
+      && currentState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+      && currentState.userId === ownerId && authMethodSessionToken === token
+    if (!sessionNeedsAuthMethodClaims(session) || typeof token !== 'string' || !token
+      || typeof client.auth.getClaims !== 'function' || !current()) return
+
+    if (!authMethodClassification) {
+      const classification = { token, ownerId, claims: null, promise: null }
+      // Share pending and verified claims for this exact token. Failed lookups
+      // remain optional and can retry on a later session observation.
+      classification.promise = Promise.resolve().then(() => {
+        if (destroyed || authMethodClassification !== classification
+          || currentState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_IN
+          || currentState.userId !== ownerId || authMethodSessionToken !== token) return null
+        return client.auth.getClaims(token)
+      })
+        .then(result => {
+          const claims = !result?.error ? result?.data?.claims : null
+          if (claims?.sub !== ownerId) return null
+          return { sub: claims.sub, amr: Array.isArray(claims.amr)
+            ? claims.amr.map(entry => typeof entry === 'string' ? entry : { method: entry?.method }) : null }
+        }).catch(() => null).then(claims => {
+          classification.claims = claims
+          if (!claims && authMethodClassification === classification) authMethodClassification = null
+          return claims
+        })
+      authMethodClassification = classification
+    }
+    const classificationUser = { id: ownerId, app_metadata: {
+      provider: user?.app_metadata?.provider,
+      providers: Array.isArray(user?.app_metadata?.providers)
+        ? [...user.app_metadata.providers] : undefined
+    } }
+    void authMethodClassification.promise.then(claims => {
+      if (!claims || !current()) return
+      const authMethod = getAuthMethod(classificationUser, claims)
+      // Method classification never republishes a session or changes its owner.
+      if (authMethod !== currentState.authMethod) publish({ authMethod })
+    }).catch(() => { /* Optional classification cannot change authentication. */ })
   }
 
   async function refreshSession({
@@ -310,18 +368,9 @@ export function createAccountAuthController({
       if (authError) throw authError
       if (destroyed || requestId !== sessionRequestId) return currentState
       const session = data?.session || null
-      let claims = null
-      if (
-        sessionNeedsAuthMethodClaims(session)
-        && typeof client.auth.getClaims === 'function'
-      ) {
-        try {
-          const claimsResult = await client.auth.getClaims(session.access_token)
-          if (!claimsResult?.error) claims = claimsResult?.data?.claims || null
-        } catch {}
-      }
-      if (destroyed || requestId !== sessionRequestId) return currentState
-      return synchronizeSession(session, { claims, error: completionError })
+      // The authenticated profile RPC remains the opening authority. Claims
+      // classify only an optional label and do not delay this observation.
+      return synchronizeSession(session, { error: completionError, classifyAuthMethod: true })
     } catch (error) {
       if (destroyed || requestId !== sessionRequestId) return currentState
       if (!isTransientSessionError(error, isOnline)) {
@@ -553,6 +602,8 @@ export function createAccountAuthController({
     let retireLocalSession = null
     try { retireLocalSession = prepareLocalSignOut() } catch {}
     signingOutRequestId = requestId
+    authMethodSessionToken = null
+    authMethodClassification = null
     emailVerificationAddress = ''
     publish({
       sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
@@ -611,6 +662,8 @@ export function createAccountAuthController({
   function destroy() {
     destroyed = true
     sessionRequestId += 1
+    authMethodSessionToken = null
+    authMethodClassification = null
     authSubscription?.unsubscribe?.()
     authSubscription = null
   }

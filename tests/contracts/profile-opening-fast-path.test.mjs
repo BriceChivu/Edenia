@@ -12,7 +12,9 @@ const prepared = preparePortableLearnerProfileEnvelope({ config: {}, videos: {},
   onboarding: { setupCompleted: true } })
 const contentHash = profile => sha256Base64UrlSync(canonicalizeJson(profile))
 
-function harness({ rpc, sync = {}, local = {}, extraStorage = {} } = {}) {
+function harness({ rpc, sync = {}, local = {}, extraStorage = {},
+  authentication = { userId: ownerId }, hasOnboardingProfileDraft = () => false,
+  beginOpeningTrace } = {}) {
   const record = { version: 1, ownerId, profileId, generation: 1, acceptedRevision: 7, pending: null, queued: null, ...sync }
   const values = new Map(Object.entries({ [key]: JSON.stringify(record), ...extraStorage }))
   const storage = { getItem: key => values.get(key) ?? null,
@@ -23,6 +25,7 @@ function harness({ rpc, sync = {}, local = {}, extraStorage = {} } = {}) {
   let verified = 0
   const adapter = createLearnerProfileCloudPersistenceAdapter({
     handoffEnabled: true, conditionalOpeningEnabled: true, clearOnboardingDraft: () => true,
+    hasOnboardingProfileDraft, beginOpeningTrace,
     createOnboardingEnvelope: async () => null, createOperationId: () => crypto.randomUUID(),
     eventTarget: new EventTarget(), finalizeEnvelope: finalizePortableLearnerProfileEnvelope,
     prepareEnvelope: preparePortableLearnerProfileEnvelope, normalizeProfile: normalizePortableLearnerProfile,
@@ -40,8 +43,8 @@ function harness({ rpc, sync = {}, local = {}, extraStorage = {} } = {}) {
         reset_state: { status: 'none' } }], error: null }
     } })
   })
-  return { calls, storage, localProfile, verified: () => verified,
-    open: (isCurrent = () => true) => adapter.resolve({ authentication: { userId: ownerId }, connectivity: { status: 'online' },
+  return { calls, storage, localProfile, authentication, verified: () => verified,
+    open: (isCurrent = () => true) => adapter.resolve({ authentication, connectivity: { status: 'online' },
       localProfile, purpose: 'resolve-signed-in-profile', isCurrent }) }
 }
 
@@ -92,10 +95,11 @@ for (const kind of ['dirty', 'queued', 'protected', 'recovery', 'wrong-owner', '
 }
 
 for (const kind of ['dirty', 'sync-revision', 'body']) test('changes during the request cannot be discarded: ' + kind, async () => {
-  let finish
-  const h = harness({ rpc: () => new Promise(resolve => { finish = resolve }) })
+  let finish, began
+  const started = new Promise(resolve => { began = resolve })
+  const h = harness({ rpc: () => new Promise(resolve => { finish = resolve; began() }) })
   const opening = h.open()
-  while (!finish) await Promise.resolve()
+  await started
   if (kind === 'body') h.localProfile.profile.config.weeklyGoalHours = 6
   if (kind === 'dirty') h.storage.setItem(key + '_dirty', 'changed')
   if (kind === 'sync-revision') h.storage.setItem(key, JSON.stringify({ changed: true }))
@@ -139,7 +143,91 @@ test('a transient cloud failure cannot masquerade as an unchanged profile', asyn
 })
 
 test('an account change retires even an exact unchanged response', async () => {
+  let current = true
+  const h = harness({ rpc: async () => {
+    current = false
+    return { data: [{ status: 'profile_unchanged', created: false, profile_id: profileId,
+      generation: 1, revision: 7, envelope: null, profile_sha256: contentHash(prepared.profile), reset_state: { status: 'none' } }] }
+  } })
+  assert.equal((await h.open(() => current)).status, 'recovering')
+  assert.equal(h.calls.length, 1)
+})
+
+test('an already retired attempt cannot issue a profile request', async () => {
   const h = harness()
   assert.equal((await h.open(() => false)).status, 'recovering')
+  assert.equal(h.calls.length, 0)
+})
+
+test('optional opening diagnostics capture one handle and fixed RPC phases without profile data', async () => {
+  const phases = []
+  let traces = 0
+  const h = harness({ beginOpeningTrace(...args) {
+    assert.deepEqual(args, [])
+    traces++
+    return { mark(...values) { assert.equal(values.length, 1); phases.push(values[0]) } }
+  } })
+  assert.equal((await h.open()).status, 'activate')
+  assert.equal(traces, 1)
+  assert.deepEqual(phases, ['opening-rpc-start', 'opening-rpc-end'])
+})
+
+for (const source of ['factory', 'mark']) test('diagnostic errors cannot change a verified opening: ' + source, async () => {
+  const h = harness({ beginOpeningTrace() {
+    if (source === 'factory') throw new Error('Synthetic diagnostic failure')
+    return { mark() { throw new Error('Synthetic diagnostic failure') } }
+  } })
+  assert.equal((await h.open()).status, 'activate')
   assert.equal(h.calls.length, 1)
+})
+
+test('the RPC end phase is recorded even when transport fails', async () => {
+  const phases = []
+  const h = harness({ beginOpeningTrace: () => ({ mark: phase => phases.push(phase) }),
+    rpc: async () => { throw new TypeError('Synthetic transport failure') } })
+  assert.equal((await h.open()).status, 'waiting-cloud')
+  assert.deepEqual(phases, ['opening-rpc-start', 'opening-rpc-end'])
+})
+
+test('missing-function fallback retains one captured trace handle for both RPCs', async () => {
+  const phases = []
+  let traces = 0
+  const h = harness({ beginOpeningTrace() { traces++; return { mark: phase => phases.push(phase) } },
+    rpc: async name => name === 'open_my_learner_profile'
+      ? { error: { code: 'PGRST202' }, status: 404 }
+      : { data: [{ status: 'profile_ready', created: false, profile_id: profileId, generation: 1, revision: 7, envelope: prepared }] } })
+  assert.equal((await h.open()).status, 'activate')
+  assert.equal(traces, 1)
+  assert.deepEqual(phases, ['opening-rpc-start', 'opening-rpc-end', 'opening-rpc-start', 'opening-rpc-end'])
+})
+
+test('overlapping attempts mark only their own captured diagnostic handle', async () => {
+  const phases = []
+  const h = harness({ beginOpeningTrace() {
+    const own = []
+    phases.push(own)
+    return { mark: phase => own.push(phase) }
+  } })
+  const results = await Promise.all([h.open(), h.open()])
+  assert.ok(results.every(result => result.status === 'activate'))
+  assert.deepEqual(phases, [['opening-rpc-start', 'opening-rpc-end'], ['opening-rpc-start', 'opening-rpc-end']])
+})
+
+for (const source of ['local owner', 'authenticated owner']) test('ownership is still fenced after the server response: ' + source, async () => {
+  const h = harness({ rpc: async () => {
+    if (source === 'local owner') h.localProfile.ownerId = '523e4567-e89b-42d3-a456-426614174004'
+    else h.authentication.userId = '523e4567-e89b-42d3-a456-426614174004'
+    return { data: [{ status: 'profile_unchanged', created: false, profile_id: profileId,
+      generation: 1, revision: 7, envelope: null, profile_sha256: contentHash(prepared.profile), reset_state: { status: 'none' } }] }
+  } })
+  assert.equal((await h.open()).status, 'recovering')
+  assert.equal(h.calls.length, 1)
+})
+
+test('a delayed activation repair cannot cross a later authenticated owner change', async () => {
+  const h = harness()
+  const result = await h.open()
+  assert.equal(result.status, 'activate')
+  h.authentication.userId = '523e4567-e89b-42d3-a456-426614174004'
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), false)
 })
