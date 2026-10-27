@@ -432,7 +432,7 @@ for (const recordSync of [false, true]) test(`real Godot input defers ${recordSy
       await expect(computer.page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date', { timeout: 15_000 })
       expect(await computer.page.evaluate(() => ({ computer: loadState().videos.computer.resumeAtSeconds,
         phone: loadState().videos.phone.resumeAtSeconds, islandVersion: loadState().tinySwordsIsland.version })))
-        .toEqual({ computer: 42, phone: 60, islandVersion: 38 })
+        .toEqual({ computer: 42, phone: 60, islandVersion: 39 })
       expect(phone.errors).toEqual([])
     }
     expect(computer.errors).toEqual([])
