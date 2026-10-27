@@ -22,6 +22,8 @@ export type ReminderDryRunResult = {
   completionFailed: number
 }
 
+export type ReminderDispatchAction = 'dispatch' | 'capacity-check'
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -29,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function readReminderDispatchRequest(
   request: Request,
   maximumBytes = 64,
-) {
+): Promise<ReminderDispatchAction> {
   if (request.method !== 'POST') {
     throw new ReminderDispatchError(
       'Method not allowed',
@@ -76,13 +78,15 @@ export async function readReminderDispatchRequest(
     )
   }
 
-  if (!isRecord(body) || Object.keys(body).length !== 0) {
-    throw new ReminderDispatchError(
-      'JSON body must be an empty object',
-      400,
-      'invalid_request',
-    )
-  }
+  if (isRecord(body) && Object.keys(body).length === 0) return 'dispatch'
+  if (isRecord(body) && Object.keys(body).length === 1
+    && body.action === 'capacity-check') return 'capacity-check'
+
+  throw new ReminderDispatchError(
+    'JSON body must be empty or request the capacity-check action',
+    400,
+    'invalid_request',
+  )
 }
 
 export const readReminderDryRunRequest = readReminderDispatchRequest

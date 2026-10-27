@@ -26,7 +26,19 @@ update private.reminder_free_capacity set overage_disabled=true;
 select ok(not public.refresh_reminder_provider_usage(decode(repeat('00',32),'hex'),extensions.digest('Edenia <reminders@example.test>','sha256'),0,0,'2026-10-26T11:01:00Z'),'usage from a different key cannot borrow another account attestation');
 select ok(not public.refresh_reminder_provider_usage(extensions.digest('re_test_key_1234567890','sha256'),decode(repeat('00',32),'hex'),0,0,'2026-10-26T11:01:00Z'),'a different sender cannot borrow verified-domain evidence');
 update private.reminder_free_capacity set attested_at='2026-10-25T10:59:59Z';
-select ok(not public.refresh_reminder_provider_usage(extensions.digest('re_test_key_1234567890','sha256'),extensions.digest('Edenia <reminders@example.test>','sha256'),0,0,'2026-10-26T11:01:00Z'),'live usage readback cannot renew expired billing attestation');
+select ok(public.refresh_reminder_provider_usage(extensions.digest('re_test_key_1234567890','sha256'),extensions.digest('Edenia <reminders@example.test>','sha256'),0,0,'2026-10-26T11:01:00Z'),'fresh usage remains available after 24 hours without redundant daily billing checks');
+select is((select attested_at from private.reminder_free_capacity where singleton),'2026-10-25T10:59:59Z'::timestamptz,'usage refresh preserves the independently recorded activation evidence');
+select is(private.reminder_capacity_reason('2026-10-26T11:01:00Z'),'available','unchanged verified Free account can continue beyond the first day');
+update private.reminder_free_capacity set attested_at='2025-10-25T10:59:59Z';
+select ok(public.reminder_provider_attestation_is_current(extensions.digest('re_test_key_1234567890','sha256'),extensions.digest('Edenia <reminders@example.test>','sha256'),'2026-10-26T11:01:00Z','canary'),'activation evidence does not acquire an arbitrary expiry');
+select is(private.reminder_capacity_reason('2026-10-26T11:11:01Z'),'capacity_unknown','continuing activation evidence never bypasses stale live usage');
+update private.reminder_free_capacity set attested_at=null;
+select ok(not public.refresh_reminder_provider_usage(extensions.digest('re_test_key_1234567890','sha256'),extensions.digest('Edenia <reminders@example.test>','sha256'),0,0,'2026-10-26T11:02:00Z'),'usage cannot substitute for missing activation evidence');
+update private.reminder_free_capacity set attested_at='2026-10-26T11:03:00Z';
+select ok(not public.refresh_reminder_provider_usage(extensions.digest('re_test_key_1234567890','sha256'),extensions.digest('Edenia <reminders@example.test>','sha256'),0,0,'2026-10-26T11:02:00Z'),'future activation evidence cannot authorize an earlier usage readback');
+select ok(not public.record_reminder_free_capacity(true,true,true,0,0,'2026-10-26T11:00:00Z',extensions.digest('re_test_key_1234567890','sha256'),extensions.digest('Edenia <reminders@example.test>','sha256')),'older activation evidence cannot replace a newer provider observation');
+-- Start the next independent test scenario at its own earlier fixture time.
+update private.reminder_free_capacity set observed_at=null;
 select pg_temp.email_capacity('2026-10-26T11:00:00Z');
 -- Rolling quota includes prior calendar months and uncertain attempts.
 insert into private.reminder_quota_reservations(delivery_id,utc_date,reserved_at,consumed_at)
@@ -53,9 +65,12 @@ update private.reminder_delivery_control set delivery_enabled=true;
 create temporary table final_slot_claims as select * from public.claim_due_typed_reminder_live('2026-10-26T11:00:00Z',10,3600,300);
 select is((select count(*) from final_slot_claims),4::bigint,'live planning can claim all four accepted below-threshold owners');
 select pg_temp.bind_email(claim_token,'2026-10-26T11:00:00Z') from final_slot_claims;
+-- The actual provider-begin boundary must also accept unchanged activation
+-- evidence from an earlier year while requiring the fresh usage readback.
+update private.reminder_free_capacity set attested_at='2025-10-25T10:59:59Z';
 insert into private.reminder_quota_reservations(delivery_id,utc_date,reserved_at,consumed_at)
 select extensions.gen_random_uuid(),'2026-10-26','2026-10-26T10:59:00Z','2026-10-26T10:59:00Z' from generate_series(1,59);
-select is((select count(*) from final_slot_claims where public.begin_typed_reminder_provider_attempt(claim_token,'resend','2026-10-26T11:00:00Z')),1::bigint,'atomic final-slot admission allows exactly one of four competing attempts');
+select is((select count(*) from final_slot_claims where public.begin_typed_reminder_provider_attempt(claim_token,'resend','2026-10-26T11:00:00Z')),1::bigint,'actual provider-begin with year-old evidence and fresh usage admits exactly one final-slot attempt');
 select is((select count(*) from private.reminder_quota_reservations where utc_date='2026-10-26'),60::bigint,'atomic reservation never overshoots daily60cap');
 select is(private.reminder_capacity_reason('2026-10-26T11:01:00Z'),'capacity_exhausted','unknown outcomes retain all sixty consumed slots');
 -- Deleting a learner cannot recover capacity that may already be billed.

@@ -123,7 +123,7 @@ returns integer language sql stable set search_path='' as $$
    and q.id is distinct from (select e.id from existing e)
  )
  select coalesce((select case when c.verified_free and c.overage_disabled and c.sender_verified
-  and c.stop_reason is null and c.attested_at<=p_at and c.attested_at>=p_at-interval '24 hours'
+  and c.stop_reason is null and c.attested_at is not null and c.attested_at<=p_at
   and c.api_key_digest is not null and c.sender_digest is not null
   and c.observed_at<=p_at and c.observed_at>=p_at-interval '10 minutes'
   and (c.observed_at at time zone 'UTC')::date=(p_at at time zone 'UTC')::date
@@ -138,7 +138,7 @@ create function private.reminder_capacity_reason(p_at timestamptz)
 returns text language sql stable set search_path='' as $$
  select coalesce((select case
   when not c.verified_free or not c.overage_disabled or not c.sender_verified
-    or c.attested_at is null or c.attested_at>p_at or c.attested_at<p_at-interval '24 hours'
+    or c.attested_at is null or c.attested_at>p_at
     or c.api_key_digest is null or c.sender_digest is null
     or c.observed_at is null or c.observed_at>p_at or c.observed_at<p_at-interval '10 minutes'
     or (c.observed_at at time zone 'UTC')::date<>(p_at at time zone 'UTC')::date
@@ -180,6 +180,9 @@ begin
  where singleton;
  return true;
 end $$;
+-- Activation evidence stays bound to the exact key and sender. Resend Free
+-- does not automatically enable paid overage; no daily operator renewal is
+-- needed. Account/billing/key/sender changes require independent revalidation.
 -- A GET /usage refresh can update counters, never attest a plan, key or sender.
 create function public.reminder_provider_attestation_is_current(p_api_key_digest bytea,p_sender_digest bytea,
  p_now timestamptz default now(),p_admission_mode text default 'canary') returns boolean
@@ -187,7 +190,7 @@ language sql stable security definer set search_path='' as $$
  select exists(select 1 from private.reminder_free_capacity c where c.singleton
   and c.api_key_digest=p_api_key_digest and c.sender_digest=p_sender_digest
   and c.verified_free and c.overage_disabled and c.sender_verified
-  and c.attested_at<=p_now and c.attested_at>=p_now-interval '24 hours'
+  and c.attested_at is not null and c.attested_at<=p_now
   and exists(select 1 from private.reminder_delivery_control ctl where ctl.singleton
     and ctl.admission_mode=p_admission_mode))
 $$;
@@ -201,7 +204,7 @@ begin
  observed_at=p_observed_at
  where singleton and api_key_digest=p_api_key_digest and sender_digest=p_sender_digest
   and verified_free and overage_disabled and sender_verified
-  and attested_at>=p_observed_at-interval '24 hours' and attested_at<=p_observed_at
+  and attested_at is not null and attested_at<=p_observed_at
   and (observed_at is null or observed_at<=p_observed_at);
  return found;
 end $$;

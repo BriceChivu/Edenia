@@ -64,15 +64,19 @@ test('malformed evaluation and database errors stop before logging private data'
  }
 })
 
-test('accepts only a small empty JSON POST request', async () => {
-  await assert.doesNotReject(readReminderDryRunRequest(new Request(
+test('accepts only a small empty or exact capacity-check JSON POST request', async () => {
+  assert.equal(await readReminderDryRunRequest(new Request(
     'https://example.test',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: '{}',
     },
-  )))
+  )), 'dispatch')
+  assert.equal(await readReminderDryRunRequest(new Request('https://example.test', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: '{"action":"capacity-check"}',
+  })), 'capacity-check')
 
   const rejectedRequests = [
     new Request('https://example.test'),

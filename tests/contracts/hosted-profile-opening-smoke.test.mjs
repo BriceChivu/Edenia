@@ -5,6 +5,11 @@ import { createOpeningPolicy, installOpeningGuard, openingTarget } from '../../s
 const origin = 'https://synthetic.supabase.co'
 const resolveUrl = origin + '/rest/v1/rpc/resolve_my_learner_profile'
 const request = (body = '{"p_onboarding_profile":null}') => ({ method: 'POST', url: resolveUrl, body })
+const reminderPreferenceRequest = overrides => ({ method: 'POST',
+  url: origin + '/rest/v1/rpc/get_my_reminder_preferences',
+  body: JSON.stringify({ p_timezone: 'Asia/Taipei', p_locale: 'en',
+    p_expected_owner: '123e4567-e89b-42d3-a456-426614174000' }),
+  ...overrides })
 
 test('trial opening guard allows exactly one read with bounded cache evidence', () => {
   for (const cached of [false, true]) {
@@ -100,6 +105,39 @@ test('ancillary blocked writes are reported separately, bounded, and reset each 
   assert.equal(policy.finishPhase().complete, false)
 })
 
+test('owner-bound preference initialization is blocked locally within the ancillary budget', () => {
+  const policy = createOpeningPolicy({ providerOrigin: origin })
+  policy.beginPhase('activation')
+  for (let n = 0; n < 6; n += 1) {
+    assert.equal(policy.classify(reminderPreferenceRequest()), 'ancillary-block')
+  }
+  assert.equal(policy.classify(reminderPreferenceRequest()), 'deny')
+  assert.equal(policy.finishPhase().complete, false)
+})
+
+test('preference initialization recognition rejects malformed bodies and mutation RPCs', () => {
+  const valid = reminderPreferenceRequest()
+  const payload = JSON.parse(valid.body)
+  for (const invalid of [
+    reminderPreferenceRequest({ method: 'GET' }),
+    reminderPreferenceRequest({ url: valid.url + '?extra=1' }),
+    reminderPreferenceRequest({ body: '{}' }),
+    reminderPreferenceRequest({ body: JSON.stringify({ ...payload, p_streak: true }) }),
+    reminderPreferenceRequest({ body: JSON.stringify({ ...payload, p_expected_owner: null }) }),
+    reminderPreferenceRequest({ body: JSON.stringify({ ...payload, p_timezone: 'arbitrary value' }) }),
+    reminderPreferenceRequest({ body: JSON.stringify({ ...payload, p_locale: 'unknown' }) }),
+    reminderPreferenceRequest({ body: valid.body.replace('{', '{"p_locale":"en",') }),
+    reminderPreferenceRequest({ body: ' '.repeat(257) + valid.body }),
+    reminderPreferenceRequest({ url: origin + '/rest/v1/rpc/enroll_my_reminder_choices' }),
+    reminderPreferenceRequest({ url: origin + '/rest/v1/rpc/save_my_reminder_choice' })
+  ]) {
+    const policy = createOpeningPolicy({ providerOrigin: origin })
+    policy.beginPhase('activation')
+    assert.equal(policy.classify(invalid), 'deny', JSON.stringify(invalid))
+    assert.equal(policy.finishPhase().complete, false)
+  }
+})
+
 test('unknown cross-origin backend calls and sockets stop the adapter', async () => {
   let intercept
   let socketHandler
@@ -186,8 +224,11 @@ test('blocked ancillary reads return a local denial without triggering SDK netwo
         continue: () => assert.fail('Ancillary call reached network') })
     })
   } })
-  const results = await Promise.all(['subscriptions', 'reminder_preferences'].map(table => client.from(table).select('*')))
-  assert.equal(attempts, 2)
+  const results = await Promise.all([
+    ...['subscriptions', 'reminder_preferences'].map(table => client.from(table).select('*')),
+    client.rpc('get_my_reminder_preferences', JSON.parse(reminderPreferenceRequest().body))
+  ])
+  assert.equal(attempts, 3)
   assert.ok(results.every(result => result.error?.code === 'CANARY_ANCILLARY_BLOCKED'))
   assert.equal(guard.policy.classify(request()), 'resolve')
   assert.equal(guard.policy.finishPhase().complete, true)

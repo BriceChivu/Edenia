@@ -50,8 +50,9 @@ Before sending, the operator must independently verify the actual Free account,
 no paid overage/upgrade, and verified sender domain. Record that evidence through
 the service-only `record_reminder_free_capacity` RPC, bound to SHA-256 digests of
 the exact API key and From address. Never place the key itself in SQL, logs or
-this runbook. The attestation expires after 24 hours; provider usage expires after
-10 minutes. The dispatcher refreshes account-wide sent **and received** usage
+this runbook. Reverify that independent evidence after an API-key, sender, account,
+or billing-configuration change; it has no arbitrary daily expiry. Provider usage
+expires after 10 minutes. The dispatcher refreshes account-wide sent **and received** usage
 through the bounded read-only [Resend usage API](https://resend.com/docs/api-reference/usage/retrieve-usage).
 Usage limits alone do not establish plan or billing settings. Unknown/stale
 capacity, exhausted quota, readback errors and provider quota errors stop optional
@@ -64,6 +65,52 @@ sent email in both shared usage and outstanding reservations and stop below 60;
 for example, 30 shared sends plus 30 unobserved reservations exhausts the product
 headroom. The cap is a ceiling, not promised throughput. Do not erase uncertainty
 or infer receipt inclusion just to fill the allowance.
+
+### Read-only activation preflight and configuration changes
+
+Before enabling delivery, invoke `dispatch-study-reminders` with the existing
+dedicated `reminder_dispatcher` secret capability in the `apikey` header,
+`Content-Type: application/json`, and this exact POST body:
+
+```json
+{"action":"capacity-check"}
+```
+
+The same named-secret authorization protects both actions. This action validates
+the complete live configuration and performs only the bounded read-only Resend
+usage request. It does not read or change the delivery switch, read recipients,
+evaluate candidates, enroll anyone, create occurrences, reserve quota, attest
+billing settings, or send mail. It works while delivery is disabled. Missing or
+invalid configuration and unknown provider usage fail closed.
+
+The response contains `mode: "capacity_check"`, admission mode, provider-wide
+daily/monthly usage and validated limits (100/3,000), reset/observation timestamps,
+the normalized sender domain, and the exact API-key/From-address SHA-256 digests
+as hexadecimal strings. It contains no API key, recipient, From localpart,
+unsubscribe secret or token. Compare the returned sender domain to the independently
+verified domain and use the returned digests when recording the attestation.
+Keep the key in Supabase; do not export it to inspect usage.
+
+Independently inspect the current Resend team's actual Free transactional plan,
+disabled paid overage, and verified sender domain in the dashboard, then record
+that observation through `record_reminder_free_capacity`. Reverify after an API-key,
+sender, account, or billing-configuration change. This evidence does not require a
+daily renewal or a separate scheduled dashboard check. A successful preflight or
+automatic usage refresh updates neither that independent evidence nor enrollment.
+The live worker still requires fresh usage with the exact Free limits and stops
+on unknown or exhausted capacity, provider errors, or changed key/sender binding.
+A safe operator status query is:
+
+```sql
+select attested_at, verified_free, overage_disabled, sender_verified,
+       observed_at, stop_reason
+from private.reminder_free_capacity
+where singleton;
+```
+
+If any dashboard setting or sender verification is unknown or fails the check,
+disable delivery and retain the ledgers. Do not replace independent configuration
+evidence with an inference from quota limits alone.
 
 The live worker materializes its own occurrences; shadow evaluation is read-only
 and consumes no real occurrence identity, enrollment, cooldown, history or quota.
@@ -140,11 +187,21 @@ can still use accepted settings. Both browser source routes retain the same
 preference/enrollment controls and preserve already credited facts.
 
 
-The remaining sections retain historical account canary procedures and receipts.
-Their dated rollout/paused-state statements are historical evidence; consult the
-actual runtime and server controls before any separately authorized activation.
+> **Historical archive: do not execute the procedures below as the current
+> activation runbook.** These sections preserve pre-#521 account canary procedures
+> and receipts, including the settings and implementation status observed then.
+> Their rollout, paused-state, worker, retry and scheduler statements are not
+> current configuration evidence. Use [Separate future activation](#separate-future-activation)
+> and [Free capacity and dispatch](#free-capacity-and-dispatch) above for current
+> operations, then verify the actual deployed source and server controls.
 
-## Authentication canary preflight and activation
+<a id="authentication-canary-preflight-and-activation"></a>
+
+## Historical: Authentication canary preflight and activation
+
+This archived authentication procedure does not authorize or configure #521
+reminder delivery. The [current activation procedure](#separate-future-activation)
+supersedes its rollout and reminder-state assumptions.
 
 The authentication provider canary is separate from reminder delivery. It
 must not change `reminder_delivery_enabled`, add a Cron schedule, broaden the
@@ -262,7 +319,13 @@ confirmation and is no longer usable. No durable credential was exposed. Do
 not inspect or record future message bodies or links; transfer a capability
 directly into the confirming browser without rendering it in logs or output.
 
-## Internal acceptance test
+<a id="internal-acceptance-test"></a>
+
+## Historical: Internal acceptance test
+
+This archived test checks the older preference-storage flow. Current reminder
+activation also requires the disclosed authenticated **Enable emails** action
+described in [Implemented policy](#implemented-policy).
 
 Use a browser profile whose local Edenia progress can be inspected before and
 after the test.
@@ -293,7 +356,13 @@ delete it when it is no longer needed. If the account changes while an export
 is in flight, Edenia discards the result instead of downloading data from the
 previous account.
 
-## Operator preflight
+<a id="operator-preflight"></a>
+
+## Historical: Operator preflight
+
+Do not use the archived rollout values or paused-state assumptions below for
+activation. Follow the [current activation procedure](#separate-future-activation)
+and inspect current server controls.
 
 Before any database or function operation:
 
@@ -341,7 +410,14 @@ Before any database or function operation:
 Never copy a Supabase secret key into source control, a GitHub repository
 variable used by Pages, SQL text, issue comments, pull-request text, or chat.
 
-## Manage the tester allowlist
+<a id="manage-the-tester-allowlist"></a>
+
+## Historical: Manage the tester allowlist
+
+The examples below preserve the earlier manual procedure. The
+[current activation procedure](#separate-future-activation) requires an explicitly
+authorized exact recipient as well as its verified account UUID; an allowlist row
+alone is insufficient.
 
 Copy the user's UUID from **Supabase Auth > Users**. Verify the intended account
 before changing the allowlist. Do not add an email column or paste an email into
@@ -367,7 +443,14 @@ provider-begin fence also rechecks the allowlist, so a claimed occurrence that
 has not reached provider I/O cannot send. An already in-flight provider request
 cannot be recalled; turn the delivery switch off as well.
 
-## Invoke the manual dispatcher
+<a id="invoke-the-manual-dispatcher"></a>
+
+## Historical: Invoke the manual dispatcher
+
+This archived request/response contract may differ from the deployed handler.
+Use the [current activation procedure](#separate-future-activation) and current
+source before invoking the dispatcher. Never enable delivery merely to test
+configuration or key access.
 
 Use the current `sb_secret_...` key named `reminder_dispatcher`. It exists only
 for this function and must be rotated immediately if exposed. Supabase secret
@@ -405,17 +488,26 @@ A healthy empty result resembles:
 }
 ```
 
-The request accepts only `POST`, `Content-Type: application/json`, and the exact
-body `{}`. Do not add caller-controlled batch, time-window, or lease values.
+Normal dispatch accepts only `POST`, `Content-Type: application/json`, and the
+exact body `{}`. The separate read-only preflight accepts only
+`{"action":"capacity-check"}` as described above. Do not add caller-controlled
+batch, time-window, lease, or switch values.
 
 Dry-run logs may contain Supabase user UUIDs and occurrence IDs. Treat those
 logs as internal operational data. They must not contain email addresses,
 session tokens, secret keys, or claim fencing tokens.
 
-## Live-dispatch canary configuration
+<a id="live-dispatch-canary-configuration"></a>
 
-The deployed function contains a fail-closed live path. Production currently
-has all of these Edge Function secrets or settings:
+## Historical: Live-dispatch canary configuration
+
+The seven-setting, five-claim, fifteen-minute procedure below predates #521.
+Its token-only binding description is also superseded. Use the current
+[activation configuration](#separate-future-activation) and
+[dispatch and retry policy](#free-capacity-and-dispatch).
+
+At the time of this canary, the deployed function contained a fail-closed live
+path and production had these Edge Function secrets or settings:
 
 - `RESEND_API_KEY`
 - `REMINDER_FROM_ADDRESS`
@@ -436,7 +528,13 @@ Do not put these values in Pages runtime configuration, GitHub Pages variables,
 source control, SQL, a command line, issue text, or pull-request text. They
 belong only in the Supabase Edge Function secret store.
 
-## Emergency stop and rollback
+<a id="emergency-stop-and-rollback"></a>
+
+## Historical: Emergency stop and rollback
+
+The archived statements below that the worker is pending and no schedule exists
+are not current evidence. Use the [current rollback procedure](#separate-future-activation),
+including disabling delivery and unscheduling through the operator function.
 
 The live-delivery switch must stay off until a separately reviewed live worker
 exists. To force or restore the safe state:
@@ -461,7 +559,14 @@ and columns in place, keep the switch off, and redeploy the last known-good Edge
 Function commit. Dropping tables while a newer function is deployed is less
 safe than leaving unreachable state.
 
-## Provider hand-off and retry invariants
+<a id="provider-hand-off-and-retry-invariants"></a>
+
+## Historical: Provider hand-off and retry invariants
+
+This archived implementation description predates #521's frozen payload binding,
+durable retry scheduling and one-hour occurrence cutoff. The
+[current dispatch policy](#free-capacity-and-dispatch) supersedes the older
+23-hour-only retry instructions and paused-state claims below.
 
 The delivery ledger separates these facts deliberately:
 
@@ -542,7 +647,9 @@ token. A provider `Retry-After` value is logged as a bounded number but does not
 yet extend the database lease; retry scheduling and backoff must be added before
 Cron.
 
-## Provider event invariants
+<a id="provider-event-invariants"></a>
+
+## Historical: Provider event invariants
 
 [Resend requires verification against the raw request body](https://resend.com/docs/webhooks/verify-webhooks-requests)
 using `svix-id`, `svix-timestamp`, and `svix-signature`. The endpoint uses the
@@ -588,7 +695,12 @@ or complaint for an already accepted email must remain processable after the
 operator turns future sends off. Browser roles still cannot execute the event
 RPC, and the endpoint never accepts a Supabase user session as webhook proof.
 
-## Verify the provider webhook
+<a id="verify-the-provider-webhook"></a>
+
+## Historical: Verify the provider webhook
+
+These archived checks are not a current deployment receipt. Verify the deployed
+handler and configuration under the [current activation procedure](#separate-future-activation).
 
 The Resend webhook and `RESEND_WEBHOOK_SECRET` are configured. An unsigned
 production `POST` must return `400` with a generic JSON response and leave the
@@ -609,7 +721,13 @@ tagged occurrence returns `200`; exact replays also return `200` without a
 second mutation. A signed transport-test event without the exact source and
 delivery tags returns `200` and is ignored.
 
-## Suppression and unsubscribe invariants
+<a id="suppression-and-unsubscribe-invariants"></a>
+
+## Historical: Suppression and unsubscribe invariants
+
+The [current enrollment policy](#implemented-policy) supersedes this older
+description: ordinary unsubscribe revokes both enrollments, and a verified owner
+may deliberately enroll again; hard suppressions remain effective.
 
 - Suppression is server-sticky. Re-enabling a client preference cannot make a
   suppressed UUID claimable.
@@ -643,7 +761,13 @@ The public endpoint exists before live delivery so its behavior can be tested
 without sending mail. No token digest should exist in production until an
 allowlisted live worker is separately reviewed.
 
-## Verify the inert unsubscribe endpoint
+<a id="verify-the-inert-unsubscribe-endpoint"></a>
+
+## Historical: Verify the inert unsubscribe endpoint
+
+This archived procedure does not establish current delivery or suppression
+state. Use disposable local fixtures for mutation tests and the
+[current activation procedure](#separate-future-activation) for hosted verification.
 
 After deploying Pages and the Edge Function, use a syntactically valid dummy
 capability to verify only the public confirmation behavior:
@@ -678,7 +802,9 @@ Verify these transitions, then delete the fixture:
 4. Invalid, duplicate, oversized, or wrong-content-type input never calls the
    database mutation, and an unrecognized browser origin receives `403`.
 
-## Known verification gaps
+<a id="known-verification-gaps"></a>
+
+## Historical: Known verification gaps
 
 - The deployed dispatcher rejects unauthenticated production requests. Repeat
   a positive hosted invocation after every named-key rotation before creating
@@ -708,7 +834,13 @@ Verify these transitions, then delete the fixture:
   coverage, but their copy has not yet been reviewed by native speakers or
   exercised across real email clients.
 
-## Gates before any live email
+<a id="gates-before-any-live-email"></a>
+
+## Historical: Gates before any live email
+
+The list below records the earlier release gates. It is not a current readiness
+receipt or an instruction to bypass the [current activation procedure](#separate-future-activation),
+including Free-account evidence, owner enrollment and natural eligibility.
 
 Do not enable the live path or add a schedule until all of the following are
 reviewed and verified:
@@ -729,32 +861,38 @@ reviewed and verified:
 6. Queue age, accepted sends, provider failures, ambiguous sends, duplicate
    prevention, and suppressions are observable without logging email addresses.
 
-## Revised implementation sequence
+<a id="revised-implementation-sequence"></a>
+
+## Historical: Revised implementation sequence
+
+The implementation states below describe their historical stages, not the
+current deployed worker. Follow the [current activation procedure](#separate-future-activation)
+for any separately authorized sending or scheduling.
 
 The original live-delivery PR is split so each safety boundary can be reviewed
 without an active sender:
 
-1. **Provider-neutral ledger (current):** add durable provider-attempt,
+1. **Provider-neutral ledger (status at this stage):** add durable provider-attempt,
    acceptance, failure, and ambiguity state plus the 23-hour retry boundary.
    No network path exists.
-2. **Unreachable Resend adapter (current):** lock the deterministic request,
+2. **Unreachable Resend adapter (status at this stage):** lock the deterministic request,
    privacy, timeout, idempotency, error, and unsubscribe-header contracts in a
    pure shared module. The deployed dispatcher does not import it.
-3. **Live database prerequisites (current):** require the current claim token
+3. **Live database prerequisites (status at this stage):** require the current claim token
    when storing a capability and provide one truthful `recipient_unavailable`
    terminal outcome before any provider request. No sender imports the adapter.
-4. **Fail-closed live orchestration (current):** the adapter is wired behind
+4. **Fail-closed live orchestration (status at this stage):** the adapter is wired behind
    strict configuration checks and immediate switch, allowlist, consent,
    suppression, and lease fences. Missing configuration or any failed fence
    results in zero provider calls. No credential or schedule is added.
-5. **Provider event ledger (current):** persist no provider payload or address,
+5. **Provider event ledger (status at this stage):** persist no provider payload or address,
    deduplicate `svix-id`, reconcile acceptance races, and atomically suppress
    bounce, complaint, and provider-suppressed recipients.
-6. **Verified webhook endpoint (current):** verify raw-body Svix signatures,
+6. **Verified webhook endpoint (status at this stage):** verify raw-body Svix signatures,
    require the fixed source and delivery tags, pass only bounded metadata to
    the event RPC, and acknowledge unsupported or untagged events without a
    database mutation.
-7. **Canary readiness (current):** the isolated sending subdomain, send-only
+7. **Canary readiness (status at this stage):** the isolated sending subdomain, send-only
    key, exact-recipient allowlist, From address, unsubscribe secret, and signed
    webhook are configured. A transport-only message and callbacks succeeded.
 8. **Manual allowlisted canary:** only when one genuine due occurrence exists,
@@ -764,7 +902,9 @@ without an active sender:
 9. **Scheduling:** create Cron only after repeated manual canaries and an
    operator rollback drill. Public rollout remains a separate later decision.
 
-## Public-readiness audit (2026-08-12)
+<a id="public-readiness-audit-2026-08-12"></a>
+
+## Historical: Public-readiness audit (2026-08-12)
 
 This is a read-only snapshot of production configuration, not approval to make
 the account surface public.
@@ -880,7 +1020,9 @@ Newly created reminder indexes are still reported as unused because delivery
 remains off and production has no reminder preferences. Do not remove safety or
 queue indexes based on an unused-index INFO notice during the manual rollout.
 
-## Public-readiness items still deferred
+<a id="public-readiness-items-still-deferred"></a>
+
+## Historical: Public-readiness items still deferred
 
 - Subscription-aware account deletion, retention choices, and recovery after
   partial deletion.

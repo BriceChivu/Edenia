@@ -791,7 +791,9 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   if (restoreCase.olderReset) {
     const storedVideo = await page.evaluate(key => JSON.parse(localStorage.getItem(key))
       .videos['synthetic-study-video'], STATE_STORAGE_KEY)
-    expect(storedVideo.watchProgress).toEqual([{ seconds: 120, watchedAt: '2026-08-20T21:00:00.000Z' }])
+    expect(storedVideo.watchProgress).toEqual([{
+      seconds: 120, studyDay: '2026-08-21', watchedAt: '2026-08-20T21:00:00.000Z'
+    }])
   }
   await page.evaluate(() => {
     window.EDENIA_ANALYTICS_ENABLED = true
@@ -938,7 +940,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   if (restoreCase.olderReset) {
     expect(restored.state.videos['synthetic-study-video'].watchProgress).toEqual(
       returningEnvelope.profile.videos['synthetic-study-video'].watchProgress.map(
-        ({ seconds, watchedAt }) => ({ seconds, watchedAt })
+        ({ seconds, studyDay, watchedAt }) => ({ seconds, studyDay, watchedAt })
       )
     )
   }
