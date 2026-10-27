@@ -61,6 +61,12 @@ test('owner retirement resets the presentation deadline before observing the nex
   calls.length = 0
   context.applyAccountAuthenticationState({ ...signedIn, userId: 'other' })
   assert.deepEqual(calls, ['migration', 'identity'])
+  calls.length = 0
+  context.accountAuthViewState = { ...signedIn, sessionState: 'loading', userId: null }
+  context.learnerProfileOpeningStartedAt = 500
+  context.applyAccountAuthenticationState(signedIn)
+  assert.deepEqual(calls, ['migration', 'identity'], 'first verification continues the opening attempt')
+  assert.equal(context.learnerProfileOpeningStartedAt, 500)
 })
 
 test('late auth labels update presentation without observing identity or scanning profile history', () => {

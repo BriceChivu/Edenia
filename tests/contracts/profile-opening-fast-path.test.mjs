@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createHash } from 'node:crypto'
 import { createLearnerProfileCloudPersistenceAdapter } from '../../src/integrations/learner-profile-cloud-persistence.js'
 import { normalizePortableLearnerProfile, preparePortableLearnerProfileEnvelope,
   finalizePortableLearnerProfileEnvelope, verifyPortableLearnerProfileEnvelope } from '../../src/state/portable-learner-profile.js'
@@ -13,7 +12,7 @@ const prepared = preparePortableLearnerProfileEnvelope({ config: {}, videos: {},
   onboarding: { setupCompleted: true } })
 const contentHash = profile => sha256Base64UrlSync(canonicalizeJson(profile))
 
-function harness({ rpc, sync = {}, local = {}, extraStorage = {}, cryptoLike,
+function harness({ rpc, sync = {}, local = {}, extraStorage = {},
   authentication = { userId: ownerId }, hasOnboardingProfileDraft = () => false,
   beginOpeningTrace } = {}) {
   const record = { version: 1, ownerId, profileId, generation: 1, acceptedRevision: 7, pending: null, queued: null, ...sync }
@@ -26,7 +25,6 @@ function harness({ rpc, sync = {}, local = {}, extraStorage = {}, cryptoLike,
   let verified = 0
   const adapter = createLearnerProfileCloudPersistenceAdapter({
     handoffEnabled: true, conditionalOpeningEnabled: true, clearOnboardingDraft: () => true,
-    cryptoLike,
     hasOnboardingProfileDraft, beginOpeningTrace,
     createOnboardingEnvelope: async () => null, createOperationId: () => crypto.randomUUID(),
     eventTarget: new EventTarget(), finalizeEnvelope: finalizePortableLearnerProfileEnvelope,
@@ -49,28 +47,6 @@ function harness({ rpc, sync = {}, local = {}, extraStorage = {}, cryptoLike,
     open: (isCurrent = () => true) => adapter.resolve({ authentication, connectivity: { status: 'online' },
       localProfile, purpose: 'resolve-signed-in-profile', isCurrent }) }
 }
-
-test('a clean opening waits for native content proof before sending its cache claim', async () => {
-  let release, observed
-  const entered = new Promise(resolve => { observed = resolve })
-  const permission = new Promise(resolve => { release = resolve })
-  const h = harness({ cryptoLike: { subtle: { async digest(algorithm, bytes) {
-    assert.equal(algorithm, 'SHA-256')
-    observed()
-    await permission
-    return Uint8Array.from(createHash('sha256').update(bytes).digest()).buffer
-  } } } })
-  const opening = h.open()
-  assert.equal(await Promise.race([entered.then(() => 'native-proof'), opening.then(() => 'already-completed')]), 'native-proof')
-  assert.equal(h.calls.length, 0, 'No request may claim content while its proof is incomplete')
-  release()
-  const result = await opening
-  assert.equal(result.status, 'activate')
-  assert.equal(result.profile, h.localProfile.profile)
-  assert.equal(h.calls.length, 1)
-  assert.equal(h.calls[0].params.p_cached_profile_sha256,
-    createHash('sha256').update(canonicalizeJson(prepared.profile)).digest('base64url'))
-})
 
 test('an exact clean cached profile opens with one small response and keeps its actual local body', async () => {
   const h = harness()
@@ -177,99 +153,9 @@ test('an account change retires even an exact unchanged response', async () => {
   assert.equal(h.calls.length, 1)
 })
 
-function pausedCrypto() {
-  let release, began
-  const started = new Promise(resolve => { began = resolve })
-  const permission = new Promise(resolve => { release = resolve })
-  return { started, release, cryptoLike: { subtle: { async digest(algorithm, bytes) {
-    began()
-    await permission
-    return Uint8Array.from(createHash('sha256').update(bytes).digest()).buffer
-  } } } }
-}
-
-function pendingOperation(baseRevision, operationId) {
-  return { activationId: 'other-tab-activation', baseRevision, envelope: null, generation: 1,
-    integrity: prepared.integrity, nextRetryAt: 0, operationId, ownerId, prepared,
-    profileId, retryCount: 0, revision: baseRevision + 1 }
-}
-
-for (const change of ['body', 'dirty checkpoint', 'pending operation', 'queued operation', 'accepted revision',
-  'local owner', 'authenticated owner', 'request retired', 'signed out', 'recovery journal', 'import journal', 'handoff journal', 'onboarding draft']) {
-  test('a change while native proof is pending prevents a stale cache request: ' + change, async () => {
-    const crypto = pausedCrypto()
-    let current = true, draft = false
-    const h = harness({ cryptoLike: crypto.cryptoLike, hasOnboardingProfileDraft: () => draft })
-    const opening = h.open(() => current)
-    await crypto.started
-    assert.equal(h.calls.length, 0)
-    if (change === 'body') h.localProfile.profile.config.weeklyGoalHours = 6
-    if (change === 'dirty checkpoint') h.storage.setItem(key + '_dirty', JSON.stringify({ version: 1, ownerId, profileId, generation: 1 }))
-    if (change === 'pending operation' || change === 'queued operation' || change === 'accepted revision') {
-      const sync = JSON.parse(h.storage.getItem(key))
-      if (change === 'accepted revision') sync.acceptedRevision++
-      else {
-        sync.pending = pendingOperation(7, '323e4567-e89b-42d3-a456-426614174002')
-        if (change === 'queued operation') sync.queued = pendingOperation(8, '423e4567-e89b-42d3-a456-426614174003')
-      }
-      h.storage.setItem(key, JSON.stringify(sync))
-    }
-    if (change === 'local owner') h.localProfile.ownerId = '523e4567-e89b-42d3-a456-426614174004'
-    if (change === 'authenticated owner') h.authentication.userId = '523e4567-e89b-42d3-a456-426614174004'
-    if (change === 'request retired') current = false
-    if (change === 'signed out') { h.authentication.userId = null; current = false }
-    if (change === 'recovery journal') h.storage.setItem(key + '_recovery', '{}')
-    if (change === 'import journal') h.storage.setItem(key + '_import_v1', '{}')
-    if (change === 'handoff journal') h.storage.setItem(key + '_handoff_repair', '{}')
-    if (change === 'onboarding draft') draft = true
-    const syncAfterEdit = h.storage.getItem(key)
-    crypto.release()
-    assert.equal((await opening).status, 'recovering')
-    assert.equal(h.calls.length, 0, 'A retired candidate must not be sent as a cache claim or silently retried as a full opening')
-    assert.equal(h.storage.getItem(key), syncAfterEdit, 'Newer durable operations remain untouched')
-    if (change === 'body') assert.equal(h.localProfile.profile.config.weeklyGoalHours, 6)
-  })
-}
-
-for (const cryptoLike of [null, {}, { subtle: {} }, { subtle: { digest() { throw new Error('Native crypto unavailable') } } },
-  { subtle: { async digest() { throw new Error('Native crypto rejected') } } }]) {
-  test('unsupported native hashing preserves the existing exact cached-content proof', async () => {
-    const h = harness({ cryptoLike })
-    const result = await h.open()
-    assert.equal(result.status, 'activate')
-    assert.equal(result.profileUnchanged, true)
-    assert.equal(h.calls[0].params.p_cached_profile_sha256,
-      createHash('sha256').update(canonicalizeJson(prepared.profile)).digest('base64url'))
-  })
-}
-
-test('retirement during a rejected native proof skips stale synchronous fallback work', async t => {
-  let rejectDigest, began, current = true
-  const started = new Promise(resolve => { began = resolve })
-  const h = harness({ cryptoLike: { subtle: { digest() {
-    began()
-    return new Promise((resolve, reject) => { rejectDigest = reject })
-  } } } })
-  const opening = h.open(() => current)
-  await started
-  let encodings = 0
-  const encode = TextEncoder.prototype.encode
-  t.mock.method(TextEncoder.prototype, 'encode', function (...args) {
-    encodings++
-    return Reflect.apply(encode, this, args)
-  })
-  current = false
-  rejectDigest(new Error('Native crypto rejected after retirement'))
-  assert.equal((await opening).status, 'recovering')
-  assert.equal(encodings, 0, 'A retired proof must not encode and hash the captured body again')
-  assert.equal(h.calls.length, 0)
-})
-
-test('an already retired attempt cannot start hashing or a profile request', async () => {
-  let hashes = 0
-  const h = harness({ cryptoLike: { subtle: { digest() { hashes++; throw new Error('Must not start') } } } })
+test('an already retired attempt cannot issue a profile request', async () => {
+  const h = harness()
   assert.equal((await h.open(() => false)).status, 'recovering')
-  assert.equal(hashes, 0)
   assert.equal(h.calls.length, 0)
 })
 
@@ -327,7 +213,7 @@ test('overlapping attempts mark only their own captured diagnostic handle', asyn
   assert.deepEqual(phases, [['opening-rpc-start', 'opening-rpc-end'], ['opening-rpc-start', 'opening-rpc-end']])
 })
 
-for (const source of ['local owner', 'authenticated owner']) test('ownership is still fenced after native proof and the server response: ' + source, async () => {
+for (const source of ['local owner', 'authenticated owner']) test('ownership is still fenced after the server response: ' + source, async () => {
   const h = harness({ rpc: async () => {
     if (source === 'local owner') h.localProfile.ownerId = '523e4567-e89b-42d3-a456-426614174004'
     else h.authentication.userId = '523e4567-e89b-42d3-a456-426614174004'

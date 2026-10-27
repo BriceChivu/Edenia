@@ -1726,7 +1726,7 @@ let accountAuthViewState = Object.freeze({
 function applyAccountAuthenticationState(state, {
   observeLearnerProfile = true
 } = {}) {
-  if (state.userId !== accountAuthViewState.userId) {
+  if (accountAuthViewState.userId && state.userId !== accountAuthViewState.userId) {
     learnerProfileAccessView.hideOpeningNotice()
     profileOpeningDiagnostics.finish('account-change')
     learnerProfileOpeningStartedAt = null
