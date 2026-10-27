@@ -1201,10 +1201,14 @@ test('first Godot migration waits for a native profile acknowledgement and retai
       const held = new Promise(resolve => { release = resolve })
       window.releaseMigrationProfileAck = release
       repository.save = async (...args) => {
+        // Opening maintenance may already be queued. Hold this study candidate,
+        // rather than an earlier scoring-only write that still contains 10.
+        if (args[0]?.videos?.lesson?.resumeAtSeconds !== 41
+          || args[0]?.videos?.lesson?.pausedAt !== '2026-10-27T00:00:00.000Z') return save(...args)
+        repository.save = save
         const persisted = await save(...args)
         // Hold the repository result after its real native transaction/readback.
         // The lifecycle must still count this profile write until this returns.
-        repository.save = save
         window.migrationNativeAck = persisted
         await held
         return persisted

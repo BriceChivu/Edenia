@@ -314,7 +314,15 @@ test('Continue watching and Study History reach unmounted saved videos', async (
   if (testInfo.project.use.hasTouch) await cell.locator('.history-video-count').press('Space')
   else await cell.hover()
   await cell.hover()
-  await historyItem.focus()
+  // The hover can expire while a separate protocol focus call is scheduled.
+  // Enter through the visible trigger and focus its item in the same browser turn.
+  await historyItem.evaluate(item => {
+    const trigger = item.closest('.history-video-cell').querySelector('.history-video-count')
+    trigger.blur()
+    trigger.focus()
+    item.focus()
+  })
+  await expect(historyItem).toBeFocused()
   await page.mouse.move(0, 0)
   // Cross the 80 ms pointer-leave deadline with keyboard focus still inside.
   await page.waitForTimeout(150)
