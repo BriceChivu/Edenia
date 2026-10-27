@@ -12,6 +12,12 @@ func _initialize() -> void:
 	run.call_deferred()
 
 func run() -> void:
+	for kind in Layout.CHICKEN_TREE_VARIANTS:
+		await run_tree(kind)
+	if failures.is_empty(): print("Tree 1 and Tree 2 chicken checks passed")
+	quit(0 if failures.is_empty() else 1)
+
+func run_tree(kind: String) -> void:
 	root.size = Vector2i(1152, 648)
 	var scene = load("res://previews/level_five.tscn").instantiate()
 	scene.camera_save_enabled = false
@@ -25,7 +31,7 @@ func run() -> void:
 	var cell := Vector2i(1, 1)
 	scene.layout.trees[cell] = Vector2.ZERO
 	scene.layout.stock.tree -= 1
-	scene.layout.tree_types[cell] = "tree"
+	scene.layout.tree_types[cell] = kind
 	scene.layout.stock.chicken -= 1
 	scene.layout.chicken_release_at = Time.get_unix_time_from_system() + 60
 	scene.pawn.carrying_chicken = true
@@ -33,10 +39,10 @@ func run() -> void:
 	var interaction = scene.tree_chicken
 	var route: Array[Vector2] = interaction.route_to(cell)
 	check(not route.is_empty(), "Tree has a reachable supported approach")
-	check(interaction.eligible(cell), "Carried chicken can enter Tree 1")
+	check(interaction.eligible(cell), "Carried chicken can enter authored tree: " + kind)
 	scene.layout.tree_types[cell] = "tree2"
 	check(not interaction.eligible(cell), "Other tree types do not accept chicken")
-	scene.layout.tree_types[cell] = "tree"
+	scene.layout.tree_types[cell] = kind
 	scene.layout.tree_stumps[cell] = 100.0
 	check(not interaction.eligible(cell), "Stump cannot accept chicken")
 	scene.layout.tree_stumps.clear()
@@ -57,13 +63,13 @@ func run() -> void:
 	for tree in scene.tree_nodes:
 		if tree.get_meta("cell") == cell:
 			check(tree.texture.get_width() == 1536 and tree.texture.get_height() == 256 and tree.hframes == 8, "Occupied tree retains eight authored frames")
-			check(tree.source_image == scene.TreeArt.sources.tree_chicken, "Occupied tree uses supplied chicken artwork for hit testing")
+			check(tree.source_image == scene.TreeArt.sources[kind + "_chicken"], "Occupied tree uses supplied chicken artwork for hit testing")
 	if "--capture" in OS.get_cmdline_user_args():
 		scene.game_camera.position = scene.layout.tree_position(cell) - Vector2(0, 100)
 		scene.game_camera.zoom = Vector2.ONE * 1.8
 		await process_frame
 		await RenderingServer.frame_post_draw
-		var path := ProjectSettings.globalize_path("res://../../artifacts/tree-chicken/placed.png")
+		var path := ProjectSettings.globalize_path("res://../../artifacts/tree-chicken/placed-" + kind + ".png")
 		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 		root.get_texture().get_image().save_png(path)
 	check(not scene.harvesting.available(cell), "Occupied tree cannot be chopped")
@@ -96,5 +102,3 @@ func run() -> void:
 	check(Layout.new().restore(legacy), "Previous save version remains readable")
 	scene.queue_free()
 	await process_frame
-	if failures.is_empty(): print("Tree chicken checks passed")
-	quit(0 if failures.is_empty() else 1)

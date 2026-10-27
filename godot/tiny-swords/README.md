@@ -8,7 +8,7 @@ Mac uses the function keys for system controls):
 
 | Scene | Starts with |
 | --- | --- |
-| `previews/tree_chicken_sandbox.tscn` | Fresh carried-chicken fixture with flat and raised Tree 1 targets; click to place or retrieve. |
+| `previews/tree_chicken_sandbox.tscn` | Fresh carried-chicken fixture with flat Tree 1 and raised Tree 2 targets; click to place or retrieve. |
 | `previews/chicken_run_sandbox.tscn` | Two chickens, two sheep, houses, trees, rocks, bushes, and a raised terrace reached by two stairs; fresh on every run. |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Playground → Level +1** to run the real unlock, rewards and animated ribbon, then **Start building**. |
@@ -1576,11 +1576,12 @@ Focused checks: `res://tests/review_sandbox.gd` (fractional placement, two rocks
 one tile, native collisions, receiving tree shadows, JSON restore, pause, undo,
 and, with a renderer, comment screenshot capture and scene restore).
 
-### Chicken in Tree 1
+### Chicken in Tree 1 and Tree 2
 
-While carrying a chicken, hovering a reachable standing Tree 1 uses `Cursor_01`
+While carrying a chicken, hovering a reachable standing Tree 1 or Tree 2 uses `Cursor_01`
 (the cogwheel pointer). Clicking approaches the roots before placing the bird.
-The tree then uses the eight-frame `Tree1_with_chicken.png` atlas at the existing
+The tree then uses its eight-frame `Tree1_with_chicken.png` or
+`Tree2_with_chicken.png` atlas at the existing
 10 fps. Clicking an occupied tree approaches and retrieves the chicken, restarting
 its normal carrying deadline. The chicken stays in the tree indefinitely until
 retrieved, across refreshes and calendar days. Retrieve it before chopping,

@@ -5,7 +5,10 @@ const TEXTURE = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Tr
 const SCALE := 1.0
 const FRAME_SIZE := Vector2(192, 256)
 const SECOND_TEXTURE = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree3.png")
-const CHICKEN_TEXTURE = preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1_with_chicken.png")
+const CHICKEN_TEXTURES := {
+	"tree": preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree1_with_chicken.png"),
+	"tree3": preload("res://Tiny Swords (Free Pack)/Terrain/Resources/Wood/Trees/Tree2_with_chicken.png"),
+}
 const TEXTURES := {
 	"tree": TEXTURE,
 	"tree2": SECOND_TEXTURE,
@@ -25,8 +28,11 @@ static var _watched_sources := {}
 static func art_offset(kind: String) -> Vector2:
 	return Vector2(0, -64) if kind in ["tree2", "tree4"] else Layout.TREE_ART_OFFSET
 
+static func source_texture(kind: String) -> Texture2D:
+	return CHICKEN_TEXTURES[kind.trim_suffix("_chicken")] if kind.ends_with("_chicken") else TEXTURES[kind]
+
 static func frame_size(kind: String) -> Vector2:
-	var texture: Texture2D = (CHICKEN_TEXTURE if kind == "tree_chicken" else TEXTURES[kind])
+	var texture: Texture2D = source_texture(kind)
 	return Vector2(texture.get_width() / 8.0, texture.get_height())
 
 static func stump_offset(kind: String) -> Vector2:
@@ -55,10 +61,10 @@ static func shadow_pixel_on_ground(position: Vector2, ground: Dictionary) -> boo
 	return true
 
 static func texture_at(offset: Vector2, kind := "tree", stump := false, ground: Dictionary = {Vector2i.ZERO: true}, chicken := false) -> Texture2D:
-	if chicken and not stump: kind = "tree_chicken"
+	if chicken and not stump and CHICKEN_TEXTURES.has(kind): kind += "_chicken"
 	var source_key: String = kind + ("_stump" if stump else "")
 	if not _watched_sources.has(source_key):
-		var original: Texture2D = STUMPS[kind] if stump else (CHICKEN_TEXTURE if kind == "tree_chicken" else TEXTURES[kind])
+		var original: Texture2D = STUMPS[kind] if stump else source_texture(kind)
 		original.changed.connect(_source_changed.bind(source_key))
 		_watched_sources[source_key] = true
 	# Clipping depends on relative receiving cells, not their insertion order or
@@ -94,7 +100,7 @@ static func _source_changed(key: String) -> void:
 	clear_texture_cache()
 
 static func _create_texture(offset: Vector2, kind: String, stump: bool, ground: Dictionary) -> Texture2D:
-	var texture: Texture2D = STUMPS[kind] if stump else (CHICKEN_TEXTURE if kind == "tree_chicken" else TEXTURES[kind])
+	var texture: Texture2D = STUMPS[kind] if stump else source_texture(kind)
 	var key: String = kind + ("_stump" if stump else "")
 	if not sources.has(key):
 		var source: Image = texture.get_image()

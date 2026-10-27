@@ -14,7 +14,7 @@ func cancel() -> void:
 	target = NO_TREE
 
 func eligible(cell: Vector2i) -> bool:
-	return ProjectSettings.get_setting("gameplay/chicken_carry_enabled", false) and world.layout.trees.has(cell) and world.layout.tree_types.get(cell, "tree") == "tree" and not world.layout.tree_stumps.has(cell) and (world.layout.chicken_release_at > 0) != world.layout.tree_chickens.has(cell)
+	return ProjectSettings.get_setting("gameplay/chicken_carry_enabled", false) and world.layout.trees.has(cell) and world.layout.tree_types.get(cell, "tree") in world.layout.CHICKEN_TREE_VARIANTS and not world.layout.tree_stumps.has(cell) and (world.layout.chicken_release_at > 0) != world.layout.tree_chickens.has(cell)
 
 func in_reach(cell: Vector2i) -> bool:
 	var anchor: Vector2 = world.layout.tree_position(cell)

@@ -72,6 +72,7 @@ const LEVEL_REWARDS := {
 	20: {"meadow": 3, "tree": 1},
 }
 const TREE_VARIANTS := ["tree", "tree2", "tree3", "tree4"]
+const CHICKEN_TREE_VARIANTS := ["tree", "tree3"] # Authored Tree1 and Tree2 atlases.
 const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 const NAV_STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN, Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]
 var cells: Dictionary = {}
@@ -1631,7 +1632,7 @@ func restore(data: Dictionary) -> bool:
 		for value in record:
 			if not (value is int or value is float) or not is_finite(float(value)) or float(value) != floorf(float(value)): return false
 		var owner := Vector2i(int(record[0]), int(record[1]))
-		if not next_trees.has(owner) or next_tree_types.get(owner, "tree") != "tree" or next_stumps.has(owner) or next_tree_chickens.has(owner): return false
+		if not next_trees.has(owner) or next_tree_types.get(owner, "tree") not in CHICKEN_TREE_VARIANTS or next_stumps.has(owner) or next_tree_chickens.has(owner): return false
 		next_tree_chickens[owner] = true
 	var next_chickens: Array[Vector2] = []
 	if int(data.version) >= 20:
