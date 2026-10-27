@@ -19264,7 +19264,11 @@ function compactReplaceableSearchCache() {
 }
 
 async function initializeBrowserStorage() {
-  await profileRecoveryWorkspace.initialize()
+  // A superseded read leaves peer evidence untouched. Yield before retrying;
+  // only a completed observation may unlock primary opening or promotion.
+  while (await profileRecoveryWorkspace.initialize() === false) {
+    await new Promise(resolve => window.setTimeout(resolve, 0))
+  }
   profileOpeningDiagnostics.markStartup('journal-ready')
   if (profileRecoveryWorkspace.hasPending()) {
     profileRecoveryWorkspace.activate()
@@ -19330,7 +19334,7 @@ async function reconcileBackgroundProfileRecovery({ refreshConflict = false } = 
   let comparedRecoveryEpoch = null
   let promotionStarted = false
   try {
-    await profileRecoveryWorkspace.refresh()
+    if (await profileRecoveryWorkspace.refresh() === false) return
     if (!profileRecoveryWorkspace.isActive()) return
     const originalAccess = window.localStorage.getItem(LEARNER_PROFILE_ACCESS_KEY)
     const protectedKeys = [LEARNER_PROFILE_ACCESS_KEY, LEARNER_PROFILE_SYNC_KEY,

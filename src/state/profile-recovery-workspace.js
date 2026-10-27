@@ -23,6 +23,7 @@ export function createProfileRecoveryWorkspace({
   let epoch = 0
   let persistedRaw = null
   let journalRaw = null
+  let journalObservation = 0
   let journalActive = false
   let journalPending = Promise.resolve(false)
   let journalFailure = null
@@ -428,6 +429,9 @@ export function createProfileRecoveryWorkspace({
           if (record && snapshot) { protectWorkspace(snapshot); persist() }
           return false
         }
+        // A verified write can consume candidates even when the head bytes
+        // stay identical. Advance the observation fence for those writes too.
+        journalObservation++
         journalRaw = result.raw
         journalFailure = null
         if (result.saved) {
@@ -494,11 +498,20 @@ export function createProfileRecoveryWorkspace({
     }
     epoch++
   }
-  async function refreshJournal() {
-    if (!journal) return
+  async function refreshJournal(attempt = 0) {
+    if (!journal) return true
     const fallbacks = captureWebStorageCopies()
+    const observation = journalObservation
     const { raw, candidates } = await journal.read()
+    if (observation !== journalObservation) {
+      // Native read completion can arrive after a newer write acknowledgement.
+      // Reread both head and candidates instead of restoring its stale CAS base.
+      // Sustained concurrent work cancels this refresh without blaming storage;
+      // the untouched evidence remains available to the next refresh attempt.
+      return attempt < 3 ? refreshJournal(attempt + 1) : false
+    }
     const saved = parseRecord(raw)
+    if (journalRaw !== raw) journalObservation++
     journalRaw = raw
     if (raw !== null && !saved) throw new SyntaxError('Invalid recovery archive')
     if (saved) {
@@ -528,6 +541,7 @@ export function createProfileRecoveryWorkspace({
       consumedCandidates.add(candidate.id)
       if (active) persist()
     }
+    return true
   }
   async function flush() {
     if (!journalActive && tier !== 'memory' && !(journal && tier === 'session')) return true
@@ -794,9 +808,13 @@ export function createProfileRecoveryWorkspace({
   }
   return {
     repository, storage, activate, flush,
-    async initialize() { try { await refreshJournal() } catch (error) { onStorageFailure(error, 'open', 'recovery-journal') } },
+    async initialize() { try { return await refreshJournal() } catch (error) { onStorageFailure(error, 'open', 'recovery-journal') } },
     whenSettled,
-    async refresh() { await refreshJournal(); refreshFromDisk() },
+    async refresh() {
+      if (await refreshJournal() === false) return false
+      refreshFromDisk()
+      return true
+    },
     hasPending: () => Boolean(record),
     isActive: () => active, getTier: () => tier,
     getDiagnosticState(incidentId) {

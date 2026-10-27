@@ -69,7 +69,10 @@ export async function deliveryHost(mode = 'brotli') {
     } catch { res.writeHead(404).end() }
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  return { url:`http://127.0.0.1:${server.address().port}/probe`, requests, close:()=>new Promise(resolve=>server.close(resolve)) }
+  return { url:`http://127.0.0.1:${server.address().port}/probe`, requests, close:()=>new Promise(resolve=>{
+    server.close(resolve)
+    server.closeAllConnections()
+  }) }
 }
 
 test('Brotli works on Pages-style hosting and an updated game reuses its engine cache', async ({ playwright, browserName }, testInfo) => {

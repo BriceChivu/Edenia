@@ -197,11 +197,94 @@ test('tester import escapes the shared localStorage quota and regular migration 
       buffer: Buffer.from(fixture.serialized)
     })
   }
+  // Keep recovery active while selecting the focus read. Only the original
+  // profile database is unavailable; its separate recovery journal still works.
+  await page.evaluate(databaseName => {
+    const put = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === 'profiles' && this.transaction.db.name === databaseName) {
+        throw new DOMException('Original profile storage remains full', 'QuotaExceededError')
+      }
+      return put.apply(this, args)
+    }
+    window.restoreOriginalProfileWrites = () => { IDBObjectStore.prototype.put = put }
+  }, testerDatabase)
   await importFixture(page)
   await expect(page.locator('#toast')).toContainText('Sync file imported')
   await expect.poll(async () => (await head(page, 'legacy-recovery', testerDatabase))?.raw
     || await page.evaluate(key => localStorage.getItem(key), testerKey)).toBe(fixture.testerRaw)
   expect(await page.evaluate(() => Object.keys(loadState().videos).length)).toBe(1612)
+  // Finish earlier journal writes and reconciliation before selecting the
+  // focus read, so the gate cannot capture a writer's own readback instead.
+  await expect.poll(() => page.evaluate(async () => {
+    if (recoveryReconciliationPending) return false
+    if (!await profileRecoveryWorkspace.storage.flush() || recoveryReconciliationPending) return false
+    const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete')
+    const add = IDBObjectStore.prototype.add
+    const save = profileRecoveryWorkspace.repository.save
+    const race = window.recoveryReadRace = { collisions: 0, released: false }
+    IDBObjectStore.prototype.add = function (value, ...args) {
+      if (this.name === 'candidates' && value?.namespace === 'edenia_v1_internal_test_2') race.collisions++
+      return add.call(this, value, ...args)
+    }
+    Object.defineProperty(IDBTransaction.prototype, 'oncomplete', { ...completion,
+      set(callback) {
+        if (typeof callback !== 'function') return completion.set.call(this, callback)
+        return completion.set.call(this, function (event) {
+          if (!race.release && this.mode === 'readonly' && this.db.name === 'edenia_profile_recovery_v1') {
+            race.release = () => {
+              if (race.released) return
+              race.released = true
+              callback.call(this, event)
+            }
+          } else callback.call(this, event)
+        })
+      }
+    })
+    profileRecoveryWorkspace.repository.save = function (profile, options, ...args) {
+      const pending = save.call(this, profile, options, ...args)
+      if (options?.replace && profile.videos?.portable0000?.resumeAtSeconds === 111) {
+        return Promise.resolve(pending).then(saved => {
+          race.importSaved = saved
+          race.release()
+          return saved
+        })
+      }
+      return pending
+    }
+    race.restore = () => {
+      race.release?.()
+      Object.defineProperty(IDBTransaction.prototype, 'oncomplete', completion)
+      IDBObjectStore.prototype.add = add
+      profileRecoveryWorkspace.repository.save = save
+    }
+    // Delay this focus read's native completion after its transaction finishes.
+    window.dispatchEvent(new Event('focus'))
+    return true
+  })).toBe(true)
+  try {
+    await page.waitForFunction(() => window.recoveryReadRace.release)
+    fixture.serialized = await page.evaluate(async () => {
+      const state = loadState({ persistCleanup: false })
+      state.videos.portable0000.resumeAtSeconds = 111
+      state.anki['2026-10-01'].reviewed = 44
+      state.tinySwordsIsland.resources.wood = 9
+      document.getElementById('toast').textContent = ''
+      return (await createPortableLearnerProfileEnvelope(state)).serialized
+    })
+    await importFixture(page)
+    await expect(page.locator('#toast')).toContainText('Sync file imported')
+    await expect.poll(() => page.evaluate(() => recoveryReadRace.released)).toBe(true)
+    await expect.poll(() => page.evaluate(() => profileRecoveryWorkspace.storage.flush())).toBe(true)
+    expect(await page.evaluate(() => ({
+      collisions: recoveryReadRace.collisions, saved: recoveryReadRace.importSaved,
+      resume: loadState().videos.portable0000.resumeAtSeconds,
+      reviewed: loadState().anki['2026-10-01'].reviewed,
+      wood: loadState().tinySwordsIsland.resources.wood
+    }))).toEqual({ collisions: 0, saved: true, resume: 111, reviewed: 44, wood: 9 })
+  } finally {
+    await page.evaluate(() => { recoveryReadRace.restore(); restoreOriginalProfileWrites() })
+  }
   // The exact displaced profile is protected in the original legacy-recovery record.
 
   enabled = true
@@ -236,8 +319,9 @@ test('tester import escapes the shared localStorage quota and regular migration 
   expect(restored.lesson.watchProgress[0].seconds).toBe(90)
   expect(restored.lesson.favorite).toBe(true)
   expect(restored.lesson.watchLater).toBe(true)
-  expect(restored.anki.reviewed).toBe(12)
-  expect(restored.island.resources.wood).toBe(8)
+  expect(restored.lesson.resumeAtSeconds).toBe(111)
+  expect(restored.anki.reviewed).toBe(44)
+  expect(restored.island.resources.wood).toBe(9)
   const testerHead = await head(reopened, 'active', testerDatabase)
 
   enabled = true

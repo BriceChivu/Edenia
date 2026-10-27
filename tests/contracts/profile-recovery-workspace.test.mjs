@@ -701,3 +701,179 @@ test('legacy active workspaces acquire one incident ID and retain it on reload',
   reloaded.activate()
   assert.deepEqual(reloaded.getDiagnosticContext(), context)
 })
+
+
+async function deferredJournalFixture() {
+  const f = fixture({ denied: true })
+  let raw = null, hold = null, reads = 0, collisions = 0
+  const candidates = new Map(), failures = []
+  const journal = {
+    async read() {
+      reads++
+      const result = { raw, candidates: structuredClone([...candidates.values()]) }
+      if (hold) { const pending = hold; hold = null; pending.enter(); await pending.promise }
+      return result
+    },
+    async save(next, expected, { consumedIds = [], canPersist }) {
+      if (!canPersist()) return { cancelled: true, raw }
+      if (raw !== expected && raw !== next) {
+        collisions++
+        const candidate = { id: crypto.randomUUID(), raw: next, baselineRaw: expected }
+        candidates.set(candidate.id, candidate)
+        return { saved: false, raw, candidate }
+      }
+      raw = next
+      for (const id of consumedIds) candidates.delete(id)
+      return { saved: true, raw }
+    }
+  }
+  const workspace = createProfileRecoveryWorkspace({ ...f.options, journal, onStorageFailure: error => failures.push(error) })
+  workspace.activate()
+  assert.equal(await workspace.flush(), true)
+  return { workspace, journal, candidates, failures,
+    raw: () => raw, setRaw: value => { raw = value }, reads: () => reads, collisions: () => collisions,
+    holdRead() {
+      let release, enter
+      const entered = new Promise(resolve => { enter = resolve })
+      const promise = new Promise(resolve => { release = resolve })
+      hold = { promise, enter }
+      return { entered, release }
+    } }
+}
+
+test('a delayed recovery read cannot roll back a newer acknowledged journal base', async () => {
+  const f = await deferredJournalFixture(), gate = f.holdRead()
+  const refreshing = f.workspace.refresh()
+  await gate.entered
+  const current = f.workspace.repository.snapshot()
+  current.watch = 7
+  assert.equal(await f.workspace.repository.save(current), true)
+  const acknowledged = f.raw()
+  gate.release()
+  await refreshing
+  f.workspace.storage.setItem('sync', 'later metadata')
+  assert.equal(await f.workspace.flush(), true)
+  assert.equal(f.collisions(), 0, 'A read delivered before our acknowledgement must never become its CAS base')
+  assert.equal(f.workspace.repository.snapshot().watch, 7)
+  assert.equal(JSON.parse(JSON.parse(f.raw()).values.profile).watch, 7)
+  assert.ok(JSON.parse(f.raw()).sequence >= JSON.parse(acknowledged).sequence)
+})
+
+test('refreshing after a delayed read still incorporates fresh candidate evidence', async () => {
+  const f = await deferredJournalFixture(), gate = f.holdRead()
+  const refreshing = f.workspace.refresh()
+  await gate.entered
+  const current = f.workspace.repository.snapshot()
+  current.watch = 7
+  assert.equal(await f.workspace.repository.save(current), true)
+  const base = f.raw(), candidate = JSON.parse(base)
+  candidate.values.profile = JSON.stringify({ ...current, insight: 'retained peer fact' })
+  f.candidates.set('fresh-peer', { id: 'fresh-peer', raw: JSON.stringify(candidate), baselineRaw: base })
+  gate.release()
+  await refreshing
+  assert.equal(await f.workspace.flush(), true)
+  assert.equal(f.collisions(), 0)
+  assert.equal(f.workspace.repository.snapshot().insight, 'retained peer fact')
+  assert.equal(f.candidates.size, 0, 'Retire fresh evidence only after incorporating its durable body')
+})
+
+for (const boundary of ['owner', 'reset']) {
+  test(`a fresh peer ${boundary} observed after a stale read retains its scope fences`, async () => {
+    const f = await deferredJournalFixture(), gate = f.holdRead()
+    const refreshing = f.workspace.refresh()
+    await gate.entered
+    const current = f.workspace.repository.snapshot(), access = f.workspace.storage.getItem('access')
+    current.watch = 7
+    assert.equal(await f.workspace.repository.save(current), true)
+    const stale = f.workspace.repository.snapshot()
+    const peer = JSON.parse(f.raw())
+    peer.sequence++
+    peer.values.profile = JSON.stringify({ watch: 3, language: 'es' })
+    if (boundary === 'owner') peer.values.access = '{"ownerId":"peer-owner"}'
+    else { peer.replacement = true; peer.replacementId = crypto.randomUUID(); peer.originalReplacementRevision = 2 }
+    f.setRaw(JSON.stringify(peer))
+    gate.release()
+    await refreshing
+    assert.deepEqual(f.workspace.repository.snapshot(), { watch: 3, language: 'es' })
+    stale.watch = 8
+    assert.equal(await f.workspace.repository.save(stale, {
+      canPersist: () => f.workspace.storage.getItem('access') === access
+    }), false)
+    assert.deepEqual(f.workspace.repository.snapshot(), { watch: 3, language: 'es' })
+    assert.ok(JSON.parse(f.raw()).protectedWorkspaces?.some(copy => JSON.parse(copy.values.profile).watch === 7))
+  })
+}
+
+test('concurrent equal recovery reads do not invalidate each other', async () => {
+  const f = await deferredJournalFixture(), gate = f.holdRead(), before = f.reads()
+  const first = f.workspace.refresh()
+  await gate.entered
+  await f.workspace.refresh()
+  gate.release()
+  await first
+  assert.equal(f.reads() - before, 2, 'Equal read observations must not cause a retry cascade')
+  assert.equal(f.collisions(), 0)
+})
+
+
+test('same-head write acknowledgement invalidates an older candidate observation', async () => {
+  const f = await deferredJournalFixture(), base = f.raw(), gate = f.holdRead(), before = f.reads()
+  f.candidates.set('already-covered', { id: 'already-covered', raw: base, baselineRaw: base })
+  const refreshing = f.workspace.refresh()
+  await gate.entered
+  // A peer can retire an already-covered candidate without changing the head.
+  // Our following verified same-head write observes that accepted journal state.
+  f.candidates.delete('already-covered')
+  assert.equal(await f.workspace.flush(), true)
+  assert.equal(f.raw(), base)
+  gate.release()
+  assert.equal(await refreshing, true)
+  assert.equal(f.reads() - before, 2, 'Raw string equality must not admit the pre-acknowledgement candidate list')
+  assert.equal(f.raw(), base, 'Do not resurrect covered evidence from a delayed observation')
+  assert.equal(f.collisions(), 0)
+})
+
+test('sustained write observations cancel refresh without accepting stale evidence or blaming storage', async () => {
+  const f = await deferredJournalFixture(), base = f.raw(), copy = JSON.parse(base)
+  copy.values.profile = JSON.stringify({ watch: 1, language: 'fr', insight: 'fresh evidence' })
+  f.candidates.set('pending-peer', { id: 'pending-peer', raw: JSON.stringify(copy), baselineRaw: base })
+  const read = f.journal.read, failures = f.failures.length, before = f.reads()
+  let writes = 0
+  f.journal.read = async () => {
+    const snapshot = await read()
+    f.workspace.storage.setItem('sync', `concurrent observation ${++writes}`)
+    assert.equal(await f.workspace.flush(), true)
+    return snapshot
+  }
+  assert.equal(await f.workspace.refresh(), false, 'An unprocessed observation cannot count as a successful refresh')
+  assert.equal(f.reads() - before, 4, 'A busy reader has bounded work')
+  assert.equal(f.failures.length, failures, 'Concurrent observations are cancellation, not storage failure')
+  assert.equal(f.collisions(), 0)
+  assert.equal(f.candidates.size, 1, 'Cancellation cannot retire unseen candidate evidence')
+  assert.equal(JSON.parse(f.raw()).values.sync, 'concurrent observation 4')
+  f.journal.read = read
+  assert.equal(await f.workspace.refresh(), true)
+  assert.equal(await f.workspace.flush(), true)
+  assert.equal(f.workspace.repository.snapshot().insight, 'fresh evidence')
+  assert.equal(f.candidates.size, 0)
+  assert.equal(f.collisions(), 0)
+})
+
+
+test('initializing recovery cannot mark a cancelled journal observation ready', async () => {
+  const f = await deferredJournalFixture(), read = f.journal.read, failures = f.failures.length
+  let writes = 0
+  f.journal.read = async () => {
+    const snapshot = await read()
+    f.workspace.storage.setItem('sync', `initialization overlap ${++writes}`)
+    assert.equal(await f.workspace.flush(), true)
+    return snapshot
+  }
+  assert.equal(await f.workspace.initialize(), false)
+  assert.equal(writes, 4)
+  assert.equal(f.failures.length, failures)
+  assert.equal(f.collisions(), 0)
+  f.journal.read = read
+  assert.equal(await f.workspace.initialize(), true)
+  assert.equal(JSON.parse(f.raw()).values.sync, 'initialization overlap 4')
+})

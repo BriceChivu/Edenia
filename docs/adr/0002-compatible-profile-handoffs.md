@@ -140,3 +140,11 @@ optional outbox `animalCheckpoint` reader. Reverting the complete pre-amendment
 client can ignore newer local positions or reject a stamped pending upload.
 No cloud schema, cadence, retention or account rollout changes
 accompany this amendment.
+
+Recovery reads carry an observation fence across their asynchronous journal
+read. A newer verified write, including a same-head receipt that consumes
+candidates, invalidates an older observation. Refresh rereads the complete head
+and candidates before applying either. Equal reads do not invalidate one another.
+Bounded concurrent-read cancellation preserves all evidence, keeps startup pending
+with a task yield before retry, and stops promotion until a completed refresh.
+Cancellation does not waive owner/replacement fences or report a storage failure.

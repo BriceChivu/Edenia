@@ -2,8 +2,9 @@
 
 The approved implementation restores safe animal positions without restoring
 per-movement cloud work or making clean profile opening download a full profile.
-The final combined-release baseline is `e2d3cfec` (released snapshot 39 with
-tree-perched chickens); the implementation freeze is `34a24626` (snapshot 40).
+The combined-release baseline is `e2d3cfec` (released snapshot 39 with
+tree-perched chickens); the retained implementation freeze is `34a24626`
+(snapshot 40), preceding the final recovery-read guard described below.
 Earlier feature-isolation results against `1121d0ac` (snapshot 38) are retained
 below and explicitly labelled. Both baselines omitted wandering positions, so
 zero movement writes is a missing feature, not a like-for-like performance target.
@@ -31,7 +32,38 @@ An 8-pixel movement deadband suppressed only 1 of 61 observed candidates. It was
 omitted: cadence coalescing provides the useful reduction without rounding valid
 contacts or adding another comparison state.
 
-## Combined version-40 release comparison
+## Final recovery-read coordination
+
+Broad CI exposed a rare quota-import failure. Controlled tests with real native
+IndexedDB established a stale-read hazard: a delayed focus read could replace a
+newer acknowledged recovery-journal base with an older one. Subsequent writes
+then created avoidable compare-and-swap conflicts. Combining that ordering with
+actual opening maintenance reproduced the import failure when the acknowledgement
+loop exhausted its retries. The original CI trace lacks enough internal state to
+prove that exact ordering; all failed controls remain retained.
+
+The guard now counts verified journal observations. A superseded read rereads
+both head and candidate evidence before changing either. Same-head write receipts
+also advance the fence because they may consume candidates; equal read results
+do not invalidate one another. Four continuously superseded observations cancel
+the refresh without reporting a storage error or retiring unseen evidence.
+Startup yields and retries cancellation before opening primary storage; background
+promotion stops until a completed refresh. Existing ownership and reset checks
+remain intact. Continuous concurrent changes can therefore delay opening until
+a stable observation is available.
+
+The permanent browser regression delays native read completion across a second
+real import, requires zero avoidable journal conflicts, and retains the original
+archive/migration/cold-reopen checks. Focused contracts cover stale and same-head
+reads, fresh candidates, owner/reset boundaries, equal-read concurrency and
+cancelled initialization followed by a fresh successful attempt.
+
+Component/native tables retain their precise source pins below. Their captured
+leaf dependencies can be checked separately from the changed app/recovery path.
+Subsequent app-level repeats and exact release verification are recorded in
+[PR #520](https://github.com/BriceChivu/Edenia/pull/520).
+
+## Retained combined version-40 implementation comparison
 
 Master advanced during validation: PR #519 had independently released version 39
 for tree-perched chickens. The integration therefore writes version 40, reads
