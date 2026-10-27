@@ -30,7 +30,7 @@ const { values } = parseArgs({ options: {
 } })
 if (values.help) {
   console.log('Usage: node scripts/diagnostics/profile-opening-comparison.mjs --before-site <frozen site> --after-site <frozen site> --output-dir <audit folder> [--pairs 5] [--cohort <name>] [--pilot]')
-  console.log('Cohorts: fresh-google-500, expired-google-2500, clean-email-500, dirty-email-500, combined-bank-cpu1, combined-bank-cpu4; opt-in hash-email-2500-cpu1, hash-email-2500-cpu4, game-email-500, pose-email-500, pose-email-2500')
+  console.log('Cohorts: fresh-google-500, expired-google-2500, clean-email-500, dirty-email-500, combined-bank-cpu1, combined-bank-cpu4; opt-in hash-email-2500-cpu1, hash-email-2500-cpu4, game-email-500, pose-email-500, pose-email-2500, headed-pose-email-500, headed-pose-email-2500')
   process.exit(0)
 }
 assert.ok(values['before-site'] && values['output-dir'], '--before-site and --output-dir are required')
@@ -165,10 +165,12 @@ const cohorts = [
   { id: 'hash-email-2500-cpu4', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 4, optInOnly: true },
   { id: 'game-email-500', count: 500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, engine: true, optInOnly: true },
   { id: 'pose-email-500', count: 500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, optInOnly: true },
-  { id: 'pose-email-2500', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, optInOnly: true }
+  { id: 'pose-email-2500', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, optInOnly: true },
+  { id: 'headed-pose-email-500', count: 500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, headed: true, optInOnly: true },
+  { id: 'headed-pose-email-2500', count: 2500, delay: 500, authMode: 'fresh-email', backupCount: 0, cpuRate: 1, positions: true, headed: true, optInOnly: true }
 ]
 async function run(cohort, variant, trial) {
-  const { count, delay, authMode, backupCount, cpuRate, dirty = false, engine = false, positions = false } = cohort
+  const { count, delay, authMode, backupCount, cpuRate, dirty = false, engine = false, positions = false, headed = false } = cohort
   const scenario = engine ? 'cold-game' : 'returning'
   const local = 'http://localhost:' + ports[variant]
   const session = structuredClone(fixture.session)
@@ -393,7 +395,7 @@ async function run(cohort, variant, trial) {
       }
     }, 1)
   }, { scenario, envelope, key, session: seededSession, ownerId, profileId, debug:values['debug-eligibility'], engine })
-  const sample = { cohort: cohort.id, variant, count, delayMs: delay, scenario, trial, authMode, backupCount, cpuRate, dirty, engine, positions, fixtureBytes: bytes, appSha256: frozen[variant].appSha256 }
+  const sample = { cohort: cohort.id, variant, count, delayMs: delay, scenario, trial, authMode, backupCount, cpuRate, dirty, engine, positions, headed, fixtureBytes: bytes, appSha256: frozen[variant].appSha256 }
   try {
     phase = scenario === 'returning' ? 'warmup' : 'measured'
     await page.goto(local + '/?internal_test=1', { waitUntil: 'domcontentloaded' })
@@ -418,6 +420,24 @@ async function run(cohort, variant, trial) {
       assert.equal(sample.warmup.sha256, digest, 'Settled portable content must match accepted cloud fixture')
       assert.deepEqual(sample.warmup.sync, { acceptedRevision:1,pending:false,queued:false })
       assert.equal(sample.warmup.dirty, false)
+      if (positions && headed) {
+        // A game that has already saved uses a split immutable-body/head store
+        // on both versions. Match that representation before testing local Q;
+        // otherwise only the after variant pays its first lazy reconstruction.
+        sample.headWarmup = await page.evaluate(async ({ ownerId, profileId, key }) => {
+          const repository = getProfileRepository()
+          const activation = learnerProfileLifecycleAuthority.getState().activation
+          const before = getPortableProfileSnapshot(repository.snapshot())
+          const layout = repository.readIslandState().tinySwordsIsland
+          const saved = await repository.saveIsland(layout, JSON.stringify(layout), {
+            binding: { ownerId, profileId, generation: 1, revision: 1 },
+            canPersist: () => learnerProfileLifecycleAuthority.getState().activation === activation
+          })
+          return { saved, canonicalUnchanged: before === getPortableProfileSnapshot(repository.snapshot()),
+            dirty: localStorage.getItem(key + '_learner_profile_sync_v1_dirty') !== null }
+        }, { ownerId, profileId, key })
+        assert.deepEqual(sample.headWarmup, { saved: true, canonicalUnchanged: true, dirty: false })
+      }
       if (positions && variant === 'after') {
         sample.animalCheckpoint = await page.evaluate(async key => {
           const before = getProfileRepository().readRaw()

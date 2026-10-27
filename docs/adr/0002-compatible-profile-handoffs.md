@@ -95,7 +95,8 @@ removal/edit intent and cyclic order choices retain protected comparison.
 retains the upgraded local/outbox readers and routes already-created typed
 requests by their durable format through acknowledgement. It does not discard a
 sent request or resubmit it under a new transport after an uncertain response.
-Rollback retains the compatible server authority and the v38 Godot reader.
+Rollback retains the compatible server authority and the current Godot reader
+(version 39 after the animal-position amendment below).
 
 October 27 animal-position amendment, superseding the version-38 removal of
 wandering positions above: version 39 retains authoritative safe animal contacts.
@@ -130,6 +131,9 @@ otherwise clean. Explicit Sync/export request an acknowledged safe-contact captu
 Hidden-page and page-close captures remain best effort because browsers can freeze
 the game before its message runs. Five-second local checkpointing bounds the
 ordinary loss window; exact last-frame positions are not promised. Count-only
-version-38 positions cannot be recovered retroactively. Retain the version-39
-reader on rollback. No cloud schema, cadence, retention or account rollout changes
+version-38 positions cannot be recovered retroactively. Rollback must retain the
+version-39 Godot reader, Edenia's checkpoint-head/animal-record readers and the
+optional outbox `animalCheckpoint` reader. Reverting the complete pre-amendment
+client can ignore newer local positions or reject a stamped pending upload.
+No cloud schema, cadence, retention or account rollout changes
 accompany this amendment.

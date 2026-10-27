@@ -105,6 +105,85 @@ mock latency and client bookkeeping cannot establish production database or
 network latency. Earlier harness controls are retained separately, including a
 discarded full-profile mock-server implementation and intermediate source pins.
 
+## Whole-application opening comparison
+
+Frozen public/game-enabled builds of baseline `1121d0ac` and implementation
+`532807c0` ran five alternating pairs per cohort, in fresh Chromium contexts.
+Returning cases used the real SDK with locally fulfilled conditional-opening
+responses, fixed 500 ms latency and native clocks; the combined case also used
+an expired synthetic Google session, five backup banks and fourfold CPU slowdown.
+The after pose cases retained a separate newer local checkpoint while the exact
+canonical accepted profile remained unchanged. No provider request was dispatched.
+
+| Cohort | Before usable median ms | After usable median ms | Before / after range ms |
+| --- | ---: | ---: | --- |
+| Returning, 500 videos | 672.8 | 674.7 | 671.5–700.7 / 660.3–680.3 |
+| Returning, 2,500 videos | 890.0 | 911.4 | 874.5–899.6 / 886.1–930.8 |
+| Combined 2,500-video stress case | 3,375.1 | 3,394.7 | 3,337.6–3,491.2 / 3,283.9–3,469.0 |
+| Cold opening with real game, 500 videos | 748.0 | 735.9 | See retained raw samples |
+
+The normal returning cohorts never painted the progress-loading notice. In the
+combined stress case its painted duration was 1,173.8 → 1,217.2 ms median, with
+overlapping ranges. Cold-game first draw was 2,465.9 → 2,431.4 ms median
+(2,267.4–2,773.1 / 2,397.7–2,580.2 ms); all ten initial native migrations
+received durable acknowledgements. All thirty returning cases received the
+conditional `profile_unchanged` result and preserved study/configuration facts.
+
+An additional twenty openings matched both versions' already-split immutable
+body/head storage before measurement. This removes the first side checkpoint's
+storage-layout conversion as a confound. Medians were 678.7 → 675.0 ms at 500
+videos (645.0–693.3 / 661.0–695.6), and 915.3 → 926.8 ms at 2,500
+(887.1–923.6 / 894.3–1,011.8). All twenty retained exact canonical content and
+received `profile_unchanged`; newer positions were exposed only in the game view.
+
+These sixty final observations establish compatibility with the existing fast
+opening path, not a loading speedup or a precise zero-cost bound. Original
+unmatched-layout samples and four pilot observations are retained separately.
+Cold-game results include download, engine startup and scene work; they must not
+be presented as repository-read latency.
+
+## Active-game comparison
+
+The same frozen builds ran five alternating before/after pairs per profile size,
+with the real Godot game, native animation-frame clocks, a five-second warmup and
+fifteen-second observation windows. Real mouse walking caused animal following;
+the fixture had no loose/carried wood to prevent walking clicks becoming
+construction or pickup actions. CPU rate was 1, mock RPC latency 100 ms, and
+typed record delivery was disabled symmetrically to isolate movement. No study
+edit was made; ordinary typed delivery was measured separately above.
+
+| Profile | Before parent throughput FPS, median (range) | After parent throughput FPS, median (range) | Before / after median p99 frame ms |
+| --- | --- | --- | --- |
+| 500 videos | 58.79 (50.91–59.80) | 59.33 (58.60–59.80) | 23.59 / 21.94 |
+| 2,500 videos | 55.93 (49.53–59.67) | 56.00 (30.70–59.80) | 54.91 / 54.26 |
+
+All twenty original observations are retained. One after/2,500 sample hit the
+initial recorder's overly strict prohibition on any backend-shaped request:
+existing session re-verification made three locally fulfilled auth/metadata
+requests, but no progress commit. Its parent/child worst frame gaps were
+1,010.8/995.1 ms, and input commands were delayed. The slowdown began before
+its position checkpoint; this does not establish causality. Existing auth and
+entitlement handlers are unchanged. A before sample also had a roughly 562 ms
+parent gap. No frame-tail improvement or absence of regression is claimed.
+
+That sample passed canonical equality and native/storage guards but stopped
+before the final portable-fact hash check. The post-measurement validator was
+narrowed to allow only the three known successful auth/metadata routes, and the
+remaining five original observations resumed after a browser-process restart.
+One explicitly additional replicate completed the omitted integrity checks; it
+does not replace the slow sample. Timed input and in-page probe bytes are
+identical across segments. Request phase labels span the input routine and
+therefore do not establish that every metadata request fell inside the exact
+fifteen-second frame interval.
+
+Across all twenty-one observations, eleven actual animal-record writes received
+durable acknowledgements, with zero immutable-body I/O, zero instrumented
+whole-profile operations and zero progress commits during the active routine.
+Twenty observations have full final fact-hash admission; the original slow
+observation has the explicitly limited admission above. All-sample tail reporting
+retains its stall and all late inputs. Pilots, the failed strict receipt, browser
+segment boundaries and source hashes remain in the external audit directory.
+
 ## Correctness and release evidence
 
 Tests cover real native movement/restore, carried and perched animals, safe house
@@ -135,3 +214,7 @@ Detailed raw traces, source/artifact manifests, paired samples and logs are kept
 outside the worktree in the task's `animal-position-implementation-2026-10-27`
 audit directory. Browser phone projects are emulation; physical-device and real
 authenticated production writes are outside this synthetic validation.
+
+Rollback must retain the v39 Godot reader and Edenia's checkpoint-head,
+animal-record and optional stamped-outbox readers. Reverting the complete old
+client can ignore newer local positions or reject a stamped pending upload.
