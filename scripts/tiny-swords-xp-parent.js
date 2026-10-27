@@ -435,7 +435,13 @@ if (window.edeniaTinySwordsEnabled === true) {
     let cursorSize = 0
     function matchCameraCursor() {
       if (touchDevice) return
-      const viewport = frame?.contentWindow?.edeniaCamera
+      let viewport
+      try { viewport = frame?.contentWindow?.edeniaCamera }
+      catch (error) {
+        // A failed iframe can have an opaque browser-error document.
+        if (error?.name !== 'SecurityError') throw error
+        return
+      }
       if (!cursorImage.complete || !cursorImage.naturalWidth || !viewport?.width) return
       const scale = frame?.getBoundingClientRect().width / viewport.width
       const size = Math.max(1, Math.round(cursorImage.naturalWidth * scale))

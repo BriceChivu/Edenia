@@ -6,6 +6,7 @@ import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tin
 
 function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false, search = '' } = {}) {
   const handlers = {}; const sent = []; const frames = []; const storage = new Map(); const saves = []; const activities = []
+  const styles = new Map(), cursorImages = [], cursorCanvases = []
   if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
   let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
   if (inactive) state = null
@@ -23,20 +24,24 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
       return true
     }
   })
-  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(){}},addEventListener(){},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},remove(){this.removed=true},append(){} }
+  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(key,value){styles.set(key,value)}},addEventListener(type,fn){if(type==='pointerenter')handlers.cameraPointerEnter=fn},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},remove(){this.removed=true},append(){} }
   const context = {
     location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037',search},
     URL, URLSearchParams,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
     window:{edeniaTinySwordsEnabled:true,edeniaTinySwordsLegacyPreview:developer,EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn},dispatchEvent(event){ if (event.type === 'edenia-tiny-swords-activity') activities.push(event.detail) }},
     document:{body:node,querySelectorAll(){return []},currentScript:{src:'http://localhost:8037/tiny-swords-game/test/parent.js'},documentElement:node,visibilityState:'visible',addEventListener(type,fn){handlers[type]=fn},createElement(type){
+      if(type==='canvas') {
+        const canvas={getContext(){return {drawImage(){}}},toDataURL(){return 'data:image/png;base64,cursor'}}
+        cursorCanvases.push(canvas);return canvas
+      }
       if(type!=='iframe') return {...node}
-      const frame = {...node,contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
+      const frame = {...node,getBoundingClientRect(){return {width:800}},contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
     },querySelector(){return node},getElementById(){return node}},
     localStorage:{getItem:k=>storage.get(k)??null,removeItem:k=>storage.delete(k)},
     setTimeout(){return 1}, clearTimeout(){}, setInterval(){return 1}, clearInterval(){}, performance,
     MutationObserver:class{observe(){}},
-    TextEncoder, Image:class{addEventListener(){}},ResizeObserver:class{observe(){} unobserve(){}},
+    TextEncoder, Image:class{constructor(){this.complete=false;this.naturalWidth=0;this.handlers={};cursorImages.push(this)}addEventListener(type,fn){this.handlers[type]=fn}},ResizeObserver:class{constructor(fn){handlers.cameraResize=fn}observe(){} unobserve(){}},
     IntersectionObserver:class{constructor(fn){handlers.intersection=fn}observe(){}unobserve(){}}
   }
   vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-parent.js','utf8'),context)
@@ -46,7 +51,7 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
     await emit({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]})
     await emit({type:'edenia-tiny-restored', session:sent.findLast(x=>x.type==='edenia-study-level').session, accepted:true})
   }
-  return { ready, emit, sent, storage, frames, handlers, persistence, saves, activities, document:context.document,
+  return { ready, emit, sent, storage, frames, handlers, persistence, saves, activities, document:context.document, styles, cursorImages, cursorCanvases,
     attemptClaim(index, persisted) {
       state.cityProgress.maxLevelIndex = index
       if (persisted) { durable = structuredClone(state); handlers['edenia-profile-persisted']({detail:{}}) }
@@ -56,6 +61,63 @@ function harness({ legacy = null, island = 'absent', denied = false, delayed = f
     finishPending(){finishPending()},get writes(){return writes},get durable(){return durable},replace(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{replacement:true}})} }
 }
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
+
+for (const imageLoaded of [false, true]) {
+  test(`an opaque failed frame cannot throw from camera cursor callbacks (${imageLoaded ? 'loaded image' : 'pending image'})`, () => {
+    const h = harness({ island })
+    const image = h.cursorImages[0]
+    image.complete = imageLoaded
+    image.naturalWidth = imageLoaded ? 64 : 0
+    Object.defineProperty(h.frames[0].contentWindow, 'edeniaCamera', { configurable: true,
+      get() { throw new DOMException('Blocked an opaque frame', 'SecurityError') } })
+    assert.doesNotThrow(() => h.handlers.cameraResize())
+    assert.doesNotThrow(() => h.handlers.cameraPointerEnter())
+    assert.doesNotThrow(() => image.handlers.load())
+    assert.equal(h.cursorCanvases.length, 0)
+    assert.equal(h.styles.has('--tiny-swords-camera-cursor'), false)
+    assert.equal(h.document.getElementById('tinySwordsSurface').dataset.gameState, 'loading')
+    assert.equal(h.writes, 0)
+    // A later same-origin document still supplies the ordinary scaling facts.
+    Object.defineProperty(h.frames[0].contentWindow, 'edeniaCamera', { value: { width: 400 }, configurable: true })
+    image.complete = true
+    image.naturalWidth = 64
+    image.handlers.load()
+    assert.equal(h.cursorCanvases[0].width, 128)
+    assert.equal(h.styles.get('--tiny-swords-camera-cursor'), 'url("data:image/png;base64,cursor") 48 36, default')
+  })
+}
+
+test('same-origin camera cursor keeps its image-load and resize scaling', () => {
+  const h = harness({ island })
+  const image = h.cursorImages[0]
+  h.frames[0].contentWindow.edeniaCamera = { width: 400 }
+  h.handlers.cameraResize()
+  assert.equal(h.cursorCanvases.length, 0, 'An unfinished cursor image cannot be drawn')
+  image.complete = true
+  image.naturalWidth = 64
+  image.handlers.load()
+  assert.equal(h.cursorCanvases[0].width, 128)
+  assert.equal(h.cursorCanvases[0].height, 128)
+  h.frames[0].getBoundingClientRect = () => ({ width: 600 })
+  h.handlers.cameraResize()
+  assert.equal(h.cursorCanvases[1].width, 96)
+  assert.equal(h.styles.get('--tiny-swords-camera-cursor'), 'url("data:image/png;base64,cursor") 36 27, default')
+  h.handlers.cameraPointerEnter()
+  assert.equal(h.cursorCanvases.length, 2, 'Unchanged sizing does not redraw the cursor')
+})
+
+test('camera cursor retains programming exceptions and security errors outside the frame read', () => {
+  const h = harness({ island })
+  const failure = new TypeError('Unexpected camera accessor failure')
+  Object.defineProperty(h.frames[0].contentWindow, 'edeniaCamera', { configurable: true, get() { throw failure } })
+  assert.throws(() => h.handlers.cameraResize(), error => error === failure)
+  Object.defineProperty(h.frames[0].contentWindow, 'edeniaCamera', { configurable: true, value: { width: 400 } })
+  h.cursorImages[0].complete = true
+  h.cursorImages[0].naturalWidth = 64
+  const outsideRead = new DOMException('Unexpected geometry failure', 'SecurityError')
+  h.frames[0].getBoundingClientRect = () => { throw outsideRead }
+  assert.throws(() => h.handlers.cameraResize(), error => error === outsideRead)
+})
 
 test('host enables the black-hole rollout only for internal_test=1', () => {
   for (const [search, expected] of [['', null], ['?internal_test=1', '1'], ['?internal_test=2', null], ['?internal_test=true', null], ['?tiny_swords_fps=60', null]]) {
