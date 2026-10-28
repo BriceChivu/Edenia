@@ -164,6 +164,23 @@ the private function call; the secret is never embedded in `cron.job`. Its
 migration never invokes the activation function. The dispatcher capability
 cannot install its own schedule. See [Supabase Cron](https://supabase.com/docs/guides/cron).
 
+The scheduler requires the installed `pg_net` extension and its `net.http_post`
+transport. The transport migration installs the extension without enabling
+delivery, creating a Cron job, or queuing a request. Schedule activation checks
+transport availability before changing any prior job and fails closed with
+`reminder_scheduler_transport_unavailable` when it is missing. Unscheduling
+continues to work without the extension. Supabase manages `pg_net` object
+privileges; project-level revokes do not isolate the request queue. Its queued
+headers contain the dispatcher capability and are visible to database roles
+with the extension's standard access. Keep `net` outside exposed Data API
+schemas and review direct SQL login access before activation. The private
+Vault-backed helper and schedule configuration remain operator-only. See
+[Supabase pg_net](https://supabase.com/docs/guides/database/extensions/pg_net) and
+[Supabase's pg_net privilege limitation](https://supabase.com/docs/guides/troubleshooting/revoking-access-to-pg_net-objects-has-no-effect-0bbc16).
+After explicit activation, verify a completed Cron invocation and its matching
+`net._http_response` row with HTTP 200 and no timeout or transport error. Retain
+only redacted diagnostic fields; queued request headers contain the capability.
+
 Rollback: disable delivery first, unschedule through the operator function,
 expire/fence outstanding claims, retain unsubscribe/webhook services and ledgers,
 and verify no further provider requests. Retain quota reservations and ambiguous
