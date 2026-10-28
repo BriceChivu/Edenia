@@ -87,7 +87,7 @@ function createHarness({
     refresh_reminder_eligibility_snapshots: 1,
     bind_reminder_payload: true,
     defer_typed_reminder: true,
-    claim_due_typed_reminder_live: claims,
+    claim_due_typed_reminder_design: claims,
     complete_typed_reminder_without_send: true,
     store_typed_reminder_unsubscribe_token: true,
     begin_typed_reminder_provider_attempt: true,
@@ -158,7 +158,7 @@ test('claims a small live batch with a longer bounded lease', async () => {
   assert.equal(result.status, 'completed')
   assert.equal(result.claimed, 0)
   assert.deepEqual(harness.rpcCalls[4], {
-    name: 'claim_due_typed_reminder_live',
+    name: 'claim_due_typed_reminder_design',
     params: {
       p_batch_size: 10,
       p_due_window_seconds: 3600,
@@ -499,12 +499,12 @@ test('unknown Free plan or shared usage stops before planning and provider I/O',
     })
     assert.equal(result.status, 'blocked')
     assert.equal(sent, 0)
-    assert.ok(!harness.rpcCalls.some(x => x.name === 'claim_due_typed_reminder_live'))
+    assert.ok(!harness.rpcCalls.some(x => x.name === 'claim_due_typed_reminder_design'))
   }
   const harness = createHarness()
   const result = await runReminderLive(harness.client, CONFIG, () => {}, { readCapacity: async () => null })
   assert.equal(result.status, 'blocked')
-  assert.ok(!harness.rpcCalls.some(x => x.name === 'claim_due_typed_reminder_live'))
+  assert.ok(!harness.rpcCalls.some(x => x.name === 'claim_due_typed_reminder_design'))
 })
 
 test('public admission needs an explicit mode and still binds the verified recipient', async () => {
@@ -534,7 +534,7 @@ test('template, sender, recipient and unsubscribe key are bound before provider-
   const harness = createHarness()
   await runReminderLive(harness.client, CONFIG, () => {}, { send: async () => ({ status: 'accepted', providerMessageId: 'bound' }) })
   const binding = harness.rpcCalls.find(x => x.name === 'bind_reminder_payload')
-  assert.equal(binding?.params?.p_template_version, 'edenia-reminder-v3')
+  assert.equal(binding?.params?.p_template_version, 'edenia-reminder-v4')
   assert.equal(binding?.params?.p_unsubscribe_key_version, CONFIG.unsubscribeKeyVersion)
   assert.match(String(binding?.params?.p_sender_digest), /^\\x[0-9a-f]{64}$/u)
   assert.match(String(binding?.params?.p_payload_digest), /^\\x[0-9a-f]{64}$/u)

@@ -2,6 +2,8 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=extensions,public,auth,pg_catalog;
 select no_plan();
+-- This suite deliberately tests one reviewed channel per language.
+delete from private.reminder_discovery_channels where channel_id not in ('UCC_fdR7zZ_5SU--xuOrEdKw','UCu6sZrHyl4hSS2PvlUo2XZA','UC5r3WHrX4Z7peSYpDlgktGw','UCouyFdE9-Lrjo3M_2idKq1A','UCVzyfpNuFF4ENY8zNTIW7ug','UCbxb2fqe9oNgglAoYqsYOtQ','UC2L7vR43LKuBXXV2AentEMw');
 \ir helpers/reminder_521_fixtures.sql
 update private.learner_profile_access_control set rollout_state='signed-in-public' where singleton;
 create function pg_temp.change_email_profile(p_user uuid,p_path text[],p_value jsonb) returns void language plpgsql as $$
@@ -83,7 +85,7 @@ select public.refresh_reminder_eligibility_snapshots(100,'2026-10-26T11:00:00Z')
 update private.reminder_delivery_control set delivery_enabled=true;
 select pg_temp.email_capacity('2026-10-26T11:00:00Z');
 create temporary table discovery_claims as select * from public.claim_due_typed_reminder_live('2026-10-26T11:00:00Z',10,3600,300);
-select is((select count(*) from discovery_claims),5::bigint,'five reviewed discoveries can be planned without peers');
+select is((select count(*) from discovery_claims),4::bigint,'four fresh learners can receive discovery; the earlier deletion remains excluded');
 select pg_temp.bind_email(claim_token,'2026-10-26T11:00:00Z') from discovery_claims;
 select pg_temp.change_email_profile('52160000-0000-4000-8000-000000000002',array['anki','2026-10-25'],'{"created":0,"reviewed":10,"experienceReviews":10,"experienceWatermark":10,"observedAt":"2026-10-25T10:00:00.000Z"}'::jsonb);
 select public.refresh_reminder_eligibility_snapshots(100,'2026-10-26T11:00:01Z');

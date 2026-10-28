@@ -108,3 +108,40 @@ test('rollout off and malformed reminders do not load video metadata', async ({
   await expect(page.locator('.video-player-overlay')).toHaveCount(0)
   expect(youtubeApiCalls).toBe(0)
 })
+
+const recommendedIds = ['UCC_fdR7zZ_5SU--xuOrEdKw', 'UCu6sZrHyl4hSS2PvlUo2XZA']
+async function seedEmailChannelState(page) {
+  await seedReadyState(page)
+  await page.route('**/config.local.js*', route => route.fulfill({ body: runtimeConfig.replace("youtubeApiKey: 'fixture-key'", "youtubeApiKey: ''"), contentType:'text/javascript' }))
+}
+
+test('a channel email opens the real Add field with its reviewed name and does not follow automatically', async ({page}, testInfo) => {
+  test.skip(!['desktop-standard','phone-small'].includes(testInfo.project.name))
+  await seedEmailChannelState(page)
+  await page.goto(`/?reminder=discovery&channel=${recommendedIds[0]}`)
+  await expect(page.locator('#manualVideoPopover')).toBeVisible()
+  await expect(page.locator('#manualVideoUrlInput')).toHaveValue('Grace Mandarin Chinese')
+  await expect(page).toHaveURL(/\/$/)
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).config.channels)).toEqual([])
+})
+
+test('Add all from an email saves reviewed channels sequentially with progress and does not repeat on reload', async ({page}, testInfo) => {
+  test.skip(!['desktop-standard','phone-small'].includes(testInfo.project.name))
+  await seedEmailChannelState(page)
+  await page.goto(`/?reminder=discovery&channels=${recommendedIds.join(',')}`)
+  await expect(page.locator('#toast')).toContainText('1/2')
+  await expect(page.locator('#toast')).toContainText('2 channels added')
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).config.channels.map(c=>c.id))).toEqual(expect.arrayContaining(recommendedIds))
+  await expect(page).toHaveURL(/\/$/)
+  await page.reload()
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).config.channels)).toHaveLength(2)
+})
+
+test('unknown channel email intent cannot add anything', async ({page}, testInfo) => {
+  test.skip(!['desktop-standard','phone-small'].includes(testInfo.project.name))
+  await seedEmailChannelState(page)
+  await page.goto(`/?reminder=discovery&channels=${recommendedIds[0]},UCzzzzzzzzzzzzzzzzzzzzzz`)
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.locator('#toast')).toBeVisible()
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1')).config.channels)).toEqual([])
+})

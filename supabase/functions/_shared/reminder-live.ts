@@ -31,7 +31,7 @@ import type {
 const CLAIM_BATCH_SIZE = 10
 const DUE_WINDOW_SECONDS = 60 * 60
 const WORKER_BUDGET_MS = 25_000
-const TEMPLATE_VERSION = 'edenia-reminder-v3'
+const TEMPLATE_VERSION = 'edenia-reminder-v4'
 const LEASE_SECONDS = 5 * 60
 const PROVIDER_NAME = 'resend'
 
@@ -276,7 +276,7 @@ export async function runReminderLive(
   await readReminderRpc(client, 'refresh_reminder_eligibility_snapshots', { p_limit: 10 })
   const rawClaims = await readReminderRpc(
     client,
-    'claim_due_typed_reminder_live',
+    'claim_due_typed_reminder_design',
     {
       p_batch_size: CLAIM_BATCH_SIZE,
       p_due_window_seconds: DUE_WINDOW_SECONDS,
@@ -361,6 +361,10 @@ export async function runReminderLive(
         channelSummary: claim.channelSummary,
         videoId: claim.videoId,
         videoTitle: claim.videoTitle,
+        recommendations: claim.recommendations,
+        currentStreakDays: claim.currentStreakDays,
+        remainingMinutes: claim.remainingMinutes,
+        videoMode: claim.videoMode,
       })
     } catch {
       throw new ReminderDispatchError(

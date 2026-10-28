@@ -44,6 +44,7 @@ select is(private.reminder_study_points('52100000-0000-4000-8000-000000000001','
 select is(public.refresh_reminder_eligibility_snapshots(10,'2026-10-27T11:00:00Z'),1,'worker rebuilds relevant accepted records');
 select is((select count(*) from public.reminder_channel_follows where user_id='52100000-0000-4000-8000-000000000001'),1::bigint,'accepted settings alone own the followed-channel projection');
 select is((select latest_video_id from public.reminder_channel_follows where user_id='52100000-0000-4000-8000-000000000001'),'aaaaaaaaaaa','optional candidate respects accepted three-minute Shorts visibility policy');
+select ok(exists(select 1 from private.reminder_channel_history where user_id='52100000-0000-4000-8000-000000000001' and channel_id='UCaaaaaaaaaaaaaaaaaaaaaa' and ever_added and currently_owned),'accepted typed settings populate private recommendation history');
 select is(private.reminder_study_points('52100000-0000-4000-8000-000000000001','2026-10-26'),10::numeric,'immutable yesterday combines five video XP and five Anki XP despite current watchedAt');
 select is(private.reminder_study_points('52100000-0000-4000-8000-000000000001','2026-10-27'),9::numeric,'nine today remains below threshold');
 select is((select last_qualified_study_date from public.reminder_eligibility_snapshots where user_id='52100000-0000-4000-8000-000000000001'),'2026-10-26'::date,'yesterday is the accepted qualified Study day');

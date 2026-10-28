@@ -81,19 +81,7 @@ test('new and existing users receive the same branded six-digit code', async () 
   const templateFiles = ['confirmation.html', 'magic_link.html']
 
   const templates = []
-  const approvedPalette = [
-    '#050505',
-    '#087fa6',
-    '#10232a',
-    '#12bcea',
-    '#54737b',
-    '#82d2ef',
-    '#b4dbe4',
-    '#c9ef68',
-    '#e3f6fb',
-    '#e9f8ed',
-    '#f8fdff'
-  ].sort()
+  const approvedPalette = ['#050505', '#10232a', '#54737b', '#c9ef68', '#dff8ff', '#ffffff'].sort()
   for (const templateFile of templateFiles) {
     const template = await readFile(
       new URL(`supabase/templates/${templateFile}`, projectRoot),
@@ -131,13 +119,13 @@ test('new and existing users receive the same branded six-digit code', async () 
     )
     assert.match(
       template,
-      /<img class="hero-duck" src="\{\{ \.SiteURL \}\}Edenia_favicon_round\.png"[^>]*alt=""/,
-      `${templateFile}: the decorative duck uses Edenia's configured site origin`
+      /<img src="\{\{ \.SiteURL \}\}images\/email-wordmark\.png"[^>]*alt="EDENIA"/,
+      `${templateFile}: the approved wordmark uses Edenia's configured site origin`
     )
     assert.equal(
       template.match(/\{\{ \.SiteURL \}\}/g)?.length,
       1,
-      `${templateFile}: the duck is the only site-hosted asset`
+      `${templateFile}: the wordmark is the only site-hosted asset`
     )
     assert.match(
       template,
@@ -161,7 +149,7 @@ test('new and existing users receive the same branded six-digit code', async () 
       approvedPalette,
       `${templateFile}: colors stay mapped to the Edenia Color Bible`
     )
-    const templateWithoutApprovedDuck = template.replace(/<img class="hero-duck"[^>]*>/, '')
+    const templateWithoutApprovedDuck = template.replace(/<img[^>]*alt="EDENIA"[^>]*>/, '')
     assert.doesNotMatch(
       templateWithoutApprovedDuck,
       /<script|<form|<img|<a\b|https?:\/\//i,

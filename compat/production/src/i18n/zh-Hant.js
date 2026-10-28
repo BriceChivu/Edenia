@@ -1,6 +1,10 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANT_LOCALIZED = {
+  "toast.emailChannelAdding": "正在新增 {name} · {index}/{total}",
+  "toast.emailChannelsAdded": "已新增 {count} 個頻道 · {skipped} 個已在你的清單中",
+  "toast.emailChannelsStopped": "已新增 {count} 個頻道，其餘頻道無法新增。",
+
   "progressRecovery.conflict": "你的進度有兩個版本，部分變更無法合併。請選擇要繼續使用的版本。兩份副本都會保留。",
   "progressRecovery.recent": "最近的進度",
   "progressRecovery.saved": "已儲存的進度",

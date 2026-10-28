@@ -211,6 +211,7 @@ jobs:
           supabase test db supabase/tests/auth_monitoring_freshness.test.sql --local
           supabase test db .cache/reminder-policy-fixtures.test.sql --local
           supabase test db supabase/tests/accepted_reminder_eligibility.test.sql --local
+          supabase test db supabase/tests/email_design_recommendations.test.sql --local
           supabase test db supabase/tests/reminder_scheduler_inert.test.sql --local
           supabase test db supabase/tests/free_reminder_dispatch.test.sql --local
           supabase test db supabase/tests/reminder_provider_month_capacity.test.sql --local

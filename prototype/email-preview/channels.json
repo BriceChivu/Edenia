@@ -1,0 +1,164 @@
+[
+  {
+    "catalogId": "mandarin-grace",
+    "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+    "name": "Grace Mandarin Chinese",
+    "thumbnailUrl": "/avatars/mandarin-grace.jpg",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public"
+  },
+  {
+    "catalogId": "mandarin-espresso-chinese",
+    "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+    "name": "Espresso Chinese - John Wang",
+    "thumbnailUrl": "/avatars/mandarin-espresso-chinese.jpg",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public"
+  },
+  {
+    "catalogId": "mandarin-everyday-chinese",
+    "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+    "name": "Everyday Chinese",
+    "thumbnailUrl": "/avatars/mandarin-everyday-chinese.jpg",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public"
+  },
+  {
+    "catalogId": "mandarin-chinese-for-us",
+    "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+    "name": "ChineseFor.Us - Learn Mandarin Chinese Online",
+    "thumbnailUrl": "/avatars/mandarin-chinese-for-us.jpg",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public"
+  },
+  {
+    "catalogId": "mandarin-stickynote",
+    "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+    "name": "Jun - Stickynote Chinese",
+    "thumbnailUrl": "/avatars/mandarin-stickynote.jpg",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public"
+  },
+  {
+    "catalogId": "mandarin-harbin",
+    "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+    "name": "Harbin Mandarin",
+    "thumbnailUrl": "/avatars/mandarin-harbin.jpg",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public"
+  },
+  {
+    "catalogId": "discovered-UCsZllvjNVbgfo888N35G-Qw",
+    "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+    "name": "Chinese Speaking Course 30分钟中文听力课堂",
+    "thumbnailUrl": "https://yt3.ggpht.com/Y2yH6EKg9fNSPq70TIyWg75YNzjfN4McYQ0dMzyPUIaQt6ts10zxcQdvuak8cTpqYsJh7JO488U=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCtRuJmUVIsFdOMM3iPjFTfA",
+    "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+    "name": "Acquire Mandarin",
+    "thumbnailUrl": "https://yt3.ggpht.com/3FzMxeoVD6dzLEb0gbJhPTSPPiqJHr5R7cm9Bg4vsQuPsRaA36SSe1CjCm-d3GWJDdcnvf6l=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCwtoSYPqWSnVzks8LwwG14A",
+    "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+    "name": "Acquiring Chinese",
+    "thumbnailUrl": "https://yt3.ggpht.com/XU8WuMLt0Hy_fFwPUeQfFTSaWWJZpJ1fQU5WTHyatbA2SK0cHTr17o4KhTSQMTIwSRUMVSsJ=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCPt7tHsguliUnpc9HJuaqOg",
+    "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+    "name": "Andy and Sarah Mandarin",
+    "thumbnailUrl": "https://yt3.ggpht.com/RojLDk5srqIxLbLWt_bu8uVnyRK_lECEZ3NMNQCI0L90W7c2r6E13C-_tmbyeDZEliGlbAfwqw=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCFM2-hxwm8cyVg3hc_6dNmQ",
+    "channelId": "UCFM2-hxwm8cyVg3hc_6dNmQ",
+    "name": "Chinese and other Languages",
+    "thumbnailUrl": "https://yt3.ggpht.com/neFZ3Wxc41q1112QUrTnWHJ-6P44X0BRm6H39gZf9UTFk7XgXAb_h952xF9Bhjcz0J3foRYRZQ=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCyYT-HdG1FXua6_vwyXNqhg",
+    "channelId": "UCyYT-HdG1FXua6_vwyXNqhg",
+    "name": "Chinese Daily Podcast",
+    "thumbnailUrl": "https://yt3.ggpht.com/SCwG515u_HmmE6rEI6KwfdISDYAdL5vG7yehgUF49i5oAjTvgMDmWVTjJXYLbNXmuqXsyk2Nl9M=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCL7R9X5fUE4gh-nOIxxOkBg",
+    "channelId": "UCL7R9X5fUE4gh-nOIxxOkBg",
+    "name": "Chinese HSK Prep Academy",
+    "thumbnailUrl": "https://yt3.ggpht.com/2hPUCQDJPqM-OZ4h-MB6AiWuw_APQrOFHaDzMzcaQ6WuWHB-5GaECNvsb5iE7kYoxwqTQPiTWQ=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  },
+  {
+    "catalogId": "discovered-UCiaZLso83p29RXLyR51KYOA",
+    "channelId": "UCiaZLso83p29RXLyR51KYOA",
+    "name": "Chinese In Minutes",
+    "thumbnailUrl": "https://yt3.ggpht.com/d3iv3OYlz4DzfaN1pzdmcMriIdrdcwR1Wrve_anRX6kwNN2iY9Ec0u3L75Ij2Kst3Nx-WZbB3w=s176-c-k-c0x00ffffff-no-rj",
+    "languages": [
+      "mandarin"
+    ],
+    "available": true,
+    "privacyStatus": "public",
+    "catalogSource": "discovery"
+  }
+]

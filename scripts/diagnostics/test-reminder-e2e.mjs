@@ -30,7 +30,7 @@ const variables = {
   SUPABASE_URL: 'https://example-project.supabase.co',
   REMINDER_ADMISSION_MODE: 'canary', REMINDER_LIVE_RECIPIENT_EMAIL: email,
 }
-const setFunctions = new Set(['claim_due_typed_reminder_live', 'evaluate_reminder_shadow'])
+const setFunctions = new Set(['claim_due_typed_reminder_design', 'evaluate_reminder_shadow'])
 const allowed = new Set([...setFunctions, 'reminder_delivery_is_enabled', 'reminder_provider_attestation_is_current', 'refresh_reminder_provider_usage', 'refresh_reminder_eligibility_snapshots', 'store_typed_reminder_unsubscribe_token', 'bind_reminder_payload', 'begin_typed_reminder_provider_attempt', 'complete_reminder_provider_acceptance', 'complete_typed_reminder_without_send', 'defer_typed_reminder', 'complete_typed_reminder_rejection', 'consume_reminder_unsubscribe_token'])
 const encode = value => value === null ? 'null' : typeof value === 'boolean' ? String(value) : typeof value === 'number' ? String(value) : q(value)
 let failCompletion = true

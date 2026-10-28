@@ -1,6 +1,10 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "toast.emailChannelAdding": "Añadiendo {name} · {index}/{total}",
+  "toast.emailChannelsAdded": "{count} canales añadidos · {skipped} ya en tu biblioteca",
+  "toast.emailChannelsStopped": "Se añadieron {count} canales. No se pudieron añadir los restantes.",
+
   "progressRecovery.conflict": "Tu progreso tiene dos versiones con cambios incompatibles. Elige con cuál continuar. Se conservarán ambas copias.",
   "progressRecovery.recent": "Progreso reciente",
   "progressRecovery.saved": "Progreso guardado",

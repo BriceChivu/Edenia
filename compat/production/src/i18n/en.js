@@ -1,4 +1,8 @@
 export const EN_CORE = {
+  "toast.emailChannelAdding": "Adding {name} · {index}/{total}",
+  "toast.emailChannelsAdded": "{count} channels added · {skipped} already in your library",
+  "toast.emailChannelsStopped": "Added {count} channels. The remaining channels could not be added.",
+
   "progressRecovery.conflict": "Your progress has two versions with competing changes. Choose which one to continue with. Both copies will be kept.",
   "progressRecovery.recent": "Recent progress",
   "progressRecovery.saved": "Saved progress",
