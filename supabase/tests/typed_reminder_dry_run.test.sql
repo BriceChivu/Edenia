@@ -9,7 +9,7 @@ select ok(not has_function_privilege('service_role','public.complete_typed_remin
 select ok(has_function_privilege('service_role','public.evaluate_reminder_shadow(timestamptz)','execute'),'service can evaluate a read-only preview');
 select ok(not has_function_privilege('authenticated','public.evaluate_reminder_shadow(timestamptz)','execute'),'browser cannot inspect other owners eligibility');
 select hasnt_column('private','reminder_deliveries','email','ledger omits recipient email');
-select is((select count(*) from private.reminder_discovery_channels),7::bigint,'only reviewed launch catalog is used');
+select is((select count(*) from private.reminder_discovery_channels),784::bigint,'reviewed onboarding and discovery catalog snapshot is installed');
 select ok((select relrowsecurity from pg_class where oid='private.reminder_discovery_channels'::regclass),'private catalog has RLS');
 select ok(not has_table_privilege('service_role','private.reminder_discovery_channels','select'),'catalog is accessed only through service capabilities');
 select pg_temp.email_fixture('52110000-0000-4000-8000-000000000001','Asia/Taipei','2026-10-26',9,10);

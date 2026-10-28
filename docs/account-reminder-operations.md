@@ -88,8 +88,10 @@ Publish Pages before installing both `supabase/templates/confirmation.html` and
 Patch only the two template bodies through the Management API and verify their
 hashes; do not replace Auth configuration or SMTP secrets with a broad config push.
 Run bounded `refresh_reminder_eligibility_snapshots` batches to drain private
-history backfill before any separately authorized activation. Deployment never
-activates optional email delivery or sends a real canary message.
+history backfill before sending resumes. Record the pre-upgrade switch and admission mode. If
+delivery was already enabled, pause for the upgrade and restore only that prior
+state after verification; preserve its audience and schedule. A previously disabled
+deployment stays disabled. Deployment sends no real canary message.
 
 
 ## Free capacity and dispatch
