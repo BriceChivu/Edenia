@@ -500,10 +500,19 @@ export function createProfileRecoveryWorkspace({
   }
   async function refreshJournal(attempt = 0) {
     if (!journal) return true
+    // A native save commits before its readback acknowledges it. Observing
+    // that gap would treat our own write as a peer change and reopen the
+    // active profile. Let local writes settle, including successors queued
+    // while waiting, before comparing the recovery head.
+    const pending = journalPending
+    await pending
+    if (pending !== journalPending) {
+      return attempt < 3 ? refreshJournal(attempt + 1) : false
+    }
     const fallbacks = captureWebStorageCopies()
     const observation = journalObservation
     const { raw, candidates } = await journal.read()
-    if (observation !== journalObservation) {
+    if (pending !== journalPending || observation !== journalObservation) {
       // Native read completion can arrive after a newer write acknowledgement.
       // Reread both head and candidates instead of restoring its stale CAS base.
       // Sustained concurrent work cancels this refresh without blaming storage;
