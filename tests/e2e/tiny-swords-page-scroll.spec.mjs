@@ -27,29 +27,40 @@ test('wheel over Tiny Swords scrolls Edenia without moving the camera', async ({
   const game = gameFrame()
   const camera = () => game.evaluate(() => ({x:window.edeniaCamera.x,y:window.edeniaCamera.y,zoom:window.edeniaCamera.zoom}))
   const before = await camera()
-  // Wheel forwarding is a delta, including from a nonzero browser scroll origin.
-  await page.evaluate(() => window.scrollTo(0, 2))
-  await expect.poll(() => page.evaluate(() => scrollY)).toBe(2)
-  const box = await frame.locator('#canvas').boundingBox()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  // Keep both directions above the phone header's expansion threshold. Its
+  // collapse/expansion changes layout independently of the forwarded delta.
+  // Wait for that scroll handler before setting a nonzero, stable origin.
+  await page.evaluate(async () => {
+    window.scrollTo(0, 80)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    window.scrollTo(0, 80)
+  })
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(80)
+  const moveOverCanvas = async () => {
+    const box = await frame.locator('#canvas').boundingBox()
+    const viewportHeight = await page.evaluate(() => innerHeight)
+    const header = await page.locator('.app-header').boundingBox()
+    const top = Math.max(0, box.y, header.y + header.height)
+    const bottom = Math.min(viewportHeight, box.y + box.height)
+    expect(bottom - top).toBeGreaterThan(20)
+    await page.mouse.move(box.x + box.width / 2, (top + bottom) / 2)
+  }
+  await moveOverCanvas()
   const surface = page.locator('#tinySwordsSurface')
   const initialSurfaceTop = (await surface.boundingBox()).y
   await page.mouse.wheel(0, 120)
-  // Header collapse changes scrollY through native anchoring while the visible
-  // content still moves by the forwarded wheel delta.
   await expect.poll(async () => (await surface.boundingBox()).y)
     .toBeCloseTo(initialSurfaceTop - 120, 0)
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(200)
   expect(await camera()).toEqual(before)
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120)
+  await moveOverCanvas()
   await page.mouse.wheel(90, 0)
   await page.waitForTimeout(300)
   expect(await camera()).toEqual(before)
-  // Native header anchoring may finish after the first wheel acknowledgment.
-  // Check the actual visible movement in both directions, rather than reusing
-  // a scrollY captured before that layout adjustment finished.
   const beforeUpTop = (await surface.boundingBox()).y
   await page.mouse.wheel(0, -60)
   await expect.poll(async () => (await surface.boundingBox()).y).toBeCloseTo(beforeUpTop + 60, 0)
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(140)
   expect(await camera()).toEqual(before)
   await page.screenshot({path:test.info().outputPath('edenia-page-scroll.png')})
 })

@@ -277,6 +277,8 @@ test('engine download failure quietly preserves island and history and recovers 
   await expect(page.locator('#tinySwordsRetry')).toBeHidden()
   await expect(page.locator('#historySummaryView')).toContainText('15')
   expect(await durable(page)).toEqual(retained)
+  await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath('island-quiet-cooldown.png') })
+  await page.screenshot({ path: test.info().outputPath('study-during-island-cooldown.png') })
   // Only the deliberately aborted download's browser errors are expected.
   expect(pageDiagnostics.some(error => /net::ERR_FAILED|Failed to fetch/.test(error))).toBe(true)
   for (let index = pageDiagnostics.length - 1; index >= 0; index--) {
@@ -285,6 +287,7 @@ test('engine download failure quietly preserves island and history and recovers 
   await page.unroute('**/tiny-swords-engine/*/index.wasm{,.br}')
   await page.clock.fastForward(31000)
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
+  await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath('island-recovered.png') })
   const saved = await durable(page)
   expect(saved.island.tiles).toEqual(retained.island.tiles)
   expect(saved.videos).toEqual(retained.videos)
