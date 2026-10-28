@@ -22,9 +22,13 @@ select is((select count(*) from internal_claims),2::bigint,'both internal owners
 select is((select count(*) from internal_claims where user_id='52800000-0000-4000-8000-000000000003'),0::bigint,'outsider never receives a delivery claim');
 select ok((select pg_temp.bind_email(claim_token,'2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000002'),'frozen payload binds under internal admission');
 select is((select b.admission_mode from private.reminder_payload_bindings b join internal_claims c on c.delivery_id=b.delivery_id where c.user_id='52800000-0000-4000-8000-000000000002'),'internal','payload binding records its actual admission mode');
+select ok((select pg_temp.bind_email(claim_token,'2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000001'),'developer payload binds under internal admission');
+select ok((select public.begin_typed_reminder_provider_attempt(claim_token,'resend','2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000001'),'internal admission passes the actual final provider-begin capability');
 select ok((select private.typed_reminder_delivery_is_current(delivery_id,'2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000002'),'approved tester passes the current-delivery fence');
 update private.learner_profile_access_control set tester_user_ids=array['52800000-0000-4000-8000-000000000001']::uuid[] where singleton;
 select ok(not (select private.typed_reminder_delivery_is_current(delivery_id,'2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000002'),'removing an internal tester fences an already claimed email');
+select ok(not (select public.begin_typed_reminder_provider_attempt(claim_token,'resend','2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000002'),'removed tester cannot start a provider attempt');
+select is((select count(*) from private.reminder_quota_reservations),1::bigint,'rejected removed tester consumes no provider reservation');
 update public.reminder_preferences set streak_reminders_enabled=false where user_id='52800000-0000-4000-8000-000000000001';
 select ok(not (select private.typed_reminder_delivery_is_current(delivery_id,'2026-10-26T11:01Z') from internal_claims where user_id='52800000-0000-4000-8000-000000000001'),'internal admission never overrides an email opt-out');
 update private.learner_profile_access_control set rollout_state='off' where singleton;
