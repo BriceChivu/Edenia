@@ -51,6 +51,22 @@ test('an unrelated storage notification cannot restart a failed attempt or its r
   assert.equal(h.frames.length, 1); h.advance(650); assert.equal(h.frames.length, 2)
 })
 
+test('real parent does not reread the saved island for each download-progress message', async () => {
+  const h = harness({ island })
+  const readIsland = h.persistence.readIsland
+  let reads = 0
+  h.persistence.readIsland = () => { reads++; return readIsland() }
+  for (let current = 1; current <= 500; current++) {
+    await h.emit({ type: 'edenia-game-loading-progress', current, total: 1000 })
+  }
+  assert.equal(reads, 0)
+  await h.ready()
+  assert.ok(reads > 0)
+  assert.equal(h.surface.dataset.gameState, 'ready')
+  assert.deepEqual(h.sent.findLast(x => x.type === 'edenia-study-level').layout, island)
+  assert.equal(h.writes, 0)
+})
+
 test('a synchronous profile replacement from retirement activity cannot leak an old timer or restore the old owner', async () => {
   const h = harness({ island }), next = { ...island, resources: { wood: 99 } }
   const dispatch = h.window.dispatchEvent

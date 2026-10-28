@@ -102,6 +102,21 @@ test('identical progress does not keep a dead attempt alive', () => {
   assert.equal(h.controller.state, 'retry-wait')
 })
 
+test('download chunks do not reread profile access, while readiness and deadlines still fence ownership', () => {
+  let valid = true, reads = 0
+  const h = harness({ valid: () => { reads++; return valid } })
+  h.controller.start(); const attempt = h.starts[0], initialReads = reads
+  for (let bytes = 1; bytes <= 1000; bytes++) h.controller.activity(attempt, bytes)
+  assert.equal(reads, initialReads)
+  valid = false
+  assert.equal(h.controller.ready(attempt), false)
+  assert.ok(reads > initialReads)
+  h.advance(20000)
+  assert.equal(h.controller.state, 'waiting-profile')
+  assert.equal(h.starts.length, 1)
+  assert.equal(h.timers.size, 0)
+})
+
 test('profile invalidation cancels retry, including a queued callback already captured by the browser', () => {
   const h = harness(); h.controller.start(); h.controller.fail(h.starts[0], { reason: 'network' })
   const late = [...h.timers.values()][0].fn; h.valid(false); late(); h.advance(1000000)

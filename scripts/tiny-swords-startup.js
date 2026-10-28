@@ -138,7 +138,9 @@ export function createIslandStartupController({ begin, retire, state: onState, r
       if (visible()) queueLoading()
     },
     activity(token, bytes) {
-      if (!live(token) || !Number.isFinite(bytes) || bytes <= progress) return
+      // Progress only extends this attempt's deadline. Avoid parsing the saved
+      // island per chunk; transitions/readiness still validate current access.
+      if (state !== 'loading' || token !== attempt || !Number.isFinite(bytes) || bytes <= progress) return
       progress = bytes; remaining = deadlines[stage]; deadline = now() + remaining
       // The existing timer rechecks the extended deadline. No per-chunk timer.
     },
