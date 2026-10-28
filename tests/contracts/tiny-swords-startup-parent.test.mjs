@@ -50,3 +50,19 @@ test('an unrelated storage notification cannot restart a failed attempt or its r
   for (let i = 0; i < 20; i++) h.handlers.storage()
   assert.equal(h.frames.length, 1); h.advance(650); assert.equal(h.frames.length, 2)
 })
+
+test('a synchronous profile replacement from retirement activity cannot leak an old timer or restore the old owner', async () => {
+  const h = harness({ island }), next = { ...island, resources: { wood: 99 } }
+  const dispatch = h.window.dispatchEvent
+  let replaced = false
+  h.window.dispatchEvent = event => {
+    dispatch(event)
+    if (!replaced && h.frames[0].removed) {
+      replaced = true; h.activate({ cityProgress: { maxLevelIndex: 2 }, tinySwordsIsland: next }, 'owner-b')
+    }
+  }
+  await h.emit({ type: 'edenia-game-startup-failed' }); await h.ready(); h.advance(10000)
+  assert.equal(h.frames.length, 2); assert.equal(h.surface.dataset.gameState, 'ready')
+  assert.deepEqual(h.sent.findLast(x => x.type === 'edenia-study-level').layout, next)
+  assert.equal(h.timers.size, 0); assert.equal(h.intervals.size, 0); assert.equal(h.writes, 0)
+})

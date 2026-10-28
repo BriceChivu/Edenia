@@ -307,8 +307,10 @@ if (window.edeniaTinySwordsEnabled === true) {
       if (!frame || gameLevelCount === null) return
       const visible = intersects && !blocked && !failed && document.visibilityState !== 'hidden'
       if (visible === reportedVisibility) return
+      const target = frame, targetSession = session
       reportedVisibility = visible
       reportSyncActivity()
+      if (frame !== target || session !== targetSession) return
       frame?.contentWindow?.postMessage({ type: 'edenia-host-visibility', session, visible }, location.origin)
     }
     const visibilityObserver = typeof IntersectionObserver === 'function'
@@ -339,6 +341,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       stopProgress()
       frameAttempt = attempt
       frame = document.createElement('iframe')
+      const mounted = frame
       const gameUrl = new URL('index.html', tinySwordsReleaseUrl)
       if (attempt.number > 1) gameUrl.searchParams.set('startup_retry', '1')
       if (attempt.delivery === 'ordinary') gameUrl.searchParams.set('startup_delivery', 'ordinary')
@@ -353,6 +356,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       activeInteraction = true
       reportedVisibility = null
       reportSyncActivity()
+      if (frame !== mounted || frameAttempt !== attempt) return
       failed = false
       progressPercent = 0
       preparing = false
@@ -366,7 +370,6 @@ if (window.edeniaTinySwordsEnabled === true) {
       controls.hidden = true
       controls.classList.remove('tiny-swords-editing')
       cameraObserver.observe(frame)
-      const mounted = frame
       frame.addEventListener('load', () => { if (frame === mounted && frameAttempt === attempt) sendStudyLevel() })
       frame.addEventListener('error', () => startup.fail(attempt, { reason: 'script', asset: 'script' }))
       surface.append(frame)
@@ -423,10 +426,10 @@ if (window.edeniaTinySwordsEnabled === true) {
       frameAttempt = null
       failed = true
       reportedVisibility = false
-      reportSyncActivity()
       restored = false
       preparing = false
       controls.hidden = true
+      reportSyncActivity()
     }
     function disposeFrame() {
       releaseGeneration++; releaseLookup?.abort(); releaseLookup = null

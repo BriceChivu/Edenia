@@ -16,7 +16,10 @@ export function createIslandStartupController({ begin, retire, state: onState, r
     record({ outcome, stage, delivery, cycle: epoch, attempt: count, duration: Math.max(0, now() - started),
       totalDuration: Math.max(0, now() - cycleStarted), ...detail })
   }
-  function live(token) { return state === 'loading' && token === attempt && valid() }
+  function live(token) {
+    if (state !== 'loading' || token !== attempt) return false
+    return valid() && state === 'loading' && token === attempt
+  }
   function queue(delay) {
     clear()
     const generation = epoch
@@ -26,9 +29,12 @@ export function createIslandStartupController({ begin, retire, state: onState, r
   function queueLoading() { queue(Math.max(0, Math.min(deadline - now(), slowReported ? Infinity : slowAt - now()))) }
   function stop(value = 'disposed') {
     const mounted = attempt !== null
-    epoch++; clear(); attempt = null; repairing = false
+    const generation = ++epoch
+    clear(); attempt = null; repairing = false
     if (mounted) retire()
+    if (epoch !== generation) return false
     transition(value)
+    return true
   }
   function mount() {
     if (!valid()) { stop('waiting-profile'); return }
@@ -86,8 +92,11 @@ export function createIslandStartupController({ begin, retire, state: onState, r
     if (!live(token)) return false
     const reason = reasons.includes(detail.reason) ? detail.reason : 'engine'
     const asset = ['engine', 'pack', 'script', 'none'].includes(detail.asset) ? detail.asset : 'none'
+    const failureGeneration = epoch
     observe('failure', { reason, asset })
+    if (failureGeneration !== epoch || attempt !== token) return false
     clear(); attempt = null; retire()
+    if (failureGeneration !== epoch) return true
     if (reason === 'restore' || reason === 'unsupported') {
       transition(reason === 'restore' ? 'restore-blocked' : 'dormant')
       // Unsupported capability cannot improve through repeated compilation.
@@ -118,7 +127,8 @@ export function createIslandStartupController({ begin, retire, state: onState, r
   return {
     get state() { return state }, get attempt() { return attempt },
     start() {
-      stop(); count = 0; delivery = 'streaming'; cycleStarted = now(); started = now()
+      if (!stop()) return
+      count = 0; delivery = 'streaming'; cycleStarted = now(); started = now()
       transition('retry-wait'); due = now(); reconcile()
     },
     stop, reconcile, fail,
@@ -134,8 +144,10 @@ export function createIslandStartupController({ begin, retire, state: onState, r
     },
     ready(token) {
       if (!live(token)) return false
-      clear(); transition('ready'); observe(count > 1 ? 'recovered' : 'success')
-      return true
+      clear(); transition('ready')
+      if (attempt !== token || state !== 'ready') return false
+      observe(count > 1 ? 'recovered' : 'success')
+      return attempt === token && state === 'ready'
     }
   }
 }

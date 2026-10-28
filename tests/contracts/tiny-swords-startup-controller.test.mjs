@@ -2,14 +2,14 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createIslandStartupController } from '../../scripts/tiny-swords-startup.js'
 
-function harness() {
+function harness(overrides = {}) {
   let now = 0, next = 0, visible = true, eligible = true, valid = true
   const timers = new Map(), starts = [], retired = [], states = [], records = []
   const controller = createIslandStartupController({ now: () => now, random: () => 0,
     setTimer(fn, delay) { timers.set(++next, { fn, at: now + delay }); return next },
     clearTimer: id => timers.delete(id), visible: () => visible, eligible: () => eligible && visible,
     valid: () => valid, begin: attempt => starts.push(attempt), retire: () => retired.push(now),
-    state: value => states.push(value), record: row => records.push(row)
+    state: value => states.push(value), record: row => records.push(row), ...overrides
   })
   function advance(ms) {
     const target = now + ms
@@ -126,4 +126,13 @@ test('unsupported capabilities do not compile in a loop or schedule an infinite 
   const h = harness(); h.controller.start(); h.controller.fail(h.starts[0], { reason: 'unsupported' })
   h.visible(false); h.visible(true); h.advance(1000000)
   assert.equal(h.starts.length, 1); assert.equal(h.timers.size, 0); assert.equal(h.controller.state, 'dormant')
+})
+
+test('a profile replacement dispatched during retirement owns the next attempt', () => {
+  let h, replaced = false
+  h = harness({ retire() { if (!replaced) { replaced = true; h.controller.start() } } })
+  h.controller.start(); const old = h.starts[0]
+  h.controller.fail(old, { reason: 'network' })
+  assert.equal(h.controller.state, 'loading'); assert.equal(h.controller.attempt, h.starts[1])
+  h.advance(1000); assert.equal(h.starts.length, 2)
 })
