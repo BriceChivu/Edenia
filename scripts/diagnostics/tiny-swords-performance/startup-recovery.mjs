@@ -77,7 +77,7 @@ try {
     // Each run captures the engine's native MainLoop.runIter callback, not an
     // independent browser rAF counter. The HTTP host inserts identical probes.
     for (const [run, build] of ['baseline', 'candidate', 'candidate', 'baseline'].entries()) {
-      const host = await startupHost({ root: build === 'baseline' ? baseline : candidate, instrument: true })
+      const host = await startupHost({ root: build === 'baseline' ? baseline : candidate, instrument: true, playable: true })
       const context = await browser.newContext({ viewport: settings.viewport }), page = await context.newPage()
       try {
         await page.goto(host.url); await page.waitForFunction(() => document.getElementById('tinySwordsSurface').dataset.gameState === 'ready', null, { timeout: 60000 })

@@ -4,11 +4,12 @@ import { extname, relative, resolve } from 'node:path'
 
 // Actual exported Godot, synthetic durable island, no account or external calls.
 // HTTP faults retain real browser caching, unlike Playwright request routing.
-export async function startupHost({ root = '_site', mode = 'normal', instrument = false, stale = false, incompatible = false } = {}) {
+export async function startupHost({ root = '_site', mode = 'normal', instrument = false, stale = false, incompatible = false, playable = false } = {}) {
   root = resolve(root)
   const [release] = await readdir(resolve(root, 'tiny-swords-game'))
   const staleRelease = 'a'.repeat(64), adapterRelease = stale ? staleRelease : release
   const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8'))
+  if (playable) { island.carried_wood += island.house_bundle; island.house_bundle = 0 }
   let starts = 0, fault = mode
   const requests = [], sockets = new Set()
   const server = createServer(async (req, res) => {
