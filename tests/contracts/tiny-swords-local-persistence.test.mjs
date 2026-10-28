@@ -4,64 +4,8 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { createTinySwordsPersistence, islandIdentity } from '../../src/state/tiny-swords-island.js'
 
-function harness({ legacy = null, island = 'absent', denied = false, delayed = false, developer = true, inactive = false, search = '' } = {}) {
-  const handlers = {}; const sent = []; const frames = []; const storage = new Map(); const saves = []; const activities = []
-  const styles = new Map(), cursorImages = [], cursorCanvases = []
-  if (legacy !== null) storage.set('edenia_tiny_swords_xp_layout_v1', legacy)
-  let state = { cityProgress: { maxLevelIndex: 2 }, ...(island === 'absent' ? {} : { tinySwordsIsland: island }) }
-  if (inactive) state = null
-  let access = 'owner-a'
-  let durable = structuredClone(state); let writes = 0
-  let finishPending
-  const persistence = createTinySwordsPersistence({
-    read: () => state, readAccessIdentity: () => access, readDurable: () => structuredClone(durable),
-    save(next, options) {
-      saves.push(options)
-      assert.equal(options.backup, false); assert.equal(options.syncAnalytics, false)
-      if (denied) return false
-      durable = structuredClone(next); writes++
-      if (delayed) return new Promise(resolve => { finishPending = () => resolve(true) })
-      return true
-    }
-  })
-  const node = { dataset:{}, querySelector(){return node}, focus(){this.focusCount=(this.focusCount||0)+1}, blur(){}, setAttribute(){}, removeAttribute(){}, classList:{contains(){return false},add(){},remove(){},toggle(){}},style:{setProperty(key,value){styles.set(key,value)}},addEventListener(type,fn){if(type==='pointerenter')handlers.cameraPointerEnter=fn},querySelectorAll(){return []},cloneNode(){return this},replaceWith(){},remove(){this.removed=true},append(){} }
-  const context = {
-    location:{hostname:'localhost',port:'8037',origin:'http://localhost:8037',search},
-    URL, URLSearchParams,
-    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
-    window:{edeniaTinySwordsEnabled:true,edeniaTinySwordsLegacyPreview:developer,EDENIA_CONFIG:{tinySwordsEnabled:true},edeniaTinySwordsPersistence:persistence,addEventListener(type,fn){handlers[type]=fn},dispatchEvent(event){ if (event.type === 'edenia-tiny-swords-activity') activities.push(event.detail) }},
-    document:{body:node,querySelectorAll(){return []},currentScript:{src:'http://localhost:8037/tiny-swords-game/test/parent.js'},documentElement:node,visibilityState:'visible',addEventListener(type,fn){handlers[type]=fn},createElement(type){
-      if(type==='canvas') {
-        const canvas={getContext(){return {drawImage(){}}},toDataURL(){return 'data:image/png;base64,cursor'}}
-        cursorCanvases.push(canvas);return canvas
-      }
-      if(type!=='iframe') return {...node}
-      const frame = {...node,getBoundingClientRect(){return {width:800}},contentWindow:{postMessage(data){sent.push(data)}}}; frames.push(frame); return frame
-    },querySelector(){return node},getElementById(){return node}},
-    localStorage:{getItem:k=>storage.get(k)??null,removeItem:k=>storage.delete(k)},
-    setTimeout(){return 1}, clearTimeout(){}, setInterval(){return 1}, clearInterval(){}, performance,
-    MutationObserver:class{observe(){}},
-    TextEncoder, Image:class{constructor(){this.complete=false;this.naturalWidth=0;this.handlers={};cursorImages.push(this)}addEventListener(type,fn){this.handlers[type]=fn}},ResizeObserver:class{constructor(fn){handlers.cameraResize=fn}observe(){} unobserve(){}},
-    IntersectionObserver:class{constructor(fn){handlers.intersection=fn}observe(){}unobserve(){}}
-  }
-  vm.runInNewContext(fs.readFileSync('scripts/tiny-swords-xp-parent.js','utf8'),context)
-  handlers.DOMContentLoaded()
-  const emit = data => handlers.message({origin:context.location.origin,source:frames.at(-1).contentWindow,data})
-  const ready = async () => {
-    await emit({type:'edenia-game-progression',thresholds:[0,15,45,90,150,225,315,420,540,675]})
-    await emit({type:'edenia-tiny-restored', session:sent.findLast(x=>x.type==='edenia-study-level').session, accepted:true})
-  }
-  return { ready, emit, sent, storage, frames, handlers, persistence, saves, activities, window:context.window, document:context.document, styles, cursorImages, cursorCanvases,
-    attemptClaim(index, persisted) {
-      state.cityProgress.maxLevelIndex = index
-      if (persisted) { durable = structuredClone(state); handlers['edenia-profile-persisted']({detail:{}}) }
-    },
-    lock(){state=null;durable=null;handlers['edenia-profile-access']()},
-    activate(next,identity){state=next;durable=structuredClone(next);access=identity;handlers['edenia-profile-access']()},
-    finishPending(){finishPending()},get writes(){return writes},get durable(){return durable},
-    refreshAmbient(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{islandOnly:true,animalCheckpoint:true}})},
-    replace(next){state=next;durable=structuredClone(next);handlers['edenia-profile-persisted']({detail:{replacement:true}})} }
-}
+import { harness } from '../support/tiny-swords-parent-harness.mjs'
+
 const island = { version:23, level:4,tiles:[[0,0,'meadow']],stock:{meadow:3},resources:{wood:6},house_bundle:6 }
 
 for (const imageLoaded of [false, true]) {
@@ -178,7 +122,8 @@ test('rejected restore retains the input and refuses subsequent frame saves', as
   await h.emit({type:'edenia-game-progression',thresholds:[0,15,45,90,150]})
   await h.emit({type:'edenia-tiny-restored',session:1,accepted:false})
   await h.emit({type:'edenia-tiny-layout',session:1,id:1,layout:island})
-  assert.equal(h.writes,0); assert.equal(h.sent.findLast(x=>x.type==='edenia-tiny-saved').persisted,false)
+  assert.equal(h.writes,0); assert.equal(h.sent.findLast(x=>x.type==='edenia-tiny-saved'),undefined)
+  assert.equal(h.frames[0].removed,true,'a rejected engine is retired rather than left running')
   assert.deepEqual(h.durable.tinySwordsIsland,rejected)
 })
 
@@ -210,9 +155,9 @@ test('host visibility preserves the frame, resumes partial intersection, and ign
   await h.ready()
   const original = h.frames[0]
   const report = (target, shown) => h.handlers.intersection([{target,isIntersecting:shown,intersectionRect:{width:shown?100:0,height:shown?1:0}}])
-  report(original,false)
+  report(h.surface,false)
   assert.deepEqual({...h.sent.at(-1)},{type:'edenia-host-visibility',session:1,visible:false})
-  report(original,true)
+  report(h.surface,true)
   assert.equal(h.sent.at(-1).visible,true,'even a partially visible island must run')
   h.document.visibilityState='hidden';h.handlers.visibilitychange()
   assert.equal(h.sent.at(-1).visible,false)
@@ -224,7 +169,7 @@ test('host visibility preserves the frame, resumes partial intersection, and ign
   const count=h.sent.length
   report(original,false)
   assert.equal(h.sent.length,count,'an old observer cannot suspend the new island')
-  report(h.frames.at(-1),false)
+  report(h.surface,false)
   assert.equal(h.sent.at(-1).session,2)
   assert.equal(h.writes,0,'visibility facts do not write learner data')
 })
@@ -406,7 +351,7 @@ test('only the current frame supplies sync activity and visibility updates retir
   assert.equal(h.activities.length, before)
   await h.emit({ type: 'edenia-game-ui', active: false, editing: false, celebrating: false })
   assert.deepEqual({ ...h.activities.at(-1) }, { visible: true, active: false })
-  h.handlers.intersection([{ target: h.frames.at(-1), isIntersecting: false, intersectionRect: { width: 0, height: 0 } }])
+  h.handlers.intersection([{ target: h.surface, isIntersecting: false, intersectionRect: { width: 0, height: 0 } }])
   assert.equal(h.activities.at(-1).visible, false)
   h.lock()
   assert.equal(h.activities.at(-1).visible, false)

@@ -7,6 +7,8 @@ const REASONS = ['none', 'storage-full', 'storage-denied', 'storage-unavailable'
 const TIERS = ['none', 'local', 'session', 'indexed-db', 'memory']
 const ERROR_NAMES = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'SecurityError', 'QuotaExceededError', 'InvalidStateError', 'AbortError']
 const SOURCE_FILES = ['app.js', 'production-app.js', 'analytics.js', 'analytics-production.js', 'health.js', 'parent.js', 'site-entry.js']
+const STARTUP_STAGES = ['document', 'assets', 'engine', 'scene', 'restore']
+const STARTUP_FAILURES = ['network', 'http-missing', 'http-server', 'timeout', 'integrity', 'decoder', 'script', 'engine', 'unsupported', 'restore']
 
 export function healthMonitoringAllowed(href, analyticsEnabled) {
   try {
@@ -40,13 +42,28 @@ export function createHealthMonitor({ enabled, capture, now = () => performance.
       if (!enabled || sent >= limit || !OPERATIONS.includes(operation) || !OUTCOMES.includes(outcome)) return false
       const reason = REASONS.includes(options.reason) ? options.reason : 'none'
       const metric = ['LCP', 'INP', 'CLS'].includes(options.metric) ? options.metric : ''
-      const key = `${operation}:${outcome}:${reason}:${metric}`
+      const startup = operation === 'island' && options.startup
+      const attempt = startup && Number.isSafeInteger(startup.attempt) && startup.attempt > 0 && startup.attempt <= 10000 ? startup.attempt : 0
+      const cycle = startup && Number.isSafeInteger(startup.cycle) && startup.cycle > 0 && startup.cycle <= 10000 ? startup.cycle : 0
+      const key = `${operation}:${outcome}:${reason}:${metric}:${cycle}:${attempt}`
       const timestamp = now()
       // Successes are observations, not a complete denominator for a failure rate.
       const interval = outcome === 'success' && operation === 'save' ? 60000 : 10000
       if (lastSent.has(key) && timestamp - lastSent.get(key) < interval) return false
       lastSent.set(key, timestamp)
       const properties = { health_operation: operation, health_outcome: outcome, health_reason: reason }
+      if (attempt && cycle) {
+        properties.health_startup_attempt = attempt
+        properties.health_startup_cycle = cycle
+        if (STARTUP_STAGES.includes(startup.stage)) properties.health_startup_stage = startup.stage
+        if (STARTUP_FAILURES.includes(startup.reason)) properties.health_startup_reason = startup.reason
+        if (['streaming', 'ordinary'].includes(startup.delivery)) properties.health_startup_delivery = startup.delivery
+        if (['engine', 'pack', 'script', 'none'].includes(startup.asset)) properties.health_startup_asset = startup.asset
+        if (['success', 'recovered'].includes(startup.outcome)) properties.health_startup_result = startup.outcome
+        if (Number.isFinite(startup.totalDuration) && startup.totalDuration >= 0 && startup.totalDuration <= 600000 && !options.backgrounded) {
+          properties.health_startup_total_ms = Math.round(startup.totalDuration)
+        }
+      }
       if (Number.isFinite(options.duration) && options.duration >= 0 && options.duration <= 600000 && !options.backgrounded) properties.health_duration_ms = Math.round(options.duration)
       if (TIERS.includes(options.recovery)) properties.health_recovery = options.recovery
       if (metric && Number.isFinite(options.value) && options.value >= 0) {

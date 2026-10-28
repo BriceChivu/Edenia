@@ -6,17 +6,21 @@ window.addEventListener('message', event => {
   window.edeniaConflictPreviewSession = event.data.session
   window.edeniaConflictLayouts = event.data.layouts
 })
+window.edeniaGameStartupReady = false
+let startupFailureReported = false
+window.edeniaReportGameStartupFailure = (reason = 'engine', asset = 'none') => {
+  if (window.edeniaGameStartupReady || startupFailureReported) return
+  startupFailureReported = true
+  parent.postMessage({ type: 'edenia-game-startup-failed', reason, asset }, location.origin)
+}
 window.addEventListener('error', event => {
   if (event.target?.tagName === 'SCRIPT') {
-    parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin)
+    window.edeniaReportGameStartupFailure('script', 'script')
   }
 }, true)
-// Engine fetch failures can reject before the export shell's handled failure hook.
-window.addEventListener('unhandledrejection', () => {
-  if (window.edeniaSaveId === 0) {
-    parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin)
-  }
-})
+// Only owned resource/startup failures retire an attempt. Unrelated optional
+// promise rejections do not prove the engine failed; stage deadlines still
+// recover an initialization promise that never settles.
 // The disposable export's transport only; Godot decides when an unlock succeeds.
 // Godot probes PWA registration even in non-PWA builds. A detached iframe can
 // reject that optional lookup during profile replacement or game disable.
@@ -68,6 +72,9 @@ window.edeniaQueueLayout = (layout, checkpoint = false, requestId = null) => {
 window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== parent) return
   const data = event.data
+  if (data?.type === 'edenia-startup-complete' && data.session === window.edeniaStudySession) {
+    window.edeniaGameStartupReady = true
+  }
   if (data?.type === 'edenia-locale' && (window.edeniaStudySession === null || data.session === window.edeniaStudySession)) {
     window.edeniaLocale = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'].includes(data.locale) ? data.locale : 'en'
     window.edeniaReceiveLocale?.(window.edeniaLocale)

@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -41,10 +42,16 @@ jobs:
       - name: Set up Godot
         uses: ./.github/actions/setup-godot
 
+      - name: Restore previous game releases for older open tabs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/restore-tiny-swords-history.mjs
+
       - name: Build static site
         env:
           # Required CI owns game regression tests; deployment imports/exports only.
           EDENIA_VALIDATE_GAME: 'false'
+          EDENIA_PREVIOUS_GAME_ARTIFACT_DIR: .cache/previous-tiny-swords
           # Public page release is explicit; the engine can be disabled separately.
           EDENIA_TINY_SWORDS_PUBLIC_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_PUBLIC_ENABLED || 'false' }}
           EDENIA_TINY_SWORDS_ENABLED: ${{ vars.EDENIA_TINY_SWORDS_ENABLED || 'false' }}
@@ -76,6 +83,18 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+      - name: Retain complete game releases for the next deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiny-swords-compatibility
+          retention-days: 8
+          path: |
+            _site/tiny-swords-game/
+            _site/tiny-swords-engine/
+            _site/tiny-swords-decoder/
+            _site/tiny-swords-current.json
+            _site/tiny-swords-history.json
 
       - name: Deploy to GitHub Pages
         id: deployment

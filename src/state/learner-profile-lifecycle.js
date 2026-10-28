@@ -912,6 +912,10 @@ export function createLearnerProfileLifecycleAuthority({
       ) {
         const verification = getCurrentOfflineVerification(localProfile)
         if (verification) return activateOffline(localProfile, verification)
+        // A cached provider session cannot renew expired offline ownership.
+        // Do not fall through to the cloud-wait fallback, which can reopen a
+        // matching local profile without that verification deadline.
+        return publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
       }
       publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD)
       resolveCloudProfile({

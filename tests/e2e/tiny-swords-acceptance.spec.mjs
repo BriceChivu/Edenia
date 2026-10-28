@@ -7,7 +7,7 @@ test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Uses the integrated G
 // separate evidence requirement; these viewport projects are emulation.
 test('developed island loads compressed, remains usable, and releases keyboard focus', async ({ page, request }, testInfo) => {
   test.setTimeout(120000)
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
   await page.goto('./?internal_test=2')
   const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8'))
   island.carried_wood += island.house_bundle
@@ -22,7 +22,7 @@ test('developed island loads compressed, remains usable, and releases keyboard f
     state.videos.lesson = { id: 'lesson', title: 'Retained study', duration: 3600, status: 'partial', watchProgress: [{ watchedAt: at, seconds: 900, experienceSeconds: 900 }] }
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, island)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   const responses = []
   page.on('response', response => {
     if (/\/index\.(wasm|pck)\.br$/.test(response.url())) responses.push(response)

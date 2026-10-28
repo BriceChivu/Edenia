@@ -47,6 +47,22 @@ test('save sampling and a hard event budget bound runaway collection', () => {
   assert.equal(events.at(-1).properties.health_outcome, 'limited')
 })
 
+test('startup attempts retain bounded diagnostics without private data or deduplicating separate failures', () => {
+  const { monitor, events } = fixture()
+  const startup = { cycle: 2, attempt: 1, stage: 'engine', reason: 'integrity', delivery: 'streaming',
+    asset: 'engine', totalDuration: 2300.5, profile: 'PRIVATE', url: 'SECRET' }
+  monitor.report('island', 'failure', { reason: 'startup-failed', startup })
+  monitor.report('island', 'failure', { reason: 'startup-failed', startup })
+  monitor.report('island', 'failure', { reason: 'startup-failed', startup: { ...startup, attempt: 2, delivery: 'ordinary' } })
+  monitor.report('island', 'success', { startup: { ...startup, attempt: 3, outcome: 'recovered' } })
+  assert.equal(events.length, 3)
+  assert.equal(events[0].properties.health_startup_reason, 'integrity')
+  assert.equal(events[1].properties.health_startup_attempt, 2)
+  assert.equal(events[2].properties.health_startup_result, 'recovered')
+  assert.equal(events[0].properties.health_startup_total_ms, 2301)
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE|SECRET/)
+})
+
 test('page-performance metrics arriving together retain independent observations', () => {
   const { monitor, events } = fixture()
   for (const [metric, value] of [['LCP', 2400], ['INP', 180], ['CLS', .06]]) {

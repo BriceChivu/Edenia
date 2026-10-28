@@ -110,7 +110,7 @@ test('an inaccessible game frame retains progress and camera cursor recovery wit
   page.on('pageerror', error => errors.push(error.message))
   try {
     // No engine handshake or restoration is fabricated by either inert peer.
-    await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({
+    await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({
       contentType: 'text/html', body: '<!doctype html><title>Inert game frame</title>'
     }))
     await page.goto(host.url)

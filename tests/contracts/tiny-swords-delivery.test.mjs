@@ -13,7 +13,7 @@ test('game updates reuse the engine URL; engine changes invalidate it', async ()
   async function prepare(pack, engine) {
     await writeFile(resolve(staging, 'index.pck'), pack)
     await writeFile(resolve(staging, 'index.wasm'), engine)
-    await writeFile(resolve(staging, 'index.js'), 'return fetch(file).then(function (response) {\ncontroller.close();\n\t\t\t\t});\nconst cloned = new Response(response.clone().body);')
+    await writeFile(resolve(staging, 'index.js'), 'const DOWNLOAD_ATTEMPTS_MAX = 4;\nreturn fetch(file).then(function (response) {\ncontroller.close();\n\t\t\t\t});\nconst cloned = new Response(response.clone().body);')
     await writeFile(resolve(staging, 'index.html'), '<script src="index.js"></script>\nengine.startGame({\n\'onProgress\': function (current, total) {')
     const result = await prepareTinySwordsDelivery(staging, output)
     return { ...result, engineJs: await readFile(resolve(staging, 'index.js'), 'utf8'), html: await readFile(resolve(staging, 'index.html'), 'utf8') }
@@ -38,7 +38,7 @@ test('engine milestone waits for initialization and reports once across repeated
   const window = { edeniaGameAssets: {} }
   vm.runInNewContext(await readFile('scripts/tiny-swords-asset-loader.js', 'utf8'), {
     window, document: { baseURI: 'http://localhost/game/' },
-    parent: { postMessage: message => messages.push(message.type) }, location: { origin: 'http://localhost' }
+    URL, parent: { postMessage: message => messages.push(message.type) }, location: { origin: 'http://localhost' }
   })
   let finish
   const initialized = new Promise(resolve => { finish = resolve })

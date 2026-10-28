@@ -5,7 +5,7 @@ test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' && process.env.EDENIA_T
 test('local Tiny Swords receives claimed study levels and grants each inventory reward once', async ({ page }) => {
   test.setTimeout(180000)
   // Initialize the disposable learner before starting the large game export.
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
   await page.goto('./?internal_test=2', { waitUntil: 'load' })
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await page.evaluate(() => {
@@ -16,7 +16,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
     state.videos.lesson = { id: 'lesson', title: 'XP game test', duration: 7200, status: 'unwatched', watchProgress: [] }
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const frame = page.frameLocator('.tiny-swords-frame')
   await expect(frame.locator('#canvas')).toBeVisible()
@@ -239,7 +239,7 @@ test('local Tiny Swords receives claimed study levels and grants each inventory 
 
 test('high-level claims survive delayed game startup, save failure, and reload', async ({page}) => {
   test.setTimeout(180000)
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Delayed game</title>'}))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Delayed game</title>'}))
   await page.goto('./?internal_test=2',{waitUntil:'load'})
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   const {readFile} = await import('node:fs/promises')
@@ -277,7 +277,7 @@ test('high-level claims survive delayed game startup, save failure, and reload',
   await page.evaluate(()=>claimCityLevelUp())
   expect((await progress()).maxLevelIndex).toBe(7)
   expect(await page.locator('.city-level-up-confetti').count()).toBe(0)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({waitUntil:'domcontentloaded'})
   const game=()=>page.frames().find(frame=>frame.url().includes('/tiny-swords-game/'))
   const durable=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
@@ -295,7 +295,7 @@ test('high-level claims survive delayed game startup, save failure, and reload',
 
 test('profile replacement recreates the island, resets it, and blocks a rejected snapshot', async ({ page }) => {
   test.setTimeout(180000)
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Initialize</title>'}))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({contentType:'text/html',body:'<!doctype html><title>Initialize</title>'}))
   await page.goto('./?internal_test=2', {waitUntil:'load'})
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   const { readFile } = await import('node:fs/promises')
@@ -307,7 +307,7 @@ test('profile replacement recreates the island, resets it, and blocks a rejected
     state.onboarding = {...state.onboarding,introSeenAt:at,setupCompleted:true,setupCompletedAt:at,walkthroughCompleted:true,walkthroughCompletedAt:at}
     localStorage.setItem('edenia_v1_internal_test_2',JSON.stringify(state))
   }, island)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({waitUntil:'domcontentloaded'})
   const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1_internal_test_2')).tinySwordsIsland)
@@ -335,7 +335,8 @@ test('profile replacement recreates the island, resets it, and blocks a rejected
   await expect.poll(() => game()?.evaluate(() => window.edeniaGameLevel),{timeout:60000}).toBe(7)
   const rejected = {...populated,version:999}
   await page.evaluate(island => {const state=loadState();state.tinySwordsIsland=island;return saveImportedState(state)},rejected)
-  await expect(page.locator('#tinySwordsLoadStatus')).toContainText(/could not be restored/,{timeout:60000})
-  await expect(page.locator('#tinySwordsLoadStatus')).toBeVisible()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state','restore-blocked',{timeout:60000})
+  await expect(page.locator('#tinySwordsLoadStatus')).toBeHidden()
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
   expect(await durable()).toEqual(rejected)
 })

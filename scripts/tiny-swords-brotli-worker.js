@@ -185,6 +185,6 @@ self.onmessage = async ({ data }) => {
   } catch (error) {
     cacheCopy?.body?.cancel().catch(() => {})
     if (engineCache) { try { await cacheDeadline(() => engineCache.delete(assetUrl)) } catch {} }
-    postMessage({ type: 'error', message: error.message })
+    postMessage({ type: 'error', reason: reader ? 'integrity' : 'decoder' })
   }
 }

@@ -15,6 +15,10 @@ test('the built game is one content-versioned release and does not host raw pack
   const manifest = JSON.parse(await readFile(`${directory}/release.json`, 'utf8'))
   assert.equal(manifest.version, parent[2])
   assert.equal(manifest.godotVersion, '4.7.2')
+  assert.deepEqual(JSON.parse(await readFile('_site/tiny-swords-current.json', 'utf8')),
+    { schema: 1, release: parent[2], compatibility: manifest.compatibility })
+  assert.match(manifest.compatibility, /^[a-f0-9]{64}$/)
+  assert.match(await readFile(`${directory}/index.js`, 'utf8'), /const DOWNLOAD_ATTEMPTS_MAX = window.edeniaConflictPreviewMode \? 4 : 1;/)
   // Recompute from the delivered files, excluding only derivative variants and metadata.
   const hash = createHash('sha256')
   async function visit(path, prefix = '') {

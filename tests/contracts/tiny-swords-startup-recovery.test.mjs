@@ -39,7 +39,7 @@ for (const operation of ['open', 'match', 'put', 'keys', 'delete']) {
   })
 }
 
-async function loaderHarness(mode, { fallbackStalls = false, fetchStalls = false } = {}) {
+async function loaderHarness(mode, { fallbackStalls = false, fetchStalls = false, preview = false } = {}) {
   const clock = timers(), workers = [], fetches = [], aborted = [], failures = []
   class Worker {
     constructor() { workers.push(this) }
@@ -51,7 +51,7 @@ async function loaderHarness(mode, { fallbackStalls = false, fetchStalls = false
       else if (mode === 'normal') queueMicrotask(() => this.onmessage({ data: { type: 'done' } }))
     }
   }
-  const context = { window: { edeniaGameAssets: { worker: 'worker.js', decoder: 'decoder.wasm', files: { 'index.wasm': { url: 'index.wasm', bytes: mode === 'normal' ? 2 : 4, type: 'application/wasm' } } } },
+  const context = { window: { edeniaConflictPreviewMode: preview, edeniaGameAssets: { worker: 'worker.js', decoder: 'decoder.wasm', files: { 'index.wasm': { url: 'index.wasm', bytes: mode === 'normal' ? 2 : 4, type: 'application/wasm' } } } },
     document: { baseURI: 'https://example.invalid/game/' }, parent: { postMessage(message) { failures.push(message.type) } }, location: { origin: 'https://example.invalid' },
     Worker, URL, ReadableStream, Response, Uint8Array, AbortController, ...clock,
     fetch: async (url, options) => {
@@ -63,7 +63,7 @@ async function loaderHarness(mode, { fallbackStalls = false, fetchStalls = false
       return new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'application/wasm' } })
     } }
   vm.runInNewContext(await readFile('scripts/tiny-swords-asset-loader.js', 'utf8'), context)
-  return { clock, workers, fetches, aborted, failures, load: () => context.window.edeniaFetchGameAsset('index.wasm') }
+  return { clock, workers, fetches, aborted, failures, cancel: () => context.window.edeniaCancelGameStartup(), load: () => context.window.edeniaFetchGameAsset('index.wasm') }
 }
 
 test('a silent worker falls back once to ordinary delivery', async () => {
@@ -122,4 +122,31 @@ test('canceling a compressed stream terminates its worker', async () => {
   const h = await loaderHarness('normal'), response = await h.load()
   await response.body.cancel()
   assert.equal(h.workers[0].terminated, true)
+})
+
+test('retiring an iframe cancels its worker without starting an ordinary fallback', async () => {
+  const h = await loaderHarness('silent')
+  const pending = h.load().then(() => 'accepted', error => error.message)
+  await tick(); h.cancel(); await tick()
+  assert.equal(await pending, 'Game asset startup failed')
+  assert.equal(h.workers[0].terminated, true)
+  assert.equal(h.fetches.length, 0)
+  assert.deepEqual(h.failures, [])
+})
+
+test('retiring an iframe aborts its ordinary fetch and never publishes a spurious startup failure', async () => {
+  const h = await loaderHarness('silent', { fetchStalls: true })
+  const pending = h.load().then(() => 'accepted', error => error.message)
+  await tick(); h.clock.fire(); await tick(); h.cancel(); await tick()
+  assert.match(await pending, /abort/)
+  assert.equal(h.aborted.length, 1); assert.deepEqual(h.failures, [])
+})
+
+test('read-only previews retain their independent retry policy after a non-timeout asset failure', async () => {
+  const h = await loaderHarness('corrupt', { preview: true })
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await h.load()
+    await assert.rejects(response.arrayBuffer(), /Invalid Brotli data/)
+  }
+  assert.equal(h.workers.length, 2); assert.deepEqual(h.failures, [])
 })

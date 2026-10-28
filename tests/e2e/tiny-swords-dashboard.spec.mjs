@@ -49,7 +49,7 @@ async function accept(game) {
 }
 
 test('completed downloads leave visible progress for engine startup and restoration', async ({ page }) => {
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await seed(page)
   const game = page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   await game.evaluate(() => parent.postMessage({ type: 'edenia-game-loading-progress', current: 100, total: 100 }, location.origin))
@@ -76,7 +76,7 @@ test('real Godot startup advances milestones and completes with a rendered saved
       })
     })
   })
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await seed(page)
   // Keep claimed study progress at the saved level so this startup check does
   // not also exercise the separate sequential level-unlock/save handshake.
@@ -85,7 +85,7 @@ test('real Godot startup advances milestones and completes with a rendered saved
     state.cityProgress.maxLevelIndex = level - 1
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, island.level)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload()
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 90000 })
   const events = await page.evaluate(() => window.islandStartupEvents)
@@ -103,7 +103,7 @@ test('real Godot startup advances milestones and completes with a rendered saved
 })
 
 test('loading progress follows downloads, preparation, retry and live locale changes', async ({ page }) => {
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await seed(page)
   const progress = page.locator('#tinySwordsLoadProgress')
   const bar = page.locator('#tinySwordsLoadBar')
@@ -149,8 +149,9 @@ test('loading progress follows downloads, preparation, retry and live locale cha
   await page.emulateMedia({ reducedMotion: 'reduce' })
   expect(await bar.locator('span').evaluate(node => getComputedStyle(node).animationName)).toBe('none')
   await game().evaluate(() => parent.postMessage({ type: 'edenia-game-startup-failed' }, location.origin))
-  await expect(progress).toBeHidden()
-  await page.locator('#tinySwordsRetry').click()
+  await expect(page.locator('#tinySwordsRetry')).toBeHidden()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'retry-wait')
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await expect(progress).toBeVisible()
   await expect(progress).toHaveAttribute('data-phase', 'download')
   await expect(bar).toHaveAttribute('aria-valuenow', '0')
@@ -163,7 +164,7 @@ test('loading progress follows downloads, preparation, retry and live locale cha
 })
 
 test('loading fill advances through startup stages, stays anchored left and has no time text', async ({ page }) => {
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await page.clock.install()
   await page.clock.pauseAt(new Date())
   await seed(page)
@@ -202,7 +203,7 @@ test('loading fill advances through startup stages, stays anchored left and has 
 })
 
 test('slow startup retains study and saved work; dialogs and walkthroughs block game input', async ({ page }) => {
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await page.clock.install()
   await seed(page)
   const retained = await durable(page)
@@ -211,9 +212,10 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await expect(page.locator('#cityMilestoneImage, #cityTimeWaveform')).toHaveCount(0)
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'loading')
   await expect(frame).toHaveAttribute('inert', '')
+  await game.evaluate(() => parent.postMessage({type:'edenia-game-loading-progress',current:100,total:100},location.origin))
   await page.clock.fastForward(21000)
-  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'slow')
-  await expect(page.locator('#tinySwordsRetry')).toBeVisible()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'loading')
+  await expect(page.locator('#tinySwordsRetry')).toBeHidden()
   await expect(page.locator('#cityFollowingLevel')).toHaveText('Level 11')
   await expect(page.locator('#cityNextLevel')).toHaveText('810 XP to next level')
   await expect(page.locator('#cityLevelProgress')).toHaveAttribute('aria-valuenow', '675')
@@ -261,26 +263,31 @@ test('slow startup retains study and saved work; dialogs and walkthroughs block 
   await page.screenshot({ path: test.info().outputPath('dashboard-overlay-boundary.png'), fullPage: true })
 })
 
-test('engine download failure retains island and history; retry can restore the game', async ({ page, pageDiagnostics }) => {
+test('engine download failure quietly preserves island and history and recovers automatically', async ({ page, pageDiagnostics }) => {
   test.setTimeout(120000)
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: peer }))
+  await page.clock.install()
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: peer }))
   await seed(page)
   const retained = await durable(page)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.route('**/tiny-swords-engine/*/index.wasm{,.br}', route => route.abort())
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'failed', { timeout: 60000 })
-  await expect(page.locator('#tinySwordsLoadStatus')).toContainText('saved island is retained')
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'dormant', { timeout: 60000 })
+  await expect(page.locator('#tinySwordsLoadStatus')).toBeHidden()
+  await expect(page.locator('#tinySwordsRetry')).toBeHidden()
   await expect(page.locator('#historySummaryView')).toContainText('15')
   expect(await durable(page)).toEqual(retained)
+  await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath('island-quiet-cooldown.png') })
+  await page.screenshot({ path: test.info().outputPath('study-during-island-cooldown.png') })
   // Only the deliberately aborted download's browser errors are expected.
   expect(pageDiagnostics.some(error => /net::ERR_FAILED|Failed to fetch/.test(error))).toBe(true)
   for (let index = pageDiagnostics.length - 1; index >= 0; index--) {
-    if (/^(console: Failed to load resource: net::ERR_FAILED|page: Failed to fetch)$/.test(pageDiagnostics[index])) pageDiagnostics.splice(index, 1)
+    if (/^(console: Failed to load resource: net::ERR_FAILED|page: Failed to fetch)$|^console: (Error: )?(Failed to fetch|Game asset startup failed)/.test(pageDiagnostics[index])) pageDiagnostics.splice(index, 1)
   }
   await page.unroute('**/tiny-swords-engine/*/index.wasm{,.br}')
-  await page.locator('#tinySwordsRetry').click()
+  await page.clock.fastForward(31000)
   await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state', 'ready', { timeout: 60000 })
+  await page.locator('#tinySwordsSurface').screenshot({ path: test.info().outputPath('island-recovered.png') })
   const saved = await durable(page)
   expect(saved.island.tiles).toEqual(retained.island.tiles)
   expect(saved.videos).toEqual(retained.videos)

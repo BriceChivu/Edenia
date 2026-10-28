@@ -5,7 +5,7 @@ test.skip(process.env.EDENIA_TEST_NORMAL_PORT !== '8037', 'Playground is availab
 test('playground upgrades, generates terrain, reloads supplies and restores a checkpoint without study XP', async ({ page, context }) => {
   test.setTimeout(180000)
   await page.addInitScript(() => { if (navigator.serviceWorker) Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => undefined }) })
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
   await page.goto('./', { waitUntil: 'load' })
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await page.evaluate(() => {
@@ -15,7 +15,7 @@ test('playground upgrades, generates terrain, reloads supplies and restores a ch
     state.config.ankiEnabled = false
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   const durable = () => page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).tinySwordsIsland)
