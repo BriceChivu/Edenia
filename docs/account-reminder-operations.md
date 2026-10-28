@@ -199,20 +199,24 @@ suppressed and ambiguous remain distinct outcomes. See [Resend idempotency](http
 ## Separate future activation
 
 Do not run these steps merely because this branch is deployed. Obtain explicit
-send authorization and an exact canary recipient first, then verify the deployed
+send authorization for the intended audience first, then verify the deployed
 source/migrations, actual Free account/domain/billing settings, shared usage,
 enrollment, and signed webhook/unsubscribe behavior. Initial canary mode requires
-both the server UUID allowlist and exact normalized recipient allowlist. Public
-mode is an explicit database admission mode plus server environment choice;
+both the server UUID allowlist and exact normalized recipient allowlist. The
+active internal rollout instead uses `REMINDER_ADMISSION_MODE=internal` with the
+matching database mode. It reads the existing learner-profile developer/tester IDs
+at planning and again at the final send fence; it needs no separate email tester
+list or recipient-address secret. New internal testers can enroll through Settings
+without another delivery allowlist update. Removal from the internal tester list
+fences pending emails. Saved opt-outs and suppression still win. Legacy canary
+mode remains only for rollback compatibility. Public mode is an explicit database admission mode plus server environment choice;
 `internal_test` is never permission to send.
 
 Server configuration includes the dedicated `reminder_dispatcher` capability,
 `RESEND_API_KEY`, `REMINDER_FROM_ADDRESS`, `REMINDER_UNSUBSCRIBE_SECRET`,
 `REMINDER_UNSUBSCRIBE_KEY_VERSION`, exact allowed app/unsubscribe URLs, and
 `REMINDER_ADMISSION_MODE` (canary by default). Canary also requires
-`REMINDER_LIVE_RECIPIENT_EMAIL` (one address or up to ten comma-separated,
-explicitly approved addresses; every recipient must also be in the private UUID
-allowlist). Empty, invalid or duplicate addresses reject configuration. Store secrets only in the existing secret stores.
+`REMINDER_LIVE_RECIPIENT_EMAIL`. Store secrets only in the existing secret stores.
 
 Scheduler plumbing is inert: `private.invoke_reminder_dispatcher()` reads
 `reminder_dispatcher_url` and `reminder_dispatcher_api_key` from Vault. Only the
@@ -599,7 +603,7 @@ path and production had these Edge Function secrets or settings:
 - `REMINDER_UNSUBSCRIBE_SECRET` (at least 32 bytes)
 - `REMINDER_APP_URL` (the exact internal-test Edenia URL)
 - `REMINDER_UNSUBSCRIBE_PAGE_URL` (the exact Edenia unsubscribe-page base URL)
-- `REMINDER_LIVE_RECIPIENT_EMAIL` (one exact normalized address or a bounded comma-separated canary list)
+- `REMINDER_LIVE_RECIPIENT_EMAIL` (one exact normalized canary address)
 - `SUPABASE_URL` (provided by Supabase and used to derive the unsubscribe API)
 
 The live route validates all seven values before it claims anything. It then uses

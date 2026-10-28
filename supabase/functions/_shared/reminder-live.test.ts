@@ -39,7 +39,7 @@ const CONFIG: ReminderLiveConfig = Object.freeze({
   unsubscribeEndpointUrl:
     'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
   unsubscribePageUrl: 'https://www.edenia.study/unsubscribe/',
-  allowedRecipientEmails: ['learner@example.com'],
+  allowedRecipientEmail: 'learner@example.com',
   admissionMode: 'canary',
   unsubscribeKeyVersion: 'test-key-v1',
 })
@@ -239,7 +239,7 @@ test('recognizes only Supabase structured user-not-found errors as terminal', as
   )
 })
 
-test('ends a confirmed recipient outside the bounded canary allowlist', async () => {
+test('ends a confirmed recipient outside the single-address canary allowlist', async () => {
   const harness = createHarness({
     user: { ...CONFIRMED_USER, email: 'someone-else@example.com' },
   })
@@ -510,7 +510,7 @@ test('unknown Free plan or shared usage stops before planning and provider I/O',
 test('public admission needs an explicit mode and still binds the verified recipient', async () => {
   const harness = createHarness({ user: { ...CONFIRMED_USER, email: 'second-owner@example.com' } })
   let sent = 0
-  const result = await runReminderLive(harness.client, { ...CONFIG, admissionMode: 'public', allowedRecipientEmails: null }, () => {}, {
+  const result = await runReminderLive(harness.client, { ...CONFIG, admissionMode: 'public', allowedRecipientEmail: null }, () => {}, {
     send: async input => { sent += 1; assert.equal(input.to, 'second-owner@example.com'); return { status: 'accepted', providerMessageId: 'public' } },
   })
   assert.equal(result.accepted, 1)
@@ -572,15 +572,15 @@ test('a provider-begin RPC returning after the occurrence cutoff cannot start PO
 })
 
 
-test('the second approved canary recipient can send while an unlisted recipient cannot', async () => {
-  for (const [email, expected] of [['second@example.com',1],['unlisted@example.com',0]] as const) {
-    const harness = createHarness({user:{...CONFIRMED_USER,email}})
-    let sent=0
-    const result=await runReminderLive(harness.client, {
-      ...CONFIG, allowedRecipientEmails:['learner@example.com','second@example.com'],
-    },()=>{}, {send:async()=>{sent++;return {status:'accepted',providerMessageId:'fake-second-recipient'}}})
-    assert.equal(sent,expected)
-    assert.equal(result.accepted,expected)
-    assert.equal(result.recipientNotAllowlisted,1-expected)
-  }
+test('internal admission sends a server-admitted recipient without a second email allowlist', async () => {
+  const harness=createHarness({user:{...CONFIRMED_USER,email:'internal-tester@example.com'}})
+  let sent=0
+  const result=await runReminderLive(harness.client,{...CONFIG,admissionMode:'internal',allowedRecipientEmail:null},()=>{}, {
+    send:async()=>{sent++;return {status:'accepted',providerMessageId:'fake-internal-recipient'}}
+  })
+  assert.equal(sent,1)
+  assert.equal(result.accepted,1)
+  assert.equal(result.recipientNotAllowlisted,0)
+  const binding=harness.rpcCalls.find(call=>call.name==='bind_reminder_payload')
+  assert.equal(binding?.params?.p_admission_mode,'internal')
 })

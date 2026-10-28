@@ -318,7 +318,7 @@ export async function runReminderLive(
       }
       continue
     }
-    if (config.admissionMode !== 'public' && !config.allowedRecipientEmails?.includes(recipient)) {
+    if (config.admissionMode === 'canary' && recipient !== config.allowedRecipientEmail) {
       if (!await completeWithoutSend(
         client,
         claim,

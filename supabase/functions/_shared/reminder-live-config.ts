@@ -18,8 +18,8 @@ export type ReminderLiveConfig = Readonly<{
   appUrl: string
   unsubscribeEndpointUrl: string
   unsubscribePageUrl: string
-  allowedRecipientEmails: readonly string[] | null
-  admissionMode: 'canary' | 'public'
+  allowedRecipientEmail: string | null
+  admissionMode: 'canary' | 'internal' | 'public'
   unsubscribeKeyVersion: string
 }>
 
@@ -71,22 +71,14 @@ export function readReminderLiveConfig(
       new URL(UNSUBSCRIBE_API_PATH, supabaseUrl).href,
     )
     const rawMode = readEnvironment('REMINDER_ADMISSION_MODE') ?? 'canary'
-    if (rawMode !== 'canary' && rawMode !== 'public') throw new TypeError('Reminder admission mode is invalid')
+    if (rawMode !== 'canary' && rawMode !== 'internal' && rawMode !== 'public') throw new TypeError('Reminder admission mode is invalid')
     const admissionMode = rawMode
     const unsubscribeKeyVersion = requireEnvironmentValue(readEnvironment, 'REMINDER_UNSUBSCRIBE_KEY_VERSION')
     if (!/^[a-zA-Z0-9._-]{1,80}$/u.test(unsubscribeKeyVersion)) throw new TypeError('Reminder key version is invalid')
-    // Retain the deployed secret name and single-address compatibility. Bound
-    // additional approved recipients without switching to public admission.
-    const allowedRecipientEmails = admissionMode === 'canary' ? Object.freeze(
-      requireEnvironmentValue(readEnvironment, 'REMINDER_LIVE_RECIPIENT_EMAIL')
-        .split(',').map(email => {
-          const normalized = normalizeCheckoutEmail(email.trim())
-          if (!normalized) throw new TypeError('Canary recipient is invalid')
-          return normalized
-        }),
+    const allowedRecipientEmail = admissionMode === 'canary' ? normalizeCheckoutEmail(
+      requireEnvironmentValue(readEnvironment, 'REMINDER_LIVE_RECIPIENT_EMAIL'),
     ) : null
-    if (allowedRecipientEmails && (allowedRecipientEmails.length > 10
-      || new Set(allowedRecipientEmails).size !== allowedRecipientEmails.length)) {
+    if (admissionMode === 'canary' && !allowedRecipientEmail) {
       throw new TypeError('Reminder live recipient is invalid')
     }
 
@@ -97,7 +89,7 @@ export function readReminderLiveConfig(
       appUrl,
       unsubscribeEndpointUrl,
       unsubscribePageUrl,
-      allowedRecipientEmails,
+      allowedRecipientEmail,
       admissionMode,
       unsubscribeKeyVersion,
     })

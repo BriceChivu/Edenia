@@ -43,7 +43,7 @@ test('validates and freezes every live-delivery setting before use', () => {
     unsubscribeEndpointUrl:
       'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
     unsubscribePageUrl: VALUES.REMINDER_UNSUBSCRIBE_PAGE_URL,
-    allowedRecipientEmails: ['learner@example.com'],
+    allowedRecipientEmail: 'learner@example.com',
     admissionMode: 'canary',
     unsubscribeKeyVersion: 'test-key-v1',
   })
@@ -90,7 +90,7 @@ test('the exact authentication-trial base URL is allowed without changing delive
   const config = readReminderLiveConfig(environment.read)
   assert.equal(config.appUrl, 'https://www.edenia.study/?internal_test=1')
   assert.equal(config.admissionMode, 'canary')
-  assert.deepEqual(config.allowedRecipientEmails, ['learner@example.com'])
+  assert.equal(config.allowedRecipientEmail, 'learner@example.com')
 })
 
 test('public admission and key rotation versions are explicit configuration', () => {
@@ -98,23 +98,17 @@ test('public admission and key rotation versions are explicit configuration', ()
   const config = readReminderLiveConfig(name => name === 'REMINDER_ADMISSION_MODE' ? 'public'
     : name === 'REMINDER_LIVE_RECIPIENT_EMAIL' ? undefined : environment.read(name))
   assert.equal(config.admissionMode, 'public')
-  assert.equal(config.allowedRecipientEmails, null)
+  assert.equal(config.allowedRecipientEmail, null)
   for (const invalid of ['', 'public ', 'internal_test=1']) {
     assert.throws(() => readReminderLiveConfig(name => name === 'REMINDER_ADMISSION_MODE' ? invalid : environment.read(name)))
   }
 })
 
 
-test('canary accepts a bounded explicit list while preserving single-address configuration', () => {
-  const config = readReminderLiveConfig(createEnvironment({
-    REMINDER_LIVE_RECIPIENT_EMAIL: 'Learner@Example.COM, second@example.com',
-  }).read)
-  assert.deepEqual(config.allowedRecipientEmails, ['learner@example.com', 'second@example.com'])
-  assert.ok(Object.isFrozen(config.allowedRecipientEmails))
-  assert.equal(config.admissionMode, 'canary')
-  for (const value of ['learner@example.com,', 'learner@example.com,not-email',
-    'learner@example.com,LEARNER@example.com', Array.from({length:11},(_,i)=>`user${i}@example.com`).join(',')]) {
-    assert.throws(() => readReminderLiveConfig(createEnvironment({REMINDER_LIVE_RECIPIENT_EMAIL:value}).read),
-      (error: unknown) => error instanceof ReminderDispatchError && error.code === 'live_configuration_unavailable')
-  }
+test('internal admission relies on the server tester gate and reads no canary address', () => {
+  const environment=createEnvironment()
+  const config=readReminderLiveConfig(name=>name==='REMINDER_ADMISSION_MODE'?'internal':name==='REMINDER_LIVE_RECIPIENT_EMAIL'?undefined:environment.read(name))
+  assert.equal(config.admissionMode,'internal')
+  assert.equal(config.allowedRecipientEmail,null)
+  assert.ok(!environment.reads.includes('REMINDER_LIVE_RECIPIENT_EMAIL'))
 })
