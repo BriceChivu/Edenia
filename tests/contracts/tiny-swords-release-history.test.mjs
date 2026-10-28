@@ -84,3 +84,10 @@ test('the byte budget can exclude an older complete release without damaging the
   assert.equal(result.retained, 0); assert.deepEqual(result.skipped, [old])
   assert.deepEqual(await readdir(resolve(current, 'tiny-swords-game')), [latest])
 }))
+
+test('malformed inventory rows cannot prevent retaining the verified previous current release', () => sandbox(async ({ current, previous }) => {
+  await fixture(current, 'current'); const old = await fixture(previous, 'old')
+  await writeFile(resolve(previous, 'tiny-swords-history.json'), JSON.stringify({ schema: 1, releases: [null, 'bad', {}, { release: old, lastCurrentAt: now - 86400000 }] }))
+  const result = await retainTinySwordsReleases(current, previous, { now })
+  assert.equal(result.retained, 1); assert.deepEqual(result.skipped, [])
+}))

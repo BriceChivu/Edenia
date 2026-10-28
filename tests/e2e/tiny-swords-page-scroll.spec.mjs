@@ -39,14 +39,17 @@ test('wheel over Tiny Swords scrolls Edenia without moving the camera', async ({
   // content still moves by the forwarded wheel delta.
   await expect.poll(async () => (await surface.boundingBox()).y)
     .toBeCloseTo(initialSurfaceTop - 120, 0)
-  const scrolledY = await page.evaluate(() => scrollY)
   expect(await camera()).toEqual(before)
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120)
   await page.mouse.wheel(90, 0)
   await page.waitForTimeout(300)
   expect(await camera()).toEqual(before)
+  // Native header anchoring may finish after the first wheel acknowledgment.
+  // Check the actual visible movement in both directions, rather than reusing
+  // a scrollY captured before that layout adjustment finished.
+  const beforeUpTop = (await surface.boundingBox()).y
   await page.mouse.wheel(0, -60)
-  await expect.poll(() => page.evaluate(() => scrollY)).toBe(scrolledY - 60)
+  await expect.poll(async () => (await surface.boundingBox()).y).toBeCloseTo(beforeUpTop + 60, 0)
   expect(await camera()).toEqual(before)
   await page.screenshot({path:test.info().outputPath('edenia-page-scroll.png')})
 })

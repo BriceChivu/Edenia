@@ -71,7 +71,8 @@ export async function retainTinySwordsReleases(output, previous = null, { now = 
       if (data.length > 16384) throw new Error('Oversized game archive history')
       history = JSON.parse(data)
     } catch { history = null }
-    const candidates = history?.schema === 1 && Array.isArray(history.releases) ? history.releases.slice(0, 32) : []
+    const candidates = history?.schema === 1 && Array.isArray(history.releases)
+      ? history.releases.slice(0, 32).filter(item => item && hash(item.release) && Number.isFinite(item.lastCurrentAt)) : []
     // The previous deployment stayed current until this publication, even if
     // that deployment happened days ago. Its support window starts now.
     try {
