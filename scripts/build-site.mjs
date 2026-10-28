@@ -1,5 +1,6 @@
 import { generateTinySwordsProgression } from './tiny-swords-progression.mjs'
 import { buildTinySwords, reuseTinySwords } from './build-tiny-swords.mjs'
+import { retainTinySwordsReleases } from './tiny-swords-release-history.mjs'
 import { buildProductionExperience } from './build-production-experience.mjs'
 import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
 import { execFileSync } from 'node:child_process'
@@ -72,6 +73,7 @@ const validateGame = parseRuntimeConfigFlag(process.env.EDENIA_VALIDATE_GAME ?? 
 const gameParent = process.env.EDENIA_GAME_ARTIFACT_DIR
   ? await reuseTinySwords(outputDir, resolve(process.env.EDENIA_GAME_ARTIFACT_DIR))
   : await buildTinySwords(outputDir, { validate: validateGame })
+await retainTinySwordsReleases(outputDir, process.env.EDENIA_PREVIOUS_GAME_ARTIFACT_DIR || null)
 let html = await readFile(resolve(projectRoot, 'index.html'), 'utf8')
 html = html.replace('<!-- TINY_SWORDS_RELEASE -->', `<script src="${gameParent}" defer></script>`)
 html = html.replace('<!-- TINY_SWORDS_CONFLICT_PREVIEWS -->', `<script src="${gameParent.replace('parent.js', 'conflict-previews.js')}" defer></script>`)

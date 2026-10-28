@@ -6,7 +6,7 @@ test.use({ deviceScaleFactor: 3, reducedMotion: 'reduce' })
 
 test('Start text retains glyph detail and the canvas matches display density', async ({ page }, testInfo) => {
   test.setTimeout(90000)
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }))
   await page.goto('./?internal_test=2')
   await page.evaluate(() => {
     const state = defaultState(4, [], 'light', [], 'en')
@@ -17,7 +17,7 @@ test('Start text retains glyph detail and the canvas matches display density', a
     state.tinySwordsIsland = null
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const surface = page.locator('#tinySwordsSurface')
   await surface.scrollIntoViewIfNeeded()

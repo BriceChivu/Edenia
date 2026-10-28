@@ -515,8 +515,8 @@ explicit `.br` URLs, so GitHub Pages does not need custom Content-Encoding heade
 A bounded streaming worker decodes them with native Brotli when available, or the
 pinned `brotli-dec-wasm` decoder otherwise. Godot still initializes the engine,
 loads the pack and owns gameplay. Missing compressed files or decoder support
-fall back to the ordinary HTTP-compressed URLs. Invalid/truncated streams report
-startup failure through the existing retry surface; accepted restoration still
+fall back to the ordinary HTTP-compressed URLs. Invalid/truncated streams retire
+that startup attempt and recover through a fresh iframe; accepted restoration still
 gates writes. Learner-profile fields and their storage keys stay unchanged. The decoder's MIT
 notice is included in every release. Coverage: `tiny-swords-delivery.spec.mjs` and
 `tests/contracts/tiny-swords-delivery.test.mjs` at the repository root.
@@ -540,8 +540,78 @@ rendering expose completion signals rather than a measurable fraction. Only
 accepted restoration, applied study level and the first rendered island frame
 complete the bar and enable input. Failed restoration reports immediately.
 The fill grows only from left to right, with “Preparing your island...” and no
-time estimate. Retry resets progress; failure hides the bar and stops updates.
+time estimate. Automatic retry resets progress; cooldown hides the preparation
+cover and keeps the ordinary water backdrop and the surrounding study controls.
 Godot owns restoration and rendering; the host displays startup telemetry.
+
+### Invisible startup recovery
+
+`scripts/tiny-swords-startup.js` supervises browser startup. It is bundled and
+minified into the existing parent adapter, adding no separate script request.
+Normal visits retain low-priority preloading, bounded streaming compilation,
+the immutable engine URL and its validated cache. Godot still determines restore
+acceptance and sends readiness only after drawing the saved island.
+
+Failures retire their frame before another engine starts. Two short retry waits
+(500 ms and 2 seconds, with small jitter) precede cooldowns of 30 seconds,
+2 minutes and 5 minutes. Offline, hidden, suspended and offscreen pages start no
+new engine. Existing downloads exclude hidden time from their inactivity waits;
+healthy compilation gets a visible-time deadline, and waking after sleep gets a
+reconciliation grace period. The 20-second slow observation remains diagnostic.
+No failure screen, retry count, retry button or modal is exposed.
+
+A corrupt decoded stream always fails intact. A fresh recovery attempt can use
+ordinary HTTP delivery, bypassing the compressed cache/decoder. Godot's generated
+download retry count is one for the live island, so the parent owns its overall
+attempt budget. Read-only conflict previews retain their existing separate retry
+policy. Recovery scripts use a fixed alternative query
+to avoid WebKit retaining a failed script across immediate iframe replacements;
+healthy visits keep their original script URLs. Unrelated promise rejections and
+late startup messages cannot retire an already ready game.
+
+The controller fences messages, DOM callbacks and timers by the exact attempt.
+Sign-out, activation changes, import, reset and profile replacement cancel old
+work. Each attempt reads the current island; accepted restoration and the existing
+predecessor/activation checks still gate every save. Rejected or oversized layouts
+stay preserved and quiet, with no empty-world fallback and no repeated restore
+loop. Retiring a frame cancels workers, readers, preload ports and requests.
+Readiness clears all startup deadlines, retry timers and progress intervals;
+the controller performs no per-frame work during gameplay.
+
+The build publishes `tiny-swords-current.json` for a failure-only release lookup.
+An unavailable old document or script can select a complete newer release only
+when its exact reader/bridge/persistence compatibility fingerprint matches.
+Normal startup does not request this manifest. Engine, pack, decoder and adapters
+stay pinned to that selected release, without replacing the parent adapter.
+
+Deployments retain up to six complete game releases, for seven days since each
+was last current, within a 192 MiB game-archive budget. Shared engines/decoders are
+copied once. The compatibility archive is uploaded only after successful Pages
+deployment and restored from the last successful master deployment. A metadata
+or download outage fails restoration instead of silently dropping the retained
+window; the initial deployment bootstraps when no archive exists. Archive checks
+validate release hashes, engine/decoder bytes, delivery variants and directory
+types before copying. Learner data never enters this artifact.
+
+`window.edeniaIslandStartupDiagnostics()` returns at most 48 fixed startup records,
+with stages, reasons, delivery mode, attempt numbers and timings. It contains no
+layouts, arbitrary errors, URLs or credentials. Existing analytics gates remain;
+internal-test visits use this local read-only diagnostic without enabling upload.
+
+Regression coverage includes `tiny-swords-startup-controller.test.mjs`,
+`tiny-swords-startup-parent.test.mjs`, `tiny-swords-startup-recovery.test.mjs`,
+the release-history contracts and `tiny-swords-startup.spec.mjs`. Run the isolated
+browser matrix with `EDENIA_TEST_TINY_SWORDS=true npx playwright test
+--config=playwright.startup.config.mjs`. Installed Mac Chrome and emulated phone
+engines have separate projects; physical Android validation is separate.
+
+For matched before/after exports, run `node
+scripts/diagnostics/tiny-swords-performance/startup-recovery.mjs
+--baseline=/path/to/baseline-site --candidate=_site`. It uses disposable installed
+Chrome profiles, 20 interleaved cold and warm visits per build, and four 60-second
+scripted gameplay samples. Identical HTTP response probes observe the actual
+native engine main-loop callbacks. It also records renderer RSS during repeated
+rejected restores, without altering any learner profile or game source.
 
 ## Island persistence in the local Edenia integration
 

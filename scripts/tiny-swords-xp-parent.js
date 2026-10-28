@@ -1,5 +1,9 @@
+import { createIslandStartupController } from './tiny-swords-startup.js'
+
 // Resolve every game asset beside this exact version of the parent adapter.
-const tinySwordsReleaseUrl = new URL('.', document.currentScript.src)
+let tinySwordsReleaseUrl = new URL('.', document.currentScript.src)
+const tinySwordsManifestUrl = new URL('../../tiny-swords-current.json', tinySwordsReleaseUrl)
+const tinySwordsStartupCompatibility = ''
 // The builder supplies only disposable assets from this exact game release.
 const tinySwordsPreloadAssets = []
 if (window.edeniaTinySwordsEnabled === true) {
@@ -7,6 +11,15 @@ if (window.edeniaTinySwordsEnabled === true) {
   // streams to the worker once, including in private browsers whose HTTP cache
   // may not retain the engine. No learner data or game frame is needed here.
   const preloads = new Map()
+  const preloadAborts = new Set(), preloadHandles = new Set()
+  let preloadsRetired = false
+  function cancelPreloads() {
+    preloadsRetired = true
+    for (const abort of preloadAborts) abort.abort()
+    for (const handle of [...preloadHandles]) handle.cancel()
+    for (const pending of preloads.values()) pending.then(source => source?.response.body?.cancel().catch(() => {}))
+    preloads.clear()
+  }
   const canPreload = typeof Worker === 'function' && typeof MessageChannel === 'function'
   for (const asset of canPreload ? tinySwordsPreloadAssets : []) {
     const url = new URL(asset, tinySwordsReleaseUrl).href
@@ -18,13 +31,18 @@ if (window.edeniaTinySwordsEnabled === true) {
             caches.open('edenia-tiny-swords-engine-v1').then(cache => cache.match(url)),
             new Promise(resolve => { timer = setTimeout(resolve, 1000) })
           ])
-          if (cached) return { response: cached, cached: true }
+          if (cached) {
+            if (preloadsRetired) { cached.body?.cancel().catch(() => {}); return null }
+            return { response: cached, cached: true }
+          }
         } catch {} finally { clearTimeout(timer) }
       }
       const abort = new AbortController()
+      if (preloadsRetired) return null
+      preloadAborts.add(abort)
       const timer = setTimeout(() => abort.abort(), 15000)
       try { return { response: await fetch(url, { priority: 'low', signal: abort.signal }), cached: false } }
-      finally { clearTimeout(timer) }
+      finally { clearTimeout(timer); preloadAborts.delete(abort) }
     })().catch(() => null))
   }
   window.edeniaTakeTinySwordsPreload = url => {
@@ -34,6 +52,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     const channel = new MessageChannel()
     let reader, remaining, offset = 0, canceled = false
     const cancel = () => {
+      preloadHandles.delete(handle)
       canceled = true
       reader?.cancel().catch(() => {})
       remaining = null
@@ -68,7 +87,9 @@ if (window.edeniaTinySwordsEnabled === true) {
         channel.port1.close()
       }
     }
-    return { port: channel.port2, cancel }
+    const handle = { port: channel.port2, cancel }
+    preloadHandles.add(handle)
+    return handle
   }
   document.documentElement.classList.add('tiny-swords-integrated')
   const initializeIsland = () => {
@@ -81,13 +102,13 @@ if (window.edeniaTinySwordsEnabled === true) {
     const retry = document.getElementById('tinySwordsRetry')
     const controls = surface.querySelector('.tiny-swords-camera-controls')
     let frame
-    let startupTimer
-    let healthStartedAt = 0
+    let frameAttempt = null
+    let suspended = false
+    let releaseLookup = null, releaseLookupTried = false, releaseGeneration = 0
     let healthBackgrounded = document.hidden
     document.addEventListener('visibilitychange', () => { if (document.hidden) healthBackgrounded = true })
-    const reportHealth = (outcome, reason = 'none') => {
-      try { window.edeniaHealth?.report('island', outcome, { reason, duration: performance.now() - healthStartedAt, backgrounded: healthBackgrounded }) } catch {}
-    }
+    const diagnostics = []
+    window.edeniaIslandStartupDiagnostics = () => diagnostics.map(row => ({ ...row }))
     let failed = false
     let blocked = false
     let statusKey = 'island.preparing'
@@ -96,7 +117,8 @@ if (window.edeniaTinySwordsEnabled === true) {
     let preparationFloor = 60
     let preparationCeiling = 80
     let preparationStartedAt = 0
-    let progressTimer
+    let progressTimer = null
+    function stopProgress() { clearInterval(progressTimer); progressTimer = null }
     const translate = key => window.edeniaTranslate?.(key) || key
     function renderProgress() {
       loadProgress.dataset.phase = preparing ? 'preparing' : 'download'
@@ -118,7 +140,7 @@ if (window.edeniaTinySwordsEnabled === true) {
     // their share and ease forward within the current stage, never through its
     // next real milestone. Only Godot's drawn-island acknowledgment reaches 100.
     function advancePreparation() {
-      if (!preparing || restored || failed || document.visibilityState === 'hidden') return
+      if (!preparing || restored || failed || !visible()) return
       const elapsed = performance.now() - preparationStartedAt
       const value = preparationFloor + (preparationCeiling - preparationFloor) * (1 - Math.exp(-elapsed / 6000))
       const next = Math.max(progressPercent, Math.min(preparationCeiling - 1, Math.floor(value)))
@@ -128,25 +150,17 @@ if (window.edeniaTinySwordsEnabled === true) {
     }
     function setLoadState(state, key) {
       surface.dataset.gameState = state
-      surface.setAttribute('aria-busy', String(state === 'loading' || state === 'slow'))
+      surface.setAttribute('aria-busy', String(state === 'loading' || state === 'retry-wait'))
       statusKey = key
       loadMessage.dataset.i18n = key
       loadMessage.textContent = translate(key)
-      loadStatus.hidden = state === 'ready'
-      retry.hidden = !['slow', 'failed'].includes(state)
-      loadProgress.hidden = !['loading', 'slow'].includes(state)
+      loadStatus.hidden = !['loading', 'retry-wait'].includes(state)
+      retry.hidden = true
+      loadProgress.hidden = !['loading', 'retry-wait'].includes(state)
       renderProgress()
     }
-    function failStartup(key = 'island.failed') {
-      finishCheckpointRequest(false)
-      failed = true
-      restored = false
-      clearTimeout(startupTimer)
-      clearInterval(progressTimer)
-      controls.hidden = true
-      setLoadState('failed', key)
-      reportHealth('failure', key === 'island.restoreFailed' ? 'restore-failed' : 'startup-failed')
-      syncInput()
+    function failStartup(reason = 'engine', detail = {}) {
+      return startup.fail(frameAttempt, { reason, ...detail })
     }
     // Edenia owns page overlays. Inert removes the iframe from pointer and
     // keyboard navigation; host visibility lets Godot suspend its own effects.
@@ -157,7 +171,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       const inactive = blocked || !restored || failed
       if (frame && frame.inert !== inactive) frame.inert = inactive
       if (controls.inert !== inactive) controls.inert = inactive
-      if (inactive && document.activeElement === frame) {
+      if (frame && inactive && document.activeElement === frame) {
         frame.blur()
         modal?.querySelector('button, input, [tabindex="0"]')?.focus()
       }
@@ -174,7 +188,6 @@ if (window.edeniaTinySwordsEnabled === true) {
       status.textContent = status.dataset.messageKey ? translate(status.dataset.messageKey) : ''
       sendLocale()
     })
-    retry.addEventListener('click', () => checkReplacement(true))
     let session = 0
     let gameLevelCount = null
     let expected = 'absent'
@@ -183,7 +196,10 @@ if (window.edeniaTinySwordsEnabled === true) {
     let saving = false
     let replacementPending = false
     let legacy = false
-    let intersects = true
+    const initialBounds = surface.getBoundingClientRect?.()
+    let intersects = !initialBounds || (initialBounds.width > 0 && initialBounds.height > 0
+      && initialBounds.bottom > 0 && initialBounds.top < window.innerHeight
+      && initialBounds.right > 0 && initialBounds.left < window.innerWidth)
     let reportedVisibility = null
     let activeInteraction = true
     let checkpointRequest = null
@@ -221,6 +237,62 @@ if (window.edeniaTinySwordsEnabled === true) {
       return adapter?.readIsland ? adapter.readIsland() : adapter?.read()
     }
     const identity = state => JSON.stringify(state?.tinySwordsIsland) ?? 'absent'
+    const visible = () => !suspended && document.visibilityState !== 'hidden'
+    const startup = createIslandStartupController({
+      visible, eligible: () => visible() && intersects && window.navigator?.onLine !== false,
+      valid: () => Boolean(readIsland()) && accessIdentity() === expectedAccess,
+      begin: mountFrame, retire: retireFrame, recover: refreshRelease,
+      state(value) {
+        if (value === 'waiting-profile' || value === 'disposed') {
+          releaseGeneration++; releaseLookup?.abort(); releaseLookup = null
+        }
+        setLoadState(value, 'island.preparing')
+        if (!['loading', 'ready'].includes(value)) {
+          stopProgress(); controls.hidden = true; syncInput()
+        }
+      },
+      record(row) {
+        diagnostics.push({ ...row }); if (diagnostics.length > 48) diagnostics.shift()
+        const outcome = row.outcome === 'recovered' ? 'success' : row.outcome
+        try { window.edeniaHealth?.report('island', outcome, {
+          reason: outcome === 'slow' ? 'startup-slow' : outcome === 'failure' ? row.reason === 'restore' ? 'restore-failed' : 'startup-failed' : 'none',
+          duration: row.duration, backgrounded: healthBackgrounded,
+          startup: { ...row }
+        }) } catch {}
+      }
+    })
+    async function refreshRelease(detail) {
+      if (releaseLookupTried || typeof fetch !== 'function' || !tinySwordsStartupCompatibility
+        || !(['script', 'http-missing'].includes(detail.reason) || (detail.reason === 'timeout' && detail.stage === 'document'))) return
+      releaseLookupTried = true
+      const generation = releaseGeneration, abort = new AbortController()
+      releaseLookup = abort
+      const timer = setTimeout(() => abort.abort(), 2000)
+      try {
+        const response = await fetch(tinySwordsManifestUrl, { cache: 'no-store', signal: abort.signal })
+        if (!response.ok || !response.body) return
+        const reader = response.body.getReader(), chunks = []
+        let length = 0
+        for (;;) {
+          const chunk = await reader.read()
+          if (chunk.done) break
+          length += chunk.value.byteLength
+          if (length > 4096) { abort.abort(); return }
+          chunks.push(chunk.value)
+        }
+        const bytes = new Uint8Array(length)
+        let offset = 0
+        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
+        const manifest = JSON.parse(new TextDecoder().decode(bytes))
+        if (generation !== releaseGeneration || manifest.schema !== 1
+          || manifest.compatibility !== tinySwordsStartupCompatibility || !/^[a-f0-9]{64}$/.test(manifest.release)) return
+        const next = new URL(`../${manifest.release}/`, tinySwordsReleaseUrl)
+        if (next.origin === location.origin) tinySwordsReleaseUrl = next
+      } catch {} finally {
+        clearTimeout(timer)
+        if (releaseLookup === abort) releaseLookup = null
+      }
+    }
     const status = document.createElement('span')
     status.setAttribute('role', 'status')
     status.className = 'tiny-swords-save-status'
@@ -242,26 +314,34 @@ if (window.edeniaTinySwordsEnabled === true) {
     const visibilityObserver = typeof IntersectionObserver === 'function'
       ? new IntersectionObserver(entries => {
         for (const entry of entries) {
-          if (entry.target !== frame) continue
+          if (entry.target !== surface) continue
           intersects = entry.isIntersecting && entry.intersectionRect.width > 0 && entry.intersectionRect.height > 0
           sendVisibility()
+          startup.reconcile()
         }
       }) : null
-    document.addEventListener?.('visibilitychange', sendVisibility)
-    function mountFrame() {
+    function reconcileStartup() {
+      sendVisibility(); startup.reconcile()
+      if (!visible()) stopProgress()
+      else if (frame && startup.state === 'loading' && progressTimer === null) progressTimer = setInterval(advancePreparation, 100)
+    }
+    document.addEventListener?.('visibilitychange', reconcileStartup)
+    for (const event of ['online', 'offline', 'pageshow']) window.addEventListener(event, () => {
+      if (event === 'pageshow') suspended = false
+      reconcileStartup()
+    })
+    window.addEventListener('pagehide', () => { suspended = true; healthBackgrounded = true; reconcileStartup() })
+    document.addEventListener?.('freeze', () => { suspended = true; healthBackgrounded = true; reconcileStartup() })
+    document.addEventListener?.('resume', () => { suspended = false; reconcileStartup() })
+    function mountFrame(attempt) {
       finishCheckpointRequest(false)
-      healthStartedAt = performance.now()
       healthBackgrounded = document.hidden
-      reportHealth('started')
-      clearTimeout(startupTimer)
-      clearInterval(progressTimer)
-      const previous = frame
-      if (previous) {
-        cameraObserver.unobserve(previous)
-        visibilityObserver?.unobserve(previous)
-      }
+      stopProgress()
+      frameAttempt = attempt
       frame = document.createElement('iframe')
       const gameUrl = new URL('index.html', tinySwordsReleaseUrl)
+      if (attempt.number > 1) gameUrl.searchParams.set('startup_retry', '1')
+      if (attempt.delivery === 'ordinary') gameUrl.searchParams.set('startup_delivery', 'ordinary')
       // Transport the hosted internal rollout context.
       const parameters = new URLSearchParams(location.search)
       if (parameters.get('internal_test') === '1') gameUrl.searchParams.set('internal_test', '1')
@@ -279,7 +359,6 @@ if (window.edeniaTinySwordsEnabled === true) {
       preparationFloor = 0
       legacy = false
       gameLevelCount = null
-      intersects = true
       reportedVisibility = null
       expected = identity(readIsland())
       expectedAccess = accessIdentity()
@@ -287,28 +366,20 @@ if (window.edeniaTinySwordsEnabled === true) {
       controls.hidden = true
       controls.classList.remove('tiny-swords-editing')
       cameraObserver.observe(frame)
-      frame.addEventListener('load', sendStudyLevel)
-      frame.addEventListener('error', () => failStartup())
-      if (previous) previous.replaceWith(frame)
-      else surface.append(frame)
-      visibilityObserver?.observe(frame)
+      const mounted = frame
+      frame.addEventListener('load', () => { if (frame === mounted && frameAttempt === attempt) sendStudyLevel() })
+      frame.addEventListener('error', () => startup.fail(attempt, { reason: 'script', asset: 'script' }))
+      surface.append(frame)
       setLoadState('loading', 'island.preparing')
       syncInput()
       progressTimer = setInterval(advancePreparation, 100)
-      startupTimer = setTimeout(() => {
-        if (!restored && !failed) {
-          setLoadState('slow', 'island.slow')
-          if (!document.hidden && !healthBackgrounded) reportHealth('slow', 'startup-slow')
-        }
-      }, 20000)
     }
     function sendStudyLevel() {
       sendLocale()
       if (failed || gameLevelCount === null || !persistence()) return
       const state = readIsland()
       if (!state) {
-        restored = false
-        reportFailure('island.profileRequired')
+        disposeFrame()
         return
       }
       const claimedLevel = persistence().readClaimedLevel()
@@ -325,43 +396,55 @@ if (window.edeniaTinySwordsEnabled === true) {
             legacy = true
           }
         } catch {
-          failStartup('island.restoreFailed')
+          failStartup('restore')
           return
         }
       }
       if (new TextEncoder().encode(JSON.stringify(saved) || '').length > 512 * 1024) {
-        failStartup('island.restoreFailed')
+        failStartup('restore')
         return
       }
       // Godot restores the saved game level itself. Only claimed study progress
       // is a progression floor; test levels must not turn into study claims.
       frame?.contentWindow?.postMessage({ type: 'edenia-study-level', session, level, layout: saved ?? null }, location.origin)
+      startup.advance(frameAttempt, 'restore')
       sendVisibility()
     }
-    function disposeFrame() {
+    function retireFrame() {
       finishCheckpointRequest(false)
-      clearTimeout(startupTimer)
-      clearInterval(progressTimer)
+      stopProgress()
       if (frame) {
+        try { frame.contentWindow?.edeniaCancelGameStartup?.() } catch {}
         cameraObserver.unobserve(frame)
-        visibilityObserver?.unobserve(frame)
         frame.remove()
       }
+      cancelPreloads()
       frame = null
+      frameAttempt = null
+      failed = true
       reportedVisibility = false
       reportSyncActivity()
-      session += 1
       restored = false
       preparing = false
       controls.hidden = true
+    }
+    function disposeFrame() {
+      releaseGeneration++; releaseLookup?.abort(); releaseLookup = null
+      startup.stop('waiting-profile')
     }
     function checkReplacement(force = false) {
       // Ownership loss retires the iframe immediately, including while a save
       // is awaiting acknowledgment. A new owner gets a fresh restore session.
       if (!readIsland()) { disposeFrame(); return }
-      if (frame && accessIdentity() !== expectedAccess) disposeFrame()
+      const changedOwner = accessIdentity() !== expectedAccess
+      if (changedOwner) disposeFrame()
       if (saving) { replacementPending ||= force || !frame; return }
-      if (!frame || force || identity(readIsland()) !== expected) mountFrame()
+      if (force || changedOwner || identity(readIsland()) !== expected
+        || ['waiting-profile', 'disposed'].includes(startup.state)) {
+        releaseGeneration++; releaseLookup?.abort(); releaseLookup = null; releaseLookupTried = false
+        expected = identity(readIsland()); expectedAccess = accessIdentity()
+        startup.start()
+      }
       else sendStudyLevel()
     }
     window.addEventListener('edenia-profile-persisted', event => {
@@ -380,19 +463,21 @@ if (window.edeniaTinySwordsEnabled === true) {
     window.addEventListener('message', async event => {
       if (event.origin !== location.origin || (!frame || event.source !== frame.contentWindow)) return
       const data = event.data
-      if (data?.type === 'edenia-game-startup-failed') { failStartup(); return }
+      if (data?.type === 'edenia-game-startup-failed') { failStartup(data.reason, { asset: data.asset }); return }
       if (failed && data?.type !== 'edenia-tiny-layout') return
       if (data?.type === 'edenia-game-loading-progress') {
-        if (restored || preparing || !Number.isFinite(data.current) || !Number.isFinite(data.total)
+        if (restored || !Number.isFinite(data.current) || !Number.isFinite(data.total)
           || data.total <= 0 || data.current < 0 || data.current > data.total) return
-        if (data.current === data.total) prepareIsland()
-        else {
+        startup.activity(frameAttempt, data.current)
+        if (data.current === data.total) { startup.advance(frameAttempt, 'engine'); prepareIsland() }
+        else if (!preparing) {
           progressPercent = Math.max(progressPercent, Math.floor(data.current / data.total * 60))
           renderProgress()
         }
         return
       }
       if (data?.type === 'edenia-game-engine-initialized') {
+        startup.advance(frameAttempt, 'scene')
         prepareIsland(80, 89)
         return
       }
@@ -412,7 +497,7 @@ if (window.edeniaTinySwordsEnabled === true) {
         controls.hidden = !restored || data.celebrating === true
         controls.classList.toggle('tiny-swords-editing', data.editing === true)
       }
-      if (data?.type === 'edenia-tiny-ready') { prepareIsland(); sendStudyLevel() }
+      if (data?.type === 'edenia-tiny-ready') { startup.advance(frameAttempt, 'assets'); prepareIsland(); sendStudyLevel() }
       if (data?.session !== session) return
       if (data.type === 'edenia-checkpoint-flushed' && checkpointRequest
         && checkpointRequest.session === session && data.requestId === checkpointRequest.id) {
@@ -423,14 +508,16 @@ if (window.edeniaTinySwordsEnabled === true) {
         (touchDevice ? document.querySelector('.gear-btn[data-settings-shell-action="open"]') : controls.querySelector('[data-city-zoom-action="reset"]'))?.focus()
       }
       if (data.type === 'edenia-tiny-restored') {
+        if (startup.state !== 'loading') return
+        if (data.accepted !== true) { failStartup('restore'); return }
+        if (!startup.ready(frameAttempt)) return
         restored = data.accepted === true
         failed = !restored
-        clearTimeout(startupTimer)
-        clearInterval(progressTimer)
+        stopProgress()
         if (restored) progressPercent = 100
-        setLoadState(restored ? 'ready' : 'failed', restored ? 'island.loading' : 'island.restoreFailed')
-        reportHealth(restored ? 'success' : 'failure', restored ? 'none' : 'restore-failed')
+        setLoadState('ready', 'island.loading')
         controls.hidden = !restored
+        frame?.contentWindow?.postMessage({ type: 'edenia-startup-complete', session }, location.origin)
         syncInput()
       }
       if (data.type === 'edenia-tiny-layout') {
@@ -504,6 +591,7 @@ if (window.edeniaTinySwordsEnabled === true) {
       })
     }
     surface.append(status)
+    visibilityObserver?.observe(surface)
     checkReplacement()
   }
   if (document.readyState === 'loading' || !document.readyState) {

@@ -5,7 +5,7 @@ test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true' && process.env.EDENIA_T
 test('wheel over Tiny Swords scrolls Edenia without moving the camera', async ({ page }) => {
   test.setTimeout(90000)
   // Initialize the disposable learner before starting the large game export.
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Preview initialization</title>' }))
   await page.goto('./?internal_test=2', { waitUntil: 'load' })
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   await page.evaluate(() => {
@@ -16,7 +16,7 @@ test('wheel over Tiny Swords scrolls Edenia without moving the camera', async ({
     state.videos.lesson = { id: 'lesson', title: 'XP game test', duration: 7200, status: 'unwatched', watchProgress: [] }
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const frame = page.frameLocator('.tiny-swords-frame')
   await expect(frame.locator('#canvas')).toBeVisible()

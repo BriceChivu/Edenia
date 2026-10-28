@@ -114,7 +114,7 @@ export default defineConfig({
       { name: 'webkit-trial-phone', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }
     ].map(({ name, ...use }) => ({
       name,
-      testMatch: /(history-chart|auth-trial|profile-handoff|profile-derived-progress|tiny-swords-preload|storage-recovery-connection|profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
+      testMatch: /(history-chart|auth-trial|profile-handoff|profile-derived-progress|tiny-swords-preload|tiny-swords-startup|storage-recovery-connection|profile-recovery-journal|storage-recovery-timeout|starter-feed-concurrent-save)\.spec\.mjs/,
       use: { browserName: 'webkit', deviceScaleFactor: 1, ...use }
     }))
   ],

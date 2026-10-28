@@ -737,7 +737,7 @@ for (const testerMode of [false, true]) {
   test(`embedded subtitles retain focus for selection and copy (${testerMode ? 'tester' : 'production'})`, async ({ page, context }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-standard')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-    await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({
+    await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({
       contentType: 'text/html', body: '<!doctype html><title>Island stub</title>'
     }))
     // Keep the subtitle in a cross-origin embed, like asbplayer's injected text.
