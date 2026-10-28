@@ -318,7 +318,7 @@ export async function runReminderLive(
       }
       continue
     }
-    if (config.admissionMode !== 'public' && recipient !== config.allowedRecipientEmail) {
+    if (config.admissionMode !== 'public' && !config.allowedRecipientEmails?.includes(recipient)) {
       if (!await completeWithoutSend(
         client,
         claim,

@@ -210,7 +210,9 @@ Server configuration includes the dedicated `reminder_dispatcher` capability,
 `RESEND_API_KEY`, `REMINDER_FROM_ADDRESS`, `REMINDER_UNSUBSCRIBE_SECRET`,
 `REMINDER_UNSUBSCRIBE_KEY_VERSION`, exact allowed app/unsubscribe URLs, and
 `REMINDER_ADMISSION_MODE` (canary by default). Canary also requires
-`REMINDER_LIVE_RECIPIENT_EMAIL`. Store secrets only in the existing secret stores.
+`REMINDER_LIVE_RECIPIENT_EMAIL` (one address or up to ten comma-separated,
+explicitly approved addresses; every recipient must also be in the private UUID
+allowlist). Empty, invalid or duplicate addresses reject configuration. Store secrets only in the existing secret stores.
 
 Scheduler plumbing is inert: `private.invoke_reminder_dispatcher()` reads
 `reminder_dispatcher_url` and `reminder_dispatcher_api_key` from Vault. Only the
@@ -597,7 +599,7 @@ path and production had these Edge Function secrets or settings:
 - `REMINDER_UNSUBSCRIBE_SECRET` (at least 32 bytes)
 - `REMINDER_APP_URL` (the exact internal-test Edenia URL)
 - `REMINDER_UNSUBSCRIBE_PAGE_URL` (the exact Edenia unsubscribe-page base URL)
-- `REMINDER_LIVE_RECIPIENT_EMAIL` (one exact normalized canary address)
+- `REMINDER_LIVE_RECIPIENT_EMAIL` (one exact normalized address or a bounded comma-separated canary list)
 - `SUPABASE_URL` (provided by Supabase and used to derive the unsubscribe API)
 
 The live route validates all seven values before it claims anything. It then uses
