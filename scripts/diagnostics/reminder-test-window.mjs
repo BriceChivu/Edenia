@@ -4,7 +4,9 @@
 export async function reminderTestWindow(sql) {
   const deadline = Date.now() + 65_000
   while (Date.now() < deadline) {
-    const result = sql("select coalesce((select json_build_object('zone',name,'date',(now() at time zone name)::date)::text from pg_timezone_names where extract(hour from now() at time zone name)=19 and extract(minute from now() at time zone name)<59 order by extract(minute from now() at time zone name),name limit 1),'null')")
+    // Match reminder_preferences_timezone_check. PostgreSQL also lists aliases
+    // such as NZ-CHAT, which can win this ordering but cannot seed a preference.
+    const result = sql("select coalesce((select json_build_object('zone',name,'date',(now() at time zone name)::date)::text from pg_timezone_names where (name='UTC' or name ~ '^[A-Za-z_]+(?:/[A-Za-z0-9_+.-]+)+$') and extract(hour from now() at time zone name)=19 and extract(minute from now() at time zone name)<59 order by extract(minute from now() at time zone name),name limit 1),'null')")
     const point = JSON.parse(result)
     if (point) return point
     await new Promise(resolve => setTimeout(resolve, 1000))
