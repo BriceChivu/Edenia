@@ -103,3 +103,12 @@ test('public admission and key rotation versions are explicit configuration', ()
     assert.throws(() => readReminderLiveConfig(name => name === 'REMINDER_ADMISSION_MODE' ? invalid : environment.read(name)))
   }
 })
+
+
+test('internal admission relies on the server tester gate and reads no canary address', () => {
+  const environment=createEnvironment()
+  const config=readReminderLiveConfig(name=>name==='REMINDER_ADMISSION_MODE'?'internal':name==='REMINDER_LIVE_RECIPIENT_EMAIL'?undefined:environment.read(name))
+  assert.equal(config.admissionMode,'internal')
+  assert.equal(config.allowedRecipientEmail,null)
+  assert.ok(!environment.reads.includes('REMINDER_LIVE_RECIPIENT_EMAIL'))
+})

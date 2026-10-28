@@ -19,7 +19,7 @@ export type ReminderLiveConfig = Readonly<{
   unsubscribeEndpointUrl: string
   unsubscribePageUrl: string
   allowedRecipientEmail: string | null
-  admissionMode: 'canary' | 'public'
+  admissionMode: 'canary' | 'internal' | 'public'
   unsubscribeKeyVersion: string
 }>
 
@@ -71,7 +71,7 @@ export function readReminderLiveConfig(
       new URL(UNSUBSCRIBE_API_PATH, supabaseUrl).href,
     )
     const rawMode = readEnvironment('REMINDER_ADMISSION_MODE') ?? 'canary'
-    if (rawMode !== 'canary' && rawMode !== 'public') throw new TypeError('Reminder admission mode is invalid')
+    if (rawMode !== 'canary' && rawMode !== 'internal' && rawMode !== 'public') throw new TypeError('Reminder admission mode is invalid')
     const admissionMode = rawMode
     const unsubscribeKeyVersion = requireEnvironmentValue(readEnvironment, 'REMINDER_UNSUBSCRIBE_KEY_VERSION')
     if (!/^[a-zA-Z0-9._-]{1,80}$/u.test(unsubscribeKeyVersion)) throw new TypeError('Reminder key version is invalid')

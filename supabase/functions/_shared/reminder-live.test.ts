@@ -570,3 +570,17 @@ test('a provider-begin RPC returning after the occurrence cutoff cannot start PO
  assert.equal(sends, 0)
  assert.equal(h.rpcCalls.filter(x => x.name === 'begin_typed_reminder_provider_attempt').length, 1)
 })
+
+
+test('internal admission sends a server-admitted recipient without a second email allowlist', async () => {
+  const harness=createHarness({user:{...CONFIRMED_USER,email:'internal-tester@example.com'}})
+  let sent=0
+  const result=await runReminderLive(harness.client,{...CONFIG,admissionMode:'internal',allowedRecipientEmail:null},()=>{}, {
+    send:async()=>{sent++;return {status:'accepted',providerMessageId:'fake-internal-recipient'}}
+  })
+  assert.equal(sent,1)
+  assert.equal(result.accepted,1)
+  assert.equal(result.recipientNotAllowlisted,0)
+  const binding=harness.rpcCalls.find(call=>call.name==='bind_reminder_payload')
+  assert.equal(binding?.params?.p_admission_mode,'internal')
+})
