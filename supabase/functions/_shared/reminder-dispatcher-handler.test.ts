@@ -173,7 +173,7 @@ test('empty request retains the fenced live route and live result fields', async
         'refresh_reminder_provider_usage', 'refresh_reminder_eligibility_snapshots'].includes(name)) {
         return Promise.resolve({ data: true, error: null })
       }
-      if (name === 'claim_due_typed_reminder_live') return Promise.resolve({ data: [], error: null })
+      if (name === 'claim_due_typed_reminder_design') return Promise.resolve({ data: [], error: null })
       throw new Error('unexpected mutation')
     },
     auth: { admin: { getUserById() { throw new Error('unexpected auth read') } } },
@@ -190,5 +190,5 @@ test('empty request retains the fenced live route and live result fields', async
   assert.equal(providerReads, 1)
   assert.deepEqual(calls, ['reminder_delivery_is_enabled', 'reminder_delivery_is_enabled',
     'reminder_provider_attestation_is_current', 'refresh_reminder_provider_usage',
-    'refresh_reminder_eligibility_snapshots', 'claim_due_typed_reminder_live'])
+    'refresh_reminder_eligibility_snapshots', 'claim_due_typed_reminder_design'])
 })

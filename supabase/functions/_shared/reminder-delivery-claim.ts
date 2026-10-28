@@ -1,6 +1,8 @@
+import { validateDiscoveryRecommendations } from './reminder-email-design.ts'
+import type { DiscoveryRecommendation } from './reminder-email-design.ts'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u
-const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,}$/u
+const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/u
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/u
 const ALLOWED_LOCALES = new Set(['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'])
 const ALLOWED_LEARNING_LANGUAGES = new Set([
@@ -42,6 +44,10 @@ export type TypedReminderDryRunClaim = ReminderDeliveryClaim & Readonly<{
   videoId: string | null
   videoTitle: string | null
   videoPublishedAt: string | null
+  recommendations?: readonly DiscoveryRecommendation[]
+  currentStreakDays?: number | null
+  remainingMinutes?: number | null
+  videoMode?: 'new' | 'continue'
 }>
 
 export class ReminderDispatchError extends Error {
@@ -238,8 +244,23 @@ export function parseTypedReminderDryRunClaim(
     )
   }
 
+  const design: { recommendations?: readonly DiscoveryRecommendation[]; currentStreakDays?: number | null; remainingMinutes?: number | null; videoMode?: 'new' | 'continue' } = {}
+  try {
+    if (value.discovery_channels !== undefined && emailType === 'discovery') design.recommendations = validateDiscoveryRecommendations(value.discovery_channels)
+    for (const [field, key, maximum] of [['streak_days', 'currentStreakDays', 10000], ['remaining_minutes', 'remainingMinutes', 10]] as const) {
+      if (value[field] === undefined) continue
+      const count = value[field]
+      if (count !== null && (!Number.isInteger(count) || Number(count) < (field === 'remaining_minutes' ? 1 : 0) || Number(count) > maximum)) throw new TypeError()
+      design[key] = count as number | null
+    }
+    if (value.video_mode !== undefined && value.video_mode !== null) {
+      if (value.video_mode !== 'new' && value.video_mode !== 'continue') throw new TypeError()
+      design.videoMode = value.video_mode
+    }
+  } catch { throw new ReminderDispatchError('Invalid frozen email design', 500, 'invalid_claim') }
   return Object.freeze({
     ...base,
+    ...design,
     emailType,
     learningLanguage,
     channelId,

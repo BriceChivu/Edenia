@@ -1,3 +1,4 @@
+import { consumeEmailChannelDestination, addRecommendedChannels } from './integrations/email-channel-destination.js'
 import { reportWindowHealth } from './integrations/health-monitor.js'
 import { createProfileRecoveryWorkspace } from './state/profile-recovery-workspace.js'
 import { createStorageRecoveryFeedback } from './integrations/storage-recovery-feedback.js'
@@ -3081,6 +3082,7 @@ async function startApplicationWithState(initialState, {
   if (!unfinishedOnboardingStartsImmediately) show('mainApp')
   renderAll(state)
   try { window.edeniaHealth?.ready() } catch {}
+  void initializeRequestedEmailChannelDestination()
   void initializeRequestedReminderDestination()
   loadDynamicChannelCatalogs()
   syncHeaderCompactState()
@@ -6382,13 +6384,6 @@ function renderReminderPreferences(state = reminderPreferenceViewState) {
     enrollButton.disabled = busy || !selected || preference.enrollmentBlocked
   }
   document.getElementById('reminderDeliveryPaused')?.classList.toggle('hidden', !signedIn || !ready || !preference.deliveryPaused)
-  const enrollmentStatus = document.getElementById('reminderEnrollmentStatus')
-  if (enrollmentStatus) {
-    enrollmentStatus.textContent = signedIn && ready ? t(busy
-      ? 'settings.account.remindersSaving'
-      : preference.enrollmentBlocked ? 'settings.account.remindersFeedback.enrollmentBlocked'
-      : enrolled ? 'settings.account.emailEnrollmentActive' : 'settings.account.emailEnrollmentPending') : ''
-  }
 
   document.getElementById('reminderRetryBtn')?.classList.toggle(
     'hidden',
@@ -6964,6 +6959,62 @@ function initializeRequestedAccountSettings() {
   )
   if (canResumeOnboardingAccountStep(loadState())) return
   window.setTimeout(() => openSettings(), 0)
+}
+
+async function initializeRequestedEmailChannelDestination() {
+  const request = consumeEmailChannelDestination({
+    enabled: ACCOUNT_FEATURES_ENABLED || IS_SANDBOX,
+    location: window.location, history: window.history
+  })
+  if (!request) return
+  const originatingState = loadState()
+  if (!originatingState) return
+  const stillCurrent = () => isCurrentLearnerProfileOperation(originatingState)
+  await loadDynamicChannelCatalogs()
+  if (!stillCurrent()) return
+  // Search display deduplicates against onboarding stubs which lack immutable
+  // IDs. Email intent resolves against the hydrated reviewed metadata instead.
+  const catalog = [...COMMUNITY_CHANNEL_CATALOG, ...CURATED_CHANNEL_CATALOG]
+  const channels = request.channelIds.map(id => catalog.find(channel => channel.channelId === id))
+  if (channels.some(channel => !channel)) {
+    showToast(t('toast.channelInvalid'), 'warn')
+    return
+  }
+  const button = document.getElementById('manualVideoBtn')
+  const input = document.getElementById('manualVideoUrlInput')
+  button?.scrollIntoView({ block: 'center', behavior: 'instant' })
+  if (request.mode === 'single') {
+    if (input) input.value = channels[0].name
+    if (document.getElementById('manualVideoPopover')?.classList.contains('hidden')) {
+      toggleManualVideoPopover({ stopPropagation() {} })
+    }
+    input?.focus({ preventScroll: true })
+    renderManualChannelSuggestions()
+    return
+  }
+  const dismiss = showToast(t('toast.emailChannelAdding', { name: channels[0].name, index: 1, total: channels.length }), 'info', { durationMs: 0 })
+  try {
+    const result = await addRecommendedChannels({
+      channels, read: loadState, isCurrent: stillCurrent,
+      progress: async (channel, index, total) => {
+        showToast(t('toast.emailChannelAdding', { name: channel.name, index, total }), 'info', { durationMs: 0 })
+        await new Promise(resolve => window.setTimeout(resolve, 400))
+      },
+      add: channel => addChannel({
+        input, deferRefresh: true,
+        resolvedChannel: { id: channel.channelId, name: channel.name, thumbnail: channel.thumbnailUrl },
+        source: 'discovery_email', catalogId: channel.id,
+        catalogSource: channel.catalogSource || 'curated'
+      })
+    })
+    if (!stillCurrent()) { dismiss(); return }
+    showToast(t(result.stopped ? 'toast.emailChannelsStopped' : 'toast.emailChannelsAdded', {
+      count: result.added, skipped: result.skipped
+    }), result.stopped ? 'warn' : 'success', { durationMs: 8000 })
+    if (!IS_SANDBOX && hasYoutubeApiKey()) startYoutubeAutoRefresh()
+  } catch {
+    if (stillCurrent()) showToast(t('toast.channelInvalid'), 'warn')
+  }
 }
 
 async function initializeRequestedReminderDestination() {
@@ -8254,6 +8305,7 @@ async function addChannel(options = {}) {
     btn.disabled = false
     btn.textContent = idleButtonText
   }
+  if (options.deferRefresh) return true
   if (options.closePopover) closeManualVideoPopover()
   if (addedFromFilter && usesPhoneComposition()) closeChannelFilterMenu()
   if (IS_SANDBOX) {

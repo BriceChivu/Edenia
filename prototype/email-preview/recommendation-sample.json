@@ -1,0 +1,836 @@
+{
+  "learnerId": "sample-recipient",
+  "learningLanguages": [
+    "mandarin"
+  ],
+  "ownedChannelIds": [
+    "UCC_fdR7zZ_5SU--xuOrEdKw"
+  ],
+  "previouslyDeletedChannelIds": [
+    "UCsZllvjNVbgfo888N35G-Qw"
+  ],
+  "onboardingChannelIds": [
+    "UC-3wHyVaLCiujjjPYXtif5w",
+    "UC-N3sJzFjDr93GhfI7mrbvQ",
+    "UC-XUpEBvcQcRqMdtLhoXmOA",
+    "UC-ZFVrf5NVlmgZ0hItLT0pg",
+    "UC0Oq6ZwNKq8eJuQdiRdMxcA",
+    "UC0efyK_-Athm8yhyjNSqndQ",
+    "UC0hpPbLaIop8hCtIpL-xNtQ",
+    "UC0ox9NuTHYeRys63yZpBFuA",
+    "UC0qr9ObVeJ7hL0SXK-rR31Q",
+    "UC16niRr50-MSBwiO3YDb3RA",
+    "UC1YcINMZfOUNQwyIG9K6bQA",
+    "UC1ipKNAWcHhmcqKUEGg1RMg",
+    "UC1orofViseR1HE42X8PSQtQ",
+    "UC2H4tP5lnGl-kkbF-3SG8lA",
+    "UC2L7vR43LKuBXXV2AentEMw",
+    "UC2_OG1L8DLTzQ7UrZVOk7OA",
+    "UC2cRwTuSWxxEtrRnT4lrlQA",
+    "UC2fAiRQHRQT9aj9P_ijYeow",
+    "UC32tK--jwy8qWP4uggYzhMw",
+    "UC4k5Mdsju1hiIWo_nLRXdfw",
+    "UC4v4c3qY1aPZ_7FzjGNgkcQ",
+    "UC53Xhkp-t4MreRGRk1vbnWQ",
+    "UC5E3cis5nJyfuiU5_bzvIwg",
+    "UC5eOLQO5VUEFJukNg9cl5jg",
+    "UC5p8WSPGtnSWpeQzXv9F7XQ",
+    "UC5r3WHrX4Z7peSYpDlgktGw",
+    "UC649Ne-XU-rcLvdUdxm3i7A",
+    "UC64aGo-8uz1dndBAB3VtL2w",
+    "UC65fIQq8-Z4j2aYwgTiCfBw",
+    "UC67BDv__7er_ZaYKqhOSOFQ",
+    "UC6AG81pAkf6Lbi_1VC5NmPA",
+    "UC6WGCFe8X00zt1e2Zv2Gxlw",
+    "UC6osmdwI3-oh_XKzkW-i8SA",
+    "UC6wpJhqkHmHib0BpDutamyQ",
+    "UC7ynjArlSFuXW23ssZAknyA",
+    "UC8-Th83bH_thdKZDJCrn88g",
+    "UC8P0KSW4MkwTvfVDVBCI8Ew",
+    "UC8eIiMKgT4Oig_cCNLgUwFg",
+    "UC8qxftC5pwxJZsfuLrlClJA",
+    "UC8sCINlHlbkxEdDKQRSHK_w",
+    "UC99LgIedzGD1GirhFGldfUQ",
+    "UC9BnGZLT4iPaJtDOXYwQuHQ",
+    "UC9P_8bG2NWRBuYHDy6sWU0g",
+    "UC9RHneALOnf29DgQ5PCyNdg",
+    "UC9g4w3QvOCTM_3ok6WlH43Q",
+    "UC9pVaOtZ8vdLBrlHu5xaaOA",
+    "UC9yudInUYzMh9H4gJs4DrHg",
+    "UC9zMlDf3SoAEgZta239F7nA",
+    "UCAL4AMMMXKxHDu3FqZV6CbQ",
+    "UCAsM_QkENotL0HfxXS5QItQ",
+    "UCBpW2RaZJ8sIRZIISpR7DIw",
+    "UCCCPCZNChQdGa9EkATeye4g",
+    "UCCQmKxqC9h8OknMgw4_Jsqw",
+    "UCC_fdR7zZ_5SU--xuOrEdKw",
+    "UCCaFYslhot_g4QxMjAcC0gg",
+    "UCD2KoUc0f4Bv2Bz0mbOah8g",
+    "UCDkl5M0WVaddTWE4rr2cSeA",
+    "UCEf0-WZoqYFzLZtx43KPvag",
+    "UCFbp2XdRpKfk7mYt_uT8dxw",
+    "UCFgzW4fMrTGOLypir7o-9Tg",
+    "UCFqN3dNl8n45k9lErabRZbA",
+    "UCGyOkcUw1b3B_hb5G2klsTg",
+    "UCGzA2nGCGvvxz2WRwoEoegg",
+    "UCH5mdDlZ0haTodJmSxhst2w",
+    "UCHQda5vLxrH0Ff0I0kMq4zw",
+    "UCHYkGznyJEVvHyq0lOWzq2g",
+    "UCHaHD477h-FeBbVh9Sh7syA",
+    "UCHk14TRSD33vAyx5xKzpcnw",
+    "UCI4xp8qHD1MDErkqxb1dPbA",
+    "UCIUxVMfxb4c4TfSGgMXJTFw",
+    "UCIVO9pz-wUWpyviKq_u7L-g",
+    "UCIhaNRLn4OQDWZJiVvdhl5A",
+    "UCItcQIzzVfhAg4sKJ5iCTPw",
+    "UCJQvdkkFP1dMcxRp4huTMkQ",
+    "UCJpIsrXze5HT3X64LDIIHUg",
+    "UCJruTcTs7Gn2Tk7YC-ENeHQ",
+    "UCK3inMNRNAVUleEbpDU1k2g",
+    "UCK6TzBHhEUCKa6dgjlsVHEw",
+    "UCKDM-b_-JeLh7U7ZqIxhilw",
+    "UCKIicR8VM3HczwmJM9UxtTw",
+    "UCK_xYjJ_C9wAt-FZOhXmmaA",
+    "UCKgpamMlm872zkGDcBJHYDg",
+    "UCL4GtCCbxsTEYTicvPCxLUg",
+    "UCLLibJTCy3sXjHLVaDimnpQ",
+    "UCLp9rnRAcrFSzsoXsjXYJYA",
+    "UCMKtlKSof1ltcFRMKki2Mcw",
+    "UCMVbkbyxW4_uZ1R-B8_Phbw",
+    "UCNxUpeOAyBZwy4J0FmqvCpg",
+    "UCO0OZ-1EMqm1h7qn-oZcm8Q",
+    "UCOCEBt8L1_rLE5Mzx_DlzuA",
+    "UCOk9XUAOmj1HCxgNXkouUEQ",
+    "UCOy3HZbWP5me7H8xHMz-6Iw",
+    "UCP46_MXP_WG_auH88FnfS1A",
+    "UCPX3HwwWNaWw3zLc6QDQdzA",
+    "UCPhu00kX1gmRXkkz1S0Ek6A",
+    "UCPuxzRvb5JMEb4Izjt4Ucow",
+    "UCQ-vdFAnCH8eywA2siOlRtg",
+    "UCQ1GpKa15ulyoQuxz7H4rng",
+    "UCQFW8dTEEMjB85pC235tdEw",
+    "UCQfakletOMk9zXVRSHUdyDA",
+    "UCQjIWaomPSScY4o9nTUgqZA",
+    "UCQpM25U6iqaRSO-SZxd5oDw",
+    "UCQq9fMRQhXOyOZeageaj6ag",
+    "UCRBpynZV0b7ww2XMCfC17qg",
+    "UCRwA1NUcUnwsly35ikGhp0A",
+    "UCS1-E3fjfJmY5O2HqhXM5CQ",
+    "UCSXriUqkzZmAQklQ0N9XFVw",
+    "UCSbH_BPR_AoARW6RDYLlLog",
+    "UCSdJiWi0tq9CAx1bizne6mA",
+    "UCTebWgswPfix9QVeeXKA8NA",
+    "UCTobWZV_HWGSoaRrhHyrJ-A",
+    "UCTt2AnK--mnRmICnf-CCcrw",
+    "UCUjrDJokSX8JavRwy5iUOkA",
+    "UCUsN5ZwHx2kILm84-jPDeXw",
+    "UCVBA7-PfzHIkfPfZ3UiqWdg",
+    "UCVBf2Zflj4WabkdCvEAFWew",
+    "UCVDUI8jLTUw4a1QziadWs5A",
+    "UCVHLTzYsfBsbfYE5qWAzesg",
+    "UCVPtefCRdBWnqTftTsORUvA",
+    "UCVeMw72tepFl1Zt5fvf9QKQ",
+    "UCVgW9ZQaGBk6fsiPgE2mYDg",
+    "UCVzyfpNuFF4ENY8zNTIW7ug",
+    "UCWQytAtUgm_NdsujRrnHGOQ",
+    "UCWeg2Pkate69NFdBeuRFTAw",
+    "UCWozl2jWVx_6QcTA7r_ayEg",
+    "UCWty1tzwZW_ZNSp5GVGteaA",
+    "UCXntXBt2YKBO1xDni0EgjXA",
+    "UCY4GGvdC-zwlD9RA2esmXmA",
+    "UCYBToQk7WhzdlxGTNK2e8Zw",
+    "UCYnvxJ-PKiGXo_tYXpWAC-w",
+    "UCZ8kV8vuMdDLSerCIFfWnFQ",
+    "UCZTNZL_srOzo6zu1TRjb8yw",
+    "UCZs2_qqVNU5K32XxhHFY_MQ",
+    "UCZwegPHTG4gvnR0WLzaq5OQ",
+    "UC_9Z28lA28JxAgFv-m4_nlw",
+    "UC_GFwrcNlXh92xA8iKFT2WA",
+    "UC_VqWD9IgRGucwP3Oowx1xA",
+    "UC_yP2DpIgs5Y1uWC0T03Chw",
+    "UCaeT58uDMlPpBlwAYaxN0LA",
+    "UCafQYBIASRjaY5xvdw1KrGw",
+    "UCb3u5vctZOjajpr39xy2jMA",
+    "UCbC9Utt1c6UXRqWw2lOTCBg",
+    "UCbYEAcHF4bEv9WZmvmG-1ew",
+    "UCbitWKTIHZnoLYuOnZzRBZQ",
+    "UCbj8Qov-9b5WTU1X4y7Yt-w",
+    "UCbmpXpneqjfhJWyFN0PA5SA",
+    "UCbxb2fqe9oNgglAoYqsYOtQ",
+    "UCc-4HSPd7yMcK1Y5XkVVwGQ",
+    "UCc-YIMz_tv1K_FKE4noY_Cw",
+    "UCcNSfOcofBKnzv2VWu-YH8g",
+    "UCchoNkjEsOAm9QK4tXNGr9Q",
+    "UCcqB_rm7oQZyxmSS1PR9atQ",
+    "UCcvjK35lDPZTlkIrrwxpepg",
+    "UCcziTK2NKeWtWQ6kB5tmQ8Q",
+    "UCeGGVbpugxZGDc7dnAtAgQw",
+    "UCeTVoczn9NOZA9blls3YgUg",
+    "UCfDEPbErn2t1Igx1oqAZ_Tg",
+    "UCfG2VhlQgy5bHGmkpeKcjVA",
+    "UCfsNycNoClXZA1FuUJSGT0w",
+    "UCgCrOLcWvSFl5K2ld0nKS7w",
+    "UCgoWgP5yvebzcyKS1D9nSpA",
+    "UCgvqvBoSHB1ctlyyhoHrGwQ",
+    "UChEmp9MCD9K6QE9w_2AHLPg",
+    "UCj-si9poLf4ihrKYhM2lbGA",
+    "UCjSFDgRCzh_1ZPhxChVgK7Q",
+    "UCkinYTS9IHqOEwR1Sze2JTw",
+    "UCkjImZU5AxtpJkOERZZJXlg",
+    "UCkwJXqFl-9VVvK9udYCFjMw",
+    "UClBrbJXNh2sFxOuvH4o5H9g",
+    "UClE8dP9x9PtutYZMb6_T_ng",
+    "UClHD8_YN4JW-Le-XwTFcIRQ",
+    "UCm-E8MXdNquzETSsNxgoWig",
+    "UCm0_bMpdJ8966au9PvrNaRw",
+    "UCm4fSpMpPIZ9z6KHoezLUAg",
+    "UCm5wThREh298TkK8hCT9HuA",
+    "UCn7LyBvG5LEBXK9I4W5dGdA",
+    "UCnrhy622SNPt04Avj5idFIg",
+    "UCo6iNXVDuG-SQlAdxAGPGHg",
+    "UCoHJ7PkM6T92LwgJgrnDhWA",
+    "UCoUWq2QawqdC3-nRXKk-JUw",
+    "UCoZoRz4-y6r87ptDp4Jk74g",
+    "UCofQxJWd4qkqc7ZgaLkZfcw",
+    "UCohJ129sdAX08pkeCyQL9Jw",
+    "UCouyFdE9-Lrjo3M_2idKq1A",
+    "UCozZrWPuoNRLl5ArOyJ57sQ",
+    "UCpvntiAuiL6AoseASbu4psA",
+    "UCqNXeDiSHSXD5fPLjhHYVHA",
+    "UCqk_tEsrlvL-HYead091MSQ",
+    "UCrXztro2C-hV1YvQfRMKxCQ",
+    "UCs2tZsbcHeMo5ykYoP4TPTA",
+    "UCsNTRu6HR-CX8McJGrZX8ZQ",
+    "UCsYGAmiWIvOjvT9f1sgQXRw",
+    "UCsgBUobNGksxIKTagZayKEw",
+    "UCt4eoGjgtJ-0EBAASu1Ko1Q",
+    "UCthmoIZKvuR1-KuwednkjHg",
+    "UCtqICqGbPSbTN09K1_7VZ3Q",
+    "UCtw7q4SyOeoCwM1i_3x8lDg",
+    "UCtxBWjnaPiqR89Jg9y84_eA",
+    "UCu6sZrHyl4hSS2PvlUo2XZA",
+    "UCu8gg-0d47taJfbMaK8PfBw",
+    "UCuZ4Np7Sg_Tu6Geq71JaeeA",
+    "UCuZUvuPqPuj1G078fzQ3TsQ",
+    "UCutJqz56653xV2wwSvut_hQ",
+    "UCvE0x32fC1MOMoDCYqtuAIw",
+    "UCvgLaFuTGGRXl0eyvBRCifA",
+    "UCvpksxRVVDNZqblblF2_2vA",
+    "UCvryaJCRHcTVjOC_DcuYxGg",
+    "UCwI-JbGNsojunnHbFAc0M4Q",
+    "UCwKGRXeMl_hsZnlOrTyZ9lQ",
+    "UCwRH985XgMYXQ6NxXDo8npw",
+    "UCwbV8cTR4yBgFdfa_BXV2OA",
+    "UCwmZiChSryoWQCZMIQezgTg",
+    "UCww2zZWg4Cf5xcRKG-ThmXQ",
+    "UCxGJgYyHiYkRyuUWjgShOTQ",
+    "UCxJGMJbjokfnr2-s4_RXPxQ",
+    "UCxUWIEL-USsiPak0Qy6_vVg",
+    "UCxgtz63eg45670eqiEW9r4g",
+    "UCyWqModMQlbIo8274Wh_ZsQ",
+    "UCydVvh3Wg4VPvllLHFoe5_A",
+    "UCz4tgANd4yy8Oe0iXCdSWfA",
+    "UCzKH70qfN_yuXq3s91fdwmg",
+    "UCzh8S7qP88mHwmYMcijRAkg",
+    "UCzj9-ZfpJ74vYv1RZzAWTVg",
+    "UCzxztVPUVqd6iI1wGZcyalg"
+  ],
+  "learnerAdditions": [
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-7"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-8"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-9"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-10"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-11"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-12"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-13"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-14"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-15"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-16"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-17"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-18"
+    },
+    {
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learnerId": "sample-peer-19"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-7"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-8"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-9"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-10"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-11"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-12"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-13"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-14"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-15"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-16"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-17"
+    },
+    {
+      "channelId": "UC9RHneALOnf29DgQ5PCyNdg",
+      "learnerId": "sample-peer-18"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-7"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-8"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-9"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-10"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-11"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-12"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-13"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-14"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-15"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-16"
+    },
+    {
+      "channelId": "UCSXriUqkzZmAQklQ0N9XFVw",
+      "learnerId": "sample-peer-17"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-7"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-8"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-9"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-10"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-11"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-12"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-13"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-14"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-15"
+    },
+    {
+      "channelId": "UCgCrOLcWvSFl5K2ld0nKS7w",
+      "learnerId": "sample-peer-16"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-7"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-8"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-9"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-10"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-11"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-12"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-13"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-14"
+    },
+    {
+      "channelId": "UCuZUvuPqPuj1G078fzQ3TsQ",
+      "learnerId": "sample-peer-15"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-7"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-8"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-9"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-10"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-11"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-12"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-13"
+    },
+    {
+      "channelId": "UC8sCINlHlbkxEdDKQRSHK_w",
+      "learnerId": "sample-peer-14"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCsZllvjNVbgfo888N35G-Qw",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCtRuJmUVIsFdOMM3iPjFTfA",
+      "learnerId": "sample-peer-6"
+    },
+    {
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCPt7tHsguliUnpc9HJuaqOg",
+      "learnerId": "sample-peer-5"
+    },
+    {
+      "channelId": "UCFM2-hxwm8cyVg3hc_6dNmQ",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCFM2-hxwm8cyVg3hc_6dNmQ",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCFM2-hxwm8cyVg3hc_6dNmQ",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCFM2-hxwm8cyVg3hc_6dNmQ",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCFM2-hxwm8cyVg3hc_6dNmQ",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCyYT-HdG1FXua6_vwyXNqhg",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCyYT-HdG1FXua6_vwyXNqhg",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCyYT-HdG1FXua6_vwyXNqhg",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCyYT-HdG1FXua6_vwyXNqhg",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCyYT-HdG1FXua6_vwyXNqhg",
+      "learnerId": "sample-peer-4"
+    },
+    {
+      "channelId": "UCL7R9X5fUE4gh-nOIxxOkBg",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCL7R9X5fUE4gh-nOIxxOkBg",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCL7R9X5fUE4gh-nOIxxOkBg",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCL7R9X5fUE4gh-nOIxxOkBg",
+      "learnerId": "sample-peer-3"
+    },
+    {
+      "channelId": "UCiaZLso83p29RXLyR51KYOA",
+      "learnerId": "sample-peer-0"
+    },
+    {
+      "channelId": "UCiaZLso83p29RXLyR51KYOA",
+      "learnerId": "sample-peer-1"
+    },
+    {
+      "channelId": "UCiaZLso83p29RXLyR51KYOA",
+      "learnerId": "sample-peer-2"
+    },
+    {
+      "channelId": "UCiaZLso83p29RXLyR51KYOA",
+      "learnerId": "sample-peer-3"
+    }
+  ]
+}

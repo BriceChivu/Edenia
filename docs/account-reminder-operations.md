@@ -32,11 +32,65 @@ offline or unsynced progress is invisible to the server.
 The saved IANA timezone determines 19:00 and a one-hour send window. There is no
 next-day catch-up. Across both types, an owner gets at most one email per local
 date and per rolling 24 hours; streak takes priority. Discovery is at most once
-per seven local dates, in the primary selected learning language, from the
-reviewed catalog, excluding followed channels and channels potentially sent in
-the last 90 days. No peer activity is needed. Sparse languages can receive one
-recommendation then none for 90 days. A channel-only link goes to an exact
-validated YouTube channel URL and never changes a profile or follows a channel.
+per seven local dates, from the reviewed catalog in the recipient's selected
+learning languages. Current and previously deleted channel IDs are excluded.
+Channels outside the onboarding catalog rank first by the number of distinct
+other learners who added them; onboarding channels fill only remaining slots,
+ranked the same way. A learner counts once per channel, regardless of repeated
+adds; the recipient never counts toward popularity. Missing slots are left empty.
+The reviewed email catalog is a migration-owned snapshot of the application
+catalogs and must be updated through a reviewed migration when coverage changes.
+
+Channel history is private and derived from accepted profile config. Typed config
+changes update it in the existing transaction; legacy head changes reuse the
+config already extracted by the existing eligibility trigger. A small fingerprint
+cache skips unchanged channel lists. Island/video records are rejected before
+reading their JSON. Backfill uses bounded owner locks with `skip locked`, including
+peers who did not enroll in emails. Deletion markers survive re-add and subsequent
+profile versions. Complete ownership is checked separately from the bounded video
+follow projection, so channels beyond that projection cannot be recommended.
+
+Each occurrence freezes up to six channel cards, or the streak's accepted count,
+remaining whole watch minutes and optional new/continue video. Every card is
+rechecked against current languages, ownership, permanent deletions, reviewed
+metadata and prior potentially sent recommendations at the existing final send
+fence. An eligibility change invalidates the occurrence; it never rebuilds a retry.
+The existing 90-day channel history applies to every card, and the normal weekly,
+daily, capacity and suppression gates still apply. Old scalar history remains
+recognized. Historical/provider-started inserts retain their original metadata.
+
+A channel card opens Edenia's Add field with the reviewed name filled in. The
+Add all button adds reviewed IDs sequentially through the ordinary channel-save
+path, shows progress at the bottom, skips owned/currently removed channels and
+stops after a failed save or lost active profile. It does not replace a profile,
+change an account, bypass channel allowances or upgrade a subscription. Canary
+mail must use `REMINDER_APP_URL=https://www.edenia.study/?internal_test=1` while
+account services are restricted to that route; public rollout remains separate.
+
+## Email redesign deployment
+
+The account settings explanation/enrollment-status lines are removed in both
+app presentations. The Auth templates and both reminder types share Edenia's
+rounded white card, blue background, palette and raster wordmark. The code email
+keeps one contiguous six-digit token and has no duck/welcome hero. The production
+renderer is also used by the offline mailbox preview; fixture counts and additions
+are never inputs to production delivery.
+
+This release is explicitly held until PR #526 has merged and its merge commit
+has a successful Pages deployment with matching live release metadata. Never
+merge or apply production changes based on its green PR checks alone.
+
+Deploy the additive migration with sending off, then the matching
+`dispatch-study-reminders` function. The v4 worker claims frozen design fields
+through `claim_due_typed_reminder_design`; prior claim RPCs remain for compatibility.
+Publish Pages before installing both `supabase/templates/confirmation.html` and
+`supabase/templates/magic_link.html` in hosted Auth so the wordmark asset exists.
+Patch only the two template bodies through the Management API and verify their
+hashes; do not replace Auth configuration or SMTP secrets with a broad config push.
+Run bounded `refresh_reminder_eligibility_snapshots` batches to drain private
+history backfill before any separately authorized activation. Deployment never
+activates optional email delivery or sends a real canary message.
+
 
 ## Free capacity and dispatch
 

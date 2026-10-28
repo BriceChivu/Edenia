@@ -1,3 +1,5 @@
+import { discoveryChannelUrl, renderReminderDesign, validateDiscoveryRecommendations } from './reminder-email-design.ts'
+import type { DiscoveryRecommendation } from './reminder-email-design.ts'
 const REMINDER_LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
 const REMINDER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -519,7 +521,7 @@ export function createTypedReminderDestinationUrl({
   // A reviewed channel without a current video needs no profile mutation.
   // Construct the only external destination from its validated immutable ID.
   if (emailType === 'discovery' && videoId === null) {
-    return `https://www.youtube.com/channel/${channelId}`
+    return discoveryChannelUrl(appUrl, [channelId!])
   }
 
   const url = new URL(appUrl)
@@ -539,6 +541,10 @@ export function renderTypedReminderEmail({
   channelSummary = null,
   videoId = null,
   videoTitle = null,
+  currentStreakDays = null,
+  remainingMinutes = null,
+  videoMode = 'new',
+  recommendations,
 }: {
   locale: ReminderLocale
   appUrl: string
@@ -549,6 +555,10 @@ export function renderTypedReminderEmail({
   channelSummary?: string | null
   videoId?: string | null
   videoTitle?: string | null
+  currentStreakDays?: number | null
+  remainingMinutes?: number | null
+  videoMode?: 'new' | 'continue'
+  recommendations?: readonly DiscoveryRecommendation[]
 }) {
   const locale = normalizeReminderLocale(requestedLocale)
   const copy = TYPED_COPY[locale]
@@ -582,7 +592,7 @@ export function renderTypedReminderEmail({
   const safeVideoTitle = videoTitle === null
     ? null
     : requireTypedEmailText(videoTitle, 'video title', 300)
-  const destinationUrl = createTypedReminderDestinationUrl({
+  let destinationUrl = createTypedReminderDestinationUrl({
     appUrl: requestedAppUrl,
     emailType,
     videoId,
@@ -592,78 +602,19 @@ export function renderTypedReminderEmail({
     requestedUnsubscribePageUrl,
   )
 
-  const subject = emailType === 'streak'
-    ? copy.streakSubject
-    : copy.discoverySubject(safeChannelName!)
-  const preheader = emailType === 'streak'
-    ? copy.streakPreheader
-    : copy.discoveryPreheader(safeChannelName!)
-  const heading = emailType === 'streak'
-    ? copy.streakHeading
-    : copy.discoveryHeading
-  const body = emailType === 'streak'
-    ? copy.streakBody
-    : copy.discoveryBody(safeChannelName!, safeChannelSummary!)
-  const videoLine = emailType === 'streak' && completeVideo
-    ? copy.streakVideo(safeChannelName!, safeVideoTitle!)
-    : emailType === 'discovery' && completeVideo
-      ? copy.discoveryVideo(safeVideoTitle!)
-      : null
-  const cta = emailType === 'streak'
-    ? copy.streakCta
-    : copy.discoveryCta
-  const escapedDestinationUrl = escapeHtml(destinationUrl)
-  const escapedUnsubscribeUrl = escapeHtml(unsubscribePageUrl)
-
-  return Object.freeze({
-    locale,
-    emailType,
-    destinationUrl,
-    subject,
-    text: [
-      heading,
-      '',
-      body,
-      ...(videoLine ? ['', videoLine] : []),
-      '',
-      `${cta}: ${destinationUrl}`,
-      '',
-      copy.consent,
-      `${copy.unsubscribe}: ${unsubscribePageUrl}`,
-    ].join('\n'),
-    html: `<!doctype html>
-<html lang="${escapeHtml(locale)}">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${escapeHtml(subject)}</title>
-  </head>
-  <body style="margin:0;background:#f5f2e9;color:#24332b;font-family:Arial,sans-serif;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f2e9;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #dfe7df;border-radius:16px;">
-            <tr>
-              <td style="padding:32px 28px;">
-                <p style="margin:0 0 12px;color:#54705f;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Edenia</p>
-                <h1 style="margin:0 0 16px;font-size:28px;line-height:1.25;">${escapeHtml(heading)}</h1>
-                <p style="margin:0 0 16px;font-size:17px;line-height:1.6;">${escapeHtml(body)}</p>
-                ${videoLine ? `<p style="margin:0 0 24px;font-size:16px;line-height:1.6;font-weight:700;">${escapeHtml(videoLine)}</p>` : ''}
-                <p style="margin:0 0 28px;">
-                  <a href="${escapedDestinationUrl}" style="display:inline-block;border-radius:999px;background:#326b4b;color:#ffffff;padding:13px 22px;font-weight:700;text-decoration:none;">${escapeHtml(cta)}</a>
-                </p>
-                <p style="margin:0 0 6px;color:#66736c;font-size:13px;line-height:1.5;">${escapeHtml(copy.consent)}</p>
-                <p style="margin:0;color:#66736c;font-size:13px;line-height:1.5;">
-                  <a href="${escapedUnsubscribeUrl}" style="color:#496855;">${escapeHtml(copy.unsubscribe)}</a>
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`,
+  if ((currentStreakDays !== null && (!Number.isInteger(currentStreakDays) || currentStreakDays < 0 || currentStreakDays > 10000))
+    || (remainingMinutes !== null && (!Number.isInteger(remainingMinutes) || remainingMinutes < 1 || remainingMinutes > 10))
+    || !['new','continue'].includes(videoMode)) throw new TypeError('Invalid streak design inputs')
+  const channels = emailType === 'discovery' ? validateDiscoveryRecommendations(recommendations || [{
+    channelId: channelId!, name: safeChannelName!, thumbnailUrl: ''
+  }]) : []
+  if (emailType === 'discovery') destinationUrl = discoveryChannelUrl(validateReminderAppUrl(requestedAppUrl), channels.map(channel => channel.channelId), true)
+  const content = renderReminderDesign({
+    locale, emailType, appUrl: validateReminderAppUrl(requestedAppUrl),
+    subject: copy.streakSubject, streakHeading: copy.streakHeading,
+    destinationUrl, consent: copy.consent, unsubscribe: copy.unsubscribe,
+    unsubscribePageUrl, currentStreakDays, remainingMinutes, videoId,
+    videoTitle: safeVideoTitle, channelName: safeChannelName, videoMode, recommendations: channels
   })
+  return Object.freeze({ locale, emailType, destinationUrl, ...content })
 }

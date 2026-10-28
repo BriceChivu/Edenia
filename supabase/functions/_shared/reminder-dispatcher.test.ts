@@ -44,7 +44,7 @@ function createHarness(switchValues: boolean[]) {
         }
         if (
           name === 'evaluate_reminder_shadow'
-          || name === 'claim_due_typed_reminder_live'
+          || name === 'claim_due_typed_reminder_design'
         ) {
           return Promise.resolve({ data: [], error: null })
         }
@@ -134,7 +134,7 @@ test('switch-on dispatch validates config then enters the bounded live path', as
     'reminder_provider_attestation_is_current',
     'refresh_reminder_provider_usage',
     'refresh_reminder_eligibility_snapshots',
-    'claim_due_typed_reminder_live',
+    'claim_due_typed_reminder_design',
   ])
 })
 

@@ -293,14 +293,14 @@ test('renders localized typed streak and discovery content from frozen payloads'
     for (const content of [streak, discovery]) {
       assert.equal(content.locale, locale)
       assert.ok(content.subject.length > 5)
-      assert.match(content.text, /abcdefghijk/)
+      if (content.emailType === 'streak') assert.match(content.text, /abcdefghijk/)
       assert.match(content.text, new RegExp(token))
       assert.match(content.html, new RegExp(`<html lang="${locale}">`))
       assert.match(content.html, /reminder=(?:streak|discovery)/)
-      assert.match(content.html, /video=abcdefghijk/)
+      if (content.emailType === 'streak') assert.match(content.html, /video=abcdefghijk/)
       assert.doesNotMatch(content.html, /Grace & Friends|<live>/)
       assert.match(content.html, /Grace &amp; Friends/)
-      assert.match(content.html, /Tone practice &lt;live&gt;/)
+      if (content.emailType === 'streak') assert.match(content.html, /Tone practice &lt;live&gt;/)
       assert.doesNotMatch(content.html, /<script|javascript:/i)
     }
     assert.equal(streak.emailType, 'streak')
@@ -364,10 +364,10 @@ test('channel-only discovery is useful without a video and cannot inject a desti
       channelName: 'Grace & Friends',
       channelSummary: 'Practical Mandarin <lessons>.',
     })
-    assert.equal(content.destinationUrl, 'https://www.youtube.com/channel/UCC_fdR7zZ_5SU--xuOrEdKw')
+    assert.equal(content.destinationUrl, `${APP_URL}?reminder=discovery&channels=UCC_fdR7zZ_5SU--xuOrEdKw`)
     assert.match(content.text, /Grace & Friends/)
     assert.match(content.html, /Grace &amp; Friends/)
-    assert.match(content.html, /&lt;lessons&gt;/)
+    assert.doesNotMatch(content.html, /<lessons>/)
     assert.doesNotMatch(content.text, /null|undefined|Latest video|Another learner/)
     assert.match(content.text, new RegExp(token))
   }
@@ -378,16 +378,48 @@ test('channel-only discovery is useful without a video and cannot inject a desti
   }
 })
 
-test('all localized streaks describe the 10 XP condition without claiming unsynced work is absent', async () => {
+test('all localized streaks show the accepted remaining watch minutes and current streak', async () => {
   const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
   for (const locale of LOCALES) {
     const content = renderTypedReminderEmail({
       locale, appUrl: APP_URL,
       unsubscribePageUrl: createReminderUnsubscribePageUrl(PAGE, token, locale),
-      emailType: 'streak',
+      emailType: 'streak', currentStreakDays: 12, remainingMinutes: 4,
     })
-    assert.match(content.text, /10 XP/)
-    assert.match(content.html, /10 XP/)
+    assert.match(content.text, /4/)
+    assert.match(content.html, /12<\/b>/)
     assert.doesNotMatch(content.text, /You still need|haven.t studied|5 XP/)
   }
+})
+
+test('discovery renders a frozen three-column grid and a bounded Add all link', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  const recommendations = Array.from({ length: 6 }, (_, i) => ({
+    channelId: 'UC' + String.fromCharCode(97 + i).repeat(22), name: `Channel <${i}>`,
+    thumbnailUrl: 'https://yt3.ggpht.com/example=s176-c'
+  }))
+  const email = renderTypedReminderEmail({locale:'en',appUrl:APP_URL,
+    unsubscribePageUrl:createReminderUnsubscribePageUrl(PAGE,token,'en'),emailType:'discovery',
+    channelId:recommendations[0].channelId,channelName:recommendations[0].name,channelSummary:'Reviewed',recommendations})
+  assert.equal((email.html.match(/class="channel-tile"/g)||[]).length,6)
+  assert.match(email.html,/width:33\.333%/)
+  assert.match(email.html,/Add all channels/)
+  assert.match(email.html,/Channel &lt;0&gt;/)
+  assert.match(email.destinationUrl,/reminder=discovery&channels=/)
+  const url=new URL(email.destinationUrl)
+  assert.deepEqual(url.searchParams.get('channels')!.split(','),recommendations.map(c=>c.channelId))
+  for(const invalid of [recommendations.concat(recommendations[0]),[recommendations[0],recommendations[0]], [{...recommendations[0],thumbnailUrl:'https://evil.test/private.jpg'}]]) {
+    assert.throws(()=>renderTypedReminderEmail({locale:'en',appUrl:APP_URL,unsubscribePageUrl:createReminderUnsubscribePageUrl(PAGE,token,'en'),emailType:'discovery',channelId:recommendations[0].channelId,channelName:'Channel',channelSummary:'Reviewed',recommendations:invalid}))
+  }
+})
+
+test('streak design uses frozen counts and an actual video thumbnail for continuing study',async()=>{
+  const token=await createReminderUnsubscribeToken(DELIVERY_ID,SECRET)
+  const email=renderTypedReminderEmail({locale:'en',appUrl:APP_URL,unsubscribePageUrl:createReminderUnsubscribePageUrl(PAGE,token,'en'),emailType:'streak',currentStreakDays:12,remainingMinutes:4,videoMode:'continue',channelId:'UCC_fdR7zZ_5SU--xuOrEdKw',channelName:'Grace',videoId:'abcdefghijk',videoTitle:'A lesson'})
+  assert.match(email.text,/Watch only 4 minutes/)
+  assert.match(email.text,/Continue watching A lesson/)
+  assert.match(email.html,/i\.ytimg\.com\/vi\/abcdefghijk\/mqdefault\.jpg/)
+  assert.match(email.html,/12<\/b>/)
+  assert.match(email.html,/images\/email-wordmark\.png/)
+  assert.doesNotMatch(email.text,/Offline|unsynced|10 XP/)
 })
