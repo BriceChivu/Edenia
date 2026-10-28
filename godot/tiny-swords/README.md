@@ -586,8 +586,8 @@ stay pinned to that selected release, without replacing the parent adapter.
 
 Deployments retain up to six complete game releases, for seven days since each
 was last current, within a 192 MiB game-archive budget. Shared engines/decoders are
-copied once. The compatibility archive is uploaded only after successful Pages
-deployment and restored from the last successful master deployment. A metadata
+copied once. The compatibility archive must upload before Pages publication and
+is restored only from a fully successful master deployment. A metadata
 or download outage fails restoration instead of silently dropping the retained
 window; the initial deployment bootstraps when no archive exists. Archive checks
 validate release hashes, engine/decoder bytes, delivery variants and directory

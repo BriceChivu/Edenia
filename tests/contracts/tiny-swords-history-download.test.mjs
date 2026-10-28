@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -25,4 +25,12 @@ test('an archive that exists must download successfully before old releases may 
     } }), /refusing to drop/)
     assert.equal(requests, 3)
   } finally { await rm(destination, { recursive: true, force: true }) }
+})
+
+test('publication cannot succeed before its complete compatibility archive is retained', async () => {
+  const workflow = await readFile('.github/workflows/deploy-pages.yml', 'utf8')
+  const retain = workflow.indexOf('- name: Retain complete game releases for the next deployment')
+  const publish = workflow.indexOf('- name: Deploy to GitHub Pages')
+  assert.ok(retain > 0 && publish > retain)
+  assert.doesNotMatch(workflow.slice(retain, publish), /continue-on-error: true/)
 })

@@ -335,7 +335,8 @@ test('profile replacement recreates the island, resets it, and blocks a rejected
   await expect.poll(() => game()?.evaluate(() => window.edeniaGameLevel),{timeout:60000}).toBe(7)
   const rejected = {...populated,version:999}
   await page.evaluate(island => {const state=loadState();state.tinySwordsIsland=island;return saveImportedState(state)},rejected)
-  await expect(page.locator('#tinySwordsLoadStatus')).toContainText(/could not be restored/,{timeout:60000})
-  await expect(page.locator('#tinySwordsLoadStatus')).toBeVisible()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state','restore-blocked',{timeout:60000})
+  await expect(page.locator('#tinySwordsLoadStatus')).toBeHidden()
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
   expect(await durable()).toEqual(rejected)
 })

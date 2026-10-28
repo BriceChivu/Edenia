@@ -84,10 +84,6 @@ jobs:
         with:
           path: _site
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
       - name: Retain complete game releases for the next deployment
         uses: actions/upload-artifact@v4
         with:
@@ -99,3 +95,7 @@ jobs:
             _site/tiny-swords-decoder/
             _site/tiny-swords-current.json
             _site/tiny-swords-history.json
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
