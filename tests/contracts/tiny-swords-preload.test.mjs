@@ -3,6 +3,7 @@ import { MessageChannel } from 'node:worker_threads'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
+import { readTinySwordsParentSource } from '../support/tiny-swords-parent-source.mjs'
 
 async function preload({ cached = false, failingFetch = false, failingCache = false } = {}) {
   const url = 'http://localhost/tiny-swords-engine/hash/index.wasm.br'
@@ -21,7 +22,7 @@ async function preload({ cached = false, failingFetch = false, failingCache = fa
     caches: { open: async () => { if (failingCache) throw new Error('Storage unavailable'); return { match: async () => cached ? response() : undefined } } },
     fetch: async request => { requests.push(request); if (failingFetch) throw new Error('Network unavailable'); return response() }
   })
-  vm.runInContext((await readFile('scripts/tiny-swords-xp-parent.js', 'utf8'))
+  vm.runInContext(readTinySwordsParentSource()
     .replace('const tinySwordsPreloadAssets = []', `const tinySwordsPreloadAssets = [${JSON.stringify(url)}]`), parent)
   const source = (await readFile('scripts/tiny-swords-brotli-worker.js', 'utf8')).replace(/^import .*\n/, '')
   const worker = vm.createContext({ self: {}, Response, ReadableStream, Uint8Array })

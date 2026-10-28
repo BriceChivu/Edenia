@@ -4,7 +4,7 @@ test.skip(process.env.EDENIA_TEST_TINY_SWORDS !== 'true', 'Uses the integrated G
 
 test('active PostHog replay receives visible island pixels and stops when recording stops', async ({ page }) => {
   test.setTimeout(90000)
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }))
   await page.goto('./?internal_test=2')
   await page.evaluate(() => {
     const state = defaultState(4, [], 'light', [], 'en')
@@ -14,7 +14,7 @@ test('active PostHog replay receives visible island pixels and stops when record
     state.tinySwordsIsland = null
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   })
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const surface = page.locator('#tinySwordsSurface')
   await surface.scrollIntoViewIfNeeded()

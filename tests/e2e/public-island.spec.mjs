@@ -162,10 +162,11 @@ test('public game failure and disable/re-enable keep study, saved island, claims
   await expect.poll(() => page.frames().find(f => f.url().includes('/tiny-swords-game/'))?.evaluate(() => window.edeniaLastSavePersisted), { timeout: 60000 }).toBe(true)
   // Establish the source-owned current save before testing disable/re-enable.
   // This old populated fixture receives Godot's existing reward/save migrations.
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><script>parent.postMessage({type:'edenia-game-startup-failed'},location.origin)</script>` }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><script>parent.postMessage({type:'edenia-game-startup-failed'},location.origin)</script>` }))
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Retry island' })).toBeVisible()
+  await expect(page.locator('#tinySwordsRetry')).toBeHidden()
+  await expect.poll(() => page.evaluate(() => edeniaIslandStartupDiagnostics().some(x => x.outcome === 'failure'))).toBe(true)
   await page.evaluate(() => openSettings())
   await expect(page.locator('#settingsPanel')).toBeVisible()
   await page.evaluate(() => closeSettings())
@@ -175,7 +176,7 @@ test('public game failure and disable/re-enable keep study, saved island, claims
   await page.reload()
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
   expect(await page.evaluate(() => { const s = loadState(); return { island: s.tinySwordsIsland, claims: s.cityProgress.maxLevelIndex, videos: s.videos, backups: getStateBackupEntries().length } })).toEqual(retained)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.unroute('**/config.local.js*')
   await configure(page, { game: true, indexedDb: true })
   await page.reload({ waitUntil: 'domcontentloaded' })

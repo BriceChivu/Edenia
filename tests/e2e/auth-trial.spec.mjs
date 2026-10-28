@@ -752,6 +752,7 @@ test('offline verified trial retains study changes until reconnect, then definit
   await readyGame(page)
   await expect.poll(()=>fixture.commits.length).toBeGreaterThan(0)
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const retainedIsland = await page.evaluate(()=>loadState().tinySwordsIsland)
   const commitCount=fixture.commits.length
   await page.evaluate(async trial=>{
     const key=trial+'_learner_profile_owner_verification_v1'
@@ -762,9 +763,13 @@ test('offline verified trial retains study changes until reconnect, then definit
   },trial)
   expect(fixture.commits.length).toBe(commitCount)
   await page.reload()
-  // The runtime override survives reload independently of browser asset fetches.
-  // These checks cover unavailable profile transport, not offline asset delivery.
-  await readyGame(page)
+  // Verified study remains available offline, while startup waits for an online
+  // wakeup without constructing an engine or altering the durable island.
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#tinySwordsSurface')).toHaveAttribute('data-game-state','dormant')
+  await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
+  await expect(page.locator('#tinySwordsRetry')).toBeHidden()
+  expect(await page.evaluate(()=>loadState().tinySwordsIsland)).toEqual(retainedIsland)
   expect(await page.evaluate(()=>loadState().config.weeklyGoalHours)).toBe(11)
   expect(fixture.commits.length).toBe(commitCount)
   await page.evaluate(()=>{window.trialOnline=true;sessionStorage.removeItem('trial-offline');window.dispatchEvent(new Event('online'))})
@@ -801,12 +806,17 @@ test('expired offline ownership keeps the cached trial island hidden and prevent
   },{trial,owner})
   // Prevent a synthetic server success from renewing the deliberately expired
   // verification; no real network or provider session participates in this case.
-  await page.route(origin+'/rest/v1/rpc/**',route=>route.fulfill({json:[]}))
+  let openingRequests = 0
+  await page.route(origin+'/rest/v1/rpc/**',route=>{
+    if (/\/(open|resolve)_my_learner_profile$/.test(new URL(route.request().url()).pathname)) openingRequests += 1
+    return route.fulfill({json:[]})
+  })
   await page.goto('./?internal_test=1')
   await expect(page.locator('#mainApp')).toBeHidden()
   await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(0)
   expect(fixture.commits).toEqual([])
+  expect(openingRequests).toBe(0)
 })
 
 test('switching verified trial owners requires explicit replacement and remounts identical island bytes',async ({page},testInfo)=>{

@@ -66,6 +66,9 @@ export async function prepareTinySwordsDelivery(staging, outputDir) {
   const hook = 'return fetch(file).then(function (response) {'
   if (engineJs.split(hook).length !== 2) throw new Error('Godot asset-loader hook changed')
   engineJs = engineJs.replace(hook, 'return window.edeniaFetchGameAsset(file).then(function (response) {')
+  const retryHook = 'const DOWNLOAD_ATTEMPTS_MAX = 4;'
+  if (engineJs.split(retryHook).length !== 2) throw new Error('Godot download-retry hook changed')
+  engineJs = engineJs.replace(retryHook, 'const DOWNLOAD_ATTEMPTS_MAX = window.edeniaConflictPreviewMode ? 4 : 1;')
   const errorHook = 'controller.close();\n\t\t\t\t});'
   if (engineJs.split(errorHook).length !== 2) throw new Error('Godot progress-stream hook changed')
   engineJs = engineJs.replace(errorHook, 'controller.close();\n\t\t\t\t}, function (error) { controller.error(error); });')
@@ -87,8 +90,13 @@ export async function prepareTinySwordsDelivery(staging, outputDir) {
   html = html.replace(progressHook, `${progressHook}\n\t\t\t\tparent.postMessage({type:'edenia-game-loading-progress',current,total:Object.values(GODOT_CONFIG.fileSizes).reduce((sum,size)=>sum+size,0)},location.origin);`)
   const script = '<script src="index.js"></script>'
   if (html.split(script).length !== 2) throw new Error('Godot engine-script hook changed')
+  // WebKit can retain a failed script resource across immediate iframe
+  // replacements, even when the next server response would succeed. Select a
+  // fixed alternative only on recovery; healthy visits keep their original URLs.
+  const scripts = suffix => `<script src="asset-loader.js${suffix}"></script><script src="index.js${suffix}"></script>`
+  const literal = value => JSON.stringify(value).replaceAll('<', '\\u003c')
   await writeFile(resolve(staging, 'index.html'), html.replace(script,
-    `<script>window.edeniaGameAssets=${JSON.stringify(config)};</script><script src="asset-loader.js"></script>${script}`))
+    `<script>window.edeniaGameAssets=${JSON.stringify(config)};document.write(new URL(location.href).searchParams.get('startup_retry')==='1'?${literal(scripts('?startup_retry=1'))}:${literal(scripts(''))});</script>`))
   return { engineHash, decoderHash, engineBytes: engine.length,
     preloadAssets: Object.values(config.files).map(asset => asset.url + '.br') }
 }

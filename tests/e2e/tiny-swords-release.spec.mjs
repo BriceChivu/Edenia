@@ -20,7 +20,7 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
       if (!response.ok()) failures.push(`${response.status()} ${response.url()}`)
     }
   })
-  await page.route('**/tiny-swords-game/*/index.html', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
+  await page.route('**/tiny-swords-game/*/index.html*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Initialize</title>' }))
   await page.goto('./?internal_test=2')
   await expect(page.locator('.tiny-swords-frame')).toHaveCount(1)
   const island = JSON.parse(await readFile('tests/fixtures/tiny-swords-populated-island.json', 'utf8'))
@@ -33,7 +33,7 @@ test('versioned export loads under the hosted base path and disable/re-enable pr
     state.videos.lesson = { id: 'lesson', title: 'Retained study', duration: 3600, status: 'partial', watchProgress: [{ watchedAt: at, seconds: 900, experienceSeconds: 900 }] }
     localStorage.setItem('edenia_v1_internal_test_2', JSON.stringify(state))
   }, island)
-  await page.unroute('**/tiny-swords-game/*/index.html')
+  await page.unroute('**/tiny-swords-game/*/index.html*')
   await page.reload({ waitUntil: 'domcontentloaded' })
   const game = () => page.frames().find(frame => frame.url().includes('/tiny-swords-game/'))
   const canvas = page.frameLocator('.tiny-swords-frame').locator('#canvas')

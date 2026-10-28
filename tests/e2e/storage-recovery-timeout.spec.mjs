@@ -5,6 +5,9 @@ const key = 'edenia_v1_internal_test_2'
 const primary = `${key}_profiles_indexed_db_v1`
 
 test('a primary transaction timeout and Web Storage quota retain progress in a reopened recovery journal', async ({ page }) => {
+  // Exercise the real primary deadline. Shortening every eight-second timer
+  // also shrinks healthy journal open/write deadlines and adds a second fault.
+  test.setTimeout(60000)
   await page.addInitScript(() => {
     window.fixtureRecoveryConnections = []
     const open = IDBFactory.prototype.open
@@ -45,10 +48,6 @@ test('a primary transaction timeout and Web Storage quota retain progress in a r
       if (name.startsWith(key)) throw new DOMException('Fixture quota', 'QuotaExceededError')
       return set.call(this, name, value)
     }
-    const timer = window.setTimeout
-    window.setTimeout = function (callback, delay, ...args) {
-      return timer.call(this, callback, delay === 8000 ? 100 : delay, ...args)
-    }
     const transact = IDBDatabase.prototype.transaction
     IDBDatabase.prototype.transaction = function (...args) {
       const tx = transact.apply(this, args)
@@ -63,7 +62,6 @@ test('a primary transaction timeout and Web Storage quota retain progress in a r
     edit.anki['2026-10-11'].reviewed = 7
     const saved = await saveState(edit, { backup: false })
     IDBDatabase.prototype.transaction = transact
-    window.setTimeout = timer
     await profileRecoveryWorkspace.flush()
     return { saved, reviewed: loadState().anki['2026-10-11'].reviewed, tier: profileRecoveryWorkspace.getTier() }
   }, { key, primary })

@@ -1752,6 +1752,29 @@ test('offline reopening locks one millisecond after owner verification expires',
   assert.equal(harness.authority.saveActiveProfile(profile), false)
 })
 
+test('a cached owner session cannot reopen expired offline ownership through a cloud-wait fallback', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'expired-cached-session' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    connectivity: { status: 'offline' },
+    cloudResolution: { status: 'waiting-cloud' },
+    local: {
+      generation: 1, ownerId, profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001', revision: 4, status: 'ready'
+    },
+    now,
+    ownerVerification: { ownerId, verifiedAt: now - 30 * 86400000 - 1 }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  assert.equal(harness.authority.getState().status, LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(profile), false)
+  assert.equal(harness.calls.some(([name]) => name === 'cloud-resolve'), false)
+})
+
 test('a cached owner session opens its verified local profile without connectivity', () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profile = { marker: 'cached-session-offline' }

@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { resolve, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { brotliCompressSync, gzipSync, constants } from 'node:zlib'
+import { build } from 'esbuild'
 import { prepareTinySwordsDelivery } from './build-tiny-swords-delivery.mjs'
 
 export const GODOT_VERSION = '4.7.2'
@@ -27,6 +28,7 @@ export async function reuseTinySwords(outputDir, artifactDir) {
   for (const directory of [GAME_DIRECTORY, 'tiny-swords-engine', 'tiny-swords-decoder']) {
     await cp(resolve(artifactDir, directory), resolve(outputDir, directory), { recursive: true })
   }
+  await cp(resolve(artifactDir, 'tiny-swords-current.json'), resolve(outputDir, 'tiny-swords-current.json'))
   return `${GAME_DIRECTORY}/${releases[0]}/parent.js`
 }
 
@@ -96,7 +98,7 @@ export async function buildTinySwords(outputDir, { validate = true } = {}) {
   const failureHook = 'function displayFailureNotice(err) {'
   if (!game.includes(failureHook)) throw new Error('Godot startup failure hook changed')
   game = game.replace(failureHook, `${failureHook}
-parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
+window.edeniaReportGameStartupFailure(missing.length ? 'unsupported' : 'engine');`)
   const receiver = await readFile('scripts/tiny-swords-xp-messages.js', 'utf8')
   const visibility = await readFile('scripts/tiny-swords-xp-visibility.js', 'utf8')
   const replay = await readFile('scripts/tiny-swords-xp-replay.js', 'utf8')
@@ -110,8 +112,19 @@ parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
   const parent = await readFile('scripts/tiny-swords-xp-parent.js', 'utf8')
   const preloadHook = 'const tinySwordsPreloadAssets = []'
   if (parent.split(preloadHook).length !== 2) throw new Error('Godot asset-preload hook changed')
-  await writeFile(resolve(staging, 'parent.js'), parent.replace(preloadHook,
-    `const tinySwordsPreloadAssets = ${JSON.stringify(preloadAssets)}`))
+  // Exact reader and host transport compatibility permits failure-only release
+  // refresh without putting a newer incompatible writer in an older host.
+  const compatibilityHash = createHash('sha256')
+  for (const path of ['scripts/tiny-swords-xp-bridge.gd', 'scripts/tiny-swords-xp-messages.js', 'src/state/tiny-swords-island.js',
+    'src/state/tiny-swords-animal-checkpoint.js', 'godot/tiny-swords/sync_contract.json',
+    'godot/tiny-swords/scripts/terrain_layout.gd']) compatibilityHash.update(await readFile(path))
+  const compatibility = compatibilityHash.digest('hex')
+  const adapter = await build({ stdin: { contents: parent.replace(preloadHook,
+    `const tinySwordsPreloadAssets = ${JSON.stringify(preloadAssets)}`)
+    .replace("const tinySwordsStartupCompatibility = ''", `const tinySwordsStartupCompatibility = '${compatibility}'`),
+    resolveDir: resolve('scripts'), loader: 'js' }, bundle: true, format: 'iife',
+    platform: 'browser', target: 'es2022', minify: true, write: false })
+  await writeFile(resolve(staging, 'parent.js'), adapter.outputFiles[0].contents)
   // Hash parent, hooks, pack and the exact engine/decoder references. Engine bytes
   // have their own immutable URL, so game updates reuse the browser's engine cache.
   const hash = createHash('sha256')
@@ -125,7 +138,8 @@ parent.postMessage({type:'edenia-game-startup-failed'}, location.origin);`)
   }
   await hashFiles(staging)
   const versionId = hash.digest('hex')
-  await writeFile(resolve(staging, 'release.json'), JSON.stringify({ godotVersion: GODOT_VERSION, version: versionId, ...delivery }, null, 2) + '\n')
+  await writeFile(resolve(staging, 'release.json'), JSON.stringify({ godotVersion: GODOT_VERSION, version: versionId, compatibility, ...delivery }, null, 2) + '\n')
+  await writeFile(resolve(outputDir, 'tiny-swords-current.json'), JSON.stringify({ schema: 1, release: versionId, compatibility }) + '\n')
   for (const name of ['index.js']) {
     const bytes = await readFile(resolve(staging, name))
     await writeFile(resolve(staging, name + '.br'), brotliCompressSync(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }))
