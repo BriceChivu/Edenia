@@ -56,5 +56,8 @@ select ok(not private.email_discovery_payload_current((select delivery_id from d
 select is((select jsonb_array_length(discovery_channels) from private.reminder_deliveries where id=(select delivery_id from design_claim)),3,'changed eligibility never rewrites a frozen payload');
 select private.remember_email_channels('52700000-0000-4000-8000-000000000001',null,jsonb_build_object('channels',pg_temp.channel_list('abcdef')),'2026-10-26T11:00Z');
 select is(jsonb_array_length(private.email_discovery_recommendations('52700000-0000-4000-8000-000000000001','2026-10-26T11:00Z')),0,'complete accepted ownership excludes channels beyond the bounded follow projection');
+select lives_ok($$delete from auth.users where id='52700000-0000-4000-8000-000000000002'$$,'deleting an account with channel history succeeds');
+select is((select count(*) from private.reminder_channel_history where user_id='52700000-0000-4000-8000-000000000002'),0::bigint,'account deletion cascades through private channel history');
+select is((select count(*) from private.email_channel_history_sources where user_id='52700000-0000-4000-8000-000000000002'),0::bigint,'account deletion removes its fingerprint cache');
 select * from finish();
 rollback;

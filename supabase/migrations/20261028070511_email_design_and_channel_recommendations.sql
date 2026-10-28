@@ -41,6 +41,9 @@ create function private.remember_email_channels(p_user uuid,p_old jsonb,p_new js
 returns void language plpgsql security definer set search_path='' as $$
 declare v_fingerprint text;
 begin
+ -- Auth deletion cascades through accepted records after the owner is gone.
+ -- Do not recreate derived history/cache rows during that cascade.
+ if not exists(select 1 from auth.users where id=p_user) then return; end if;
  if p_old is not null and p_old->'channels' is not distinct from p_new->'channels'
   and p_old->'removedChannelIds' is not distinct from p_new->'removedChannelIds' then return; end if;
  v_fingerprint:=private.reminder_input_digest(jsonb_build_object('channels',coalesce(p_new->'channels','[]'::jsonb),'removedChannelIds',coalesce(p_new->'removedChannelIds','[]'::jsonb)));
