@@ -57,8 +57,13 @@ const client = {
 const logs = []
 const attempts = []
 const receipts = new Map()
+let forcedObservation = null
 const dependencies = {
-  readCapacity: async () => ({ dailyUsed: receipts.size, monthlyUsed: receipts.size, observedAt: new Date().toISOString(), dailyResetsAt: '', monthlyResetsAt: '' }),
+  // Use the fixture database's clock for both attestation and fake observations;
+  // separate host/VM clocks can legitimately trigger the production stale fence.
+  readCapacity: async () => ({ dailyUsed: receipts.size, monthlyUsed: receipts.size,
+    observedAt: forcedObservation ?? JSON.parse(sql('select to_json(clock_timestamp())')),
+    dailyResetsAt: '', monthlyResetsAt: '' }),
   async send(input) {
     attempts.push(input)
     if (!receipts.has(input.deliveryId)) receipts.set(input.deliveryId, `fake-${input.deliveryId}`)
@@ -72,8 +77,18 @@ try {
   assert.equal(sql('select count(*) from private.reminder_deliveries'), '0')
   assert.equal(attempts.length, 0)
   sql(`select public.record_reminder_free_capacity(true,true,true,0,0,now(),extensions.digest(${q(apiKey)},'sha256'),extensions.digest(${q(from)},'sha256')); update private.reminder_delivery_control set delivery_enabled=true;`)
+  forcedObservation = JSON.parse(sql("select to_json(attested_at-interval '1 millisecond') from private.reminder_free_capacity where singleton"))
+  const staleObservation = await runReminderDispatcher(client, name => variables[name], entry => logs.push(entry), dependencies)
+  assert.equal(staleObservation.mode, 'live')
+  assert.equal(staleObservation.status, 'blocked')
+  assert.equal(staleObservation.claimed, 0)
+  assert.ok(logs.some(entry => entry.event === 'reminder_live_blocked' && entry.reason === 'provider_capacity_fenced'))
+  assert.equal(attempts.length, 0, 'an observation before attestation cannot reach the provider')
+  assert.equal(sql('select count(*) from private.reminder_deliveries'), '0')
+  assert.equal(sql('select count(*) from private.reminder_quota_reservations'), '0')
+  forcedObservation = null
   const first = await runReminderDispatcher(client, name => variables[name], entry => logs.push(entry), dependencies)
-  assert.equal(first.completionFailed, 1)
+  assert.equal(first.completionFailed, 1, JSON.stringify({ first, logs }))
   assert.equal(attempts.length, 1)
   sql(`update private.reminder_deliveries set lease_expires_at=now()-interval '1 second' where user_id=${q(user)};`)
   const retry = await runReminderDispatcher(client, name => variables[name], entry => logs.push(entry), dependencies)
@@ -92,7 +107,7 @@ try {
   assert.equal(sql(`select streak_reminders_enabled or discovery_emails_enabled from public.reminder_preferences where user_id=${q(user)}`), 'f')
   const serialized = JSON.stringify(logs)
   for (const secret of [email, apiKey, variables.REMINDER_UNSUBSCRIBE_SECRET, new URL(attempts[0].unsubscribeApiUrl).searchParams.get('token')]) assert.ok(!serialized.includes(secret))
-  console.log('PASS actual PostgreSQL + dispatcher + fake provider: automatic planning, ambiguous completion, identical retry, quota reuse, no duplicate acceptance, one-click unsubscribe, redacted logs')
+  console.log('PASS actual PostgreSQL + dispatcher + fake provider: stale-observation fence, automatic planning, ambiguous completion, identical retry, quota reuse, no duplicate acceptance, one-click unsubscribe, redacted logs')
 } finally {
   sql(`update private.reminder_delivery_control set delivery_enabled=false; delete from private.reminder_quota_reservations where delivery_id in(select id from private.reminder_deliveries where user_id=${q(user)}); delete from auth.users where id=${q(user)}; update private.reminder_free_capacity set verified_free=false,overage_disabled=false,sender_verified=false,observed_at=null,attested_at=null; update private.learner_profile_access_control set rollout_state='off';`)
 }
