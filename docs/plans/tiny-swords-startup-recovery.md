@@ -1,6 +1,6 @@
 # Reliable Tiny Swords startup and invisible recovery
 
-Status: implementation and validation in progress, October 28, 2026. Investigation base: `origin/master` at `7ff57f12c46f0c6c07ee9b0f143466390b47141f`, matching the hosted release at investigation time. Implementation is on `codex/island-loading-plan`; no deployment is authorized by this work.
+Status: implementation validated; deployment requested by the user's active objective, October 28, 2026. Investigation base: `origin/master` at `7ff57f12c46f0c6c07ee9b0f143466390b47141f`, matching the hosted release at investigation time. Implementation is on `codex/island-loading-plan`. Physical Pixel validation remains explicitly unverified while the device is unavailable.
 
 The island must recover automatically from temporary startup failures without exposing the current failure message or retry button. The user reports recurring failures in Chrome on both a Pixel 7a and a Mac, and says manual retry usually does not help. Keep normal loading speed, cached engine reuse, and gameplay frame performance as explicit release requirements.
 
@@ -137,7 +137,7 @@ Use a per-document ephemeral lifecycle identifier and monotonically increasing a
 3. Add the alternate delivery mode for recovery, bounded bad-entry eviction, and optional failed-release refresh. Coordinate the generated Godot download retries with one host budget. Keep normal streaming and preload behavior unchanged.
 4. Add bounded diagnostics, run the fault matrix and matched performance checks, then validate on Pixel 7a and Mac Chrome. Update the ownership/delivery documentation with the final policy.
 
-Each step must preserve normal success and saved-island restoration. Prepare the issue/PR against the final tested scope; this planning task does not authorize deployment.
+Each step must preserve normal success and saved-island restoration. Prepare the issue/PR against the final tested scope. The later active objective explicitly authorizes deployment and requires live verification; keep unavailable physical-device evidence distinct from completed automated checks.
 
 ## Required verification
 

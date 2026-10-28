@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,7 +20,29 @@ export async function restorePreviousTinySwordsHistory({
   const id = runs[0]?.databaseId
   if (!Number.isSafeInteger(id)) { log('No successful previous deployment is available'); return false }
   const artifacts = json(['api', `repos/${repository}/actions/runs/${id}/artifacts?per_page=100`])
-  if (!artifacts.artifacts?.some(item => item.name === 'tiny-swords-compatibility' && item.expired === false)) {
+  const available = name => artifacts.artifacts?.some(item => item.name === name && item.expired === false)
+  if (!available('tiny-swords-compatibility') && available('github-pages')) {
+    await mkdir(resolve(destination, '..'), { recursive: true })
+    const temporary = await mkdtemp(resolve(destination, '..', '.previous-pages-'))
+    try {
+      const download = resolve(temporary, 'download'), game = resolve(temporary, 'game')
+      await mkdir(download)
+      const result = gh(['run', 'download', String(id), '--repo', repository, '--name', 'github-pages', '--dir', download])
+      if (result.status !== 0) throw new Error('Previous Pages game archive download failed')
+      const extracted = spawnSync('python3', [fileURLToPath(new URL('./extract-tiny-swords-pages.py', import.meta.url)),
+        resolve(download, 'artifact.tar'), game], { encoding: 'utf8' })
+      if (extracted.status !== 0) throw new Error('Previous Pages game archive is invalid')
+      if (JSON.parse(extracted.stdout).releases === 0) { log('Previous Pages artifact contains no game'); return false }
+      await mkdir(destination, { recursive: true })
+      if ((await readdir(destination)).length) throw new Error('Previous Pages game archive destination must be empty')
+      for (const name of await readdir(game)) {
+        await cp(resolve(game, name), resolve(destination, name), { recursive: true, errorOnExist: true, force: false })
+      }
+      log(`Restored initial game compatibility archive from Pages deployment ${id}`)
+      return true
+    } finally { await rm(temporary, { recursive: true, force: true }) }
+  }
+  if (!available('tiny-swords-compatibility')) {
     log('Previous deployment predates the game archive or its seven-day window has expired')
     return false
   }

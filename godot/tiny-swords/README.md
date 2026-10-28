@@ -589,7 +589,10 @@ was last current, within a 192 MiB game-archive budget. Shared engines/decoders 
 copied once. The compatibility archive must upload before Pages publication and
 is restored only from a fully successful master deployment. A metadata
 or download outage fails restoration instead of silently dropping the retained
-window; the initial deployment bootstraps when no archive exists. Archive checks
+window. The initial rollout seeds from the last successful Pages artifact when
+no compatibility archive exists, copying only game assets and their inventory.
+Pre-controller releases retain their verified immutable bytes without inventing
+a compatibility fingerprint. Archive checks
 validate release hashes, engine/decoder bytes, delivery variants and directory
 types before copying. Learner data never enters this artifact.
 

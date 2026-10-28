@@ -27,8 +27,9 @@ async function verify(root, version) {
   const directory = resolve(root, 'tiny-swords-game', version)
   const entries = await files(directory)
   const manifest = JSON.parse(await readFile(resolve(directory, 'release.json'), 'utf8'))
+  const legacy = manifest.compatibility === undefined && manifest.godotVersion === '4.7.2'
   if (manifest.version !== version || !hash(manifest.engineHash) || !hash(manifest.decoderHash)
-    || !hash(manifest.compatibility)) throw new Error('Invalid retained game manifest')
+    || (!legacy && !hash(manifest.compatibility))) throw new Error('Invalid retained game manifest')
   const digest = createHash('sha256')
   for (const file of entries) {
     if (file.name === 'release.json' || /\.(br|gz)$/.test(file.name)) continue
@@ -75,10 +76,21 @@ export async function retainTinySwordsReleases(output, previous = null, { now = 
       ? history.releases.slice(0, 32).filter(item => item && hash(item.release) && Number.isFinite(item.lastCurrentAt)) : []
     // The previous deployment stayed current until this publication, even if
     // that deployment happened days ago. Its support window starts now.
+    let previousCurrentKnown = false
     try {
       const previousCurrent = JSON.parse(await readFile(resolve(previous, 'tiny-swords-current.json'), 'utf8'))
-      if (previousCurrent.schema === 1 && hash(previousCurrent.release)) candidates.push({ release: previousCurrent.release, lastCurrentAt: now })
+      if (previousCurrent.schema === 1 && hash(previousCurrent.release)) {
+        candidates.push({ release: previousCurrent.release, lastCurrentAt: now }); previousCurrentKnown = true
+      }
     } catch {}
+    // Before the controller/manifest existed, Pages published one current game.
+    // Preserve that verified immutable release for already-open old parents.
+    if (!previousCurrentKnown && !history) {
+      try {
+        const releases = (await readdir(resolve(previous, 'tiny-swords-game'))).filter(hash)
+        if (releases.length === 1) candidates.push({ release: releases[0], lastCurrentAt: now })
+      } catch {}
+    }
     candidates.sort((a, b) => b.lastCurrentAt - a.lastCurrentAt)
     const seen = new Set()
     for (const item of candidates) {

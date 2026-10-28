@@ -55,13 +55,17 @@ test('expired releases, future timestamps, and traversal paths are excluded', ()
   assert.equal((await retainTinySwordsReleases(current, previous, { now })).retained, 0)
 }))
 
-for (const fault of ['game-bytes', 'compressed-variant', 'symlink']) {
+for (const fault of ['game-bytes', 'compressed-variant', 'symlink', 'compatibility']) {
   test(`an invalid archive (${fault}) cannot publish a partial or altered prior release`, () => sandbox(async ({ root, current, previous }) => {
     await fixture(current, 'current'); const old = await fixture(previous, 'old')
     const directory = resolve(previous, 'tiny-swords-game', old)
     if (fault === 'game-bytes') await writeFile(resolve(directory, 'index.html'), 'changed')
     if (fault === 'compressed-variant') await writeFile(resolve(directory, 'index.pck.gz'), 'corrupt')
     if (fault === 'symlink') { await writeFile(resolve(root, 'private'), 'PRIVATE'); await symlink(resolve(root, 'private'), resolve(directory, 'link')) }
+    if (fault === 'compatibility') {
+      const path = resolve(directory, 'release.json'), manifest = JSON.parse(await readFile(path, 'utf8'))
+      await writeFile(path, JSON.stringify({ ...manifest, godotVersion: '4.7.2', compatibility: null }))
+    }
     await writeFile(resolve(previous, 'tiny-swords-history.json'), JSON.stringify({ schema: 1, releases: [{ release: old, lastCurrentAt: now }] }))
     const result = await retainTinySwordsReleases(current, previous, { now })
     assert.equal(result.retained, 0); assert.deepEqual(result.skipped, [old])
@@ -74,6 +78,23 @@ test('first deployment creates a current inventory without requiring a previous 
   assert.equal((await retainTinySwordsReleases(current, null, { now })).retained, 0)
   assert.deepEqual(JSON.parse(await readFile(resolve(current, 'tiny-swords-history.json'), 'utf8')).releases, [{ release: latest, lastCurrentAt: now }])
   await assert.rejects(retainTinySwordsReleases(current, current), /separate/)
+}))
+
+test('the first rollout retains a verified pre-controller game without changing its immutable files', () => sandbox(async ({ root, current, previous }) => {
+  const latest = await fixture(current, 'current'), old = await fixture(previous, 'legacy')
+  const path = resolve(previous, 'tiny-swords-game', old, 'release.json')
+  const manifest = JSON.parse(await readFile(path, 'utf8'))
+  delete manifest.compatibility; manifest.godotVersion = '4.7.2'
+  const bytes = JSON.stringify(manifest)
+  await writeFile(path, bytes)
+  await rm(resolve(previous, 'tiny-swords-current.json'))
+  const result = await retainTinySwordsReleases(current, previous, { now })
+  assert.equal(result.retained, 1); assert.deepEqual(result.skipped, [])
+  assert.equal(await readFile(resolve(current, 'tiny-swords-game', old, 'release.json'), 'utf8'), bytes)
+  assert.equal(JSON.parse(await readFile(resolve(current, 'tiny-swords-current.json'), 'utf8')).release, latest)
+  const next = resolve(root, 'next'); await fixture(next, 'next')
+  await retainTinySwordsReleases(next, current, { now: now + 8 * 86400000 })
+  assert.equal((await readdir(resolve(next, 'tiny-swords-game'))).includes(old), false, 'legacy retention must still expire')
 }))
 
 test('the byte budget can exclude an older complete release without damaging the current release', () => sandbox(async ({ current, previous }) => {
