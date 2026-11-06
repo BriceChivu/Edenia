@@ -80,7 +80,7 @@ function createDirectControl() {
 test('both sound controls retain exact markup under direct module ownership', () => {
   const expectedControls = [
     {
-      className: 'intro-sound',
+      className: 'intro-sound onboarding-sound',
       eventName: 'intro_sound_btn_clicked',
       id: 'introSoundBtn'
     },

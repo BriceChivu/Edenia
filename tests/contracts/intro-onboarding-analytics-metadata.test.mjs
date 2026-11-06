@@ -99,7 +99,7 @@ const staticControls = [
   {
     label: 'intro sound',
     tag: () => findButtonById('introSoundBtn'),
-    className: 'intro-sound',
+    className: 'intro-sound onboarding-sound',
     id: 'introSoundBtn',
     handler: null,
     analyticsAction: 'introSoundBtn',
