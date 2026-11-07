@@ -8,7 +8,7 @@ const ACCOUNT_RETURN_URL = 'http://localhost:8000/'
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const CONFLICT_ID = '423e4567-e89b-42d3-a456-426614174003'
-const PROTECTED_UNTIL = '2026-10-31T00:00:00.000Z'
+const PROTECTED_UNTIL = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 const AUTH_STORAGE_KEY = 'edenia_v1_plus_auth_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
   'edenia_v1_learner_profile_access_v1'
