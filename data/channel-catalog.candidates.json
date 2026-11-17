@@ -28,6 +28,33 @@
       "searchText": "狗仔隊長 分享網紅八卦 gouzaiduizhang"
     },
     {
+      "catalogId": "community-UCFybgBR0S53RLoLT5j97jMA",
+      "channelId": "UCFybgBR0S53RLoLT5j97jMA",
+      "handle": "@bbc6minuteenglish355",
+      "name": "BBC 6 Minute English",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_lf4_FseDEh2EomrUoXcCtI--HWmW2yeRl9dU8VQeiE5Q=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "beginner"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2017-01-01T12:04:26Z",
+      "metadataRefreshedAt": "2026-11-17T11:11:54.492Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-11-17T06:35:50.448Z",
+      "lastSeenAt": "2026-11-17T06:35:50.448Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "bbc 6 minute english bbc6minuteenglish355 beginner"
+    },
+    {
       "catalogId": "community-UCj7bNvokLlzDPmTIRbS1wKw",
       "channelId": "UCj7bNvokLlzDPmTIRbS1wKw",
       "handle": "@bradyyourtutor",
@@ -173,7 +200,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2007-10-03T18:07:10Z",
-      "metadataRefreshedAt": "2026-10-18T07:26:15.177Z",
+      "metadataRefreshedAt": "2026-11-17T11:11:54.492Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-09-16T15:13:42.649Z",
@@ -589,7 +616,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2017-01-08T04:14:05Z",
-      "metadataRefreshedAt": "2026-10-18T07:26:15.177Z",
+      "metadataRefreshedAt": "2026-11-17T11:11:54.492Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-09-17T04:52:44.955Z",
@@ -1068,5 +1095,5 @@
       "searchText": "雷堤娜 tyna krysjensen86 advanced"
     }
   ],
-  "generatedAt": "2026-11-16T10:11:23.744Z"
+  "generatedAt": "2026-11-17T11:11:54.492Z"
 }
