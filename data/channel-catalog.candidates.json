@@ -44,10 +44,10 @@
       "privacyStatus": "public",
       "publishedAt": "2017-01-01T12:04:26Z",
       "metadataRefreshedAt": "2026-11-17T11:11:54.492Z",
-      "addCount": 1,
-      "distinctUserCount": 1,
+      "addCount": 2,
+      "distinctUserCount": 2,
       "firstSeenAt": "2026-11-17T06:35:50.448Z",
-      "lastSeenAt": "2026-11-17T06:35:50.448Z",
+      "lastSeenAt": "2026-11-17T20:51:23.325Z",
       "sources": [
         "youtube_search"
       ],
@@ -1095,5 +1095,5 @@
       "searchText": "雷堤娜 tyna krysjensen86 advanced"
     }
   ],
-  "generatedAt": "2026-11-17T11:11:54.492Z"
+  "generatedAt": "2026-11-18T10:45:11.952Z"
 }
